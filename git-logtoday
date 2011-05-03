@@ -1,6 +1,17 @@
 #!/bin/sh
 [ -t 1 ] && colorArg="--color" || colorArg="--no-color"
-git log $colorArg --pretty=medium --since="1 day ago" "$@" | sed -e '
+
+# Show all commits from today unless a different date or commit range is given. 
+sinceArg='--since="1 day ago"'
+for argument
+do
+    case "$argument" in
+	--since=*)  sinceArg=;;
+	*..*)	    sinceArg=;;
+    esac
+done
+
+eval git log $colorArg --pretty=medium $sinceArg "$@" | sed -e '
 /Author: Ingo Karkat/d
 /^Date:/d
 /^Merge:/d

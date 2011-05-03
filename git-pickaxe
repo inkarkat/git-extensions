@@ -1,0 +1,16 @@
+#!/bin/sh
+## Pickaxe: Show log (and commits with -p) where text or /regexp/ was changed. 
+
+arg=
+allargs=
+for arg
+do
+   [ $# -le 1 ] && break
+   allargs="${allargs}${allargs:+ }'${arg}'"
+   shift
+done
+
+searchString=$(echo "$1" | sed -ne 's/^\([^a-zA-Z0-9]\)\(.*\)\1$/\2/p')
+[ "$searchString" ] && allargs="${allargs}${allargs:+ }--pickaxe-regex" || searchString=$1
+
+eval git log $allargs "-S'$searchString'"

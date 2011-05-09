@@ -9,12 +9,21 @@
 	last  = cat-file commit HEAD	; Show last commit info. 
 	changes = diff --name-status -r ; Subversion-like 'svn status' reporting.
 	ci = commit -a ; Check in all changes. 
+	cm = checkout master
 	co = checkout
-	cleanall = clean -d -x	; Remove all untracked files and directories, restoring a pristine working copy. 
+	file-blame = !git ls-files | xargs -n1 -i{} git log -1 --pretty=format:\"%h %an (%ar) {}\" -- {} ; Show author name and last date for each file. 
+	st = status
+
+	root = !eval cd "$(pwd)/$(git rev-parse --show-cdup)" && pwd ; Show root dir of this Git working copy. 
+	sh = !git-sh	; Enter a bunch of git commands interactively. 
+	serve = !git daemon --reuseaddr --verbose  --base-path=. --export-all ./.git ; Fire up a git daemon for the repo you are currently in. 
+	whois = "!sh -c 'git log -i -1 --pretty=\"format:%an <%ae>\n\" --author=\"$1\"' -" ; Look up person by name or email address. 
+	whatis = show -s --pretty='tformat:%h (%s, %ad)' --date=short	; Print info about hash or commit name. 
+
 	d = diff    ; ... unstaged changes in working copy. 
 	dh = diff HEAD ; ... both staged or unstaged changes since last commit. 
 	di = diff --cached ; ... staged changes in the index about to be committed. 
-	file-blame = !git ls-files | xargs -n1 -i{} git log -1 --pretty=format:\"%h %an (%ar) {}\" -- {} ; Show author name and last date for each file. 
+
 	findchange = !git-pickaxe --date=relative -p ; Pickaxe: Show log and commits where text or /regexp/ was changed. 
 	findlogs = !git-pickaxe ; Pickaxe: Show log where text or /regexp/ was changed. 
 	findlg = !git-pickaxe --abbrev-commit --date=relative --decorate --pretty=oneline ; Pickaxe: Show short log where text or /regexp/ was changed. 
@@ -22,14 +31,15 @@
 	lg = log --abbrev-commit --date=relative --decorate --graph --pretty=oneline; Topology graph of branches and tags. 
 	;lg = log --abbrev-commit --date=relative --decorate --graph --pretty=format:'%Ccyan%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset'
 	lt = !git-logtoday ; Show log of today's (override with --since=...) changes formatted for including in pull request or email. 
+	logfetched = log ORIG_HEAD.. --stat --no-merges	; List all new commits after you fetched. 
+
 	; lsprivate = clean --dry-run ; Show all non-ignored files not under version control. 
+	cleanall = clean -d -x	; Remove all untracked files and directories, restoring a pristine working copy. 
 	lsprivate = !git-lsprivate ; Show all non-ignored files not under version control. 
 	rmprivate = !git-rmprivate ; Remove all non-ignored files not under version control. 
-	st = status
-	root = !eval cd "$(pwd)/$(git rev-parse --show-cdup)" && pwd ; Show root dir of this Git working copy. 
-	sh = !git-sh	; Enter a bunch of git commands interactively. 
+
 	unstage = reset HEAD --	; Undo "git add <file>"; removes the file from the index, so that it isn't committed. (Alternatively, you can commit a few files via "git commit <file>" directly, bypassing the index.) 
-	upush = push origin master	; Publish changes to my github clone to get them pulled into upstream. 
+	upush = push origin	; Publish <branch> / master to my github clone to get them pulled into upstream. 
 	ufetch = fetch upstream	; Get upstream changes. 
 	umerge = merge upstream/master	; Merge upstream changes with my local repo. 
 [clean]

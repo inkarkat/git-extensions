@@ -1,0 +1,21 @@
+#!/bin/sh
+
+printUsage()
+{
+    cat <<HELPTEXT
+Diff with predecessor, either current HEAD or passed revision. 
+Like the textual diff output of "git show", without the log info. 
+Usage: "$(basename "$1")" [REVISION] [<common diff options>] [-?|-h|--help]
+HELPTEXT
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+revision='HEAD'
+if [ $# -gt 0 ]; then
+    revision=$1
+    shift
+fi
+
+git diff "$@" "${revision}^" "$revision"

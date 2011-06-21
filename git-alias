@@ -14,12 +14,12 @@ esac
 sed \
     -e '
 	/^\[alias\]/,/^\[/{
-	    /^\[/d;
+	    /^\[alias\]/d;
+	    /^\[/Q;
 	    /^[ \t]*;/d;
-	    s/^[ \t]*//g;
-	    s/[ \t];[ \t]*/\n\t/;
+	    s/^[ \t]*//;
+	    s/[ \t]=[ \t][^;]*[ \t];[ \t]*/\n\t/;
 	    b
 	}' \
-    -e 'd' \
     ~/.gitconfig \
-    | sed -e '/^\t/!s/.*/[01m&[0m/'
+    | sed -e '/^\t/!s/[^=]*/[01m&[0m/' -e '/^\t/s/^\t//' | less --RAW-CONTROL-CHARS

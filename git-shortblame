@@ -1,5 +1,11 @@
 #!/bin/sh
 # Unfortunately, git blame can only omit both author and timestamp via -s. 
 # I just want to get rid of the timestamp. 
+# And make the author a single word, i.e. replace spaces with "_", so that it
+# can be matched and operated on in an easier way. (And more consistent with
+# blame output from other revision control systems (like Subversion), which
+# don't allow spaces in the author name.) 
 # -M detects moving lines in the file. 
-git blame -M -t "$@" | sed -e 's/^\([^(]*\)(\([^)]*\) [0-9]\+ [+-][0-9]\+ \+[0-9]\+)/\1 \2)/'
+git blame -M -t "$@" | perl \
+    -e 'sub fix { my $arg = shift; $arg =~ s/ /_/g; return $arg; }' \
+    -lpe 's/^([^(]*)\(([^)]*[^) ])( +)\d+ [+-]\d+ +\d+\)/$1 . " " . fix($2) . $3 . ")"/e'

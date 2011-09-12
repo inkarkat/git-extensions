@@ -20,7 +20,7 @@
 	co = checkout
 	bl = !git-shortblame
 	file-blame = !git ls-files | xargs -n1 -i{} git log -1 --pretty=format:\"%h %an (%ar) {}\" -- {} ; Show author name and last date for each file. 
-	st = status
+	st = status -sb ; Concise status with branch and tracking info. 
 
 	root = !eval cd "$(pwd)/$(git rev-parse --show-cdup)" && pwd ; Show root dir of this Git working copy. 
 	sh = !git-sh	; Enter a bunch of git commands interactively. 
@@ -69,6 +69,7 @@
 	wipe = reset --hard ; Reset HEAD, working copy and index. 
 	rb = rebase
 	rbc = rebase --continue
+	; git rebase HEAD <feature> && git rebase HEAD @{-2} ; rebase <feature> to current branch and merge back to current
 	mt = mergetool
 	;; merge-base: Identify branch point (common ancestor). 
 
@@ -78,6 +79,14 @@
 	ufetch = fetch upstream	; Get upstream changes. 
 	umerge = merge upstream/master	; Merge upstream changes with my local repo. 
 	urb = rebase upstream/master	; Rebase my commits on top of the latest upstream. 
+	; To make pull default to rebase instead of merge, can use these: 
+	; # make "git pull" on master always use rebase
+	; $ git config branch.master.rebase true
+	; You can also set up a global option to set the last property for every
+	; new tracked branch:
+	; # setup rebase for every tracking branch
+	; $ git config --global branch.autosetuprebase always
+	; Source: http://mislav.uniqpath.com/2010/07/git-tips/
 [clean]
 	requireForce = false
 [color]
@@ -142,3 +151,9 @@
 	; Try this first to verify that this is the problem: 
 	; env GIT_SSL_NO_VERIFY=true git clone https://github... 
 	;sslVerify = false
+[push]
+	; git push will by default push all branches that have the same name on
+	; the remote. Limit this behavior to just the current branch to prevent
+	; accidental pushes to branches which you're not ready to push yet.
+	; Source: http://mislav.uniqpath.com/2010/07/git-tips/
+	default = tracking

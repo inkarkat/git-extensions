@@ -16,8 +16,18 @@ sed \
 	/^\[alias\]/,/^\[/{
 	    /^\[alias\]/d;
 	    /^\[/Q;
-	    /^[ \t]*;/d;
+
+	    # Remove indent. 
 	    s/^[ \t]*//;
+
+	    # Keep special comments, and break keyword and explanation into
+	    # separate lines. 
+	    s/^;; \([^:]\+\):[ \t]*\(.*\)/\1\n\t\2/
+
+	    # Remove all other comment lines. 
+	    /^;/d;
+
+	    # Break alias definition and alias comment into separate lines. 
 	    s/[ \t]=[ \t][^;]*[ \t];[ \t]*/\n\t/;
 	    b
 	}' \

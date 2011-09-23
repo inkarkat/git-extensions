@@ -15,12 +15,16 @@
 	addhunk = add --patch	; Interactively add individual hunks changed in the working copy. 
 	amend = commit --amend --reedit-message=HEAD	; Amend to last commit. 
 	br = branch
+	renamebr = branch -m	; Rename branch. 
 	ci = commit -a ; Check in all changes. 
 	cm = checkout master
 	co = checkout
 	bl = !git-shortblame
 	file-blame = !git ls-files | xargs -n1 -i{} git log -1 --pretty=format:\"%h %an (%ar) {}\" -- {} ; Show author name and last date for each file. 
 	st = status -sb ; Concise status with branch and tracking info. 
+
+	n = notes show ; List annotations for HEAD / passed ref. 
+	ne = notes edit ; Edit / add annotations for existing commits. They don't change the history, and are local to a repo. 
 
 	root = !eval cd "$(pwd)/$(git rev-parse --show-cdup)" && pwd ; Show root dir of this Git working copy. 
 	sh = !git-sh	; Enter a bunch of git commands interactively. 
@@ -50,6 +54,7 @@
 	findlg = !git-pickaxe --abbrev-commit --date=relative --decorate --pretty=oneline ; Pickaxe: Show short log where text or /regexp/ was changed. 
 	lc = whatchanged -p ; Logs together with diff between commits. 
 	;; show: Log together with diff for a particular commit. 
+	;; show :/regexp: Show the last commit whose message matches regexp. 
 	lg = log --abbrev-commit --date=relative --decorate --graph --pretty=oneline; Topology graph of branches and tags. 
 	;lg = log --abbrev-commit --date=relative --decorate --graph --pretty=format:'%Ccyan%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset'
 	lt = !git-logtoday ; Show log of today's (override with --since=...) changes formatted for including in pull request or email. 
@@ -57,7 +62,8 @@
 	last  = cat-file commit HEAD	; Show last commit info: Hashes and author. Use "git show" for more details. 
 	changes = diff --name-status -r ; Subversion-like 'svn status' reporting.
 	;; describe: Show the most recent tag that is reachable from a commit. 
-	contains = describe --contains	; Show in which tag(s) a commit is contained, i.e. in which versions this was shipped. 
+	contains = "!sh -c 'git describe --contains \"$@\" || git name-rev --name-only \"$@\"' -"	; Show in which tag(s) a commit is contained, i.e. in which versions this was shipped, or, if that fails, from which branch it can be reached. 
+	;; cherry: See which changes from the current branch (e.g. feature) are already present in the passed branch (e.g. master). 
 
 	cleanall = clean -d -x	; Remove all untracked files and directories, restoring a pristine working copy. 
 	lsprivate = !git-lsprivate ; Show all non-ignored files not under version control. 
@@ -73,6 +79,8 @@
 	mt = mergetool
 	;; merge-base: Identify branch point (common ancestor). 
 
+	ucherry = cherry -v upstream/master ; See which changes from the current branch are already present upstream. 
+	uco = checkout upstream/master ; Use with -b <newbranch> to start a patch based on the current upstream. 
 	udiff = diff upstream/master ; Show differences to upstream. 
 	upush = push origin	; Publish <branch> / master to my GitHub clone to get them pulled into upstream. 
 	udelete = push origin --delete ; Delete remote <branch> in my GitHub clone. Older git must use "push origin :BRANCHNAME"

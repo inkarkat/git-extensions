@@ -55,8 +55,9 @@
 	lc = whatchanged -p ; Logs together with diff between commits. 
 	;; show: Log together with diff for a particular commit. 
 	;; show :/regexp: Show the last commit whose message matches regexp. 
-	lg = log --abbrev-commit --date=relative --decorate --graph --pretty=oneline; Topology graph of branches and tags. 
-	;lg = log --abbrev-commit --date=relative --decorate --graph --pretty=format:'%Ccyan%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset'
+	l = log --abbrev-commit --date=relative --decorate --graph --pretty=oneline	; Minimal topology, tags and commit summary. 
+	lg = log --abbrev-commit --date=relative --decorate --graph --pretty=tformat:'%Cblue%h%Creset %Cgreen(%aN, %cr)%Creset %Cblue%d%Creset %s'	; One-line topology, author, date, tags and commit summary. 
+	lm = "!sh -c 'git log --author=\"$(git config --get user.name)\" --abbrev-commit --date=relative --decorate --graph --pretty=tformat:\"%Cblue%h%Creset %Cgreen(%cr)%Creset %Cblue%d%Creset %s\"' -"	; Like "git lg" filtered for my personal commits. 
 	lt = !git-logtoday ; Show log of today's (override with --since=...) changes formatted for including in pull request or email. 
 	logfetched = log ORIG_HEAD.. --stat --no-merges	; List all new commits after you fetched. 
 	last  = cat-file commit HEAD	; Show last commit info: Hashes and author. Use "git show" for more details. 
@@ -81,12 +82,21 @@
 	mt = mergetool
 	;; merge-base: Identify branch point (common ancestor). 
 
+	;; remote show <repo>: Remote repository info, including tracked remote branches. 
 	obr = "!sh -c 'git branch -r \"$@\"' | GREP_OPTIONS= grep origin/ -" ; List all branches in my GitHub clone. 
 	odiff = diff origin/master ; Show differences to my GitHub clone. 
 	opull = pull origin ; Get and merge changes done to my GitHub clone through another Git repository, e.g. from another system. 
 	opush = push origin ; Re-publish of current / passed <branch> to the tracking GitHub clone to get them pulled into upstream. 
 	opublish = "!sh -c 'git push --set-upstream origin \"${1:-HEAD}\"' -"	; Initial publish of current / passed <branch> to my GitHub clone to get them pulled into upstream.
 						; ... and set upstream tracking reference so that future pushes can omit the branch name (when push.default=tracking). 
+	; Instead, I could probably also setup automatic tracking, but would
+	; lose the warning when trying to opush a branch that I haven't published yet. 
+	;   git config branch.autosetupmerge true
+	; tells git-branch and git-checkout to setup new branches so that git-pull(1)
+	; will appropriately merge from that remote branch.  Recommended.  Without this,
+	; you will have to add --track to your branch command or manually merge remote
+	; tracking branches with "fetch" and then "merge".
+
 	odelete = push origin --delete ; Delete remote <branch> in my GitHub clone. Older git must use "push origin :BRANCHNAME"
 
 	ucherry = cherry -v upstream/master ; See which changes from the current branch are already present upstream. 
@@ -173,3 +183,7 @@
 	; accidental pushes to branches which you're not ready to push yet.
 	; Source: http://mislav.uniqpath.com/2010/07/git-tips/
 	default = tracking
+	; "Tracking" is essentially a link between a local and remote branch.
+	; When working on a local branch that tracks some other branch, you can
+	; git pull and git push without any extra arguments and git will know
+	; what to do.

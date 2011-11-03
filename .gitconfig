@@ -22,6 +22,7 @@
 	bl = !git-shortblame
 	file-blame = !git ls-files | xargs -n1 -i{} git log -1 --pretty=format:\"%h %an (%ar) {}\" -- {} ; Show author name and last date for each file. 
 	st = status -sb ; Concise status with branch and tracking info. 
+	; Unfortunately, doesn't work yet in Git 1.6.0. 
 
 	n = notes show ; List annotations for HEAD / passed ref. 
 	ne = notes edit ; Edit / add annotations for existing commits. They don't change the history, and are local to a repo. 
@@ -78,7 +79,10 @@
 	wipe = reset --hard ; Reset HEAD, working copy and index. 
 	rb = rebase
 	rbc = rebase --continue
-	; git rebase HEAD <feature> && git rebase HEAD @{-2} ; rebase <feature> to current branch and merge back to current
+	;; git rebase HEAD <feature> && git rebase HEAD @{-2}: rebase <feature> to current branch and merge back to current
+	; merging
+	;; checkout --ours:   will keep the original one we had (ORIG_HEAD) in case of merge conflict
+	;; checkout --theirs: will keep the version merged in (MERGE_HEAD) in case of merge conflict
 	mt = mergetool
 	;; merge-base: Identify branch point (common ancestor). 
 
@@ -89,14 +93,18 @@
 	opush = push origin ; Re-publish of current / passed <branch> to the tracking GitHub clone to get them pulled into upstream. 
 	opublish = "!sh -c 'git push --set-upstream origin \"${1:-HEAD}\"' -"	; Initial publish of current / passed <branch> to my GitHub clone to get them pulled into upstream.
 						; ... and set upstream tracking reference so that future pushes can omit the branch name (when push.default=tracking). 
-	; Instead, I could probably also setup automatic tracking, but would
-	; lose the warning when trying to opush a branch that I haven't published yet. 
+	; Instead, I could probably also setup automatic tracking, but: 
+	; - would lose the warning when trying to opush a branch that I haven't
+	;   published yet. 
+	; - would default to pushing to foreign branches from someone (which I'm
+	;   not allowed), instead of being forced to publish to my own GitHub
+	;   clone. 
+	;
 	;   git config branch.autosetupmerge true
 	; tells git-branch and git-checkout to setup new branches so that git-pull(1)
 	; will appropriately merge from that remote branch.  Recommended.  Without this,
 	; you will have to add --track to your branch command or manually merge remote
 	; tracking branches with "fetch" and then "merge".
-
 	odelete = push origin --delete ; Delete remote <branch> in my GitHub clone. Older git must use "push origin :BRANCHNAME"
 
 	ucherry = cherry -v upstream/master ; See which changes from the current branch are already present upstream. 
@@ -113,6 +121,18 @@
 	; # setup rebase for every tracking branch
 	; $ git config --global branch.autosetuprebase always
 	; Source: http://mislav.uniqpath.com/2010/07/git-tips/
+
+	; other foreign repositories
+	; To import someone's branch and work on it, do this: 
+	;   # Import. 
+	;   git remote add <someone> https://github.com/<someone>/<project>.git
+	;   git fetch <someone> +<branch>:<localbranch>	# Recommended that <localbranch>=<branch>. 
+	;   # What has changed in his branch? 
+	;   git diff upstream/master..<localbranch> # Right now equivalent to <someone>/<branch>. 
+	;   git co <localbranch>
+	;   # Do changes ...
+	;   # Publish to your GitHub clone to make the changes accessible to someone. 
+	;   git opublish <localbranch>
 [clean]
 	requireForce = false
 [color]
@@ -156,6 +176,19 @@
 	; Global user-specific ignored file list. (Unfortunately must be full
 	; path without environment variables.) 
 	excludesfile = /home/inkarkat/.gitignore
+
+	; Convert newlines to the system's standard when checking out files, and
+	; to LF newlines when committing. 
+	;autocrlf = true
+
+	; Stop recording the executable file mode. 
+	; This can be necessary when using both MSysGit and Cygwin's Git, and
+	; "git diff" shows this output for every file: 
+	;   old mode 100755
+	;   new mode 100644
+	; Best set this locally only via
+	;   git config core.filemode false
+	;filemode = false
 [diff]
 	renames = true
 [merge]

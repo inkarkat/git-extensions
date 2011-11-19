@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 printUsage()
 {
@@ -11,16 +11,19 @@ case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
 
-arg=
-allargs=
+typeset arg=
+typeset -a allargs=()
 for arg
 do
-   [ $# -le 1 ] && break
-   allargs="${allargs}${allargs:+ }'${arg}'"
-   shift
+    # The last argument is the text or /regexp/. 
+    [ $# -le 1 ] && break
+
+    # All other arguments are forwarded to "git log". 
+    allargs+=("$arg")
+    shift
 done
 
-searchString=$(echo "$1" | sed -ne 's/^\([^a-zA-Z0-9]\)\(.*\)\1$/\2/p')
-[ "$searchString" ] && allargs="${allargs}${allargs:+ }--pickaxe-regex" || searchString=$1
+typeset searchString=$(echo "$1" | sed -ne 's/^\([^a-zA-Z0-9]\)\(.*\)\1$/\2/p')
+[ "$searchString" ] && allargs+=("--pickaxe-regex") || searchString=$1
 
-eval git log $allargs "-S'$searchString'"
+git log "${allargs[@]}" "-S$searchString"

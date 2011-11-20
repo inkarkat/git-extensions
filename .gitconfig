@@ -1,3 +1,4 @@
+; Minimal supported Git version: 1.7; some stuff won't work with Git 1.6! 
 [alias]
 	; Note: You cannot override a built-in Git command via an alias. Cp.
 	; http://stackoverflow.com/questions/3538774/is-it-possible-to-override-git-command-by-git-alias
@@ -9,6 +10,9 @@
 	; "!git-aliasname arg1" will NOT pass arg1 to the script! 
 	; (But "git aliasname arg1" on the command-line with work.) 
 	;alias = !git-alias
+	; Note: You also cannot use a shell command "git-builtin" to override
+	; the "git builtin" command! To achieve that, you need a custom "git"
+	; shell function that intercepts the git call. 
 	; To do something with individual arguments, use something like this: 
 	;x = "!sh -c 'echo args: \"$@\"' -"
 	listconfig = config --global --list
@@ -22,13 +26,12 @@
 	bl = !git-shortblame
 	file-blame = !git ls-files | xargs -n1 -i{} git log -1 --pretty=format:\"%h %an (%ar) {}\" -- {} ; Show author name and last date for each file. 
 	st = status -sb ; Concise status with branch and tracking info. 
-	; Unfortunately, doesn't work yet in Git 1.6.0. 
 
 	n = notes show ; List annotations for HEAD / passed ref. 
 	ne = notes edit ; Edit / add annotations for existing commits. They don't change the history, and are local to a repo. 
 
 	root = !eval cd "$(pwd)/$(git rev-parse --show-cdup)" && pwd ; Show root dir of this Git working copy. 
-	sh = !git-sh	; Enter a bunch of git commands interactively. 
+	;; sh:  Enter a bunch of git commands interactively. 
 	serve = !git daemon --reuseaddr --verbose  --base-path=. --export-all ./.git ; Fire up a git daemon for the repo you are currently in. 
 	whois = "!sh -c 'git log -i -1 --pretty=\"format:%an <%ae>\n\" --author=\"$1\"' -" ; Look up person by name or email address. 
 	whodid = shortlog -n	; Show log sorted by name and their commits. 
@@ -39,15 +42,14 @@
 	d = diff    ; ... unstaged changes in working copy. 
 	dh = diff HEAD ; ... both staged or unstaged changes since last commit. 
 	di = diff --cached ; ... staged changes in the index about to be committed. 
-	dp = !git-dp ; ... with predecessor, either current HEAD or passed revision. 
+	;; dp:  ... with predecessor, either current HEAD or passed revision. 
 	dt = !git-difftoday ; Show all changes from today (override with --since=...) in a single big diff. 
 
-	g = grep -n
-	; --color not yet supported by Git 1.6. 
-	;g = grep --color -n
+	g = grep --color -n
 	gf = grep --files-with-matches
 	; XXX: Apparently, aliases aren't case-sensitive. 
-	;gF = grep --files-without-match
+	;; gF: grep --files-without-match
+	g-f = grep --files-without-match
 	
 	;; log et al: Consider only commit messages including /regexp/ via --grep=regexp. 
 	findchange = !git-pickaxe --date=relative -p ; Pickaxe: Show log and commits where text or /regexp/ was changed. 
@@ -58,8 +60,9 @@
 	;; show :/regexp: Show the last commit whose message matches regexp. 
 	; Note: Git 1.6.0 only supports %Cred, %Cgreen, %Cblue; only newer Git versions also support %C(more-colors). 
 	l = log --abbrev-commit --date=relative --decorate --graph --pretty=oneline	; Minimal topology, tags and commit summary. 
-	lg = log --abbrev-commit --date=relative --decorate --graph --pretty=tformat:'%Cblue%h%Creset %Cgreen(%aN, %cr)%Creset %Cblue%d%Creset %s'	; One-line topology, author, date, tags and commit summary. 
-	lm = "!sh -c 'git log --author=\"$(git config --get user.name)\" --abbrev-commit --date=relative --decorate --graph --pretty=tformat:\"%Cblue%h%Creset %Cgreen(%cr)%Creset %Cblue%d%Creset %s\"' -"	; Like "git lg" filtered for my personal commits. 
+	lg = log --abbrev-commit --date=relative --decorate --graph --pretty=tformat:'%C(cyan)%h%Creset %Cgreen(%aN, %cr)%Creset %C(red bold)%d%Creset %s'	; One-line topology, author, date, tags and commit summary. 
+	lm = "!sh -c 'git log --author=\"$(git config --get user.name)\" --abbrev-commit --date=relative --decorate --graph --pretty=tformat:\"%C(cyan)%h%Creset %Cgreen(%cr)%Creset %C(red bold)%d%Creset %s\" \"$@\"' -"	; Like "git lg" filtered for my personal commits. 
+	logmine = "!sh -c 'git log --decorate --author=\"$(git config --get user.name)\" \"$@\"' -"	; "git log" filtered for my personal commits. 
 	lt = !git-logtoday ; Show log of today's (override with --since=...) changes formatted for including in pull request or email. 
 	logfetched = log ORIG_HEAD.. --stat --no-merges	; List all new commits after you fetched. 
 	last  = cat-file commit HEAD	; Show last commit info: Hashes and author. Use "git show" for more details. 
@@ -71,9 +74,9 @@
 	; Source: http://akahn.net/2011/10/12/working-through-git-conflicts-in-vim.html
 
 	cleanall = clean -d -x	; Remove all untracked files and directories, restoring a pristine working copy. 
-	lsprivate = !git-lsprivate ; Show all non-ignored files not under version control. 
+	;; lsprivate: Show all non-ignored files not under version control. 
 	;lsprivate = clean --dry-run ; Show all non-ignored files not under version control. 
-	rmprivate = !git-rmprivate ; Remove all non-ignored files not under version control. 
+	;; rmprivate: Remove all non-ignored files not under version control. 
 
 	unstage = reset HEAD --	; Undo "git add <file>"; removes the file from the index, so that it isn't committed. (Alternatively, you can commit a few files via "git commit <file>" directly, bypassing the index.) 
 	cancel = reset --soft HEAD^ ; Cancel the last commit; keep working copy and index. 

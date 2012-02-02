@@ -17,12 +17,12 @@
 #	001	03-Feb-2012	file creation
 ###############################################################################
 
-[ ${BASH_VERSINFO[0]} -ge 4 ] || { echo >&2 "ERROR: This script requires Bash 4.0 or higher!"; exit 2; }
-
 printShortUsage()
 {
     cat <<SHORTHELPTEXT
-Usage: git init && "$(basename "")" path/to/srcdir [-?|-h|--help]
+# Note: short followed by long option; if the user knows the short one, she can
+# skim the long one. 
+Usage: "$(basename "")" [-f|--foo bar] [--nofoo] [file, ...] [-?|-h|--help]
 SHORTHELPTEXT
 }
 printUsage()
@@ -46,11 +46,30 @@ HELPDESCRIPTION
     echo
     printShortUsage "$1"
     cat <<HELPTEXT
+# Note: long followed by short option, so that the user is able to scan through
+# the full names, then see the abbreviation. 
+# Note: Order options logically as in the short helptext; sort alphabetically if
+# there are many options. 
+# Note: Multiline alternative if both short and long option do not fit. 
+#	--foo		Enables foo'ing with argument bar. 
+#	 -f			
 
 Example:
-git init ~/src/gitproject && "$(basename "$1")" ~/src/myproject
+"$(basename "$1")" ~/src/myproject
 HELPTEXT
 }
+
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"\"!"; echo; printShortUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+[ $# -ne 1 ] && { printUsage "$0"; exit 2; }
+srcdir="$1"
 
 declare -A datedOriginals=()
 findOriginals()
@@ -92,70 +111,16 @@ findDatedFiles()
 
 importFile()
 {
-    local -r commitDate=$1
-    shift
-    local -r importFile=$1
-    shift
-    local -r destFile=${importFile%.[12][0-9][0-9][0-9][0-9][0-9][0-9][0-9][a-z]}
-    local -r destDir=$(dirname -- "$importFile")
-
-    [ -d "$destDir" ] || mkdir -p "$destDir" || exit $? 
-    cp "${srcdir}${importFile}" "$destFile"
-    git add "$destFile" || return $?
-    git commit --allow-empty-message --message= --date="$(date -d "$commitDate")" || return $?
+    :
 }
-
-
-
-while [ $# -ne 0 ]
-do
-    case "$1" in
-	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
-	--)		shift; break;;
-	-*)		{ echo "ERROR: Unknown option \"\"!"; echo; printShortUsage "$0"; } >&2; exit 2;;
-	*)		break;;
-    esac
-done
-[ $# -ne 1 ] && { printUsage "$0"; exit 2; }
-readonly srcdir="${1%/}/"
-
-git status >/dev/null || exit $?
-branch=$(git symbolic-ref HEAD)
-branch=${branch##refs/heads/} 
 
 findOriginals
-echo "Importing files${branch:+ into }${branch}..."
 for commitDate in $(findCommitDates)
 do
-    formattedCommitDate="${commitDate:0:4}-${commitDate:4:2}-${commitDate:6:2}"
-    echo "${formattedCommitDate}:"
-
+    echo "Importing files from ${commitDate:0:4}-${commitDate:4:2}-${commitDate:6:2}:"
     for filespec in $(findDatedFiles "$commitDate")
     do
-	importFile=${filespec#${srcdir}}
-	importFile "$formattedCommitDate" "$importFile" | sed -e '
-/^\[.*\] *$/{
-    s#\['"${branch//#/\\#}"' #[#
-    s/(root-commit) //
-    s/[][]//g
-    h
-}
-/1 files changed/{
-    s/^ *1 files changed, *//
-    s/\([0-9]\+\) insertions(+)/+\1/
-    s/\([0-9]\+\) deletions(-)/-\1/
-    s/+0, //
-    s/, -0//
-    s/.*/(&)/
-    H
-}
-$!d
-${
-    g
-    s#$#\t'"${importFile//#/\\#}"'#
-    s/^/    /
-    s/\n//
-}
-'
+	echo "  ${filespec#${srcdir%/}/}"
+	importFile "$filespec"
     done
 done

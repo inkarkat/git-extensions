@@ -1,0 +1,168 @@
+#!/bin/bash
+###############################################################################
+##
+# FILE: 	git-writebackup-import
+# PRODUCT:	tools
+# AUTHOR: 	/^--
+# DATE CREATED:	03-Feb-2012
+#
+###############################################################################
+# CONTENTS: 
+#   
+# REMARKS: 
+#   
+# FILE_SCCS = "@(#)git-writebackup-import	001	(03-Feb-2012)	tools";
+#
+# REVISION	DATE		REMARKS 
+#	001	03-Feb-2012	file creation
+###############################################################################
+
+printShortUsage()
+{
+    cat <<SHORTHELPTEXT
+# Note: short followed by long option; if the user knows the short one, she can
+# skim the long one. 
+Usage: "$(basename "")" [-f|--foo bar] [--nofoo] [file, ...] [-?|-h|--help]
+SHORTHELPTEXT
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments. 
+    # It is printed to stderr to avoid accidental processing. 
+    printShortUsage "$1" >&2
+    cat >&2 <<MOREHELP
+Try "$(basename "$1")" --help for more information.
+MOREHELP
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument. 
+    # It is printed to stdout to allow paging with 'more'. 
+    cat <<HELPDESCRIPTION
+Import a directory hierarchy into Git, using existing backup files with a
+current date file extension (format '.YYYYMMDD[a-z]', as written by the
+writebackup family of tools) as history. 
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    cat <<HELPTEXT
+# Note: long followed by short option, so that the user is able to scan through
+# the full names, then see the abbreviation. 
+# Note: Order options logically as in the short helptext; sort alphabetically if
+# there are many options. 
+# Note: Multiline alternative if both short and long option do not fit. 
+#	--foo		Enables foo'ing with argument bar. 
+#	 -f			
+
+Example:
+"$(basename "$1")" ~/src/myproject
+HELPTEXT
+}
+
+declare -A datedOriginals=()
+findOriginals()
+{
+    for filespec in $(find "$srcdir" -name '*.[12][0-9][0-9][0-9][0-9][0-9][0-9][0-9][a-z]' -prune -o -type f -print)
+    do
+	modDate=$(date -d "$(stat -c %y "$filespec")" +%Y%m%d)
+	local tmp=${datedOriginals["$modDate"]}
+	datedOriginals["$modDate"]="${tmp}${tmp:+$'\n'}${filespec}"
+    done
+}
+findBackupDates()
+{
+    find "$srcdir" -name '*.[12][0-9][0-9][0-9][0-9][0-9][0-9][0-9][a-z]' | sed -e 's/^.*\.\([12][0-9][0-9][0-9][0-9][0-9][0-9][0-9]\)[a-z]$/\1/'
+}
+findOriginalsDates()
+{
+    echo "${!datedOriginals[@]}" | tr ' ' '
+'
+}
+findCommitDates()
+{
+    (findBackupDates; findOriginalsDates) | sort -u
+}
+
+findDatedBackups()
+{
+    find "$srcdir" -name "*.${1}[a-z]" -type f -print
+}
+findDatedOriginals()
+{
+    echo "${datedOriginals["$1"]}"
+}
+findDatedFiles()
+{
+    findDatedBackups "$1"
+    findDatedOriginals "$1"
+}
+
+importFile()
+{
+    local -r commitDate=$1
+    shift
+    local -r importFile=$1
+    shift
+    local -r destFile=${importFile%.[12][0-9][0-9][0-9][0-9][0-9][0-9][0-9][a-z]}
+
+    cp "${srcdir}${importFile}" "$destFile"
+    git add "$destFile" || return $?
+    git commit --allow-empty-message --message= --date="$(date -d "$commitDate")" || return $?
+}
+
+
+
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"\"!"; echo; printShortUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+[ $# -ne 1 ] && { printUsage "$0"; exit 2; }
+readonly srcdir="${1%/}/"
+
+git status >/dev/null || exit $?
+branch=$(git symbolic-ref HEAD)
+branch=${branch##refs/heads/} 
+
+findOriginals
+echo "Importing files${branch:+ into }${branch}..."
+for commitDate in $(findCommitDates)
+do
+    formattedCommitDate="${commitDate:0:4}-${commitDate:4:2}-${commitDate:6:2}"
+    echo "${formattedCommitDate}:"
+
+    for filespec in $(findDatedFiles "$commitDate")
+    do
+	importFile=${filespec#${srcdir}}
+	importFile "$formattedCommitDate" "$importFile" | sed -e '
+/^\[.*\] *$/{
+    s/\['"$branch"' /[/
+    s/(root-commit) //
+    s/[][]//g
+    h
+    d
+}
+/1 files changed/{
+    s/^ *1 files changed, *//
+    s/\([0-9]\+\) insertions(+)/+\1/
+    s/\([0-9]\+\) deletions(-)/-\1/
+    s/+0, //
+    s/, -0//
+    s/.*/(&)/
+    H
+    d
+}
+$!d
+${
+    g
+    s/$/\t'"$importFile"'/
+    s/^/    /
+    s/\n//
+}
+'
+    done
+done

@@ -90,23 +90,6 @@ findDatedFiles()
     findDatedOriginals "$1"
 }
 
-declare -A lastBackups=()
-findLastBackup()
-{
-    local -r file=$1
-    shift
-
-    # Use cache to avoid doing the same costly search repeatedly for each
-    # committed backup version. 
-    lastBackup=${lastBackups["$file"]}
-    if [ ! "$lastBackup" ]; then
-	lastBackup=$(cd "$srcdir" && ls -1 "$file".[12][0-9][0-9][0-9][0-9][0-9][0-9][0-9][a-z] | tail -n 1)
-	lastBackups["$file"]=$lastBackup
-    fi
-
-    echo "$lastBackup"
-}
-
 importFile()
 {
     local -r commitDate=$1
@@ -120,17 +103,6 @@ importFile()
     cp "${srcdir}${importFile}" "$destFile"
     git add "$destFile" || return $?
     git commit --allow-empty-message --message= --date="$(date -d "$commitDate")" || return $?
-
-    local -r importOriginal="${srcdir}${destFile}"
-    if [ "$destFile" != "$importFile" -a ! -e "$importOriginal" ]; then
-	# This is a backup file where no original exists any more, so the file
-	# should be removed from source control after the last backup file has
-	# been committed. 
-	if [ "$importFile" = "$(findLastBackup "$destFile")" ]; then
-	    git rm --quiet "$destFile" || return $?
-	    git commit --allow-empty-message --message= --date="$(date -d "$commitDate")" || return $?
-	fi
-    fi
 }
 
 

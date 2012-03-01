@@ -21,7 +21,8 @@
 	;; add: Add and show status; --all/-A stages all, . stages new and modified, without deleted, -u stages modified and deleted, without new. 
 	;; addu: Stage modified and deleted, without new files, and show status. 
 	addhunk = add --patch	; Interactively cherry-pick add individual hunks changed in the working copy. 
-	;; addr: Add from root (i.e. all in working copy, not just everything inside CWD). 
+	;; addr: Add from root (i.e. all in working copy, not just everything inside CWD); defaults to modified and deleted, without new. 
+	commitu = commit --all	; Commit all modified and deleted files, without new. 
 	amend = commit --amend --reedit-message=HEAD	; Amend to last commit. 
 	br = branch
 	renamebr = branch -m	; Rename branch. 
@@ -31,6 +32,9 @@
 	bl = !git-shortblame
 	file-blame = !git ls-files | xargs -n1 -i{} git log -1 --pretty=format:\"%h %an (%ar) {}\" -- {} ; Show author name and last date for each file. 
 	st = status -sb ; Concise status with branch and tracking info. 
+
+	; Source: http://stackoverflow.com/questions/1360712/git-stash-cannot-apply-to-a-dirty-working-tree-please-stage-your-changes
+	stash-pop-to-dirty = !git stash show -p | git apply && git stash drop	; When "stash pop" complains. 
 
 	n = notes show ; List annotations for HEAD / passed ref. 
 	ne = notes edit ; Edit / add annotations for existing commits. They don't change the history, and are local to a repo. 
@@ -64,7 +68,7 @@
 	; XXX: Apparently, aliases aren't case-sensitive. 
 	;; gF: grep --files-without-match
 	g-f = grep --files-without-match
-	
+
 	;; log et al: Consider only commit messages including /regexp/ via --grep=regexp. 
 	findchange = !git-pickaxe --date=relative -p ; Pickaxe: Show log and commits where text or /regexp/ was changed. 
 	findlogs = !git-pickaxe ; Pickaxe: Show log where text or /regexp/ was changed. 
@@ -97,6 +101,7 @@
 	unstage = reset HEAD --	; Undo "git add <file>"; removes the file from the index, so that it isn't committed. (Alternatively, you can commit a few files via "git commit <file>" directly, bypassing the index.) 
 	cancel = reset --soft HEAD^ ; Cancel the last commit; keep working copy and index. 
 	wipe = reset --hard ; Reset HEAD, working copy and index. 
+	;; hardreset: Reset HEAD, working copy and index to <branch>. Ensures that the current branch isn't dirty. 
 	;; reset-to-tracked: Reset my current branch to the HEAD of the tracked branch. Use this when the local branch has been pointed elsewhere (e.g. due to an attempted rebase), and you want to restore the original state. The working copy is left intact. 
 	;; tracks: Show which remote branch is tracked by the current branch. 
 	rb = rebase
@@ -141,7 +146,7 @@
 	ulog = log --decorate upstream/master ; Log of upstream. 
 	ufetch = fetch upstream	; Get upstream changes. 
 	umerge = merge upstream/master	; Merge upstream changes with my local repo. 
-	urb = rebase upstream/master	; Rebase my commits on top of the latest upstream. 
+	urb = rebase upstream/master	; Rebase my commits on top of the latest upstream. "co mybranch" first, clone it via "co -b myclone mybranch" if you want to keep the old one, or just use "urb mybranch". 
 	; To make pull default to rebase instead of merge, can use these: 
 	; # make "git pull" on master always use rebase
 	; $ git config branch.master.rebase true

@@ -1,0 +1,20 @@
+#!/bin/sh
+# Source: http://www.aaronwest.net/blog/index.cfm/2011/6/7/Git-Workflows-Archiving-Old-Branches
+
+if [ $# -eq 0 ]; then
+    echo >&2 'Need <branch> to archive!'
+    exit 2
+fi
+
+branchDeleteOption=-d
+tagForceOption=
+case $1 in
+    -f|--force)	shift; branchDeleteOption=-D; tagForceOption=-f;;
+esac
+branch=$1
+
+set -e
+git tag $tagForceOption "archive/$branch" "$branch"
+git push --tags origin
+git branch $branchDeleteOption "$branch"
+git push origin ":$branch"

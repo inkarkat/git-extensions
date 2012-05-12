@@ -32,11 +32,11 @@
 	; To do something with individual arguments, use something like this:
 	;x = "!sh -c 'echo args: \"$@\"' -"
 
-	;;confighelp: Browse this .gitconfig.
+	;; confighelp: Browse this .gitconfig.
 	configlist = config --local --list
 	configedit = config --local --edit
 
-	;;system-setup: Setup system-specific git configuration for a system.
+	;; system-setup: Setup system-specific git configuration for a system.
 
 	cherrypick = cherry-pick --no-commit	; Apply the changes introduced by some existing commits (cummulatively) to the index and working copy.
 	cherrycommit = cherry-pick ; Apply and immediately commit each change (individually) introduced by some existing commit(s).
@@ -56,17 +56,17 @@
 	amend = commit --amend --reedit-message=HEAD	; Amend to last commit.
 	amendu = commit --all --amend --reedit-message=HEAD	; Amend all modified and deleted files to last commit.
 	br = branch
-	;;bra: List (local; -r remote-tracking; -a both) branches (optionally filtered by <glob>) ordered by date of most recent commit.
+	;; bra: List (local; -r remote-tracking; -a both) branches (optionally filtered by <glob>) ordered by date of most recent commit.
 	deletebr = branch -d	; Delete branch; use odelete to remove the branch in origin, too.
 	renamebr = branch -m	; Rename branch.
-	;;archive: Tag <branch>, then delete it from the local repository as well as origin. Use to remove old branches that have been incorporated into master, or pass -f to force archiving.
+	;; archive: Tag <branch>, then delete it from the local repository as well as origin. Use to remove old branches that have been incorporated into master, or pass -f to force archiving.
 	co = checkout
 	com = checkout master
 	cohunk = checkout --patch --	; Interactively cherry-pick and check out individual hunks from the index to the working copy.
 	bl = !git-shortblame
 	file-blame = !git ls-files | xargs -n1 -i{} git log -1 --pretty=format:\"%h %an (%ar) {}\" -- {} ; Show author name and last date for each file.
 	st = status -sb ; Concise status with branch and tracking info.
-	;;browse: Open origin / the passed pattern matching a remote in a browser.
+	;; browse: Open origin / the passed pattern matching a remote in a browser.
 
 	; Source: http://stackoverflow.com/questions/1360712/git-stash-cannot-apply-to-a-dirty-working-tree-please-stage-your-changes
 	stash-pop-to-dirty = !git stash show -p | git apply && git stash drop	; When "stash pop" complains.
@@ -154,6 +154,13 @@
 	mergem = mergeto master
 	mt = mergetool
 	;; merge-base: Identify branch point (common ancestor).
+	; The fast-forward command does the second part of git pull, it merges the
+	; remote tracking branch. Use this when you've already fetched the changes
+	; (to avoid the superfluous network exchange), and you get the message "Your
+	; branch is behind 'origin/tracked-branch', and can be fast-forwarded."
+	; after switching to a branch.
+	fast-forward = -c merge.defaultToUpstream=true merge
+	ff = -c merge.defaultToUpstream=true merge
 
 	;; remote show <repo>: Remote repository info, including tracked remote branches.
 	obrowse = browse origin
@@ -318,6 +325,13 @@
 	; executable names, or a custom mergetool.<tool>.cmd would need to be
 	; implemented.
 	tool = gvimdiff
+
+	; If git merge is called without any commit argument, merge the remote
+	; tracking branch. For when git says: "Your branch is behind
+	; 'origin/tracked-branch', and can be fast-forwarded."
+	; Note: I do not enable this by default, but rather define a new alias
+	; "fast-forward".
+	;defaultToUpstream = true
 [user]
 	name = Ingo Karkat
 	email = swdev@ingo-karkat.de

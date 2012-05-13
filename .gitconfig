@@ -15,6 +15,12 @@
 	;     <--------- dh ---------------
 	;     <---- d ------- <--- di -----
 
+	; Commit addressing:
+	; parents: head^^^ = head~3
+	; commit message matches a string: :/string
+	; date: @{yesterday} "branch@{two days ago}"
+	; from reflog: @{1}
+
 [alias]
 	; Note: You cannot override a built-in Git command via an alias. Cp.
 	; http://stackoverflow.com/questions/3538774/is-it-possible-to-override-git-command-by-git-alias
@@ -55,6 +61,7 @@
 	amenu = commit --all --amend --reuse-message=HEAD	; Amend all modified and deleted files to last commit without re-editing the message.
 	amend = commit --amend --reedit-message=HEAD	; Amend to last commit.
 	amendu = commit --all --amend --reedit-message=HEAD	; Amend all modified and deleted files to last commit.
+	;; credit: Amend passed name + email as the author of the last commit.
 	br = branch
 	;; bra: List (local; -r remote-tracking; -a both) branches (optionally filtered by <glob>) ordered by date of most recent commit.
 	deletebr = branch -d	; Delete branch; use odelete to remove the branch in origin, too.
@@ -68,6 +75,13 @@
 	st = status -sb ; Concise status with branch and tracking info.
 	;; browse: Open origin / the passed pattern matching a remote in a browser.
 
+	;; stash: Save a dirty working copy and index in a commit.
+	stashhunk = stash --patch	; Interactively cherry-pick and stash away individual hunks changed in the working copy.
+	;; stash list: Show all stashed commits.
+	;; stash apply: Apply the topmost stashed commit onto the working copy.
+	;; stash pop: Apply and the topmost stashed commit onto the working copy and remove it from the stash.
+	;; stash drop: Remove a single stash.
+	;; stash clear: Throw away all stashes.
 	; Source: http://stackoverflow.com/questions/1360712/git-stash-cannot-apply-to-a-dirty-working-tree-please-stage-your-changes
 	stash-pop-to-dirty = !git stash show -p | git apply && git stash drop	; When "stash pop" complains.
 
@@ -88,6 +102,8 @@
 	whodid = shortlog -n	; Show log grouped by name and sorted by the number of their commits.
 	;; whodid -s: Show author names sorted by the number of their commits.
 	statistics = shortlog -n -s	; Display a list of committers sorted by the frequency of commits. Use HEAD~42.. or v2.6..v2.7 to limit to range.
+	;; rank-contributors: Show author names sorted by the total size of the diffs they're responsible for.
+	;; churn: Show sorted number of changes per file; arguments as to git log, e.g. --since="1 month ago" subdir
 	whatis = show -s --pretty='tformat:%h (%s, %ad)' --date=short	; Print info about hash or commit name.
 
 	d = diff    ; ... unstaged changes in working copy.
@@ -129,6 +145,7 @@
 	picks = cherrypicks -v --abbrev=7	; See which changes from the current branch (e.g. feature) are already present in the passed branch (e.g. master).
 	conflicts = "!sh -c 'git ls-files --unmerged \"$@\" | cut -f2 | uniq' -"    ; List files with merge conficts.
 	; Source: http://akahn.net/2011/10/12/working-through-git-conflicts-in-vim.html
+	;; reflog: Show recorded changes to the tip of a branch, mostly to restore unreachable old commits via head@{1}.
 
 	cleanall = clean -d -x	; Remove all untracked files and directories, restoring a pristine working copy.
 	;; lsprivate: Show all non-ignored files not under version control.
@@ -310,7 +327,11 @@
 	;   git config core.gitproxy 'gitproxy'
 	;gitproxy = gitproxy
 [diff]
-	renames = true
+	; Use (c)ommit, (i)ndex or (w)orking copy instead of the standard a/ b/
+	; paths.
+	mnemonicprefix = true
+	; Detect both renames and copies.
+	renames = copies
 [log]
 	; Even with "date=local", Git does not obey my locale's date settings.
 	; Fortunately, "ISO" matches my preferred format pretty well, so I get dates
@@ -368,3 +389,7 @@
 	; or even by referencing the most recent commit whose message contains <text>
 	; 	git commit --squash :/<text>
 	autosquash = true
+[rerere]
+	; Enable the recording of resolved conflicts, so that identical hunks can be
+	; resolved automatically later on.
+	enabled = true

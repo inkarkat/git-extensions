@@ -11,10 +11,23 @@ tagForceOption=
 case $1 in
     -f|--force)	shift; branchDeleteOption=-D; tagForceOption=-f;;
 esac
-branch=$1
 
-set -e
-git tag $tagForceOption "archive/$branch" "$branch"
-git push --tags origin
-git branch $branchDeleteOption "$branch"
-git push origin ":$branch"
+status=0
+for branch
+do
+    git tag $tagForceOption "archive/$branch" "$branch" || status=1
+done
+[ $status -eq 0 ] || exit $status
+
+git push --tags origin || exit $?
+
+status=0
+for branch
+do
+    git branch $branchDeleteOption "$branch" || status=1
+done
+for branch
+do
+    git push origin ":$branch" || status=1
+done
+exit $status

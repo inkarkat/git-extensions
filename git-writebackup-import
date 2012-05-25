@@ -14,6 +14,9 @@
 # FILE_SCCS = "@(#)git-writebackup-import	001	(03-Feb-2012)	tools";
 #
 # REVISION	DATE		REMARKS 
+#	002	03-Feb-2012	ENH: When no original exists, remove the file
+#				from source control after the last backup file
+#				has been committed. 
 #	001	03-Feb-2012	file creation
 ###############################################################################
 
@@ -22,9 +25,7 @@
 printShortUsage()
 {
     cat <<SHORTHELPTEXT
-# Note: short followed by long option; if the user knows the short one, she can
-# skim the long one. 
-Usage: "$(basename "")" [-f|--foo bar] [--nofoo] [file, ...] [-?|-h|--help]
+Usage: git init && "$(basename "")" path/to/srcdir [-?|-h|--help]
 SHORTHELPTEXT
 }
 printUsage()
@@ -48,16 +49,9 @@ HELPDESCRIPTION
     echo
     printShortUsage "$1"
     cat <<HELPTEXT
-# Note: long followed by short option, so that the user is able to scan through
-# the full names, then see the abbreviation. 
-# Note: Order options logically as in the short helptext; sort alphabetically if
-# there are many options. 
-# Note: Multiline alternative if both short and long option do not fit. 
-#	--foo		Enables foo'ing with argument bar. 
-#	 -f			
 
 Example:
-"$(basename "$1")" ~/src/myproject
+git init ~/src/gitproject && "$(basename "$1")" ~/src/myproject
 HELPTEXT
 }
 
@@ -99,13 +93,44 @@ findDatedFiles()
     findDatedOriginals "$1"
 }
 
+declare -A lastBackups=()
+findLastBackup()
+{
+    local -r file=$1; shift
+    # Populate a cache to avoid doing the same costly search repeatedly for each
+    # committed backup version. 
+    lastBackup="${lastBackups["$file"]}"
+    if [ ! "$lastBackup" ]; then
+	lastBackup=$(cd "$srcdir" && ls -1 "$file".[12][0-9][0-9][0-9][0-9][0-9][0-9][0-9][a-z] | tail -n 1)
+	lastBackups["$file"]=$lastBackup
+    fi
+}
+isLastBackupWithoutOriginal()
+{
+    local -r importFile=$1; shift
+    local -r destFile=$1; shift
+    local -r importOriginal="${srcdir}${destFile}"
+
+    if [ "$destFile" != "$importFile" -a ! -e "$importOriginal" ]; then
+	# This is a backup file where no original exists any more, so the file
+	# should be removed from source control after the last backup file has
+	# been committed. 
+
+	# As the backups are maintained in a global cache, the find must not be
+	# done in a subshell. 
+	findLastBackup "$destFile"
+
+	[ "$importFile" = "${lastBackups["$destFile"]}" ] && return 0
+    fi
+
+    return 1
+}
+
 importFile()
 {
-    local -r commitDate=$1
-    shift
-    local -r importFile=$1
-    shift
-    local -r destFile=${importFile%.[12][0-9][0-9][0-9][0-9][0-9][0-9][0-9][a-z]}
+    local -r commitDate=$1; shift
+    local -r importFile=$1; shift
+    local -r destFile=$1; shift
     local -r destDir=$(dirname -- "$importFile")
 
     [ -d "$destDir" ] || mkdir -p "$destDir" || exit $? 
@@ -113,7 +138,43 @@ importFile()
     git add "$destFile" || return $?
     git commit --allow-empty-message --message= --date="$(date -d "$commitDate")" || return $?
 }
+removeFile()
+{
+    local -r commitDate=$1; shift
+    local -r destFile=$1; shift
 
+    git rm --quiet "$destFile" || return $?
+    git commit --allow-empty-message --message= --date="$(date -d "$commitDate")" || return $?
+}
+
+
+reformatGitCommitOutput()
+{
+    sed -e '
+/^\[.*\] *$/{
+    s#\['"${branch//#/\\#}"' #[#
+    s/(root-commit) //
+    s/[][]//g
+    h
+}
+/1 files changed/{
+    s/^ *1 files changed, *//
+    s/\([0-9]\+\) insertions(+)/+\1/
+    s/\([0-9]\+\) deletions(-)/-\1/
+    s/+0, //
+    s/, -0//
+    s/.*/(&)/
+    H
+}
+$!d
+${
+    g
+    s#$#\t'"${importFile//#/\\#}"'#
+    s/^/    /
+    s/\n//
+}
+'
+}
 
 
 while [ $# -ne 0 ]
@@ -142,29 +203,11 @@ do
     for filespec in $(findDatedFiles "$commitDate")
     do
 	importFile=${filespec#${srcdir}}
-	importFile "$formattedCommitDate" "$importFile" | sed -e '
-/^\[.*\] *$/{
-    s#\['"${branch//#/\\#}"' #[#
-    s/(root-commit) //
-    s/[][]//g
-    h
-}
-/1 files changed/{
-    s/^ *1 files changed, *//
-    s/\([0-9]\+\) insertions(+)/+\1/
-    s/\([0-9]\+\) deletions(-)/-\1/
-    s/+0, //
-    s/, -0//
-    s/.*/(&)/
-    H
-}
-$!d
-${
-    g
-    s#$#\t'"${importFile//#/\\#}"'#
-    s/^/    /
-    s/\n//
-}
-'
+	destFile=${importFile%.[12][0-9][0-9][0-9][0-9][0-9][0-9][0-9][a-z]}
+	importFile "$formattedCommitDate" "$importFile" "$destFile" | reformatGitCommitOutput
+
+	if isLastBackupWithoutOriginal "$importFile" "$destFile"; then
+	    removeFile "$formattedCommitDate" "$destFile" | reformatGitCommitOutput
+	fi
     done
 done

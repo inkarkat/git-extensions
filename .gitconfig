@@ -66,7 +66,7 @@
 	;; bra: List (local; -r remote-tracking; -a both) branches (optionally filtered by <glob>) ordered by date of most recent commit.
 	deletebr = branch -d	; Delete branch; use odelete to remove the branch in origin, too.
 	renamebr = branch -m	; Rename branch.
-	;; archive: Tag <branch>, then delete it from the local repository as well as origin. Use to remove old branches that have been incorporated into master, or pass -f to force archiving.
+	;; closebr: Tag <branch>, then delete it from the local repository as well as origin. Use to remove old branches that have been incorporated into master, or pass -f to force archiving.
 	co = checkout
 	com = checkout master
 	cohunk = checkout --patch --	; Interactively cherry-pick and check out individual hunks from the index to the working copy.
@@ -94,6 +94,7 @@
 	; Optional:
 	;	3. Delete the v0.4 tag locally: git tag -d v0.4
 	;	4. Delete the v0.4 tag on GitHub (which removes its download link): git push origin :v0.4
+	;; tag-version: Create an annotated tag, mostly used for official releases.
 
 	root = rev-parse --show-toplevel	; Show root dir of this Git working copy.
 	;; sh:  Enter a bunch of git commands interactively.
@@ -125,6 +126,14 @@
 	;; ls: List all files under source control.
 	;; ll: List hash, author, and date of the last commit for each file under source control.
 	;; log et al: Consider only commit messages including /regexp/ via --grep=regexp.
+	; How to enable what strings:
+	; 	1. echo '@(#) file $Id$ project' >> file
+	; 	2. echo '* ident' >> .gitattributes
+	;   3. git commit file .gitattributes
+	;; find-blob: Find commit(s) which have the passed hash of a blob in their tree. Use to resolve the $Id$ put into a file via the "ident" gitattribute, e.g. in a what string.
+	;; hash-object: Print the hash of the passed file (which must not have the $Id$ expanded!)
+	; This is the same as
+	;   (echo -e -n "blob $(stat -c %s "$file")\0"; cat "$file") | sha1sum
 	findchange = !git-pickaxe --date=relative -p ; Pickaxe: Show log and commits where text or /regexp/ was changed.
 	findlogs = !git-pickaxe ; Pickaxe: Show log where text or /regexp/ was changed.
 	findlg = !git-pickaxe --abbrev-commit --date=relative --decorate --pretty=oneline ; Pickaxe: Show short log where text or /regexp/ was changed.
@@ -142,13 +151,16 @@
 	logfetched = log ORIG_HEAD.. --stat --no-merges	; List all new commits after you fetched.
 	last  = cat-file commit HEAD	; Show last commit info: Hashes and author. Use "git show" for more details.
 	changes = diff --name-status -r ; Subversion-like 'svn status' reporting.
-	;; describe: Show the most recent tag that is reachable from a commit.
+	;; describe: Show the most recent tag that is reachable from a commit, in the format <tag>-g<commits on top>-<commit-hash>[-dirty].
+	describe-version = describe --dirty	;; Show most recent annotated tag (used for official versions etc.)
+	describe-tag = describe --dirty --tags	;; Show most recent, also lightweight (used for archiving) tag.
 	contains = "!sh -c 'git describe --contains \"$@\" || git name-rev --name-only \"$@\"' -"	; Show in which tag(s) a commit is contained, i.e. in which versions this was shipped, or, if that fails, from which branch it can be reached.
 	picks = cherrypicks -v --abbrev=7	; See which changes from the current branch (e.g. feature) are already present in the passed branch (e.g. master).
 	conflicts = "!sh -c 'git ls-files --unmerged \"$@\" | cut -f2 | uniq' -"    ; List files with merge conficts.
 	; Source: http://akahn.net/2011/10/12/working-through-git-conflicts-in-vim.html
 	;; reflog: Show recorded changes to the tip of a branch, mostly to restore unreachable old commits via head@{1}.
-	;; io: Show incoming and outgoing commit logs between current / passed branch and its remote tracked branch / passed branch.
+	;; inout: Show incoming and outgoing commit logs between current / passed branch and its remote tracked branch / passed branch.
+	io = inout
 
 	cleanall = clean -d -x	; Remove all untracked files and directories, restoring a pristine working copy.
 	;; lsprivate: Show all non-ignored files not under version control.

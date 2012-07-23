@@ -16,10 +16,14 @@
 	;     <---- d ------- <--- di -----
 
 	; Commit addressing:
-	; parents: head^^^ = head~3
-	; commit message matches a string: :/string
-	; date: @{yesterday} "branch@{two days ago}"
-	; from reflog: @{1}
+	; - parents: head^^^ = head~3; second merge parent: ^2; combined:
+	;	 $ git checkout 1b6d^^2~10 -b ancient
+	;   starts a new branch "ancient" representing the state 10 commits back
+	;   from the second parent of the first parent of the commit starting with
+	;   1b6d.
+	; - commit message matches a string: :/string
+	; - date: @{yesterday} "branch@{two days ago}"
+	; - from reflog (where the tip of the branch used to be 2 moves ago): branch@{2}
 
 [alias]
 	; Note: You cannot override a built-in Git command via an alias. Cp.
@@ -114,6 +118,7 @@
 	;; sh:  Enter a bunch of git commands interactively.
 	serve = !git daemon --reuseaddr --verbose  --base-path=. --export-all ./.git ; Fire up a git daemon for the repo you are currently in.
 	;; new-workdir: Allow a parallel second checkout of <repository> in <new-workdir> (without having to push or pull!)
+	; Source: /usr/share/doc/git-core/contrib/workdir/git-new-workdir
 
 	whois = "!sh -c 'git log -i -1 --pretty=\"format:%an <%ae>\n\" --author=\"$1\"' -" ; Look up person by name or email address.
 	whodid = shortlog -n	; Show log grouped by name and sorted by the number of their commits.
@@ -130,6 +135,15 @@
 	diw = diff --cached --color-words	; staged changes, use word-based (not line-based) diff granularity
 	;; dp:  ... with predecessor, either current HEAD or passed revision.
 	dt = !git-difftoday ; Show all changes from today (override with --since=...) in a single big diff.
+	; Simple patch creation:
+	;	$ git diff 1b6d > my.patch
+	; (Set of) patches [ <since> | <revision range> ], ready to send by email,
+	; by default saved to CWD / -o outdir in mbox format:
+	; 	$ git format-patch --stdout 1b6d..HEAD^^
+	; which can be passed to git send-email.
+	; On the receiving end, save an email to a file, then type:
+	; 	$ git am < email.txt
+	; This applies the incoming patch and also creates a commit, including information such as the author.
 
 	g = grep --color -n
 	gf = grep --files-with-matches
@@ -187,10 +201,20 @@
 	wipe = reset --hard ; Reset HEAD, working copy and index.
 	;; hardreset: Reset HEAD, working copy and index to <branch>. Ensures that the current branch isn't dirty.
 	;; reset-to-tracked: Reset my current branch to the HEAD of the tracked branch. Use this when the local branch has been pointed elsewhere (e.g. due to an attempted rebase), and you want to restore the original state. The working copy is left intact.
+	reset-back = reset ORIG_HEAD	; Undo a previous git reset; allows you to go back into the future after moving the HEAD to the past.
 	;; tracks: Show which remote branch is tracked by the current branch.
 	rb = rebase
+	; a) Remove commits by deleting lines. Like the revert command, but off the
+	;    record: it will be as if the commit never existed.
+    ; b) Reorder commits by reordering lines.
+    ; Replace pick with:
+    ; d) "edit" to mark a commit for amending.
+    ; e) "reword" to change the log message.
+    ; f) "squash" to merge a commit with the previous one.
+    ; g) "fixup" to merge a commit with the previous one and discard the log message.
 	rbi = rebase -i
 	rbc = rebase --continue
+	rbq = rebase --abort
 	;; git rebase HEAD <feature> && git rebase HEAD @{-2}: rebase <feature> to current branch and merge back to current
 	;; git merge --squash: Create a single commit on top of the current branch whose effect is the same as merging the other branch. Shorter form of interactive rebasing where you choose squash for all following commits.
 	; merging

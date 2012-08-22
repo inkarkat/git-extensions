@@ -1,0 +1,33 @@
+#!/bin/bash
+
+shopt -qs extglob
+
+printUsage()
+{
+    cat <<HELPTEXT
+    Merge all / the last committed N branches to master / the passed <branch>.
+Usage: "$(basename "$1")" [N] [<branch>] [--no-commit] [--squash] [-s <strategy>] [-m <msg>]
+HELPTEXT
+}
+
+branchNum=9999
+targetBranch=master
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    +([0-9]))		branchNum=$1; shift
+			case "$1" in
+			    [^-]*)  targetBranch=$1; shift;;
+			esac
+			;;
+    [^-]*)		targetBranch=$1; shift;;
+esac
+
+branches=$(git for-each-ref --sort=committerdate --format='%(refname:short)' refs/heads/ | grep -v -e 'master' -e "$targetBranch" | tail -n "$branchNum") || exit $?
+if [ ! "$branches" ]; then
+    echo >&2 "No local branches found!"
+    exit 1
+fi
+echo "merging to ${targetBranch}:
+${branches// /
+}"
+git merge "$@" $branches

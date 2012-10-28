@@ -1,0 +1,27 @@
+#!/bin/sh
+
+printUsage()
+{
+    cat <<HELPTEXT
+Show the files modified in passed commit or commit range.
+Usage: "$(basename "$1")" [<since>..<until>] [[--] <path>...] [-?|-h|--help]
+HELPTEXT
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+haveRange=
+for argument
+do
+    case "$argument" in
+	*..*)	    haveRange='true';;
+	--)	    break;;
+    esac
+done
+
+if [ "$haveRange" ]; then
+    git log --pretty='format:' --name-status "$@"
+else
+    git show --pretty='format:' --name-status "$@"
+fi | sort -u | sed -e '/^$/d' | less --RAW-CONTROL-CHARS

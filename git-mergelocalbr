@@ -28,10 +28,23 @@ echo "Merging:
 ${branches// /
 }"
 echo '
-git merge' "$@" $branches
+git merge' $* $branches
 
 printf %s "Really merge these branches? (y/n) "
 read answer
 [ "$answer" = "y" ] || exit 1
 
 git merge "$@" $branches
+if [ $? -eq 2 ]; then
+    echo '
+Hint: When the merge with strategy octopus fails, try merging sequentially:'
+    commandSeparator=
+    for branch in $branches
+    do
+	printf '%sgit merge%s%s %s' "$commandSeparator" "${*+ }" "$*" "$branch"
+	commandSeparator=' && '
+    done
+    printf '\n'
+
+    exit 2
+fi

@@ -10,8 +10,23 @@ printUsage()
 Usage: "$(basename "$1")" [N] [--no-commit] [--squash] [-s <strategy>] [-m <msg>]
 HELPTEXT
 }
+getBranches()
+{
+    if [ "$allBranches" ]; then
+	printf '%s\n' "$allBranches"
+    else
+	git for-each-ref --sort=committerdate --format='%(refname:short)' refs/heads/
+    fi
+}
 
 branchNum=9999
+allBranches=
+if [ "$1" = '--stdin' ]; then
+    # Internal hook to pass in the branches via stdin.
+    shift
+    allBranches=$(</dev/stdin)
+    exec 0</dev/stdin
+fi
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
     +([0-9]))		branchNum=$1; shift;;
@@ -19,7 +34,7 @@ esac
 
 currentBranch=$(git symbolic-ref HEAD) || exit $?
 currentBranch=${currentBranch##refs/heads/}
-branches=$(git for-each-ref --sort=committerdate --format='%(refname:short)' refs/heads/ | grep -v -e 'master' -e "$currentBranch" | tail -n "$branchNum") || exit $?
+branches=$(getBranches | grep -v -e 'master' -e "$currentBranch" | tail -n "$branchNum") || exit $?
 if [ ! "$branches" ]; then
     echo >&2 "No local branches found!"
     exit 1

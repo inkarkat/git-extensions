@@ -1,0 +1,37 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+    Find commits (not) merged upstream, based on the actual changeset. 
+    With --in, only show commits already merged. 
+    With --out, only show commits not yet merged. 
+Usage: "$(basename "$1")" [-v] [--in|--out] [<upstream> [<head> [<limit>]]]
+HELPTEXT
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+typeset arg=
+typeset allargs=()
+typeset filter=
+for arg
+do
+    case "$arg" in
+	--in)	shift; [ "$filter" ] && { printUsage "$0"; exit 1; }; filter='^- ';;
+	--out)	shift; [ "$filter" ] && { printUsage "$0"; exit 1; }; filter='^+ ';;
+	*)	allargs+=("$arg");;
+    esac
+done
+
+filterCommand=
+if [ "$filter" ]; then
+    filterCommand=" | GREP_OPTIONS= grep -e '$filter'"
+else
+    : ${COLOR_CHERRYPICKED:='[32m'}
+    : ${COLOR_RESET:='[0m'}
+    filterCommand=" | sed -e 's/^- .*$/${COLOR_CHERRYPICKED}&${COLOR_RESET}/'"
+fi
+
+eval 'git cherry "${allargs[@]}"' $filterCommand | less --RAW-CONTROL-CHARS

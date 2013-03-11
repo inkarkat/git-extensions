@@ -1,0 +1,72 @@
+#!/usr/bin/perl
+###############################################################################
+##
+# FILE:		ingo-extract-version-message
+# PRODUCT:	tools
+# AUTHOR:	Ingo Karkat <ingo@karkat.de>
+# DATE CREATED:	12-Mar-2013
+#
+###############################################################################
+# CONTENTS:
+#
+# REMARKS:
+#
+# @(#)ingo-extract-version-message	001	(12-Mar-2013)	tools
+#
+# REVISION	DATE		REMARKS
+#	001	12-Mar-2013	file creation
+###############################################################################
+
+sub investigate()
+{
+    return unless (@_[0] =~ /(\S)*\s+([0-9.]+)\s+(\d{2}-[[:alpha:]]{3}-\d{4})\s+(\w.*?)\s*\r?\n?$/);
+
+    my ($commentPrefix, $revision, $message) = ($1, $2, $4);
+
+    foreach (@_[1..$_]) {
+	last unless (substr($_, 0, length($commentPrefix)) eq $commentPrefix);
+	s/\S*\s+([0-9.]+\s+\d{2}-[[:alpha:]]{3}-\d{4}\s+)?(\w.*?)\s*\r?\n?$/$2/;
+	$message .= ' ' . $_;
+    }
+
+    return $message;
+}
+
+if ($#ARGV < 1) {
+    use File::Basename;
+    my $scriptName = basename($0);
+    print <<EOF;
+Usage: $scriptName <filespec> <previous-filespec>
+
+Extract the revision message from ingo's custom changelog file header by looking
+at the differences between the current and previous version.
+Use with git-writebackup-import --commit-message-plugin=$0
+EOF
+    exit 2;
+}
+
+my ($filespec, $previousFilespec) = @ARGV;
+
+if (! -e $previousFilespec) {
+    print "file creation\n";
+    exit;
+}
+
+my @hunk = ();
+open(DIFF, "diff '$previousFilespec' '$filespec' |") or die "Can't diff: $!";
+while (<DIFF>) {
+    if (/^(---|< )/) {
+	next;
+    } elsif (/^> /) {
+	s/^> //;
+	push(@hunk, $_);
+    } elsif (@hunk) {
+	my $message = &investigate(@hunk);
+	if ($message ne '') {
+	    print $message;
+	    exit 0
+	}
+
+	@hunk = ();
+    }
+}

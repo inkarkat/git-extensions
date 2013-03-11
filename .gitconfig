@@ -78,6 +78,7 @@
 	;; credit: Amend passed name + email as the author of the last commit.
 	br = branch
 	;; bra: List (local; -r remote-tracking; -a both) branches (optionally filtered by <glob>) ordered by date of most recent commit.
+	;; brc: List (local; -r remote-tracking; -a both) branches (optionally filtered by <glob>) ordered by date of first commit.
 	deletebr = branch -d	; Delete branch; use odelete to remove the branch in origin, too.
 	renamebr = branch -m	; Rename branch.
 	;; archivebr: Tag <branch>, then delete it from the local repository as well as origin. Use to remove old branches that have been incorporated into master, or pass -f to force archiving.
@@ -183,7 +184,7 @@
 	;; log: Use --name-status to include filenames like "svn log -v".
 	l = log --abbrev-commit --date=relative --decorate --graph --pretty=oneline	; Minimal topology, tags and commit summary.
 	lg = log --abbrev-commit --date=relative --decorate --graph --pretty=tformat:'%C(cyan)%h%Creset %Cgreen(%aN, %ar)%Creset %C(red bold)%d%Creset %s'	; One-line topology, author, date, tags and commit summary.
-	lm = "!sh -c 'git log --author=\"$(git config --get user.name)\" --abbrev-commit --date=relative --decorate --graph --pretty=tformat:\"%C(cyan)%h%Creset %Cgreen(%cr)%Creset %C(red bold)%d%Creset %s\" \"$@\"' -"	; Like "git lg" filtered for my personal commits.
+	lm = "!sh -c 'git log --author=\"$(git config --get user.name)\" --abbrev-commit --date=relative --decorate --graph --pretty=tformat:\"%C(cyan)%h%Creset %Cgreen(%ar)%Creset %C(red bold)%d%Creset %s\" \"$@\"' -"	; Like "git lg" filtered for my personal commits.
 	logmine = "!sh -c 'git log --decorate --author=\"$(git config --get user.name)\" \"$@\"' -"	; "git log" filtered for my personal commits.
 	lt = !git-logtoday ; Show log of today's (override with --since=...) changes formatted for including in pull request or email.
 	logfetched = log ORIG_HEAD.. --stat --no-merges	; List all new commits after you fetched.
@@ -233,6 +234,7 @@
 	;; mergeto: Merge the current branch to <target-branch>.
 	mergem = mergeto master
 	;; mergelocalbr: Merge all / the last committed N local branches (except for the current branch and master).
+	;; mergelocalbrc: Merge all / the last committed N local branches (except for the current branch and master) ordered by date of first commit.
 	mt = mergetool
 	;; merge-base: Identify branch point (common ancestor).
 	; The fast-forward command does the second part of git pull, it merges the
@@ -304,7 +306,8 @@
 	;   # Publish to your GitHub clone to make the changes accessible to someone.
 	;   git opublish <branch>
 	;; ureset: Reset my current branch to the HEAD of the master / passed branch of upstream. Use this after my pull requests have been accepted into upstream (but cherry-picked, in a different order, or intermingled with other requests, so that the commit history deviates from mine), but there are still pending changes. The working copy is left intact, so you can effectively rebase any outstanding differences with a follow-up commit.
-	;; uhardreset: Reset my current branch to the HEAD of the master / passed branch of upstream, and push this to my GitHub clone. Use this after my pull requests have been accepted into upstream (but cherry-picked, in a different order, or intermingled with other requests, so that the commit history deviates from mine). Ensures that the current branch isn't dirty.
+	;; uhardreset: Reset my current branch to the HEAD of the master / passed branch of upstream.
+	;; urestore: Reset my current branch to the HEAD of the master / passed branch of upstream, and push this to my GitHub clone. Use this after my pull requests have been accepted into upstream (but cherry-picked, in a different order, or intermingled with other requests, so that the commit history deviates from mine). Ensures that the current branch isn't dirty.
 
 	; How to fork a non-GitHub repository:
 	; 1. git clone --origin=upstream http://repo.or.cz/r/vcscommand.vim.git

@@ -7,16 +7,17 @@
 # DATE CREATED:	03-Feb-2012
 #
 ###############################################################################
-# CONTENTS: 
-#   
-# REMARKS: 
-#   
-# FILE_SCCS = "@(#)git-writebackup-import	001	(03-Feb-2012)	tools";
+# CONTENTS:
 #
-# REVISION	DATE		REMARKS 
+# REMARKS:
+#
+# FILE_SCCS = "@(#)git-writebackup-import	003	(26-May-2012)	tools";
+#
+# REVISION	DATE		REMARKS
+#	003	26-May-2012	Handle import of filespecs with spaces.
 #	002	03-Feb-2012	ENH: When no original exists, remove the file
 #				from source control after the last backup file
-#				has been committed. 
+#				has been committed.
 #	001	03-Feb-2012	file creation
 ###############################################################################
 
@@ -25,13 +26,13 @@
 printShortUsage()
 {
     cat <<SHORTHELPTEXT
-Usage: git init && "$(basename "")" path/to/srcdir [-?|-h|--help]
+Usage: git init && "$(basename "$1")" path/to/srcdir [-?|-h|--help]
 SHORTHELPTEXT
 }
 printUsage()
 {
-    # This is the short help when launched with no or incorrect arguments. 
-    # It is printed to stderr to avoid accidental processing. 
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
     printShortUsage "$1" >&2
     cat >&2 <<MOREHELP
 Try "$(basename "$1")" --help for more information.
@@ -39,12 +40,12 @@ MOREHELP
 }
 printLongUsage()
 {
-    # This is the long "man page" when launched with the help argument. 
-    # It is printed to stdout to allow paging with 'more'. 
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
 Import a directory hierarchy into Git, using existing backup files with a
 current date file extension (format '.YYYYMMDD[a-z]', as written by the
-writebackup family of tools) as history. 
+writebackup family of tools) as history.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
@@ -55,6 +56,7 @@ git init ~/src/gitproject && "$(basename "$1")" ~/src/myproject
 HELPTEXT
 }
 
+IFS=$'\n'
 declare -A datedOriginals=()
 findOriginals()
 {
@@ -98,7 +100,7 @@ findLastBackup()
 {
     local -r file=$1; shift
     # Populate a cache to avoid doing the same costly search repeatedly for each
-    # committed backup version. 
+    # committed backup version.
     lastBackup="${lastBackups["$file"]}"
     if [ ! "$lastBackup" ]; then
 	lastBackup=$(cd "$srcdir" && ls -1 "$file".[12][0-9][0-9][0-9][0-9][0-9][0-9][0-9][a-z] | tail -n 1)
@@ -114,10 +116,10 @@ isLastBackupWithoutOriginal()
     if [ "$destFile" != "$importFile" -a ! -e "$importOriginal" ]; then
 	# This is a backup file where no original exists any more, so the file
 	# should be removed from source control after the last backup file has
-	# been committed. 
+	# been committed.
 
 	# As the backups are maintained in a global cache, the find must not be
-	# done in a subshell. 
+	# done in a subshell.
 	findLastBackup "$destFile"
 
 	[ "$importFile" = "${lastBackups["$destFile"]}" ] && return 0
@@ -133,7 +135,7 @@ importFile()
     local -r destFile=$1; shift
     local -r destDir=$(dirname -- "$importFile")
 
-    [ -d "$destDir" ] || mkdir -p "$destDir" || exit $? 
+    [ -d "$destDir" ] || mkdir -p "$destDir" || exit $?
     cp "${srcdir}${importFile}" "$destFile"
     git add "$destFile" || return $?
     git commit --allow-empty-message --message= --date="$(date -d "$commitDate")" || return $?
@@ -191,7 +193,7 @@ readonly srcdir="${1%/}/"
 
 git status >/dev/null || exit $?
 branch=$(git symbolic-ref HEAD)
-branch=${branch##refs/heads/} 
+branch=${branch##refs/heads/}
 
 findOriginals
 echo "Importing files${branch:+ into }${branch}..."

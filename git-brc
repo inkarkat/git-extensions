@@ -1,0 +1,48 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+    List local branches and their first commit ordered by date of first commit,
+    as based on upstream/master or the branch passed with --base <branch>.
+    Pass -r to list remote-tracking branches.
+    Pass -a to list both.
+    The branches can be optionally filtered by <branch-glob>.
+Usage: "$(basename "$1")" [-r|-a] [-b|--base <branch>] [<branch-glob>] [-?|-h|--help]
+HELPTEXT
+}
+
+locality='local'
+base='upstream/master'
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--all|-a)	shift; locality='all';;
+	--remote|-r)	shift; locality='remote';;
+	--base|-b)	shift; base="$1"; shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printShortUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+case $locality in
+    local)  what="refs/heads/$1";;
+    all)    what="refs/heads/$1 refs/remotes/$1";;
+    remote) what="refs/remotes/$1";;
+esac
+
+typeset -a branches=($(git for-each-ref --format='%(refname:short)' $what)) || exit $?
+typeset -a firstCommits=()
+for branch in "${branches[@]}"
+do
+    mergeBase=$(git merge-base "$branch" "$base") || exit $?
+    firstCommit=$(git log --pretty="tformat:%at %h (%an, %ar)" "${mergeBase}..${branch}" | tail -n 1)
+    firstCommits+=("$firstCommit $branch")
+
+done
+IFS=$'\n' sortedFirstCommits=($(sort <<<"${firstCommits[*]}"))
+
+# Print the sorted information without the leading Unix timestamp used as the
+# sort key.
+IFS=$'\n' printf '%s\n' "${sortedFirstCommits[*]#* }"

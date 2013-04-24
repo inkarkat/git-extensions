@@ -1,0 +1,48 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+    Update the expansion of \$Id:\$ via ident in the .gitattributes after a
+    commit.
+    To do this automatically in the future, invoke with --install.
+Usage: "$(basename "$1")" [--install|--uninstall] [-?|-h|--help]
+HELPTEXT
+}
+
+printHook()
+{
+    cat <<HOOK
+#!/bin/sh
+"$(basename -- "$0")"
+HOOK
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --install)		shift
+			hook="$(git rev-parse --git-dir)/hooks/post-commit"
+			if [ -e "$hook" ]; then
+			    echo "A hook already exists; add the following to \"${hook}\":"
+			    printHook
+			    exit 1
+			else
+			    printHook >> "$hook" && echo "Hook installed to \"${hook}\"."
+			    exit $?
+			fi
+			;;
+    --uninstall|--deinstall|--remove)
+			shift
+			hook="$(git rev-parse --git-dir)/hooks/post-commit"
+			echo "Remove the hook from \"${hook}\" yourself!"
+			exit 1
+			;;
+esac
+
+git checkout --quiet HEAD^ || exit $?
+if git checkout --quiet HEAD@{1}; then
+    echo 'Updated ident string for:'
+    git diff --name-only --diff-filter=ACMR HEAD^
+else
+    exit $?
+fi

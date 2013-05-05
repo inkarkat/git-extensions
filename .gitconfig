@@ -229,6 +229,8 @@
 	reset-back = reset ORIG_HEAD	; Undo a previous git reset; allows you to go back into the future after moving the HEAD to the past.
 	;; tracks: Show which remote branch is tracked by the current branch.
 	rb = rebase
+	; For merging, you switch to the target branch (e.g. master), then merge the source branch.
+	; For rebasing, you stay in your working branch and rebase to master.
 	; 	a) Remove commits by deleting lines. Like the revert command, but off the
 	; 	   record: it will be as if the commit never existed.
 	; 	b) Reorder commits by reordering lines.
@@ -271,8 +273,16 @@
 	;; git-flg: lg of fetched commits
 	;; git-flog: log of fetched commits
 	fetched = diff --stat ..FETCH_HEAD	; Summary of all fetched commits.
-
 	;; remote show <repo>: Remote repository info, including tracked remote branches.
+
+	;; tco: checkout tracked branch HEAD
+	;; tdiff: diff with tracked branch
+	;; tl: l of tracked branch
+	;; tlc: lc of tracked branch
+	;; tlg: lg of tracked branch
+	;; tlog: log of tracked branch
+	;; treset = reset-to-tracked --must-be-origin	; Reset my current branch (and working tree with --hard) to the HEAD of tracked branch of origin. Use this when the local branch has been pointed elsewhere (e.g. due to an attempted rebase), and you want to restore the original state. The working copy is left intact.
+
 	obrowse = browse origin
 	obr = "!sh -c 'git branch -r \"$@\"' | GREP_OPTIONS= grep origin/ -" ; List all branches in my GitHub clone.
 	odiff = diff origin/master ; Show differences to my GitHub clone.
@@ -298,7 +308,7 @@
 	; you will have to add --track to your branch command or manually merge remote
 	; tracking branches with "fetch" and then "merge".
 	odelete = push origin --delete ; Delete remote <branch> in my GitHub clone. Older git must use "push origin :BRANCHNAME"
-	oreset = reset-to-tracked --must-be-origin	; Reset my current branch (and working tree with --hard) to the HEAD of tracked branch of origin. Use this when the local branch has been pointed elsewhere (e.g. due to an attempted rebase), and you want to restore the original state. The working copy is left intact.
+	;; oreset: Reset my current branch to the HEAD of the master / passed branch of origin. The working copy is left intact, so you can effectively rebase any outstanding differences with a follow-up commit.
 	;; ohardreset: Reset my current branch to the HEAD of the master / passed branch of origin. Use this after an ureset done in another repository. Ensures that the current branch isn't dirty.
 
 	; How to add the upstream repository to my own repository:
@@ -312,7 +322,7 @@
 	ulog = log --decorate upstream/master ; Log of upstream.
 	ufetch = fetch upstream	; Get upstream changes.
 	umerge = merge upstream/master	; Merge upstream changes with my local repo.
-	urb = rebase upstream/master	; Rebase my commits on top of the latest upstream. "co mybranch" first, clone it via "git co -b myclone mybranch; git opublish myclone" if you want to keep the old one, or just use "urb mybranch".
+	urb = rebase upstream/master	; Rebase my commits on top of the latest upstream. "co mybranch" first, clone it via "git co -b mybranch-old; git opublish" if you want to keep the old one, or just use "urb mybranch". You can also do this after the rebase, but before pushing: "git tco -b mybranch-old; git opublish; git co mybranch".
 	; To make pull default to rebase instead of merge, can use these:
 	; # make "git pull" on master always use rebase
 	; $ git config branch.master.rebase true

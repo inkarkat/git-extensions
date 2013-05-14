@@ -21,13 +21,11 @@ done
 
 git push --tags origin || exit $?
 
+# Note: Process all passed branches in one fell swoop; this avoid re-querying
+# (on push) the remote repository credentials for each branch. When one branch
+# is invalid, an error is returned, but following (valid) branches are still
+# processed: just as we'd like.
 status=0
-for branch
-do
-    git branch $branchDeleteOption "$branch" || status=1
-done
-for branch
-do
-    git push origin --delete "$branch" || status=1
-done
+git branch $branchDeleteOption "$@" || status=1
+git push origin --delete "$@" || status=1
 exit $status

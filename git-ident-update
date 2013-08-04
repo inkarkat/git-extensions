@@ -3,8 +3,8 @@
 printUsage()
 {
     cat <<HELPTEXT
-    Update the expansion of \$Id:\$ via ident in the .gitattributes after a
-    commit.
+    Update the expansion of \$Id\$ to \$Id:...\$ via ident in the .gitattributes
+    after a commit.
     To do this automatically in the future, invoke with --install.
 Usage: "$(basename "$1")" [--install|--uninstall|--status] [-?|-h|--help]
 HELPTEXT
@@ -32,7 +32,7 @@ case "$1" in
 			    printHook
 			    exit 1
 			else
-			    printHook >> "$hook" && echo "Hook installed to \"${hook}\"."
+			    printHook >> "$hook" && chmod +x "$hook" && echo "Hook installed to \"${hook}\"."
 			    exit $?
 			fi
 			;;
@@ -44,16 +44,17 @@ case "$1" in
 			;;
     --status)		shift
 			hook=$(getHookFilespec)
-			if [ -e "$hook" ] && grep -q -e "$(basename -- "$0")" "$hook"; then
+			if [ -x "$hook" ] && grep -q -e "$(basename -- "$0")" "$hook"; then
 			    coveredFiles=$(find . -name .gitattributes -exec grep -H -e '\bident\b' {} \;)
 			    if [ "$coveredFiles" ]; then
-				echo 'The hook is installed; $Id:$ will be updated in the following directories for files matching the subsequent patterns:'
+				echo 'The hook is installed; $Id$ and $Id:...$ will be updated in the following directories for files matching the subsequent patterns:'
 				printf '%s\n' "$coveredFiles"
 				exit 0
 			    else
 				cat <<'INSTRUCTIONS'
 The hook is installed, but no .gitattributes have been configured yet.
-To apply the $Id:$ replacement for all files in the repository, execute:
+To apply the $Id$ and $Id:...$ replacement for all files in the repository,
+execute:
 echo '* ident' >> .gitattributes
 git commit file .gitattributes
 INSTRUCTIONS
@@ -65,6 +66,8 @@ INSTRUCTIONS
 			fi
 			;;
 esac
+
+case ",${DEBUG}," in *,git-ident-update,*) echo '**** git-ident-update hook called';; esac
 
 readonly orig=$(git symbolic-ref --short --quiet HEAD || git ref-parse HEAD)
 git checkout --quiet HEAD^ || exit $?

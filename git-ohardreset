@@ -3,12 +3,10 @@
 branch=$(git symbolic-ref HEAD) || exit $?
 branch=${branch##refs/heads/}
 
-obranch=${1:-master}
-if [ "$obranch" = 'master' -a "$branch" != 'master' ]; then
-    # Typically, one does not reset one's branch to origin's master.
-    printf %s "Really reset branch \"${branch}\" to origin/${obranch}? (y/n) "
-    read answer
-    [ "$answer" = "y" ] || exit 1
-fi
+force=
+case $1 in
+    --force|-f)	force=$1; shift;;
+esac
+remoteBranch=$(git tracks) || exit $?
 
-git hardreset "$@" "origin/$obranch"
+git hardreset $force "$@" "remoteBranch"

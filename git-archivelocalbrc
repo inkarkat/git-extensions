@@ -1,0 +1,21 @@
+#!/bin/bash
+
+shopt -qs extglob
+
+printUsage()
+{
+    cat <<HELPTEXT
+    Tag all / the first N local branches (except for the current branch and
+    master) ordered by date of first commit, then delete them from the local
+    repository as well as origin.
+    Use this to remove old branches that have been incorporated into master, or
+    pass -f to force archiving.
+Usage: "$(basename "$1")" [N] [-f|--force]
+HELPTEXT
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+branches=$(git-brc | awk '{ print $NF }') || exit $?
+exec git-archivelocalbr --branches "$branches" "$@"

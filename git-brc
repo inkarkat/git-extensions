@@ -38,6 +38,13 @@ for branch in "${branches[@]}"
 do
     mergeBase=$(git merge-base "$branch" "$base") || exit $?
     firstCommit=$(git log --pretty="tformat:%at %h (%an, %ar)" "${mergeBase}..${branch}" | tail -n 1)
+    if [ ! "$firstCommit" ]; then
+	# There's no log output when the merge base is identical to the branch;
+	# i.e. there's only one commit on the branch so far. Grab that commit
+	# separately; this is easier than first checking with get show-ref
+	# whether the hashes are identical.
+	firstCommit=$(git log --pretty="tformat:%at %h (%an, %ar)" "${branch}^..${branch}" | tail -n 1)
+    fi
     firstCommits+=("$firstCommit $branch")
 
 done

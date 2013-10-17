@@ -1,0 +1,21 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+    Keep "base", the common ancestor in case of merge conflicts.
+    Supply <paths> or use -a to apply this to all conflicted files in the index.
+Usage: "$(basename "$1")" [-a|--all] [--] [<file>...] [-?|-h|--help]
+HELPTEXT
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+if [ $# -eq 0 ]; then
+    # Alert when no file passed; git checkout then prints the unhelpful "fatal: --ours/--theirs is incompatible with switching branches"
+    printUsage "$0"
+    exit 2
+fi
+
+# git checkout apparently cannot do this: "error: path is unmerged"
+exec git checkout-index -f --stage=1 "$@"

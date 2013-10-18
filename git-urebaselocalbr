@@ -1,0 +1,81 @@
+#!/bin/bash
+
+shopt -qs extglob
+
+printUsage()
+{
+    cat <<HELPTEXT
+Rebase all / the last committed N local branches (except for the current branch
+and master) to the updated upstream head.
+Usage: "$(basename "$1")" [--continue|--skip|--abort] [--branches "<branch1> ..."] [N] [-i|--interactive] [options]
+HELPTEXT
+}
+
+branchNum=9999
+inputBranches=
+rebaseAction=
+if [ "$1" = '--branches' ]; then
+    # Internal hook to pass in the branches.
+    shift
+    inputBranches=$1
+    shift
+fi
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --continue|--skip|--abort)	rebaseAction=$1; shift;;
+    +([0-9]))		branchNum=$1; shift;;
+esac
+
+
+branchStore="$(git rev-parse --git-dir 2>/dev/null)/rebaselocalbr" || exit $?
+getNextBranch()
+{
+    branch=$(head -n 1 "$branchStore")
+    if [ "$branch" ]; then
+	sed -i '1d' "$branchStore"
+    else
+	rm "$branchStore"
+    fi
+    printf '%s\n' "$branch"
+}
+
+
+if [ ! "$rebaseAction" ]; then
+    branches=$(git-localbr $inputBranches | tail -n "$branchNum") || exit $?
+    if [ ! "$branches" ]; then
+	echo >&2 "No local branches found!"
+	exit 1
+    fi
+
+    echo "Rebasing to upstream:
+${branches// /
+}
+"
+    commandSeparator=
+    for branch in $branches
+    do
+	printf '%sgit rebase upstream/master%s%s %s' "$commandSeparator" "${*+ }" "$*" "$branch"
+	commandSeparator=' && '
+    done
+    printf '\n'
+
+    printf %s "Really rebase these branches? (y/n) "
+    read answer
+    [ "$answer" = "y" ] || exit 1
+
+    printf '%s\n' "$branches" > "$branchStore" || exit $?
+else
+    git rebase upstream/master "$rebaseAction" || exit $?
+fi
+
+while true
+do
+    branch=$(getNextBranch)
+    if [ ! "$branch" ]; then
+	echo >&2 "All local branches have been rebased."
+	exit
+    fi
+
+    git rebase upstream/master "$@" $branch || exit $?
+    [ "$(git ls-files --unmerged)" ] && exit 1
+done

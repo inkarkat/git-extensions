@@ -91,6 +91,7 @@
 	br = branch
 	;; bra: List (local; -r remote-tracking; -a both) branches (optionally filtered by <glob>) ordered by date of most recent commit.
 	;; brc: List (local; -r remote-tracking; -a both) branches (optionally filtered by <glob>) ordered by date of first commit.
+	;; cobr: Create (and track) local branches for all remote branches (matching PATTERN).
 	deletebr = branch -d	; Delete branch; use odelete to remove the branch in origin, too.
 	renamebr = branch -m	; Rename branch.
 	;; archivebr: Tag <branch>, then delete it from the local repository as well as origin. Use to remove old branches that have been incorporated into master, or pass -f to force archiving.
@@ -214,6 +215,9 @@
 	picks = cherrypicks -v --abbrev=7	; See which changes from the current branch (e.g. feature) are already present in the passed branch (e.g. master).
 	conflicts = "!sh -c 'git ls-files --unmerged \"$@\" | cut -f2 | uniq' -"    ; List files with merge conficts.
 	; Source: http://akahn.net/2011/10/12/working-through-git-conflicts-in-vim.html
+	;; cob: Keep "base", the common ancestor in case of merge conflicts.
+	;; coo: Keep "ours", the original one we had (ORIG_HEAD), or the one we're rebasing onto, in case of merge conflicts.
+	;; cot: Keep "theirs", the version merged in (MERGE_HEAD), or the one from the branch we're rebasing, in case of merge conflicts.
 	;; reflog: Show recorded changes to the tip of a branch, mostly to restore unreachable old commits via head@{1}.
 	;; inout: Show incoming and outgoing commit logs between current / passed branch and its remote tracked branch / passed branch.
 	io = inout
@@ -288,6 +292,7 @@
 
 	obrowse = browse origin
 	obr = "!sh -c 'git branch -r \"$@\"' | GREP_OPTIONS= grep origin/ -" ; List all branches in my GitHub clone.
+	;; ocobr: Create (and track) local branches for all branches in origin (matching PATTERN).
 	odiff = diff origin/master ; Show differences to my GitHub clone.
 	;; ol: l origin/master
 	;; olc: lc origin/master
@@ -334,6 +339,7 @@
 	ufetch = fetch upstream	; Get upstream changes.
 	umerge = merge upstream/master	; Merge upstream changes with my local repo.
 	urb = rebase upstream/master	; Rebase my commits on top of the latest upstream. "co mybranch" first, clone it via "git co -b mybranch-old; git opublish" if you want to keep the old one, or just use "urb mybranch". You can also do this after the rebase, but before pushing: "git tco -b mybranch-old; git opublish; git co mybranch". Persist with "git opush -f"; undo with "git treset --hard".
+	;; urebaselocalbr: Rebase all / the last committed N local branches (except for the current branch and master) to the updated upstream head.
 	; To make pull default to rebase instead of merge, can use these:
 	; # make "git pull" on master always use rebase
 	; $ git config branch.master.rebase true

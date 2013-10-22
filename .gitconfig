@@ -238,6 +238,10 @@
 	rb = rebase
 	; For merging, you switch to the target branch (e.g. master), then merge the source branch.
 	; For rebasing, you stay in your working branch and rebase to master.
+	; Therefore, the meaning of "ours" and "theirs" is somewhat unintuitive:
+	; - what we have on the checked out master branch is 'ours',
+	; - what we had (and is being merged or replayed) in our working branch is 'theirs'.
+	; Possible actions:
 	; 	a) Remove commits by deleting lines. Like the revert command, but off the
 	; 	   record: it will be as if the commit never existed.
 	; 	b) Reorder commits by reordering lines.
@@ -248,6 +252,7 @@
 	;	g) "fixup" to merge a commit with the previous one and discard the log message.
 	; During a rebase:
 	; 	1. Resolve the conflicted files; "git conflicts" tells them (again)
+	; 	   To completely override upstream's changes, we have to use "theirs" (from the branch being rebased, i.e. git cot), not "ours"; this is unintuitive!
 	; 	2. git add # after the conflicts have been resolved
 	; 	3. git rbc
 	; It may help to have both our and their changes separately:
@@ -259,8 +264,8 @@
 	;; git rebase HEAD <feature> && git rebase HEAD @{-2}: rebase <feature> to current branch and merge back to current
 	;; git merge --squash: Create a single commit on top of the current branch whose effect is the same as merging the other branch. Shorter form of interactive rebasing where you choose squash for all following commits.
 	; merging
-	;; checkout --ours:   will keep the original one we had (ORIG_HEAD) in case of merge conflict
-	;; checkout --theirs: will keep the version merged in (MERGE_HEAD) in case of merge conflict
+	;; checkout --ours:   (or git coo) will keep the original one we had (ORIG_HEAD) in case of merge conflict
+	;; checkout --theirs: (or git cot) will keep the version merged in (MERGE_HEAD) in case of merge conflict
 	;; mergeto: Merge the current branch to <target-branch>.
 	mergem = mergeto master
 	;; mergelocalbr: Merge all / the last committed N local branches (except for the current branch and master).

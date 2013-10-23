@@ -40,32 +40,18 @@ getNextBranch()
 
 
 if [ ! "$rebaseAction" ]; then
-    IFS=$'\n'
-    typeset -a localBranches=($(git-localbr $inputBranches | tail -n "$branchNum")) || exit $?
-    if [ ${#localBranches[@]} -eq 0 ]; then
+    branches=$(git-localbr $inputBranches | tail -n "$branchNum") || exit $?
+    if [ ! "$branches" ]; then
 	echo >&2 "No local branches found!"
 	exit 1
     fi
 
-    typeset -a branches
-    for candidateBranch in "${localBranches[@]}"
-    do
-	if [ "$(git rev-list $candidateBranch..upstream/master)" ]; then
-	    branches+=("$candidateBranch")
-	else
-	    printf 'Branch %s is up to date.\n' "$candidateBranch"
-	fi
-    done
-    if [ ${#branches[@]} -eq 0 ]; then
-	echo >&2 "All local branches are up to date!"
-	exit 1
-    fi
-
     echo "Rebasing to upstream:
-${branches[*]}
+${branches// /
+}
 "
     commandSeparator=
-    for branch in "${branches[@]}"
+    for branch in $branches
     do
 	printf '%sgit rebase upstream/master%s%s %s' "$commandSeparator" "${*+ }" "$*" "$branch"
 	commandSeparator=' && '
@@ -76,7 +62,7 @@ ${branches[*]}
     read answer
     [ "$answer" = "y" ] || exit 1
 
-    printf '%s\n' "${branches[*]}" > "$branchStore" || exit $?
+    printf '%s\n' "$branches" > "$branchStore" || exit $?
     git-orig-ref > "$origBranchStore"
 else
     git rebase "$rebaseAction" || exit $?

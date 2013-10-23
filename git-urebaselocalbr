@@ -1,6 +1,7 @@
 #!/bin/bash
 
 shopt -qs extglob
+readonly upstreamBranch=upstream/master
 
 printUsage()
 {
@@ -27,7 +28,9 @@ case "$1" in
 esac
 
 
-branchStore="$(git rev-parse --git-dir 2>/dev/null)/rebaselocalbr" || exit $?
+readonly gitDir=$(git rev-parse --git-dir 2>/dev/null) || exit $?
+origBranchStore="${gitDir}/rebaselocalorigbr"
+branchStore="${gitDir}/rebaselocalbr" || exit $?
 getNextBranch()
 {
     [ -f "$branchStore" ] || return
@@ -38,20 +41,34 @@ getNextBranch()
 
 
 if [ ! "$rebaseAction" ]; then
-    branches=$(git-localbr $inputBranches | tail -n "$branchNum") || exit $?
-    if [ ! "$branches" ]; then
+    IFS=$'\n'
+    typeset -a localBranches=($(git-localbr $inputBranches | tail -n "$branchNum")) || exit $?
+    if [ ${#localBranches[@]} -eq 0 ]; then
 	echo >&2 "No local branches found!"
 	exit 1
     fi
 
-    echo "Rebasing to upstream:
-${branches// /
-}
+    typeset -a branches
+    for candidateBranch in "${localBranches[@]}"
+    do
+	if [ "$(git rev-list ${candidateBranch}..${upstreamBranch})" ]; then
+	    branches+=("$candidateBranch")
+	else
+	    printf 'Branch %s is up to date.\n' "$candidateBranch"
+	fi
+    done
+    if [ ${#branches[@]} -eq 0 ]; then
+	echo >&2 "All local branches are up to date!"
+	exit 1
+    fi
+
+    echo "Rebasing to ${upstreamBranch}:
+${branches[*]}
 "
     commandSeparator=
-    for branch in $branches
+    for branch in "${branches[@]}"
     do
-	printf '%sgit rebase upstream/master%s%s %s' "$commandSeparator" "${*+ }" "$*" "$branch"
+	printf '%sgit rebase ${upstreamBranch}%s%s %s' "$commandSeparator" "${*+ }" "$*" "$branch"
 	commandSeparator=' && '
     done
     printf '\n'
@@ -60,7 +77,8 @@ ${branches// /
     read answer
     [ "$answer" = "y" ] || exit 1
 
-    printf '%s\n' "$branches" > "$branchStore" || exit $?
+    printf '%s\n' "${branches[*]}" > "$branchStore" || exit $?
+    git-orig-ref > "$origBranchStore"
 else
     git rebase "$rebaseAction" || exit $?
 fi
@@ -70,9 +88,14 @@ do
     branch=$(getNextBranch)
     if [ ! "$branch" ]; then
 	echo >&2 "All local branches have been rebased."
+
+	if [ -f "$origBranchStore" ]; then
+	    git checkout "$(<"$origBranchStore")"
+	    rm "$origBranchStore"
+	fi
 	exit
     fi
 
-    git rebase upstream/master "$@" $branch || exit $?
+    git rebase "$upstreamBranch" "$@" $branch || exit $?
     [ "$(git ls-files --unmerged)" ] && exit 1
 done

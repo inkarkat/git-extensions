@@ -68,16 +68,7 @@ INSTRUCTIONS
 esac
 
 case ",${DEBUG}," in *,git-ident-update,*) echo '**** git-ident-update hook called';; esac
-getOrigRef()
-{
-    git symbolic-ref --short --quiet HEAD 2>/dev/null && return
-
-    # Git 1.7.9 on Cygwin doesn't understand the --short option; fall back to
-    # shorting it ourselves.
-    longOrig=$(git symbolic-ref --quiet HEAD 2>/dev/null)
-    printf %s "${longOrig#refs/heads/}"
-}
-readonly orig=$(getOrigRef)
+readonly orig=$(git-orig-ref)
 if [ ! "$orig" ]; then
     echo >&2 "$(basename "$0"): Failed to get the symbolic ref to the current branch; cannot update the ident attribute!"
     exit 1
@@ -86,7 +77,14 @@ fi
 git checkout --quiet HEAD^ || exit $?
 if git checkout --quiet "$orig"; then
     echo 'Updated ident string for:'
-    git diff --name-only --diff-filter=ACMR HEAD^
+    IFS=$'\n'
+    for file in $(git diff --name-only --diff-filter=ACMR HEAD^)
+    do
+	attrCheck=$(git check-attr ident -- "$file")
+	if [ "${attrCheck%: ident: set}" != "$attrCheck" ]; then
+	    printf '%s\n' "$file"
+	fi
+    done
 else
     exit $?
 fi

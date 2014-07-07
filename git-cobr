@@ -4,19 +4,12 @@ printUsage()
 {
     cat <<HELPTEXT
 Create (and track) local branches for all remote branches (matching PATTERN).
-Usage: "$(basename "$1")" [PATTERN] [-q|--quiet] [-?|-h|--help]
+Usage: "$(basename "$1")" [PATTERN] [-?|-h|--help]
 HELPTEXT
 }
-isQuiet=
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --quiet|-q)		shift; isQuiet=t;;
 esac
-
-printMessage()
-{
-    [ "$isQuiet" ] || echo >&2 "$@"
-}
 
 readonly orig=$(git-orig-ref)
 hadOne=
@@ -25,7 +18,7 @@ for remote in $(git branch --remotes | grep -v '/master$' | grep -e "$1")
 do
     branch=${remote##*/}
     if git show-ref --verify --quiet refs/heads/$branch; then
-	printMessage "Branch $branch already exists."
+	echo >&2 "Branch $branch already exists."
     else
 	hadOne=t
 	git checkout --track $remote || status=1
@@ -34,6 +27,6 @@ done
 if [ "$hadOne" ]; then
     [ "$orig" ] && git checkout "$orig"
 else
-    printMessage "No (untracked) branch(es) found."
+    echo >&2 "No (untracked) branch(es) found."
 fi
 [ $status -eq 0 ] || exit $status

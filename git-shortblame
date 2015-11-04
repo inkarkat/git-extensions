@@ -1,11 +1,18 @@
 #!/bin/sh
-# Unfortunately, git blame can only omit both author and timestamp via -s. 
-# I just want to get rid of the timestamp. 
+# I use git annotate instead of git blame; its output format is tab-delimited,
+# which makes parsing somewhat easier, and it does not contain file names (when
+# there are renamings, or forced with --show-name, but cannot be disabled).
+#
+# Unfortunately, git blame / annotate can only omit both author and timestamp
+# via -s. I just want to get rid of the timestamp.
+#
 # And make the author a single word, i.e. replace spaces with "_", so that it
 # can be matched and operated on in an easier way. (And more consistent with
 # blame output from other revision control systems (like Subversion), which
-# don't allow spaces in the author name.) 
-# -M detects moving lines in the file. 
-git blame -M -t "$@" | perl \
+# don't allow spaces in the author name.)
+#
+# -M detects moving lines in the file.
+# -t uses raw timestamps; which are easiest to parse.
+git annotate -M -t "$@" | perl \
     -e 'sub fix { my $arg = shift; $arg =~ s/ /_/g; return $arg; }' \
-    -lpe 's/^([^(]*)\(([^)]*[^) ])( +)\d+ [+-]\d+ +\d+\)/$1 . " " . fix($2) . $3 . ")"/e' | less --RAW-CONTROL-CHARS
+    -lpe 's/^([^\t]*)\t\(([^\t]+)\t\d+ [+-]\d+\t+\d+\)/$1 . " " . fix($2) . $3 . ") "/e' | less --RAW-CONTROL-CHARS

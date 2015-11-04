@@ -1,9 +1,15 @@
 #!/bin/bash
 # Source: http://www.commandlinefu.com/commands/view/10601/open-the-current-project-on-github-by-typing-gh
 
-if type -P browse > /dev/null; then
+if type -P browse >/dev/null; then
     browser=browse
+elif type -P x-www-browser >/dev/null; then
+    browser=x-www-browser
+elif type -P xdg-open >/dev/null; then
+    browser=xdg-open
 else
-    browser=open
+    echo >&2 "Cannot find a web browser; point the BROWSER environment variable to one."
+    exit 1
 fi
+
 git remote -v | grep fetch | grep "${1:-origin}" | sed 's/\(.*github.com\)[:|/]\(.*\).git (fetch)/\2/' | awk {'print "https://github.com/" $1'} | xargs "$browser"

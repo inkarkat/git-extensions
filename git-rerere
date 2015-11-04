@@ -1,0 +1,54 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Extension of rerere, with the following additional subcommands:
+    list
+	Show all recorded conflict resolutions, from latest to earlier ones.
+    delete
+	Remove all recorded conflict resolutions.
+	With -i: Show from latest to earlier and query whether to delete it.
+
+Usage: "$(basename "$1")" [list|delete [-i]|clear|forget <pathspec>|diff|status|gc] [-?|-h|--help]
+HELPTEXT
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    list)		shift; action=list; choices='Next resolution, or quit? (n/q)';;
+    delete)		shift
+			[ "$1" = -i ] && action=interactive-delete || action=delete
+			choices='Delete, delete all, skip, or quit? (d/a/s/q)'
+			;;
+    *)			exec git rerere "$@";;	# Pass through to original rerere command.
+esac
+
+readonly gitDir=$(git rev-parse --git-dir 2>/dev/null) || exit $?
+readonly rrCacheDir=${gitDir}/rr-cache
+[ -d "$rrCacheDir" ] || { echo 'Error: rerere cache dir not found'; exit 1; }
+
+if [ "$action" = delete ]; then
+    exec rm "${rrCacheDir}"/*/postimage
+fi
+
+# Highlight diff output if available.
+hasColorDiff=
+type -t colordiff >/dev/null && hasColorDiff=t
+
+IFS=$'\n'
+for filespec in $(ls -1t "${rrCacheDir}"/*/postimage)
+do
+    if [[ "$choice" != [aA] ]]; then
+	diff --suppress-common-lines -U 1 "${filespec%postimage}preimage" "$filespec" | \
+	    if [ "$hasColorDiff" ]; then colordiff; else cat; fi | \
+	    less --quit-on-intr --RAW-CONTROL-CHARS
+    fi
+    [[ "$choice" == [aA] ]] || read -p "$choices" choice
+    [ "$choice" ] || choice=$previousChoice
+    previousChoice=$choice
+    case $choice in
+	[nNsS])	continue;;
+	[qQ])	exit 0;;
+	[dDaA])	[ "$action" = interactive-delete ] && rm "${filespec}";;
+    esac
+done

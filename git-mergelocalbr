@@ -5,18 +5,10 @@ shopt -qs extglob
 printUsage()
 {
     cat <<HELPTEXT
-    Merge all / the last committed N local branches (except for the current
-    branch and master).
+Merge all / the last committed N local branches (except for the current
+branch and master).
 Usage: "$(basename "$1")" [--branches "<branch1> ..."] [N] [--no-commit] [--squash] [-s <strategy>] [-m <msg>]
 HELPTEXT
-}
-getBranches()
-{
-    if [ "$inputBranches" ]; then
-	printf '%s\n' "$inputBranches"
-    else
-	git for-each-ref --sort=committerdate --format='%(refname:short)' refs/heads/
-    fi
 }
 
 branchNum=9999
@@ -32,9 +24,7 @@ case "$1" in
     +([0-9]))		branchNum=$1; shift;;
 esac
 
-currentBranch=$(git symbolic-ref HEAD) || exit $?
-currentBranch=${currentBranch##refs/heads/}
-branches=$(getBranches | grep -v -F --line-regexp -e 'master' -e "$currentBranch" | tail -n "$branchNum") || exit $?
+branches=$(git-localbr $inputBranches | tail -n "$branchNum") || exit $?
 if [ ! "$branches" ]; then
     echo >&2 "No local branches found!"
     exit 1

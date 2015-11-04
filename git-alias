@@ -3,14 +3,16 @@
 printUsage()
 {
     cat <<HELPTEXT
-List all git command extensions and newly defined commands.
-Usage: "$(basename "$1")" [-?|-h|--help]
+List all git command extensions and newly defined commands [starting with
+<pattern>].
+Usage: "$(basename "$1")" [<pattern>] [-?|-h|--help]
 HELPTEXT
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
 
+if [ $# -eq 0 ]; then
 sed \
     -e '
 	/^\[alias\]/,/^\[/{
@@ -33,3 +35,26 @@ sed \
 	}' \
     ~/.gitconfig \
     | sed -e '/^\t/!s/[^=]*/[01m&[0m/' -e '/^\t/s/^\t//' | less --RAW-CONTROL-CHARS
+else
+sed -n \
+    -e '
+	/^\[alias\]/,/^\[/{
+	    /^\[alias\]/d;
+	    /^\[/Q;
+
+	    # Remove indent.
+	    s/^[ \t]*//;
+
+
+	    /^;; \('"$1"'[^:]*\):[ \t]\+/{
+		s/^;; \([^:]\+\):[ \t]\+\(.*\)/[01m\1[0m\n\2/p
+	    }
+	    /^'"$1"'[^=]*=[ \t]/{
+		s/[^=]*/[01m&[0m/
+		s/=[ \t][^;]*[ \t];[ \t]*/\n/;
+		p
+	    }
+	}' \
+    ~/.gitconfig \
+    | less --RAW-CONTROL-CHARS
+fi

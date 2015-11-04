@@ -1,0 +1,23 @@
+#!/bin/sh
+# Source:
+#   http://codingkilledthecat.wordpress.com/2012/04/27/git-stash-pop-considered-harmful/
+
+printUsage()
+{
+    cat <<HELPTEXT
+Stash the changes in a dirty working directory in a new branch.
+Usage: "$(basename "$1")"  [-m <msg>] [-?|-h|--help]
+HELPTEXT
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+if [ $# -eq 0 ]; then
+    echo >&2 'Need new <branch> to stash to!'
+    exit 2
+fi
+
+branch=$(git symbolic-ref HEAD) || exit $?
+branch=${branch##refs/heads/}
+
+git checkout -b "$1" && git commit -a "$@" && git checkout "$branch"

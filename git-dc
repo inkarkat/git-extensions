@@ -1,0 +1,27 @@
+#!/bin/bash
+
+# Highlight diff output if available.
+hasColorDiff=
+type -t colordiff >/dev/null && hasColorDiff=t
+
+typeset -a allargs=()
+while [ $# -gt 0 ]
+do
+    case "$1" in
+	--no-color)
+	    shift
+	    hasColorDiff=
+	    ;;
+	*)
+	    allargs+=("$1")
+	    shift
+	    ;;
+    esac
+done
+
+set -o pipefail
+if [ "$hasColorDiff" ]; then
+    git difftool -y -x "diff -c" "${allargs[@]}" | colordiff | less --quit-on-intr --RAW-CONTROL-CHARS
+else
+    git difftool -y -x "diff -c" "${allargs[@]}" | less --quit-on-intr --RAW-CONTROL-CHARS
+fi

@@ -6,7 +6,7 @@ printUsage()
 Update the expansion of \$Id\$ to \$Id:...\$ via ident in the .gitattributes
 after a commit.
 To do this automatically in the future, invoke with --install.
-Usage: "$(basename "$1")" [--install|--uninstall|--status] [-?|-h|--help]
+Usage: "$(basename -- "$1")" [--install|--uninstall|--status|--set [<path>[ <path> ...]]] [-?|-h|--help]
 HELPTEXT
 }
 
@@ -56,7 +56,10 @@ The hook is installed, but no .gitattributes have been configured yet.
 To apply the $Id$ and $Id:...$ replacement for all files in the repository,
 execute:
 echo '* ident' >> .gitattributes
-git commit file .gitattributes
+git commit .gitattributes
+Alternatively, you can use
+"$(basename -- "$0")" --set [<path>]
+git commit [<path>/].gitattributes
 INSTRUCTIONS
 				exit 2
 			    fi
@@ -65,12 +68,23 @@ INSTRUCTIONS
 			    exit 1
 			fi
 			;;
+    --set)		shift
+			if [ $# -eq 0 ]; then
+			    echo '* ident' >> .gitattributes
+			else
+			    for path
+			    do
+				echo '* ident' >> "${path%/}/.gitattributes"
+			    done
+			fi
+			exit 0
+			;;
 esac
 
 case ",${DEBUG}," in *,git-ident-update,*) echo '**** git-ident-update hook called';; esac
 readonly orig=$(git-orig-ref)
 if [ ! "$orig" ]; then
-    echo >&2 "$(basename "$0"): Failed to get the symbolic ref to the current branch; cannot update the ident attribute!"
+    echo >&2 "$(basename -- "$0"): Failed to get the symbolic ref to the current branch; cannot update the ident attribute!"
     exit 1
 fi
 

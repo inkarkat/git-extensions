@@ -1,4 +1,6 @@
 #!/usr/bin/perl
+# Source: http://stackoverflow.com/questions/223678/git-which-commit-has-this-blob
+
 use 5.008;
 use strict;
 use Memoize;
@@ -6,7 +8,14 @@ use Memoize;
 die "usage: git-find-blob <blob> [<git-log arguments ...>]\n"
     if not @ARGV;
 
-my $obj_name = shift;
+my $blob_arg = shift;
+
+open my $rev_parse, '-|', git => 'rev-parse' => '--verify', $blob_arg
+    or die "Couldn't open pipe to git-rev-parse: $!\n";
+my $blob = <$rev_parse>;
+chomp $blob;
+close $rev_parse or die "Couldn't expand passed blob.\n";
+$blob eq $blob_arg or print "(full blob is $blob)\n";
 
 sub check_tree {
     my ( $tree ) = @_;
@@ -19,7 +28,7 @@ sub check_tree {
         while ( <$ls_tree> ) {
             /\A[0-7]{6} (\S+) (\S+)/
                 or die "unexpected git-ls-tree output";
-            return 1 if $2 eq $obj_name;
+            return 1 if $2 eq $blob;
             push @subtree, $2 if $1 eq 'tree';
         }
     }

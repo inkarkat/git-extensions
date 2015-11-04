@@ -1,0 +1,13 @@
+#!/bin/sh
+
+remoteBranch=$(git tracks) || exit $?
+
+if [ "$1" = '--must-be-origin' ]; then
+    shift
+    if [ "${remoteBranch%%/*}" != 'origin' ]; then
+	echo "This branch does not track a branch in origin: ${remoteBranch}"
+	exit 1
+    fi
+fi
+
+git reset "$@" "${remoteBranch:?}"

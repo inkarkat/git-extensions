@@ -1,8 +1,10 @@
 #!/bin/bash
 
-git symbolic-ref --short --quiet HEAD 2>/dev/null && return
+git symbolic-ref --short --quiet HEAD 2>/dev/null && exit
+# Add --quiet and suppress stderr so that a potential "unknown switch" error
+# message isn't shown here. (It will when we retry next.)
 
 # Git 1.7.9 on Cygwin doesn't understand the --short option; fall back to
 # shorting it ourselves.
-longOrig=$(git symbolic-ref --quiet HEAD 2>/dev/null)
+longOrig=$(git symbolic-ref HEAD) || exit $?
 printf '%s\n' "${longOrig#refs/heads/}"

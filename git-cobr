@@ -3,9 +3,9 @@
 printUsage()
 {
     cat <<HELPTEXT
-Create (and track) local branches for all remote branches (within REMOTE,
-matching PATTERN).
-Usage: "$(basename "$1")" [-q|--quiet] [REMOTE] [PATTERN] [-?|-h|--help]
+Create (and track) local branches for all remote branches (within <remote>,
+matching <pattern>).
+Usage: "$(basename "$1")" [-q|--quiet] [<remote>] [<pattern>] [-?|-h|--help]
 HELPTEXT
 }
 isQuiet=
@@ -14,13 +14,12 @@ case "$1" in
     --quiet|-q)		shift; isQuiet=t;;
 esac
 remoteFilter=
-branchFilter=
+branchPattern=$1
 if [ "$1" ] && git remote | grep -q -e "^${1}$"; then
     remoteFilter="| grep -e ' ${1}/'"
-    [ "$2" ] && branchFilter="| grep -e '$2'"
-elif [ "$1" ]; then
-    branchFilter="| grep -e '$1'"
+    branchPattern=$2
 fi
+[ "$branchPattern" ] && branchFilter="| grep -e '$branchPattern'"
 
 
 printMessage()
@@ -44,6 +43,6 @@ done
 if [ "$hadOne" ]; then
     [ "$orig" ] && git checkout "$orig"
 else
-    printMessage "No (untracked) branch(es) found."
+    printMessage "No (untracked) branch(es) ${branchPattern:+matching \"${branchPattern}\" }found."
 fi
 [ $status -eq 0 ] || exit $status

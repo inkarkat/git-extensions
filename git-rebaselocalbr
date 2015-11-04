@@ -1,0 +1,102 @@
+#!/bin/bash
+
+shopt -qs extglob
+
+printUsage()
+{
+    cat <<HELPTEXT
+Rebase all / the last committed N local branches (except for the current branch
+and master) to the updated passed (or configured in branch.<name>.remote and
+branch.<name>.merge) upstream head.
+Usage: "$(basename "$1")" [--continue|--skip|--abort] [--upstream <remote>/<branch>] [--branches "<branch1> ..."] [N] [-i|--interactive] [options]
+HELPTEXT
+}
+
+branchNum=9999
+upstreamBranch=
+inputBranches=
+rebaseAction=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)		    shift; printUsage "$0"; exit 0;;
+	--branches)		    shift; inputBranches=$1; shift;;	# Internal hook to pass in the branches.
+	--upstream)		    shift; upstreamBranch=$1; shift;;
+	--continue|--skip|--abort)  rebaseAction=$1; shift; break;;
+	+([0-9]))		    branchNum=$1; shift;;
+	*)			    break;;
+    esac
+done
+
+
+readonly gitDir=$(git rev-parse --git-dir 2>/dev/null) || exit $?
+origBranchStore="${gitDir}/rebaselocalorigbr"
+branchStore="${gitDir}/rebaselocalbr" || exit $?
+getNextBranch()
+{
+    [ -f "$branchStore" ] || return
+    head -n 1 "$branchStore"
+    sed -i '1d' "$branchStore"
+    [ -s "$branchStore" ] || rm "$branchStore"
+}
+
+
+if [ ! "$rebaseAction" ]; then
+    IFS=$'\n'
+    typeset -a localBranches=($(git-localbr $inputBranches | tail -n "$branchNum")) || exit $?
+    if [ ${#localBranches[@]} -eq 0 ]; then
+	echo >&2 "No local branches found!"
+	exit 1
+    fi
+
+    typeset -a branches
+    for candidateBranch in "${localBranches[@]}"
+    do
+	if [ ! "$upstreamBranch" -o "$(git rev-list ${candidateBranch}..${upstreamBranch})" ]; then
+	    branches+=("$candidateBranch")
+	else
+	    printf 'Branch %s is up to date.\n' "$candidateBranch"
+	fi
+    done
+    if [ ${#branches[@]} -eq 0 ]; then
+	echo >&2 "All local branches are up to date!"
+	exit 1
+    fi
+
+    echo "Rebasing${upstreamBranch:+ to ${upstreamBranch}}:
+${branches[*]}
+"
+    commandSeparator=
+    for branch in "${branches[@]}"
+    do
+	printf '%sgit rebase ${upstreamBranch}%s%s %s' "$commandSeparator" "${*+ }" "$*" "$branch"
+	commandSeparator=' && '
+    done
+    printf '\n'
+
+    printf %s "Really rebase these branches? (y/n) "
+    read answer
+    [ "$answer" = "y" ] || exit 1
+
+    printf '%s\n' "${branches[*]}" > "$branchStore" || exit $?
+    git-orig-ref > "$origBranchStore"
+else
+    git rebase "$rebaseAction" || exit $?
+fi
+
+while true
+do
+    branch=$(getNextBranch)
+    if [ ! "$branch" ]; then
+	echo >&2 "All local branches have been rebased."
+
+	if [ -f "$origBranchStore" ]; then
+	    git checkout "$(<"$origBranchStore")"
+	    rm "$origBranchStore"
+	fi
+	exit
+    fi
+
+    eval 'git rebase' $upstreamBranch '"$@" $branch' || exit $?
+    [ "$(git ls-files --unmerged)" ] && exit 1
+done

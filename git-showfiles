@@ -1,27 +1,45 @@
-#!/bin/sh
+#!/bin/bash
+
+# Sources:
+#   http://stackoverflow.com/questions/1552340/git-show-all-changed-files-between-two-commits
+#   http://stackoverflow.com/questions/3144647/git-show-all-files-changed-between-two-commits
 
 printUsage()
 {
     cat <<HELPTEXT
 Show the files modified in passed commit or commit range.
-Usage: "$(basename "$1")" [<since>..<until>] [[--] <path>...] [-?|-h|--help]
+With --intermediate, files that are again the same, but were changed and then
+changed back, are included, too.
+Usage: "$(basename "$1")" [--intermediate] [<since>..<until>] [[--] <path>...] [-?|-h|--help]
 HELPTEXT
 }
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-esac
 
 haveRange=
-for argument
+isIncludeIntermediate=
+typeset -a allargs=()
+while [ $# -ne 0 ]
 do
-    case "$argument" in
-	*..*)	    haveRange='true';;
-	--)	    break;;
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--intermediate)	shift; isIncludeIntermediate=t;;
+	*..*)		haveRange=t; allargs+=("$1"); shift;;
+	--)		allargs+=("$1"); shift; break;;
+	*)		allargs+=("$1"); shift;;
     esac
 done
 
+if [ "$isIncludeIntermediate" -a ! "$haveRange" ]; then
+    echo >&2 "ERROR: Need a <since>..<until> range to show intermediate changes!"
+    exit 2
+fi
+
 if [ "$haveRange" ]; then
-    git log --pretty='format:' --name-status "$@"
+    if [ "$isIncludeIntermediate" ]; then
+	git log --pretty='format:' --name-status "${allargs[@]}" "$@"
+    else
+	# Source: http://stackoverflow.com/a/1552353/813602
+	git diff --name-status "${allargs[@]}" "$@"
+    fi
 else
-    git show --pretty='format:' --name-status "$@"
+    git show --pretty='format:' --name-status "${allargs[@]}" "$@"
 fi | sort -u | sed -e '/^$/d' | less --RAW-CONTROL-CHARS

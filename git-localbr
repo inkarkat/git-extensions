@@ -1,0 +1,28 @@
+#!/bin/bash
+
+shopt -qs extglob
+
+printUsage()
+{
+    cat <<HELPTEXT
+List all local / passed branches (except for the current branch and master).
+Usage: "$(basename "$1")" [<branch1> ...]
+HELPTEXT
+}
+getBranches()
+{
+    if [ $# -gt 0 ]; then
+	local IFS=$'\n'
+	printf '%s\n' "$*"
+    else
+	git for-each-ref --sort=committerdate --format='%(refname:short)' refs/heads/
+    fi
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+currentBranch=$(git symbolic-ref HEAD) || exit $?
+currentBranch=${currentBranch##refs/heads/}
+getBranches "$@" | grep -v -F --line-regexp -e 'master' -e "$currentBranch"

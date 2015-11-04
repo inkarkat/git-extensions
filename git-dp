@@ -3,9 +3,10 @@
 printUsage()
 {
     cat <<HELPTEXT
-Diff with predecessor, either current HEAD or passed revision. 
+Diff with predecessor, either current HEAD or passed revision,
+optionally limited to files in <path>. 
 Like the textual diff output of "git show", without the log info. 
-Usage: "$(basename "$1")" [REVISION] [<common diff options>] [-?|-h|--help]
+Usage: "$(basename "$1")" [REVISION] [<common diff options>] [--] [<path>...] [-?|-h|--help]
 HELPTEXT
 }
 case "$1" in
@@ -13,9 +14,11 @@ case "$1" in
 esac
 
 revision='HEAD'
-if [ $# -gt 0 -a "${1:0:1}" != '-' ]; then
+if [ $# -gt 0 -a "${1:0:1}" != '-' -a ! -e "$1" ]; then
+    # Take the first argument as a commit specification unless it looks like a
+    # diff argument or is an existing file. 
     revision=$1
     shift
 fi
 
-exec git diff "$@" "${revision}^" "$revision"
+exec git diff "${revision}^" "$revision" "$@"

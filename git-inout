@@ -1,0 +1,43 @@
+#!/bin/bash
+
+currentBranch()
+{
+    local branch=$(git symbolic-ref HEAD) || exit $?
+    branch=${branch##refs/heads/}
+    printf %s "$branch"
+}
+ensureValidRef()
+{
+    if ! git show-ref "$1" > /dev/null; then
+        echo >&2 "bad ref: $1"
+        exit 1
+    fi
+}
+gitOneLineLog()
+{
+    git --no-pager log --abbrev-commit --date=relative --decorate --pretty=tformat:'%C(cyan)%h%Creset %Cgreen(%aN, %ar)%Creset %C(red bold)%d%Creset %s' "$@"
+}
+
+if [ $# -eq 2 ]; then
+    localBranch=$1
+    remoteBranch=$2
+elif [ $# -eq 1 ]; then
+    localBranch=$(currentBranch)
+    remoteBranch=$1
+else
+    localBranch=$(currentBranch)
+    remoteBranch=$(git tracks) || exit $?
+fi
+
+ensureValidRef "$localBranch"
+ensureValidRef "$remoteBranch"
+
+set -o pipefail
+(
+    echo "incoming ${remoteBranch} -> ${localBranch}:"
+    gitOneLineLog $localBranch..$remoteBranch
+
+    echo
+    echo "outgoing ${localBranch} -> ${remoteBranch}:"
+    gitOneLineLog $remoteBranch..$localBranch
+) | less --RAW-CONTROL-CHARS

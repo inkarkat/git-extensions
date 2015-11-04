@@ -1,9 +1,22 @@
 #!/bin/sh
 
-branch=$(git symbolic-ref HEAD) || exit $?
-branch=${branch##refs/heads/}
-remote=$(git config "branch.${branch}.remote") || exit $?
+if [ $# -eq 0 ]; then
+    branch=$(git symbolic-ref HEAD) || exit $?
+    branch=${branch##refs/heads/}
+else
+    branch=$1
+fi
+if ! git show-ref "$branch" > /dev/null; then
+    echo >&2 "bad ref: $1"
+    exit 1
+fi
+
+remote=$(git config "branch.${branch}.remote") || {
+    status=$?
+    echo >&2 "no remote configured for $branch"
+    exit $status
+}
 remoteBranch=$(git config "branch.${branch}.merge") || exit $?
 remoteBranch=${remoteBranch##refs/heads/}
 
-echo "${remote:?}/${remoteBranch:?}"
+printf '%s/%s\n' "${remote:?}" "${remoteBranch:?}"

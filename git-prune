@@ -1,0 +1,51 @@
+#!/bin/bash
+# Source: http://stackoverflow.com/questions/13064613/git-how-to-prune-local-tracking-branches-that-do-not-exist-on-remote-anymore
+
+printUsage()
+{
+    cat <<HELPTEXT
+Remove old local branches that do not exist in <remote> any more.
+With --test, only print which local branches would be deleted.
+Usage: "$(basename "$1")" [-t|--test|-f|--force] <remote>
+HELPTEXT
+}
+
+isTest=
+branchDeleteOption=-d
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)		shift; printUsage "$0"; exit 0;;
+	-f|--force)		shift; branchDeleteOption=-D;;
+	-t|--test)		shift; isTest=t;;
+	--)			shift; break;;
+	-*)			{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)			break;;
+    esac
+done
+if [ $# -ne 1 ]; then
+    echo >&2 'Need <remote> to compare to!'
+    exit 2
+fi
+remote=$1
+
+
+IFS=$'\n'
+typeset -a remoteBranches=($(git branch -r | grep "^  ${remote}/" | awk '{print $1}'))
+
+status=0
+for localBranch in $(git branch | awk '{print $NF}')
+do
+    trackedRemote=$(git config "branch.${localBranch}.remote" 2>/dev/null)
+    if [ "$trackedRemote" = "$remote" ]; then
+	trackedBranch=$(git config "branch.${localBranch}.merge")
+	if ! contains "${remote}/${trackedBranch##refs/heads/}" "${remoteBranches[@]}"; then
+	    if [ "$isTest" ]; then
+		echo "Prune $localBranch"
+	    else
+		git branch $branchDeleteOption "$localBranch" || status=$?
+	    fi
+	fi
+    fi
+done
+exit $status

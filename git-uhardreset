@@ -3,6 +3,10 @@
 branch=$(git symbolic-ref HEAD) || exit $?
 branch=${branch##refs/heads/}
 
+force=
+case $1 in
+    --force|-f)	force=$1; shift;;
+esac
 ubranch=${1:-master}
 if [ "$ubranch" = 'master' -a "$branch" != 'master' ]; then
     # Typically, one does not reset one's branch to upstream's master.
@@ -11,4 +15,4 @@ if [ "$ubranch" = 'master' -a "$branch" != 'master' ]; then
     [ "$answer" = "y" ] || exit 1
 fi
 
-git hardreset "upstream/$ubranch" && git push -f origin
+git-hardreset $force "$@" "upstream/$ubranch"

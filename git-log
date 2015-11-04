@@ -1,2 +1,16 @@
-#!/bin/sh
-exec git log --decorate "$@"
+#!/bin/bash
+
+typeset arg
+typeset -a allargs=()
+typeset isLiteral=
+for arg
+do
+    if [ ! "$isLiteral" -a "$arg" = '-v' ]; then
+	allargs+=('--name-status')
+    else
+	[ "$arg" = '--' ] && isLiteral=t
+	allargs+=("$arg")
+    fi
+done
+
+exec git log --decorate "${allargs[@]}"

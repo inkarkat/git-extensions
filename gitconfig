@@ -1,0 +1,417 @@
+	; data transport commands overview:
+	;     ----- add ----> -- commit --> -- publish -->
+	;     ----- addu ---> -- commit --> -- push ----->
+	; [WORKING COPY]  [INDEX]    [LOCAL REPO]  [REMOTE REPO]
+	;     <------------ pull or rebase ---------------
+	;                                   <-- fetch ----
+	;     <--------- checkout HEAD ----
+	;     <-- checkout --               ------\
+	;                            ^- uncommit -/
+	;                     <------^--- peel ---/
+	;                     <-- unstage -
+	;     <---------------^---- wipe --
+	;
+	;     <--------- dh ---------------
+	;     <---- d ------- <--- di -----
+
+	;; rev-parse: Parsing of git revision syntaxes.
+	;
+	; Commit addressing:
+	; - parents: head^^^ = head~3; second merge parent: ^2; combined:
+	;	 $ git checkout 1b6d^^2~10 -b ancient
+	;   starts a new branch "ancient" representing the state 10 commits back
+	;   from the second parent of the first parent of the commit starting with
+	;   1b6d.
+	; - commit message matches a string: :/string
+	; - date: @{yesterday} "branch@{two days ago}"
+	; - from reflog (where the tip of the branch used to be 2 moves ago): branch@{2}
+	; 	e.g. previous commit: @{1}
+	; - previous checked out branch : @{-1}
+	; - upstream branch: @{u} (added in git v1.7.0)
+	;
+	; Commit ranges:
+	; - r1..r2 = ^r1 r2 means commits reachable from r2 but exclude the ones
+	;                reachable from r1
+	; - r1...r2 = r1 r2 --not $(git merge-base --all r1 r2)
+	; 					It is the set of commits that are reachable from either
+	; 					one of r1 or r2 but not from both.
+
+[alias]
+	; Note: You cannot override a built-in Git command via an alias. Cp.
+	; http://stackoverflow.com/questions/3538774/is-it-possible-to-override-git-command-by-git-alias
+	;
+	;alias = config --global --get-regexp 'alias\\..*' ; List all defined aliases.
+	; Note: If you name the shell command "git-aliasname", there's no need
+	; to define an alias here; Git will automatically pick it up. The
+	; downside is that you cannot pass alias arguments to it here:
+	; "!git-aliasname arg1" will NOT pass arg1 to the script!
+	; (But "git aliasname arg1" on the command-line will work.)
+	;alias = !git-alias
+	; Note: You also cannot use a shell command "git-builtin" to override
+	; the "git builtin" command! To achieve that, you need a custom "git"
+	; shell function that intercepts the git call.
+	; To do something with individual arguments, use something like this:
+	;x = "!sh -c 'echo args: \"$@\"' -"
+
+	;; confighelp: Browse this .gitconfig.
+	configlist = config --local --list
+	configedit = config --local --edit
+
+	; Stop recording the executable file mode.
+	; This can be necessary when using both MSysGit and Cygwin's Git, and
+	; "git diff" shows this output for every file:
+	;   old mode 100755
+	;   new mode 100644
+	; Best set this locally only via
+	;   git config core.filemode false
+	;filemode = false
+	config-no-filemode = config core.filemode false
+
+	;; system-setup: Setup system-specific git configuration for a system.
+
+	cherrypick = cherry-pick --no-commit	; Apply the changes introduced by some existing commits (cummulatively) to the index and working copy.
+	cherrycommit = cherry-pick ; Apply and immediately commit each change (individually) introduced by some existing commit(s).
+	;; add: Add and show status; --all/-A stages all, . stages new and modified, without deleted, -u stages modified and deleted, without new.
+	;; addu: Stage modified and deleted, without new files, and show status.
+	addhunk = add --patch	; Interactively cherry-pick and add individual hunks changed in the working copy to the index.
+	addedit = add --edit	; Interactively choose lines to stage by directly editing the diff.
+	;; addr: Add from root (i.e. all in working copy, not just everything inside CWD); defaults to modified and deleted, without new.
+	;; adduntracked: Add only new files, respecting the ignore patterns.
+	c = commit
+	ca = commita
+	;; commita: Commit all new files.
+	cu = commit --all	; Commit all modified and deleted files, without new.
+	commitu = commit --all	; Commit all modified and deleted files, without new.
+	amen = commit --amend --reuse-message=HEAD	; Amend to last commit without re-editing the message.
+	amenu = commit --all --amend --reuse-message=HEAD	; Amend all modified and deleted files to last commit without re-editing the message.
+	amend = commit --amend --reedit-message=HEAD	; Amend to last commit.
+	amendu = commit --all --amend --reedit-message=HEAD	; Amend all modified and deleted files to last commit.
+	;; credit: Amend passed name + email as the author of the last commit.
+	;; show-branch: Shows the branch anchestry (heads are prefixed with !, current with *), then after a --- separator commits (+) and merges (-).
+	br = branch
+	;; bra: List (local; -r remote-tracking; -a both) branches (optionally filtered by <glob>) ordered by date of most recent commit.
+	;; brc: List (local; -r remote-tracking; -a both) branches (optionally filtered by <glob>) ordered by date of first commit.
+	;; cobr: Create (and track) local branches for all remote branches (matching PATTERN).
+	;; prune: Remove old local branches that do not exist in <remote> any more.
+	deletebr = branch -d	; Delete branch; use odelete to remove the branch in origin, too.
+	renamebr = branch -m	; Rename branch.
+	;; archivebr: Tag <branch>, then delete it from the local repository as well as origin. Use to remove old branches that have been incorporated into master, or pass -f to force archiving.
+	;; archivelocalbr: Archive all / the first committed N local branches (except for the current branch and master).
+	;; archivelocalbrc: Archive all / the first committed N local branches (except for the current branch and master) ordered by date of first commit.
+	archived = tag -l archive/*	; List all archived branches.
+	; How to create an unrelated branch that doesn't hold the previous commit history (e.g. as for the gh-pages)
+	; 1. git checkout --orphan gh-pages
+	; 2. git rm -rf .
+	co = checkout
+	com = checkout master
+	cohunk = checkout --patch --	; Interactively cherry-pick and check out individual hunks from the index to the working copy.
+	bl = shortblame
+	file-blame = !git ls-files | xargs -n1 -i{} git log -1 --pretty=format:\"%h %an (%ar) {}\" -- {} ; Show author name and last date for each file.
+	st = status -sb ; Concise status with branch and tracking info.
+	;; browse: Open origin / the passed pattern matching a remote in a browser.
+
+	;; stash: Save a dirty working copy and index in a commit.
+	stashhunk = stash --patch	; Interactively cherry-pick and stash away individual hunks changed in the working copy.
+	;; stash list: Show all stashed commits.
+	;; stash apply: Apply the topmost stashed commit onto the working copy.
+	;; stash pop: Apply and the topmost stashed commit onto the working copy and remove it from the stash.
+	;; stash drop: Remove a single stash.
+	;; stash clear: Throw away all stashes.
+	; Source: http://stackoverflow.com/questions/1360712/git-stash-cannot-apply-to-a-dirty-working-tree-please-stage-your-changes
+	stash-pop-to-dirty = !git stash show -p | git apply && git stash drop	; When "stash pop" complains.
+	;; stash-to-branch: Stash the changes in a dirty working directory in a new branch.
+	;; sync: Synchronize the local repository with the major remotes.
+
+	n = notes show ; List annotations for HEAD / passed ref.
+	ne = notes edit ; Edit / add annotations for existing commits. They don't change the history, and are local to a repo.
+	; Source: http://git-scm.com/blog/2010/08/25/notes.html
+	onotepush = push origin refs/notes/* ; notes are implemented as references, and must be pushed to share them.
+	onotefetch = fetch origin refs/notes/*:refs/notes/* ; get notes from origin
+	unotefetch = fetch upstream refs/notes/*:refs/notes/* ; get notes from upstream
+	; To make the fetch automatic, add the following to .git/config:
+	; [remote "origin"]
+	; 	fetch = +refs/notes/*:refs/notes/*
+
+	; tags how-to:
+	;	1. Add a new tag for the newest stable release: git tag -a v0.5 -m "Version 0.5 Stable"
+	;	2. Push the latest tag to GitHub: git push --tags
+	; Optional:
+	;	3. Delete the v0.4 tag locally: git tag -d v0.4
+	;	4. Delete the v0.4 tag on GitHub (which removes its download link): git push origin :v0.4
+	;; tag-version: Create an annotated tag, mostly used for official releases.
+
+	root = rev-parse --show-toplevel	; Show root dir of this Git working copy.
+	exec = "!sh -c 'exec \"$@\"' -"	; Execute a shell command in the root dir of this Git working copy; e.g. git exec make.
+	; This works because shell aliases are always executed in the top-level directory.
+	;; sh:  Enter a bunch of git commands interactively.
+	serve = !git daemon --reuseaddr --verbose  --base-path=. --export-all ./.git ; Fire up a git daemon for the repo you are currently in.
+	;; new-workdir: Allow a parallel second checkout of <repository> in <new-workdir> (without having to push or pull!)
+	; Source: /usr/share/doc/git-core/contrib/workdir/git-new-workdir
+	export = archive
+	;; export: git export -o latest.zip HEAD
+	;; export: git export --format=tar --prefix=project-1.4.0/ v1.4.0 | gzip > project-1.4.0.tar.gz
+
+	whois = "!sh -c 'git log -i -1 --pretty=\"format:%an <%ae>\n\" --author=\"$1\"' -" ; Look up person by name or email address.
+	whodid = shortlog -n	; Show log grouped by name and sorted by the number of their commits.
+	;; whodid -s: Show author names sorted by the number of their commits.
+	statistics = shortlog -n -s	; Display a list of committers sorted by the frequency of commits. Use HEAD~42.. or v2.6..v2.7 to limit to range.
+	;; rank-contributors: Show author names sorted by the total size of the diffs they're responsible for.
+	;; churn: Show sorted number of changes per file; arguments as to git log, e.g. --since="1 month ago" subdir
+	whatis = show -s --pretty='tformat:%h (%s, %ad)' --date=short	; Print info about hash or commit name.
+
+	d = diff    ; ... unstaged changes in working copy.
+	;; dc: context diff
+	db = diff -w	; ignore all "blanks" whitespace changes
+	dw = -c color.diff.old=red\\ reverse -c color.diff.new=green\\ reverse diff --color-words	; use word-based (not line-based) diff granularity
+	dh = diff HEAD ; ... both staged or unstaged changes since last commit.
+	di = diff --cached ; ... staged changes in the index about to be committed.
+	diw = diff --cached --color-words	; staged changes, use word-based (not line-based) diff granularity
+	;; dp:  ... with predecessor, either current HEAD or passed revision.
+	dt = !git-difftoday ; Show all changes from today (override with --since=...) in a single big diff.
+	; Simple patch creation:
+	;	$ git diff 1b6d > my.patch
+	; On the receiving end, apply via:
+	; 	$ git apply my.patch
+	;; applycheck: Try to apply the passed patch and print statistics and result.
+	;; applyrcheck: Try to apply the passed patch to the root and print statistics and result.
+	;; applyr: Apply the patch from the root (as most patches should be based on the toplevel repository directory).
+	; Convert commit(s) to a (set of) patches [ <since> | <revision range> ],
+	; ready to send by email, by default saved to CWD / -o outdir in mbox
+	; format:
+	; 	$ git format-patch --stdout 1b6d..HEAD^^
+	; which can be passed to git send-email.
+	; On the receiving end, save an email to a file, then type:
+	; 	$ git am < email.txt
+	; This applies the incoming patch and also creates a commit, including information such as the author.
+	applymbox = am
+
+	g = grep --color -n
+	gf = grep --files-with-matches
+	; XXX: Apparently, aliases aren't case-sensitive.
+	;; gF: grep --files-without-match
+	g-f = grep --files-without-match
+
+	;; ls: List all files under source control.
+	;; ll: List hash, author, and date of the last commit for each file under source control.
+	;; log et al: Consider only commit messages including /regexp/ via --grep=regexp.
+	;; ident-update: Update the expansion of $Id:$ via ident in the .gitattributes after a commit. Can --install a hook to do this automatically on each commit.
+	; How to enable what strings:
+	; 	1. echo '@(#) file $Id$ project' >> file
+	; 	2. echo '* ident' >> .gitattributes
+	;   3. git commit file .gitattributes
+	;; find-blob: Find commit(s) (the last one is the earliest) which have the passed hash of a blob in their tree. Use to resolve the $Id$ put into a file via the "ident" gitattribute, e.g. in a what string.
+	;; hash-object: Print the hash of the passed file (which must not have the $Id$ expanded!)
+	; This is the same as
+	;   (echo -e -n "blob $(stat -c %s "$file")\0"; cat "$file") | sha1sum
+	findchange = !git-pickaxe --date=relative -p ; Pickaxe: Show log and commits where text or /regexp/ was changed.
+	findlogs = !git-pickaxe ; Pickaxe: Show log where text or /regexp/ was changed.
+	findlg = !git-pickaxe --abbrev-commit --date=relative --decorate --pretty=oneline ; Pickaxe: Show short log where text or /regexp/ was changed.
+	lc = whatchanged -m -p ; Logs together with diff between commits.
+	;; show: Log together with diff for a particular commit.
+	;; show :/regexp: Show the last commit whose message matches regexp.
+	;; showfiles: Show the files modified in passed commit or commit range.
+	; Note: Git 1.6.0 only supports %Cred, %Cgreen, %Cblue; only newer Git versions also support %C(more-colors).
+	;; log: Use --name-status to include filenames like "svn log -v".
+	l = log --abbrev-commit --date=relative --decorate --graph --pretty=oneline	; Minimal topology, tags and commit summary.
+	lg = log --abbrev-commit --date=relative --decorate --graph --pretty=tformat:'%C(cyan)%h%Creset %Cgreen(%aN, %ar)%Creset %C(red bold)%d%Creset %s'	; One-line topology, author, date, tags and commit summary.
+	lm = "!sh -c 'git log --author=\"$(git config --get user.name)\" --abbrev-commit --date=relative --decorate --graph --pretty=tformat:\"%C(cyan)%h%Creset %Cgreen(%ar)%Creset %C(red bold)%d%Creset %s\" \"$@\"' -"	; Like "git lg" filtered for my personal commits.
+	logmine = "!sh -c 'git log --decorate --author=\"$(git config --get user.name)\" \"$@\"' -"	; "git log" filtered for my personal commits.
+	lt = !git-logtoday ; Show log of today's (override with --since=...) changes formatted for including in pull request or email.
+	last = cat-file commit HEAD	; Show last commit info: Hashes and author. Use "git show" for more details.
+	;; lastmine: Show my last commit info: Hashes and author.
+	changes = diff --name-status -r ; Subversion-like 'svn status' reporting.
+	;; describe: Show the most recent tag that is reachable from a commit, in the format <tag>-g<commits on top>-<commit-hash>[-dirty].
+	describe-version = describe --dirty	;; Show most recent annotated tag (used for official versions etc.)
+	describe-tag = describe --dirty --tags	;; Show most recent, also lightweight (used for archiving) tag.
+	contains = "!sh -c 'git describe --contains \"$@\" || git name-rev --name-only \"$@\"' -"	; Show in which tag(s) a commit is contained, i.e. in which versions this was shipped, or, if that fails, from which branch it can be reached.
+	picks = cherrypicks -v --abbrev=7	; See which changes from the current branch (e.g. feature) are already present in the passed branch (e.g. master).
+	conflicts = "!sh -c 'git ls-files --unmerged \"$@\" | cut -f2 | uniq' -"    ; List files with merge conficts.
+	; Source: http://akahn.net/2011/10/12/working-through-git-conflicts-in-vim.html
+	;; cob: Keep "base", the common ancestor in case of merge conflicts.
+	;; coo: Keep "ours", the original one we had (ORIG_HEAD), or the one we're rebasing onto, in case of merge conflicts.
+	;; cot: Keep "theirs", the version merged in (MERGE_HEAD), or the one from the branch we're rebasing, in case of merge conflicts.
+	;; reflog: Show recorded changes to the tip of a branch, mostly to restore unreachable old commits via head@{1}.
+	;; inout: Show incoming and outgoing commit logs between current / passed branch and its remote tracked branch / passed branch.
+	io = inout
+
+	cleanall = clean -d -x	; Remove all untracked files and directories, restoring a pristine working copy.
+	;; lsprivate: Show all non-ignored files not under version control.
+	;lsprivate = clean --dry-run ; Show all non-ignored files not under version control.
+	;; rmprivate: Remove all non-ignored files not under version control.
+
+	unstage = reset HEAD --	; Undo "git add <file>"; removes the file from the index, so that it isn't committed. (Alternatively, you can commit a few files via "git commit <file>" directly, bypassing the index.)
+	unstagehunk = reset --patch HEAD --	; Interactively cherry-pick and remove individual hunks from the index.
+	uncommit = reset --soft HEAD^ ; Cancel the last commit; keep working copy and index.
+	peel = reset --mixed HEAD^ ; Cancel the last commit also from index; keep only the working copy. With this, you can split a single commit during rebase.
+	wipe = reset --hard ; Reset HEAD, working copy and index.
+	;; hardreset: Reset HEAD, working copy and index to <branch>. Ensures that the current branch isn't dirty.
+	;; reset-to-tracked: Reset my current branch to the HEAD of the tracked branch. Use this when the local branch has been pointed elsewhere (e.g. due to an attempted rebase), and you want to restore the original state. The working copy is left intact.
+	reset-back = reset ORIG_HEAD	; Undo a previous git reset; allows you to go back into the future after moving the HEAD to the past.
+	;; tracks: Show which remote branch is tracked by the current branch.
+	rb = rebase
+	; For merging, you switch to the target branch (e.g. master), then merge the source branch.
+	; For rebasing, you stay in your working branch and rebase to master.
+	; Therefore, the meaning of "ours" and "theirs" is somewhat unintuitive:
+	; - what we have on the checked out master branch is 'ours',
+	; - what we had (and is being merged or replayed) in our working branch is 'theirs'.
+	; Possible actions:
+	; 	a) Remove commits by deleting lines. Like the revert command, but off the
+	; 	   record: it will be as if the commit never existed.
+	; 	b) Reorder commits by reordering lines.
+	; Replace pick with:
+	;	d) "edit" to mark a commit for amending.
+	;	e) "reword" to change the log message.
+	;	f) "squash" to merge a commit with the previous one.
+	;	g) "fixup" to merge a commit with the previous one and discard the log message.
+	; During a rebase:
+	; 	1. Resolve the conflicted files; "git conflicts" tells them (again)
+	; 	   To completely override upstream's changes, we have to use "theirs" (from the branch being rebased, i.e. git cot), not "ours"; this is unintuitive!
+	; 	2. git add # after the conflicts have been resolved
+	; 	3. git rbc
+	; It may help to have both our and their changes separately:
+	; 	git lc master
+	; 	git lc
+	rbi = rebase -i
+	rbc = rebase --continue
+	rbq = rebase --abort
+	rbu = reset @{1}
+	;; git rebase HEAD <feature> && git rebase HEAD @{-2}: rebase <feature> to current branch and merge back to current
+	;; git rebaselocalbr: Rebase all / the last committed N local branches (except for the current branch and master) to the updated passed (or configured in branch.<name>.remote and branch.<name>.merge) upstream head.
+	;; git merge --squash: Create a single commit on top of the current branch whose effect is the same as merging the other branch. Shorter form of interactive rebasing where you choose squash for all following commits.
+	; merging
+	;; checkout --ours:   (or git coo) will keep the original one we had (ORIG_HEAD) in case of merge conflict
+	;; checkout --theirs: (or git cot) will keep the version merged in (MERGE_HEAD) in case of merge conflict
+	;; mergeto: Merge the current branch to <target-branch>.
+	mergem = mergeto master
+	;; mergelocalbr: Merge all / the last committed N local branches (except for the current branch and master).
+	;; mergelocalbrc: Merge all / the last committed N local branches (except for the current branch and master) ordered by date of first commit.
+	mt = mergetool
+	;; merge-base: Identify branch point (common ancestor).
+	; The fast-forward command does the second part of git pull, it merges the
+	; remote tracking branch. Use this when you've already fetched the changes
+	; (to avoid the superfluous network exchange), and you get the message "Your
+	; branch is behind 'origin/tracked-branch', and can be fast-forwarded."
+	; after switching to a branch.
+	; The --ff is the default, but specify it in case it has been overridden by
+	; local config.
+	fast-forward = -c merge.defaultToUpstream=true merge --ff
+	ff = -c merge.defaultToUpstream=true merge --ff
+
+	noff = merge --no-ff
+
+	;; fl: l of fetched commits
+	;; flc: lc of fetched commits
+	;; flg: lg of fetched commits
+	;; flog: log of fetched commits
+	fetched = diff --stat ..FETCH_HEAD	; Summary of all fetched commits.
+	;; remote show <repo>: Remote repository info, including tracked remote branches.
+
+	;; tco: checkout tracked branch HEAD
+	;; tdiff: diff with tracked branch
+	;; tl: l of tracked branch
+	;; tlc: lc of tracked branch
+	;; tlg: lg of tracked branch
+	;; tlog: log of tracked branch
+	;; treset = reset-to-tracked --must-be-origin	; Reset my current branch (and working tree with --hard) to the HEAD of tracked branch of origin. Use this when the local branch has been pointed elsewhere (e.g. due to an attempted rebase), and you want to restore the original state. The working copy is left intact.
+
+	obrowse = browse origin
+	obr = "!sh -c 'git branch -r \"$@\"' | GREP_OPTIONS= grep origin/ -" ; List all branches in my GitHub clone.
+	;; oco: Checkout local branch from origin.
+	;; ocobr: Create (and track) local branches for all branches in origin (matching PATTERN).
+	;; oprune: Remove old local branches that do not exist in origin any more.
+	odiff = diff origin/master ; Show differences to my GitHub clone.
+	;; ol: l origin/master
+	;; olc: lc origin/master
+	;; olg: lg origin/master
+	;; olog: log origin/master ; Log of my GitHub clone.
+	omio = inout master origin/master
+	ofetch = fetch --prune origin ; Get changes done to my GitHub clone through another Git repository, e.g. from another system. Use this, followed by git ohardreset, when origin has been reset (e.g. to an updated upstream).
+	opull = pull --prune origin ; Get and merge changes done to my GitHub clone through another Git repository, e.g. from another system.
+	opush = push origin ; Re-publish of current / passed <branch> to the tracking GitHub clone to get them pulled into upstream.
+	;; opublish: Initial publish of current / passed <branch> to my GitHub clone to get them pulled into upstream.
+	; ... and set upstream tracking reference so that future pushes can omit the branch name (when push.default=tracking).
+	; Instead, I could probably also setup automatic tracking, but:
+	; - would lose the warning when trying to opush a branch that I haven't
+	;   published yet.
+	; - would default to pushing to foreign branches from someone (which I'm
+	;   not allowed), instead of being forced to publish to my own GitHub
+	;   clone.
+	;
+	;   git config branch.autosetupmerge true
+	; tells git-branch and git-checkout to setup new branches so that git-pull(1)
+	; will appropriately merge from that remote branch.  Recommended.  Without this,
+	; you will have to add --track to your branch command or manually merge remote
+	; tracking branches with "fetch" and then "merge".
+	odelete = push origin --delete ; Delete remote <branch> in my GitHub clone. Older git must use "push origin :BRANCHNAME"
+	;; oreset: Reset my current branch to the HEAD of the master / passed branch of origin. The working copy is left intact, so you can effectively rebase any outstanding differences with a follow-up commit.
+	;; ohardreset: Reset my current branch to the HEAD of the master / passed branch of origin. Use this after an ureset done in another repository. Ensures that the current branch isn't dirty.
+
+	; How to add the upstream repository to my own repository:
+	;	git remote add upstream http://repo.or.cz/r/vcscommand.vim.git
+	; Note: HTTPS is the default, but I've seen failures behind the corporate
+	; firewall. On there other hand, I got a 403 when using HTTP.
+	ubrowse = browse upstream
+	upicks = cherrypicks -v --abbrev=7 upstream/master ; See which changes from the current branch are already present upstream.
+	;; uco: Checkout local branch from upstream.
+	ucom = checkout upstream/master ; Use with -b <newbranch> to start a patch based on the current upstream.
+	umdiff = diff master..upstream/master ; Show differences introduced in upstream relative to master; usefull to review upstream changes before pulling them in.
+	udiff = diff upstream/master ; Show differences to upstream.
+	umio = inout master upstream/master
+	;; ul: l upstream/master
+	;; ulc: lc upstream/master
+	;; ulg: lg upstream/master
+	;; ulog: Log of upstream.
+	;; umlog: Show log of changes introduced in upstream relative to master; usefull to review upstream changes before pulling them in.
+	;; umlg: Show one-line log of changes introduced in upstream relative to master; usefull to review upstream changes before pulling them in.
+	;; umlc: Show log and diff of changes introduced in upstream relative to master; usefull to review upstream changes before pulling them in.
+	ufetch = fetch --prune upstream	; Get upstream changes.
+	umerge = merge upstream/master	; Merge upstream changes with my local repo.
+	urb = rebase upstream/master	; Rebase my commits on top of the latest upstream. "co mybranch" first, clone it via "git co -b mybranch-old; git opublish" if you want to keep the old one, or just use "urb mybranch". You can also do this after the rebase, but before pushing: "git tco -b mybranch-old; git opublish; git co mybranch". Persist with "git opush -f"; undo with "git treset --hard".
+	;; urebaselocalbr: Rebase all / the last committed N local branches (except for the current branch and master) to the updated upstream head.
+	; To make pull default to rebase instead of merge, can use these:
+	; # make "git pull" on master always use rebase
+	; $ git config branch.master.rebase true
+	; You can also set up a global option to set the last property for every
+	; new tracked branch:
+	; # setup rebase for every tracking branch
+	; $ git config --global branch.autosetuprebase always
+	; Source: http://mislav.uniqpath.com/2010/07/git-tips/
+
+	uadd = remote add -f upstream	; Add upstream repository and fetch it.
+	radd = remote add -f	; Add remote repository and fetch it.
+	; other foreign repositories
+	; To import someone's repository and work on it, do this:
+	;   # Import.
+	;   git remote add -f <someone> https://github.com/<someone>/<project>.git
+	;   # The -f already did: git fetch <someone>
+	;   # What has changed in his branch?
+	;   git diff upstream/master..<someone>/<branch>
+	;   git co -b <branch> <someone>/<branch>
+	;   # Do changes ...
+	;   # Publish to your GitHub clone to make the changes accessible to someone.
+	;   git opublish <branch>
+	;; ureset: Reset my current branch to the HEAD of the master / passed branch of upstream. Use this after my pull requests have been accepted into upstream (but cherry-picked, in a different order, or intermingled with other requests, so that the commit history deviates from mine), but there are still pending changes. The working copy is left intact, so you can effectively rebase any outstanding differences with a follow-up commit.
+	;; uhardreset: Reset my current branch to the HEAD of the master / passed branch of upstream.
+	;; urestore: Reset my current branch to the HEAD of the master / passed branch of upstream, and push this to my GitHub clone. Use this after my pull requests have been accepted into upstream (but cherry-picked, in a different order, or intermingled with other requests, so that the commit history deviates from mine). Ensures that the current branch isn't dirty.
+	;; ucatchup: ufetch + urestore; Get upstream changes, reset my current branch to the HEAD of the master / passed branch of upstream, and push this to my GitHub clone. Use this when you directly follow upstream, and want to update your repo to its most recent version.
+
+	; How to create a new GitHub repository:
+	; 1. git init myproject
+	; 2. On GitHub, create a new repository.
+	; 3. git remote add origin git@github.com:inkarkat/myproject.git
+	; 4. git push -u origin master
+	;
+	; How to fork a non-GitHub repository:
+	; 1. git clone --origin=upstream http://repo.or.cz/r/vcscommand.vim.git
+	; 2. On GitHub, create a new repository.
+	; 3. cd vcscommand.git
+	; 4. git remote add origin git@github.com:inkarkat/vcscommand.vim.git
+	; 5. git push -u origin master
+
+	;; writebackup-import: Import a directory hierarchy into Git, using existing backup files with a current date file extension as history.
+	;; writebackup-ingo-import: Import a directory hierarchy into Git, extracting the commit messages from ingo's custom changelog file header from existing backup files with a current date file extension as history.
+
+	; Submodule handling; taken from http://git-scm.com/book/en/v2/Git-Tools-Submodules
+	sdiff = !"git diff && git submodule foreach 'git diff'"
+	spush = push --recurse-submodules=on-demand	; Goes into each submodule and manually pushes to the remotes to make sure they're externally available.
+	supdate = submodule update --remote --merge	; Update and merge our changes with upstream changes to the submodule.

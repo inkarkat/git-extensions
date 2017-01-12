@@ -1,14 +1,12 @@
 #!/bin/sh
 
-branch=$(git symbolic-ref HEAD) || exit $?
-branch=${branch##refs/heads/}
-
-ubranch=${1:-master}
-if [ "$ubranch" = 'master' -a "$branch" != 'master' ]; then
-    # Typically, one does not reset one's branch to upstream's master.
-    printf %s "Really reset branch \"${branch}\" to upstream/${ubranch}? (y/n) "
-    read answer
-    [ "$answer" = "y" ] || exit 1
+lastArg=; [ $# -gt 0 ] && lastArg=${!#}
+path="upstream/$lastArg"
+if git-existsbr "$path"; then
+    set -- "${@:1:$(($#-1))}"
+elif ! path="$(git-remotebr upstream)"; then
+    printf >&2 'ERROR: Cannot find corresponding upstream branch; upstream/%s does not exist.\n' "$(git-brname)"
+    exit 1
 fi
 
-git reset "upstream/$ubranch"
+git reset "$@" "$path"

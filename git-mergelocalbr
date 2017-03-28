@@ -7,22 +7,44 @@ printUsage()
     cat <<HELPTEXT
 Merge all / the last committed N local branches (except for the current
 branch and master).
-Usage: "$(basename "$1")" [--branches "<branch1> ..."] [N] [--no-commit] [--squash] [-s <strategy>] [-m <msg>]
+Usage: "$(basename "$1")" [--branches "<branch1> ..."] [N] [--no-commit] [--squash] [-s <strategy> | -s single | -s1 ] [-m <msg>]
 HELPTEXT
 }
 
 branchNum=9999
 inputBranches=
+printf -v originalArgs '%q ' "${@//
+/ }"
 if [ "$1" = '--branches' ]; then
     # Internal hook to pass in the branches.
     shift
     inputBranches=$1
     shift
 fi
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    +([0-9]))		branchNum=$1; shift;;
-esac
+isOneByOneMerge=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	+([0-9]))	branchNum=$1; shift;;
+	-s1)		shift; isOneByOneMerge=t;;
+	-s)		if [ "$2" = 'single' ]; then shift; shift; isOneByOneMerge=t; else break; fi;;
+	--)		shift; break;;
+	*)		break;;
+    esac
+done
+
+getOneByOneMergeCommand()
+{
+    local gitArgs=$1; shift
+    local commandSeparator=
+    local branch
+    for branch
+    do
+	printf '%sgit merge%s%s %s' "$commandSeparator" "${gitArgs:+ }" "$gitArgs" "$branch"
+	commandSeparator=' && '
+    done
+}
 
 branches=$(git-localbr $inputBranches | tail -n "$branchNum") || exit $?
 if [ ! "$branches" ]; then
@@ -31,25 +53,24 @@ if [ ! "$branches" ]; then
 fi
 echo "Merging:
 ${branches// /
-}"
-echo '
-git merge' $* $branches
+}
+"
 
-printf %s "Really merge these branches? (y/n) "
+if [ "$isOneByOneMerge" ]; then
+    typeset -a mergeCommand=($(getOneByOneMergeCommand "$*" $branches))
+else
+    typeset -a mergeCommand=(git merge "$@" $branches)
+fi
+
+printf '%s\n%s' "${mergeCommand[*]}" "Really merge these branches? (y/n) "
 read answer
 [ "$answer" = "y" ] || exit 1
 
-git merge "$@" $branches
-if [ $? -eq 2 ]; then
+eval "${mergeCommand[@]}"
+if [ $? -eq 2 -a ! "$isOneByOneMerge" ]; then
     echo '
 Hint: When the merge with strategy octopus fails, try merging sequentially:'
-    commandSeparator=
-    for branch in $branches
-    do
-	printf '%sgit merge%s%s %s' "$commandSeparator" "${*+ }" "$*" "$branch"
-	commandSeparator=' && '
-    done
-    printf '\n'
+    printf 'git mergelocalbr %s-s1\n    or\n%s\n' "$originalArgs" "$(getOneByOneMergeCommand "$*" $branches)"
 
     exit 2
 fi

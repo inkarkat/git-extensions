@@ -40,7 +40,6 @@ getNextBranch()
     [ -s "$branchStore" ] || rm "$branchStore"
 }
 
-
 if [ ! "$rebaseAction" ]; then
     IFS=$'\n'
     typeset -a localBranches=($(git-localbr $inputBranches | tail -n "$branchNum")) || exit $?
@@ -52,7 +51,7 @@ if [ ! "$rebaseAction" ]; then
     typeset -a branches
     for candidateBranch in "${localBranches[@]}"
     do
-	if [ ! "$upstreamBranch" -o "$(git rev-list ${candidateBranch}..${upstreamBranch})" ]; then
+	if [ ! "$upstreamBranch" ] || [ "$(git rev-list ${candidateBranch}..${upstreamBranch})" ]; then
 	    branches+=("$candidateBranch")
 	else
 	    printf 'Branch %s is up to date.\n' "$candidateBranch"

@@ -1,0 +1,12 @@
+#!/bin/bash
+
+lastArg=; [ $# -gt 0 ] && lastArg=${!#}
+path="upstream/$lastArg"
+if git-existsbr "$path"; then
+    set -- "${@:1:$(($#-1))}"
+elif ! path="$(git-remotebr upstream)"; then
+    printf >&2 'ERROR: Cannot find corresponding upstream branch; upstream/%s does not exist.\n' "$(git-brname)"
+    exit 1
+fi
+
+git reset --hard "$@" "$path"

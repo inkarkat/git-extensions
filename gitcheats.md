@@ -1,18 +1,19 @@
 ### data transport commands overview
------ add ----> -- commit --> -- publish -->
------ addu ---> -- commit --> -- push ----->
-[WORK.COPY]  [INDEX]    [LOCAL REPO]  [REMOTE REPO]
-<------------ pull or rebase ---------------
-.                               <-- fetch ----
-<--------- checkout HEAD ----
-<-- checkout --               ------\
+----- add ----> -- commit ----> -- publish ------>
+----- addu ---> -- commit ----> -- push --------->
+[WORK.COPY]  [INDEX]    [LOCAL REPOSITORY]  [REMOTE REPO]
+<------------ pull or rebase --------------------/
+.                        ^--------- fetch -------/
+<--------- checkout HEAD ---/
+<-- checkout --/     or       -------/
 .                       ^- uncommit -/
-.               <------^--- peel ---/
-.               <-- unstage -
-<---------------^---- wipe --
+.               <------^--- peel ----/
+.               <-- unstage ---------/
+<---------------^---- wipe ----------/
 .
-<--------- dh ---------------
-<---- d ------- <--- di -----
+<--------- dh -----------------------/
+.               <--- di -------------/
+<---- d ------/
 
 rev-parse: Parsing of git revision syntaxes.
 

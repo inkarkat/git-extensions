@@ -1,0 +1,46 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Print Git command(s) to clone the current repository (including all remotes) at a different location.
+HELPTEXT
+printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+typeset -a remotes=($(git remote))
+[ ${#remotes[@]} -gt 0 ] || exit 1
+
+typeset cloneCommand=
+typeset -a addRemoteCommands=()
+for remote in "${remotes[@]}"
+do
+    url="$(git remote get-url "$remote")"
+    if [ "$remote" = 'origin' ]; then
+	printf -v cloneCommand 'git clone %q' "$url"
+	cloneUrl=$url
+    else
+	printf -v remoteCommand 'git remote add %q %q' "$remote" "$url"
+	addRemoteCommands+=("$remoteCommand")
+	[ "$cloneUrl" ] || cloneUrl=$url
+    fi
+done
+
+if [ ! "$cloneCommand" ]; then
+    # No origin exists.
+    cloneCommand=${addRemoteCommands[0]/remote add/clone --origin}
+    unset addRemoteCommands[0]
+fi
+
+dir=${cloneUrl%.git}
+dir=${dir##*/}
+printf '%s && cd %q' "$cloneCommand" "$dir"
+
+for remoteCommand in "${addRemoteCommands[@]}"
+do
+    printf '; %s' "$remoteCommand"
+done
+echo

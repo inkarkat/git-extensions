@@ -210,8 +210,8 @@
 	unstagehunk = reset --patch HEAD --	; Interactively cherry-pick and remove individual hunks from the index.
 	uncommit = reset --soft HEAD^ ; Cancel the last commit; keep working copy and index.
 	peel = reset --mixed HEAD^ ; Cancel the last commit also from index; keep only the working copy. With this, you can split a single commit during rebase.
-	wipe = reset --hard ; Reset HEAD, working copy and index.
-	;; hardreset: Reset HEAD, working copy and index to <branch>. Ensures that the current branch isn't dirty.
+	;; wipe: Reset HEAD, working copy and index [to <branch>]. Ensures that the current branch isn't dirty.
+	;; hardreset = reset --hard ; Reset HEAD, working copy and index to <branch>. Destructive without safety check (but needs a passed <branch>)!
 	;; reset-to-tracked: Reset my current branch to the HEAD of the tracked branch. Use this when the local branch has been pointed elsewhere (e.g. due to an attempted rebase), and you want to restore the original state. The working copy is left intact.
 	reset-back = reset ORIG_HEAD	; Undo a previous git reset; allows you to go back into the future after moving the HEAD to the past.
 	track = branch --set-upstream-to	; Change the remote the current branch is tracking.
@@ -293,7 +293,7 @@
 	;; olg: lg origin/master
 	;; olog: log origin/master ; Log of my GitHub clone.
 	omio = inout master origin/master
-	ofetch = fetch --prune origin ; Get changes done to my GitHub clone through another Git repository, e.g. from another system. Use this, followed by git ohardreset, when origin has been reset (e.g. to an updated upstream).
+	ofetch = fetch --prune origin ; Get changes done to my GitHub clone through another Git repository, e.g. from another system. Use this, followed by git owipe, when origin has been reset (e.g. to an updated upstream).
 	opull = pull --prune origin ; Get and merge changes done to my GitHub clone through another Git repository, e.g. from another system.
 	opush = push origin ; Re-publish of current / passed <branch> to the tracking GitHub clone to get them pulled into upstream.
 	;; opublish: Initial publish of current / passed <branch> to my GitHub clone to get them pulled into upstream.
@@ -312,7 +312,7 @@
 	; tracking branches with "fetch" and then "merge".
 	odelete = push origin --delete ; Delete remote <branch> in my GitHub clone. Older git must use "push origin :BRANCHNAME"
 	;; oreset: Reset my current branch to the HEAD of the master / passed branch of origin. The working copy is left intact, so you can effectively rebase any outstanding differences with a follow-up commit.
-	;; ohardreset: Reset my current branch to the HEAD of the master / passed branch of origin. Use this after an ureset done in another repository. Ensures that the current branch isn't dirty.
+	;; owipe: Reset my current branch to the HEAD of the master / passed branch of origin. Use this after an ureset done in another repository. Ensures that the current branch isn't dirty.
 
 	; How to add the upstream repository to my own repository:
 	;	git remote add upstream http://repo.or.cz/r/vcscommand.vim.git
@@ -360,8 +360,8 @@
 	;   # Publish to your GitHub clone to make the changes accessible to someone.
 	;   git opublish <branch>
 	;; ureset: Reset my current branch to the HEAD of the current / passed branch of upstream. Use this after my pull requests have been accepted into upstream (but cherry-picked, in a different order, or intermingled with other requests, so that the commit history deviates from mine), but there are still pending changes. The working copy is left intact, so you can effectively rebase any outstanding differences with a follow-up commit.
-	;; uhardreset: Reset my current branch to the HEAD of the current / passed branch of upstream. Ensures that the current branch isn't dirty.
-	;; uwipe: Reset my current branch to the HEAD of the current / passed branch of upstream.
+	;; uhardreset: Reset my current branch to the HEAD of the current / passed branch of upstream.
+	;; uwipe: Reset my current branch to the HEAD of the current / passed branch of upstream. Ensures that the current branch isn't dirty.
 	;; uwipem: Switch to my master branch and reset it to the HEAD of the upstream/master.
 	;; urestore: Reset my current branch to the HEAD of the current / passed branch of upstream, and push this to my GitHub clone. Use this after my pull requests have been accepted into upstream (but cherry-picked, in a different order, or intermingled with other requests, so that the commit history deviates from mine). Ensures that the current branch isn't dirty.
 	;; ucatchup: ufetch + urestore; Get upstream changes, reset my current branch to the HEAD of the current / passed branch of upstream, and push this to my GitHub clone. Use this when you directly follow upstream, and want to update your repo to its most recent version.

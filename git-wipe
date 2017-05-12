@@ -1,0 +1,13 @@
+#!/bin/sh
+
+isForce=
+case $1 in
+    --force|-f)	shift; isForce=t;;
+esac
+if [ ! "$isForce" ] && [ "$(git diff --shortstat 2>/dev/null | tail -n 1)" ]; then
+    echo "Unstaged changes:"
+    git status --porcelain | grep -v '^??'
+    exit 1
+fi
+
+exec git reset --hard "$@"

@@ -52,3 +52,18 @@ Here is a variant that also adds support for the [hub](https://github.com/github
             "$gitCommand" "$@"
         fi
     }
+
+The following function also allows extending the `hub` command (in a different way than what the forwarded-to `git` command would offer, e.g. to have both `git-cheat` and `hub-cheat`):
+
+    exists hub && hub() {
+        typeset -r hubAlias="hub-$1"
+        typeset -r hubCommand="$(which hub)"
+        if [ $# -eq 0 ]; then
+            hub ${HUB_DEFAULT_COMMAND:-st}
+        elif type -t "$hubAlias" >/dev/null; then
+            shift
+            "$hubAlias" "$@"
+        else
+            "$hubCommand" "$@"
+        fi
+    }

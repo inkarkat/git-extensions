@@ -1,7 +1,7 @@
-### data transport commands overview
+# data transport commands overview
 ----- add ----> -- commit ----> -- publish ------>
 ----- addu ---> -- commit ----> -- push --------->
-[WORK.COPY]  [INDEX]    [LOCAL REPOSITORY]  [REMOTE REPO]
+### [WORK.COPY]  [INDEX]    [LOCAL REPOSITORY]  [REMOTE REPO]
 <------------ pull or rebase --------------------/
 .                        ^--------- fetch -------/
 <--------- checkout HEAD ---/
@@ -15,9 +15,9 @@
 .               <--- di -------------/
 <---- d ------/
 
-rev-parse: Parsing of git revision syntaxes.
+`rev-parse`: Parsing of git revision syntaxes.
 
-### Commit addressing
+# Commit addressing
 - parents: `head^^^` = `head~3`; second merge parent: `^2`; combined:
     $ git checkout 1b6d^^2~10 -b ancient
   starts a new branch "ancient" representing the state 10 commits back

@@ -25,6 +25,8 @@ sub investigate()
     if (@_[0] =~ /^(\S{1,3})\s+([0-9.]+)\s+(\d{2}-[[:alpha:]]{3}-\d{4})\s+(\S.*?)\s*\r?\n?$/) {
 	$isConfident = 1;
 	($isConfident, $commentPrefix, $revision, $message) = (1, $1, $2, $4);
+    } elsif (@_[0] =~ /^(\S{1,3})\s+(Copyright: \(C\) \d+.*)\s*\r?\n?$/) {
+	return (0, '');
     } elsif (@_[0] =~ /^(\S{1,3})\s+([[:upper:]][[:alpha:]].*?)\s*\r?\n?$/) {
 	($isConfident, $commentPrefix, $revision, $message) = (0, $1, '', $2);
     } else {
@@ -43,6 +45,10 @@ sub investigate()
 	    $message .= ' ' . $_;
 	}
     }
+
+    $message =~ s/^(\w+: |\S+\(\):)*+[^\n]+?\K[.:] (?=\S)/\n/;  # End summary at first punctuation (after prefixed keywords).
+    $message =~ s/^[^\n]+\K[.:]\s*(\n|$)/\n/;  # Remove punctuation at the end of summary line.
+    $message =~ s/^([^\n]+\n)([^\n])/\1\n\2/;	# Add blank line after summary line.
 
     return ($isConfident, $message);
 }

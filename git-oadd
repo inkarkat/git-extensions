@@ -1,0 +1,18 @@
+#!/bin/bash
+
+if [ $# -ne 1 ]; then
+    echo >&2 "Need to pass <url>!"
+    exit 1
+fi
+
+oldOrigin=$(git remote get-url origin 2>/dev/null)
+
+if [ "$oldOrigin" ]; then
+    printf 'origin already exists: %s\n' "$oldOrigin"
+    read -p "Rename to upstream? (y/n) " choice
+    [ "$choice" = 'y' ] || exit 1
+
+    git remote rename origin upstream || exit $?
+fi
+
+git add -f origin "$1"

@@ -246,7 +246,10 @@ do
     do
 	importFile=${filespec#${srcdir}}
 	destFile=${importFile%.[12][0-9][0-9][0-9][0-9][0-9][0-9][0-9][a-z]}
-	importFile "$formattedCommitDate" "$importFile" "$destFile"
+	if ! importFile "$formattedCommitDate" "$importFile" "$destFile"; then
+	    read -p "Committing failed. Do you want to abort the import? (y/n) " choice
+	    [ "$choice" = 'y' ] && exit 1
+	fi
 
 	if isLastBackupWithoutOriginal "$importFile" "$destFile"; then
 	    removeFile "$formattedCommitDate" "$destFile" | reformatGitCommitOutput

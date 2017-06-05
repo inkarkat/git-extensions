@@ -19,10 +19,12 @@
 #	001	12-Mar-2013	file creation
 ###############################################################################
 
+our $confidentPattern = /^(\S{1,3})\s+([0-9.]+)\s+(\d{2}-[[:alpha:]]{3}-\d{4})\s+(\S.*?)\s*\r?\n?$/;
+
 sub investigate()
 {
     my $isConfident, $commentPrefix, $revision, $message;
-    if (@_[0] =~ /^(\S{1,3})\s+([0-9.]+)\s+(\d{2}-[[:alpha:]]{3}-\d{4})\s+(\S.*?)\s*\r?\n?$/) {
+    if (@_[0] =~ $confidentPattern) {
 	$isConfident = 1;
 	($isConfident, $commentPrefix, $revision, $message) = (1, $1, $2, $4);
     } elsif (@_[0] =~ /^(\S{1,3})\s+(Copyright: \(C\) \d+.*)\s*\r?\n?$/) {
@@ -103,6 +105,10 @@ while (<DIFF>) {
 	next;
     } elsif (/^> /) {
 	s/^> //;
+	if (@hunk && $_ =~ $confidentPattern) {
+	    &getMessage(@hunk);
+	    @hunk = ();
+	}
 	push(@hunk, $_);
     } elsif (@hunk) {
 	&getMessage(@hunk);

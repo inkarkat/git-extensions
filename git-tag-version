@@ -1,4 +1,24 @@
-#!/bin/sh
+#!/bin/bash
 
-eval lastArg=\${$#}
-git tag -a -m "version ${lastArg}" "$@" && git push --tags
+
+printUsage()
+{
+    cat <<HELPTEXT
+Create an annotated tag, mostly used for official releases.
+HELPTEXT
+printf 'Usage: %q %s\n' "$(basename "$1")" '[-f] VERSION [<commit>|<object>] [-?|-h|--help]'
+}
+typeset -a tagArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	-f)		tagArgs+=("$1"); shift;;
+	--)		shift; break;;
+	*)		break;;
+    esac
+done
+[ $# -eq 0 ] && { printUsage "$0"; exit 2; }
+
+version=$1
+git tag -a "${tagArgs[@]}" -m "version ${version}" "$@" && git push --tags

@@ -21,6 +21,16 @@
 
 our $confidentPattern = qr/^(\S{1,3})\s+([0-9.]+)\s+(\d{2}-[[:alpha:]]{3}-\d{4})\s+(\S.*?)\s*\r?\n?$/;
 
+sub formatMessage()
+{
+    my $message = shift;
+    $message =~ s/^(\w+: |\S+\(\):)*+[^\n]+?(?<!\.)(?<!e\.g|f\.e|i\.e)\K[.:] (?=\S)/\n/;  # End summary at first punctuation (after prefixed keywords).
+    $message =~ s/^[^\n]+\K[.:]\s*(\n|$)/\n/;  # Remove punctuation at the end of summary line.
+    $message =~ s/^([^\n]+\n)([^\n])/\1\n\2/;	# Add blank line after summary line.
+    return $message;
+
+}
+
 sub investigate()
 {
     my $isConfident, $commentPrefix, $revision, $message;
@@ -49,16 +59,27 @@ sub investigate()
 	}
     }
 
-    $message =~ s/^(\w+: |\S+\(\):)*+[^\n]+?(?<!\.)(?<!e\.g|f\.e|i\.e)\K[.:] (?=\S)/\n/;  # End summary at first punctuation (after prefixed keywords).
-    $message =~ s/^[^\n]+\K[.:]\s*(\n|$)/\n/;  # Remove punctuation at the end of summary line.
-    $message =~ s/^([^\n]+\n)([^\n])/\1\n\2/;	# Add blank line after summary line.
+    return ($isConfident, &formatMessage($message));
+}
 
-    return ($isConfident, $message);
+sub investigateChangelog()
+{
+    shift @_ if (@_[0] =~ /^\d+\.\d+\s+\S+\r?$/);
+
+    if (scalar @_ == 0) {
+	return (0, "");
+    } elsif (scalar @_ == 1) {
+	my $message = @_[0];
+	$message =~ s/^- //;
+	return (1, "Documentation: " . &formatMessage($message));
+    } else {
+	return (1, "Documentation: Update changelog\n\n" . join("", @_));
+    }
 }
 
 sub getMessage()
 {
-    my ($isConfident, $message) = &investigate(@_);
+    my ($isConfident, $message) = &$investigateRef(@_);
     if ($message ne '') {
 	if ($isConfident) {
 	    print $message;
@@ -98,8 +119,14 @@ if (! -e $previousFilespec) {
 }
 
 my @hunk = ();
+our $investigateRef = \&investigate;
 our $firstMessage = '';
-open(DIFF, "diff '$previousFilespec' '$filespec' |") or die "Can't diff: $!";
+my $diffCommand = "diff '$previousFilespec' '$filespec'";
+if ($filespec =~ /\.txt(\.[0-9]{8}[a-z])?$/) {
+    $diffCommand = "bash -c \"diff <(sed 1,/^HISTORY/d '$previousFilespec') <(sed 1,/^HISTORY/d '$filespec')\"";
+    $investigateRef = \&investigateChangelog;
+}
+open(DIFF, $diffCommand . " |") or die "Can't diff: $!";
 while (<DIFF>) {
     if (/^(---|< )/) {
 	next;

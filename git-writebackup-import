@@ -167,14 +167,20 @@ importFile()
 	fi
     fi
 
-    cp "${srcdir}${importFile}" "$destFile"
-    git add "$destFile" || return $?
+    cp "${srcdir}${importFile}" "$destFile" || { local status=$?; echo >&2 "ERROR: Copying of ${srcdir}${importFile} to $destFile failed."; return $status; }
+    git add "$destFile" || { local status=$?; echo >&2 "ERROR: git add $destFile failed."; return $status; }
+
+    if git diff --cached --quiet; then
+	echo >&2 "Note: File ${srcdir}${importFile} is identical to committed $destFile; ignoring."
+	return 0
+    fi
+
     if [ "$editArgument" ]; then
 	# Cannot launch Vim in a pipe, so show the full unfiltered git commit
 	# output when the commit is edited.
-	git commit --allow-empty-message $editArgument --message="$message" --date="$(date -d "$commitDate")" || return $?
+	git commit --allow-empty-message $editArgument --message="$message" --date="$(date -d "$commitDate")" || { local status=$?; echo >&2 "ERROR: git commit of $destFile failed."; return $status; }
     else
-	{ git commit --allow-empty-message               --message="$message" --date="$(date -d "$commitDate")" || return $?; } | reformatGitCommitOutput
+	{ git commit --allow-empty-message               --message="$message" --date="$(date -d "$commitDate")" || { local status=$?; echo >&2 "ERROR: git commit of $destFile failed." ; return $status; }; } | reformatGitCommitOutput
     fi
 }
 removeFile()
@@ -182,8 +188,8 @@ removeFile()
     local -r commitDate=$1; shift
     local -r destFile=$1; shift
 
-    git rm --quiet "$destFile" || return $?
-    git commit --allow-empty-message --message= --date="$(date -d "$commitDate")" || return $?
+    git rm --quiet "$destFile" || { local status=$?; echo >&2 "ERROR: git rm $destFile failed."; return $status; }
+    git commit --allow-empty-message --message= --date="$(date -d "$commitDate")" || { local status=$?; echo >&2 "ERROR: git commit of removed $destFile failed."; return $status; }
 }
 
 

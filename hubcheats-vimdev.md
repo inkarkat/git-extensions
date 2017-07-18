@@ -8,7 +8,7 @@ Copy / sync all plugin files from ~/data/data/Unixhome/.vim to ~/tmp/vim
 `git create -d "Plugin description from doc/*.txt"`
 `git opublish`
 
-# convert writebackup plugin to GitHub - git flow
+# convert plugin from writebackups to GitHub - git flow
 
 `git branch stable`
 `git flow init`
@@ -33,7 +33,7 @@ Hooks and filters directory?
 
 `git opush --all`
 
-# convert writebackup plugin to GitHub - readme
+# convert plugin from writebackups to GitHub - readme
 
 `vim doc/*.txt`
 Add github snippets after INSTALLATION and after IDEAS.

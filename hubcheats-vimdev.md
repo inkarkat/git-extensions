@@ -1,7 +1,8 @@
 # convert writebackup plugin to GitHub - import
 
 Copy / sync all plugin files from ~/data/data/Unixhome/.vim to ~/tmp/vim
-**Don't forget the tests/ directory!**
+- **Don't forget to move the tests/ directory** from ~/.vim/tests/PLUGIN-NAME to ~/tmp/vim/tests
+- Do a directory compare to **ensure that old deleted files are not reintroduced**
 
 `git init vim-PluginName`
 `git-writebackup-ingo-import ~/tmp/vim`

@@ -11,4 +11,4 @@ Update changelog
 `git lg stable..`
 Note: I don't publish the release branch if it just contains trivial mechanics of preparing the release.
 `git flow release finish 1.00`
-`git opush --all`
+`git opush --tags --all`

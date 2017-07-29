@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 isForce=
 case $1 in
@@ -8,6 +8,32 @@ if [ ! "$isForce" ] && [ "$(git diff --shortstat 2>/dev/null | tail -n 1)" ]; th
     echo "Unstaged changes:"
     git status --porcelain | grep -v '^??'
     exit 1
+fi
+
+lastArg=; [ $# -gt 0 ] && lastArg=${!#}
+if [ -r "$lastArg" ]; then
+    # git reset --hard ... <paths>... is not allowed ("fatal: Cannot do hard reset with paths.")
+    # The right command is git checkout HEAD <paths>...
+    # DWIM here: Allow both git wipe FILE1 ... and git wipe <commit> FILE1 ...
+    # by checking whether the arguments exist as files.
+    typeset -a gitArgs=()
+    commitArg=HEAD
+    for arg
+    do
+	# Ship command-line arguments.
+	case "$arg" in
+	    -*)	gitArgs+="$arg"; shift; continue;;
+	esac
+	if [ ! -r "$arg" ]; then
+	    commitArg="$arg"
+	    shift
+	fi
+	break
+    done
+
+    if [ $# -gt 0 ]; then   # Duplicate check; should always be true.
+	exec git checkout "${gitArgs[@]}" "$commitArg" -- "$@"
+    fi
 fi
 
 exec git reset --hard "$@"

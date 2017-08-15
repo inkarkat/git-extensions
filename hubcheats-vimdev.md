@@ -5,13 +5,13 @@ Copy / sync all plugin files from ~/data/data/Unixhome/.vim to ~/tmp/vim
 - Remove test artifacts:
 `rm ~/tmp/vim/tests/*.{out,msgout,msgresult,tap}`
 - Do a directory compare to **ensure that old deleted files are not reintroduced**
-- Backup and remove plugin files from ~/.vim/
 
 `git init vim-PluginName`
 `git-writebackup-ingo-import ~/tmp/vim`
 `hub create -d "Plugin description from doc/*.txt"`
 `git opublish`
 
+- Backup and remove plugin files from ~/.vim/
 - Remove tests invocation from ~/Unixhome/.vim/tests/noninteractive.suite, add to ~/Unixhome/.vim/pack/ingo/start/noninteractive.suite
 
 # convert plugin from writebackups to GitHub - git flow

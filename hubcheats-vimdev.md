@@ -9,7 +9,7 @@ Copy / sync all plugin files from ~/data/data/Unixhome/.vim to ~/tmp/vim
 
 `git init vim-PluginName`
 `git-writebackup-ingo-import ~/tmp/vim`
-`git create -d "Plugin description from doc/*.txt"`
+`hub create -d "Plugin description from doc/*.txt"`
 `git opublish`
 
 - Remove tests invocation from ~/Unixhome/.vim/tests/noninteractive.suite, add to ~/Unixhome/.vim/pack/ingo/start/noninteractive.suite

@@ -6,6 +6,7 @@ Copy / sync all plugin files from ~/data/data/Unixhome/.vim to ~/tmp/vim
 `rm ~/tmp/vim/tests/*.{out,msgout,msgresult,tap}`
 - Do a directory compare to **ensure that old deleted files are not reintroduced**
 
+`cd ~/Unixhome/.vim/pack/ingo/start/`
 `git init vim-PluginName`
 `git-writebackup-ingo-import ~/tmp/vim`
 `hub create -d "Plugin description from doc/*.txt"`

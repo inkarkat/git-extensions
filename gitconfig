@@ -220,6 +220,7 @@
 	track = branch --set-upstream-to	; Change the remote the current branch is tracking.
 	;; tracks: Show which remote branch is tracked by the current branch.
 	;
+	pull = pull --ff-only	; Get and fast-forward changes; don't merge or rebase. Let's do that explicitly via the corresponding commands.
 	;; rtrack: Make the current branch track the eponymous branch in the passed remote.
 	rb = rebase
 	; For merging, you switch to the target branch (e.g. master), then merge the source branch.
@@ -299,7 +300,10 @@
 	;; olog: log origin/master ; Log of my GitHub clone.
 	omio = inout master origin/master
 	ofetch = fetch --prune origin ; Get changes done to my GitHub clone through another Git repository, e.g. from another system. Use this, followed by git owipe, when origin has been reset (e.g. to an updated upstream).
-	opull = pull --prune origin ; Get and merge changes done to my GitHub clone through another Git repository, e.g. from another system.
+	opull = pull --ff-only --prune origin ; Get and fast-forward changes done to my GitHub clone through another Git repository, e.g. from another system. This allows to either merge or rebase (recommended) when local commits have been done to an outdated local branch.
+	oup = up origin
+	omerge = merge origin/master	; Merge changes done to my GitHub clone through another Git repository with my local repo.
+	orb = rebase origin/master	; Rebase my commits on top of to my GitHub clone.
 	opush = push origin ; Re-publish of current / passed <branch> to the tracking GitHub clone to get them pulled into upstream.
 	;; opublish: Initial publish of current / passed <branch> to my GitHub clone to get them pulled into upstream.
 	; ... and set upstream tracking reference so that future pushes can omit the branch name (when push.default=tracking).
@@ -339,7 +343,8 @@
 	;; umlg: Show one-line log of changes introduced in upstream relative to master; useful to review upstream changes before pulling them in.
 	;; umlc: Show log and diff of changes introduced in upstream relative to master; useful to review upstream changes before pulling them in.
 	ufetch = fetch --prune upstream	; Get upstream changes.
-	upull = pull --prune upstream	; Get and merge upstream changes. Use for direct checkouts of upstream, without my own origin. Else, prefer ucatchup.
+	upull = pull --ff-only --prune upstream	; Get and fast-forward upstream changes. (With proper use of other branches for patches, there should not be a need to merge upstream.) Use for direct checkouts of upstream, without my own origin. Else, prefer ucatchup.
+	uup = up origin
 	umerge = merge upstream/master	; Merge upstream changes with my local repo.
 	urb = rebase upstream/master	; Rebase my commits on top of the latest upstream. "co mybranch" first, clone it via "git co -b mybranch-old; git opublish" if you want to keep the old one, or just use "urb mybranch". You can also do this after the rebase, but before pushing: "git tco -b mybranch-old; git opublish; git co mybranch". Persist with "git opush -f"; undo with "git treset --hard".
 	;; urebaselocalbr: Rebase all / the last committed N local branches (except for the current branch and master) to the updated upstream head. After that, merge again via git uwipem && git mergelocalbrc; then use git opush -f --all to send the rebased branches to origin.

@@ -53,3 +53,5 @@ Add github snippets after INSTALLATION and after IDEAS.
 `git adduu`
 `git c -m "Add Readme and gitignore"`
 `git opush`
+
+(Continue at `git cheat flow`)

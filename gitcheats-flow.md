@@ -16,5 +16,4 @@ vimdev: First release: Create manifest
 vimdev: Create Vimball: `:CloneHelpAsText` | `:Make 1.00` | `:Zip`
 Note: I don't publish the release branch if it just contains trivial mechanics of preparing the release.
 `git flow release finish 1.00`
-`git opush --tags`
-`git opush --all`
+`git opa` (git opush --tags && git opush --all)

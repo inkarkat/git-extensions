@@ -1,0 +1,32 @@
+#!/bin/bash
+# Source:
+#   https://stackoverflow.com/questions/6795070/is-there-a-way-in-git-to-obtain-a-push-date-for-a-given-commit
+
+if [ "$1" = '--absolute' -o "$1" = '-a' ]; then
+    dateFormat='local'
+    shift
+else
+    dateFormat='relative'
+fi
+
+if [ $# -gt 0 ]; then
+    case "$1" in
+	*/*)	remoteBranch=$1;;
+	*)	remoteBranch="${1}/$(git-brname)";;
+    esac
+    if ! git-existsbr "$remoteBranch"; then
+	printf >&2 'ERROR: remote branch %s does not exist!\n' "$remoteBranch"
+	exit 1
+    fi
+else
+    remoteBranch=$(git-tracks) || exit $?
+fi
+
+latestRefLogLine=$(git reflog show --date="$dateFormat" "$remoteBranch" | head -n 1) || exit $?
+
+# XXX: Though I can influence the reflog output via "--format=%cd"; this shows
+# different dates; there doesn't seem to be a symbol for the reflog date.
+# Therefore, stick to the default format and manually parse out the date.
+latestDate="${latestRefLogLine##*@\{}"
+latestDate="${latestDate%\}*}"
+printf '%s\n' "$latestDate"

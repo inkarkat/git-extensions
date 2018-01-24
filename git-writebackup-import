@@ -13,16 +13,6 @@
 #
 # @(#)git-writebackup-import	004	(12-Mar-2013)	tools
 #
-# REVISION	DATE		REMARKS
-#	004	12-Mar-2013	Add --commit-message-plugin parameter to
-#				determine commit messages and --edit-message
-#				option to edit the empty or generated commit
-#				messages.
-#	003	26-May-2012	Handle import of filespecs with spaces.
-#	002	03-Feb-2012	ENH: When no original exists, remove the file
-#				from source control after the last backup file
-#				has been committed.
-#	001	03-Feb-2012	file creation
 ###############################################################################
 
 [ ${BASH_VERSINFO[0]} -ge 4 ] || { echo >&2 "ERROR: This script requires Bash 4.0 or higher!"; exit 2; }
@@ -32,18 +22,14 @@ set -o pipefail	# Pipes are used here for output filtering, so return the exit s
 
 printShortUsage()
 {
-    cat <<SHORTHELPTEXT
-Usage: git init && "$(basename "$1")" [--commit-message-plugin /path/to/plugin] [--edit-message|--edit-plugin-message] path/to/srcdir [-?|-h|--help]
-SHORTHELPTEXT
+    printf 'Usage: git init && %q %s\n' "$(basename "$1")" '[--commit-message-plugin /path/to/plugin] [--edit-message|--edit-plugin-message] path/to/srcdir [-?|-h|--help]'
 }
 printUsage()
 {
     # This is the short help when launched with no or incorrect arguments.
     # It is printed to stderr to avoid accidental processing.
     printShortUsage "$1" >&2
-    cat >&2 <<MOREHELP
-Try "$(basename "$1")" --help for more information.
-MOREHELP
+    printf 'Try %q %s\n' "$(basename "$1")" '--help for more information.'
 }
 printLongUsage()
 {
@@ -68,8 +54,8 @@ HELPDESCRIPTION
 				commit message is used.
 
 Example:
-git init ~/src/gitproject && "$(basename "$1")" ~/src/myproject
 HELPTEXT
+    printf '%s%q %s\n' 'git init ~/src/gitproject && ' "$(basename "$1")" '~/src/myproject'
 }
 
 IFS=$'\n'

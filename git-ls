@@ -2,11 +2,14 @@
 
 formatPrefix=
 formatSuffix=
+typeset -a gitLogArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--)		shift; break;;
-	--long|-l)	shift; formatPrefix='%h %<(12,trunc)%aN %ad '; formatSuffix=;;
+	--long|-l)	shift; formatPrefix='%h %<(12,trunc)%aN %<(22)%ad '; formatSuffix=;;
+	--date)			gitLogArgs+=("$1" "$2"); shift; shift;;
+	--relative-date)	gitLogArgs+=("$1"); shift;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
     esac
@@ -16,5 +19,5 @@ IFS=$'\n'
 for filespec in $(find "$@" -maxdepth 1 -type f -print | sort)
 do
     file=${filespec#./}
-    git log --pretty=format:"${formatPrefix}${file//%/%%}${formatSuffix}" --max-count 2 -- "$filespec"
+    git log --pretty=format:"${formatPrefix}${file//%/%%}${formatSuffix}" --max-count 2 "${gitLogArgs[@]}" -- "$filespec"
 done

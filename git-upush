@@ -1,0 +1,22 @@
+#!/bin/sh
+
+# Need to specify a branch, because the current branch presumably tracks origin,
+# not upstream. Because of this, Git wouldn't normally allow pushing to
+# upstream:
+# > fatal: You are pushing to remote 'upstream', which is not the upstream of
+# > your current branch 'master', without telling me what to push to update
+# > which remote branch.
+
+lastArg=; [ $# -gt 0 ] && lastArg=${!#}
+path="$lastArg"
+if git-existsbr "upstream/$path"; then
+    set -- "${@:1:$(($#-1))}"
+else
+    path=$(git-brname) || exit $?
+    if ! git-existsbr "upstream/$path"; then
+	printf >&2 'ERROR: Cannot find corresponding upstream branch; upstream/%s does not exist.\n' "$path"
+	exit 1
+    fi
+fi
+
+git push "$@" upstream "$path"

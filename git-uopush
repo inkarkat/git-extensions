@@ -1,0 +1,26 @@
+#!/bin/sh
+
+lastArg=; [ $# -gt 0 ] && lastArg=${!#}
+path="$lastArg"
+if git-existsbr "origin/$path"; then
+    if ! git-existsbr "upstream/$path"; then
+	printf >&2 'ERROR: origin/%s exists, but upstream/%s does not.\n' "$path" "$path"
+	exit 1
+    fi
+
+    set -- "${@:1:$(($#-1))}"
+else
+    path=$(git-brname) || exit $?
+    if ! git-existsbr "origin/$path"; then
+	printf >&2 'ERROR: Cannot find corresponding origin branch; origin/%s does not exist.\n' "$path"
+	exit 1
+    elif ! git-existsbr "upstream/$path"; then
+	printf >&2 'ERROR: origin/%s exists, but upstream/%s does not.\n' "$path" "$path"
+	exit 1
+    fi
+fi
+
+# First push to upstream; we usually want to catch up origin to upstream, but
+# keep it at the current state if pushing to upstream failed.
+git push "$@" upstream "$path" &&
+git push "$@" origin "$path"

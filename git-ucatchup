@@ -1,2 +1,41 @@
-#!/bin/sh
-git fetch upstream && git-uwipe "$@" && git push -f origin
+#!/bin/bash
+
+log=terminal; type -t rabbitvcs >/dev/null && log=graphical
+case "$1" in
+    --gui)	shift; log=graphical;;
+    --terminal)	shift; log=terminal;;
+    --none)	shift; log=;;
+esac
+
+logChanges()
+{
+    case "$log" in
+	'') ;;
+	terminal)   git-onelinelog "$1";;
+	graphical)  RABBITVCS_REVISION_RANGE="$1" rabbitvcs log;;
+	*)	    printf >&2 'ASSERT: Invalid log: %q\n' "$log"; exit 3;;
+    esac
+}
+
+# Need to specify a branch, because the current branch presumably tracks origin,
+# not upstream. Because of this, Git wouldn't normally allow pulling from
+# upstream:
+# > You asked to pull from the remote 'upstream', but did not specify
+# > a branch. Because this is not the default configured remote
+# > for your current branch, you must specify a branch on the command line.
+
+lastArg=; [ $# -gt 0 ] && lastArg=${!#}
+path="$lastArg"
+if git-existsbr "upstream/$path"; then
+    set -- "${@:1:$(($#-1))}"
+else
+    path=$(git-brname) || exit $?
+    if ! git-existsbr "upstream/$path"; then
+	printf >&2 'ERROR: Cannot find corresponding upstream branch; upstream/%s does not exist.\n' "$path"
+	exit 1
+    fi
+fi
+
+git-up "$@" upstream "$path" || exit $?
+logChanges "@{1}..${path}"
+git push origin "$path"

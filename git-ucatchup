@@ -37,9 +37,14 @@ else
 fi
 
 
+originalRevision=$(git rev-parse "$path" 2>/dev/null)
 git-up "$@" upstream "$path" || exit $?
 
-logChanges "@{1}..${path}"
+if [ "$(git rev-parse "$path" 2>/dev/null)" == "$originalRevision" ]; then
+    printf 'No changes in upstream/%s.\n' "$path"
+else
+    logChanges "@{1}..${path}"
+fi
 
 if git-existsremote origin; then
     git push origin "$path"

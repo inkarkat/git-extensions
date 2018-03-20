@@ -7,10 +7,6 @@ ensureValidRef()
 	exit 1
     fi
 }
-gitOneLineLog()
-{
-    git --no-pager log --abbrev-commit --date=relative --decorate --pretty=tformat:'%C(cyan)%h%Creset %Cgreen(%aN, %ar)%Creset %C(red bold)%d%Creset %s' "$@"
-}
 
 if [ $# -eq 2 ]; then
     localBranch=$1
@@ -29,9 +25,9 @@ ensureValidRef "$remoteBranch"
 set -o pipefail
 (
     echo "incoming ${remoteBranch} -> ${localBranch}:"
-    gitOneLineLog $localBranch..$remoteBranch
+    git-onelinelog --no-pager "$localBranch..$remoteBranch"
 
     echo
     echo "outgoing ${localBranch} -> ${remoteBranch}:"
-    gitOneLineLog $remoteBranch..$localBranch
+    git-onelinelog --no-pager "$remoteBranch..$localBranch"
 ) | "${PAGER:-less}" --RAW-CONTROL-CHARS

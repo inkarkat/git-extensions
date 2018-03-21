@@ -13,6 +13,15 @@
 #
 # -M detects moving lines in the file.
 # -t uses raw timestamps; which are easiest to parse.
-git annotate -M -t "$@" | perl \
-    -e 'sub fix { my $arg = shift; $arg =~ s/ /_/g; return sprintf("%-14.14s", $arg); }' \
-    -lpe 's/^([^\t]*)\t\(([^\t]+)\t\d+ [+-]\d+\t+\d+\)/$1 . " " . fix($2) . $3 . ") "/e' | "${PAGER:-less}" --RAW-CONTROL-CHARS
+annotate()
+{
+    git annotate -M -t "$@" | perl \
+	-e 'sub fix { my $arg = shift; $arg =~ s/ /_/g; return sprintf("%-14.14s", $arg); }' \
+	-lpe 's/^([^\t]*)\t\(([^\t]+)\t\d+ [+-]\d+\t+\d+\)/$1 . " " . fix($2) . $3 . ") "/e'
+}
+
+if [ -t 1 ]; then
+    annotate "$@" | "${PAGER:-less}" --RAW-CONTROL-CHARS
+else
+    annotate "$@"
+fi

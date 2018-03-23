@@ -3,8 +3,19 @@
 remote="${1:?}"; shift
 
 url=$(git-remoteurl "$remote")
-escapedUrl=${url//\\/\\\\}
-escapedUrl=${escapedUrl//#/\\#}
-escapedUrl=${escapedUrl//&\\&}
 
-git log --pretty=tformat:%H "$@" | sed -e "s#^#${escapedUrl}/commit/#"
+git log --pretty=tformat:%H "$@" | \
+    awk -v url="$url" '
+/^$/{ next; }
+/^[0-9a-f]+$/{ $0 = url "/commit/" $0; print; next; }
+{
+    sub(/^\S*\s+/, "")
+    filespecs[$0] = 1
+}
+END {
+    asorti(filespecs)
+    if (length(filespecs) > 0) print ""
+    for (f in filespecs)
+	print filespecs[f]
+}
+'

@@ -2,12 +2,40 @@
 
 remote="${1:?}"; shift
 
+: ${GIT_LHURL_URL_PREFIX=}
+: ${GIT_LHURL_URL_SUFFIX=}
+: ${GIT_LHURL_HASH_PREFIX=}
+: ${GIT_LHURL_HASH_SUFFIX=}
+: ${GIT_LHURL_PATH_PREFIX=[35m}
+: ${GIT_LHURL_PATH_SUFFIX=[0m}
+: ${GIT_LHURL_FILE_PREFIX=[01;35m}
+: ${GIT_LHURL_FILE_SUFFIX=[0m}
+
 url=$(git-remoteurl "$remote")
 
 git log --pretty=tformat:%H "$@" | \
-    awk -v url="$url" '
+    awk -v url="$url" \
+	-v urlPrefix="$GIT_LHURL_URL_PREFIX" \
+	-v urlSuffix="$GIT_LHURL_URL_SUFFIX" \
+	-v hashPrefix="$GIT_LHURL_HASH_PREFIX" \
+	-v hashSuffix="$GIT_LHURL_HASH_SUFFIX" \
+	-v pathPrefix="$GIT_LHURL_PATH_PREFIX" \
+	-v pathSuffix="$GIT_LHURL_PATH_SUFFIX" \
+	-v filePrefix="$GIT_LHURL_FILE_PREFIX" \
+	-v fileSuffix="$GIT_LHURL_FILE_SUFFIX" \
+'
+function basename( filespec ) {
+    sub(".*/", "", filespec)
+    return filespec
+}
+function dirname( filespec ) {
+    if (filespec !~ /\//) return ""
+    sub("[^/]+$", "", filespec)
+    return filespec
+}
+
 /^$/{ next; }
-/^[0-9a-f]+$/{ $0 = url "/commit/" $0; print; next; }
+/^[0-9a-f]+$/{ $0 = urlPrefix url "/commit/" urlSuffix hashPrefix $0 hashSuffix; print; next; }
 {
     sub(/^\S*\s+/, "")
     filespecs[$0] = 1
@@ -16,6 +44,6 @@ END {
     asorti(filespecs)
     if (length(filespecs) > 0) print ""
     for (f in filespecs)
-	print filespecs[f]
+	print pathPrefix dirname(filespecs[f]) pathSuffix filePrefix basename(filespecs[f]) fileSuffix
 }
 '

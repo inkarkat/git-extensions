@@ -1,0 +1,61 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Execute "git COMMAND" on each passed WORKING-COPY.
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'WORKING-COPY [...] -- [COMMAND ...] [-?|-h|--help]'
+}
+
+typeset -a wcs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--)		shift; break;;
+	*)		wcs+=("$1")
+			shift
+			;;
+    esac
+done
+[ ${#wcs[@]} -eq 0 ] && { printUsage "$0"; exit 2; }
+[ $# -eq 0 ] && set -- noop
+
+
+
+filterEmpty()
+{
+    awk '
+	/^\[01m\S+\[0m:$/ {
+	    suspect = $0
+	    while (1) {
+		lookahead = ""
+		while (lookahead ~ /^\n*$/) {
+		    if (getline lookahead != 1) {
+			next
+		    }
+		}
+		if (lookahead ~ /\n*\[01m\S+\[0m:$/) {
+		    gsub(/^\n*/, "", lookahead)
+		    suspect = lookahead
+		} else {
+		    print suspect
+		    print lookahead
+		    next
+		}
+	    }
+	}
+	{ print }
+    ' | sed -e '${ /^$/d }'
+}
+
+separator=
+exitStatus=0
+for dir in "${wcs[@]}"
+do
+    printf "${separator}[01m%s[0m:\n" "${dir##*/}"
+    separator='\n'
+    cd "$dir" && git "$@" || exitStatus=$?
+done | filterEmpty | "${PAGER:-less}" --RAW-CONTROL-CHARS
+exit $exitStatus

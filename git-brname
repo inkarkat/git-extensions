@@ -1,4 +1,10 @@
 #!/bin/sh
 
-branch=$(git symbolic-ref HEAD) || exit $?
-printf '%s\n' "${branch##refs/heads/}"
+if branch=$(git symbolic-ref HEAD 2>/dev/null); then
+    printf '%s\n' "${branch##refs/heads/}"
+elif detached=$(git rev-parse --short HEAD 2>/dev/null); then
+    printf '(%s...)\n' "$detached"
+else
+    # Re-execute command to obtain the original error message.
+    git symbolic-ref HEAD
+fi

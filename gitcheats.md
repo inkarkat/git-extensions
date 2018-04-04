@@ -2,21 +2,21 @@
 ----- add ----> -- commit ----> -- publish ------>
 ----- addu ---> -- commit ----> -- push --------->
 ### [WORK.COPY]  [INDEX]    [LOCAL REPOSITORY]  [REMOTE REPO]
-<------------ pull or rebase --------------------/
-.                        ^--------- fetch -------/
-<--------- checkout HEAD ---/
+<------------ pull or rebase -------------------------/
+.                                    ^-- fetch -------/
+<--------- checkout HEAD ------------/
 <-- checkout --/     or       -------/
-.                       ^- uncommit -/
-.               <------^--- peel ----/
-.               <-- unstage ---------/
-<---------------^---- wipe ----------/
+.                  ^-- uncommit -----/
+.                  <---------^ peel -/
+.                  <-- unstage ------/
+<------------------^-- wipe ---------/
 .
 <--------- dh -----------------------/
-.               <--- di -------------/
-<---- d ------/
+.                  <--- di ----------/
+<---- d -----------/
 
--- rm --^--------->
-<- undelete (checkout HEAD)-/
+-- rm --^---------->
+<- undelete (checkout HEAD)----------/
 
 `rev-parse`: Parsing of git revision syntaxes.
 

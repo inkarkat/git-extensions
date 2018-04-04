@@ -15,6 +15,9 @@
 .               <--- di -------------/
 <---- d ------/
 
+-- rm --^--------->
+<- undelete (checkout HEAD)-/
+
 `rev-parse`: Parsing of git revision syntaxes.
 
 # Commit addressing

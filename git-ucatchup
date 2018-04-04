@@ -1,22 +1,5 @@
 #!/bin/bash
 
-log=terminal; type -t rabbitvcs >/dev/null && log=graphical
-case "$1" in
-    --gui)	shift; log=graphical;;
-    --terminal)	shift; log=terminal;;
-    --none)	shift; log=;;
-esac
-
-logChanges()
-{
-    case "$log" in
-	'') ;;
-	terminal)   git-onelinelog "$1";;
-	graphical)  RABBITVCS_REVISION_RANGE="$1" rabbitvcs log >/dev/null 2>&1;;
-	*)	    printf >&2 'ASSERT: Invalid log: %q\n' "$log"; exit 3;;
-    esac
-}
-
 # Need to specify a branch, because the current branch presumably tracks origin,
 # not upstream. Because of this, Git wouldn't normally allow pulling from
 # upstream:
@@ -37,14 +20,7 @@ else
 fi
 
 
-originalRevision=$(git rev-parse "$path" 2>/dev/null)
-git-up "$@" upstream "$path" || exit $?
-
-if [ "$(git rev-parse "$path" 2>/dev/null)" == "$originalRevision" ]; then
-    printf 'No changes in upstream/%s.\n' "$path"
-else
-    logChanges "@{1}..${path}"
-fi
+git-uup "$@" "$path" || exit $?
 
 if git-existsremote origin; then
     git push origin "$path"

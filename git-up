@@ -1,11 +1,38 @@
-#!/bin/sh
+#!/bin/bash
 
 # Source:
 #   https://stackoverflow.com/questions/30208928/can-git-pull-automatically-stash-and-pop-pending-changes
 #   https://github.com/aanand/git-up
 
-# Git 2.6 and later.
-exec git -c rebase.autoStash=true pull --rebase=preserve "$@"
+log=terminal; type -t rabbitvcs >/dev/null && log=graphical
+case "$1" in
+    --gui)	shift; log=graphical;;
+    --terminal)	shift; log=terminal;;
+    --none)	shift; log=;;
+esac
 
+logChanges()
+{
+    case "$log" in
+	'') ;;
+	terminal)   git-onelinelog "$1";;
+	graphical)  RABBITVCS_REVISION_RANGE="$1" rabbitvcs log >/dev/null 2>&1;;
+	*)	    printf >&2 'ASSERT: Invalid log: %q\n' "$log"; exit 3;;
+    esac
+}
+
+path=; [ $# -gt 0 ] && path=${!#} || path=$(git-tracks)
+originalRevision=$(git rev-parse "$path" 2>/dev/null)
+
+# Git 2.6 and later.
+git -c rebase.autoStash=true pull --rebase=preserve "$@" || exit $?
 # Git 2.9 and later.
-#exec git pull --rebase=preserve --autostash "$@"
+#git pull --rebase=preserve --autostash "$@" || exit $?
+
+if [ ! "$path" ]; then
+    [ "$log" ] echo >&2 "Warning: Could not determine updated path, no logging possible."
+elif [ "$(git rev-parse "$path" 2>/dev/null)" == "$originalRevision" ]; then
+    printf 'No changes in upstream/%s.\n' "$path"
+else
+    logChanges "@{1}..${path}"
+fi

@@ -1,5 +1,26 @@
 #!/bin/bash
 
-readonly FORMAT='%C(cyan)%h%Creset %Cgreen(%aN, %ar)%Creset %C(red bold)%d%Creset %s'
+# Enable extended file pattern matching operators from ksh
+# (?(pattern-list), !(pattern-list), ...) in Bash.
+shopt -qs extglob
+
+contains()
+{
+    needle=$1
+    shift
+    for elem
+    do
+    [ "$needle" = "$elem" ] && return 0
+    done
+    return 1
+}
+
 gitDirectArg="$1"; shift
+
+FORMAT='%C(cyan)%h%Creset %Cgreen(%aN, %ar)%Creset %C(red bold)%d%Creset %s'
+if contains '--no-color' "$@" || contains '--color=never' "$@"; then
+    FORMAT=${FORMAT//%C\(+([^\)])\)/}
+    FORMAT=${FORMAT//%C+([a-z])/}
+fi
+
 git $gitDirectArg log --abbrev-commit --date=relative --decorate --pretty="tformat:${GIT_ONELINELOG_PREFORMAT:-}${FORMAT//${GIT_ONELINELOG_NOFORMAT:-}/}${GIT_ONELINELOG_POSTFORMAT:-}" "$@"

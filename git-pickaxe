@@ -21,11 +21,13 @@ if [ $# -eq 0 ]; then
 fi
 
 # The last argument is the text or /regexp/.
-if [ "$lastArg" = '-p' -o "$lastArg" = '--pretty=oneline' ]; then
-    # Check for no arguments given to findchange and findlg aliases.
-    printUsage "$0"
-    exit 2
-fi
+case "$lastArg" in
+    # Check for no arguments given to findchange, findlogsv and findlg aliases.
+    -p|--pretty=oneline|--name-status)
+	printUsage "$0"
+	exit 2
+	;;
+esac
 
 searchString=$(printf '%s' "$lastArg" | sed -ne 's/^\([^a-zA-Z0-9]\)\(.*\)\1$/\2/p')
 [ "$searchString" ] && allargs+=("--pickaxe-regex") || searchString=$lastArg

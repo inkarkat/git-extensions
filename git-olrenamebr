@@ -25,6 +25,7 @@ else
 fi
 
 git branch -m "$oldBranch" "$newBranch" || exit $?
+oldOriginBranch=$oldBranch
 tracks="$(git-tracks "$newBranch" 2>/dev/null)"
 if [ "${tracks%%/*}" = 'origin' ]; then
     # The local branch tracks a branch from origin; we assume it is the one to
@@ -32,9 +33,7 @@ if [ "${tracks%%/*}" = 'origin' ]; then
     # did a purely local rename before.) We have to delete it using its remote
     # name, and then untrack it, or else the push with the new name will somehow
     # recognize the tracking branch and keep pushing to the old name.
-    git odeletebr "${tracks#*/}" || exit $?
     git branch --unset-upstream "$newBranch"
-else
-    git odeletebr "$oldBranch" || exit $?
+    oldOriginBranch="${tracks#*/}"
 fi
-git-opublish "$newBranch"
+git push --set-upstream origin "$newBranch" ":$oldOriginBranch"

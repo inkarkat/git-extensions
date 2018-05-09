@@ -1,0 +1,40 @@
+#!/bin/sh
+
+printUsage()
+{
+    cat <<HELPTEXT
+Rename <oldbranch> to <newbranch> in both local repository and origin.
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<oldbranch>] <newbranch>'
+}
+
+if [ $# -eq 0 -o $# -gt 2 ]; then
+    echo >&2 'Need <newbranch> target!'
+    exit 2
+fi
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+if [ $# -eq 1 ]; then
+    oldBranch="$(git-brname)" || exit $?
+    newBranch=$1
+else
+    oldBranch=$1
+    newBranch=$2
+fi
+
+git branch -m "$oldBranch" "$newBranch" || exit $?
+tracks="$(git-tracks "$newBranch" 2>/dev/null)"
+if [ "${tracks%%/*}" = 'origin' ]; then
+    # The local branch tracks a branch from origin; we assume it is the one to
+    # be renamed. (It may have a name different than the local one, e.g. if we
+    # did a purely local rename before.) We have to delete it using its remote
+    # name, and then untrack it, or else the push with the new name will somehow
+    # recognize the tracking branch and keep pushing to the old name.
+    git odeletebr "${tracks#*/}" || exit $?
+    git branch --unset-upstream "$newBranch"
+else
+    git odeletebr "$oldBranch" || exit $?
+fi
+git-opublish "$newBranch"

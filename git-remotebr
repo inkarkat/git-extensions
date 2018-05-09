@@ -1,6 +1,27 @@
-#!/bin/sh
+#!/bin/bash
 
-branch=$(git-brname) || exit $?
+remote=${1:?}; shift
 
-remoteCandidate="${1:?}/$branch"
-git-existsbr "$remoteCandidate" && printf '%s\n' "$remoteCandidate"
+if [ $# -eq 0 ]; then
+    branch=$(git-brname) || exit $?
+    set -- "$branch"
+fi
+
+status=0
+for branch
+do
+    trackedBranch=$(git-tracks "$branch")
+    if [ "${trackedBranch%%/*}" = "$remote" ]; then
+	remoteCandidate=$trackedBranch
+    else
+	remoteCandidate="${remote}/$branch"
+    fi
+
+    if git-existsbr "$remoteCandidate"; then
+	printf '%s\n' "$remoteCandidate"
+    else
+	printf >&2 'ERROR: %s does not have a branch for %s.\n' "$remote" "$branch"
+	status=1
+    fi
+done
+exit $status

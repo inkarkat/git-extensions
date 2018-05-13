@@ -1,0 +1,31 @@
+#!/bin/sh
+
+printUsage()
+{
+    cat <<HELPTEXT
+Merge the current branch to master / the passed <branch>, then delete it from
+the local repository as well as origin (if it exists there).
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<branch>]'
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+source=$(git rev-parse HEAD) || exit $?
+target=master
+if [ $# -eq 1 ]; then
+    target=$1
+elif [ $# -gt 1 ]; then
+    echo >&2 'Just pass one target <branch> to merge to!'
+    exit 2
+fi
+if [ "$(git rev-parse "$target")" = "$source" ]; then
+    printf >&2 'ERROR: Cannot reintegrate %s onto itself; check out a different branch first!\n' "$target"
+    exit 1
+fi
+
+git checkout "$target" || exit $?
+git merge --no-ff "$source" || exit $?
+git-oldeletebr --ignore-missing-in-origin "$@" || exit $?

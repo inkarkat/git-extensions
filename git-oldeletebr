@@ -1,25 +1,36 @@
-#!/bin/sh
+#!/bin/bash
 
 printUsage()
 {
     cat <<HELPTEXT
 Delete <branch> from the local repository as well as origin.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] <branch> [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [--ignore-missing-in-origin] <branch> [...]'
 }
 
+branchDeleteOption=-d
+isIgnoreMissingInOrigin=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	-f|--force)	shift; branchDeleteOption=-D;;
+	--ignore-missing-in-origin)	shift; isIgnoreMissingInOrigin=t;;
+	*)		break;;
+    esac
+done
 if [ $# -eq 0 ]; then
-    echo >&2 'Need <branch> to delete!'
+    echo >&2 'Need (at least one) <branch> to delete!'
     exit 2
 fi
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-esac
 
-branchDeleteOption=-d
-case $1 in
-    -f|--force)	shift; branchDeleteOption=-D;;
-esac
+
+# Need to determine remote branch names before deleting the local branches.
+if [ "$isIgnoreMissingInOrigin" ]; then
+    typeset -a remoteBranches=($(git-remotebr origin "$@" 2>/dev/null))
+else
+    typeset -a remoteBranches=($(git-remotebr origin "$@"))
+fi
 
 # Note: Process all passed branches in one fell swoop; this avoid re-querying
 # (on push) the remote repository credentials for each branch. When one branch
@@ -27,5 +38,12 @@ esac
 # processed: just as we'd like.
 status=0
 git branch $branchDeleteOption "$@" || status=$?
-git push origin --delete "$@" || status=$?
+
+# If not all branches have remotes in origin, this is a failure of this command;
+# the branch(es) have already been printed to stderr by git-remotebr.
+[ ! "$isIgnoreMissingInOrigin" -a ${#remoteBranches[@]} -lt $# ] && status=1
+
+if [ ${#remoteBranches[@]} -gt 0 ]; then
+    git push origin --delete "${remoteBranches[@]#origin/}" || status=$?
+fi
 exit $status

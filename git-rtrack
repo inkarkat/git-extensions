@@ -1,6 +1,11 @@
 #!/bin/sh
 
-branch=$(git symbolic-ref HEAD) || exit $?
-branch=${branch##refs/heads/}
+remote=${1:?}; shift
+if [ $# -gt 0 ]; then
+    branch=$1; shift
+else
+    branch=$(git symbolic-ref HEAD) || exit $?
+    branch=${branch##refs/heads/}
+fi
 
-exec git branch --set-upstream-to "${1:?}/${branch}"
+exec git branch --set-upstream-to "${remote}/${branch}"

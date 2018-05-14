@@ -2,6 +2,17 @@
 
 set -o pipefail
 
+contains()
+{
+    needle=$1
+    shift
+    for elem
+    do
+    [ "$needle" = "$elem" ] && return 0
+    done
+    return 1
+}
+
 TMPDIR=$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TEMP:-/tmp}/$(basename -- "$0").$$$RANDOM")
 [ "$DEBUG" ] || trap 'rm -rf "$TMPDIR" 2>/dev/null' EXIT
 
@@ -9,7 +20,10 @@ TMPFILE="${TMPDIR}/input"   # splitdiff cannot directly read from stdin ("-" is 
 git diff "$@" > "$TMPFILE" || exit $?
 splitdiff -D "$TMPDIR" -d -a -p 1 "$TMPFILE" >/dev/null || exit $?
 rm -f "$TMPFILE" 2>/dev/null
-pipethrough --piped 'colordiff --color=yes' "${TMPDIR}"/*.patch 2>/dev/null
+
+if ! contains '--no-color' "$@" && ! contains '--color=never' "$@"; then
+    pipethrough --piped 'colordiff --color=yes' "${TMPDIR}"/*.patch 2>/dev/null
+fi
 
 [ "$PAGER" = smartless ] && PAGER=less	# XXX: smartless concatenates all input files into one stream, but we explicitly want to page through each file separately.
 "${PAGER:-less}" --RAW-CONTROL-CHARS "${TMPDIR}"/*.patch

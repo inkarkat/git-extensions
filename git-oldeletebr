@@ -37,13 +37,27 @@ fi
 # is invalid, an error is returned, but following (valid) branches are still
 # processed: just as we'd like.
 status=0
-git branch $branchDeleteOption "$@" || status=$?
 
 # If not all branches have remotes in origin, this is a failure of this command;
 # the branch(es) have already been printed to stderr by git-remotebr.
 [ ! "$isIgnoreMissingInOrigin" -a ${#remoteBranches[@]} -lt $# ] && status=1
 
+# Remove remote branches first; else, we might get Git errors about unmerged
+# changes:
+# > warning: not deleting branch 'foo' that is not yet merged to
+# >          'refs/remotes/origin/foo', even though it is merged to HEAD.
+# > error: The branch 'foo' is not fully merged.
+# > If you are sure you want to delete it, run 'git branch -D foo'.
+# We're not interested in the merge state with regards to origin; that one will
+# be deleted anyway, but we like the merge check with HEAD. Simply untracking
+# origin doesn't work, so (contrary to usual precedence), we have to start with
+# remote branches first. That's not so bad: if it really turns out that we want
+# to keep the branch (both locally and remote), we need to manually opublish it
+# again.
 if [ ${#remoteBranches[@]} -gt 0 ]; then
     git push origin --delete "${remoteBranches[@]#origin/}" || status=$?
 fi
+
+git branch $branchDeleteOption "$@" || status=$?
+
 exit $status

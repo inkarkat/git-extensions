@@ -4,7 +4,8 @@ printUsage()
 {
     cat <<HELPTEXT
 List local branches and their first commit ordered by date of first commit, as
-based on upstream/master or the branch passed with --base <branch>.
+based on the best common ancestors of all branches  or the branch passed with
+--base <branch>.
 Pass -r to list remote-tracking branches.
 Pass -a to list both.
 The branches can be optionally filtered by <branch-glob>.
@@ -13,7 +14,7 @@ HELPTEXT
 }
 
 locality='local'
-base='upstream/master'
+base=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -36,7 +37,11 @@ typeset -a branches=($(git for-each-ref --format='%(refname:short)' $what)) || e
 typeset -a firstCommits=()
 for branch in "${branches[@]}"
 do
-    mergeBase=$(git merge-base "$branch" "$base") || exit $?
+    if [ "$base" ]; then
+	mergeBase=$(git merge-base "$branch" "$base") || exit $?
+    else
+	mergeBase=$(git merge-base --octopus "$branch") || exit $?
+    fi
     firstCommit=$(git log --pretty="tformat:%at %h (%an, %ar)" "${mergeBase}..${branch}" | tail -n 1)
     if [ ! "$firstCommit" ]; then
 	# There's no log output when the merge base is identical to the branch;

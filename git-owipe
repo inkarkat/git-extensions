@@ -1,12 +1,9 @@
 #!/bin/sh
 
-branch=$(git symbolic-ref HEAD) || exit $?
-branch=${branch##refs/heads/}
-
 force=
 case $1 in
     --force|-f)	force=$1; shift;;
 esac
-remoteBranch=$(git tracks) || exit $?
 
-git wipe $force "$@" "$remoteBranch"
+set -- $(git-parse-last-remotebr-argument origin "$@")
+exec git-wipe $force "$@"

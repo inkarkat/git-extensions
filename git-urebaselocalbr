@@ -4,13 +4,16 @@ printUsage()
 {
     cat <<HELPTEXT
 Rebase all / the last committed N local branches (except for the current branch
-and master) to the updated upstream head.
-After that, you can push all branches to upstream via git opush -f --all.
+and master) to the upstream branch that corresponds to the current one / passed
+<branch>.
+After that, you can push all branches to origin via git opush -f --all.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--continue|--skip|--abort] [--branches "<branch1> ..."] [N] [-i|--interactive] [options]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--continue|--skip|--abort] [--branches "<branch1> ..."] [N] [-i|--interactive] [options] [<branch>]'
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
 
-exec git-rebaselocalbr --upstream 'upstream/master' "$@"
+set -- $(git-parse-last-remotebr-argument upstream "$@")
+upstreamBranch=${!#}
+exec git-rebaselocalbr --upstream "$upstreamBranch" "${@:1:$(($#-1))}"

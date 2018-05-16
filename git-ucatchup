@@ -6,19 +6,7 @@
 # > You asked to pull from the remote 'upstream', but did not specify
 # > a branch. Because this is not the default configured remote
 # > for your current branch, you must specify a branch on the command line.
-
-lastArg=; [ $# -gt 0 ] && lastArg=${!#}
-path="$lastArg"
-if [ "$path" ] && git-existsbr "upstream/$path"; then
-    set -- "${@:1:$(($#-1))}"
-else
-    path=$(git-brname) || exit $?
-    if ! git-existsbr "upstream/$path"; then
-	printf >&2 'ERROR: Cannot find corresponding upstream branch; upstream/%s does not exist.\n' "$path"
-	exit 1
-    fi
-fi
-
+set -- $(git-parse-last-remotebr-argument upstream "$@")
 
 git-uup "$@" "$path" || exit $?
 

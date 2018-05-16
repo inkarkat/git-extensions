@@ -1,0 +1,11 @@
+#!/bin/bash
+
+remote=${1:?}; shift
+
+lastArg=; [ $# -gt 0 ] && lastArg=${!#}
+if [ "$lastArg" ] && remoteBranch=$(git-remotebr "$remote" "$lastArg" 2>/dev/null); then
+    printf '%q ' "${@:1:$(($#-1))}" "$remoteBranch"
+else
+    remoteBranch=$(git-remotebr "$remote") || exit $?
+    printf '%q ' "$@" "$remoteBranch"
+fi

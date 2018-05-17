@@ -2,6 +2,7 @@
 
 shopt -qs extglob
 
+readonly scriptFilespec="${BASH_SOURCE[0]}"
 printUsage()
 {
     cat <<HELPTEXT
@@ -15,6 +16,8 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-y|--yes] [--continue|--abort] [--branches "<branch1> ..."] [N] COMMANDLINE'
 }
 
+typeset -a args=("$@")
+isStashed=
 isYes=
 branchNum=9999
 inputBranches=
@@ -23,6 +26,7 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)		    shift; printUsage "$0"; exit 0;;
+	--stashed)		    shift; isStashed=t;;
 	--yes|-y)		    shift; isYes=t;;
 	--branches)		    shift; inputBranches=$1; shift;;	# Internal hook to pass in the branches.
 	--continue|--abort)	    iterationAction=${1#--}; shift; break;;
@@ -31,6 +35,9 @@ do
     esac
 done
 [ $# -eq 0 ] && isYes=t	# No need to confirm when no command-line is passed; user can abort via --abort interactively.
+if [ ! "$isStashed" -a ! "$iterationAction" ]; then
+    exec git-autostash "$scriptFilespec" --stashed "${args[@]}"
+fi
 
 gitDir=$(git rev-parse --git-dir 2>/dev/null) || exit $?
 origBranchStore="${gitDir}/localbrOrig"

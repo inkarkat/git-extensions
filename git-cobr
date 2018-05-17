@@ -1,5 +1,6 @@
 #!/bin/bash
 
+readonly scriptFilespec="${BASH_SOURCE[0]}"
 printUsage()
 {
     cat <<HELPTEXT
@@ -8,9 +9,14 @@ matching <pattern>).
 HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [<remote>] [<pattern>] [-?|-h|--help]'
 }
-isQuiet=
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --stashed)		shift;;
+    *)			exec git-autostash "$scriptFilespec" --stashed "$@";;
+esac
+
+isQuiet=
+case "$1" in
     --quiet|-q)		shift; isQuiet=t;;
 esac
 remoteFilter=
@@ -45,4 +51,4 @@ if [ "$hadOne" ]; then
 else
     printMessage "No (untracked) branch(es) ${branchPattern:+matching \"${branchPattern}\" }found."
 fi
-[ $status -eq 0 ] || exit $status
+exit $status

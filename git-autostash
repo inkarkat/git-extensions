@@ -1,0 +1,62 @@
+#!/bin/bash
+# See https://stackoverflow.com/a/15367176/813602
+
+printUsage()
+{
+    cat <<HELPTEXT
+Automatically create a temporary stash before COMMANDLINE, and apply it after
+the operation ends. This means that you can run Git commands that otherwise
+would complain on a dirty worktree.
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-u|--include-untracked] [-a|--all] [COMMANDLINE ...] [-?|-h|--help]'
+}
+
+typeset -a stashArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--include-untracked|-u|--all|-a) stashArgs+=("$1"); shift;;
+	*)  break;;
+    esac
+done
+
+commandLineEscape()
+{
+    eval "typeset -a result=(\"\${${1:?}[@]}\")"
+    typeset escapeChars="\\${IFS-$' \t\n'}"
+    typeset escapeCharIdx
+    for ((escapeCharIdx = 0; escapeCharIdx < ${#escapeChars}; escapeCharIdx++))
+    do
+	result=("${result[@]//"${escapeChars:$escapeCharIdx:1}"/\\"${escapeChars:$escapeCharIdx:1}"}")
+    done
+    eval "${1}Escaped=(\"\${result[@]}\")"
+}
+
+isDirty=; git-dirty && isDirty=t
+
+if [ "$isDirty" ]; then
+    # Emulate the output of git pull --autostash:
+    # > Created autostash: db23d8b
+    # > HEAD is now at 4166659 Merge branch 'newbr'
+    # [COMMANDLINE] output
+    # > Applied autostash.
+    # The default stash output is too verbose; not showing anything would be
+    # confusing, too.
+    stashOutput=$(git stash save "${stashArgs[@]}" 'autostash') || exit $!
+    printf 'Created autostash: %s\n' "$(git rev-parse --short stash@{0} 2>/dev/null || echo "???")"
+    printf '%s\n' "$stashOutput" | sed -e '/^Saved working directory and index state /d'
+fi
+finally()
+{
+    if [ "$isDirty" ]; then
+	git stash pop --quiet && echo "Applied autostash." || exit $?
+    fi
+    exit $status
+}
+trap 'finally' EXIT
+
+
+typeset -a commandLine=("$@")
+commandLineEscape commandLine
+(eval "${commandLineEscaped[@]}"); status=$?

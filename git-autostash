@@ -4,35 +4,38 @@
 printUsage()
 {
     cat <<HELPTEXT
-Automatically create a temporary stash before executing COMMANDLINE (which
-probably contains Git command(s)), and apply and remove the stash after that
-operation ends. This means that you can run Git commands that otherwise would
-complain on a dirty worktree.
+Automatically create a temporary stash before executing COMMAND (which probably
+contains Git command(s)), and apply and remove the stash after that operation
+ends. This means that you can run Git commands that otherwise would complain on
+a dirty worktree.
+--command|-c CMD	The command line to be executed. When this is a simple
+			command, it can also be passed as such.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-u|--include-untracked] [-a|--all] [COMMANDLINE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-u|--include-untracked] [-a|--all] (-c|--command "COMMANDLINE" | [--] SIMPLECOMMAND [...]) [...] [-?|-h|--help]'
 }
 
+isNeedEval=
+typeset -a commands=()
 typeset -a stashArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--include-untracked|-u|--all|-a) stashArgs+=("$1"); shift;;
+	--command|-c)	shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
+	--)		shift; break;;
 	*)  break;;
     esac
 done
-
-commandLineEscape()
-{
-    eval "typeset -a result=(\"\${${1:?}[@]}\")"
-    typeset escapeChars="\\${IFS-$' \t\n'}"
-    typeset escapeCharIdx
-    for ((escapeCharIdx = 0; escapeCharIdx < ${#escapeChars}; escapeCharIdx++))
-    do
-	result=("${result[@]//"${escapeChars:$escapeCharIdx:1}"/\\"${escapeChars:$escapeCharIdx:1}"}")
-    done
-    eval "${1}Escaped=(\"\${result[@]}\")"
-}
+if [ $# -ne 0 ]; then
+    if [ "$isNeedEval" ]; then
+	# Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
+	# undo the effects of eval.
+	commands+=(${commands:+;} $(printf '%q ' "$@"))
+    else
+	commands=("$@")
+    fi
+fi
 
 isDirty=; git-dirty && isDirty=t
 
@@ -58,6 +61,10 @@ finally()
 trap 'finally' EXIT
 
 
-typeset -a commandLine=("$@")
-commandLineEscape commandLine
-(eval "${commandLineEscaped[@]}"); status=$?
+(
+    if [ "$isNeedEval" ]; then
+	eval "${commands[@]}"
+    else
+	"${commands[@]}"
+    fi
+); status=$?

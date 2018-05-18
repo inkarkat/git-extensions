@@ -11,7 +11,7 @@ a dirty worktree.
 --command|-c CMD	The command line to be executed. When this is a simple
 			command, it can also be passed as such.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-u|--include-untracked] [-a|--all] (-c|--command "COMMANDLINE" | [--] SIMPLECOMMAND [...]) [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-u|--include-untracked] [-a|--all] -c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...] [-?|-h|--help]'
 }
 
 isNeedEval=
@@ -24,13 +24,11 @@ do
 	--include-untracked|-u|--all|-a) stashArgs+=("$1"); shift;;
 	--command|-c)	shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
 	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)  break;;
     esac
 done
-if [ $# -eq 0 ]; then
-    echo >&2 'ERROR: Need to pass -c|--command "COMMANDLINE", or SIMPLECOMMAND.'
-    exit 2
-else
+if [ $# -ne 0 ]; then
     if [ "$isNeedEval" ]; then
 	# Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
 	# undo the effects of eval.
@@ -38,6 +36,10 @@ else
     else
 	commands=("$@")
     fi
+fi
+if [ ${#commands[@]} -eq 0 ]; then
+    echo >&2 'ERROR: No COMMAND(s) specified; need to pass -c|--command "COMMANDLINE", or SIMPLECOMMAND.'
+    exit 2
 fi
 
 isDirty=; git-dirty && isDirty=t

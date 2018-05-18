@@ -1,0 +1,26 @@
+#!/bin/bash
+
+shopt -qs extglob
+
+printUsage()
+{
+    cat <<HELPTEXT
+Check out all / the last N local branches (except for the current branch and
+master) ordered by date of first commit, one by one and execute COMMAND on each
+branch. If no COMMAND is given, just performs the checkout and returns to the
+shell; the next iteration is then triggered by re-executing with --continue,
+which can also be used to continue with COMMAND execution in case an unclean
+exit or a left-behind dirty working copy made the command to fall out of the
+iteration.
+--command|-c CMD	The command line to be executed. When this is a simple
+			command, it can also be passed as such. If omitted, will
+			just return to the shell for each branch.
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-y|--yes] [--continue|--abort] [--branches "<branch1> ..."] [N] [-c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...]] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+branches=$(git-brc | awk '{ print $NF }') || exit $?
+exec git-localbrdo --branches "$branches" "$@"

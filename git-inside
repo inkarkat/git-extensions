@@ -1,0 +1,69 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Execute COMMAND (which probably contains Git command(s)) inside the working copy
+that FILE resides in. (Most Git commands only work from within the working
+copy.)
+--command|-c CMD	The command line to be executed. When this is a simple
+			command, it can also be passed as such.
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '-c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...] [--] FILE [...] [-?|-h|--help]'
+}
+
+isNeedEval=
+typeset -a commands=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--command|-c)	shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)  break;;
+    esac
+done
+if [ $# -gt 1 ]; then
+    typeset -a simpleCommand=()
+    while [ $# -gt 1 ]
+    do
+	case "$1" in
+	    --)	shift; break;;
+	    *)  simpleCommand+=("$1"); shift;;
+	esac
+    done
+    if [ "$isNeedEval" ]; then
+	# Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
+	# undo the effects of eval.
+	commands+=(${commands:+;} $(printf '%q ' "${simpleCommand[@]}"))
+    else
+	commands=("${simpleCommand[@]}")
+    fi
+fi
+if [ ${#commands[@]} -eq 0 ]; then
+    echo >&2 'ERROR: No COMMAND(s) specified; need to pass -c|--command "COMMANDLINE", or SIMPLECOMMAND.'
+    exit 2
+elif [ $# -eq 0 ]; then
+    echo >&2 'ERROR: No FILE(s) specified; need a file for the working copy location.'
+    exit 2
+fi
+
+dirspec=$(dirname -- "$1") || exit $?
+if [ ! -d "$dirspec" ]; then
+    printf >&2 'ERROR: The directory %s does not exist!\n' "$dirspec"
+    exit 1
+fi
+if ! cd "$dirspec"; then
+    printf >&2 'ERROR: Cannot chdir to %s!\n' "$dirspec"
+    exit 1
+fi
+if ! git root >/dev/null 2>&1; then
+    printf >&2 'ERROR: %s is not inside a Git working copy!\n' "$dirspec"
+    exit 1
+fi
+if [ "$isNeedEval" ]; then
+    eval "${commands[@]}" '"$@"'
+else
+    "${commands[@]}" "$@"
+fi

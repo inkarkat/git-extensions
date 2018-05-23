@@ -1,0 +1,10 @@
+#!/bin/bash
+
+previousRev=$(git describe --abbrev=0 --all HEAD^) || exit $?
+
+if [ $# -gt 1 -a "$1" = '--keep-last' ]; then
+    shift
+    exec git "${@:1:$(($#-1))}" "${previousRev}^.." "${!#}"
+else
+    exec git "$@" "${previousRev}^.."
+fi

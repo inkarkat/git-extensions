@@ -1,0 +1,14 @@
+#!/bin/bash
+
+prefix=
+if [ "$1" = '--prefix' ]; then
+    shift
+    prefix="$1"; shift
+fi
+
+relDir=$(git rel) || exit $?
+literalRelDir="${prefix}$relDir"
+literalRelDir=${literalRelDir//\/\\}
+literalRelDir=${literalRelDir//&/\&}
+
+git ls "$@" | sed -e "s#^#${literalRelDir//#/\\#}#"

@@ -1,14 +1,19 @@
 #!/bin/bash
 
 prefix=
-if [ "$1" = '--prefix' ]; then
-    shift
-    prefix="$1"; shift
-fi
+typeset -a transformer=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--prefix)	shift; prefix="$1"; shift;;
+	--transform)	shift; eval "transformer=($1)"; shift;;
+	*)		break;;
+    esac
+done
 
 relDir=$(git rel) || exit $?
 literalRelDir="${prefix}$relDir"
 literalRelDir=${literalRelDir//\/\\}
 literalRelDir=${literalRelDir//&/\&}
 
-git ls "$@" | sed -e "s#^#${literalRelDir//#/\\#}#"
+eval 'git ls "$@"' "${transformer:+|}" '"${transformer[@]}"'| sed -e "s#^#${literalRelDir//#/\\#}#"

@@ -2,8 +2,16 @@
 
 previousRev=$(git describe --abbrev=0 --all HEAD^) || exit $?
 
-if [ $# -gt 1 -a "$1" = '--keep-last' ]; then
-    shift
+isKeepLastArgument=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--keep-last)	shift; isKeepLastArgument=t;;
+	*)		break;;
+    esac
+done
+
+if [ $# -gt 0 -a "$isKeepLastArgument" ]; then
     exec git "${@:1:$(($#-1))}" "${previousRev}^.." "${!#}"
 else
     exec git "$@" "${previousRev}^.."

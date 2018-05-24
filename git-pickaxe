@@ -3,13 +3,14 @@
 printUsage()
 {
     cat <<HELPTEXT
-Pickaxe: Show log (and commits with -p) where text or /regexp/ was changed.
+Pickaxe: git show / log (according to GIT-COMMAND) where text or /regexp/ was changed.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<options>] [<since>..<until>] [[--] <path>...] text|/regexp/ [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND [<options>] [<since>..<until>] [[--] <path>...] text|/regexp/ [-?|-h|--help]'
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
+gitCommand=${1:?}; shift
 lastArg=${!#}
 case "$lastArg" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
@@ -22,7 +23,7 @@ fi
 
 # The last argument is the text or /regexp/.
 case "$lastArg" in
-    # Check for no arguments given to findchange, findlogsv and findlg aliases.
+    # Check for no arguments given to findchanges, findlogsv and findlg aliases.
     -p|--pretty=oneline|--name-status)
 	printUsage "$0"
 	exit 2
@@ -32,4 +33,4 @@ esac
 searchString=$(printf '%s' "$lastArg" | sed -ne 's/^\([^a-zA-Z0-9]\)\(.*\)\1$/\2/p')
 [ "$searchString" ] && allargs+=("--pickaxe-regex") || searchString=$lastArg
 
-exec git log "${@:1:$(($#-1))}" "-S$searchString"
+exec git "$gitCommand" "${@:1:$(($#-1))}" "-S$searchString"

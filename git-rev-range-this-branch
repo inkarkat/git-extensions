@@ -3,16 +3,46 @@
 previousRev=$(git describe --abbrev=0 --all HEAD^) || exit $?
 
 isKeepLastArgument=
+isShowOneMore=
+showOneMoreCommand=
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--keep-last)	shift; isKeepLastArgument=t;;
+	--one-more|+1)	shift; isShowOneMore=t;;
+	--one-more-command)	shift; isShowOneMore=t; showOneMoreCommand=$1; shift;;
 	*)		break;;
     esac
 done
 
-if [ $# -gt 0 -a "$isKeepLastArgument" ]; then
-    exec git "${@:1:$(($#-1))}" "${previousRev}^.." "${!#}"
+contains()
+{
+    needle=$1
+    shift
+    for elem
+    do
+    [ "$needle" = "$elem" ] && return 0
+    done
+    return 1
+}
+
+if [ "$isShowOneMore" ]; then
+    # Because of the piping into the pager, we need to explicitly enable color.
+    # Don't do this if the user explicitly turned it off, though.
+    typeset -a colorArg=(--color=always)
+    contains '--no-color' "$@" && colorArg=()
+
+    if [ $# -gt 0 -a "$isKeepLastArgument" ]; then
+	git "${@:1:$(($#-1))}" "${colorArg[@]}" "${previousRev}.." "${!#}" &&
+	    "${showOneMoreCommand:-$1}" "${@:2:$(($#-1))}" --max-count 1 "${colorArg[@]}" "${previousRev}^"
+    else
+	git "$@" "${colorArg[@]}" "${previousRev}.." &&
+	    git "${showOneMoreCommand:-$1}" "${@:2:$(($#-1))}" --max-count 1 "${colorArg[@]}" "${previousRev}^"
+    fi | "${PAGER:-less}" --RAW-CONTROL-CHARS
 else
-    exec git "$@" "${previousRev}^.."
+    if [ $# -gt 0 -a "$isKeepLastArgument" ]; then
+	exec git "${@:1:$(($#-1))}" "${previousRev}.." "${!#}"
+    else
+	exec git "$@" "${previousRev}.."
+    fi
 fi

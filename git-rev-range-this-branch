@@ -30,7 +30,9 @@ if [ "$isShowOneMore" ]; then
     # Because of the piping into the pager, we need to explicitly enable color.
     # Don't do this if the user explicitly turned it off, though.
     typeset -a colorArg=(--color=always)
-    contains '--no-color' "$@" && colorArg=()
+    if [ ! -t 1 ] || contains '--no-color' "$@" || contains '--color=never' "$@"; then
+	colorArg=()
+    fi
 
     if [ $# -gt 0 -a "$isKeepLastArgument" ]; then
 	git "${@:1:$(($#-1))}" "${colorArg[@]}" "${previousRev}.." "${!#}" &&

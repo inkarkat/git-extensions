@@ -6,6 +6,7 @@ isKeepLastArgument=
 isShowOneMore=
 showOneMoreCommand=
 previousRevModifier=
+range=..
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -20,6 +21,7 @@ do
 			fi
 			shift
 			;;
+	--no-range)	shift; range=;;
 	*)		break;;
     esac
 done
@@ -44,16 +46,16 @@ if [ "$isShowOneMore" ]; then
     fi
 
     if [ $# -gt 0 -a "$isKeepLastArgument" ]; then
-	git "${@:1:$(($#-1))}" "${colorArg[@]}" "${previousRev}.." "${!#}" &&
+	git "${@:1:$(($#-1))}" "${colorArg[@]}" "${previousRev}${range}" "${!#}" &&
 	    "${showOneMoreCommand:-$1}" "${@:2:$(($#-1))}" --max-count 1 "${colorArg[@]}" "${previousRev}^"
     else
-	git "$@" "${colorArg[@]}" "${previousRev}.." &&
+	git "$@" "${colorArg[@]}" "${previousRev}${range}" &&
 	    git "${showOneMoreCommand:-$1}" "${@:2:$(($#-1))}" --max-count 1 "${colorArg[@]}" "${previousRev}^"
     fi | "${PAGER:-less}" --RAW-CONTROL-CHARS
 else
     if [ $# -gt 0 -a "$isKeepLastArgument" ]; then
-	exec git "${@:1:$(($#-1))}" "${previousRev}${previousRevModifier}.." "${!#}"
+	exec git "${@:1:$(($#-1))}" "${previousRev}${previousRevModifier}${range}" "${!#}"
     else
-	exec git "$@" "${previousRev}${previousRevModifier}.."
+	exec git "$@" "${previousRev}${previousRevModifier}${range}"
     fi
 fi

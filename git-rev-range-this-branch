@@ -1,7 +1,7 @@
 #!/bin/bash
 
-previousRev=$(git describe --abbrev=0 --all HEAD^) || exit $?
-
+isAny=
+typeset -a include=('heads')
 isKeepLastArgument=
 isShowOneMore=
 showOneMoreCommand=
@@ -10,6 +10,9 @@ range=..
 while [ $# -ne 0 ]
 do
     case "$1" in
+	--any|-a)	shift; isAny=t;;
+	--include-remote-refs|-r)	shift; include+=('remotes');;
+	--include-tags|-t)		shift; include+=('tags');;
 	--keep-last)	shift; isKeepLastArgument=t;;
 	--one-more|+1)	shift; isShowOneMore=t;;
 	--one-more-command)
@@ -36,6 +39,16 @@ contains()
     done
     return 1
 }
+
+previousRev=HEAD
+while :
+do
+    # This will exit eventually with "fatal: Not a valid object name REV^"
+    previousRev=$(git describe --abbrev=0 --all "${previousRev}^") || exit $?
+    [ "$isAny" ] && break
+    contains "${previousRev%%/*}" "${include[@]}" && break
+done
+
 
 if [ $# -eq 0 ]; then
     printf '%s%s%s\n' "$previousRev" "${previousRevModifier}${isShowOneMore:+^}" "$range"

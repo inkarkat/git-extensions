@@ -5,12 +5,21 @@ previousRev=$(git describe --abbrev=0 --all HEAD^) || exit $?
 isKeepLastArgument=
 isShowOneMore=
 showOneMoreCommand=
+previousRevModifier=
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--keep-last)	shift; isKeepLastArgument=t;;
 	--one-more|+1)	shift; isShowOneMore=t;;
-	--one-more-command)	shift; isShowOneMore=t; showOneMoreCommand=$1; shift;;
+	--one-more-command)
+			shift
+			if [ "${1:0:1}" = '^' ]; then
+			    previousRevModifier=$1
+			else
+			    isShowOneMore=t; showOneMoreCommand=$1
+			fi
+			shift
+			;;
 	*)		break;;
     esac
 done
@@ -43,8 +52,8 @@ if [ "$isShowOneMore" ]; then
     fi | "${PAGER:-less}" --RAW-CONTROL-CHARS
 else
     if [ $# -gt 0 -a "$isKeepLastArgument" ]; then
-	exec git "${@:1:$(($#-1))}" "${previousRev}.." "${!#}"
+	exec git "${@:1:$(($#-1))}" "${previousRev}${previousRevModifier}.." "${!#}"
     else
-	exec git "$@" "${previousRev}.."
+	exec git "$@" "${previousRev}${previousRevModifier}.."
     fi
 fi

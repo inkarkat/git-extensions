@@ -1,5 +1,20 @@
 #!/bin/bash
 
+printUsage()
+{
+    cat <<HELPTEXT
+Print / execute GIT-COMMAND with the revision range that comprises the current
+branch; possibly including one previous commit (from which was branched off).
+The revision range (with --no-range, only the starting revision will be used) is
+appended at the end of GIT-COMMAND ...; with --keep-last, it is put between the
+next-to-last and last arguments.
+A different GIT-COMMAND2 can be used for the --one-more revision; with ^[1|2],
+the modifier instead is appended to the revision, and there's only one
+invocation of GIT-COMMAND.
+HELPTEXT
+printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-range] [-a|--any|-r|--include-remote-refs|-t|--include-tags [...]] [--keep-last] [+1|--one-more|--one-more-command GIT-COMMAND2|^[1|2]] [GIT-COMMAND ...] [-?|-h|--help]'
+}
+
 isAny=
 typeset -a include=('heads')
 isKeepLastArgument=
@@ -10,6 +25,7 @@ range=..
 while [ $# -ne 0 ]
 do
     case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--any|-a)	shift; isAny=t;;
 	--include-remote-refs|-r)	shift; include+=('remotes');;
 	--include-tags|-t)		shift; include+=('tags');;

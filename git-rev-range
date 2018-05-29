@@ -1,0 +1,84 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Print / execute GIT-COMMAND with a revision range starting from the passed
+REVISION; possibly including one previous commit.
+The revision range (with --no-range, only the starting revision will be used) is
+appended at the end of GIT-COMMAND ...; with --keep-last, it is put between the
+next-to-last and last arguments.
+A different GIT-COMMAND2 can be used for the --one-more revision; with ^[1|2],
+the modifier instead is appended to the revision, and there's only one
+invocation of GIT-COMMAND.
+HELPTEXT
+printf 'Usage: %q %s\n' "$(basename "$1")" '-r|--revision REVISION [--no-range] [--keep-last] [+1|--one-more|--one-more-command GIT-COMMAND2|^[1|2]] [GIT-COMMAND ...] [-?|-h|--help]'
+}
+
+isKeepLastArgument=
+isShowOneMore=
+showOneMoreCommand=
+revision=
+revisionModifier=
+range=..
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--revision|-r)	shift; revision="$1"; shift;;
+	--keep-last)	shift; isKeepLastArgument=t;;
+	--one-more|+1)	shift; isShowOneMore=t;;
+	--one-more-command)
+			shift
+			if [ "${1:0:1}" = '^' ]; then
+			    revisionModifier=$1
+			else
+			    isShowOneMore=t; showOneMoreCommand=$1
+			fi
+			shift
+			;;
+	--no-range)	shift; range=;;
+	*)		break;;
+    esac
+done
+if [ ! "$revision" ]; then
+    echo >&2 "ERROR: Missing REVISION!"
+    exit 2
+fi
+
+contains()
+{
+    needle=$1
+    shift
+    for elem
+    do
+    [ "$needle" = "$elem" ] && return 0
+    done
+    return 1
+}
+
+
+if [ $# -eq 0 ]; then
+    printf '%s%s%s\n' "$revision" "${revisionModifier}${isShowOneMore:+^}" "$range"
+elif [ "$isShowOneMore" ]; then
+    # Because of the piping into the pager, we need to explicitly enable color.
+    # Don't do this if the user explicitly turned it off, though.
+    typeset -a colorArg=(--color=always)
+    if [ ! -t 1 ] || contains '--no-color' "$@" || contains '--color=never' "$@"; then
+	colorArg=()
+    fi
+
+    if [ $# -gt 0 -a "$isKeepLastArgument" ]; then
+	git "${@:1:$(($#-1))}" "${colorArg[@]}" "${revision}${range}" "${!#}" &&
+	    "${showOneMoreCommand:-$1}" "${@:2:$(($#-1))}" --max-count 1 "${colorArg[@]}" "${revision}^"
+    else
+	git "$@" "${colorArg[@]}" "${revision}${range}" &&
+	    git "${showOneMoreCommand:-$1}" "${@:2:$(($#-1))}" --max-count 1 "${colorArg[@]}" "${revision}^"
+    fi | "${PAGER:-less}" --RAW-CONTROL-CHARS
+else
+    if [ $# -gt 0 -a "$isKeepLastArgument" ]; then
+	exec git "${@:1:$(($#-1))}" "${revision}${revisionModifier}${range}" "${!#}"
+    else
+	exec git "$@" "${revision}${revisionModifier}${range}"
+    fi
+fi

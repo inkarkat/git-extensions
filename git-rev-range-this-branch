@@ -17,11 +17,7 @@ printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-range] [-a|--any|-r|--include-
 
 isAny=
 typeset -a include=('heads')
-isKeepLastArgument=
-isShowOneMore=
-showOneMoreCommand=
-previousRevModifier=
-range=..
+typeset -a revRangeArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -29,19 +25,7 @@ do
 	--any|-a)	shift; isAny=t;;
 	--include-remote-refs|-r)	shift; include+=('remotes');;
 	--include-tags|-t)		shift; include+=('tags');;
-	--keep-last)	shift; isKeepLastArgument=t;;
-	--one-more|+1)	shift; isShowOneMore=t;;
-	--one-more-command)
-			shift
-			if [ "${1:0:1}" = '^' ]; then
-			    previousRevModifier=$1
-			else
-			    isShowOneMore=t; showOneMoreCommand=$1
-			fi
-			shift
-			;;
-	--no-range)	shift; range=;;
-	*)		break;;
+	*)		revRangeArgs+=("$1"); shift;;
     esac
 done
 
@@ -65,28 +49,4 @@ do
     contains "${previousRev%%/*}" "${include[@]}" && break
 done
 
-
-if [ $# -eq 0 ]; then
-    printf '%s%s%s\n' "$previousRev" "${previousRevModifier}${isShowOneMore:+^}" "$range"
-elif [ "$isShowOneMore" ]; then
-    # Because of the piping into the pager, we need to explicitly enable color.
-    # Don't do this if the user explicitly turned it off, though.
-    typeset -a colorArg=(--color=always)
-    if [ ! -t 1 ] || contains '--no-color' "$@" || contains '--color=never' "$@"; then
-	colorArg=()
-    fi
-
-    if [ $# -gt 0 -a "$isKeepLastArgument" ]; then
-	git "${@:1:$(($#-1))}" "${colorArg[@]}" "${previousRev}${range}" "${!#}" &&
-	    "${showOneMoreCommand:-$1}" "${@:2:$(($#-1))}" --max-count 1 "${colorArg[@]}" "${previousRev}^"
-    else
-	git "$@" "${colorArg[@]}" "${previousRev}${range}" &&
-	    git "${showOneMoreCommand:-$1}" "${@:2:$(($#-1))}" --max-count 1 "${colorArg[@]}" "${previousRev}^"
-    fi | "${PAGER:-less}" --RAW-CONTROL-CHARS
-else
-    if [ $# -gt 0 -a "$isKeepLastArgument" ]; then
-	exec git "${@:1:$(($#-1))}" "${previousRev}${previousRevModifier}${range}" "${!#}"
-    else
-	exec git "$@" "${previousRev}${previousRevModifier}${range}"
-    fi
-fi
+exec git-rev-range --revision "$previousRev" "${revRangeArgs[@]}"

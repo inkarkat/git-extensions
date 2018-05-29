@@ -225,6 +225,8 @@
 
 	;; rev-range: Run a Git command with a revision range from the passed revision up to HEAD.
 	;; rev-range-this-branch: Run a Git command with a revision range that covers the current branch (up to another reference).
+	;; rev-range-local-remote: Run a Git command with the revision range of the commits that already exist in remote on the current branch, but not yet in the local branch (incoming).
+	;; rev-range-remote-local: Run a Git command with the revision range of the commits that already exist on the current branch, but not yet in the corresponding remote branch (outgoing).
 	;; br...: Log variants that only cover the current branch.
 	brfindlogs = rev-range-this-branch --keep-last findlogs
 	brfindlogsv = rev-range-this-branch --keep-last findlogsv
@@ -379,6 +381,12 @@
 	;; olc: lc of origin
 	;; olg: lg of origin
 	;; olog: Log of my GitHub clone.
+	lolc = rev-range-remote-local origin --one-more-command log lc
+	ollc = rev-range-local-remote origin --one-more-command log lc
+	lolg = rev-range-remote-local origin --one-more-command ^ lg
+	ollg = rev-range-local-remote origin --one-more-command ^ lg
+	lolog = rev-range-remote-local origin --one-more-command ^ log
+	ollog = rev-range-local-remote origin --one-more-command ^ log
 	oio = inout origin
 	omio = inout master origin/master
 	omrb = rebase origin/master	; Rebase my commits on top of the latest main branch of my GitHub clone.
@@ -423,8 +431,6 @@
 	ucom = checkout upstream/master ; Use with -b <newbranch> to start a patch based on the current upstream.
 	umdiff = diff master..upstream/master ; Show differences introduced in upstream relative to master; useful to review upstream changes before pulling them in.
 	;; udiff: Show differences to upstream.
-	uio = inout upstream
-	umio = inout master upstream/master
 	;; ul: l of upstream
 	;; ulc: lc of upstream
 	;; ulg: lg of upstream
@@ -432,6 +438,14 @@
 	;; umlog: Show log of changes introduced in upstream relative to master; useful to review upstream changes before pulling them in.
 	;; umlg: Show one-line log of changes introduced in upstream relative to master; useful to review upstream changes before pulling them in.
 	;; umlc: Show log and diff of changes introduced in upstream relative to master; useful to review upstream changes before pulling them in.
+	lulc = rev-range-remote-local upstream --one-more-command log lc
+	ullc = rev-range-local-remote upstream --one-more-command log lc
+	lulg = rev-range-remote-local upstream --one-more-command ^ lg
+	ullg = rev-range-local-remote upstream --one-more-command ^ lg
+	lulog = rev-range-remote-local upstream --one-more-command ^ log
+	ullog = rev-range-local-remote upstream --one-more-command ^ log
+	uio = inout upstream
+	umio = inout master upstream/master
 	umrb = rebase upstream/master	; Rebase my commits on top of the latest main upstream branch. "co mybranch" first, clone it via "git co -b mybranch-old; git opublish" if you want to keep the old one, or just use "umrb mybranch". You can also do this after the rebase, but before pushing: "git tco -b mybranch-old; git opublish; git co mybranch". Persist with "git opush -f"; undo with "git treset --hard".
 	ufetch = fetch --prune upstream	; Get upstream changes.
 	;; upull: Get and fast-forward upstream changes. (With proper use of other branches for patches, there should not be a need to merge upstream.) Use for direct checkouts of upstream, without my own origin. Else, prefer ucatchup.

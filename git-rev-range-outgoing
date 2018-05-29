@@ -1,5 +1,9 @@
 #!/bin/bash
 
-remote=${1:?}; shift
-remoteBranch=$(git-remotebr "$remote") || exit $?
+remote=$1; shift
+if [ "$remote" ]; then
+    remoteBranch=$(git-remotebr "$remote")
+else
+    remoteBranch=$(git-tracks)
+fi || exit $?
 exec git-rev-range --revision "$remoteBranch" --end-revision HEAD "$@"

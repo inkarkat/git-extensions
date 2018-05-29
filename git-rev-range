@@ -4,7 +4,8 @@ printUsage()
 {
     cat <<HELPTEXT
 Print / execute GIT-COMMAND with a revision range starting from the passed
-REVISION; possibly including one previous commit.
+REVISION; possibly including one previous commit, ending at HEAD or the passed
+END-REVISION.
 The revision range (with --no-range, only the starting revision will be used) is
 appended at the end of GIT-COMMAND ...; with --keep-last, it is put between the
 next-to-last and last arguments.
@@ -12,7 +13,7 @@ A different GIT-COMMAND2 can be used for the --one-more revision; with ^[1|2],
 the modifier instead is appended to the revision, and there's only one
 invocation of GIT-COMMAND.
 HELPTEXT
-printf 'Usage: %q %s\n' "$(basename "$1")" '-r|--revision REVISION [--no-range] [--keep-last] [+1|--one-more|--one-more-command GIT-COMMAND2|^[1|2]] [GIT-COMMAND ...] [-?|-h|--help]'
+printf 'Usage: %q %s\n' "$(basename "$1")" '-r|--revision REVISION [-e|--end-revision END-REVISION|--no-range] [--keep-last] [+1|--one-more|--one-more-command GIT-COMMAND2|^[1|2]] [GIT-COMMAND ...] [-?|-h|--help]'
 }
 
 isKeepLastArgument=
@@ -20,12 +21,14 @@ isShowOneMore=
 showOneMoreCommand=
 revision=
 revisionModifier=
+endRevision=
 range=..
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--revision|-r)	shift; revision="$1"; shift;;
+	--end-revision|-e)	shift; endRevision="$1"; shift;;
 	--keep-last)	shift; isKeepLastArgument=t;;
 	--one-more|+1)	shift; isShowOneMore=t;;
 	--one-more-command)
@@ -44,6 +47,9 @@ done
 if [ ! "$revision" ]; then
     echo >&2 "ERROR: Missing REVISION!"
     exit 2
+elif [ ! "$range" ] && [ "$endRevision" ]; then
+    echo >&2 "ERROR: --end-revision cannot be combined with --no-range!"
+    exit 2
 fi
 
 contains()
@@ -59,7 +65,7 @@ contains()
 
 
 if [ $# -eq 0 ]; then
-    printf '%s%s%s\n' "$revision" "${revisionModifier}${isShowOneMore:+^}" "$range"
+    printf '%s%s%s\n' "$revision" "${revisionModifier}${isShowOneMore:+^}" "${range}${endRevision}"
 elif [ "$isShowOneMore" ]; then
     # Because of the piping into the pager, we need to explicitly enable color.
     # Don't do this if the user explicitly turned it off, though.
@@ -69,16 +75,16 @@ elif [ "$isShowOneMore" ]; then
     fi
 
     if [ $# -gt 0 -a "$isKeepLastArgument" ]; then
-	git "${@:1:$(($#-1))}" "${colorArg[@]}" "${revision}${range}" "${!#}" &&
+	git "${@:1:$(($#-1))}" "${colorArg[@]}" "${revision}${range}${endRevision}" "${!#}" &&
 	    "${showOneMoreCommand:-$1}" "${@:2:$(($#-1))}" --max-count 1 "${colorArg[@]}" "${revision}^"
     else
-	git "$@" "${colorArg[@]}" "${revision}${range}" &&
+	git "$@" "${colorArg[@]}" "${revision}${range}${endRevision}" &&
 	    git "${showOneMoreCommand:-$1}" "${@:2:$(($#-1))}" --max-count 1 "${colorArg[@]}" "${revision}^"
     fi | "${PAGER:-less}" --RAW-CONTROL-CHARS
 else
     if [ $# -gt 0 -a "$isKeepLastArgument" ]; then
-	exec git "${@:1:$(($#-1))}" "${revision}${revisionModifier}${range}" "${!#}"
+	exec git "${@:1:$(($#-1))}" "${revision}${revisionModifier}${range}${endRevision}" "${!#}"
     else
-	exec git "$@" "${revision}${revisionModifier}${range}"
+	exec git "$@" "${revision}${revisionModifier}${range}${endRevision}"
     fi
 fi

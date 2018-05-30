@@ -1,0 +1,14 @@
+#!/bin/bash
+
+remote="${1:?}"; shift
+url=$(git lhurl "$remote" --max-count 1 "$@") || exit $?
+
+literalBaseUrl="${url%commit/*}"
+literalBaseUrl=${literalBaseUrl//\/\\}
+literalBaseUrl=${literalBaseUrl//&/\&}
+
+printf 'Commit: %s\n' "$url"
+git show -m --first-parent --name-status "$@" | \
+    sed \
+	-e '/commit /d' \
+	-e 's#\(^Merge: \)\([0-9a-fA-F]\+\) \([0-9a-fA-F]\+\)$'"#\\1 ${literalBaseUrl//#/}compare/\\2...\\3#"

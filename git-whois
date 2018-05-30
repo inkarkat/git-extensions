@@ -1,3 +1,12 @@
 #!/bin/sh
 
-exec git log -i -1 --pretty='tformat:%aN <%aE>' --author="${1:?}"
+isShowFirstCandidate=
+case "$1" in
+    --first|-1)	shift; isShowFirstCandidate=t;;
+esac
+
+if [ "$isShowFirstCandidate" ]; then
+    exec git log -i -1 --pretty='tformat:%aN <%aE>' --author="${1:?}"
+else
+    git log -i --pretty='tformat:%aN <%aE>' --author="${1:?}" | sort --unique
+fi

@@ -1,14 +1,19 @@
 #!/bin/bash
 
+set -e # Terminate the script at first error.
+
 remote="${1:?}"; shift
-url=$(git lhurl "$remote" --max-count 1 "$@") || exit $?
+url=$(git lhurl "$remote" --max-count 1 "$@")
 
 literalBaseUrl="${url%commit/*}"
 literalBaseUrl=${literalBaseUrl//\/\\}
 literalBaseUrl=${literalBaseUrl//&/\&}
 
 printf 'Commit: %s\n' "$url"
-git show -m --first-parent --name-status "$@" | \
+git log -m --first-parent --max-count 1 "$@" | \
     sed \
 	-e '/commit /d' \
 	-e 's#\(^Merge: \)\([0-9a-fA-F]\+\) \([0-9a-fA-F]\+\)$'"#\\1 ${literalBaseUrl//#/}compare/\\2...\\3#"
+
+printf '\n'
+git show -m --first-parent --pretty= --name-status "$@"

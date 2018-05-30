@@ -7,33 +7,42 @@ case "$1" in
     --select|-s)    shift; isSelect=t;;
 esac
 
-if [ "$isShowFirstCandidate" ]; then
-    exec git log -i -1 --pretty='tformat:%aN <%aE>' --author="${1:?}"
-elif [ "$isSelect" ]; then
-    IFS=$'\n'
-    typeset -a candidates=($(git log -i --pretty='tformat:%aN <%aE>' ${1:+--author="$1"} | sort --unique))
-    if [ ${#candidates[@]} -eq 0 ]; then
-	printf >&2 'ERROR: No candidates found for %s\n' "$1"
+selectCandidates()
+{
+    if [ $# -eq 0 ]; then
+	echo >&2 'ERROR: No candidates found.'
 	exit 1
-    elif [ ${#candidates[@]} -eq 1 ]; then
-	printf '%s\n' "${candidates[0]}"
+    elif [ $# -eq 1 ]; then
+	printf '%s\n' "$1"
     else
-	select person in "${candidates[@]}"
+	select person
 	do
 	    if [ "$person" ]; then
 		printf '%s\n' "$person"
 		exit 0
 	    elif [ ! "$REPLY" ]; then
 		exit 1
-	    else
-		cat <<-'EOF'
+	    elif [ "$REPLY" = '?' ]; then
+		cat >&2 <<-'EOF'
 		    Enter a number to select the person.
+		    Filter the list by entering "grep" arguments. (Double backslashes.)
 		    Abort via Ctrl-D.
 EOF
+	    else
+		typeset -a filteredCandidates=($(printf '%s\n' "$@" | grep $REPLY))
+		selectCandidates "${filteredCandidates[@]}"
+		break
 	    fi
 	done
-	exit 1
     fi
+}
+
+if [ "$isShowFirstCandidate" ]; then
+    exec git log -i -1 --pretty='tformat:%aN <%aE>' --author="${1:?}"
+elif [ "$isSelect" ]; then
+    IFS=$'\n'
+    typeset -a candidates=($(git log -i --pretty='tformat:%aN <%aE>' ${1:+--author="$1"} | sort --unique))
+    selectCandidates "${candidates[@]}"
 else
     git log -i --pretty='tformat:%aN <%aE>' --author="${1:?}" | sort --unique
 fi

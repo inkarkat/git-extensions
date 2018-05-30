@@ -2,6 +2,17 @@
 
 set -o pipefail
 
+contains()
+{
+    needle=$1
+    shift
+    for elem
+    do
+    [ "$needle" = "$elem" ] && return 0
+    done
+    return 1
+}
+
 remote="${1:?}"; shift
 
 : ${GIT_LHURL_URL_PREFIX=}
@@ -12,6 +23,20 @@ remote="${1:?}"; shift
 : ${GIT_LHURL_PATH_SUFFIX=[0m}
 : ${GIT_LHURL_FILE_PREFIX=[01;35m}
 : ${GIT_LHURL_FILE_SUFFIX=[0m}
+
+if contains '--no-color' "$@" || contains '--color=never' "$@"; then
+    # This is for us, to disable the highlighting {pre,suf}fixes. As git-log
+    # understands it (and is inconsequential with our --pretty format), we don't
+    # need to drop it from the arguments passed to it.
+    GIT_LHURL_URL_PREFIX=
+    GIT_LHURL_URL_SUFFIX=
+    GIT_LHURL_HASH_PREFIX=
+    GIT_LHURL_HASH_SUFFIX=
+    GIT_LHURL_PATH_PREFIX=
+    GIT_LHURL_PATH_SUFFIX=
+    GIT_LHURL_FILE_PREFIX=
+    GIT_LHURL_FILE_SUFFIX=
+fi
 
 url=$(git-remoteurl "$remote")
 

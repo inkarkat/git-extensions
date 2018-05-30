@@ -1,12 +1,39 @@
-#!/bin/sh
+#!/bin/bash
 
 isShowFirstCandidate=
+isSelect=
 case "$1" in
-    --first|-1)	shift; isShowFirstCandidate=t;;
+    --first|-1)	    shift; isShowFirstCandidate=t;;
+    --select|-s)    shift; isSelect=t;;
 esac
 
 if [ "$isShowFirstCandidate" ]; then
     exec git log -i -1 --pretty='tformat:%aN <%aE>' --author="${1:?}"
+elif [ "$isSelect" ]; then
+    IFS=$'\n'
+    typeset -a candidates=($(git log -i --pretty='tformat:%aN <%aE>' --author="${1:?}" | sort --unique))
+    if [ ${#candidates[@]} -eq 0 ]; then
+	printf >&2 'ERROR: No candidates found for %s\n' "$1"
+	exit 1
+    elif [ ${#candidates[@]} -eq 1 ]; then
+	printf '%s\n' "${candidates[0]}"
+    else
+	select person in "${candidates[@]}"
+	do
+	    if [ "$person" ]; then
+		printf '%s\n' "$person"
+		exit 0
+	    elif [ ! "$REPLY" ]; then
+		exit 1
+	    else
+		cat <<-'EOF'
+		    Enter a number to select the person.
+		    Abort via Ctrl-D.
+EOF
+	    fi
+	done
+	exit 1
+    fi
 else
     git log -i --pretty='tformat:%aN <%aE>' --author="${1:?}" | sort --unique
 fi

@@ -1,0 +1,15 @@
+#!/bin/bash
+
+if [ $# -eq 0 -o "$1" = '-' ]; then
+    typeset -a candidateArgs=()
+else
+    typeset -a candidateArgs=("$1")
+fi; shift
+author=$(git-whois --select "${candidateArgs[@]}") || exit $!
+
+if [ ! "$author" ]; then
+    echo >&2 "ERROR: No author!"
+    exit 1
+fi
+
+exec git commit --author "$author" "$@"

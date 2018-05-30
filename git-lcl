@@ -1,0 +1,26 @@
+#!/bin/bash
+
+set -o pipefail
+
+contains()
+{
+    needle=$1
+    shift
+    for elem
+    do
+    [ "$needle" = "$elem" ] && return 0
+    done
+    return 1
+}
+
+TMPDIR=$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TEMP:-/tmp}/$(basename -- "$0").$$$RANDOM")
+[ "$DEBUG" ] || trap 'rm -rf "$TMPDIR" 2>/dev/null' EXIT
+
+{ git lc "$@" | csplit --elide-empty-files --prefix "${TMPDIR}/log" --digits 4 - '/^commit [0-9a-fA-F]\+$/' '{*}'; } || exit $?
+
+if ! contains '--no-color' "$@" && ! contains '--color=never' "$@"; then
+    pipethrough --piped 'colordiff --color=yes' "${TMPDIR}"/log* 2>/dev/null
+fi
+
+[ "$PAGER" = smartless ] && PAGER=less	# XXX: smartless concatenates all input files into one stream, but we explicitly want to page through each file separately.
+"${PAGER:-less}" --RAW-CONTROL-CHARS "${TMPDIR}"/log*

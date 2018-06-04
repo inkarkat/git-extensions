@@ -21,18 +21,19 @@ logChanges()
     esac
 }
 
-path=; [ $# -gt 0 ] && path=${!#} || path=$(git-tracks)
+remote="${1:?}"; shift
+path=; [ $# -gt 0 ] && path="${remote}/${!#}" || path=$(git-remotebr "$remote" 2>/dev/null)
 originalRevision=$(git rev-parse "$path" 2>/dev/null)
 
 # Git 2.6 and later.
-git -c rebase.autoStash=true pull --rebase=preserve "$@" || exit $?
+git -c rebase.autoStash=true pull --rebase=preserve "$remote" "$@" || exit $?
 # Git 2.9 and later.
-#git pull --rebase=preserve --autostash "$@" || exit $?
+#git pull --rebase=preserve --autostash "$remote" "$@" || exit $?
 
 if [ ! "$path" ]; then
     [ "$log" ] echo >&2 "Warning: Could not determine updated path, no logging possible."
 elif [ "$(git rev-parse "$path" 2>/dev/null)" == "$originalRevision" ]; then
-    printf 'No changes in upstream/%s.\n' "$path"
+    printf 'No changes in %s.\n' "$path"
 else
     logChanges "@{1}..${path}"
 fi

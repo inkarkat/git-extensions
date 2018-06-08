@@ -1,5 +1,13 @@
 #!/bin/bash
 
+printUsage()
+{
+    cat <<HELPTEXT
+List files under version control; skip unversioned files.
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-l|--long] [-d|--directory] [--date FORMAT|--relative-date] [--no-classify] [FILE, ...] [-?|-h|--help]'
+}
+
 formatPrefix=
 formatSuffix=
 maxDepth=1
@@ -8,12 +16,13 @@ typeset -a gitLogArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--)		shift; break;;
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--long|-l)	shift; formatPrefix='%h %<(12,trunc)%aN %<(22)%ad '; formatSuffix=;;
 	--directory|-d)	shift; maxDepth=0;;
 	--date)			gitLogArgs+=("$1" "$2"); shift; shift;;
 	--relative-date)	gitLogArgs+=("$1"); shift;;
 	--no-classify)		shift; classifyDirectories=;;
+	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
     esac

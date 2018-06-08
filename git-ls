@@ -5,9 +5,10 @@ printUsage()
     cat <<HELPTEXT
 List files under version control; skip unversioned files.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-l|--long] [-d|--directory] [--date FORMAT|--relative-date] [--no-classify] [FILE, ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-l|--long [--date FORMAT|--relative-date]] [-d|--directory] [--no-classify] [FILE, ...] [-?|-h|--help]'
 }
 
+isNeedLog=
 formatPrefix=
 formatSuffix=
 maxDepth=1
@@ -17,10 +18,10 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-	--long|-l)	shift; formatPrefix='%h %<(12,trunc)%aN %<(22)%ad '; formatSuffix=;;
+	--long|-l)	shift; isNeedLog=t; formatPrefix='%h %<(12,trunc)%aN %<(22)%ad '; formatSuffix=;;
 	--directory|-d)	shift; maxDepth=0;;
-	--date)			gitLogArgs+=("$1" "$2"); shift; shift;;
-	--relative-date)	gitLogArgs+=("$1"); shift;;
+	--date)			isNeedLog=t; gitLogArgs+=("$1" "$2"); shift; shift;;
+	--relative-date)	isNeedLog=t; gitLogArgs+=("$1"); shift;;
 	--no-classify)		shift; classifyDirectories=;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
@@ -37,12 +38,21 @@ IFS=$'\n'
 for filespec in $(listFiles "$@")
 do
     filespec=${filespec#./}
-    if [ -d "$filespec" ]; then
-	# Print directory (name) if it contains any tracked files.
-	if git ls-files --error-unmatch -- "$filespec" >/dev/null 2>&1; then
-	    printf '%s%s\n' "${filespec%/}" "$classifyDirectories"
-	fi
+    if [ "$isNeedLog" ]; then
+	# Optimization: git ls-files can sort out untracked files much faster
+	# than git log.
+	git ls-files --error-unmatch -- "$filespec" >/dev/null 2>/dev/null || continue
+
+	filespecSuffix=; [ -d "$filespec" ] && filespecSuffix=$classifyDirectories
+	git log --pretty=tformat:"${formatPrefix}${filespec//%/%%}${filespecSuffix}${formatSuffix}" --max-count 1 "${gitLogArgs[@]}" -- "$filespec"
     else
-	git ls-files --error-unmatch -- "$filespec" 2>/dev/null
+	if [ -d "$filespec" ]; then
+	    # Print directory (name) if it contains any tracked files.
+	    if git ls-files --error-unmatch -- "$filespec" >/dev/null 2>&1; then
+		printf '%s%s\n' "${filespec%/}" "$classifyDirectories"
+	    fi
+	else
+	    git ls-files --error-unmatch -- "$filespec" 2>/dev/null
+	fi
     fi
 done

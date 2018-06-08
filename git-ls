@@ -2,12 +2,14 @@
 
 formatPrefix=
 formatSuffix=
+maxDepth=1
 typeset -a gitLogArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--)		shift; break;;
 	--long|-l)	shift; formatPrefix='%h %<(12,trunc)%aN %<(22)%ad '; formatSuffix=;;
+	--directory|-d)	shift; maxDepth=0;;
 	--date)			gitLogArgs+=("$1" "$2"); shift; shift;;
 	--relative-date)	gitLogArgs+=("$1"); shift;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
@@ -17,7 +19,7 @@ done
 
 listFiles()
 {
-    find "${@#${PWD}/}" -maxdepth 1 -print | sort
+    find "${@#${PWD}/}" -maxdepth "$maxDepth" -print | sort
 }
 
 IFS=$'\n'

@@ -3,6 +3,7 @@
 formatPrefix=
 formatSuffix=
 maxDepth=1
+classifyDirectories=/
 typeset -a gitLogArgs=()
 while [ $# -ne 0 ]
 do
@@ -12,6 +13,7 @@ do
 	--directory|-d)	shift; maxDepth=0;;
 	--date)			gitLogArgs+=("$1" "$2"); shift; shift;;
 	--relative-date)	gitLogArgs+=("$1"); shift;;
+	--no-classify)		shift; classifyDirectories=;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
     esac
@@ -29,7 +31,7 @@ do
     if [ -d "$filespec" ]; then
 	# Print directory (name) if it contains any tracked files.
 	if git ls-files --error-unmatch -- "$filespec" >/dev/null 2>&1; then
-	    printf '%s/\n' "${filespec%/}"
+	    printf '%s%s\n' "${filespec%/}" "$classifyDirectories"
 	fi
     else
 	git ls-files --error-unmatch -- "$filespec" 2>/dev/null

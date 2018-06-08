@@ -15,8 +15,13 @@ do
     esac
 done
 
+listFiles()
+{
+    find "${@#${PWD}/}" -maxdepth 1 -type f -print | sort
+}
+
 IFS=$'\n'
-for filespec in $(find "${@#${PWD}/}" -maxdepth 1 -type f -print | sort)
+for filespec in $(listFiles "$@")
 do
     file=${filespec#./}
     git log --pretty=tformat:"${formatPrefix}${file//%/%%}${formatSuffix}" --max-count 1 "${gitLogArgs[@]}" -- "$filespec"

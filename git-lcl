@@ -16,7 +16,7 @@ contains()
 TMPDIR=$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TEMP:-/tmp}/$(basename -- "$0").$$$RANDOM")
 [ "$DEBUG" ] || trap 'rm -rf "$TMPDIR" 2>/dev/null' EXIT
 
-{ git lc "$@" | csplit --elide-empty-files --prefix "${TMPDIR}/log" --digits 4 - '/^commit [0-9a-fA-F]\+$/' '{*}'; } || exit $?
+{ git lc "$@" | csplit --elide-empty-files --prefix "${TMPDIR}/log" --digits 4 - '/^commit [0-9a-fA-F]\+$/' '{*}' >/dev/null; } || exit $?
 
 if ! contains '--no-color' "$@" && ! contains '--color=never' "$@"; then
     pipethrough --piped 'colordiff --color=yes' "${TMPDIR}"/log* 2>/dev/null

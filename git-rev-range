@@ -66,25 +66,31 @@ contains()
 
 if [ $# -eq 0 ]; then
     printf '%s%s%s\n' "$revision" "${revisionModifier}${isShowOneMore:+^}" "${range}${endRevision}"
-elif [ "$isShowOneMore" ]; then
+    exit 0
+fi
+
+typeset -a preRangeFirstArg=("${showOneMoreCommand:-$1}")
+if [ $# -gt 0 -a "$isKeepLastArgument" ]; then
+    typeset -a preRangeRemainingArgs=("${@:2:$(($#-1))}")
+    typeset -a preRangeArgs=("${@:1:$(($#-1))}")
+    typeset -a postRangeArgs=("${!#}")
+else
+    typeset -a preRangeRemainingArgs=("${@:2}")
+    typeset -a preRangeArgs=("$@")
+    typeset -a postRangeArgs=()
+fi
+
+if [ "$isShowOneMore" ]; then
     # Because of the piping into the pager, we need to explicitly enable color.
     # Don't do this if the user explicitly turned it off, though.
     typeset -a colorArg=(--color=always)
-    if [ ! -t 1 ] || contains '--no-color' "$@" || contains '--color=never' "$@"; then
+    if [ ! -t 1 ] || contains '--no-color' "${preRangeArgs[@]}" || contains '--color=never' "${preRangeArgs[@]}"; then
 	colorArg=()
     fi
 
-    if [ $# -gt 0 -a "$isKeepLastArgument" ]; then
-	git-wrapper "${@:1:$(($#-1))}" "${colorArg[@]}" "${revision}${range}${endRevision}" "${!#}" &&
-	    git-wrapper "${showOneMoreCommand:-$1}" "${@:2:$(($#-1))}" --max-count 1 "${colorArg[@]}" "${revision}"
-    else
-	git-wrapper "$@" "${colorArg[@]}" "${revision}${range}${endRevision}" &&
-	    git-wrapper "${showOneMoreCommand:-$1}" "${@:2:$(($#-1))}" --max-count 1 "${colorArg[@]}" "${revision}"
-    fi | "${PAGER:-less}" --RAW-CONTROL-CHARS
+    git-wrapper "${preRangeArgs[@]}" "${colorArg[@]}" "${revision}${range}${endRevision}" "${postRangeArgs[@]}" && \
+	git-wrapper "${preRangeFirstArg[@]}" "${preRangeRemainingArgs[@]}" --max-count 1 "${colorArg[@]}" "${revision}" | \
+	"${PAGER:-less}" --RAW-CONTROL-CHARS
 else
-    if [ $# -gt 0 -a "$isKeepLastArgument" ]; then
-	exec git-wrapper "${@:1:$(($#-1))}" "${revision}${revisionModifier}${range}${endRevision}" "${!#}"
-    else
-	exec git-wrapper "$@" "${revision}${revisionModifier}${range}${endRevision}"
-    fi
+    exec git-wrapper "${preRangeArgs[@]}" "${revision}${revisionModifier}${range}${endRevision}" "${postRangeArgs[@]}"
 fi

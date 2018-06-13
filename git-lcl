@@ -1,14 +1,25 @@
 #!/bin/bash
 
 set -o pipefail
+shopt -qs extglob
 
 contains()
 {
-    needle=$1
-    shift
+    needle=$1; shift
     for elem
     do
 	[ "$needle" = "$elem" ] && return 0
+    done
+    return 1
+}
+containsGlob()
+{
+    glob=$1; shift
+    for elem
+    do
+	case "$elem" in
+	    $glob) return 0;;
+	esac
     done
     return 1
 }
@@ -16,7 +27,16 @@ contains()
 TMPDIR=$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TEMP:-/tmp}/$(basename -- "$0").$$$RANDOM")
 [ "$DEBUG" ] || trap 'rm -rf "$TMPDIR" 2>/dev/null' EXIT
 
-{ git lc "$@" | csplit --elide-empty-files --prefix "${TMPDIR}/log" --digits 4 - '/^commit [0-9a-fA-F]\+$/' '{*}' >/dev/null; } || exit $?
+typeset -a limitRevisionsArgs=()
+if ! containsGlob '-+([0-9])' "$@" && ! contains '-n' "$@" && ! contains '--max-count' "$@"; then
+    # Limit the number of revisions that are read by default; splitting the
+    # entire history usually is way too much.
+    if ! [ -n "${GIT_LCL_DEFAULT_COUNT+t}" -a -z "$GIT_LCL_DEFAULT_COUNT" ]; then
+	limitRevisionsArgs=(--max-count "${GIT_LCL_DEFAULT_COUNT:-20}")
+    fi
+fi
+
+{ git lc "${limitRevisionsArgs[@]}" "$@" | csplit --elide-empty-files --prefix "${TMPDIR}/log" --digits 4 - '/^commit [0-9a-fA-F]\+$/' '{*}' >/dev/null; } || exit $?
 
 if ! contains '--no-color' "$@" && ! contains '--color=never' "$@"; then
     pipethrough --piped 'colordiff --color=yes' "${TMPDIR}"/log* 2>/dev/null

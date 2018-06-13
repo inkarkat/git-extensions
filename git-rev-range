@@ -69,15 +69,19 @@ if [ $# -eq 0 ]; then
     exit 0
 fi
 
+endOfArgsIndex=$#
+beforeEndOfArgsIndex=$((endOfArgsIndex-1))
+afterEndOfArgsIndex=$((endOfArgsIndex+1))
+
 typeset -a preRangeFirstArg=("${showOneMoreCommand:-$1}")
 if [ $# -gt 0 -a "$isKeepLastArgument" ]; then
-    typeset -a preRangeRemainingArgs=("${@:2:$(($#-1))}")
-    typeset -a preRangeArgs=("${@:1:$(($#-1))}")
-    typeset -a postRangeArgs=("${!#}")
+    typeset -a preRangeRemainingArgs=("${@:2:$beforeEndOfArgsIndex}")
+    typeset -a preRangeArgs=("${@:1:$beforeEndOfArgsIndex}")
+    typeset -a postRangeArgs=("${@:$endOfArgsIndex}")
 else
-    typeset -a preRangeRemainingArgs=("${@:2}")
-    typeset -a preRangeArgs=("$@")
-    typeset -a postRangeArgs=()
+    typeset -a preRangeRemainingArgs=("${@:2:$endOfArgsIndex}")
+    typeset -a preRangeArgs=("${@:1:$endOfArgsIndex}")
+    typeset -a postRangeArgs=("${@:$afterEndOfArgsIndex}")
 fi
 
 if [ "$isShowOneMore" ]; then

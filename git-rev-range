@@ -62,6 +62,19 @@ contains()
     done
     return 1
 }
+getIndex()
+{
+    local i=1 elem needle=$1; shift
+    for elem
+    do
+	if [ "$needle" = "$elem" ]; then
+	    echo "$i"
+	    return 0
+	fi
+	let i+=1
+    done
+    return 1
+}
 
 
 if [ $# -eq 0 ]; then
@@ -69,19 +82,22 @@ if [ $# -eq 0 ]; then
     exit 0
 fi
 
-endOfArgsIndex=$#
+
+afterEndOfArgsIndex=$(getIndex '--' "$@") || afterEndOfArgsIndex=$(($#+1))
+endOfArgsIndex=$((afterEndOfArgsIndex-1))
 beforeEndOfArgsIndex=$((endOfArgsIndex-1))
-afterEndOfArgsIndex=$((endOfArgsIndex+1))
 
 typeset -a preRangeFirstArg=("${showOneMoreCommand:-$1}")
 if [ $# -gt 0 -a "$isKeepLastArgument" ]; then
-    typeset -a preRangeRemainingArgs=("${@:2:$beforeEndOfArgsIndex}")
+    typeset -a preRangeRemainingWithLastArgs=("${@:2:$beforeEndOfArgsIndex}")
     typeset -a preRangeArgs=("${@:1:$beforeEndOfArgsIndex}")
     typeset -a postRangeArgs=("${@:$endOfArgsIndex}")
+    typeset -a postRangeWithLastArgs=("${@:$afterEndOfArgsIndex}")
 else
-    typeset -a preRangeRemainingArgs=("${@:2:$endOfArgsIndex}")
+    typeset -a preRangeRemainingWithLastArgs=("${@:2:$beforeEndOfArgsIndex}")
     typeset -a preRangeArgs=("${@:1:$endOfArgsIndex}")
     typeset -a postRangeArgs=("${@:$afterEndOfArgsIndex}")
+    typeset -a postRangeWithLastArgs=("${@:$afterEndOfArgsIndex}")
 fi
 
 if [ "$isShowOneMore" ]; then
@@ -93,7 +109,7 @@ if [ "$isShowOneMore" ]; then
     fi
 
     git-wrapper "${preRangeArgs[@]}" "${colorArg[@]}" "${revision}${range}${endRevision}" "${postRangeArgs[@]}" && \
-	git-wrapper "${preRangeFirstArg[@]}" "${preRangeRemainingArgs[@]}" --max-count 1 "${colorArg[@]}" "${revision}" | \
+	git-wrapper "${preRangeFirstArg[@]}" "${preRangeRemainingWithLastArgs[@]}" --max-count 1 "${colorArg[@]}" "${revision}" "${postRangeWithLastArgs[@]}" | \
 	"${PAGER:-less}" --RAW-CONTROL-CHARS
 else
     exec git-wrapper "${preRangeArgs[@]}" "${revision}${revisionModifier}${range}${endRevision}" "${postRangeArgs[@]}"

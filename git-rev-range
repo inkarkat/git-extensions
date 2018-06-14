@@ -110,10 +110,15 @@ if [ "$isShowOneMore" ]; then
 	colorArg=()
     fi
 
-    {
+    if contains '--reverse' "${preRangeArgs[@]}"; then
+	# The (log) output is in reverse order, so the "one more" also needs to
+	# come first instead of last.
+	git-wrapper "${preRangeFirstArg[@]}" "${preRangeRemainingWithLastArgs[@]}" --max-count 1 "${colorArg[@]}" "${revision}" "${postRangeWithLastArgs[@]}" && \
+	    git-wrapper "${preRangeArgs[@]}" "${colorArg[@]}" "${revision}${range}${endRevision}" "${postRangeArgs[@]}"
+    else
 	git-wrapper "${preRangeArgs[@]}" "${colorArg[@]}" "${revision}${range}${endRevision}" "${postRangeArgs[@]}" && \
 	    git-wrapper "${preRangeFirstArg[@]}" "${preRangeRemainingWithLastArgs[@]}" --max-count 1 "${colorArg[@]}" "${revision}" "${postRangeWithLastArgs[@]}"
-    } | "${PAGER:-less}" --RAW-CONTROL-CHARS
+    fi | "${PAGER:-less}" --RAW-CONTROL-CHARS
 else
     exec git-wrapper "${preRangeArgs[@]}" "${revision}${revisionModifier}${range}${endRevision}" "${postRangeArgs[@]}"
 fi

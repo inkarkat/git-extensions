@@ -6,8 +6,7 @@ shopt -qs extglob
 
 contains()
 {
-    needle=$1
-    shift
+    needle=$1; shift
     for elem
     do
 	[ "$needle" = "$elem" ] && return 0
@@ -23,4 +22,21 @@ if contains '--no-color' "$@" || contains '--color=never' "$@"; then
     FORMAT=${FORMAT//%C+([a-z])/}
 fi
 
-git $gitDirectArg log --abbrev-commit --date=relative --decorate --pretty="tformat:${GIT_ONELINELOG_PREFORMAT:-}${FORMAT//${GIT_ONELINELOG_NOFORMAT:-}/}${GIT_ONELINELOG_POSTFORMAT:-}" "$@"
+reversePipeline=
+if contains '--reverse' "$@" && contains '--graph' "$@"; then
+    # Git (2.7.4) does not support this, but it can be useful for the one-line
+    # logs here:
+    # > fatal: cannot combine --reverse with --graph
+    # We can emulate it easily:
+    # - Reverse the lines.
+    # - Flip the / \ graph symbols (as these are unlikely to appear in the
+    #   commit summaries, let's do this globally for now).
+    # - Pipe into pager as git log won't do this for us any longer.
+    typeset -a reversePipeline='tac | tr "/\\\\" "\\\\/" | "${PAGER:-less}" --RAW-CONTROL-CHARS'
+
+    # We need to drop the --reverse, but converting it into another --graph is
+    # simpler and just as effective.
+    set -- "${@/#--reverse/--graph}"
+fi
+
+eval 'git $gitDirectArg log --abbrev-commit --date=relative --decorate --pretty="tformat:${GIT_ONELINELOG_PREFORMAT:-}${FORMAT//${GIT_ONELINELOG_NOFORMAT:-}/}${GIT_ONELINELOG_POSTFORMAT:-}" "$@"' "${reversePipeline:+|}$reversePipeline"

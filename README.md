@@ -11,18 +11,19 @@ Use the following (Bash) shell function to invoke the extensions in the same way
     # --files-without-match). As a workaround, translate "X" to "-x".
     exists git && git() {
         typeset -r gitAlias="git-$1"
+        typeset -r gitCommand="$(which git)"
         if [ $# -eq 0 ]; then
             git ${GIT_DEFAULT_COMMAND:-st}
         elif type -t "$gitAlias" >/dev/null; then
             shift
-            "$gitAlias" "$@"
+            eval $gitAlias '"$@"'
         elif [ "$1" = "${1#-}" ] && expr "$1" : '.*[[:upper:]]' >/dev/null; then
             # Translate "X" to "-x" to enable aliases with uppercase letters.
             translatedAlias=$(echo "$1" | sed -e 's/[[:upper:]]/-\l\0/g')
             shift
-            "$(which git)" "$translatedAlias" "$@"
+            "$gitCommand" "$translatedAlias" "$@"
         else
-            "$(which git)" "$@"
+            "$gitCommand" "$@"
         fi
     }
 
@@ -42,7 +43,7 @@ Here is a variant that also adds support for the [hub](https://github.com/github
             git ${GIT_DEFAULT_COMMAND:-st}
         elif type -t "$gitAlias" >/dev/null; then
             shift
-            "$gitAlias" "$@"
+            eval $gitAlias '"$@"'
         elif [ "$1" = "${1#-}" ] && expr "$1" : '.*[[:upper:]]' >/dev/null; then
             # Translate "X" to "-x" to enable aliases with uppercase letters.
             translatedAlias=$(echo "$1" | sed -e 's/[[:upper:]]/-\l\0/g')
@@ -51,19 +52,18 @@ Here is a variant that also adds support for the [hub](https://github.com/github
         else
             "$gitCommand" "$@"
         fi
-    }
+}
 
 The following function also allows extending the `hub` command (in a different way than what the forwarded-to `git` command would offer, e.g. to have both `git-cheat` and `hub-cheat`):
 
     exists hub && hub() {
         typeset -r hubAlias="hub-$1"
-        typeset -r hubCommand="$(which hub)"
         if [ $# -eq 0 ]; then
             hub ${HUB_DEFAULT_COMMAND:-st}
         elif type -t "$hubAlias" >/dev/null; then
             shift
-            "$hubAlias" "$@"
+            eval $hubAlias '"$@"'
         else
-            "$hubCommand" "$@"
+            command hub "$@"
         fi
     }

@@ -18,7 +18,7 @@ Optionally, use the following (Bash) shell function (e.g. in your `.bashrc`) to 
     # PATH. Also, git aliases are case-insensitive, but case can be useful to create
     # a negated command (gf = grep --files-with-matches; gF = grep
     # --files-without-match). As a workaround, translate "X" to "-x".
-    exists git && git() {
+    git() {
         typeset -r gitAlias="git-$1"
         typeset -r gitCommand="$(which git)"
         if [ $# -eq 0 ]; then
@@ -45,7 +45,7 @@ Here is a variant that also adds support for the [hub](https://github.com/github
     # --files-without-match). As a workaround, translate "X" to "-x".
     # Add support for the "hub" extension. As this messes with the completion for
     # git, anyway, follow their advice and alias git=hub (adapted to my wrapper).
-    exists git && git() {
+    git() {
         typeset -r gitAlias="git-$1"
         typeset -r gitCommand="$(which hub || which git)"
         if [ $# -eq 0 ]; then
@@ -65,7 +65,7 @@ Here is a variant that also adds support for the [hub](https://github.com/github
 
 The following function also allows extending the `hub` command (in a different way than what the forwarded-to `git` command would offer, e.g. to have both `git-cheat` and `hub-cheat`):
 
-    exists hub && hub() {
+    hub() {
         typeset -r hubAlias="hub-$1"
         if [ $# -eq 0 ]; then
             hub ${HUB_DEFAULT_COMMAND:-st}

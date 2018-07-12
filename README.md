@@ -2,7 +2,16 @@
 
 These are some personal aliases, shortcuts, and extensions that make (my) work with the [Git distributed version control tool](https://git-scm.com/) easier and faster. Some of them may be specific to my environment and workflow, but maybe someone finds a valuable nugget in there.
 
-Use the following (Bash) shell function to invoke the extensions in the same way as the built-in Git commands, via `git SUBCOMMAND`:
+### Installation
+
+Download all / some selected extensions (note that some have dependencies, though) and put them somewhere in your `PATH`. You can then invoke them via `git-SUBCOMMAND`; those commands that don't override built-in ones or have case differences can also be invoked via `git SUBCOMMAND` (space instead of hyphen!).
+
+Additionally, the `gitconfig` supplies many aliases and shortcuts. You can mix and match those within your own `.gitconfig`, or import all of it via the following fragment in there:
+
+    [include]
+            path = PATH/TO/git-extensions/gitconfig
+
+Optionally, use the following (Bash) shell function (e.g. in your `.bashrc`) to transparently invoke the extensions in the same way as the built-in Git commands, via `git SUBCOMMAND`:
 
     # Git supports aliases defined in .gitconfig, but you cannot override Git
     # builtins (e.g. "git log") by putting an executable "git-log" somewhere in the

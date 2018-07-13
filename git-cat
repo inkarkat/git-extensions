@@ -1,0 +1,27 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Retrieve the contents of <path> as it exists in revision <ref>.
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '<ref> <path> [...] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+if [ $# -lt 2 ]; then
+    printUsage "$0"
+    exit 2
+fi
+
+
+ref=$1; shift
+commitId=$(git rev-parse --verify "$ref") || exit $?
+
+status=0
+for path
+do
+    git show "${commitId}:$path" || status=$?
+done
+exit $status

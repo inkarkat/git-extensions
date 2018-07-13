@@ -4,16 +4,20 @@ printUsage()
 {
     cat <<HELPTEXT
 Look up person by name or email address, based on all previous committers to the
-repository.
+repository. With --accept-unknown, will also accept new names in the form
+NAME EMAIL@HOST (two arguments) or "NAME <EMAIL@HOST>" (one argument) that are
+not yet found in the repository.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-1|--first|-s|--select] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-1|--first|-s|--select] [--accept-unknown] AUTHOR-PATTERN|NAME EMAIL@HOST|"NAME <EMAIL@HOST>" [-?|-h|--help]'
 }
+isAcceptUnknown=
 isShowFirstCandidate=
 isSelect=
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--accept-unknown)   shift; isAcceptUnknown=t;;
 	--first|-1)	shift; isShowFirstCandidate=t;;
 	--select|-s)    shift; isSelect=t;;
 	--)		shift; break;;
@@ -55,7 +59,24 @@ EOF
 
 IFS=$'\n'
 typeset -a candidates=($(git log -i ${isShowFirstCandidate:+-1} --pretty='tformat:%aN <%aE>' ${1:+--author="$1"} | sort --unique))
-[ ${#candidates[@]} -eq 0 ] && exit 1
+
+if [ ${#candidates[@]} -eq 0 ]; then
+    if [ "$isAcceptUnknown" -a \( $# -eq 1 -o $# -eq 2 \) ]; then
+	case $# in
+	    1)	person="$1";;
+	    2)	person="$1 <$2>";;
+	esac
+	if [[ "$person" =~ ^[^\ ]+\ \<[^\ ]+@[^\ ]+\>$ ]]; then
+	    printf '%s\n' "$person"
+	    exit
+	else
+	    echo >&2 "ERROR: Did not pass a valid NAME <EMAIL@HOST>!"
+	    exit 2
+	fi
+    fi
+
+    exit 1
+fi
 
 if [ "$isShowFirstCandidate" ]; then
     printf '%s\n' "${candidates[0]}"

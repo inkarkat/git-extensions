@@ -1,17 +1,15 @@
-#!/bin/sh
-#
-# A very slightly quicker way to credit an author on the latest commit.
-#
-# $1 - The full name of the author.
-# $2 - The email address of the author.
-#
-# Examples
-#
-#   git credit "Zach Holman" zach@example.com
-#
+#!/bin/bash
 
-if [ $# -ne 2 ]; then
-    echo >&2 "Usage: $(basename -- "$0") \"Zach Holman\" zach@example.com"
-    exit 2
+if [ $# -eq 0 -o "$1" = '-' ]; then
+    typeset -a candidateArgs=()
+else
+    typeset -a candidateArgs=("$1")
+fi; shift
+author=$(git-whois --accept-unknown --select "${candidateArgs[@]}") || exit $!
+
+if [ ! "$author" ]; then
+    echo >&2 "ERROR: No author!"
+    exit 1
 fi
-git commit --amend --author "$1 <$2>" -C HEAD
+
+git commit --amend --author "$author" -C HEAD

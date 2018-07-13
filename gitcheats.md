@@ -26,7 +26,8 @@
   starts a new branch "ancient" representing the state 10 commits back
   from the second parent of the first parent of the commit starting with
   1b6d.
-- commit message matches a string: `:/string`
+- youngest commit message that matches: `:/<pattern>`
+  (not anchored, use `^` for that)
 - date: `@{yesterday}` "branch@{two days ago}"
 - from reflog (where the tip of the branch used to be 2 moves ago): branch@{2}
   e.g. previous commit: `@{1}`

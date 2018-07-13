@@ -1,0 +1,28 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Commit and squash with the passed <commit> (id or :/<pattern>) via interactive
+rebase.
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '<ref>|:/<pattern> [<commit-arguments> ...] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+if [ $# -eq 0 ]; then
+    printUsage "$0"
+    exit 2
+fi
+
+
+# Need to resolve the revision first; after commiting the fixup, an unanchored
+# passed :/<pattern> will find the fixup commit now. Also, we need the commit ID
+# in order to reference the commit before it for rebase.
+fixupRev=$(git rev-parse --verify "$1") || exit $?
+shift
+
+
+git commit --fixup "$fixupRev" "$@" || exit $?
+exec git rebase -i "${fixupRev}^"

@@ -1,11 +1,27 @@
 #!/bin/bash
 
+printUsage()
+{
+    cat <<HELPTEXT
+Look up person by name or email address, based on all previous committers to the
+repository.
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-1|--first|-s|--select] [-?|-h|--help]'
+}
 isShowFirstCandidate=
 isSelect=
-case "$1" in
-    --first|-1)	    shift; isShowFirstCandidate=t;;
-    --select|-s)    shift; isSelect=t;;
-esac
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--first|-1)	shift; isShowFirstCandidate=t;;
+	--select|-s)    shift; isSelect=t;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+
 
 selectCandidates()
 {

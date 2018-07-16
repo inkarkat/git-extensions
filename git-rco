@@ -11,4 +11,12 @@ if [ $# -eq 0 ]; then
     exit 2
 fi
 branch=${!#}
-exec git checkout "${@:1:$(($#-1))}" --track "${remote}/${branch:?}"
+remoteBranch="${remote}/${branch:?}"
+
+if ! git-existsbr "$remoteBranch"; then
+    printf >&2 'Note: %s does not exist yet, try fetching it first...\n' "$remoteBranch"
+
+    git fetch "$remote" "$branch" || exit $?
+fi
+
+exec git checkout "${@:1:$(($#-1))}" --track "$remoteBranch"

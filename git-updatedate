@@ -1,0 +1,59 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Show when the last update of the local repository (fetch or push) happened. With
+-v|--verbose, also which action (and pushed to where). For pushes, considers the
+tracked branch, or passed REMOTE[/BRANCH](s).
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-v|--verbose] [-a|--absolute|--epoch] [REMOTE[/BRANCH], ...] [-?|-h|--help]'
+}
+
+: ${GIT_UPDATEDATE_ATTENTION_THRESHOLD:=86400} # Add exclamation mark if older than 1 day.
+dateFormat='relative'
+isVerbose=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--absolute|-a)	shift; dateFormat='absolute';;
+	--epoch)	shift; dateFormat='epoch';;
+	--verbose|-v)	shift; isVerbose=t;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if [ $# -eq 0 ]; then
+    remoteBranch=$(git-tracks) || exit $?
+    set -- "$remoteBranch"
+fi
+
+newestEpoch=$(git-fetchdate --epoch) || exit $?
+newestAction=fetched
+
+for remote
+do
+    epoch=$(git-pushdate --epoch "$remote") || exit $?
+    ((epoch <= newestEpoch)) && continue
+
+    newestEpoch=$epoch
+    newestAction="pushed to $remote"
+done
+
+case "$dateFormat" in
+    absolute)	newestDate=$(date --date "@$newestEpoch");;
+    epoch)	newestDate=$newestEpoch;;
+    relative)	newestDate=$(date --date "@$newestEpoch" +%FT%T | reldate --date-pattern '\b(?<year>\d\d\d\d)-(?<month>\d\d)-(?<day>\d\d)T(?<hours>\d\d):(?<minutes>\d\d):(?<seconds>\d\d)\b' --prefer-past);;
+    *)		printf >&2 'ASSERT: Invalid dateFormat: %s\n' "$dateFomat"; exit 2;;
+esac
+
+if [ "$isVerbose" ]; then
+    outdatedAttention=.
+    now=$(date +%s)
+    ((now - newestEpoch > GIT_UPDATEDATE_ATTENTION_THRESHOLD)) && outdatedAttention='!'
+    printf 'Last %s %s%s\n' "$newestAction" "$newestDate" "$outdatedAttention"
+else
+    printf '%s\n' "$newestDate"
+fi

@@ -30,12 +30,14 @@ if [ $# -eq 0 ]; then
     set -- "$remoteBranch"
 fi
 
-newestEpoch=$(git-fetchdate --epoch) || exit $?
+fetchEpoch=$(git-fetchdate --epoch) || exit $?
+newestEpoch=$fetchEpoch
 newestAction=fetched
 
 for remote
 do
     epoch=$(git-pushdate --epoch "$remote") || exit $?
+    ((epoch == fetchEpoch)) && continue	# A fetch automatically updates the pushdate, too.
     ((epoch <= newestEpoch)) && continue
 
     newestEpoch=$epoch

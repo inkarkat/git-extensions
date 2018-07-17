@@ -29,4 +29,9 @@ latestRefLogLine=$(git reflog show --date="$dateFormat" "$remoteBranch" | head -
 # Therefore, stick to the default format and manually parse out the date.
 latestDate="${latestRefLogLine##*@\{}"
 latestDate="${latestDate%\}*}"
+if [ "$dateFormat" = 'local' ]; then
+    # The absolute date format from Git is the necessarily the canonical one;
+    # pipe it through date to canonicalize.
+    canonicalDate=$(date --date "$latestDate") && latestDate=$canonicalDate
+fi
 printf '%s\n' "$latestDate"

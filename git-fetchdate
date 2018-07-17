@@ -1,9 +1,15 @@
 #!/bin/bash
 
 gitDir=$(git rev-parse --git-dir 2>/dev/null) || exit $?
-if ! [ "$1" = '--absolute' -o "$1" = '-a' ] && type -t reldate >/dev/null; then
+isEpoch=; [ "$1" = '--epoch' ] && isEpoch=t
+
+if ! [ "$isEpoch" -o "$1" = '--absolute' -o "$1" = '-a' ] && type -t reldate >/dev/null; then
     exec reldate "${gitDir}/FETCH_HEAD"
 else
     epoch=$(stat -c %Y "${gitDir}/FETCH_HEAD") || exit $?
-    date --date "@$epoch"
+    if [ "$isEpoch" ]; then
+	printf '%s\n' "$epoch"
+    else
+	date --date "@$epoch"
+    fi
 fi

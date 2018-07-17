@@ -2,8 +2,13 @@
 # Source:
 #   https://stackoverflow.com/questions/6795070/is-there-a-way-in-git-to-obtain-a-push-date-for-a-given-commit
 
+isEpoch=
 if [ "$1" = '--absolute' -o "$1" = '-a' ]; then
     dateFormat='local'
+    shift
+elif [ "$1" = '--epoch' ]; then
+    dateFormat='local'
+    isEpoch=t
     shift
 else
     dateFormat='relative'
@@ -30,8 +35,12 @@ latestRefLogLine=$(git reflog show --date="$dateFormat" "$remoteBranch" | head -
 latestDate="${latestRefLogLine##*@\{}"
 latestDate="${latestDate%\}*}"
 if [ "$dateFormat" = 'local' ]; then
-    # The absolute date format from Git is the necessarily the canonical one;
-    # pipe it through date to canonicalize.
-    canonicalDate=$(date --date "$latestDate") && latestDate=$canonicalDate
+    if [ "$isEpoch" ]; then
+	latestDate=$(date --date "$latestDate" +%s)
+    else
+	# The absolute date format from Git is the necessarily the canonical
+	# one; pipe it through date to canonicalize.
+	canonicalDate=$(date --date "$latestDate") && latestDate=$canonicalDate
+    fi
 fi
 printf '%s\n' "$latestDate"

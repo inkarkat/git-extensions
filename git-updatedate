@@ -11,6 +11,7 @@ HELPTEXT
 }
 
 : ${GIT_UPDATEDATE_ATTENTION_THRESHOLD:=86400} # Add exclamation mark if older than 1 day.
+: ${GIT_UPDATEDATE_SIMULTANEOUS_THRESHOLD:=30}	# Include both remotes if pushes happened within that timespan.
 dateFormat='relative'
 isVerbose=
 while [ $# -ne 0 ]
@@ -38,10 +39,15 @@ for remote
 do
     epoch=$(git-pushdate --epoch "$remote") || exit $?
     ((epoch == fetchEpoch)) && continue	# A fetch automatically updates the pushdate, too.
-    ((epoch <= newestEpoch)) && continue
+    ((epoch + GIT_UPDATEDATE_SIMULTANEOUS_THRESHOLD > newestEpoch)) || continue	# Also accept slightly older dates.
 
-    newestEpoch=$epoch
-    newestAction="pushed to $remote"
+    if [ "$newestAction" = 'fetched' ] || ((epoch - GIT_UPDATEDATE_SIMULTANEOUS_THRESHOLD > newestEpoch)); then
+	newestAction="pushed to $remote"
+    else
+	newestAction="$newestAction and $remote"
+    fi
+
+    ((epoch > newestEpoch)) && newestEpoch=$epoch
 done
 
 case "$dateFormat" in

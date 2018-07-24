@@ -5,14 +5,16 @@ printUsage()
     cat <<HELPTEXT
 Execute "git COMMAND" on each passed WORKING-COPY.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'WORKING-COPY [...] -- [COMMAND ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] WORKING-COPY [...] -- [COMMAND ...] [-?|-h|--help]'
 }
 
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
 typeset -a wcs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-pager)	shift; pager=();;
 	--)		shift; break;;
 	*)		wcs+=("$1")
 			shift
@@ -42,11 +44,15 @@ filterEmpty()
 		} else {
 		    print suspect
 		    print lookahead
+		    fflush()
 		    next
 		}
 	    }
 	}
-	{ print }
+	{
+	    print
+	    fflush()
+	}
     ' | sed -e '${ /^$/d }'
 }
 
@@ -57,5 +63,5 @@ do
     printf "${separator}[01m%s[0m:\n" "${dir##*/}"
     separator='\n'
     cd "$dir" && git "$@" || exitStatus=$?
-done 2>&1 | filterEmpty | "${PAGER:-less}" --RAW-CONTROL-CHARS
+done 2>&1 | eval "filterEmpty ${pager:+|}" '"${pager[@]}"'
 exit $exitStatus

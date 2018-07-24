@@ -24,6 +24,13 @@ done
 [ ${#wcs[@]} -eq 0 ] && { printUsage "$0"; exit 2; }
 [ $# -eq 0 ] && set -- noop
 
+# Because of the piping into the pager, we need to explicitly enable color.
+# Don't do this if the user explicitly turned it off, though.
+typeset -a colorArg=(--color=always)
+if [ ! "$pager" -o ! -t 1 ] || contains '--no-color' "$@" || contains '--color=never' "$@"; then
+    colorArg=()
+fi
+
 
 
 filterEmpty()
@@ -62,6 +69,6 @@ for dir in "${wcs[@]}"
 do
     printf "${separator}[01m%s[0m:\n" "${dir##*/}"
     separator='\n'
-    cd "$dir" && git "$@" || exitStatus=$?
+    cd "$dir" && git "$@" "${colorArg[@]}" || exitStatus=$?
 done 2>&1 | eval "filterEmpty ${pager:+|}" '"${pager[@]}"'
 exit $exitStatus

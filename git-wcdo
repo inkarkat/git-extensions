@@ -4,17 +4,24 @@ printUsage()
 {
     cat <<HELPTEXT
 Execute "git COMMAND" on each passed WORKING-COPY.
+Puts a header line (unless --no-header) that contains the WORKING-COPY name
+(with --branch-name: also the current Git branch) before COMMAND's output.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] WORKING-COPY [...] -- [COMMAND ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header|--branch-name] WORKING-COPY [...] -- [COMMAND ...] [-?|-h|--help]'
 }
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+isHeader=t
+isBranchName=
+emptyHeaderFilterCommand=filterEmptyHeaders
 typeset -a wcs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--no-pager)	shift; pager=();;
+	--no-header)	shift; isHeader=; emptyHeaderFilterCommand=cat;;
+	--branch-name)	shift; isBranchName=t;;
 	--)		shift; break;;
 	*)		wcs+=("$1")
 			shift
@@ -33,10 +40,10 @@ fi
 
 
 
-filterEmpty()
+filterEmptyHeaders()
 {
     awk '
-	/^\[01m\S+\[0m:$/ {
+	/^\[01m.+\[0m:$/ {
 	    suspect = $0
 	    while (1) {
 		lookahead = ""
@@ -45,7 +52,7 @@ filterEmpty()
 			next
 		    }
 		}
-		if (lookahead ~ /\n*\[01m\S+\[0m:$/) {
+		if (lookahead ~ /\n*\[01m.+\[0m:$/) {
 		    gsub(/^\n*/, "", lookahead)
 		    suspect = lookahead
 		} else {
@@ -67,8 +74,16 @@ separator=
 exitStatus=0
 for dir in "${wcs[@]}"
 do
-    printf "${separator}[01m%s[0m:\n" "${dir##*/}"
+    cd "$dir" || { exitStatus=$?; continue; }
+
+    if [ "$isHeader" ]; then
+	header="${dir##*/}"
+	[ "$isBranchName" ] && header="${header%.*} on $(git-brname || echo 'unknown branch')"
+	printf "${separator}[01m%s[0m:\n" "$header"
+    fi
+
+    git "$@" "${colorArg[@]}" || exitStatus=$?
+
     separator='\n'
-    cd "$dir" && git "$@" "${colorArg[@]}" || exitStatus=$?
-done 2>&1 | eval "filterEmpty ${pager:+|}" '"${pager[@]}"'
+done 2>&1 | eval "filterEmptyHeaders ${pager:+|}" '"${pager[@]}"'
 exit $exitStatus

@@ -1,0 +1,19 @@
+#!/bin/bash
+
+remote="${1:?}"; shift
+url=$(git-remoteurl "$remote") || exit $?
+
+if [ "$1" = '--' ]; then
+    shift
+elif git rev-parse --verify --quiet "$1" >/dev/null; then
+    rev="$1"
+    shift
+    [ "$1" = '--' ] && shift
+fi
+[ "$rev" ] || rev=HEAD
+
+for filespec
+do
+    hash=$(git lh --max-count 1 "$rev" -- "$filespec")
+    git-lll --prefix "${url%/}/blob/${hash}/" --transform 'urlencode --filespec --newlines -' --no-classify "$filespec"
+done

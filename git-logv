@@ -41,17 +41,12 @@ getIndexOfFileArgs()
     return 0
 }
 
-if firstFileArgIndex=$(getIndexOfFileArgs "$@"); then
-    lastGitLogArgIndex=$((firstFileArgIndex-1))
-    typeset -a gitLogArgs=("${@:1:$lastGitLogArgIndex}")
-    typeset -a fileArgs=("${@:$firstFileArgIndex}")
-
+if getIndexOfFileArgs "$@" >/dev/null; then
     # Pass all arguments to the initial log (assuming there's no --pretty
     # argument in it) for the limiting (--max-count) and filtering (--author,
-    # --grep).
-    # Pass the gitLogArgs also to git show, for the visualization (--decorate).
-    # The filtering is superfluous there, but apparently doesn't hurt, neither.
-    git log --topo-order --pretty=tformat:%H "$@" | xargs --delimiter '\n' git show --decorate --name-status "${gitLogArgs[@]}"
+    # --grep). The second show command doesn't need these (filtering would be
+    # superfluous there), as all the visualization is hard-coded.
+    git log --topo-order --pretty=tformat:%H "$@" | xargs --delimiter '\n' git show --decorate --name-status
 else
     exec git-log --name-status "$@"
 fi

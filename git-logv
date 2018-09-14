@@ -1,0 +1,57 @@
+#!/bin/bash
+
+getIndex()
+{
+    local i=1 elem needle=$1; shift
+    for elem
+    do
+	if [ "$needle" = "$elem" ]; then
+	    echo "$i"
+	    return 0
+	fi
+	let i+=1
+    done
+    return 1
+}
+getIndexOfFileArgs()
+{
+    [ $# -eq 0 ] && return 1
+
+    # Trust the "args -- files" separator.
+    if afterEndOfArgsIndex=$(getIndex '--' "$@"); then
+	if [ $afterEndOfArgsIndex -ge $# ]; then
+	    # -- is the last argument
+	    return 1
+	else
+	    echo $((afterEndOfArgsIndex + 1))
+	    return 0
+	fi
+    fi
+
+    lastArg=${!#}
+    [ -e "$lastArg" ] || return 1   # No file arguments.
+
+    for ((i=$# - 1; i > 0; i--))
+    do
+	lastArg=${@:$i:1}
+	[ -e "$lastArg" ] || break
+    done
+
+    echo $((i + 1))
+    return 0
+}
+
+if firstFileArgIndex=$(getIndexOfFileArgs "$@"); then
+    lastGitLogArgIndex=$((firstFileArgIndex-1))
+    typeset -a gitLogArgs=("${@:1:$lastGitLogArgIndex}")
+    typeset -a fileArgs=("${@:$firstFileArgIndex}")
+
+    # Pass all arguments to the initial log (assuming there's no --pretty
+    # argument in it) for the limiting (--max-count) and filtering (--author,
+    # --grep).
+    # Pass the gitLogArgs also to git show, for the visualization (--decorate).
+    # The filtering is superfluous there, but apparently doesn't hurt, neither.
+    git log --topo-order --pretty=tformat:%H "$@" | xargs --delimiter '\n' git show --decorate --name-status "${gitLogArgs[@]}"
+else
+    exec git-log --name-status "$@"
+fi

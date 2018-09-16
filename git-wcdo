@@ -31,48 +31,18 @@ done
 [ ${#wcs[@]} -eq 0 ] && { printUsage "$0" >&2; exit 2; }
 [ $# -eq 0 ] && set -- noop
 
-# Because of the piping into the pager, we need to explicitly enable color.
-# Don't do this if the user explicitly turned it off, though.
+# With piping into withHeader / pager, we need to explicitly enable color,
+# unless this command's output itself is redirected. Also don't do this if the
+# user explicitly turned off color.
 typeset -a colorArg=(--color=always)
-if [ ! "$pager" -o ! -t 1 ] || contains '--no-color' "$@" || contains '--color=never' "$@"; then
+if [ ! -t 1 ] && ! contains '--color=always' "$@" || [ ! "$pager" -a ! "$isHeader" ] || contains '--no-color' "$@" || contains '--color=never' "$@"; then
     colorArg=()
 fi
 
-
-
-filterEmptyHeaders()
-{
-    awk '
-	/^\[01m.+\[0m:$/ {
-	    suspect = $0
-	    while (1) {
-		lookahead = ""
-		while (lookahead ~ /^\n*$/) {
-		    if (getline lookahead != 1) {
-			next
-		    }
-		}
-		if (lookahead ~ /\n*\[01m.+\[0m:$/) {
-		    gsub(/^\n*/, "", lookahead)
-		    suspect = lookahead
-		} else {
-		    print suspect
-		    print lookahead
-		    fflush()
-		    next
-		}
-	    }
-	}
-	{
-	    print
-	    fflush()
-	}
-    ' | sed --unbuffered -e '${ /^$/d }'
-}
-
+set -o pipefail
 wcdo()
 {
-    separator=
+    headerId="wcdo-$$"
     exitStatus=0
     for dir in "${wcs[@]}"
     do
@@ -81,14 +51,11 @@ wcdo()
 	if [ "$isHeader" ]; then
 	    header="${dir##*/}"
 	    [ "$isBranchName" ] && header="${header%.*} on $(git-brname || echo 'unknown branch')"
-	    printf "${separator}[01m%s[0m:\n" "$header"
 	fi
 
-	git "$@" "${colorArg[@]}" || exitStatus=$?
-
-	separator='\n'
+	eval 'git "$@" "${colorArg[@]}"' "${isHeader:+| withHeader "${colorArg[@]}" --id "$headerId" "$header"}" || exitStatus=$?
     done
     return $exitStatus
 }
 
-eval 'wcdo "$@" 2>&1' "${emptyHeaderFilterCommand:+| }${emptyHeaderFilterCommand} ${pager:+|}" '"${pager[@]}"'
+eval 'wcdo "$@" 2>&1' "${pager:+|}" '"${pager[@]}"'

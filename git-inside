@@ -9,17 +9,19 @@ copy.)
 --command|-c CMD	The command line to be executed. When this is a simple
 			command, it can also be passed as such.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '-c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...] [--] FILE [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '-c|--command "COMMANDLINE" [-c ...] | SIMPLECOMMAND [...] [--] FILE [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '-c|--command "COMMANDLINE" [-c ...] | SIMPLECOMMAND [...] -- FILE [...] [-?|-h|--help]'
 }
 
 isNeedEval=
 typeset -a commands=()
+typeset -a files=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--command|-c)	shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
-	--)		shift; break;;
+	--)		shift; files=("$@"); set --; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)  break;;
     esac
@@ -41,29 +43,36 @@ if [ $# -gt 1 ]; then
 	commands=("${simpleCommand[@]}")
     fi
 fi
+files+=("$@")
+
 if [ ${#commands[@]} -eq 0 ]; then
     echo >&2 'ERROR: No COMMAND(s) specified; need to pass -c|--command "COMMANDLINE", or SIMPLECOMMAND.'
     exit 2
-elif [ $# -eq 0 ]; then
+elif [ ${#files[@]} -eq 0 ] || [ $# -eq 1 -a "$1" = '--' ]; then
     echo >&2 'ERROR: No FILE(s) specified; need a file for the working copy location.'
     exit 2
 fi
 
-dirspec=$(dirname -- "$1") || exit $?
-if [ ! -d "$dirspec" ]; then
-    printf >&2 'ERROR: The directory %s does not exist!\n' "$dirspec"
-    exit 1
-fi
-if ! cd "$dirspec"; then
-    printf >&2 'ERROR: Cannot chdir to %s!\n' "$dirspec"
-    exit 1
-fi
-if ! git root >/dev/null 2>&1; then
-    printf >&2 'ERROR: %s is not inside a Git working copy!\n' "$dirspec"
-    exit 1
-fi
-if [ "$isNeedEval" ]; then
-    eval "${commands[@]}" '"$@"'
-else
-    "${commands[@]}" "$@"
-fi
+status=0
+for file in "${files[@]}"
+do
+    dirspec=$(dirname -- "$file") || { status=$?; continue; }
+    if [ ! -d "$dirspec" ]; then
+	printf >&2 'ERROR: The directory %s does not exist!\n' "$dirspec"
+	status=1; continue
+    fi
+    if ! cd "$dirspec"; then
+	printf >&2 'ERROR: Cannot chdir to %s!\n' "$dirspec"
+	status=1; continue
+    fi
+    if ! git root >/dev/null 2>&1; then
+	printf >&2 'ERROR: %s is not inside a Git working copy!\n' "$dirspec"
+	status=1; continue
+    fi
+    if [ "$isNeedEval" ]; then
+	eval "${commands[@]}"
+    else
+	"${commands[@]}"
+    fi || status=$?
+done
+exit $status

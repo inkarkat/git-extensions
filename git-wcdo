@@ -20,7 +20,7 @@ do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--no-pager)	shift; pager=();;
-	--no-header)	shift; isHeader=; emptyHeaderFilterCommand=cat;;
+	--no-header)	shift; isHeader=; emptyHeaderFilterCommand=;;
 	--branch-name)	shift; isBranchName=t;;
 	--)		shift; break;;
 	*)		wcs+=("$1")
@@ -70,20 +70,25 @@ filterEmptyHeaders()
     ' | sed --unbuffered -e '${ /^$/d }'
 }
 
-separator=
-exitStatus=0
-for dir in "${wcs[@]}"
-do
-    cd "$dir" || { exitStatus=$?; continue; }
+wcdo()
+{
+    separator=
+    exitStatus=0
+    for dir in "${wcs[@]}"
+    do
+	cd "$dir" || { exitStatus=$?; continue; }
 
-    if [ "$isHeader" ]; then
-	header="${dir##*/}"
-	[ "$isBranchName" ] && header="${header%.*} on $(git-brname || echo 'unknown branch')"
-	printf "${separator}[01m%s[0m:\n" "$header"
-    fi
+	if [ "$isHeader" ]; then
+	    header="${dir##*/}"
+	    [ "$isBranchName" ] && header="${header%.*} on $(git-brname || echo 'unknown branch')"
+	    printf "${separator}[01m%s[0m:\n" "$header"
+	fi
 
-    git "$@" "${colorArg[@]}" || exitStatus=$?
+	git "$@" "${colorArg[@]}" || exitStatus=$?
 
-    separator='\n'
-done 2>&1 | eval "filterEmptyHeaders ${pager:+|}" '"${pager[@]}"'
-exit $exitStatus
+	separator='\n'
+    done
+    return $exitStatus
+}
+
+eval 'wcdo "$@" 2>&1' "${emptyHeaderFilterCommand:+| }${emptyHeaderFilterCommand} ${pager:+|}" '"${pager[@]}"'

@@ -60,18 +60,18 @@ for FILE in "${files[@]}"
 do
     dirspec=$(dirname -- "$FILE") || { status=$?; continue; }
     if [ ! -d "$dirspec" ]; then
-	printf >&2 'ERROR: The directory %s does not exist!\n' "$dirspec"
+	printf >&2 'ERROR: The directory %s (of %s) does not exist!\n' "$dirspec" "$FILE"
 	status=1; continue
     fi
     if ! cd "$dirspec"; then
-	printf >&2 'ERROR: Cannot chdir to %s!\n' "$dirspec"
+	printf >&2 'ERROR: Cannot chdir to %s (for %s)!\n' "$dirspec" "$FILE"
 	status=1; continue
     fi
     if ! ROOT=$(git root 2>/dev/null); then
 	# FILE may directly refer to the root of the working copy; try that,
 	# too.
 	if [ ! -d "$FILE" ] || ! cd "$FILE" || ! ROOT=$(git root 2>/dev/null); then
-	    printf >&2 'ERROR: %s is not inside a Git working copy!\n' "$dirspec"
+	    printf >&2 'ERROR: %s is not inside a Git working copy!\n' "$FILE"
 	    status=1; continue
 	fi
     fi

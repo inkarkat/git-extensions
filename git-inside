@@ -68,8 +68,12 @@ do
 	status=1; continue
     fi
     if ! ROOT=$(git root 2>/dev/null); then
-	printf >&2 'ERROR: %s is not inside a Git working copy!\n' "$dirspec"
-	status=1; continue
+	# FILE may directly refer to the root of the working copy; try that,
+	# too.
+	if [ ! -d "$FILE" ] || ! cd "$FILE" || ! ROOT=$(git root 2>/dev/null); then
+	    printf >&2 'ERROR: %s is not inside a Git working copy!\n' "$dirspec"
+	    status=1; continue
+	fi
     fi
     if [ "$isNeedEval" ]; then
 	eval "${commands[@]}"

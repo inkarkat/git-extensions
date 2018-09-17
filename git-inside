@@ -7,7 +7,9 @@ Execute COMMAND (which probably contains Git command(s)) inside the working copy
 that FILE resides in. (Most Git commands only work from within the working
 copy.)
 --command|-c CMD	The command line to be executed. When this is a simple
-			command, it can also be passed as such.
+			command, it can also be passed as such. Within CMD, you
+			can refer to the corresponding FILE via \$FILE, and to
+			the root directory of the Git working copy as \$ROOT.
 HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '-c|--command "COMMANDLINE" [-c ...] | SIMPLECOMMAND [...] [--] FILE [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '-c|--command "COMMANDLINE" [-c ...] | SIMPLECOMMAND [...] -- FILE [...] [-?|-h|--help]'
@@ -54,9 +56,9 @@ elif [ ${#files[@]} -eq 0 ] || [ $# -eq 1 -a "$1" = '--' ]; then
 fi
 
 status=0
-for file in "${files[@]}"
+for FILE in "${files[@]}"
 do
-    dirspec=$(dirname -- "$file") || { status=$?; continue; }
+    dirspec=$(dirname -- "$FILE") || { status=$?; continue; }
     if [ ! -d "$dirspec" ]; then
 	printf >&2 'ERROR: The directory %s does not exist!\n' "$dirspec"
 	status=1; continue
@@ -65,7 +67,7 @@ do
 	printf >&2 'ERROR: Cannot chdir to %s!\n' "$dirspec"
 	status=1; continue
     fi
-    if ! git root >/dev/null 2>&1; then
+    if ! ROOT=$(git root 2>/dev/null); then
 	printf >&2 'ERROR: %s is not inside a Git working copy!\n' "$dirspec"
 	status=1; continue
     fi

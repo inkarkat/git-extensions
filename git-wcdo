@@ -6,14 +6,17 @@ printUsage()
 Execute "git COMMAND" on each passed WORKING-COPY.
 Puts a header line (unless --no-header) that contains the WORKING-COPY name
 (with --branch-name: also the current Git branch) before COMMAND's output.
+Note: For paging and headers, this command has to control Git's color output.
+Pass --no-git-color if "git COMMAND" does not support the --color=... arguments.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header|--branch-name] WORKING-COPY [...] -- [COMMAND ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header|--branch-name] [--no-git-color] WORKING-COPY [...] -- [COMMAND ...] [-?|-h|--help]'
 }
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 isHeader=t
 isBranchName=
 emptyHeaderFilterCommand=filterEmptyHeaders
+isGitColor=t
 typeset -a wcs=()
 while [ $# -ne 0 ]
 do
@@ -22,6 +25,7 @@ do
 	--no-pager)	shift; pager=();;
 	--no-header)	shift; isHeader=; emptyHeaderFilterCommand=;;
 	--branch-name)	shift; isBranchName=t;;
+	--no-git-color)	shift; isGitColor=;;
 	--)		shift; break;;
 	*)		wcs+=("$1")
 			shift
@@ -38,6 +42,19 @@ typeset -a colorArg=(--color=always)
 if [ ! -t 1 ] && ! contains '--color=always' "$@" || [ ! "$pager" -a ! "$isHeader" ] || contains '--no-color' "$@" || contains '--color=never' "$@"; then
     colorArg=()
 fi
+if [ ! "$isGitColor" ]; then
+    gitColorArg=()
+
+    typeset -a argsWithoutColor=()
+    for arg
+    do
+	case "$arg" in
+	    --color=*|--no-color)   ;;
+	    *)			    argsWithoutColor+=("$arg");;
+	esac
+    done
+    set -- "${argsWithoutColor[@]}"
+fi
 
 set -o pipefail
 wcdo()
@@ -53,7 +70,7 @@ wcdo()
 	    [ "$isBranchName" ] && header="${header%.*} on $(git-brname || echo 'unknown branch')"
 	fi
 
-	eval 'git "$@" "${colorArg[@]}"' "${isHeader:+| withHeader "${colorArg[@]}" --id "$headerId" "$header"}" || exitStatus=$?
+	eval 'git "$@" "${gitColorArg[@]}"' "${isHeader:+2>&1 | withHeader "${colorArg[@]}" --id "$headerId" -- "$header"}" || exitStatus=$?
     done
     return $exitStatus
 }

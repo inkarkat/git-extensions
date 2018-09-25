@@ -6,6 +6,7 @@ Branch name for "next release" development: master
 
 # releases
 
+`runVimTests tests/[all.suite]`
 `git flow release start 1.00`
 Update changelog
 vimdev: First GitHub release (of a small plugin): `:DeleteChangelog`

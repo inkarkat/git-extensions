@@ -10,18 +10,21 @@ printUsage()
 Show the files modified in passed commit or commit range.
 With --intermediate, files that are again the same, but were changed and then
 changed back, are included, too.
+With -s|--status, includes the status (added, modified, etc.), as a first column.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--intermediate] [<since>..<until>] [[--] <path>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--intermediate] [-s|--status] [<since>..<until>] [[--] <path>...] [-?|-h|--help]'
 }
 
 haveRange=
 isIncludeIntermediate=
+sorter='cut -f 2- | sort --unique'
 typeset -a allargs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--intermediate)	shift; isIncludeIntermediate=t;;
+	--status|-s)	shift; sorter='sort --key 2 --unique';;
 	*..*)		haveRange=t; allargs+=("$1"); shift;;
 	--)		allargs+=("$1"); shift; break;;
 	*)		allargs+=("$1"); shift;;
@@ -42,4 +45,4 @@ if [ "$haveRange" ]; then
     fi
 else
     git show --pretty='format:' --name-status "${allargs[@]}" "$@"
-fi | sort -u | sed -e '/^$/d' | "${PAGER:-less}" --RAW-CONTROL-CHARS
+fi | eval "$sorter" | sed -e '/^$/d' | "${PAGER:-less}" --RAW-CONTROL-CHARS

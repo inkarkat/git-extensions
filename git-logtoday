@@ -22,8 +22,12 @@ do
     esac
 done
 
-readonly gitUserName=$(git config --get user.name)
-eval 'git-log $colorArg --pretty=medium' $sinceArg '"$@"' | sed -e "
-/Author: ${gitUserName}/d"'
-/^Date:/d
-/^Merge:/d' | "${PAGER:-less}" --RAW-CONTROL-CHARS
+if [ "$GIT_LOGTODAY_LOG_COMMAND" ]; then
+    eval "$GIT_LOGTODAY_LOG_COMMAND $colorArg $sinceArg" '"$@"'
+else
+    readonly gitUserName=$(git config --get user.name)
+    eval 'git-log $colorArg --pretty=medium' $sinceArg '"$@"' | sed -e "
+    /Author: ${gitUserName}/d"'
+    /^Date:/d
+    /^Merge:/d' | "${PAGER:-less}" --RAW-CONTROL-CHARS
+fi

@@ -9,7 +9,9 @@ copy.)
 --command|-c CMD	The command line to be executed. When this is a simple
 			command, it can also be passed as such. Within CMD, you
 			can refer to the corresponding FILE via \$FILE, and to
-			the root directory of the Git working copy as \$ROOT.
+			the root directory of the Git working copy as \$ROOT
+			(both with absolute paths, also in SIMPLECOMMAND when
+			it's a separate argument).
 --skip-foreign|-s	Silently skip FILEs that are not inside a Git working
 			copy (instead of printing an error message).
 HELPTEXT
@@ -93,7 +95,18 @@ do
     if [ "$isNeedEval" ]; then
 	eval "${commands[@]}"
     else
-	"${commands[@]}"
+	# Without eval, $FILE etc. are not evaluated in SIMPLECOMMAND; we have to do this manually.
+	typeset -a expandedCommands=()
+	for c in "${commands[@]}"
+	do
+	    case "$c" in
+		\$FILE)	expandedCommands+=("$FILE");;
+		\$ROOT)	expandedCommands+=("$ROOT");;
+		*)	expandedCommands+=("$c");;
+	    esac
+	done
+
+	"${expandedCommands[@]}"
     fi || status=$?
 done
 exit $status

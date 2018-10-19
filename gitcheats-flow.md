@@ -20,9 +20,9 @@ Inspect changed files list with `git showfiles stable..`
 Update changelog; check with `git lg stable..`
 vimdev: First GitHub release (of a small plugin): `:DeleteChangelog`
 vimdev: First release: Create manifest
-`git addu; git commit`
+`git cu -m 'Release 1.00'`
 
 vimdev: Create Vimball: `:CloneHelpAsText` | `:Make 1.00` | `:Zip`
 Note: I don't publish the release branch if it just contains trivial mechanics of preparing the release.
-`git flow release finish 1.00`
+`git flow release finish 1.00` -> tag name: "Release 1.00"
 `git opa` (git opush --tags && git opush --all)

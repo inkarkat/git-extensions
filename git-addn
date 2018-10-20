@@ -1,0 +1,60 @@
+#!/bin/bash
+
+shopt -qs nullglob
+IFS=$'\n'
+
+remove()
+{
+    local e=$1; shift
+    [ "${additions["$e"]}" ] || return 1
+    unset -v "additions[$e]"
+}
+
+noMatch()
+{
+    printf >&2 'ERROR: %s does not match any existing file!\n' "${1:?}"
+    exit 1
+}
+noMatchFor()
+{
+    printf >&2 'ERROR: %s does not match any file to be added to the index!\n' "${1:?}"
+    exit 1
+}
+
+if [ $# -eq 0 ]; then
+    echo >&2 'ERROR: Must pass at least one FILE / escaped GLOB to not add!'
+    exit 2
+fi
+
+typeset -a reportedAdditions=($(git add --update --dry-run)) || exit $?
+if [ ${#reportedAdditions[@]} -eq 0 ]; then
+    echo >&2 'ERROR: Nothing to add'
+    exit 1
+fi
+typeset -A additions=()
+for r in "${reportedAdditions[@]}"
+do
+    a=${r%\'}
+    a=${a#add \'}
+    additions["$a"]=1
+done
+
+typeset -a exclusions=()
+for exclusion
+do
+    if [ -e "$exclusion" ]; then
+	remove "$exclusion" || noMatchFor "$exclusion"
+    else
+	didExclusion=
+	typeset -a expandedExclusions=($exclusion)
+	[ ${#expandedExclusions[@]} -eq 0 ] && noMatch "$exclusion"
+	for e in "${expandedExclusions[@]}"
+	do
+	    remove "$e" && didExclusion=t
+	done
+	[ "$didExclusion" ] || noMatchFor "$exclusion"
+    fi
+done
+
+#echo "****" "${!additions[@]}"
+git add -- "${!additions[@]}" && git status -sb

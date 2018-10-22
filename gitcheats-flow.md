@@ -14,15 +14,16 @@ Branch name for "next release" development: master
 
 # releases
 
-`runVimTests tests/[all.suite]`
+vimdev: `runVimTests tests/[all.suite]`
 `git flow release start 1.00`
 Inspect changed files list with `git showfiles stable..`
-Update changelog; check with `git lg stable..`
+Check changelog with `git lg stable..`
+vimdev: Update changelog (at least with release date) in `doc/*.txt`
 vimdev: First GitHub release (of a small plugin): `:DeleteChangelog`
 vimdev: First release: Create manifest
 `git cu -m 'Release 1.00'`
 
 vimdev: Create Vimball: `:CloneHelpAsText` | `:Make 1.00` | `:Zip`
 Note: I don't publish the release branch if it just contains trivial mechanics of preparing the release.
-`git flow release finish 1.00` -> tag name: "Release 1.00"
+`git flow release finish 1.00` -> tag name: "Version 1.00"
 `git opa` (git opush --tags && git opush --all)

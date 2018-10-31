@@ -1,0 +1,12 @@
+#!/bin/bash
+
+if [ $# -eq 0 ]; then
+    echo >&2 "ERROR: Must pass <commit>!"
+    exit 2
+fi
+
+ref=${!#}
+commitId=$(git rev-parse --verify "$ref") || exit $?
+commitMessage=$(git lo1 "$commitId") || exit $?
+
+printf %s "$commitMessage" | git-commit --file - "${@:1:$(($#-1))}"

@@ -1,0 +1,14 @@
+#!/bin/bash
+
+noErrorMessage=
+case "$1" in
+    --quiet|-q)	    shift; exec >/dev/null;;
+    --no-error|-n)  shift; noErrorMessage=t;;
+esac
+
+[ $# -eq 1 ] || exit 2
+
+if ! git rev-parse --verify --quiet "${1?}^{commit}"; then
+    [ "$noErrorMessage" ] || printf >&2 'ERROR: Not a valid commit: %s\n' "$1"
+    exit 1
+fi

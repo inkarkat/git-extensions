@@ -7,6 +7,17 @@ fi
 
 ref=${!#}
 commitId=$(git rev-parse --verify "$ref") || exit $?
-commitMessage=$(git lo1 "$commitId") || exit $?
 
-printf %s "$commitMessage" | git-commit --file - "${@:1:$(($#-1))}"
+commitMessageFilespec=$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TEMP:-/tmp}/$(basename -- "$0").$$$RANDOM")
+cleanup()
+{
+    rm -f "$commitMessageFilespec" 2>/dev/null
+}
+[ "$DEBUG" ] || trap 'cleanup' EXIT
+git lo1 "$commitId" > "$commitMessageFilespec" || exit $?
+if [ ! -s "$commitMessageFilespec" ]; then
+    echo >&2 "ERROR: No commit message"
+    exit 1
+fi
+
+exec git-commit --file "$commitMessageFilespec" "${@:1:$(($#-1))}"

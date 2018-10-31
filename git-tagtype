@@ -1,0 +1,11 @@
+#!/bin/bash
+
+set -o pipefail
+
+case "$1" in
+    annotated)	    tagType=tag;;
+    lightweight)    tagType=commit;;
+    *)		    printf >&2 'ERROR: Invalid tag type %s; must be either annotated or lightweight.\n' "$1"; exit 2;;
+esac
+
+git for-each-ref refs/tags | awk -v tagType="$tagType" '$2 == tagType { print gensub(/^refs\/tags\//, "", 1, $3); }'

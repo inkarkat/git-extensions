@@ -19,9 +19,11 @@ vimdev: `runVimTests tests/[all.suite]`
 Inspect changed files list with `git showfiles stable..`
 Check changelog with `git lg stable..`
 vimdev: Update changelog (at least with release date) in `doc/*.txt`
-vimdev: First GitHub release (of a small plugin): `:DeleteChangelog`
-vimdev: First release: Create manifest
 `git cu -m 'Release 1.00'`
+vimdev: First GitHub release (of a small plugin):
+vimdev: Execute `:DeleteChangelog`
+`git cu -m 'Cosmetics: Delete changelogs'`
+vimdev: First release: Create manifest
 
 vimdev: Create Vimball: `:CloneHelpAsText` | `:Make 1.00` | `:Zip`
 Note: I don't publish the release branch if it just contains trivial mechanics of preparing the release.

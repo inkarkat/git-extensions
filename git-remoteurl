@@ -1,12 +1,14 @@
 #!/bin/bash
 
-remote=$(git remote get-url -- "$@") || exit $?
+url=$(git remote get-url -- "$@") || exit $?
 case "$remote" in
-    *://*)  printf '%s\n' "$remote"; exit;;
+    *://*)
+	;;
+    *)
+	url="${url#git@}"
+	url="https://${url/:/\/}"
+	;;
 esac
-
-url=$remote
-url="${url#git@}"
 url="${url%.git}"
-url="https://${url/:/\/}"
+
 printf '%s\n' "$url"

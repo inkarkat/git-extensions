@@ -1,0 +1,16 @@
+#!/bin/bash
+set -o pipefail
+shopt -qs extglob
+
+if [ $# -eq 0 -o $# -gt 2 ]; then
+    echo >&2 "ERROR: Must pass remote and optionally branch pattern"
+    exit 2
+fi
+
+remoteBranch="$(git-rbr "$@" | tail -n 1)" || exit $?
+if [ -z "$remoteBranch" ]; then
+    # git branch does not return an error if there are no matches for the passed pattern.
+    printf >&2 'ERROR: No branch matching %s/%s found.\n' "$@"
+    exit 1
+fi
+exec git checkout --track "${remoteBranch##+( )}"

@@ -99,6 +99,7 @@
 	co = checkout
 	colb = checkout @{-1}	; Checkout last checked-out branch.
 	com = checkout master
+	con = base-command checkout
 	cohunk = checkout --patch --	; Interactively cherry-pick and check out individual hunks from the index to the working copy.
 	bl = shortblame
 	file-blame = !git ls-files | xargs -n1 -i{} git log -1 --pretty=format:\"%h %aN (%ar) {}\" -- {} ; Show author name and last date for each file.
@@ -431,6 +432,8 @@
 	bmlt = rev-range --revision master --end-revision HEAD --one-more lt
 	bmrbi = rev-range --revision master --no-range rebase -i
 	; bmbase would always print "master".
+
+	;; bn...: Log variants that cover the differences of the current branch to the base branch.
 
 	;; bl...: Log variants that cover the differences of the current branch to the previously checked out branch (typically the one it was branched off).
 	bld = rev-range --revision @{-1} --end-revision HEAD diff
@@ -871,6 +874,7 @@
 	;; checkout --theirs: (or git cot) will keep the version merged in (MERGE_HEAD) in case of merge conflict
 	;; mergeto: Merge the current branch to <target-branch>.
 	mergem = mergeto master
+	mergen = base-command mergeto
 	;; mergelocalbr: Merge all / the last committed N local branches (except for the current branch and master).
 	;; mergelocalbrc: Merge all / the last committed N local branches (except for the current branch and master) ordered by date of first commit.
 	mt = mergetool
@@ -894,6 +898,7 @@
 	;; reintegrateto: Merge the current branch to master / the passed <branch>, then delete it from the local repository as well as origin (if it exists there).
 	reintegratetolb = reintegrateto @{-1}
 	reintegratetom = reintegrateto master
+	reintegrateton = base-command reintegrateto
 
 	fl = git-rev-fetch-command l --reverse ; l of fetched commits
 	flc = git-rev-fetch-command lc --reverse ; lc of fetched commits
@@ -937,7 +942,9 @@
 	olog = rev-remote-command origin log; Log of my GitHub clone.
 	oio = inout origin
 	omio = inout master origin/master
+	onio = base-command -2 BASE origin/BASE inout
 	omrb = rebase origin/master	; Rebase my commits on top of the latest main branch of my GitHub clone.
+	onrb = base-command -2 BASE origin/BASE rebase ; Rebase my commits on top of the latest base branch of my GitHub clone.
 	ofetch = fetch --prune origin ; Get changes done to my GitHub clone through another Git repository, e.g. from another system. Use this, followed by git owipe, when origin has been reset (e.g. to an updated upstream).
 	opull = pull --ff-only --prune origin ; Get and fast-forward changes done to my GitHub clone through another Git repository, e.g. from another system. This allows to either merge or rebase (recommended) when local commits have been done to an outdated local branch.
 	oup = up origin
@@ -980,18 +987,25 @@
 	ucolatest = rcolatest upstream ; Checkout local branch from latest (by sort order) upstream [matching pattern].
 	ucolatestc = rcolatestc upstream ; Checkout local branch from the upstream branch [matching pattern] that was created last (except master and current).
 	ucom = checkout upstream/master ; Use with -b <newbranch> to start a patch based on the current upstream.
+	ucon = base-command -1 upstream/BASE checkout ; Use with -b <newbranch> to start a patch based on the current upstream's base branch.
 	umdiff = diff master..upstream/master ; Show differences introduced in upstream relative to master; useful to review upstream changes before pulling them in.
+	undiff = base-command -1 BASE..upstream/BASE diff ; Show differences introduced in upstream relative to the base branch; useful to review upstream changes before pulling them in.
 	udiff = rev-remote-command upstream diff ; Show differences to upstream.
 	ul = rev-remote-command upstream l ; l of upstream
 	ulc = rev-remote-command upstream lc ;: lc of upstream
 	ulg = rev-remote-command upstream lg ;: lg of upstream
 	ulog = rev-remote-command upstream log ; Log of upstream.
 	umlog = git-rev-branch-remotebr-command upstream master log ; Show log of changes introduced in upstream relative to master; useful to review upstream changes before pulling them in.
+	unlog = base-command --keep-position rev-branch-remotebr-command upstream BASE log ; Show log of changes introduced in upstream relative to base; useful to review upstream changes before pulling them in.
 	umlg = git-rev-branch-remotebr-command upstream master lg ; Show one-line log of changes introduced in upstream relative to master; useful to review upstream changes before pulling them in.
+	unlg = base-command --keep-position rev-branch-remotebr-command upstream BASE lg ; Show one-line log of changes introduced in upstream relative to base; useful to review upstream changes before pulling them in.
 	umlc = git-rev-branch-remotebr-command upstream master lc ; Show log and diff of changes introduced in upstream relative to master; useful to review upstream changes before pulling them in.
+	unlc = base-command --keep-position rev-branch-remotebr-command upstream BASE lc ; Show log and diff of changes introduced in upstream relative to base; useful to review upstream changes before pulling them in.
 	uio = inout upstream
 	umio = inout master upstream/master
+	unio = base-command -2 BASE upstream/BASE inout
 	umrb = rebase upstream/master	; Rebase my commits on top of the latest main upstream branch. "co mybranch" first, clone it via "git co -b mybranch-old; git opublish" if you want to keep the old one, or just use "umrb mybranch". You can also do this after the rebase, but before pushing: "git tco -b mybranch-old; git opublish; git co mybranch". Persist with "git opush -f"; undo with "git treset --hard".
+	unrb = base-command -1 upstream/BASE rebase ; Rebase my commits on top of the latest base upstream branch.
 	ufetch = fetch --prune upstream	; Get upstream changes.
 	;; upull: Get and fast-forward upstream changes. (With proper use of other branches for patches, there should not be a need to merge upstream.) Use for direct checkouts of upstream, without my own origin. Else, prefer ucatchup.
 	;; upush: push upstream ; Directly push current / passed <branch> to upstream.
@@ -1030,6 +1044,7 @@
 	uhardreset = rev-remote-command upstream reset --hard ; Reset my current branch to the HEAD of the corresponding / passed branch of upstream.
 	uwipe = rev-remote-command upstream wipe ; Reset my current branch to the HEAD of the corresponding / passed branch of upstream. Ensures that the current branch isn't dirty.
 	;; uwipem: Switch to my master branch and reset it to the HEAD of the upstream/master.
+	;; uwipen: Switch to my base branch and reset it to the HEAD of the upstream/base.
 	;; urestore: Reset my current branch to the HEAD of the current / passed branch of upstream, and push this to my GitHub clone. Use this after my pull requests have been accepted into upstream (but cherry-picked, in a different order, or intermingled with other requests, so that the commit history deviates from mine). Ensures that the current branch isn't dirty.
 	;; ucatchup: uup + urestore; Pull and rebase upstream changes (onto potentially dirty working copy), and push this to my GitHub clone. Use this when you directly follow upstream, and want to update your repo to its most recent version.
 

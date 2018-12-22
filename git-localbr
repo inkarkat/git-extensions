@@ -5,7 +5,8 @@ shopt -qs extglob
 printUsage()
 {
     cat <<HELPTEXT
-List all local / passed branches (except for the current branch and master).
+List all local / passed branches (except for the current branch and master (and
+base branch if defined)).
 HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[<branch1> ...]'
 }
@@ -25,4 +26,4 @@ esac
 
 currentBranch=$(git symbolic-ref HEAD) || exit $?
 currentBranch=${currentBranch##refs/heads/}
-getBranches "$@" | grep -v -F --line-regexp -e 'master' -e "$currentBranch"
+getBranches "$@" | grep -v -F --line-regexp -e 'master' ${GIT_BASE_BRANCH:+-e "$GIT_BASE_BRANCH"} -e "$currentBranch"

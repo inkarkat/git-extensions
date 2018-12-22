@@ -82,15 +82,15 @@
 	;; bra: List (local; -r remote-tracking; -a both) branches (optionally filtered by <glob>) ordered by date of most recent commit.
 	;; brc: List (local; -r remote-tracking; -a both) branches (optionally filtered by <glob>) ordered by date of first commit.
 	;; cobr: Create (and track) local branches for all remote branches (matching PATTERN).
-	;; localbrdo: Check out all / the last committed N local branches (except for the current branch and master) one by one and execute COMMAND (or drop back to the shell) for each).
-	;; localbrcdo: Check out all / the last N local branches (except for the current branch and master) ordered by date of first commit and execute COMMAND (or drop back to the shell) for each).
+	;; localbrdo: Check out all / the last committed N local branches (except for the current branch and master (and base branch if defined)) one by one and execute COMMAND (or drop back to the shell) for each).
+	;; localbrcdo: Check out all / the last N local branches (except for the current branch and master (and base branch if defined)) ordered by date of first commit and execute COMMAND (or drop back to the shell) for each).
 	;; prune: Remove old local branches that do not exist in <remote> any more.
 	;; existsbr: Check whether the passed [remote/]branch exists.
 	;; remotebr: Print corresponding remote/branch for the current branch (or return error).
 	deletebr = branch -d	; Delete branch; use oldeletebr to remove the branch in origin, too (and odeletebr to just delete it in origin).
 	renamebr = branch -m	; Rename branch.
 	;; archivebr: Tag <branch>, then delete it from the local repository as well as origin. Use to remove old branches that have been incorporated into master, or pass -f to force archiving.
-	;; archivelocalbr: Archive all / the first committed N local branches (except for the current branch and master).
+	;; archivelocalbr: Archive all / the first committed N local branches (except for the current branch and master (and base branch if defined)).
 	;; archivelocalbrc: Archive all / the first committed N local branches (except for the current branch and master) ordered by date of first commit.
 	archived = tag -l archive/*	; List all archived branches.
 	; How to create an unrelated branch that doesn't hold the previous commit history (e.g. as for the gh-pages)
@@ -919,7 +919,7 @@
 	;; git rebase HEAD <feature> && git rebase HEAD @{-2}: Rebase <feature> to current branch and merge back to current
 	;; git rebase master --onto <newbase> <=> git bmrbi --onto <newbase>:	Rebase the changes in the current branch (with regards to master) to appear as if they were committed onto <newbase>. Can be used to move a set of commits to another base commit.
 	;; git rebase HEAD^ --onto <newbase>:	Rebase the last commit to appear as if they were committed onto <newbase>.
-	;; git rebaselocalbr: Rebase all / the last committed N local branches (except for the current branch and master) to the updated passed (or configured in branch.<name>.remote and branch.<name>.merge) upstream head.
+	;; git rebaselocalbr: Rebase all / the last committed N local branches (except for the current branch and master (and base branch if defined)) to the updated passed (or configured in branch.<name>.remote and branch.<name>.merge) upstream head.
 	;; git merge --squash: Create a single commit on top of the current branch whose effect is the same as merging the other branch. Shorter form of interactive rebasing where you choose squash for all following commits.
 	; merging
 	;; checkout --ours:   (or git coo) will keep the original one we had (ORIG_HEAD) in case of merge conflict
@@ -927,8 +927,8 @@
 	;; mergeto: Merge the current branch to <target-branch>.
 	mergem = mergeto master
 	mergen = base-command mergeto
-	;; mergelocalbr: Merge all / the last committed N local branches (except for the current branch and master).
-	;; mergelocalbrc: Merge all / the last committed N local branches (except for the current branch and master) ordered by date of first commit.
+	;; mergelocalbr: Merge all / the last committed N local branches (except for the current branch and master (and base branch if defined)).
+	;; mergelocalbrc: Merge all / the last committed N local branches (except for the current branch and master (and base branch if defined)) ordered by date of first commit.
 	mt = mergetool
 	;; merge-base: Identify branch point (common ancestor).
 	; The fast-forward command does the second part of git pull, it merges the
@@ -984,7 +984,7 @@
 	obr = rbr origin ; List all branches in my GitHub clone [matching <pattern>].
 	oco = rco origin ; Checkout local branch from origin.
 	ocolatest = rcolatest origin ; Checkout local branch from latest (by sort order) upstream [matching pattern].
-	ocolatestc = rcolatestc origin ; Checkout local branch from the upstream branch [matching pattern] that was created last (except master and current).
+	ocolatestc = rcolatestc origin ; Checkout local branch from the upstream branch [matching pattern] that was created last (except the current branch and master (and base branch if defined)).
 	;; ocobr: Create (and track) local branches for all branches in origin (matching PATTERN).
 	;; oprune: Remove old local branches that do not exist in origin any more.
 	odiff = rev-remote-command origin diff ; Show differences to my GitHub clone.
@@ -1037,7 +1037,7 @@
 	upicks = rev-remote-command upstream cherrypicks -v --abbrev=7 ; See which changes from the current branch are already present upstream.
 	uco = rco upstream ; Checkout local branch from upstream.
 	ucolatest = rcolatest upstream ; Checkout local branch from latest (by sort order) upstream [matching pattern].
-	ucolatestc = rcolatestc upstream ; Checkout local branch from the upstream branch [matching pattern] that was created last (except master and current).
+	ucolatestc = rcolatestc upstream ; Checkout local branch from the upstream branch [matching pattern] that was created last (except the current branch and master (and base branch if defined)).
 	ucom = checkout upstream/master ; Use with -b <newbranch> to start a patch based on the current upstream.
 	ucon = base-command -1 upstream/BASE checkout ; Use with -b <newbranch> to start a patch based on the current upstream's base branch.
 	umdiff = diff master..upstream/master ; Show differences introduced in upstream relative to master; useful to review upstream changes before pulling them in.
@@ -1066,7 +1066,7 @@
 	umerge = rev-remote-command upstream merge ; Merge upstream changes with my local repo.
 	urb = rev-remote-command upstream rebase ; Rebase my commits on top of the corresponding branch in upstream (or passed <branch>).
 	urbi = rev-remote-command upstream rebase -i
-	;; urebaselocalbr: Rebase all / the last committed N local branches (except for the current branch and master) to the updated upstream head. After that, merge again via git uwipem && git mergelocalbrc; then use git opush -f --all to send the rebased branches to origin.
+	;; urebaselocalbr: Rebase all / the last committed N local branches (except for the current branch and master (and base branch if defined)) to the updated upstream head. After that, merge again via git uwipem && git mergelocalbrc; then use git opush -f --all to send the rebased branches to origin.
 	; To make pull default to rebase instead of merge, can use these:
 	; # make "git pull" on master always use rebase
 	; $ git config branch.master.rebase true

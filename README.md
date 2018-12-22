@@ -11,7 +11,7 @@ Additionally, the `gitconfig` supplies many aliases and shortcuts. You can mix a
     [include]
             path = PATH/TO/git-extensions/gitconfig
 
-Optionally, use the following (Bash) shell function (e.g. in your `.bashrc`) to transparently invoke the extensions in the same way as the built-in Git commands, via `git SUBCOMMAND`:
+Optionally, use the following (Bash, but should also work in Korn shell and Dash) shell function (e.g. in your `.bashrc`) to transparently invoke the extensions in the same way as the built-in Git commands, via `git SUBCOMMAND`:
 
     # Git supports aliases defined in .gitconfig, but you cannot override Git
     # builtins (e.g. "git log") by putting an executable "git-log" somewhere in the
@@ -23,7 +23,7 @@ Optionally, use the following (Bash) shell function (e.g. in your `.bashrc`) to 
         typeset -r gitCommand="$(which git)"
         if [ $# -eq 0 ]; then
             git ${GIT_DEFAULT_COMMAND:-st}
-        elif type -t "$gitAlias" >/dev/null; then
+        elif type ${BASH_VERSION:+-t} "$gitAlias" >/dev/null 2>&1; then
             shift
             eval $gitAlias '"$@"'
         elif [ "$1" = "${1#-}" ] && expr "$1" : '.*[[:upper:]]' >/dev/null; then
@@ -50,7 +50,7 @@ Here is a variant that also adds support for the [hub](https://github.com/github
         typeset -r gitCommand="$(which hub || which git)"
         if [ $# -eq 0 ]; then
             git ${GIT_DEFAULT_COMMAND:-st}
-        elif type -t "$gitAlias" >/dev/null; then
+        elif type ${BASH_VERSION:+-t} "$gitAlias" >/dev/null 2>&1; then
             shift
             eval $gitAlias '"$@"'
         elif [ "$1" = "${1#-}" ] && expr "$1" : '.*[[:upper:]]' >/dev/null; then
@@ -69,7 +69,7 @@ The following function also allows extending the `hub` command (in a different w
         typeset -r hubAlias="hub-$1"
         if [ $# -eq 0 ]; then
             hub ${HUB_DEFAULT_COMMAND:-st}
-        elif type -t "$hubAlias" >/dev/null; then
+        elif type ${BASH_VERSION:+-t} "$hubAlias" >/dev/null 2>&1; then
             shift
             eval $hubAlias '"$@"'
         else

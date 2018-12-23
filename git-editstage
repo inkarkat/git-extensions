@@ -1,0 +1,117 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Directly edit file(s) in the index without modifying the corresponding files in
+the working copy.
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[EDITOR-ARGS ... [--]] <pathspec> ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--continue [EDITOR-ARGS ... [--]] [-?|-h|--help]'
+}
+isContinue=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--continue)	shift; isContinue=t;;
+	*)		break;;
+    esac
+done
+
+
+getIndex()
+{
+    local i=1 elem needle=$1; shift
+    for elem
+    do
+	if [ "$needle" = "$elem" ]; then
+	    echo "$i"
+	    return 0
+	fi
+	let i+=1
+    done
+    return 1
+}
+if afterEndOfArgsIndex=$(getIndex '--' "$@"); then
+    editorArgsNum=$((afterEndOfArgsIndex-1))
+    pathArgStart=$((afterEndOfArgsIndex+1))
+    typeset -a editorArgs=("${@:1:$editorArgsNum}")
+    typeset -a paths=("${@:$pathArgStart}")
+else
+    typeset -a editorArgs=()
+    while [ $# -ne 0 ]
+    do
+	case "$1" in
+	    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	    -*)			editorArgs+=("$1"); shift;;
+	    *)			break;;
+	esac
+    done
+    typeset paths=("$@")
+fi
+if [ -z "$isContinue" ] && [ ${#paths[@]} -eq 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+elif [ "$isContinue" ] && [ ${#paths[@]} -gt 0 ]; then
+    echo >&2 "ERROR: --continue uses the original <pathspec>s, don't add new ones."
+    exit 2
+fi
+
+
+gitDir=$(git rev-parse --git-dir 2>/dev/null) || exit $?
+indexEditDirspec="${gitDir}/indexedit"
+if [ -d "$indexEditDirspec" ]; then
+    [ "$isContinue" ] || rm --force "$indexEditDirspec"/.* "$indexEditDirspec"/* 2>/dev/null
+else
+    mkdir "$indexEditDirspec" || exit $?
+fi
+
+indexEditPathsFilespec="${indexEditDirspec}/.paths"
+indexEditFilesFilespec="${indexEditDirspec}/.files"
+typeset -a editFilespecs=()
+if [ "$isContinue" ]; then
+    mapfile -t paths < "$indexEditPathsFilespec"
+    mapfile -t editFilespecs < "$indexEditFilesFilespec"
+    if [ ${#editFilespecs[@]} -eq 0 ]; then
+	printf >&2 'ERROR: No <pathspec> given but also no edited files found under %s/!\n' "$indexEditDirspec"
+	exit 2
+    elif [ ${#paths[@]} -ne ${#editFilespecs[@]} ]; then
+	echo >&2 "ERROR: Inconsistent numbers of <pathspec> and edited files found. Aborting."
+	exit 2
+    fi
+
+    editFilePlural=s; [ ${#editFile[@]} -eq 1 ] && editFilePlural=
+    printf >&2 'Continuing editing of %d staged file%s\n' "${#editFilespecs[@]}" "$editFilePlural"
+else
+    for path in "${paths[@]}"
+    do
+	if [ ! -r "$path" ]; then
+	    printf "fatal: pathspec '%s' did not match any files\\n" "$path"
+	    exit 2
+	fi
+
+	filespec="${indexEditDirspec}/$path"
+	while [ -r "$filespec" ]
+	do
+	    let counter+=1
+	    filespec="${indexEditDirspec}/${path%.*}-${counter}.${path##*.}"
+	done
+	editFilespecs+=("$filespec")
+	git show ":$path" > "$filespec" || exit $?
+    done
+    printf '%s\n' "${paths[@]}" > "$indexEditPathsFilespec"
+    printf '%s\n' "${editFilespecs[@]}" > "$indexEditFilesFilespec"
+fi
+
+"$EDITOR" "${editorArgs[@]}" "${editFilespecs[@]}" || { status=$?; echo 2>&1 "Unclean exit of editor; aborting!"; exit $status; }
+
+status=0
+for ((i = 0; i < ${#paths[@]}; i++))
+do
+    path="${paths[$i]}"
+    newIndexHash="$(git hash-object -w "${editFilespecs[$i]}")" || status=$?
+    fileMode=("$(git ls-files --stage "$path" | cut -d' ' -f1)")
+    git update-index --cacheinfo "${fileMode:-100644}" "$newIndexHash" "$path" || status=$?
+done
+exit $status

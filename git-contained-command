@@ -3,9 +3,23 @@ set -o pipefail
 
 command="${1:?}"; shift
 
-if [ $# -ne 1 ]; then
+printUsage()
+{
+    cat <<HELPTEXT
+Show first tag [that matches GREP-ARGS] that the passed <commit> is based on.
+HELPTEXT
+    typeset scriptName="$(basename "$1")"
+    printf 'Usage: %q-%q %s\n' "${scriptName%-command}" "$command" '[GREP-ARGS] <commit> [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+if [ $# -eq 0 ]; then
+    printUsage "$0" 2>&1
     echo >&2 'ERROR: Must pass <commit>'
     exit 2
 fi
+revision=${!#}
+typeset -a grepArgs=("${@:1:$(($#-1))}")
 
-git "$command" --contains "$@" | head -n 1
+eval 'git "$command" --contains "$revision" | ' ${grepArgs:+grep} '"${grepArgs[@]}"' ${grepArgs:+|} 'head -n 1'

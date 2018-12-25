@@ -1,0 +1,35 @@
+#!/bin/bash
+set -o pipefail
+
+command="${1:?}"; shift
+
+file=${!#}
+quotedGrepArgs=
+if [ $# -gt 1 ]; then
+    printf -v quotedGrepArgs '%q ' "${@:1:$(($#-1))}"
+fi
+
+git annotate --porcelain -- "$file" | awk -F ' ' -v command="git contained-$command ${quotedGrepArgs//\\/\\\\}" '
+BEGIN {
+    UNDEFINED = "\0"
+}
+/^[[:xdigit:]]{40} [[:digit:] ]+$/ {
+    hash = $1
+    version = hashToVersion[hash]
+    if (version == "") {
+	versionLookupCommand = command hash
+	versionLookupCommand | getline version
+	hashToVersion[hash] = (version == "" ? UNDEFINED : version)
+    }
+
+    while ($0 !~ /^\t/) {
+	getline
+    }
+    print (version == UNDEFINED ? "" : version) $0
+    next
+}
+{
+    printf "ERROR: Unexpected format in line %d: %s\n", NR, $0 > "/dev/stderr"
+    exit 1
+}
+'

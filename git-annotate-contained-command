@@ -18,11 +18,12 @@ if [ $lastGrepArg -gt 0 ]; then
     printf -v quotedGrepArgs '%q ' "${@:1:$lastGrepArg}"
 fi
 
-
-git annotate --porcelain $revision -- "$file" | awk \
-    -F ' ' \
-    -v command="git contained-$command ${quotedGrepArgs//\\/\\\\}" \
-    -v annotationWidth="${!annotationWidthVar:-$annotationWidthDefault}" \
+annotate()
+{
+    git annotate --porcelain $revision -- "$file" | awk \
+	-F ' ' \
+	-v command="git contained-$command ${quotedGrepArgs//\\/\\\\}" \
+	-v annotationWidth="${!annotationWidthVar:-$annotationWidthDefault}" \
 '
 BEGIN {
     UNDEFINED = "\0"
@@ -46,4 +47,8 @@ BEGIN {
     printf "ERROR: Unexpected format in line %d: %s\n", NR, $0 > "/dev/stderr"
     exit 1
 }
-' | "${PAGER:-less}" --RAW-CONTROL-CHARS
+'
+}
+
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+eval 'annotate "$@"' "${pager:+|}" '"${pager[@]}"'

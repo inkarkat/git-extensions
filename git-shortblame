@@ -20,8 +20,5 @@ annotate()
 	-lpe 's/^([^\t]*)\t\(([^\t]+)\t\d+ [+-]\d+\t+\d+\)/$1 . " " . fix($2) . $3 . ") "/e'
 }
 
-if [ -t 1 ]; then
-    annotate "$@" | "${PAGER:-less}" --RAW-CONTROL-CHARS
-else
-    annotate "$@"
-fi
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+eval 'annotate "$@"' "${pager:+|}" '"${pager[@]}"'

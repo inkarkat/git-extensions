@@ -6,12 +6,20 @@ annotationWidthVar="GIT_ANNOTATE_CONTAINED_${command^^}"
 annotationWidthDefault=14; [ "$command" = 'version' ] && annotationWidthDefault=8
 
 file=${!#}
+revision=
+lastGrepArg=$(($#-1))
+[ $lastGrepArg -gt 0 -a "${@:$lastGrepArg:1}" = '--' ] && let lastGrepArg-=1
+if [ $lastGrepArg -gt 0 ] && git rev-parse --verify --quiet "${@:$lastGrepArg:1}" >/dev/null; then
+    revision="${@:$lastGrepArg:1}"
+    let lastGrepArg-=1
+fi
 quotedGrepArgs=
-if [ $# -gt 1 ]; then
-    printf -v quotedGrepArgs '%q ' "${@:1:$(($#-1))}"
+if [ $lastGrepArg -gt 0 ]; then
+    printf -v quotedGrepArgs '%q ' "${@:1:$lastGrepArg}"
 fi
 
-git annotate --porcelain -- "$file" | awk \
+
+git annotate --porcelain $revision -- "$file" | awk \
     -F ' ' \
     -v command="git contained-$command ${quotedGrepArgs//\\/\\\\}" \
     -v annotationWidth="${!annotationWidthVar:-$annotationWidthDefault}" \

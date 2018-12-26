@@ -9,7 +9,11 @@ if [ $# -gt 1 ]; then
     printf -v quotedGrepArgs '%q ' "${@:1:$(($#-1))}"
 fi
 
-git annotate --porcelain -- "$file" | awk -F ' ' -v command="git contained-$command ${quotedGrepArgs//\\/\\\\}" '
+git annotate --porcelain -- "$file" | awk \
+    -F ' ' \
+    -v command="git contained-$command ${quotedGrepArgs//\\/\\\\}" \
+    -v annotationWidth=14 \
+'
 BEGIN {
     UNDEFINED = "\0"
 }
@@ -25,7 +29,7 @@ BEGIN {
     while ($0 !~ /^\t/) {
 	getline
     }
-    print (version == UNDEFINED ? "" : version) $0
+    printf "%-" annotationWidth "s) %s\n", (version == UNDEFINED ? "" : version), substr($0, 2)
     next
 }
 {

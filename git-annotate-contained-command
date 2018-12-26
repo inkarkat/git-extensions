@@ -2,6 +2,8 @@
 set -o pipefail
 
 command="${1:?}"; shift
+annotationWidthVar="GIT_ANNOTATE_CONTAINED_${command^^}"
+annotationWidthDefault=14; [ "$command" = 'version' ] && annotationWidthDefault=8
 
 file=${!#}
 quotedGrepArgs=
@@ -12,7 +14,7 @@ fi
 git annotate --porcelain -- "$file" | awk \
     -F ' ' \
     -v command="git contained-$command ${quotedGrepArgs//\\/\\\\}" \
-    -v annotationWidth=14 \
+    -v annotationWidth="${!annotationWidthVar:-$annotationWidthDefault}" \
 '
 BEGIN {
     UNDEFINED = "\0"

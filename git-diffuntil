@@ -1,0 +1,28 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Diff over all commits until (and including) passed <commit>, optionally limited to
+files in <path>.
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '<commit> [<end-commit>] [<common diff options>] [--] [<path>...] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+if [ $# -eq 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+revision="$1"; shift
+endRevision='HEAD'
+if [ $# -gt 0 -a "${1:0:1}" != '-' -a ! -e "$1" ]; then
+    # Take the second argument as another (end) commit specification unless it
+    # looks like a diff argument or is an existing file.
+    endRevision=$1
+    shift
+fi
+
+exec git ${GIT_DIFFUNTIL_DIFFCOMMAND:-diff} "${revision}^" "$endRevision" "$@"

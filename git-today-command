@@ -1,20 +1,6 @@
 #!/bin/bash
 set -o pipefail
 
-getIndex()
-{
-    local i=1 elem needle=$1; shift
-    for elem
-    do
-	if [ "$needle" = "$elem" ]; then
-	    echo "$i"
-	    return 0
-	fi
-	let i+=1
-    done
-    return 1
-}
-
 if  [ "$1" = '--no-range' ]; then
     shift
     rangeArg="$(git lh --since yesterday | tail -n 1)" || exit $?
@@ -24,9 +10,4 @@ else
     rangeArg="--since yesterday"
 fi
 
-afterEndOfArgsIndex=$(getIndex '--' "$@") || afterEndOfArgsIndex=$(($#+1))
-endOfArgsIndex=$((afterEndOfArgsIndex-1))
-typeset -a args=("${@:1:$endOfArgsIndex}")
-typeset -a postArgs=("${@:$afterEndOfArgsIndex}")
-
-exec git-wrapper "${args[@]}" $rangeArg "${postArgs[@]}"
+exec git-wrapper "$1" $rangeArg "${@:2}"

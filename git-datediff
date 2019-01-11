@@ -1,0 +1,59 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Show the time range of the commits done in the passed <revision-range>, or --since=<date>.
+Used commit times, with --authored authored times, with -v|--verbose both.
+The date format can be influenced via -f|--format; alternatively (or in
+addition), -d|--diff prints the difference between start and end dates.
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-v|--verbose|--authored] [-f|--format FORMAT] [-d|--diff [--diff-options DIFF-OPTIONS]] <revision-range>|--since=<date> [-?|-h|--help]'
+}
+
+typeset -a dateSigils=(c)
+typeset -A prefixes=()
+isFormat=
+format=
+isDiff=
+diffOptions=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--verbose|-v)	shift; dateSigils=(c a); prefixes=([c]='Committed ' [a]='Authored  ');;
+	--authored)	shift; dateSigils=(a);;
+	--format|-f)	shift; isFormat=t; format="$1"; shift;;
+	--diff|-d)	shift; isDiff=t;;
+	--diff-options)	shift; diffOptions="$1"; shift;;
+	--)		shift; break;;
+	*)		break;;
+    esac
+done
+if [ $# -eq 0 ]; then
+    echo >&2 'ERROR: No <revision-range> passed.'
+    printUsage "$0" >&2
+    exit 2
+fi
+[ "$isDiff" ] || isFormat=t
+
+dateFormat()
+{
+    date --date "${1:?}" ${format:++$format}
+}
+
+
+for dateSigil in "${dateSigils[@]}"
+do
+    IFS=' '
+    read -r startDate endDate < <(git log --pretty="tformat:%${dateSigil}t" "$@" | sort --numeric --unique | sed -n -e '1h' -e '${H; x; s/\n/ /; p}')
+
+    printf %s "${prefixes[$dateSigil]}"
+    if [ "$isFormat" ]; then
+	printf '%s until %s' "$(dateFormat "@$startDate")" "$(dateFormat "@$endDate")"
+    fi
+    if [ "$isDiff" ]; then
+	printf '%s%s%s' "${isFormat:+ (}" "$(datediff $diffOptions "$startDate" "$endDate")" "${isFormat:+)}"
+    fi
+    printf \\n
+done

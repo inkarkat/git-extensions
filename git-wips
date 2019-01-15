@@ -1,0 +1,19 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Test whether the working copy has either:
+- uncommitted changes
+- where not all commits (on the current branch) have already been pushed to
+  origin (or origin doesn't even exist yet)
+- where the last commit had "WIP:" in the message summary
+- not on the master branch
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+git dirty && git st || git ooutlg || git l --max-count=1 | grep '\(^\| \)WIP: ' || git brname | sed -e '/^master$/d' -e 's/^/On branch /'

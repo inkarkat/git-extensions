@@ -1,0 +1,75 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Print only those log entries where two commit attributes (basically either
+author vs. committer or the corresponding dates, indicating amends or rebases)
+are not identical.
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--field1 FIELD1 --field2 FIELD2 [LOG-ARGUMENTS ...] [-?|-h|--help]'
+}
+
+field1=
+field2=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--field1)	shift; field1="$1"; shift;;
+	--field2)	shift; field2="$1"; shift;;
+	*)		break;;
+    esac
+done
+if [ -z "$field1" -o -z "$field2" ]; then
+    echo >&2 'ERROR: Must pass both fields.'
+    printUsage "$0" >&2
+    exit 2
+fi
+
+contains()
+{
+    needle=$1
+    shift
+    for elem
+    do
+	[ "$needle" = "$elem" ] && return 0
+    done
+    return 1
+}
+
+# Because of the piping into the filter, we need to explicitly enable color.
+# Don't do this if the user explicitly turned it off, though.
+typeset -a colorArg=(--color=always)
+if [ ! -t 1 ] && ! contains '--color=always' || contains '--no-color' "${preRangeArgs[@]}" || contains '--color=never' "${preRangeArgs[@]}"; then
+    colorArg=()
+fi
+
+git-log "${colorArg[@]}" "$@" | awk -v field1="$field1" -v field2="$field2" '
+function printPreviousEntry() {
+    if (value1 != value2 ) {
+	print entry
+    }
+    entry = ""
+}
+
+/commit [[:xdigit:]]{32}/ {
+    inHeader = 1
+    printPreviousEntry()
+}
+{
+    entry = entry $0 "\n"
+}
+/^$/ {
+    inHeader = 0
+}
+$1 == field1 {
+    $1 = ""; sub(FS, ""); value1 = $0
+}
+$1 == field2 {
+    $1 = ""; sub(FS, ""); value2 = $0
+}
+END {
+    printPreviousEntry()
+}
+' | "${PAGER:-less}" --RAW-CONTROL-CHARS

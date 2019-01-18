@@ -1,3 +1,31 @@
 #!/bin/bash
 
-exec git checkout --track "$@"
+remoteBranch=; [ $# -gt 0 ] && remoteBranch=${!#}
+remote="${remoteBranch%%/*}"
+branch="${remoteBranch#*/}"
+
+if [ -z "$remote" -o -z "$branch" ]; then
+    echo >&2 'ERROR: No <remote-branch> passed!'
+    exit 2
+fi
+
+if git-existsbr "$branch"; then
+    trackedRemoteBranch="$(git-tracks "$branch" 2>/dev/null)"
+    if [ -z "$trackedRemoteBranch" ]; then
+	: # Fine; we're tracking nothing yet.
+    elif [ "$trackedRemoteBranch" = "$remoteBranch" ]; then
+	: # Fine; we're already tracking the same remote branch.
+    else
+	trackedRemote="${trackedRemoteBranch%%/*}"
+	trackedBranch="${trackedRemoteBranch#*/}"
+	if [ "$trackedBranch" != "$branch" ]; then
+	    printf >&2 'ERROR: An existing local branch %s is already tracking a differently named remote branch %s; will not switch to %s.\n' "$trackedRemoteBranch" "$remoteBranch"
+	    exit 1
+	elif [ "$trackedRemote" != "$remote" ]; then
+	    printf >&2 'Note: The local branch is already tracking the corresponding branch in %s.\n' "$trackedRemote"
+	fi
+    fi
+    git checkout "${@:1:$(($#-1))}" "$branch"
+else
+    git checkout --track "$@"
+fi

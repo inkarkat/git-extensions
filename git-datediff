@@ -49,11 +49,19 @@ do
     read -r startDate endDate < <(git log --pretty="tformat:%${dateSigil}t" "$@" | sort --numeric --unique | sed -n -e '1h' -e '${H; x; s/\n/ /; p}')
 
     printf %s "${prefixes[$dateSigil]}"
-    if [ "$isFormat" ]; then
-	printf '%s until %s' "$(dateFormat "@$startDate")" "$(dateFormat "@$endDate")"
-    fi
-    if [ "$isDiff" ]; then
-	printf '%s%s%s' "${isFormat:+ (}" "$(datediff $diffOptions "$startDate" "$endDate")" "${isFormat:+)}"
+    if [ $startDate -eq $endDate ]; then
+	if [ "$isFormat" ]; then
+	    printf '%s' "$(dateFormat "@$startDate")"
+	elif [ "$isDiff" ]; then
+	    printf '(no time range)'
+	fi
+    else
+	if [ "$isFormat" ]; then
+	    printf '%s until %s' "$(dateFormat "@$startDate")" "$(dateFormat "@$endDate")"
+	fi
+	if [ "$isDiff" ]; then
+	    printf '%s%s%s' "${isFormat:+ (}" "$(datediff $diffOptions "$startDate" "$endDate")" "${isFormat:+)}"
+	fi
     fi
     printf \\n
 done

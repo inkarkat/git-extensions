@@ -7,11 +7,14 @@ Show the time range of the commits done in the passed <revision-range>, or --sin
 Used commit times, with --authored authored times, with -v|--verbose both.
 The date format can be influenced via -f|--format; alternatively (or in
 addition), -d|--diff prints the difference between start and end dates.
+-u|--utc|--universal prints Coordinated Universal Time (UTC) instead of local
+time, and defaults the format to ISO 8601 format (with Z as the timezone).
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-v|--verbose|--authored] [-f|--format FORMAT] [-d|--diff [--diff-options DIFF-OPTIONS]] <revision-range>|--since=<date> [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-v|--verbose|--authored] [-f|--format FORMAT] [-u|--utc|--universal] [-d|--diff [--diff-options DIFF-OPTIONS]] <revision-range>|--since=<date> [-?|-h|--help]'
 }
 
 typeset -a dateSigils=(c)
+typeset -a dateArgs=()
 typeset -A prefixes=()
 isFormat=
 format=
@@ -23,6 +26,8 @@ do
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--verbose|-v)	shift; dateSigils=(c a); prefixes=([c]='Committed ' [a]='Authored  ');;
 	--authored)	shift; dateSigils=(a);;
+	--utc|--universal|-u)
+			shift; dateArgs+=(--utc); : ${format:=%FT%TZ};;
 	--format|-f)	shift; isFormat=t; format="$1"; shift;;
 	--diff|-d)	shift; isDiff=t;;
 	--diff-options)	shift; diffOptions="$1"; shift;;
@@ -39,7 +44,7 @@ fi
 
 dateFormat()
 {
-    date --date "${1:?}" ${format:++"$format"}
+    date "${dateArgs[@]}" --date "${1:?}" ${format:++"$format"}
 }
 
 

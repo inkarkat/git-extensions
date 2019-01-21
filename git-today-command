@@ -13,4 +13,18 @@ else
     rangeArgs=('--since' "$yesterdayTimestamp")
 fi
 
-exec git-wrapper "$1" "${rangeArgs[@]}" "${@:2}"
+typeset -a gitCommand=();
+case "$1" in
+    [^-]*-command)  gitCommand+=("$1"); shift
+		    while [ $# -ne 0 ]
+		    do
+			case "$1" in
+			    -*)		gitCommand+=("$1"); shift;;
+			    *)		gitCommand+=("$1"); shift; break;;
+			esac
+		    done
+		    ;;
+    *)		    gitCommand+=("$1"); shift;;
+esac
+
+exec git-wrapper "${gitCommand[@]}" "${rangeArgs[@]}" "$@"

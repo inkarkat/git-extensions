@@ -47,6 +47,10 @@ for dateSigil in "${dateSigils[@]}"
 do
     IFS=' '
     read -r startDate endDate < <(git log --pretty="tformat:%${dateSigil}t" "$@" | sort --numeric --unique | sed -n -e '1h' -e '${H; x; s/\n/ /; p}')
+    if [ -z "$startDate" -o -z "$endDate" ]; then
+	echo >&2 'No revisions found'
+	exit 1
+    fi
 
     printf %s "${prefixes[$dateSigil]}"
     if [ $startDate -eq $endDate ]; then

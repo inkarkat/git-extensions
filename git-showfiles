@@ -31,18 +31,11 @@ do
     esac
 done
 
-if [ "$isIncludeIntermediate" -a ! "$haveRange" ]; then
-    echo >&2 "ERROR: Need a <since>..<until> range to show intermediate changes!"
-    exit 2
-fi
-
-if [ "$haveRange" ]; then
-    if [ "$isIncludeIntermediate" ]; then
-	git log --pretty='format:' --name-status "${allargs[@]}" "$@"
-    else
-	# Source: http://stackoverflow.com/a/1552353/813602
-	git diff --name-status "${allargs[@]}" "$@"
-    fi
+if [ "$isIncludeIntermediate" ]; then
+    git log --pretty='format:' --name-status "${allargs[@]}" "$@"
+elif [ "$haveRange" ]; then
+    # Source: http://stackoverflow.com/a/1552353/813602
+    git diff --name-status "${allargs[@]}" "$@"
 else
     git show --pretty='format:' --name-status "${allargs[@]}" "$@"
 fi | eval "$sorter" | sed -e '/^$/d' | "${PAGER:-less}" --RAW-CONTROL-CHARS

@@ -1,15 +1,18 @@
 #!/bin/bash
+shopt -qs extglob
 
 gitCommand=${1:?}; shift
 
 saveIFS=$IFS
 IFS=$'\n'
 typeset -a args=()
+typeset -a selected=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--)		shift; break;;
 	-*)		args+=("$1"); shift;;
+	+([0-9]))	selected+=("$1"); shift;;
     esac
 done
 if [ $# -eq 0 ]; then
@@ -23,6 +26,7 @@ fi
 typeset -a selectedPaths=()
 selectCandidates()
 {
+    local path
     select path
     do
 	if [ "$path" ]; then
@@ -43,8 +47,27 @@ EOF
 	fi
     done
 }
+selectByCounts()
+{
+    local count
+    for count in "${selected[@]}"
+    do
+	if [ $count -gt $# ]; then
+	    filePlural=s; [ $# -eq 1 ] && filePlural=
+	    printf >&2 'Only %d file%s to %s.\n' "$#" "$filePlural" "$gitCommand"
+	    exit 2
+	fi
 
-selectCandidates "$@"
+	selectedPaths+=(${@:$count:1})
+    done
+}
+
+if [ ${#selected[@]} -eq 0 ]; then
+    selectCandidates "$@"
+else
+    selectByCounts "$@"
+fi
+
 [ ${#selectedPaths[@]} -gt 0 ] || exit 1
 
 exec git "$gitCommand" "${args[@]}" "${selectedPaths[@]}"

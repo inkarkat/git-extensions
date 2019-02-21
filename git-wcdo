@@ -3,18 +3,21 @@
 printUsage()
 {
     cat <<HELPTEXT
-Execute "git COMMAND" on each passed WORKING-COPY.
+Execute "git SIMPLECOMMAND" and/or COMMANDLINE on each passed WORKING-COPY.
 Puts a header line (unless --no-header) that contains the WORKING-COPY name
-(with --branch-name: also the current Git branch) before COMMAND's output.
+(with --branch-name: also the current Git branch) before the command output.
 Note: For paging and headers, this command has to control Git's color output.
-Pass --no-git-color if "git COMMAND" does not support the --color=... arguments.
+Pass --no-git-color if "git SIMPLECOMMAND" does not support the --color=...
+arguments. (For COMMANDLINE you have to insert "\${gitColorArg[@]}" yourself.)
 You can still pass --color=always if you pipe this command's output yet still
 want coloring of headers.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header|--branch-name] [--no-git-color] WORKING-COPY [...] -- [COMMAND ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header|--branch-name] [--no-git-color] [-c|--command "COMMANDLINE" [-c ...]] WORKING-COPY [...] -- [SIMPLECOMMAND ...] [-?|-h|--help]'
 }
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+isNeedEval=
+typeset -a commands=()
 isHeader=t
 isBranchName=
 emptyHeaderFilterCommand=filterEmptyHeaders
@@ -24,18 +27,22 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--command|-c)	shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
 	--no-pager)	shift; pager=();;
 	--no-header)	shift; isHeader=; emptyHeaderFilterCommand=;;
 	--branch-name)	shift; isBranchName=t;;
 	--no-git-color)	shift; isGitColor=;;
 	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		wcs+=("$1")
 			shift
 			;;
     esac
 done
-[ ${#wcs[@]} -eq 0 ] && { printUsage "$0" >&2; exit 2; }
-[ $# -eq 0 ] && set -- noop
+if [ ${#wcs[@]} -eq 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
 
 # With piping into withHeader / pager, we need to explicitly enable color,
 # unless this command's output itself is redirected. Also don't do this if the
@@ -44,6 +51,7 @@ typeset -a colorArg=(--color=always)
 if [ ! -t 1 ] && ! contains '--color=always' "$@" || [ ! "$pager" -a ! "$isHeader" ] || contains '--no-color' "$@" || contains '--color=never' "$@"; then
     colorArg=()
 fi
+gitColorArg=("${colorArg[@]}")
 if [ ! "$isGitColor" ]; then
     gitColorArg=()
 
@@ -57,6 +65,18 @@ if [ ! "$isGitColor" ]; then
     done
     set -- "${argsWithoutColor[@]}"
 fi
+if [ $# -ne 0 ]; then
+    if [ "$isNeedEval" ]; then
+	# Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
+	# undo the effects of eval.
+	commands+=(${commands:+;} $(printf '%q ' "$@"))
+    else
+	commands=("$@")
+    fi
+fi
+[ ${#commands[@]} -eq 0 ] && commands=(noop)
+
+
 
 set -o pipefail
 wcdo()
@@ -72,7 +92,11 @@ wcdo()
 	    [ "$isBranchName" ] && header="${header%.*} on $(git-brname || echo 'unknown branch')"
 	fi
 
-	eval 'git "$@" "${gitColorArg[@]}"' "${isHeader:+2>&1 | withHeader "${colorArg[@]}" --id "$headerId" -- "$header"}" || exitStatus=$?
+	if [ "$isNeedEval" ]; then
+	    eval "${commands[@]}" "${isHeader:+2>&1 | withHeader "${colorArg[@]}" --id "$headerId" -- "$header"}" || exitStatus=$?
+	else
+	    eval 'git "${commands[@]}" "${gitColorArg[@]}"' "${isHeader:+2>&1 | withHeader "${colorArg[@]}" --id "$headerId" -- "$header"}" || exitStatus=$?
+	fi
     done
     return $exitStatus
 }

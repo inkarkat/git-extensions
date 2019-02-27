@@ -199,13 +199,17 @@
 	;; applycheck: Try to apply the passed patch and print statistics and result.
 	;; applyrcheck: Try to apply the passed patch to the root and print statistics and result.
 	;; applyr: Apply the patch from the root (as most patches should be based on the toplevel repository directory).
+	;
 	; Convert commit(s) to a (set of) patches [ <since> | <revision range> ],
 	; ready to send by email, by default saved to CWD / -o outdir in mbox
 	; format:
 	; 	$ git format-patch --stdout 1b6d..HEAD^^
 	; which can be passed to git send-email.
+	ma = format-patch
 	; On the receiving end, save an email to a file, then type:
 	; 	$ git am < email.txt
+	; Extract commits between revisions R1 and R2, and apply them on top of the current branch using git am to cherry-pick them:
+	;   $ git ma -k --stdout R1..R2 | git am -3 -k
 	; This applies the incoming patch and also creates a commit, including information such as the author.
 	applymbox = am
 
@@ -306,6 +310,7 @@
 	;; td...: Log variants that only cover changes committed today.
 	tdd = today-command --no-range diffuntil ; Show all changes from today in a single big diff.
 	tddl = today-command --no-range diffuntill ; Show all changes from today in a big diffs, separately for each changed file.
+	tdma = today-command format-patch
 	tdfindlogs = today-command findlogs
 	tdfindlogsv = today-command findlogsv
 	tdfindlg = today-command findlg
@@ -346,6 +351,7 @@
 	;; br...: Log variants that only cover the current branch (as tagged in the history)
 	brd = rev-range-this-branch diff
 	brdl = rev-range-this-branch dl
+	brma = rev-range-this-branch format-patch
 	brfindlogs = rev-range-this-branch --keep-last findlogs
 	brfindlogsv = rev-range-this-branch --keep-last findlogsv
 	brfindlg = rev-range-this-branch --keep-last findlg
@@ -381,6 +387,7 @@
 	;; b2r...: Log variants that only cover the current and preceding branch (as tagged in the history)
 	b2rd = rev-range-this-branch --branch-number 2 diff
 	b2rdl = rev-range-this-branch --branch-number 2 dl
+	b2mal = rev-range-this-branch --branch-number 2 format-patch
 	b2rfindlogs = rev-range-this-branch --branch-number 2 --keep-last findlogs
 	b2rfindlogsv = rev-range-this-branch --branch-number 2 --keep-last findlogsv
 	b2rfindlg = rev-range-this-branch --branch-number 2 --keep-last findlg
@@ -416,6 +423,7 @@
 	;; b3r...: Log variants that only cover the current and two preceding branches (as tagged in the history)
 	b3rd = rev-range-this-branch --branch-number 3 diff
 	b3rdl = rev-range-this-branch --branch-number 3 dl
+	b3mal = rev-range-this-branch --branch-number 3 format-patch
 	b3rfindlogs = rev-range-this-branch --branch-number 3 --keep-last findlogs
 	b3rfindlogsv = rev-range-this-branch --branch-number 3 --keep-last findlogsv
 	b3rfindlg = rev-range-this-branch --branch-number 3 --keep-last findlg
@@ -451,6 +459,7 @@
 	;; bm...: Log variants that cover the differences of the current branch to master.
 	bmd = rev-range --revision master --end-revision HEAD diff
 	bmdl = rev-range --revision master --end-revision HEAD dl
+	bmma = rev-range --revision master --end-revision HEAD format-patch
 	bmfindlogs = rev-range --revision master --end-revision HEAD --keep-last findlogs
 	bmfindlogsv = rev-range --revision master --end-revision HEAD --keep-last findlogsv
 	bmfindlg = rev-range --revision master --end-revision HEAD --keep-last findlg
@@ -486,6 +495,7 @@
 	;; bn...: Log variants that cover the differences of the current branch to the base branch.
 	bnd = base-command --keep-position rev-range --revision BASE --end-revision HEAD diff
 	bndl = base-command --keep-position rev-range --revision BASE --end-revision HEAD dl
+	bnma = base-command --keep-position rev-range --revision BASE --end-revision HEAD format-patch
 	bnfindlogs = base-command --keep-position rev-range --revision BASE --end-revision HEAD --keep-last findlogs
 	bnfindlogsv = base-command --keep-position rev-range --revision BASE --end-revision HEAD --keep-last findlogsv
 	bnfindlg = base-command --keep-position rev-range --revision BASE --end-revision HEAD --keep-last findlg
@@ -521,6 +531,7 @@
 	;; bl...: Log variants that cover the differences of the current branch to the previously checked out branch (typically the one it was branched off).
 	bld = rev-range --revision @{-1} --end-revision HEAD diff
 	bldl = rev-range --revision @{-1} --end-revision HEAD dl
+	blma = rev-range --revision @{-1} --end-revision HEAD format-patch
 	blfindlogs = rev-range --revision @{-1} --end-revision HEAD --keep-last findlogs
 	blfindlogsv = rev-range --revision @{-1} --end-revision HEAD --keep-last findlogsv
 	blfindlg = rev-range --revision @{-1} --end-revision HEAD --keep-last findlg
@@ -556,6 +567,7 @@
 	;; b2l...: Log variants that cover the differences of the current branch to the second-last checked out branch.
 	b2ld = rev-range --revision @{-2} --end-revision HEAD diff
 	b2ldl = rev-range --revision @{-2} --end-revision HEAD dl
+	b2mal = rev-range --revision @{-2} --end-revision HEAD format-patch
 	b2lfindlogs = rev-range --revision @{-2} --end-revision HEAD --keep-last findlogs
 	b2lfindlogsv = rev-range --revision @{-2} --end-revision HEAD --keep-last findlogsv
 	b2lfindlg = rev-range --revision @{-2} --end-revision HEAD --keep-last findlg
@@ -591,6 +603,7 @@
 	;; bp...: Log variants that cover the differences of the current branch to where the tip of the branch was previously. Useful to see the changes that were just pulled.
 	bpd = rev-range --revision @{1} --end-revision HEAD diff
 	bpdl = rev-range --revision @{1} --end-revision HEAD dl
+	bpma = rev-range --revision @{1} --end-revision HEAD format-patch
 	bpfindlogs = rev-range --revision @{1} --end-revision HEAD --keep-last findlogs
 	bpfindlogsv = rev-range --revision @{1} --end-revision HEAD --keep-last findlogsv
 	bpfindlg = rev-range --revision @{1} --end-revision HEAD --keep-last findlg
@@ -626,6 +639,7 @@
 	;; b2p...: Log variants that cover the differences of the current branch to where the tip of the branch was second-last.
 	b2pd = rev-range --revision @{2} --end-revision HEAD diff
 	b2pdl = rev-range --revision @{2} --end-revision HEAD dl
+	b2mal = rev-range --revision @{2} --end-revision HEAD format-patch
 	b2pfindlogs = rev-range --revision @{2} --end-revision HEAD --keep-last findlogs
 	b2pfindlogsv = rev-range --revision @{2} --end-revision HEAD --keep-last findlogsv
 	b2pfindlg = rev-range --revision @{2} --end-revision HEAD --keep-last findlg
@@ -661,6 +675,7 @@
 	;; out...: Log variants that cover the differences that already exist on the current branch, but not yet in the corresponding remote branch.
 	outd = rev-range-outgoing '' diff
 	outdl = rev-range-outgoing '' dl
+	oumal = rev-range-outgoing '' format-patch
 	outfindlogs = rev-range-outgoing '' --keep-last findlogs
 	outfindlogsv = rev-range-outgoing '' --keep-last findlogsv
 	outfindlg = rev-range-outgoing '' --keep-last findlg
@@ -696,6 +711,7 @@
 	;; in...: Log variants that cover the differences that already exist in remote on the current branch, but not yet in the local branch.
 	ind = rev-range-incoming '' diff
 	indl = rev-range-incoming '' dl
+	inma = rev-range-incoming '' format-patch
 	infindlogs = rev-range-incoming '' --keep-last findlogs
 	infindlogsv = rev-range-incoming '' --keep-last findlogsv
 	infindlg = rev-range-incoming '' --keep-last findlg
@@ -731,6 +747,7 @@
 	;; oout...: Log variants that cover the differences that already exist on the current branch, but not yet in the corresponding origin branch.
 	ooutd = rev-range-outgoing origin diff
 	ooutdl = rev-range-outgoing origin dl
+	oomatl = rev-range-outgoing origin format-patch
 	ooutfindlogs = rev-range-outgoing origin --keep-last findlogs
 	ooutfindlogsv = rev-range-outgoing origin --keep-last findlogsv
 	ooutfindlg = rev-range-outgoing origin --keep-last findlg
@@ -766,6 +783,7 @@
 	;; oin...: Log variants that cover the differences that already exist in origin on the current branch, but not yet in the local branch.
 	oind = rev-range-incoming origin diff
 	oindl = rev-range-incoming origin dl
+	oimal = rev-range-incoming origin format-patch
 	oinfindlogs = rev-range-incoming origin --keep-last findlogs
 	oinfindlogsv = rev-range-incoming origin --keep-last findlogsv
 	oinfindlg = rev-range-incoming origin --keep-last findlg
@@ -801,6 +819,7 @@
 	;; uout...: Log variants that cover the differences that already exist on the current branch, but not yet in the corresponding upstream branch.
 	uoutd = rev-range-outgoing upstream diff
 	uoutdl = rev-range-outgoing upstream dl
+	uomatl = rev-range-outgoing upstream format-patch
 	uoutfindlogs = rev-range-outgoing upstream --keep-last findlogs
 	uoutfindlogsv = rev-range-outgoing upstream --keep-last findlogsv
 	uoutfindlg = rev-range-outgoing upstream --keep-last findlg
@@ -836,6 +855,7 @@
 	;; uin...: Log variants that cover the differences that already exist in upstream on the current branch, but not yet in the local branch.
 	uind = rev-range-incoming upstream diff
 	uindl = rev-range-incoming upstream dl
+	uimal = rev-range-incoming upstream format-patch
 	uinfindlogs = rev-range-incoming upstream --keep-last findlogs
 	uinfindlogsv = rev-range-incoming upstream --keep-last findlogsv
 	uinfindlg = rev-range-incoming upstream --keep-last findlg

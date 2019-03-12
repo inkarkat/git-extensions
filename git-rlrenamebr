@@ -1,9 +1,11 @@
 #!/bin/sh
 
+remote=${1:?}; shift
+
 printUsage()
 {
     cat <<HELPTEXT
-Rename <oldbranch> to <newbranch> in both local repository and origin.
+Rename <oldbranch> to <newbranch> in both local repository and ${remote}.
 HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[<oldbranch>] <newbranch>'
 }
@@ -25,15 +27,15 @@ else
 fi
 
 git branch -m "$oldBranch" "$newBranch" || exit $?
-oldOriginBranch=$oldBranch
+oldRemoteBranch=$oldBranch
 tracks="$(git-tracks "$newBranch" 2>/dev/null)"
-if [ "${tracks%%/*}" = 'origin' ]; then
-    # The local branch tracks a branch from origin; we assume it is the one to
+if [ "${tracks%%/*}" = "$remote" ]; then
+    # The local branch tracks a branch from $remote; we assume it is the one to
     # be renamed. (It may have a name different than the local one, e.g. if we
     # did a purely local rename before.) We have to delete it using its remote
     # name, and then untrack it, or else the push with the new name will somehow
     # recognize the tracking branch and keep pushing to the old name.
     git branch --unset-upstream "$newBranch"
-    oldOriginBranch="${tracks#*/}"
+    oldRemoteBranch="${tracks#*/}"
 fi
-git push --set-upstream origin "$newBranch" ":$oldOriginBranch"
+git push --set-upstream "$remote" "$newBranch" ":$oldRemoteBranch"

@@ -1,21 +1,23 @@
 #!/bin/bash
 
+remote=${1:?}; shift
+
 printUsage()
 {
     cat <<HELPTEXT
-Delete <branch> from the local repository as well as origin.
+Delete <branch> from the local repository as well as ${remote}.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [--ignore-missing-in-origin] <branch> [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[-f|--force] [--ignore-missing-in-${remote}] <branch> [...]"
 }
 
 branchDeleteOption=-d
-isIgnoreMissingInOrigin=
+isIgnoreMissingInRemote=
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	-f|--force)	shift; branchDeleteOption=-D;;
-	--ignore-missing-in-origin)	shift; isIgnoreMissingInOrigin=t;;
+	--ignore-missing-in-${remote})	shift; isIgnoreMissingInRemote=t;;
 	*)		break;;
     esac
 done
@@ -26,10 +28,10 @@ fi
 
 
 # Need to determine remote branch names before deleting the local branches.
-if [ "$isIgnoreMissingInOrigin" ]; then
-    typeset -a remoteBranches=($(git-remotebr origin "$@" 2>/dev/null))
+if [ "$isIgnoreMissingInRemote" ]; then
+    typeset -a remoteBranches=($(git-remotebr "$remote" "$@" 2>/dev/null))
 else
-    typeset -a remoteBranches=($(git-remotebr origin "$@"))
+    typeset -a remoteBranches=($(git-remotebr "$remote" "$@"))
 fi
 
 # Note: Process all passed branches in one fell swoop; this avoid re-querying
@@ -38,24 +40,24 @@ fi
 # processed: just as we'd like.
 status=0
 
-# If not all branches have remotes in origin, this is a failure of this command;
-# the branch(es) have already been printed to stderr by git-remotebr.
-[ ! "$isIgnoreMissingInOrigin" -a ${#remoteBranches[@]} -lt $# ] && status=1
+# If not all branches have remotes in $remote, this is a failure of this
+# command; the branch(es) have already been printed to stderr by git-remotebr.
+[ ! "$isIgnoreMissingInRemote" -a ${#remoteBranches[@]} -lt $# ] && status=1
 
 # Remove remote branches first; else, we might get Git errors about unmerged
 # changes:
 # > warning: not deleting branch 'foo' that is not yet merged to
-# >          'refs/remotes/origin/foo', even though it is merged to HEAD.
+# >          'refs/remotes/$remote/foo', even though it is merged to HEAD.
 # > error: The branch 'foo' is not fully merged.
 # > If you are sure you want to delete it, run 'git branch -D foo'.
-# We're not interested in the merge state with regards to origin; that one will
+# We're not interested in the merge state with regards to $remote; that one will
 # be deleted anyway, but we like the merge check with HEAD. Simply untracking
-# origin doesn't work, so (contrary to usual precedence), we have to start with
+# $remote doesn't work, so (contrary to usual precedence), we have to start with
 # remote branches first. That's not so bad: if it really turns out that we want
 # to keep the branch (both locally and remote), we need to manually opublish it
 # again.
 if [ ${#remoteBranches[@]} -gt 0 ]; then
-    git push origin --delete "${remoteBranches[@]#origin/}" || status=$?
+    git push "$remote" --delete "${remoteBranches[@]#${remote}/}" || status=$?
 fi
 
 git branch $branchDeleteOption "$@" || status=$?

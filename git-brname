@@ -1,7 +1,10 @@
-#!/bin/sh
+#!/bin/bash
 
 if branch=$(git symbolic-ref HEAD 2>/dev/null); then
     printf '%s\n' "${branch##refs/heads/}"
+elif tags=$(git tag --list --points-at HEAD 2>/dev/null) && [ "$tags" ]; then
+    printf '(tag: %s)\n' "${tags//
+/, tag: }"
 elif detached=$(git rev-parse --short HEAD 2>/dev/null); then
     printf '(%s...)\n' "$detached"
 else

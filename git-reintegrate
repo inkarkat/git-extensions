@@ -1,4 +1,5 @@
 #!/bin/bash
+shopt -qs extglob
 
 printUsage()
 {
@@ -6,19 +7,35 @@ printUsage()
 Merge <branch> to the current branch, then delete it from the local repository
 as well as a tracked remote (if it exists there).
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '<branch> [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--ff|--ff-only|--no-ff|<merge-args> ...] [--] <branch> [...]'
 }
 
 if [ $# -eq 0 ]; then
     echo >&2 'Need (at least one) <branch> to merge!'
     exit 2
 fi
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-esac
+typeset -a mergeArgs=()
+typeset -a fastForwardArgs=()
+typeset -a mergeArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--ff|--no-ff|--ff-only)	fastForwardArgs=("$1"); shift;;
+
+	-[sXm])		mergeArgs+=("$1" "$2"); shift; shift;;
+	--@(strategy|strategy-option|gpg-sign)=*)	mergeArgs+=("$1"); shift;;
+	--@(strategy|strategy-option|gpg-sign))		mergeArgs+=("$1" "$2"); shift; shift;;
+
+	--)		mergeArgs+=("$1"); shift; break;;
+	--*)		mergeArgs+=("$1"); shift;;
+	-*)		mergeArgs+=("$1"); shift;;
+	*)		break;;
+    esac
+done
 
 
-git merge --no-ff "$@" || exit $?
+git merge "${fastForwardArgs[@]:---no-ff}" "${mergeArgs[@]}" "$@" || exit $?
 
 status=0
 for branch

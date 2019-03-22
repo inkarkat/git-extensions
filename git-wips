@@ -4,28 +4,49 @@ printUsage()
 {
     cat <<HELPTEXT
 Test whether the working copy has either:
-- uncommitted changes
-- where not all commits (on the current branch) have already been pushed to
-  origin (or origin doesn't even exist yet)
-- where the last commit had "WIP:" in the message summary
-- not on the master branch
+- dirty:    uncommitted changes
+- noremote: no remotes have been defined yet; the repository only exists locally
+- outgoing: where not all commits (on the current branch) have already been
+	    pushed to origin (or origin doesn't even exist yet)
+- wipcommit:where the last commit had "WIP:" in the message summary
+- nonmaster:a branch different from the master branch is checked out
+Individual checks can be selected / deselected via +name / -name.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] (+|-)(dirty|noremote|outgoing|wipcommit|nonmaster) [-?|-h|--help]'
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
     --quiet|-q)		shift; exec 1>/dev/null;;
 esac
+isFirst=t
+declare -A checks=([dirty]=t [noremote]=t [outgoing]=t [wipcommit]=t [nonmaster]=t)
+while [ $# -gt 0 ]
+do
+    case "$1" in
+	+*) [ "$isFirst" ] && checks=()
+	    checks["${1:1}"]=t
+	    shift
+	    ;;
+	-*) unset checks["${1:1}"]
+	    shift
+	    ;;
+    esac
+    isFirst=
+done
 
+[ "${checks[dirty]}" ] && \
+    if git dirty; then git st; exit 0; fi
 
-if git dirty; then git st; exit 0; fi
+[ "${checks[noremote]}" ] && \
+    if ! git existsremote; then echo "Local-only repository; no remotes defined yet."; exit 0; fi
 
-if ! git existsremote; then echo "Local-only repository; no remotes defined yet."; exit 0; fi
+[ "${checks[outgoing]}" ] && \
+    if git existsremote origin && git remotebr origin >/dev/null 2>&1 && git ooutlgn; then exit 0; fi
 
-if git existsremote origin && git remotebr origin >/dev/null 2>&1 && git ooutlgn; then exit 0; fi
+[ "${checks[wipcommit]}" ] && \
+    if git l --max-count=1 | grep '\(^\| \)WIP: '; then exit 0; fi
 
-if git l --max-count=1 | grep '\(^\| \)WIP: '; then exit 0; fi
-
-if branchName="$(git brname)"; [ "$branchName" != 'master' ]; then printf 'On branch %s\n' "$branchName"; exit 0; fi
+[ "${checks[nonmaster]}" ] && \
+    if branchName="$(git brname)"; [ "$branchName" != 'master' ]; then printf 'On branch %s\n' "$branchName"; exit 0; fi
 
 exit 1

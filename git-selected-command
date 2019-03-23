@@ -2,71 +2,7 @@
 shopt -qs extglob
 
 gitCommand=${1:?}; shift
-
-saveIFS=$IFS
-IFS=$'\n'
-typeset -a args=()
-typeset -a selected=()
-while [ $# -ne 0 ]
-do
-    case "$1" in
-	--)		shift; break;;
-	-*)		args+=("$1"); shift;;
-	+([0-9]))	selected+=("$1"); shift;;
-	*)		break;;
-    esac
-done
-set -- $(eval "${GIT_SELECTED_COMMAND_DEFAULT_FILES:-git ls-files --modified --}" '"$@"')
-if [ $# -eq 0 ]; then
-    echo >&2 "No files to ${gitCommand}."
-    exit 2
-fi
-
-typeset -a selectedPaths=()
-selectCandidates()
-{
-    local path
-    select path
-    do
-	if [ "$path" ]; then
-	    selectedPaths+=("$path")
-	elif [ "$REPLY" = '.' ]; then
-	    break
-	elif [ "$REPLY" = '?' ]; then
-	    cat >&2 <<-'EOF'
-		Enter each number (one after the other) to select the entry.
-		Filter the list by entering "grep" arguments. (Double backslashes.)
-		Conclude by pressing Ctrl-D or entering "."
-EOF
-	else
-	    IFS=$saveIFS
-	    typeset -a filteredPaths=($(printf '%s\n' "$@" | grep $REPLY))
-	    selectCandidates "${filteredPaths[@]}"
-	    break
-	fi
-    done
-}
-selectByCounts()
-{
-    local count
-    for count in "${selected[@]}"
-    do
-	if [ $count -gt $# ]; then
-	    filePlural=s; [ $# -eq 1 ] && filePlural=
-	    printf >&2 'Only %d file%s to %s.\n' "$#" "$filePlural" "$gitCommand"
-	    exit 2
-	fi
-
-	selectedPaths+=(${@:$count:1})
-    done
-}
-
-if [ ${#selected[@]} -eq 0 ]; then
-    selectCandidates "$@"
-else
-    selectByCounts "$@"
-fi
-
-[ ${#selectedPaths[@]} -gt 0 ] || exit 1
-
-exec git "$gitCommand" "${args[@]}" "${selectedPaths[@]}"
+exec commandOnSelected \
+    --generator "${GIT_SELECTED_COMMAND_DEFAULT_FILES:-git ls-files --modified --}" \
+    --command "git-wrapper $gitCommand" \
+    -- "$@"

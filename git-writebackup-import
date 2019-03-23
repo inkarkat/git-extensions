@@ -153,8 +153,8 @@ importFile()
 	fi
     fi
 
-    cp "${srcdir}${importFile}" "$destFile" || { local status=$?; echo >&2 "ERROR: Copying of ${srcdir}${importFile} to $destFile failed."; return $status; }
-    git add "$destFile" || { local status=$?; echo >&2 "ERROR: git add $destFile failed."; return $status; }
+    cp "$@" "${srcdir}${importFile}" "$destFile" || { local status=$?; echo >&2 "ERROR: Copying of ${srcdir}${importFile} to $destFile failed."; return $status; }
+    git add "$@" "$destFile" || { local status=$?; echo >&2 "ERROR: git add $destFile failed."; return $status; }
 
     if git diff --cached --quiet; then
 	echo >&2 "Note: File ${srcdir}${importFile} is identical to committed $destFile; ignoring."
@@ -239,8 +239,15 @@ do
 	importFile=${filespec#${srcdir}}
 	destFile=${importFile%.[12][0-9][0-9][0-9][0-9][0-9][0-9][0-9][a-z]}
 	if ! importFile "$formattedCommitDate" "$importFile" "$destFile"; then
-	    read -p "Committing failed. Do you want to abort the import? (y/n) " choice
-	    [ "$choice" = 'y' ] && exit 1
+	    while :
+	    do
+		read -p "Committing failed. Do you want to (a)bort the import / (f)orce it / (c)ontinue? (a/f/c) " choice
+		case "$choice" in
+		    a)	exit 1;;
+		    f)	importFile "$formattedCommitDate" "$importFile" "$destFile" --force || exit 1;;
+		    c)	break;;
+		esac
+	    done
 	fi
 
 	if isLastBackupWithoutOriginal "$importFile" "$destFile"; then

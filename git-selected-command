@@ -1,5 +1,4 @@
 #!/bin/bash
-shopt -qs extglob
 
 gitCommand=${1:?}; shift
 generator="${GIT_SELECTED_COMMAND_DEFAULT_FILES:-git ls-files --modified --}"
@@ -10,6 +9,7 @@ type -t commandOnSelected >/dev/null && exec commandOnSelected \
     -- "$@"
 
 
+shopt -qs extglob
 saveIFS=$IFS
 IFS=$'\n'
 typeset -a args=()
@@ -46,7 +46,7 @@ selectCandidates()
 		Conclude by pressing Ctrl-D or entering "."
 EOF
 	else
-	    IFS=$saveIFS
+	    local IFS=$'\n'
 	    typeset -a filteredPaths=($(printf '%s\n' "$@" | grep $REPLY))
 	    selectCandidates "${filteredPaths[@]}"
 	    break

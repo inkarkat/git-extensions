@@ -17,11 +17,15 @@ Pass --no-git-color if "git SIMPLECOMMAND" does not support the --color=...
 arguments. (For COMMANDLINE you have to insert "\${gitColorArg[@]}" yourself.)
 You can still pass --color=always if you pipe this command's output yet still
 want coloring of headers.
+Returns the last non-successful exit status. With --single-success,
+non-successful executions are ignored unless all of them fail. In other words,
+exit status is 0 if at least command in one WORKING-COPY succeeded.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header|--branch-name] [--no-git-color] [--skip-files] [-s|--skip-foreign|--foreign-command "COMMANDLINE"] [-c|--command "COMMANDLINE" [-c ...]] WORKING-COPY [...] [-- SIMPLECOMMAND ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header|--branch-name] [--no-git-color] [--single-success] [--skip-files] [-s|--skip-foreign|--foreign-command "COMMANDLINE"] [-c|--command "COMMANDLINE" [-c ...]] WORKING-COPY [...] [-- SIMPLECOMMAND ...] [-?|-h|--help]'
 }
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+isSingleSuccess=
 isSkipFiles=
 isSkipForeign=
 typeset -a foreignCommands=()
@@ -36,6 +40,7 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--single-success)	shift; isSingleSuccess=t;;
 	--skip-files)		shift; isSkipFiles=t;;
 	--skip-foreign|-s)	shift; isSkipForeign=t;;
 	--foreign-command)	shift; foreignCommands+=(${foreignCommands:+;} "$1"); shift;;
@@ -46,9 +51,7 @@ do
 	--no-git-color)	shift; isGitColor=;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
-	*)		args+=("$1")
-			shift
-			;;
+	*)		args+=("$1"); shift;;
     esac
 done
 if [ ${#args[@]} -eq 0 ]; then
@@ -109,6 +112,7 @@ set -o pipefail
 wcdo()
 {
     headerId="wcdo-$$"
+    isSuccess=
     status=0
     for dirspec in "${wcs[@]}"
     do
@@ -123,7 +127,7 @@ wcdo()
 		    header="${dirspec##*/}"
 		    [ "$isBranchName" ] && header="${header%.*} outside Git"
 		fi
-		eval "${foreignCommands[@]}" "${isHeader:+2>&1 | withHeader "${colorArg[@]}" --id '$headerId' -- '$header'}" || status=$?
+		eval "${foreignCommands[@]}" "${isHeader:+2>&1 | withHeader "${colorArg[@]}" --id '$headerId' -- '$header'}" && isSuccess=t || status=$?
 	    elif [ ! "$isSkipForeign" ]; then
 		printf >&2 'ERROR: %s is not inside a Git working copy!\n' "$dirspec"
 		status=1
@@ -137,12 +141,17 @@ wcdo()
 	fi
 
 	if [ "$isNeedEval" ]; then
-	    eval "${commands[@]}" "${isHeader:+2>&1 | withHeader "${colorArg[@]}" --id '$headerId' -- '$header'}" || status=$?
+	    eval "${commands[@]}" "${isHeader:+2>&1 | withHeader "${colorArg[@]}" --id '$headerId' -- '$header'}" && isSuccess=t || status=$?
 	else
-	    eval '"$gitCommand" "${commands[@]}" "${gitColorArg[@]}"' "${isHeader:+2>&1 | withHeader "${colorArg[@]}" --id '$headerId' -- '$header'}" || status=$?
+	    eval '"$gitCommand" "${commands[@]}" "${gitColorArg[@]}"' "${isHeader:+2>&1 | withHeader "${colorArg[@]}" --id '$headerId' -- '$header'}" && isSuccess=t || status=$?
 	fi
     done
-    return $status
+
+    if [ "$isSingleSuccess" ]; then
+	[ "$isSuccess" ]
+    else
+	return $status
+    fi
 }
 
 eval 'wcdo "$@" 2>&1' "${pager:+|}" '"${pager[@]}"'

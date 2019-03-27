@@ -6,6 +6,12 @@ printUsage()
 Execute "git SIMPLECOMMAND" and/or COMMANDLINE on each passed WORKING-COPY.
 Puts a header line (unless --no-header) that contains the WORKING-COPY name
 (with --branch-name: also the current Git branch) before the command output.
+--skip-files		Silently skip files that are passed as WORKING-COPY
+			(e.g. resulting from a file glob).
+--skip-foreign|-s	Silently skip directories that are not a Git working
+			copy (instead of printing an error message).
+--foreign-command CMD	Execute CMD in (accessible) directories that are not
+			a Git working copy (e.g. to initialize a Git repo).
 Note: For paging and headers, this command has to control Git's color output.
 Pass --no-git-color if "git SIMPLECOMMAND" does not support the --color=...
 arguments. (For COMMANDLINE you have to insert "\${gitColorArg[@]}" yourself.)
@@ -16,6 +22,9 @@ HELPTEXT
 }
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+isSkipFiles=
+isSkipForeign=
+typeset -a foreignCommands=()
 isNeedEval=
 typeset -a commands=()
 isHeader=t
@@ -27,6 +36,9 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--skip-files)		shift; isSkipFiles=t;;
+	--skip-foreign|-s)	shift; isSkipForeign=t;;
+	--foreign-command)	shift; foreignCommands+=(${foreignCommands:+;} "$1"); shift;;
 	--command|-c)	shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
 	--no-pager)	shift; pager=();;
 	--no-header)	shift; isHeader=; emptyHeaderFilterCommand=;;
@@ -84,23 +96,36 @@ set -o pipefail
 wcdo()
 {
     headerId="wcdo-$$"
-    exitStatus=0
-    for dir in "${wcs[@]}"
+    status=0
+    for dirspec in "${wcs[@]}"
     do
-	cd "$dir" || { exitStatus=$?; continue; }
+	if ! cd "$dirspec" 2>/dev/null; then
+	    [ -n "$isSkipFiles" -a ! -d "$dirspec" -a -e "$dirspec" ] && continue
+	    printf >&2 'ERROR: Cannot chdir to %s!\n' "$dirspec"
+	    status=1; continue
+	fi
+	if ! ROOT=$(git root 2>/dev/null); then
+	    if [ ${#foreignCommands[@]} -gt 0 ]; then
+		eval "${foreignCommands[@]}"
+	    elif [ ! "$isSkipForeign" ]; then
+		printf >&2 'ERROR: %s is not inside a Git working copy!\n' "$dirspec"
+		status=1
+	    fi
+	    continue
+	fi
 
 	if [ "$isHeader" ]; then
-	    header="${dir##*/}"
+	    header="${dirspec##*/}"
 	    [ "$isBranchName" ] && header="${header%.*} on $(git-brname || echo 'unknown branch')"
 	fi
 
 	if [ "$isNeedEval" ]; then
-	    eval "${commands[@]}" "${isHeader:+2>&1 | withHeader "${colorArg[@]}" --id '$headerId' -- '$header'}" || exitStatus=$?
+	    eval "${commands[@]}" "${isHeader:+2>&1 | withHeader "${colorArg[@]}" --id '$headerId' -- '$header'}" || status=$?
 	else
-	    eval '"$gitCommand" "${commands[@]}" "${gitColorArg[@]}"' "${isHeader:+2>&1 | withHeader "${colorArg[@]}" --id '$headerId' -- '$header'}" || exitStatus=$?
+	    eval '"$gitCommand" "${commands[@]}" "${gitColorArg[@]}"' "${isHeader:+2>&1 | withHeader "${colorArg[@]}" --id '$headerId' -- '$header'}" || status=$?
 	fi
     done
-    return $exitStatus
+    return $status
 }
 
 eval 'wcdo "$@" 2>&1' "${pager:+|}" '"${pager[@]}"'

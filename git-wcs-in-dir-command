@@ -50,11 +50,18 @@ elif [ "${1:0:1}" != '-' ]; then
 	    # Succeed if a single working copy has WIP.
 	    wcdoArgs+=(--single-success)
 	    ;;
-	pull-request|fork|browse|compare|release|issue|ci-status)
+	pull-request|fork|browse|compare|release|ci-status)
 	    # The hub commands don't understand --color yet.
 	    wcdoArgs+=(--single-success --no-git-color)
-	    # These hub commands also need a remote.
+	    # These hub commands need a remote.
 	    wcdoArgs+=(--predicate-command git-existsremote)
+	    ;;
+	issue)
+	    # The hub commands don't understand --color yet.
+	    wcdoArgs+=(--single-success --no-git-color)
+	    # This hub command needs a remote. I only care about my own
+	    # projects, not my forks of other projects.
+	    wcdoArgs+=(--predicate-command 'git-existsremote origin && ! git-existsremote upstream')
 	    ;;
 	create)
 	    # The hub commands don't understand --color yet.

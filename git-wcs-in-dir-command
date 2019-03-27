@@ -18,7 +18,7 @@ printUsage()
 {
     cat <<HELPTEXT
 Execute "git SIMPLECOMMAND" and/or COMMANDLINE inside each $what
-that is under Git source control.
+that is under Git source control. Considers a ${wrapper}-SIMPLECOMMAND wrapper.
 Lists all filespecs if no command(s) are passed.
 Supports the following special commands:
 repo-missing	Show those $what that are not yet under Git source
@@ -34,6 +34,12 @@ typeset -a wcdoArgs=()
 if [ $# -eq 0 ]; then
     set -- --no-header --command 'echo $ROOT'
 elif [ "${1:0:1}" != '-' ]; then
+    commandAlias="${wrapper}-$1"
+    if type -t "$commandAlias" >/dev/null; then
+	eval $commandAlias '"$@"'
+	exit $?
+    fi
+
     case "$1" in
 	repo-missing)
 	    # Synthesized new command.

@@ -31,7 +31,7 @@ isHeader=t
 isBranchName=
 emptyHeaderFilterCommand=filterEmptyHeaders
 isGitColor=t
-typeset -a wcs=()
+typeset -a args=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -46,15 +46,28 @@ do
 	--no-git-color)	shift; isGitColor=;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
-	*)		wcs+=("$1")
+	*)		args+=("$1")
 			shift
 			;;
     esac
 done
-if [ ${#wcs[@]} -eq 0 ]; then
+if [ ${#args[@]} -eq 0 ]; then
     printUsage "$0" >&2
     exit 2
 fi
+
+# If we're launched from within a Git operation (e.g. the external editor opened
+# by git commit), the environment variable GIT_DIR may have been set, and this
+# causes the Git commands here to not find the repository for FILEs.
+unset GIT_DIR
+
+# As we change directories, need to first convert all passed working copies to
+# absolute dirspecs.
+typeset -a wcs=()
+for arg in "${args[@]}"
+do
+    wcs+=("$(realpath --no-symlinks -- "$arg")")
+done
 
 # With piping into withHeader / pager, we need to explicitly enable color,
 # unless this command's output itself is redirected. Also don't do this if the

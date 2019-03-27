@@ -12,6 +12,9 @@ Puts a header line (unless --no-header) that contains the WORKING-COPY name
 			copy (instead of printing an error message).
 --foreign-command CMD	Execute CMD in (accessible) directories that are not
 			a Git working copy (e.g. to initialize a Git repo).
+--predicate-command CMD	Skip working copies where CMD fails. This is an
+			alternative to --command "if CMD; then COMMANDLINE; fi"
+			that lets you still use SIMPLECOMMAND.
 Note: For paging and headers, this command has to control Git's color output.
 Pass --no-git-color if "git SIMPLECOMMAND" does not support the --color=...
 arguments. (For COMMANDLINE you have to insert "\${gitColorArg[@]}" yourself.)
@@ -21,7 +24,7 @@ Returns the last non-successful exit status. With --single-success,
 non-successful executions are ignored unless all of them fail. In other words,
 exit status is 0 if at least command in one WORKING-COPY succeeded.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header|--branch-name] [--no-git-color] [--single-success] [--skip-files] [-s|--skip-foreign|--foreign-command "COMMANDLINE"] [-c|--command "COMMANDLINE" [-c ...]] WORKING-COPY [...] [-- SIMPLECOMMAND ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header|--branch-name] [--no-git-color] [--single-success] [--skip-files] [-s|--skip-foreign|--foreign-command "COMMANDLINE" [...]] [--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] WORKING-COPY [...] [-- SIMPLECOMMAND ...] [-?|-h|--help]'
 }
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
@@ -29,6 +32,7 @@ isSingleSuccess=
 isSkipFiles=
 isSkipForeign=
 typeset -a foreignCommands=()
+typeset -a predicateCommands=()
 isNeedEval=
 typeset -a commands=()
 isHeader=t
@@ -44,6 +48,7 @@ do
 	--skip-files)		shift; isSkipFiles=t;;
 	--skip-foreign|-s)	shift; isSkipForeign=t;;
 	--foreign-command)	shift; foreignCommands+=(${foreignCommands:+;} "$1"); shift;;
+	--predicate-command)	shift; predicateCommands+=(${predicateCommands:+&&} "$1"); shift;;
 	--command|-c)	shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
 	--no-pager)	shift; pager=();;
 	--no-header)	shift; isHeader=; emptyHeaderFilterCommand=;;
@@ -133,6 +138,10 @@ wcdo()
 		status=1
 	    fi
 	    continue
+	fi
+
+	if [ ${#predicateCommands[@]} -gt 0 ]; then
+	    eval "${predicateCommands[@]}" || continue
 	fi
 
 	if [ "$isHeader" ]; then

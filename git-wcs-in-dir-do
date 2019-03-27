@@ -10,7 +10,7 @@ same repository (via git worktree).
 --foreign-command CMD	Execute CMD in (accessible) directories that are not
 			a Git working copy (e.g. to initialize a Git repo).
 HELPTEXT
-printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header|--branch-name] [--no-git-color] [--worktrees] [--skip-files] [--foreign-command "COMMANDLINE"] [-c|--command "COMMANDLINE" [-c ...]] DIRSPEC [...] [-- SIMPLECOMMAND ...] [-?|-h|--help]'
+printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header|--branch-name] [--no-git-color] [--worktrees] [--foreign-command "COMMANDLINE"] [-c|--command "COMMANDLINE" [-c ...]] DIRSPEC [...] [-- SIMPLECOMMAND ...] [-?|-h|--help]'
 }
 
 isForeign=
@@ -44,7 +44,8 @@ for baseDir in "${dirspecs[@]}"
 do
     for dir in "${baseDir}"/*
     do
-	if [ -d "$dir" -a $compareOp "${dir}/.git" ] || [ -n "$isForeign" -a ! -e "${dir}/.git" ]; then
+	[ -d "$dir" ] || continue
+	if [ $compareOp "${dir}/.git" ] || [ -n "$isForeign" -a ! -e "${dir}/.git" ]; then
 	    # Pass to git-wcdo if a Git repo (or --worktrees) or if
 	    # --foreign-command should be executed on non-Git working copies.
 	    wcs+=("$dir")

@@ -1,0 +1,65 @@
+#!/bin/bash
+
+what="${1:?}"; shift
+typeset -a baseDirs=()
+while [ $# -ne 0 ]
+do
+    if [ "$1" == '--' ]; then
+	shift
+	break
+    fi
+    baseDirs+=("$1"); shift
+done
+[ ${#baseDirs[@]} -eq 0 ] && exit 3
+
+
+printUsage()
+{
+    cat <<HELPTEXT
+Execute "git SIMPLECOMMAND" and/or COMMANDLINE inside each $what
+that is under Git source control.
+Lists all filespecs if no command(s) are passed.
+Supports the following special commands:
+repo-missing	Show those $what that are not yet under Git source
+		control.
+HELPTEXT
+    printf 'Usage: %q %q ' "$(basename "$1")" "$what"
+    printf '%q ' "${baseDirs[@]}"
+    printf '%s\n'  '-c|--command "COMMANDLINE" [-c ...] | [[--] SIMPLECOMMAND [...]] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+typeset -a wcdoArgs=()
+if [ $# -eq 0 ]; then
+    set -- --no-header --command 'echo $ROOT'
+elif [ "${1:0:1}" != '-' ]; then
+    case "$1" in
+	repo-missing)
+	    # Synthesized new command.
+	    shift
+	    wcdoArgs+=(--no-header --skip-files --foreign-command 'pwd' --command :)
+	    ;;
+	wips)
+	    # Succeed if a single working copy has WIP.
+	    wcdoArgs+=(--single-success)
+	    ;;
+	pull-request|fork|browse|compare|release|issue|ci-status)
+	    # The hub commands don't understand --color yet.
+	    wcdoArgs+=(--single-success --no-git-color)
+	    # These hub commands also need a remote.
+	    wcdoArgs+=(--predicate-command git-existsremote)
+	    ;;
+	create)
+	    # The hub commands don't understand --color yet.
+	    wcdoArgs+=(--single-success --no-git-color)
+	    # This hub command (mostly) only applies to repos without a remote.
+	    wcdoArgs+=(--predicate-command '! git-existsremote')
+	    ;;
+    esac
+
+    set -- -- "$@"
+fi
+
+exec git-wcs-in-dir-do "${wcdoArgs[@]}" "${baseDirs[@]}" "$@"

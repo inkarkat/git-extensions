@@ -8,7 +8,7 @@ checked out (directly, not in subdirs) in any DIRSPEC.
 With --worktrees, also include additional working copies checked out from the
 same repository (via git worktree).
 HELPTEXT
-printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header|--branch-name] [--no-git-color] [--worktrees] [-c|--command "COMMANDLINE" [-c ...]] DIRSPEC [...] [-- SIMPLECOMMAND ...] [-?|-h|--help]'
+printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header|--branch-name] [--no-git-color] [--worktrees] [--skip-files] [-c|--command "COMMANDLINE" [-c ...]] DIRSPEC [...] [-- SIMPLECOMMAND ...] [-?|-h|--help]'
 }
 
 compareOp=-d
@@ -18,9 +18,10 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-	--no-pager|--no-header|--branch-name|--no-git-color)
+	--no-pager|--no-header|--branch-name|--no-git-color|--skip-files|-s|--skip-foreign)
 			wcdoArgs+=("$1"); shift;;
-	--command|-c)	wcdoArgs+=("$1" "$2"); shift; shift;;
+	--command|-c|--foreign-command)
+			wcdoArgs+=("$1" "$2"); shift; shift;;
 	--worktrees)	shift; compareOp=-e;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;

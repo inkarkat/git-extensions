@@ -1,0 +1,66 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Execute "git SIMPLECOMMAND" and/or COMMANDLINE on each passed WORKING-COPY, with
+--worktrees also on clones / worktrees that sit next to WORKING-COPY, but have a
+suffix (e.g. WC.alt) in the directory name. With --suffix, a worktree with
+WC.SUFFIX is preferred if it exists, but it falls back to using the plain WC.
+(If you want to only execute in WC.SUFFIX, you can directly pass the SUFFIX in
+the WORKING-COPY arguments to git-wcdo.)
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--suffix SUFFIX|--worktrees] [--no-pager] [--no-header|--branch-name] [--no-git-color] [-c|--command "COMMANDLINE" [-c ...]] WORKING-COPY [...] [-- SIMPLECOMMAND ...] [-?|-h|--help]'
+}
+
+typeset -a wcs=()
+typeset -a wcdoArgs=()
+suffix=
+isWorktrees=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-pager|--no-header|--branch-name|--no-git-color)
+			wcdoArgs+=("$1"); shift;;
+	--command|-c)	wcdoArgs+=("$1" "$2"); shift; shift;;
+	--worktrees)	shift; isWorktrees=t;;
+	--suffix)	shift; suffix="$1"; shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		wcs+=("$1"); shift;;
+    esac
+done
+if [ "$isWorktrees" ]; then
+    if [ "$suffix" ]; then
+	echo >&2 "ERROR: Cannot combine --suffix and --worktrees."
+	printUsage "$0" >&2
+	exit 2
+    fi
+
+    typeset -a collectDirnames=()
+    for d in "${wcs[@]}"
+    do
+	collectDirnames+=("$d"*)
+    done
+    wcs=("${collectDirnames[@]}")
+fi
+if [ ${#wcs[@]} -eq 0 ]; then
+    echo >&2 "ERROR: No WORKING-COPYs."
+    printUsage "$0" >&2
+    exit 2
+fi
+
+typeset -a wcWithSuffixes=()
+for dir in "${wcs[@]}"
+do
+    [ "$suffix" -a -d "${dir}${suffix}" ] && dir="${dir}${suffix}"
+    if ! [ -d "$dir" ]; then
+	printf >&2 'Warning: No working copy %s found, skipping.\n' "$dir"
+	continue
+    fi
+
+    wcWithSuffixes+=("$dir")
+done
+
+exec git-wcdo "${wcdoArgs[@]}" "${wcWithSuffixes[@]}" -- "$@"

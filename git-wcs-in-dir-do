@@ -1,0 +1,50 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Execute "git SIMPLECOMMAND" and/or COMMANDLINE on all repositories that are
+checked out (directly, not in subdirs) in any DIRSPEC.
+With --worktrees, also include additional working copies checked out from the
+same repository (via git worktree).
+HELPTEXT
+printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header|--branch-name] [--no-git-color] [--worktrees] [-c|--command "COMMANDLINE" [-c ...]] DIRSPEC [...] [-- SIMPLECOMMAND ...] [-?|-h|--help]'
+}
+
+compareOp=-d
+typeset -a dirspecs=()
+typeset -a wcdoArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-pager|--no-header|--branch-name|--no-git-color)
+			wcdoArgs+=("$1"); shift;;
+	--command|-c)	wcdoArgs+=("$1" "$2"); shift; shift;;
+	--worktrees)	shift; compareOp=-e;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		dirspecs+=("$1"); shift;;
+    esac
+done
+if [ ${#dirspecs[@]} -eq 0 ]; then
+    echo >&2 "ERROR: No DIRSPECs."
+    printUsage "$0" >&2
+    exit 2
+fi
+
+typeset -a wcs=()
+for baseDir in "${dirspecs[@]}"
+do
+    for dir in "${baseDir}"/*
+    do
+	[ -d "$dir" -a $compareOp "${dir}/.git" ] || continue
+	wcs+=("$dir")
+    done
+done
+if [ ${#wcs[@]} -eq 0 ]; then
+    echo >&2 "ERROR: No working copies found."
+    exit 1
+fi
+
+exec git-wcdo "${wcdoArgs[@]}" "${wcs[@]}" -- "$@"

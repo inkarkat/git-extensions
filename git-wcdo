@@ -119,7 +119,11 @@ wcdo()
 	fi
 	if ! ROOT=$(git root 2>/dev/null); then
 	    if [ ${#foreignCommands[@]} -gt 0 ]; then
-		eval "${foreignCommands[@]}"
+		if [ "$isHeader" ]; then
+		    header="${dirspec##*/}"
+		    [ "$isBranchName" ] && header="${header%.*} outside Git"
+		fi
+		eval "${foreignCommands[@]}" "${isHeader:+2>&1 | withHeader "${colorArg[@]}" --id '$headerId' -- '$header'}" || status=$?
 	    elif [ ! "$isSkipForeign" ]; then
 		printf >&2 'ERROR: %s is not inside a Git working copy!\n' "$dirspec"
 		status=1

@@ -66,6 +66,15 @@ if [ ${#args[@]} -eq 0 ]; then
     printUsage "$0" >&2
     exit 2
 fi
+typeset -a simpleCommands=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--no-color|--color=*)	colorArg=("$1"); shift;;
+	--color)		colorArg=("$1" "$2"); shift; shift;;
+	*)			simpleCommands+=("$1"); shift;;
+    esac
+done
 
 # If we're launched from within a Git operation (e.g. the external editor opened
 # by git commit), the environment variable GIT_DIR may have been set, and this
@@ -83,29 +92,16 @@ done
 # With piping into withHeader / pager, we need to explicitly enable color,
 # unless this command's output itself is redirected. Also don't do this if the
 # user explicitly turned off color.
-determineColor()
-{
-    local firstArg="${colorArg[0]}"
-    case "$firstArg" in
-	--color=*)	printf "${firstArg#*=}";;
-	--no-color)	printf 'never';;
-	--color)	printf "${colorArg[1]}";;
-    esac
-}
-if [ ! -t 1 ] && [ "$(determineColor)" != 'always' ] || [ ! "$pager" -a ! "$isHeader" ] || [ "$(determineColor)" = 'never' ]; then
-    colorArg=()
-else
-    colorArg=(--color=always)
-fi
+[ -n "$pager" -o -n "$isHeader" ] && isNeedColorArgumentWhenPiping "${colorArg[@]}" && colorArg=(--color=always) || colorArg=()
 gitColorArg=("${colorArg[@]}"); [ "$isGitColor" ] || gitColorArg=()
 readonly gitCommand="$(which hub || which git)"
-if [ $# -ne 0 ]; then
+if [ ${#simpleCommands[@]} -gt 0 ]; then
     if [ "$isNeedEval" ]; then
 	# Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
 	# undo the effects of eval.
-	commands+=(${commands:+;} $(printf '%q ' "$gitCommand" "$@"))
+	commands+=(${commands:+;} $(printf '%q ' "$gitCommand" "${simpleCommands[@]}" "${gitColorArg[@]}"))
     else
-	commands=("$@")
+	commands=("${simpleCommands[@]}")
     fi
 fi
 [ ${#commands[@]} -eq 0 ] && commands=(noop)
@@ -162,4 +158,4 @@ wcdo()
     fi
 }
 
-eval 'wcdo "$@" 2>&1' "${pager:+|}" '"${pager[@]}"'
+eval 'wcdo "${simpleCommands[@]}" 2>&1' "${pager:+|}" '"${pager[@]}"'

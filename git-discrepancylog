@@ -40,10 +40,7 @@ contains()
 
 # Because of the piping into the filter, we need to explicitly enable color.
 # Don't do this if the user explicitly turned it off, though.
-typeset -a colorArg=(--color=always)
-if [ ! -t 1 ] && ! contains '--color=always' || contains '--no-color' "${preRangeArgs[@]}" || contains '--color=never' "${preRangeArgs[@]}"; then
-    colorArg=()
-fi
+typeset -a colorArg=(); isNeedColorArgumentWhenPiping "${preRangeArgs[@]}" && colorArg=(--color=always) || colorArg=()
 
 git-log "${colorArg[@]}" "$@" | awk -v field1="$field1" -v field2="$field2" '
 function printPreviousEntry() {

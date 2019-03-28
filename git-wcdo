@@ -98,11 +98,12 @@ if [ ! "$isGitColor" ]; then
     done
     set -- "${argsWithoutColor[@]}"
 fi
+readonly gitCommand="$(which hub || which git)"
 if [ $# -ne 0 ]; then
     if [ "$isNeedEval" ]; then
 	# Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
 	# undo the effects of eval.
-	commands+=(${commands:+;} $(printf '%q ' "$@"))
+	commands+=(${commands:+;} $(printf '%q ' "$gitCommand" "$@"))
     else
 	commands=("$@")
     fi
@@ -110,8 +111,6 @@ fi
 [ ${#commands[@]} -eq 0 ] && commands=(noop)
 
 
-
-typeset gitCommand="$(which hub || which git)"
 
 set -o pipefail
 wcdo()

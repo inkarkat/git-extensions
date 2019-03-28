@@ -1,0 +1,27 @@
+#!/bin/bash
+
+typeset -a args=()
+typeset -a colorArg=()
+hasFormat=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)		shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)	colorArg=("$1"); shift;;
+	--color)		colorArg=("$1" "$2"); shift; shift;;
+	--format|-f)		args+=("$1" "$2"); hasFormat=t; shift; shift;;
+	--)			args+=("$1"); shift; break;;
+	*)			args+=("$1"); shift;;
+    esac
+done
+
+typeset -a issueTypeTransformation=()
+if [ $# -eq 0 -o "$1" = 'show' -o "${1:0:1}" = '-' ]; then
+    typeset -a formatArgs=(); [ "$hasFormat" ] || formatArgs=(--format '%U	%sC%>(8)%i%Creset  %t%  l% Nc%n')
+    set -- --include-pulls "${formatArgs[@]}" "$@"
+
+    isNeedColorArgumentWhenPiping "${colorArg[@]}" && colorArg=(--color=always) || colorArg=()
+    typeset -a issueTypeTransformation=(sed -e 's#^[^\t]\+/\(issues\|pull\)/[^\t]\+\t\(.*\)$#\1 \2#' -e 's#^issues #issue #' -e 's#^pull #pull  #')
+fi
+
+eval 'command hub issue "${colorArg[@]}" "${args[@]}" "$@"' "${issueTypeTransformation:+|}" '"${issueTypeTransformation[@]}"'

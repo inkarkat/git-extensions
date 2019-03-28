@@ -1,0 +1,20 @@
+#!/bin/bash
+
+meOptionName="${1:?}"; shift
+me="$(git me-in-github)" || exit $?
+
+typeset -a hubCommand=();
+case "$1" in
+    [^-]*-command)  hubCommand+=("$1"); shift
+		    while [ $# -ne 0 ]
+		    do
+			case "$1" in
+			    -*)		hubCommand+=("$1"); shift;;
+			    *)		hubCommand+=("$1"); shift; break;;
+			esac
+		    done
+		    ;;
+    *)		    hubCommand+=("$1"); shift;;
+esac
+
+exec hub "${hubCommand[@]}" "${meOptionName}${me}" "$@"

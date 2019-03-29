@@ -66,13 +66,13 @@ if [ ${#args[@]} -eq 0 ]; then
     printUsage "$0" >&2
     exit 2
 fi
-typeset -a simpleCommands=()
+typeset -a simpleCommand=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--no-color|--color=*)	colorArg=("$1"); shift;;
 	--color)		colorArg=("$1" "$2"); shift; shift;;
-	*)			simpleCommands+=("$1"); shift;;
+	*)			simpleCommand+=("$1"); shift;;
     esac
 done
 
@@ -95,13 +95,13 @@ done
 [ -n "$pager" -o -n "$isHeader" ] && isNeedColorArgumentWhenPiping "${colorArg[@]}" && colorArg=(--color=always) || colorArg=()
 gitColorArg=("${colorArg[@]}"); [ "$isGitColor" ] || gitColorArg=()
 readonly gitCommand="$(which hub || which git)"
-if [ ${#simpleCommands[@]} -gt 0 ]; then
+if [ ${#simpleCommand[@]} -gt 0 ]; then
     if [ "$isNeedEval" ]; then
 	# Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
 	# undo the effects of eval.
-	commands+=(${commands:+;} $(printf '%q ' "$gitCommand" "${simpleCommands[@]}" "${gitColorArg[@]}"))
+	commands+=(${commands:+;} $(printf '%q ' "$gitCommand" "${simpleCommand[@]}" "${gitColorArg[@]}"))
     else
-	commands=("${simpleCommands[@]}")
+	commands=("${simpleCommand[@]}")
     fi
 fi
 [ ${#commands[@]} -eq 0 ] && commands=(noop)
@@ -158,4 +158,4 @@ wcdo()
     fi
 }
 
-eval 'wcdo "${simpleCommands[@]}" 2>&1' "${pager:+|}" '"${pager[@]}"'
+eval 'wcdo 2>&1' "${pager:+|}" '"${pager[@]}"'

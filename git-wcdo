@@ -101,7 +101,7 @@ if [ ${#simpleCommand[@]} -gt 0 ]; then
 	# undo the effects of eval.
 	commands+=(${commands:+;} $(printf '%q ' "$gitCommand" "${simpleCommand[@]}" "${gitColorArg[@]}"))
     else
-	commands=("${simpleCommand[@]}")
+	commands=("$gitCommand" "${simpleCommand[@]}" "${gitColorArg[@]}")
     fi
 fi
 [ ${#commands[@]} -eq 0 ] && commands=(noop)
@@ -147,7 +147,7 @@ wcdo()
 	if [ "$isNeedEval" ]; then
 	    eval "${commands[@]}" "${isHeader:+2>&1 | withHeader "${colorArg[@]}" --id '$headerId' -- '$header'}" && isSuccess=t || status=$?
 	else
-	    eval '"$gitCommand" "${commands[@]}" "${gitColorArg[@]}"' "${isHeader:+2>&1 | withHeader "${colorArg[@]}" --id '$headerId' -- '$header'}" && isSuccess=t || status=$?
+	    eval '"${commands[@]}"' "${isHeader:+2>&1 | withHeader "${colorArg[@]}" --id '$headerId' -- '$header'}" && isSuccess=t || status=$?
 	fi
     done
 

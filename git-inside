@@ -3,9 +3,9 @@
 printUsage()
 {
     cat <<HELPTEXT
-Execute COMMAND (which probably contains Git command(s)) inside the working copy
-that FILE resides in. (Most Git commands only work from within the working
-copy.)
+Execute "git SIMPLECOMMAND" and/or COMMANDLINE (which probably contains Git
+command(s)) inside the working copy that FILE resides in. (Most Git commands
+only work from within the working copy.)
 --command|-c CMD	The command line to be executed. When this is a simple
 			command, it can also be passed as such. Within CMD, you
 			can refer to the corresponding FILE via \$FILE, and to
@@ -39,6 +39,7 @@ do
 	*)  break;;
     esac
 done
+readonly gitCommand="$(which hub || which git)"
 if [ $# -gt 1 ]; then
     typeset -a simpleCommand=()
     while [ $# -gt 1 ]
@@ -51,9 +52,9 @@ if [ $# -gt 1 ]; then
     if [ "$isNeedEval" ]; then
 	# Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
 	# undo the effects of eval.
-	commands+=(${commands:+;} $(printf '%q ' "${simpleCommand[@]}"))
+	commands+=(${commands:+;} $(printf '%q ' "$gitCommand" "${simpleCommand[@]}"))
     else
-	commands=("${simpleCommand[@]}")
+	commands=("$gitCommand" "${simpleCommand[@]}")
     fi
 fi
 fileArgs+=("$@")

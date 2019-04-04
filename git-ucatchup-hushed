@@ -1,0 +1,15 @@
+#!/bin/bash
+set -o pipefail
+
+git-ucatchup "$@" 2>&1 | \
+    sed --unbuffered \
+	-e '/^ \* branch            master     -> FETCH_HEAD$/d' \
+	-e '/\(^\|\n\|\r\)Successfully rebased and updated refs\/heads\/master\.$/d' | \
+    sed --unbuffered \
+	-e '/^From / {
+		N
+		/\nNo changes in upstream/ {
+		    N
+		    /\nEverything up-to-date$/d
+		}
+	    }'

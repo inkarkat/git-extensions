@@ -4,21 +4,40 @@ shopt -qs extglob
 
 readonly scriptFilespec="${BASH_SOURCE[0]}"
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-y|--yes] [--continue|--abort] [--branches "<branch1> ..."] [N] [-c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...]] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 'Try %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 Check out all / the last committed N local branches (except for the current
 branch and master (and base branch if defined)) one by one and execute COMMAND
 on each branch.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    cat <<HELPTEXT
+
 If no COMMAND is given, just performs the checkout and returns to the shell; the
 next iteration is then triggered by re-executing with --continue, which can also
 be used to continue with COMMAND execution in case an unclean exit or a
 left-behind dirty working copy made the command to fall out of the iteration.
---command|-c CMD	The command line to be executed. When this is a simple
+    --command|-c CMD	The command line to be executed. When this is a simple
 			command, it can also be passed as such. If omitted, will
 			just return to the shell for each branch.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-y|--yes] [--continue|--abort] [--branches "<branch1> ..."] [N] [-c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...]] [-?|-h|--help]'
 }
 
 typeset -a args=("$@")
@@ -32,7 +51,7 @@ iterationAction=
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	    shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	    shift; printLongUsage "$0"; exit 0;;
 	--stashed)	    shift; isStashed=t;;
 	--yes|-y)	    shift; isYes=t;;
 	--branches)	    shift; inputBranches=$1; shift;;	# Internal hook to pass in the branches.

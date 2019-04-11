@@ -59,9 +59,14 @@ elif [ "${1:0:1}" != '-' ]; then
 	    ;;
 	cr|issue|pr)
 	    wcdoArgs+=(--single-success)
-	    # These hub commands need a remote. I only care about my own
-	    # projects, not my forks of other projects.
-	    wcdoArgs+=(--predicate-command 'git-existsremote origin && ! git-existsremote upstream')
+	    # These hub commands need a remote.
+	    if [ "$GIT_WCDO_COMMAND_EXCLUDE_FORKS" ]; then
+		# This setting indicates that I only care about my own projects,
+		# not my forks of other projects.
+		wcdoArgs+=(--predicate-command 'git-existsremote origin && ! git-existsremote upstream')
+	    else
+		wcdoArgs+=(--predicate-command git-existsremote)
+	    fi
 	    ;;
 	create)
 	    wcdoArgs+=(--single-success)

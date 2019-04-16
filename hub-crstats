@@ -16,11 +16,27 @@ function join(array, start, end, sep,    result, i)
 	result = result sep array[i]
     return result
 }
-function stats(what, count, mineCount, assignedCount, assignedToUsCount, assignedToMeCount,        aCnt, additionals) {
+function nameOrOtherCount(assignees, offset, prefix,      num, result, key, joiner) {
+    num = length(assignees) + offset
+    if (num <= 0) {
+	return ""
+    } else if (num <= 2) {
+	result = prefix
+	for (key in assignees) {
+	    if (key == me) continue
+	    result = result joiner key
+	    joiner = ", "
+	}
+	return result
+    } else {
+	return prefix num " other" (num == 1 ? "" : "s")
+    }
+}
+function stats(what, count, mineCount, assignedCount, assignedToUsCount, assignedToMeCount, otherAssignees, coAssignees,        aCnt, additionals) {
     if (mineCount) additionals[aCnt++] = (count == mineCount ? "all" : mineCount) " from me"
     if (assignedCount) {
-	additionals[aCnt++] = assignedCount " assigned"
-	if (assignedToUsCount) additionals[aCnt++] = (assignedToUsCount == assignedCount ? "all" : assignedToUsCount) " to me and others"
+	additionals[aCnt++] = assignedCount " assigned" nameOrOtherCount(otherAssignees, 0, " and ")
+	if (assignedToUsCount) additionals[aCnt++] = (assignedToUsCount == assignedCount ? "all" : assignedToUsCount) " to me" nameOrOtherCount(coAssignees, -1, " and ")
 	if (assignedToMeCount) additionals[aCnt++] = (assignedToMeCount == assignedCount ? "all" : assignedToMeCount) " to me"
     }
 
@@ -29,14 +45,23 @@ function stats(what, count, mineCount, assignedCount, assignedToUsCount, assigne
 	(aCnt ? " (" join(additionals, 0, --aCnt, ", ") ")" : "") \
     )
 }
-function isAssignedAlsoToMe(    i) {
+function isAssignedAlsoToMe(otherAssignees, coAssignees,     i) {
     for (i = 3; i <= NF; i++) {
-	if ($i == me) return 1
+	if ($i == me && NF > 3) {
+	    recordAssignees(coAssignees)
+	    return 1
+	}
     }
+    recordAssignees(otherAssignees)
     return 0
 }
 function isAssignedOnlyToMe(    i) {
     return (NF == 3 && $3 == me)
+}
+function recordAssignees(assignees) {
+    for (i = 3; i <= NF; i++) {
+	assignees[$i] = 1
+    }
 }
 
 $1 == "pull" {
@@ -44,7 +69,7 @@ $1 == "pull" {
     if ($2 == me) pullMineCnt+=1
     if ($3) {
 	pullAssignCnt += 1
-	pullToUsCnt += isAssignedAlsoToMe()
+	pullToUsCnt += isAssignedAlsoToMe(pullOtherAssignees, pullCoAssignees)
 	pullToMeCnt += isAssignedOnlyToMe()
     }
 }
@@ -53,14 +78,14 @@ $1 == "issue" {
     if ($2 == me) issueMineCnt+=1
     if ($3) {
 	issueAssignCnt += 1
-	issueToUsCnt += isAssignedAlsoToMe()
+	issueToUsCnt += isAssignedAlsoToMe(issueOtherAssignees, issueCoAssignees)
 	issueToMeCnt += isAssignedOnlyToMe()
     }
 }
 END {
     printf("%s, %s\n", \
-	stats("issue", issueCnt, issueMineCnt, issueAssignCnt, issueToUsCnt, issueToMeCnt), \
-	stats("pull request", pullCnt, pullMineCnt, pullAssignCnt, pullToUsCnt, pullToMeCnt) \
+	stats("issue", issueCnt, issueMineCnt, issueAssignCnt, issueToUsCnt, issueToMeCnt, issueOtherAssignees, issueCoAssignees), \
+	stats("pull request", pullCnt, pullMineCnt, pullAssignCnt, pullToUsCnt, pullToMeCnt, pullOtherAssignees, pullCoAssignees) \
     )
 }
 '

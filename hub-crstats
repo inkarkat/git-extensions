@@ -1,0 +1,28 @@
+#!/bin/bash
+set -o pipefail
+
+exec hub-cr --format 'X %as%n' "$@" | awk '
+function assigned( assignedCount ) {
+    return (assignedCount ? " (" assignedCount " assigned)" : "")
+}
+function stats( what, count, assignedCount ) {
+    return sprintf("%s %s%s%s", \
+	(count ? count : "no"), what, (count == 1 ? "" : "s"), assigned(assignedCount) \
+    )
+}
+
+$1 == "pull" {
+    pullCnt += 1
+    if ($3) pullAssignCnt += 1
+}
+$1 == "issue" {
+    issueCnt += 1
+    if ($3) issueAssignCnt += 1
+}
+END {
+    printf("%s, %s\n", \
+	stats("issue", issueCnt, issueAssignCnt), \
+	stats("pull request", pullCnt, pullAssignCnt) \
+    )
+}
+'

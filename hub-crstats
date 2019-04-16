@@ -86,9 +86,14 @@ $1 == "issue" {
     }
 }
 END {
-    printf("%s, %s\n", \
-	stats("issue", issueCnt, issueMineCnt, issueAssignCnt, issueToUsCnt, issueToMeCnt, issueOtherAssignees, issueCoAssignees), \
-	stats("pull request", pullCnt, pullMineCnt, pullAssignCnt, pullToUsCnt, pullToMeCnt, pullOtherAssignees, pullCoAssignees) \
-    )
+    if (issueCnt) stat[typeCnt++] = stats("issue", issueCnt, issueMineCnt, issueAssignCnt, issueToUsCnt, issueToMeCnt, issueOtherAssignees, issueCoAssignees)
+    if (pullCnt)  stat[typeCnt++] = stats("pull request", pullCnt, pullMineCnt, pullAssignCnt, pullToUsCnt, pullToMeCnt, pullOtherAssignees, pullCoAssignees)
+
+    if (typeCnt) {
+	for (t = 0; t < typeCnt; t++) {
+	    printf("%s%s", (t ? ", " : ""), stat[t])
+	}
+	printf "\n"
+    }
 }
 '

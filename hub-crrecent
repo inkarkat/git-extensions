@@ -1,0 +1,20 @@
+#!/bin/bash
+
+typeset -a args=()
+hasFormat=
+since='2 weeks ago'
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--since)	shift; since="$1"; shift; break;;
+	--format|-f)	args+=("$1" "$2"); hasFormat=t; shift; shift;;
+	--)		args+=("$1"); shift; break;;
+	*)		args+=("$1"); shift;;
+    esac
+done
+
+typeset -a formatArgs=(); [ "$hasFormat" ] || formatArgs=(--format '%<(14)%cr %sC%>(4)%i%Creset  %t%  l% Nc%n')
+typeset -a sinceArgs=(--since "$(date --iso-8601 -d "$since")")
+
+exec hub-cr "${formatArgs[@]}" "${sinceArgs[@]}" "${args[@]}" "$@"

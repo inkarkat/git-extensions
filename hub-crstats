@@ -32,12 +32,15 @@ function nameOrOtherCount(assignees, offset, prefix,      num, result, key, join
 	return prefix num " other" (num == 1 ? "" : "s")
     }
 }
+function allOrCount(count, total, suffix) {
+    return (count == total ? (total <= 1 ? "" : "all ") : count " ") suffix
+}
 function stats(what, count, mineCount, assignedCount, assignedToUsCount, assignedToMeCount, otherAssignees, coAssignees,        aCnt, additionals) {
-    if (mineCount) additionals[aCnt++] = (count == mineCount ? "all" : mineCount) " from me"
+    if (mineCount) additionals[aCnt++] = allOrCount(mineCount, count, "from me")
     if (assignedCount) {
-	additionals[aCnt++] = assignedCount " assigned" nameOrOtherCount(otherAssignees, 0, " and ")
-	if (assignedToUsCount) additionals[aCnt++] = (assignedToUsCount == assignedCount ? "all" : assignedToUsCount) " to me" nameOrOtherCount(coAssignees, -1, " and ")
-	if (assignedToMeCount) additionals[aCnt++] = (assignedToMeCount == assignedCount ? "all" : assignedToMeCount) " to me"
+	additionals[aCnt++] = allOrCount(assignedCount, count, "assigned") nameOrOtherCount(otherAssignees, 0, " to ")
+	if (assignedToUsCount) additionals[aCnt++] = allOrCount(assignedToUsCount, assignedCount, "to me") nameOrOtherCount(coAssignees, -1, " and ")
+	if (assignedToMeCount) additionals[aCnt++] = allOrCount(assignedToMeCount, assignedCount, "to me")
     }
 
     return sprintf("%s %s%s%s", \

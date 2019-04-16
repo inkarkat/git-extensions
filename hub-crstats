@@ -1,28 +1,66 @@
 #!/bin/bash
 set -o pipefail
 
-exec hub-cr --format 'X %as%n' "$@" | awk '
-function assigned( assignedCount ) {
-    return (assignedCount ? " (" assignedCount " assigned)" : "")
+exec hub-cr --format '%au %as%n' "$@" | awk \
+    -F ',? +' \
+    -v "me=$(git me-in-github)" \
+'
+function join(array, start, end, sep,    result, i)
+{
+    if (sep == "")
+	sep = " "
+    else if (sep == SUBSEP) # magic value
+	sep = ""
+    result = array[start]
+    for (i = start + 1; i <= end; i++)
+	result = result sep array[i]
+    return result
 }
-function stats( what, count, assignedCount ) {
+function stats(what, count, mineCount, assignedCount, assignedToUsCount, assignedToMeCount,        aCnt, additionals) {
+    if (mineCount) additionals[aCnt++] = (count == mineCount ? "all" : mineCount) " from me"
+    if (assignedCount) {
+	additionals[aCnt++] = assignedCount " assigned"
+	if (assignedToUsCount) additionals[aCnt++] = (assignedToUsCount == assignedCount ? "all" : assignedToUsCount) " to me and others"
+	if (assignedToMeCount) additionals[aCnt++] = (assignedToMeCount == assignedCount ? "all" : assignedToMeCount) " to me"
+    }
+
     return sprintf("%s %s%s%s", \
-	(count ? count : "no"), what, (count == 1 ? "" : "s"), assigned(assignedCount) \
+	(count ? count : "no"), what, (count == 1 ? "" : "s"), \
+	(aCnt ? " (" join(additionals, 0, --aCnt, ", ") ")" : "") \
     )
+}
+function isAssignedAlsoToMe(    i) {
+    for (i = 3; i <= NF; i++) {
+	if ($i == me) return 1
+    }
+    return 0
+}
+function isAssignedOnlyToMe(    i) {
+    return (NF == 3 && $3 == me)
 }
 
 $1 == "pull" {
     pullCnt += 1
-    if ($3) pullAssignCnt += 1
+    if ($2 == me) pullMineCnt+=1
+    if ($3) {
+	pullAssignCnt += 1
+	pullToUsCnt += isAssignedAlsoToMe()
+	pullToMeCnt += isAssignedOnlyToMe()
+    }
 }
 $1 == "issue" {
     issueCnt += 1
-    if ($3) issueAssignCnt += 1
+    if ($2 == me) issueMineCnt+=1
+    if ($3) {
+	issueAssignCnt += 1
+	issueToUsCnt += isAssignedAlsoToMe()
+	issueToMeCnt += isAssignedOnlyToMe()
+    }
 }
 END {
     printf("%s, %s\n", \
-	stats("issue", issueCnt, issueAssignCnt), \
-	stats("pull request", pullCnt, pullAssignCnt) \
+	stats("issue", issueCnt, issueMineCnt, issueAssignCnt, issueToUsCnt, issueToMeCnt), \
+	stats("pull request", pullCnt, pullMineCnt, pullAssignCnt, pullToUsCnt, pullToMeCnt) \
     )
 }
 '

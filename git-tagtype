@@ -1,11 +1,38 @@
 #!/bin/bash
-
 set -o pipefail
 
+printUsage()
+{
+    cat <<HELPTEXT
+List only those tags of the passed (annotated or lightweight) type.
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'annotated|lightweight [-l|--list <pattern>] [-?|-h|--help]'
+}
+
 case "$1" in
+    --help|-h|-\?)  shift; printUsage "$0"; exit 0;;
     annotated)	    tagType=tag;;
     lightweight)    tagType=commit;;
     *)		    printf >&2 'ERROR: Invalid tag type %s; must be either annotated or lightweight.\n' "$1"; exit 2;;
+esac; shift
+
+filter=
+pattern=
+case "$1" in
+    --list|-l)	    shift; filter='matcher'; pattern="$1"; shift;;
 esac
 
-git for-each-ref refs/tags | awk -v tagType="$tagType" '$2 == tagType { print gensub(/^refs\/tags\//, "", 1, $3); }'
+matcher()
+{
+    while IFS=$'\n' read -r line
+    do
+	case "$line" in
+	    $pattern) printf '%s\n' "$line";;
+	esac
+    done
+}
+tagtype()
+{
+    git for-each-ref refs/tags | awk -v tagType="$tagType" '$2 == tagType { print gensub(/^refs\/tags\//, "", 1, $3); }'
+}
+eval 'tagtype' "${filter:+|} $filter"

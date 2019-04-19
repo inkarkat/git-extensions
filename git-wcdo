@@ -4,7 +4,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header|--branch-name] [--no-git-color] [--single-success] [--skip-files] [-s|--skip-foreign|--foreign-command "COMMANDLINE" [...]] [--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] WORKING-COPY [...] [-- SIMPLECOMMAND ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header|--branch-name] [--separate-errors] [--no-git-color] [--single-success] [--skip-files] [-s|--skip-foreign|--foreign-command "COMMANDLINE" [...]] [--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] WORKING-COPY [...] [-- SIMPLECOMMAND ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -26,6 +26,14 @@ HELPDESCRIPTION
 
 Puts a header line (unless --no-header) that contains the WORKING-COPY name
 (with --branch-name: also the current Git branch) before the command output.
+    --no-pager		    Do not page the output (so contents will scroll out
+			    of view if there's too much output).
+    --separate-errors	    Do not combine command output and command errors
+			    into one (paged) stream. Commands that just cause
+			    error output won't have a header then. Error output
+			    will remain on its separate file descriptor and will
+			    not be paged. Useful if you want to suppress errors
+			    or handle them separately.
     --skip-files	    Silently skip files that are passed as WORKING-COPY
 			    (e.g. resulting from a file glob).
     --skip-foreign|-s	    Silently skip directories that are not a Git working
@@ -60,6 +68,7 @@ typeset -a commands=()
 isHeader=t
 isBranchName=
 emptyHeaderFilterCommand=filterEmptyHeaders
+errorRedir='2>&1'
 isGitColor=t
 typeset -a colorArg=()
 typeset -a args=()
@@ -76,6 +85,7 @@ do
 	--no-pager)		shift; pager=();;
 	--no-header)		shift; isHeader=; emptyHeaderFilterCommand=;;
 	--branch-name)		shift; isBranchName=t;;
+	--separate-errors)	shift; errorRedir='';;
 	--no-git-color)		shift; isGitColor=;;
 	--no-color|--color=*)	colorArg=("$1"); shift;;
 	--color)		colorArg=("$1" "$2"); shift; shift;;
@@ -154,7 +164,7 @@ wcdo()
 		    header="${dirspec##*/}"
 		    [ "$isBranchName" ] && header="${header%.*} outside Git"
 		fi
-		eval "${foreignCommands[@]}" "${isHeader:+2>&1 | withHeader "${colorArg[@]}" --id '$headerId' -- '$header'}" && isSuccess=t || status=$?
+		eval "${foreignCommands[@]}" "${isHeader:+$errorRedir | withHeader "${colorArg[@]}" --id '$headerId' -- '$header'}" && isSuccess=t || status=$?
 	    elif [ ! "$isSkipForeign" ]; then
 		printf >&2 'ERROR: %s is not inside a Git working copy!\n' "$dirspec"
 		status=1
@@ -176,7 +186,7 @@ wcdo()
 	else
 	    typeset -a c=('"${commands[@]}"')
 	fi
-	eval "${c[@]}" "${isHeader:+2>&1 | withHeader "${colorArg[@]}" --id '$headerId' -- '$header'}" && isSuccess=t || status=$?
+	eval "${c[@]}" "${isHeader:+$errorRedir | withHeader "${colorArg[@]}" --id '$headerId' -- '$header'}" && isSuccess=t || status=$?
     done
 
     if [ "$isSingleSuccess" ]; then
@@ -186,4 +196,4 @@ wcdo()
     fi
 }
 
-eval 'wcdo 2>&1' "${pager:+|}" '"${pager[@]}"'
+eval "wcdo $errorRedir ${pager:+|}" '"${pager[@]}"'

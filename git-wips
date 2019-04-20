@@ -10,16 +10,19 @@ Test whether the working copy has either:
 	    pushed to origin (or origin doesn't even exist yet)
 - wipcommit:where the last commit had "WIP:" in the message summary
 - nonmaster:a branch different from the master branch is checked out
+- downstreambranches:
+	    a branch that only exists in origin, but not upstream; may represent
+	    concurrent work or a pull request
 Individual checks can be selected / deselected via +name / -name.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] (+|-)(dirty|noremote|outgoing|wipcommit|nonmaster) [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] (+|-)(dirty|noremote|outgoing|wipcommit|nonmaster|downstreambranches) [-?|-h|--help]'
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
     --quiet|-q)		shift; exec 1>/dev/null;;
 esac
 isFirst=t
-declare -A checks=([dirty]=t [noremote]=t [outgoing]=t [wipcommit]=t [nonmaster]=t)
+declare -A checks=([dirty]=t [noremote]=t [outgoing]=t [wipcommit]=t [nonmaster]=t [downstreambranches]=t)
 while [ $# -gt 0 ]
 do
     case "$1" in
@@ -48,5 +51,22 @@ done
 
 [ "${checks[nonmaster]}" ] && \
     if branchName="$(git brname)"; [ "$branchName" != 'master' ]; then printf 'On branch %s\n' "$branchName"; exit 0; fi
+
+findDownstreamBranches()
+{
+    local originBranch
+    local IFS=$'\n'
+    local status=1
+    for originBranch in $(git obr | sed -e 's/^ \+//')
+    do
+	if ! git existsbr "${originBranch/#origin/upstream}"; then
+	    printf 'origin-only: %s\n' "${originBranch/#origin\//}"
+	    status=0
+	fi
+    done
+    return $status
+}
+[ "${checks[downstreambranches]}" ] && \
+    if git existsremote origin && git existsremote upstream && findDownstreamBranches; then exit 0; fi
 
 exit 1

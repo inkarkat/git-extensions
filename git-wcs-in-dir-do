@@ -7,13 +7,18 @@ Execute "git SIMPLECOMMAND" and/or COMMANDLINE on all repositories that are
 checked out (directly, not in subdirs) in any DIRSPEC.
 With --worktrees, also include additional working copies checked out from the
 same repository (via git worktree).
+--skip-symlinks		Do not consider passed DIRSPEC(s) that are symbolic
+			links to another directory. (This cannot be easily
+			checked from inside the working copy with
+			--predicate-command.)
 --foreign-command CMD	Execute CMD in (accessible) directories that are not
 			a Git working copy (e.g. to initialize a Git repo).
 HELPTEXT
-printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header|--branch-name] [--no-git-color] [--worktrees] [--single-success] [--foreign-command "COMMANDLINE" [...]] [--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] DIRSPEC [...] [-- SIMPLECOMMAND ...] [-?|-h|--help]'
+printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header|--branch-name] [--no-git-color] [--worktrees] [--skip-symlinks] [--single-success] [--foreign-command "COMMANDLINE" [...]] [--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] DIRSPEC [...] [-- SIMPLECOMMAND ...] [-?|-h|--help]'
 }
 
 isForeign=
+isSkipSymlinks=
 compareOp=-d
 typeset -a dirspecs=()
 typeset -a wcdoArgs=()
@@ -25,6 +30,8 @@ do
 			wcdoArgs+=("$1"); shift;;
 	--color|--command|-c|--predicate-command)
 			wcdoArgs+=("$1" "$2"); shift; shift;;
+	--skip-symlinks)
+			shift; isSkipSymlinks=t;;
 	--foreign-command)
 			wcdoArgs+=("$1" "$2"); isForeign=t; shift; shift;;
 	--worktrees)	shift; compareOp=-e;;
@@ -45,6 +52,7 @@ do
     for dir in "${baseDir}"/*
     do
 	[ -d "$dir" ] || continue
+	[ -n "$isSkipSymlinks" -a -h "$dir" ] && continue
 	if [ $compareOp "${dir}/.git" ] || [ -n "$isForeign" -a ! -e "${dir}/.git" ]; then
 	    # Pass to git-wcdo if a Git repo (or --worktrees) or if
 	    # --foreign-command should be executed on non-Git working copies.

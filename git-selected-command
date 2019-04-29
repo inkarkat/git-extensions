@@ -1,11 +1,23 @@
 #!/bin/bash
 
-gitCommand=${1:?}; shift
+if [ $# -eq 0 ]; then
+    echo >&2 'ERROR: Need to pass GIT-COMMAND.'
+    exit 2
+fi
+typeset -a gitCommand=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	-c) gitCommand+=("$1" "$2"); shift; shift;;
+	*)  gitCommand+=("$1"); shift; break;;
+    esac
+done
 generator="${GIT_SELECTED_COMMAND_DEFAULT_FILES:-git ls-files --modified --}"
 
+printf -v quotedGitCommand '%q ' "${gitCommand[@]}"; quotedGitCommand=${quotedGitCommand% }
 type -t commandOnSelected >/dev/null && exec commandOnSelected \
     --generator "$generator" \
-    --command "git-wrapper $gitCommand" \
+    --command "git-wrapper $quotedGitCommand" \
     -- "$@"
 
 
@@ -25,7 +37,7 @@ do
 done
 set -- $(eval "$generator" '"$@"')
 if [ $# -eq 0 ]; then
-    echo >&2 "No files to ${gitCommand}."
+    echo >&2 "No files to ${gitCommand[-1]}."
     exit 124
 fi
 
@@ -60,7 +72,7 @@ selectByCounts()
     do
 	if [ $count -gt $# ]; then
 	    filePlural=s; [ $# -eq 1 ] && filePlural=
-	    printf >&2 'Only %d file%s to %s.\n' "$#" "$filePlural" "$gitCommand"
+	    printf >&2 'Only %d file%s to %s.\n' "$#" "$filePlural" "${gitCommand[-1]}"
 	    exit 2
 	fi
 
@@ -76,4 +88,4 @@ fi
 
 [ ${#selectedPaths[@]} -gt 0 ] || exit 125
 
-exec git-wrapper "$gitCommand" "${args[@]}" "${selectedPaths[@]}"
+exec git-wrapper "${gitCommand[@]}" "${args[@]}" "${selectedPaths[@]}"

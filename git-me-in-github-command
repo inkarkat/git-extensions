@@ -3,7 +3,7 @@
 meOptionName="${1:?}"; shift
 me="$(git me-in-github)" || exit $?
 
-typeset -a hubCommand=();
+typeset -a hubCommand=()
 case "$1" in
     [^-]*-command)  hubCommand+=("$1"); shift
 		    while [ $# -ne 0 ]
@@ -14,7 +14,13 @@ case "$1" in
 			esac
 		    done
 		    ;;
-    *)		    hubCommand+=("$1"); shift;;
+    *)		    while [ $# -ne 0 ]
+		    do
+			case "$1" in
+			    -c) hubCommand+=("$1" "$2"); shift; shift;;
+			    *)	hubCommand+=("$1"); shift; break;;
+			esac
+		    done
 esac
 
 exec hub-wrapper "${hubCommand[@]}" "${meOptionName}${me}" "$@"

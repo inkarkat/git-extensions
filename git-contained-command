@@ -1,14 +1,25 @@
 #!/bin/bash
 set -o pipefail
 
-command="${1:?}"; shift
+if [ $# -eq 0 ]; then
+    echo >&2 'ERROR: Need to pass GIT-COMMAND.'
+    exit 2
+fi
+typeset -a gitCommand=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	-c) gitCommand+=("$1" "$2"); shift; shift;;
+	*)  gitCommand+=("$1"); shift; break;;
+    esac
+done
 
 printUsage()
 {
     cat <<HELPTEXT
 Show first tag [that matches GREP-ARGS] that the passed <commit> is based on.
 HELPTEXT
-    printf 'Usage: %q %s %s\n' "$(basename "$1")" "$command" '[GREP-ARGS] <commit> [-?|-h|--help]'
+    printf 'Usage: %q %s %s\n' "$(basename "$1")" "${gitCommand[-1]}" '[GREP-ARGS] <commit> [-?|-h|--help]'
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
@@ -18,8 +29,8 @@ if [ $# -eq 0 ]; then
     echo >&2 'ERROR: Must pass <commit>'
     exit 2
 fi
-revision=${!#}
+revision="${!#}"
 typeset -a grepArgs=("${@:1:$(($#-1))}")
 
-eval 'git "$command" --contains "$revision" | ' ${grepArgs:+grep} '"${grepArgs[@]}"' ${grepArgs:+|} 'head -n 1' 2>/dev/null || \
+eval 'git "${gitCommand[@]}" --contains "$revision" | ' ${grepArgs:+grep} '"${grepArgs[@]}"' ${grepArgs:+|} 'head -n 1' 2>/dev/null || \
     git name-rev --name-only "$revision"

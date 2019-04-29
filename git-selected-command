@@ -14,11 +14,15 @@ do
 done
 generator="${GIT_SELECTED_COMMAND_DEFAULT_FILES:-git ls-files --modified --}"
 
-printf -v quotedGitCommand '%q ' "${gitCommand[@]}"; quotedGitCommand=${quotedGitCommand% }
-type -t commandOnSelected >/dev/null && exec commandOnSelected \
+if type -t commandOnSelected >/dev/null; then
+    # Delegate to external tool.
+    printf -v quotedGitCommand '%q ' "${gitCommand[@]}"; quotedGitCommand=${quotedGitCommand% }
+    exec commandOnSelected \
     --generator "$generator" \
     --command "git-wrapper $quotedGitCommand" \
     -- "$@"
+fi
+# Fallback to simple implementation with select().
 
 
 shopt -qs extglob

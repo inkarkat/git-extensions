@@ -3,8 +3,9 @@
 printUsage()
 {
     cat <<HELPTEXT
-Interactively select (from files touched in <commit>) files (or directly pass N,
-M, ... selections) to be reverted to what the content *before* <commit> was.
+Interactively select (from files touched in <commit> / HEAD) files (or directly
+pass N, M, ... selections) to be reverted to what the content *before* <commit>
+was.
 HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '<commit> [N [M ...]] [--] [FILE ...] [-?|-h|--help]'
 }
@@ -18,6 +19,15 @@ if git-dirty; then
     exit 1
 fi
 
-export GIT_CHECKOUTPREVIOUS_COMMIT="${1:?}"; shift
+if [ ! "$GIT_CHECKOUTPREVIOUS_COMMIT" ]; then
+    if [ "$1" = '--' ]; then
+	shift
+    elif GIT_CHECKOUTPREVIOUS_COMMIT="$(git-commitid --no-error "$1")"; then
+	shift
+	[ "$1" = '--' ] && shift
+    fi
+    [ "$GIT_CHECKOUTPREVIOUS_COMMIT" ] || GIT_CHECKOUTPREVIOUS_COMMIT=HEAD
+fi
+export GIT_CHECKOUTPREVIOUS_COMMIT
 export GIT_SELECTED_COMMAND_DEFAULT_FILES="git-showfiles $GIT_CHECKOUTPREVIOUS_COMMIT --"
 exec git-selected-command checkoutprevious "$@"

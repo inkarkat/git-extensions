@@ -7,9 +7,15 @@ if git-dirty; then
 fi
 
 if [ "$GIT_CHECKOUTPREVIOUS_COMMIT" ]; then
-    commit="$GIT_CHECKOUTPREVIOUS_COMMIT"
+    rev="$GIT_CHECKOUTPREVIOUS_COMMIT"
 else
-    commit="${1:?}"; shift
+    if [ "$1" = '--' ]; then
+	shift
+    elif rev="$(git-commitid --no-error "$1")"; then
+	shift
+	[ "$1" = '--' ] && shift
+    fi
+    [ "$rev" ] || rev=HEAD
 fi
 
-git checkout "${commit}^" -- "${@:-.}" && git unstage >/dev/null && git st
+git checkout "${rev}^" -- "${@:-.}" && git unstage >/dev/null && git st

@@ -30,7 +30,10 @@ case "$lastArg" in
 	;;
 esac
 
+typeset -a pickaxe=("-S$lastArg")
 searchString=$(printf '%s' "$lastArg" | sed -ne 's/^\([^a-zA-Z0-9]\)\(.*\)\1$/\2/p')
-[ "$searchString" ] && set -- --pickaxe-regex "$@" || searchString=$lastArg
+if [ "$searchString" ]; then
+    pickaxe=("-S$searchString" '--pickaxe-regex')
+fi
 
-exec git-wrapper "${GIT_PICKAXE_COMMAND:-log}" "${@:1:$(($#-1))}" "-S$searchString"
+exec git-wrapper "${GIT_PICKAXE_COMMAND:-log}" "${pickaxe[@]}" "${@:1:$(($#-1))}"

@@ -5,11 +5,15 @@ printUsage()
     cat <<HELPTEXT
 Pickaxe: Log where text or /regexp/ was added or removed (i.e. those filepairs
 whose preimage and postimage have different number of occurrences of the text).
+With --more also log where lines were modified where text or /regexp/ just
+appears (without necessarily modifying text or /regexp/ itself).
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<log-options>] [<since>..<until>] [[--] <path>...] text|/regexp/ [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--more] [<log-options>] [<since>..<until>] [[--] <path>...] text|/regexp/ [-?|-h|--help]'
 }
+isMore=
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --more)		shift; isMore=t;;
 esac
 lastArg=${!#}
 case "$lastArg" in
@@ -32,8 +36,17 @@ esac
 
 typeset -a pickaxe=("-S$lastArg")
 searchString=$(printf '%s' "$lastArg" | sed -ne 's/^\([^a-zA-Z0-9]\)\(.*\)\1$/\2/p')
-if [ "$searchString" ]; then
-    pickaxe=("-S$searchString" '--pickaxe-regex')
+if [ "$isMore" ]; then
+    if [ ! "$searchString" ]; then
+	# There's no -S<string>, only -G<regex>, so we need to emulate literal
+	# grepping by escaping the (extended) POSIX regexp.
+	searchString="$(printf %s "$lastArg" | sed -e 's/[][\$*+?{}.|()^]/\\\\&/g')"
+    fi
+    pickaxe=("-G$searchString")
+else
+    if [ "$searchString" ]; then
+	pickaxe=("-S$searchString" '--pickaxe-regex')
+    fi
 fi
 
 exec git-wrapper "${GIT_PICKAXE_COMMAND:-log}" "${pickaxe[@]}" "${@:1:$(($#-1))}"

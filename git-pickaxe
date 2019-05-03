@@ -10,22 +10,26 @@ appears (without necessarily modifying text or /regexp/ itself).
 HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--more] [<log-options>] [<since>..<until>] [[--] <path>...] text|/regexp/ [-?|-h|--help]'
 }
-isMore=
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --more)		shift; isMore=t;;
-esac
-lastArg=${!#}
-case "$lastArg" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-esac
 
+isMore=
+typeset -a args=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--more)		shift; isMore=t;;
+	--)		args+=("$1"); shift; break;;
+	*)		args+=("$1"); shift;;
+    esac
+done
+set -- "${args[@]}" "$@"
 if [ $# -eq 0 ]; then
     printUsage "$0"
     exit 2
 fi
 
 # The last argument is the text or /regexp/.
+lastArg="${!#}"
 case "$lastArg" in
     # Check for no arguments given to findchanges, findlogsv and findlg aliases.
     -p|--pretty=oneline|--name-status|--date=relative)

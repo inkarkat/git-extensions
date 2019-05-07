@@ -148,7 +148,7 @@ fi
 set -o pipefail
 wcdo()
 {
-    headerId="wcdo-$$"
+    : ${GIT_WCDO_HEADER_ID:=wcdo-$$}
     isSuccess=
     status=0
     for dirspec in "${wcs[@]}"
@@ -164,7 +164,7 @@ wcdo()
 		    header="${dirspec##*/}"
 		    [ "$isBranchName" ] && header="${header%.*} outside Git"
 		fi
-		eval "${foreignCommands[@]}" "${isHeader:+$errorRedir | withHeader "${colorArg[@]}" --id '$headerId' -- '$header'}" && isSuccess=t || status=$?
+		eval "${foreignCommands[@]}" "${isHeader:+$errorRedir | withHeader "${colorArg[@]}" --id '$GIT_WCDO_HEADER_ID' -- '$header'}" && isSuccess=t || status=$?
 	    elif [ ! "$isSkipForeign" ]; then
 		printf >&2 'ERROR: %s is not inside a Git working copy!\n' "$dirspec"
 		status=1
@@ -186,7 +186,7 @@ wcdo()
 	else
 	    typeset -a c=('"${commands[@]}"')
 	fi
-	eval "${c[@]}" "${isHeader:+$errorRedir | withHeader "${colorArg[@]}" --id '$headerId' -- '$header'}" && isSuccess=t || status=$?
+	eval "${c[@]}" "${isHeader:+$errorRedir | withHeader "${colorArg[@]}" --id '$GIT_WCDO_HEADER_ID' -- '$header'}" && isSuccess=t || status=$?
     done
 
     if [ "$isSingleSuccess" ]; then

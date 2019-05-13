@@ -7,7 +7,7 @@ Update the expansion of \$Id\$ to \$Id:...\$ via ident in the .gitattributes
 after a commit.
 To do this automatically in the future, invoke with --install.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--install|--uninstall|--status|--set [<path>[ <path> ...]]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--install|--uninstall|--status|--set [<path>[ <path> ...]] ...] [-?|-h|--help]'
 }
 
 getHookFilespec()
@@ -23,65 +23,72 @@ printHook()
 HOOK
 }
 
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --install)		shift
-			hook=$(getHookFilespec)
-			if [ -e "$hook" ]; then
-			    echo "A hook already exists; add the following to \"${hook}\":"
-			    printHook
-			    exit 1
-			else
-			    printHook >> "$hook" && chmod +x "$hook" && echo "Hook installed to \"${hook}\"."
-			    exit $?
-			fi
-			;;
-    --uninstall|--deinstall|--remove)
-			shift
-			hook=$(getHookFilespec)
-			echo "Remove the hook from \"${hook}\" yourself!"
-			exit 1
-			;;
-    --status)		shift
-			hook=$(getHookFilespec)
-			if [ -x "$hook" ] && grep -q -e "$(basename -- "$0")" "$hook"; then
-			    coveredFiles=$(find . -name .gitattributes -exec grep -H -e '\bident\b' {} \;)
-			    if [ "$coveredFiles" ]; then
-				echo 'The hook is installed; $Id$ and $Id:...$ will be updated in the following directories for files matching the subsequent patterns:'
-				printf '%s\n' "$coveredFiles"
-				exit 0
+didAction=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	    shift; printUsage "$0"; exit 0;;
+	--install)	    shift
+			    hook=$(getHookFilespec)
+			    if [ -e "$hook" ]; then
+				echo "A hook already exists; add the following to \"${hook}\":"
+				printHook
+				exit 1
 			    else
-				cat <<'INSTRUCTIONS'
-The hook is installed, but no .gitattributes have been configured yet.
-To apply the $Id$ and $Id:...$ replacement for all files in the repository,
-execute:
-echo '* ident' >> .gitattributes
-git commit .gitattributes
-Alternatively, you can use
-INSTRUCTIONS
-				printf '%q --set [<path>]\n' "$(basename -- "$0")"
-				cat <<'INSTRUCTIONS'
-git commit [<path>/].gitattributes
-INSTRUCTIONS
-				exit 2
+				printHook >> "$hook" && chmod +x "$hook" && echo "Hook installed to \"${hook}\"." || exit $?
 			    fi
-			else
-			    echo "The hook isn't installed in this repository; use $(basename -- "$0") --install to do so."
+			    ;;
+	--uninstall|--deinstall|--remove)
+			    shift
+			    hook=$(getHookFilespec)
+			    echo "Remove the hook from \"${hook}\" yourself!"
 			    exit 1
-			fi
-			;;
-    --set)		shift
-			if [ $# -eq 0 ]; then
-			    echo '* ident' >> .gitattributes
-			else
-			    for path
-			    do
-				echo '* ident' >> "${path%/}/.gitattributes"
-			    done
-			fi
-			exit 0
-			;;
-esac
+			    ;;
+	--status)	    shift
+			    hook=$(getHookFilespec)
+			    if [ -x "$hook" ] && grep -q -e "$(basename -- "$0")" "$hook"; then
+				coveredFiles=$(find . -name .gitattributes -exec grep -H -e '\bident\b' {} \;)
+				if [ "$coveredFiles" ]; then
+				    echo 'The hook is installed; $Id$ and $Id:...$ will be updated in the following directories for files matching the subsequent patterns:'
+				    printf '%s\n' "$coveredFiles"
+				    didAction=t
+				else
+				    cat <<'INSTRUCTIONS'
+    The hook is installed, but no .gitattributes have been configured yet.
+    To apply the $Id$ and $Id:...$ replacement for all files in the repository,
+    execute:
+    echo '* ident' >> .gitattributes
+    git commit .gitattributes
+    Alternatively, you can use
+INSTRUCTIONS
+				    printf '%q --set [<path>]\n' "$(basename -- "$0")"
+				    cat <<'INSTRUCTIONS'
+    git commit [<path>/].gitattributes
+INSTRUCTIONS
+				    exit 2
+				fi
+			    else
+				echo "The hook isn't installed in this repository; use $(basename -- "$0") --install to do so."
+				exit 1
+			    fi
+			    ;;
+	--set)		    shift
+			    if [ $# -eq 0 ]; then
+				echo '* ident' >> .gitattributes
+			    else
+				while [ $# -ne 0 ]
+				do
+				    case "$1" in
+					--*)	break;;
+					*)	echo '* ident' >> "${1%/}/.gitattributes"; shift;;
+				    esac
+				done
+			    fi
+			    didAction=t
+			    ;;
+    esac
+done
+[ "$didAction" ] && exit 0
 
 case ",${DEBUG}," in *,git-ident-update,*) echo '**** git-ident-update hook called';; esac
 readonly orig=$(git-orig-ref)

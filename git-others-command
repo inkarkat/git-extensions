@@ -1,12 +1,14 @@
 #!/bin/bash
+set -o noglob
 
 printUsage()
 {
     cat <<HELPTEXT
-Execute GIT-COMMAND with selected author(s).
+Execute GIT-COMMAND with selected author(s), who can be specified partially or
+via email address, as a lookup and filtering is done via git whois.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-option-name] [--joined-as-pattern] GIT-COMMAND [...] AUTHOR [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-option-name] [--joined-as-pattern] GIT-COMMAND [...] -- AUTHOR [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-option-name] [--joined-as-pattern] GIT-COMMAND [...] AUTHOR-PATTERN [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-option-name] [--joined-as-pattern] GIT-COMMAND [...] -- AUTHOR-PATTERN [...] [-?|-h|--help]'
 }
 
 optionName='--author='
@@ -42,9 +44,15 @@ if [ ${#authorArgs[@]} -eq 0 ]; then
     authorArgs=("${!#}")
     set -- "${@:1:$(($#-1))}"
 fi
+
+IFS=$'\n'
+typeset -a authors=($(git-whois --select-many --name "${authorArgs[@]}"))
+[ ${#authors[@]} -eq 0 ] && exit 1
+
+
 if [ "$isJoinedAsPattern" ]; then
     joinedLiteralAuthors=
-    for author in "${authorArgs[@]}"
+    for author in "${authors[@]}"
     do
 	joinedLiteralAuthors="${joinedLiteralAuthors}${joinedLiteralAuthors:+\\|}$(printf %s "$author" | sed -e 's/[][\$*.^]/\\&/g')"
     done

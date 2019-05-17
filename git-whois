@@ -3,16 +3,17 @@
 printUsage()
 {
     cat <<HELPTEXT
-Look up person by name or email address, based on all previous committers to the
-repository. With --accept-unknown, will also accept new names in the form
+Look up person(s) by name or email address, based on all previous committers to
+the repository. With --accept-unknown, will also accept new names in the form
 NAME EMAIL@HOST (two arguments) or "NAME <EMAIL@HOST>" (one argument) that are
 not yet found in the repository.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-1|--first|-s|--select] [-n|--name|-e|--email] [--accept-unknown] AUTHOR-PATTERN [...]|NAME EMAIL@HOST|"NAME <EMAIL@HOST>" [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-1|--first|-s|--select|-S|--select-many] [-n|--name|-e|--email] [--accept-unknown] AUTHOR-PATTERN [...]|NAME EMAIL@HOST|"NAME <EMAIL@HOST>" [-?|-h|--help]'
 }
 isAcceptUnknown=
 isShowFirstCandidate=
 isSelect=
+isSelectMany=
 typeset -a personFilter=()
 while [ $# -ne 0 ]
 do
@@ -21,6 +22,8 @@ do
 	--accept-unknown)   shift; isAcceptUnknown=t;;
 	--first|-1)	shift; isShowFirstCandidate=t;;
 	--select|-s)    shift; isSelect=t;;
+	--select-many|-S)
+			shift; isSelect=t; isSelectMany=t;;
 	--name|-n)	shift; personFilter=(sed -e 's# \+<[^ ]\+@[^ ]\+>$##');;
 	--email|-e)	shift; personFilter=(sed -e 's#^.* \+<\([^ ]\+@[^ ]\+\)>$#\1#');;
 	--)		shift; break;;
@@ -43,11 +46,14 @@ selectCandidates()
     elif [ $# -eq 1 ]; then
 	printPersons "$1"
     else
+	typeset -a selectedPersons=()
 	select person
 	do
 	    if [ "$person" ]; then
-		printPersons "$person"
-		exit 0
+		selectedPersons+=("$person")
+		[ "$isSelectMany" ] || break
+	    elif [ "$REPLY" = '.' ]; then
+		break
 	    elif [ ! "$REPLY" ]; then
 		exit 1
 	    elif [ "$REPLY" = '?' ]; then
@@ -62,6 +68,8 @@ EOF
 		break
 	    fi
 	done
+
+	printPersons "${selectedPersons[@]}"
     fi
 }
 

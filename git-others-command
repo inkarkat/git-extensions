@@ -1,0 +1,77 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Execute GIT-COMMAND with selected author(s).
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-option-name] [--joined-as-pattern] GIT-COMMAND [...] AUTHOR [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-option-name] [--joined-as-pattern] GIT-COMMAND [...] -- AUTHOR [...] [-?|-h|--help]'
+}
+
+optionName='--author='
+isJoinedAsPattern=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)		shift; printUsage "$0"; exit 0;;
+	--no-option-name)	shift; optionName=;;
+	--joined-as-pattern)	shift; isJoinedAsPattern=t;;
+	*)			break;;
+    esac
+done
+
+typeset -a authorArgs=()
+for ((i = $#; i > 0; i--))
+do
+    if [ "${@:$i:1}" = '--' ]; then
+	authorArgs=("${@:$((i+1))}")
+	set -- "${@:1:$((i-1))}"
+	break
+    fi
+done
+if [ ${#authorArgs[@]} -eq 0 ]; then
+    if [ $# -eq 0 ]; then
+	echo >&2 'ERROR: No AUTHOR passed.'
+	echo >&2
+	printUsage "$0" >&2
+	exit 2
+    fi
+
+    # No separation with --; take a single last AUTHOR argument.
+    authorArgs=("${!#}")
+    set -- "${@:1:$(($#-1))}"
+fi
+if [ "$isJoinedAsPattern" ]; then
+    joinedLiteralAuthors=
+    for author in "${authorArgs[@]}"
+    do
+	joinedLiteralAuthors="${joinedLiteralAuthors}${joinedLiteralAuthors:+\\|}$(printf %s "$author" | sed -e 's/[][\$*.^]/\\&/g')"
+    done
+    typeset -a gitAuthorArgs=("${optionName}\\b\\(${joinedLiteralAuthors}\\)\\b")
+else
+    typeset -a gitAuthorArgs=("${authorArgs[@]/#/$optionName}")
+fi
+
+
+typeset -a gitCommand=()
+case "$1" in
+    [^-]*-command)  gitCommand+=("$1"); shift
+		    while [ $# -ne 0 ]
+		    do
+			case "$1" in
+			    -*)		gitCommand+=("$1"); shift;;
+			    *)		gitCommand+=("$1"); shift; break;;
+			esac
+		    done
+		    ;;
+    *)		    while [ $# -ne 0 ]
+		    do
+			case "$1" in
+			    -c) gitCommand+=("$1" "$2"); shift; shift;;
+			    *)	gitCommand+=("$1"); shift; break;;
+			esac
+		    done
+esac
+
+exec git-wrapper "${gitCommand[@]}" "${gitAuthorArgs[@]}" "$@"

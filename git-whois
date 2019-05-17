@@ -8,7 +8,7 @@ repository. With --accept-unknown, will also accept new names in the form
 NAME EMAIL@HOST (two arguments) or "NAME <EMAIL@HOST>" (one argument) that are
 not yet found in the repository.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-1|--first|-s|--select] [-n|--name|-e|--email] [--accept-unknown] AUTHOR-PATTERN|NAME EMAIL@HOST|"NAME <EMAIL@HOST>" [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-1|--first|-s|--select] [-n|--name|-e|--email] [--accept-unknown] AUTHOR-PATTERN [...]|NAME EMAIL@HOST|"NAME <EMAIL@HOST>" [-?|-h|--help]'
 }
 isAcceptUnknown=
 isShowFirstCandidate=
@@ -66,7 +66,7 @@ EOF
 }
 
 IFS=$'\n'
-typeset -a candidates=($(git log -i ${isShowFirstCandidate:+-1} --pretty='tformat:%aN <%aE>' ${1:+--author="$1"} | sort --unique))
+typeset -a candidates=($(git log -i ${isShowFirstCandidate:+-1} --pretty='tformat:%aN <%aE>' "${@/#/--author=}" | sort --unique))
 
 if [ ${#candidates[@]} -eq 0 ]; then
     if [ "$isAcceptUnknown" -a \( $# -eq 1 -o $# -eq 2 \) ]; then

@@ -8,11 +8,12 @@ repository. With --accept-unknown, will also accept new names in the form
 NAME EMAIL@HOST (two arguments) or "NAME <EMAIL@HOST>" (one argument) that are
 not yet found in the repository.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-1|--first|-s|--select] [--accept-unknown] AUTHOR-PATTERN|NAME EMAIL@HOST|"NAME <EMAIL@HOST>" [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-1|--first|-s|--select] [-n|--name|-e|--email] [--accept-unknown] AUTHOR-PATTERN|NAME EMAIL@HOST|"NAME <EMAIL@HOST>" [-?|-h|--help]'
 }
 isAcceptUnknown=
 isShowFirstCandidate=
 isSelect=
+typeset -a personFilter=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -20,6 +21,8 @@ do
 	--accept-unknown)   shift; isAcceptUnknown=t;;
 	--first|-1)	shift; isShowFirstCandidate=t;;
 	--select|-s)    shift; isSelect=t;;
+	--name|-n)	shift; personFilter=(sed -e 's# \+<[^ ]\+@[^ ]\+>$##');;
+	--email|-e)	shift; personFilter=(sed -e 's#^.* \+<\([^ ]\+@[^ ]\+\)>$#\1#');;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -27,9 +30,9 @@ do
 done
 
 
-printPerson()
+printPersons()
 {
-    printf '%s\n' "${1:?}"
+    eval 'printf %s\\n "$@"' "${personFilter:+|}" '"${personFilter[@]}"' "${personFilter:+|sort --unique}"
 }
 
 selectCandidates()
@@ -38,12 +41,12 @@ selectCandidates()
 	echo >&2 'ERROR: No candidates found.'
 	exit 1
     elif [ $# -eq 1 ]; then
-	printPerson "$1"
+	printPersons "$1"
     else
 	select person
 	do
 	    if [ "$person" ]; then
-		printPerson "$person"
+		printPersons "$person"
 		exit 0
 	    elif [ ! "$REPLY" ]; then
 		exit 1
@@ -72,7 +75,7 @@ if [ ${#candidates[@]} -eq 0 ]; then
 	    2)	person="$1 <$2>";;
 	esac
 	if [[ "$person" =~ ^[^\ ].*[^\ ]\ \<[^\ ]+@[^\ ]+\>$ ]]; then
-	    printPerson "$person"
+	    printPersons "$person"
 	    exit
 	else
 	    printf >&2 "ERROR: Did not pass a valid NAME <EMAIL@HOST>: %s\n" "$person"
@@ -84,9 +87,9 @@ if [ ${#candidates[@]} -eq 0 ]; then
 fi
 
 if [ "$isShowFirstCandidate" ]; then
-    printPerson "${candidates[0]}"
+    printPersons "${candidates[0]}"
 elif [ "$isSelect" ]; then
     selectCandidates "${candidates[@]}"
 else
-    printPerson "${candidates[@]}"
+    printPersons "${candidates[@]}"
 fi

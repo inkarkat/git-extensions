@@ -4,11 +4,12 @@ set -o noglob
 printUsage()
 {
     cat <<HELPTEXT
-Execute GIT-COMMAND with selected author(s), who can be specified partially or
-via email address, as a lookup and filtering is done via git whois.
+Execute GIT-COMMAND with selected author(s) (chosen from all previous committers
+if only -- is passed), who can be specified partially or via email address, as a
+lookup and filtering is done via git whois.
 HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-option-name] [--joined-as-pattern] GIT-COMMAND [...] AUTHOR-PATTERN [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-option-name] [--joined-as-pattern] GIT-COMMAND [...] -- AUTHOR-PATTERN [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-option-name] [--joined-as-pattern] GIT-COMMAND [...] -- [AUTHOR-PATTERN] [...] [-?|-h|--help]'
 }
 
 optionName='--author='
@@ -22,7 +23,14 @@ do
 	*)			break;;
     esac
 done
+if [ $# -eq 0 ]; then
+    echo >&2 'ERROR: No GIT-COMMAND passed.'
+    echo >&2
+    printUsage "$0" >&2
+    exit 2
+fi
 
+lastArg=${!#}
 typeset -a authorArgs=()
 for ((i = $#; i > 0; i--))
 do
@@ -33,21 +41,28 @@ do
     fi
 done
 if [ ${#authorArgs[@]} -eq 0 ]; then
-    if [ $# -eq 0 ]; then
-	echo >&2 'ERROR: No AUTHOR passed.'
-	echo >&2
-	printUsage "$0" >&2
-	exit 2
-    fi
+    if [ "$lastArg" != '--' ]; then
+	if [ $# -lt 2 ]; then
+	    echo >&2 'ERROR: No AUTHOR passed.'
+	    echo >&2
+	    printUsage "$0" >&2
+	    exit 2
+	fi
 
-    # No separation with --; take a single last AUTHOR argument.
-    authorArgs=("${!#}")
-    set -- "${@:1:$(($#-1))}"
+	# No separation with --; take a single last AUTHOR argument.
+	authorArgs=("${!#}")
+	set -- "${@:1:$(($#-1))}"
+    fi
 fi
 
 IFS=$'\n'
 typeset -a authors=($(git-whois --select-many --name "${authorArgs[@]}"))
-[ ${#authors[@]} -eq 0 ] && exit 1
+
+if [ ${#authors[@]} -eq 0 ]; then
+    IFS=' '
+    printf >&2 'No matching author(s) for %s.\n' "${authorArgs[*]}"
+    exit 1
+fi
 
 
 if [ "$isJoinedAsPattern" ]; then

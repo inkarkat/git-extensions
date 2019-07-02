@@ -1269,8 +1269,10 @@
 	; merging
 	;; checkout --ours:   (or git coo) will keep the original one we had (ORIG_HEAD) in case of merge conflict
 	;; checkout --theirs: (or git cot) will keep the version merged in (MERGE_HEAD) in case of merge conflict
+	;;; mergedryrun: Test whether a merge will do through or cause conflicts without actually doing the merge.
 	;; mergeto: Merge the current branch to <target-branch>.
 	mergelb = merge @{-1}
+	mergedrlb = mergedryrun @{-1}
 	mergem = mergeto master
 	mergen = base-command mergeto
 	;; mergelocalbr: Merge all / the last committed N local branches (except for the current branch and master (and base branch if defined)).
@@ -1324,6 +1326,7 @@
 	tlog = rev-tracked-command log ; log of tracked branch
 	treset = reset-to-tracked --must-be-origin	; Reset my current branch (and working tree with --hard) to the HEAD of tracked branch of origin. Use this when the local branch has been pointed elsewhere (e.g. due to an attempted rebase), and you want to restore the original state. The working copy is left intact.
 	tmerge = rev-tracked-command merge ; Merge changes in tracked branch with my local repo.
+	tmergedr = rev-tracked-command mergedryrun ; Test merge of changes in tracked branch with my local repo.
 	trb = rev-tracked-command rebase ; Rebase my commits on top of the tracked branch.
 	trbi = rev-tracked-command rebase -i
 
@@ -1351,6 +1354,7 @@
 	opull = pull --ff-only --prune origin ; Get and fast-forward changes done to my GitHub clone through another Git repository, e.g. from another system. This allows to either merge or rebase (recommended) when local commits have been done to an outdated local branch.
 	oup = up origin
 	omerge = rev-remote-command origin merge ; Merge changes done to my GitHub clone through another Git repository with my local repo.
+	omergedr = rev-remote-command origin mergedryrun ; Test merge of changes done to my GitHub clone through another Git repository with my local repo.
 	opa = pushall origin	; Push all branches, tags, and notes (if exist) to origin.
 	opush = push origin ; Re-publish of current / passed <branch> to the tracking GitHub clone to get them pulled into upstream.
 	opublish = rpublish origin ; Initial publish of current / passed <branch> to my GitHub clone to get them pulled into upstream.
@@ -1416,6 +1420,7 @@
 	;; uopush: push upstream + origin; Directly push current / passed <branch> to upstream and (if successful) push it to the tracking GitHub clone, too.
 	;; uup: up upstream
 	umerge = rev-remote-command upstream merge ; Merge upstream changes with my local repo.
+	umergedr = rev-remote-command upstream mergedryrun ; Test merge of upstream changes with my local repo.
 	urb = rev-remote-command upstream rebase ; Rebase my commits on top of the corresponding branch in upstream (or passed <branch>).
 	urbi = rev-remote-command upstream rebase -i
 	;; urebaselocalbr: Rebase all / the last committed N local branches (except for the current branch and master (and base branch if defined)) to the updated upstream head. After that, merge again via git uwipem && git mergelocalbrc; then use git opush -f --all to send the rebased branches to origin.

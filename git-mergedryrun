@@ -1,0 +1,22 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Test whether a merge will do through or cause conflicts without actually doing
+the merge.
+    --status	    Show concise status after the merge.
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--status] [MERGE-ARGS ...] <commit>... [-?|-h|--help]'
+}
+isStatus=
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --status)		shift; isStatus=t;;
+esac
+
+git merge --no-commit --no-ff "$@"
+status=$?
+[ "$isStatus" ] && git st
+git merge --abort
+exit $status

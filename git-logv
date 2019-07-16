@@ -1,11 +1,23 @@
 #!/bin/bash
 
+printUsage()
+{
+    cat <<HELPTEXT
+Verbose log that includes filenames (like "svn log -v"), and additional
+committer vs. author information. Still shows all files of the commit even when
+filtering commits for certain paths (whereas "git log --name-status" also
+filters the file list itself).
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+}
+
 typeset -a gitArgs=()
 typeset -a gitPrettyArg=(--pretty=fuller)
 typeset -a paths=()
 while [ $# -ne 0 ]
 do
     case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--pretty=*)	gitPrettyArg=("$1"); shift;;
 	--)		gitArgs+=("$1"); shift; paths=("$@"); break;;
 	*)		gitArgs+=("$1"); shift;;

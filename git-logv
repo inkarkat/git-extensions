@@ -1,10 +1,12 @@
 #!/bin/bash
 
 typeset -a gitArgs=()
+typeset -a gitPrettyArg=()
 typeset -a paths=()
 while [ $# -ne 0 ]
 do
     case "$1" in
+	--pretty=*)	gitPrettyArg=("$1"); shift;;
 	--)		gitArgs+=("$1"); shift; paths=("$@"); break;;
 	*)		gitArgs+=("$1"); shift;;
     esac
@@ -24,11 +26,11 @@ if [ ${#paths[@]} -eq 0 ]; then
 fi
 
 if [ ${#paths[@]} -eq 0 ]; then
-    exec git-log --name-status "${gitArgs[@]}"
+    exec git-log --name-status "${gitPrettyArg[@]}" "${gitArgs[@]}"
 else
-    # Pass all arguments to the initial log (assuming there's no --pretty
-    # argument in it) for the limiting (--max-count) and filtering (--author,
-    # --grep). The second show command doesn't need these (filtering would be
-    # superfluous there), as all the visualization is hard-coded.
-    git log --topo-order --pretty=tformat:%H "${gitArgs[@]}" "${paths[@]}" | xargs --delimiter '\n' git show --decorate --name-status
+    # Pass all arguments except --pretty=... to the initial log for the limiting
+    # (--max-count) and filtering (--author, --grep). The second show command
+    # doesn't need these (filtering would be superfluous there), as all the
+    # visualization is hard-coded.
+    git log --topo-order --pretty=tformat:%H "${gitArgs[@]}" "${paths[@]}" | xargs --delimiter '\n' git show --decorate --name-status "${gitPrettyArg[@]}"
 fi

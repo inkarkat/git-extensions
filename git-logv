@@ -1,52 +1,34 @@
 #!/bin/bash
 
-getIndex()
-{
-    local i=1 elem needle=$1; shift
-    for elem
+typeset -a gitArgs=()
+typeset -a paths=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--)		gitArgs+=("$1"); shift; paths=("$@"); break;;
+	*)		gitArgs+=("$1"); shift;;
+    esac
+done
+if [ ${#paths[@]} -eq 0 ]; then
+    # No files after -- captured yet; need to investigate parsed and
+    # remaining args from behind for files.
+    gitArgs+=("$@")
+    while [ ${#gitArgs[@]} -ne 0 ]
     do
-	if [ "$needle" = "$elem" ]; then
-	    echo "$i"
-	    return 0
-	fi
-	let i+=1
-    done
-    return 1
-}
-getIndexOfFileArgs()
-{
-    [ $# -eq 0 ] && return 1
-
-    # Trust the "args -- files" separator.
-    if afterEndOfArgsIndex=$(getIndex '--' "$@"); then
-	if [ $afterEndOfArgsIndex -ge $# ]; then
-	    # -- is the last argument
-	    return 1
-	else
-	    echo $((afterEndOfArgsIndex + 1))
-	    return 0
-	fi
-    fi
-
-    lastArg=${!#}
-    [ -e "$lastArg" ] || return 1   # No file arguments.
-
-    for ((i=$# - 1; i > 0; i--))
-    do
-	lastArg=${@:$i:1}
+	lastArg="${gitArgs[-1]}"
 	[ -e "$lastArg" ] || break
+
+	paths=("$lastArg" "${paths[@]}")
+	gitArgs=("${gitArgs[@]:0:${#gitArgs[@]}-1}")
     done
+fi
 
-    echo $((i + 1))
-    return 0
-}
-
-if getIndexOfFileArgs "$@" >/dev/null; then
+if [ ${#paths[@]} -eq 0 ]; then
+    exec git-log --name-status "${gitArgs[@]}"
+else
     # Pass all arguments to the initial log (assuming there's no --pretty
     # argument in it) for the limiting (--max-count) and filtering (--author,
     # --grep). The second show command doesn't need these (filtering would be
     # superfluous there), as all the visualization is hard-coded.
-    git log --topo-order --pretty=tformat:%H "$@" | xargs --delimiter '\n' git show --decorate --name-status
-else
-    exec git-log --name-status "$@"
+    git log --topo-order --pretty=tformat:%H "${gitArgs[@]}" "${paths[@]}" | xargs --delimiter '\n' git show --decorate --name-status
 fi

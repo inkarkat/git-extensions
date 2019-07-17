@@ -1,0 +1,39 @@
+#!/bin/bash
+# Source: https://stackoverflow.com/a/20458127/813602
+
+printUsage()
+{
+    cat <<HELPTEXT
+Swap the last and one-before-last commits.
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+}
+cleanup()
+{
+    git tag -d _invert
+}
+
+case "$1" in
+    --help|-h|-\?)		shift; printUsage "$0"; exit 0;;
+    --continue|--quit|--abort)	if git cherry-pick "$1"; then
+				    cleanup
+				    exit $?
+				else
+				    status=$?
+				    printf >&2 'hint: after committing, finalize the swap with %q --cleanup\n' "$(basename "$0")"
+				    exit $status
+				fi
+				;;
+    --cleanup)			cleanup; exit $?;;
+esac
+
+if git-dirty; then
+    echo >&2 "ERROR: working copy is still dirty; please clean up first."
+    git status
+    exit 1
+fi
+
+git tag _invert || exit $?
+git reset --hard HEAD~2 || exit $?
+git cherry-pick _invert _invert~1 || { status=$?; printf >&2 'hint: after committing, finish the swap with %q --continue\n' "$(basename "$0")"; exit $status; }
+cleanup

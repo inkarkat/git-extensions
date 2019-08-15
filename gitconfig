@@ -376,6 +376,7 @@
 	;; equals: Check whether all passed refs refer to the same commit.
 
 	;; td...: Log variants that only cover changes committed today.
+	tdchurn = today-command churn
 	tdd = today-command --no-range diffuntil ; Show all changes from today in a single big diff.
 	tddl = today-command --no-range diffuntill ; Show all changes from today in a big diffs, separately for each changed file.
 	tdma = today-command format-patch
@@ -430,6 +431,7 @@
 	;; rev-range-outgoing: Run a Git command with the revision range of the commits that already exist on the current branch, but not yet in the corresponding remote branch.
 
 	;; br...: Log variants that only cover the current branch (as tagged in the history)
+	brchurn = rev-range-this-branch churn
 	brd = rev-range-this-branch diff
 	brdl = rev-range-this-branch dl
 	brma = rev-range-this-branch format-patch
@@ -480,6 +482,7 @@
 	brbase = rev-range-this-branch --no-range name-rev --name-only
 
 	;; b2r...: Log variants that only cover the current and preceding branch (as tagged in the history)
+	b2rchurn = rev-range-this-branch --branch-number 2 churn
 	b2rd = rev-range-this-branch --branch-number 2 diff
 	b2rdl = rev-range-this-branch --branch-number 2 dl
 	b2mal = rev-range-this-branch --branch-number 2 format-patch
@@ -530,6 +533,7 @@
 	b2rbase = rev-range-this-branch --branch-number 2 --no-range name-rev --name-only
 
 	;; b3r...: Log variants that only cover the current and two preceding branches (as tagged in the history)
+	b3rchurn = rev-range-this-branch --branch-number 3 churn
 	b3rd = rev-range-this-branch --branch-number 3 diff
 	b3rdl = rev-range-this-branch --branch-number 3 dl
 	b3mal = rev-range-this-branch --branch-number 3 format-patch
@@ -580,6 +584,7 @@
 	b3rbase = rev-range-this-branch --branch-number 3 --no-range name-rev --name-only
 
 	;; bm...: Log variants that cover the differences of the current branch to master.
+	bmchurn = rev-range --revision master --end-revision HEAD churn
 	bmd = rev-range --revision master --end-revision HEAD diff
 	bmdl = rev-range --revision master --end-revision HEAD dl
 	bmma = rev-range --revision master --end-revision HEAD format-patch
@@ -630,6 +635,7 @@
 	; bmbase would always print "master".
 
 	;; bn...: Log variants that cover the differences of the current branch to the base branch.
+	bnchurn = base-command --keep-position rev-range --revision BASE --end-revision HEAD churn
 	bnd = base-command --keep-position rev-range --revision BASE --end-revision HEAD diff
 	bndl = base-command --keep-position rev-range --revision BASE --end-revision HEAD dl
 	bnma = base-command --keep-position rev-range --revision BASE --end-revision HEAD format-patch
@@ -680,6 +686,7 @@
 	bnbase = base-command --keep-position rev-range --revision BASE --no-range name-rev --name-only
 
 	;; bl...: Log variants that cover the differences of the current branch to the previously checked out branch (typically the one it was branched off).
+	blchurn = rev-range --revision @{-1} --end-revision HEAD churn
 	bld = rev-range --revision @{-1} --end-revision HEAD diff
 	bldl = rev-range --revision @{-1} --end-revision HEAD dl
 	blma = rev-range --revision @{-1} --end-revision HEAD format-patch
@@ -730,6 +737,7 @@
 	blbase = rev-range --revision @{-1} --no-range name-rev --name-only
 
 	;; b2l...: Log variants that cover the differences of the current branch to the second-last checked out branch.
+	b2churn = rev-range --revision @{-2} --end-revision HEAD churn
 	b2ld = rev-range --revision @{-2} --end-revision HEAD diff
 	b2ldl = rev-range --revision @{-2} --end-revision HEAD dl
 	b2mal = rev-range --revision @{-2} --end-revision HEAD format-patch
@@ -780,6 +788,7 @@
 	b2lbase = rev-range --revision @{-2} --no-range name-rev --name-only
 
 	;; bp...: Log variants that cover the differences of the current branch to where the tip of the branch was previously. Useful to see the changes that were just pulled.
+	bpchurn = rev-range --revision @{1} --end-revision HEAD churn
 	bpd = rev-range --revision @{1} --end-revision HEAD diff
 	bpdl = rev-range --revision @{1} --end-revision HEAD dl
 	bpma = rev-range --revision @{1} --end-revision HEAD format-patch
@@ -830,6 +839,7 @@
 	bpbase = rev-range --revision @{1} --no-range name-rev --name-only
 
 	;; b2p...: Log variants that cover the differences of the current branch to where the tip of the branch was second-last.
+	b2pchurn = rev-range --revision @{2} --end-revision HEAD churn
 	b2pd = rev-range --revision @{2} --end-revision HEAD diff
 	b2pdl = rev-range --revision @{2} --end-revision HEAD dl
 	b2mal = rev-range --revision @{2} --end-revision HEAD format-patch
@@ -880,6 +890,7 @@
 	b2pbase = rev-range --revision @{2} --no-range name-rev --name-only
 
 	;; out...: Log variants that cover the differences that already exist on the current branch, but not yet in the corresponding remote branch.
+	outchurn = rev-range-outgoing '' churn
 	outd = rev-range-outgoing '' diff
 	outdl = rev-range-outgoing '' dl
 	oumal = rev-range-outgoing '' format-patch
@@ -930,6 +941,7 @@
 	; outbase would be the same as tracks.
 
 	;; in...: Log variants that cover the differences that already exist in remote on the current branch, but not yet in the local branch.
+	inchurn = rev-range-incoming '' churn
 	ind = rev-range-incoming '' diff
 	indl = rev-range-incoming '' dl
 	inma = rev-range-incoming '' format-patch
@@ -980,6 +992,7 @@
 	; inbase would be the same as tracks.
 
 	;; oout...: Log variants that cover the differences that already exist on the current branch, but not yet in the corresponding origin branch.
+	ooutchurn = rev-range-outgoing origin churn
 	ooutd = rev-range-outgoing origin diff
 	ooutdl = rev-range-outgoing origin dl
 	oomatl = rev-range-outgoing origin format-patch
@@ -1030,6 +1043,7 @@
 	; ooutbase would always print "origin/<branch>".
 
 	;; oin...: Log variants that cover the differences that already exist in origin on the current branch, but not yet in the local branch.
+	oinchurn = rev-range-incoming origin churn
 	oind = rev-range-incoming origin diff
 	oindl = rev-range-incoming origin dl
 	oimal = rev-range-incoming origin format-patch
@@ -1080,6 +1094,7 @@
 	; oinbase would always print "origin/<branch>".
 
 	;; uout...: Log variants that cover the differences that already exist on the current branch, but not yet in the corresponding upstream branch.
+	uoutchurn = rev-range-outgoing upstream churn
 	uoutd = rev-range-outgoing upstream diff
 	uoutdl = rev-range-outgoing upstream dl
 	uomatl = rev-range-outgoing upstream format-patch
@@ -1130,6 +1145,7 @@
 	; uoutbase would always print "upstream/<branch>".
 
 	;; uin...: Log variants that cover the differences that already exist in upstream on the current branch, but not yet in the local branch.
+	uinchurn = rev-range-incoming upstream churn
 	uind = rev-range-incoming upstream diff
 	uindl = rev-range-incoming upstream dl
 	uimal = rev-range-incoming upstream format-patch

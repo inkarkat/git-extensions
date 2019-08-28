@@ -46,7 +46,8 @@ if [ ${#userFilterArgs[@]} -eq 0 ]; then
 fi
 
 startRevision=
-difference="$(cmp -- <(git log --pretty=tformat:%H "$revision") <(git log --pretty=tformat:%H "${userFilterArgs[@]}" "$revision"))"
+difference="$(cmp -- <(git log --pretty=tformat:%H "$revision"; echo x) <(git log --pretty=tformat:%H "${userFilterArgs[@]}" "$revision"; echo y))"
+[ $? -eq 2 ] && exit 3	# Abort on cmp trouble.
 if [ "$difference" ]; then
     firstDifferentLnum="${difference##* }"  # cmp output is like "x y differ: byte 985, line 25"; take the last number
     if [ $firstDifferentLnum -eq 1 ]; then

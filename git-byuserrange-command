@@ -9,7 +9,10 @@ passed REVISION and including all commits done by the passed --author(s) /
 revision).
 HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '-r|--revision REVISION --author=<pattern>|--committer=<pattern> [...] [GIT-COMMAND ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND -r|--revision REVISION --author=<pattern>|--committer=<pattern> [...] [-?|-h|--help]'
 }
+typeset -a gitCommand=()
+isFirstArg=t
 revision='HEAD'
 typeset userFilterArgs=()
 while [ $# -ne 0 ]
@@ -19,7 +22,17 @@ do
 	--revision|-r)	shift; revision="$1"; shift;;
 	--author|--committer)	    userFilterArgs+=("$1" "$2"); shift; shift;;
 	--author=*|--committer=*)   userFilterArgs+=("$1"); shift;;
-	*)		break;;
+	*)  if [ "$isFirstArg" ]; then
+		case "$1" in
+		    -c) gitCommand+=("$1" "$2"); shift; shift;;
+		    *)  gitCommand+=($1)	# Note: The Git command itself can consist of command + arguments, so it must not be quoted here!
+			shift; isFirstArg=;;
+		esac
+	    else
+		isFirstArg=
+		break
+	    fi
+	    ;;
     esac
 done
 
@@ -45,12 +58,11 @@ fi
 revisionRange="${startRevision}${startRevision:+..}${revision}"
 
 
-if [ $# -eq 0 ]; then
+if [ ${#gitCommand[@]} -eq 0 -a $# -eq 0 ]; then
     printf '%s\n' "$revisionRange"
     exit 0
 fi
 
-typeset -a gitCommand=()
 case "$1" in
     [^-]*-command)  gitCommand+=("$1"); shift
 		    while [ $# -ne 0 ]

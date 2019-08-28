@@ -16,6 +16,7 @@ optionName='--author='
 isJoinedAsPattern=
 joinPrefix='\b'
 joinSuffix='\b'
+typeset -a whoisArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -24,6 +25,7 @@ do
 	--joined-as-pattern)	shift; isJoinedAsPattern=t;;
 	--prefix)		shift; joinPrefix="$1"; shift;;
 	--suffix)		shift; joinSuffix="$1"; shift;;
+	--name|--email|-[ne])	whoisArgs+=("$1"); shift;;
 	*)			break;;
     esac
 done
@@ -60,7 +62,7 @@ if [ ${#authorArgs[@]} -eq 0 ]; then
 fi
 
 IFS=$'\n'
-typeset -a authors=($(git-whois --select-many --name "${authorArgs[@]}"))
+typeset -a authors=($(git-whois --select-many "${whoisArgs[@]}" "${authorArgs[@]}"))
 
 if [ ${#authors[@]} -eq 0 ]; then
     IFS=' '

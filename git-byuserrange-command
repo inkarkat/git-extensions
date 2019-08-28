@@ -14,6 +14,7 @@ HELPTEXT
 typeset -a gitCommand=()
 isFirstArg=t
 revision='HEAD'
+range=..
 typeset userFilterArgs=()
 while [ $# -ne 0 ]
 do
@@ -22,6 +23,7 @@ do
 	--revision|-r)	shift; revision="$1"; shift;;
 	--author|--committer)	    userFilterArgs+=("$1" "$2"); shift; shift;;
 	--author=*|--committer=*)   userFilterArgs+=("$1"); shift;;
+	--with-range)	shift; range="$1"; shift;;
 	*)  if [ "$isFirstArg" ]; then
 		case "$1" in
 		    -c) gitCommand+=("$1" "$2"); shift; shift;;
@@ -55,7 +57,7 @@ if [ "$difference" ]; then
 	startRevision="${revision}~$((firstDifferentLnum - 1))"
     fi
 fi
-revisionRange="${startRevision}${startRevision:+..}${revision}"
+revisionRange="${startRevision}${startRevision:+$range}${revision}"
 
 
 if [ ${#gitCommand[@]} -eq 0 -a $# -eq 0 ]; then

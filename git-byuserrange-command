@@ -1,0 +1,73 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Print / execute GIT-COMMAND with a revision range starting from HEAD / the
+passed REVISION and including all commits done by the passed --author(s) /
+--committer(s) (or the author (+ committer if different) from the start
+revision).
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '-r|--revision REVISION --author=<pattern>|--committer=<pattern> [...] [GIT-COMMAND ...] [-?|-h|--help]'
+}
+revision='HEAD'
+typeset userFilterArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--revision|-r)	shift; revision="$1"; shift;;
+	--author|--committer)	    userFilterArgs+=("$1" "$2"); shift; shift;;
+	--author=*|--committer=*)   userFilterArgs+=("$1"); shift;;
+	*)		break;;
+    esac
+done
+
+if [ ${#userFilterArgs[@]} -eq 0 ]; then
+    author="$(git show --no-patch --pretty=format:'%aN <%aE>' "$revision")" || exit $?
+    committer="$(git show --no-patch --pretty=format:'%cN <%cE>' "$revision")" || exit $?
+    userFilterArgs+=(--author "$author")
+    [ "$author" = "$committer" ] || userFilterArgs+=(--committer "$committer")
+fi
+
+startRevision=
+difference="$(cmp -- <(git log --pretty=tformat:%H "$revision") <(git log --pretty=tformat:%H "${userFilterArgs[@]}" "$revision"))"
+if [ "$difference" ]; then
+    firstDifferentLnum="${difference##* }"  # cmp output is like "x y differ: byte 985, line 25"; take the last number
+    if [ $firstDifferentLnum -eq 1 ]; then
+	[ "$author" ] || author="$(git show --no-patch --pretty=format:'%aN <%aE>' "$revision" 2>/dev/null)"
+	printf >&2 'The %s revision already is from another user (%s).\n' "$revision" "$author"
+	exit 1
+    else
+	startRevision="${revision}~$((firstDifferentLnum - 1))"
+    fi
+fi
+revisionRange="${startRevision}${startRevision:+..}${revision}"
+
+
+if [ $# -eq 0 ]; then
+    printf '%s\n' "$revisionRange"
+    exit 0
+fi
+
+typeset -a gitCommand=()
+case "$1" in
+    [^-]*-command)  gitCommand+=("$1"); shift
+		    while [ $# -ne 0 ]
+		    do
+			case "$1" in
+			    -*)		gitCommand+=("$1"); shift;;
+			    *)		gitCommand+=("$1"); shift; break;;
+			esac
+		    done
+		    ;;
+    *)		    while [ $# -ne 0 ]
+		    do
+			case "$1" in
+			    -c) gitCommand+=("$1" "$2"); shift; shift;;
+			    *)	gitCommand+=("$1"); shift; break;;
+			esac
+		    done
+esac
+
+exec git-wrapper "${gitCommand[@]}" "$revisionRange" "$@"

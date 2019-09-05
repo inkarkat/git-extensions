@@ -434,6 +434,7 @@
 	tdrbi = today-command --no-range rebase -i
 	tdbase = today-command --no-range name-rev --name-only
 	tdwhodid = files-command whodid tdshowfiles
+	tdwhotouched = today-command whodid
 
 	;; by...: Log variants that only cover changes committed by the author of the HEAD / passed -r|--revision REVISION.
 	bychurn = byuserrange-command churn
@@ -485,6 +486,7 @@
 	byrbi = byuserrange-command --no-range rebase -i
 	bybase = byuserrange-command --no-range name-rev --name-only
 	bywhodid = files-command whodid byshowfiles
+	bywhotouched = byuserrange-command whodid
 
 	;; rev-range: Run a Git command with a revision range from the passed revision up to HEAD.
 	;; rev-range-this-branch: Run a Git command with a revision range that covers the current branch (up to another reference).
@@ -542,6 +544,7 @@
 	brrbi = rev-range-this-branch --no-range --one-more-command ^ rebase -i
 	brbase = rev-range-this-branch --no-range name-rev --name-only
 	brwhodid = files-command whodid brshowfiles
+	brwhotouched = rev-range-this-branch whodid
 
 	;; b2r...: Log variants that only cover the current and preceding branch (as tagged in the history)
 	b2rchurn = rev-range-this-branch --branch-number 2 churn
@@ -594,6 +597,7 @@
 	b2rrbi = rev-range-this-branch --branch-number 2 --no-range --one-more-command ^ rebase -i
 	b2rbase = rev-range-this-branch --branch-number 2 --no-range name-rev --name-only
 	b2rwhodid = files-command whodid b2rshowfiles
+	b2rwhotouched = rev-range-this-branch --branch-number 2 whodid
 
 	;; b3r...: Log variants that only cover the current and two preceding branches (as tagged in the history)
 	b3rchurn = rev-range-this-branch --branch-number 3 churn
@@ -646,6 +650,7 @@
 	b3rrbi = rev-range-this-branch --branch-number 3 --no-range --one-more-command ^ rebase -i
 	b3rbase = rev-range-this-branch --branch-number 3 --no-range name-rev --name-only
 	b3rwhodid = files-command whodid b3rshowfiles
+	b3rwhotouched = rev-range-this-branch --branch-number 3 whodid
 
 	;; bm...: Log variants that cover the differences of the current branch to master.
 	bmchurn = rev-range --revision master --end-revision HEAD churn
@@ -698,6 +703,7 @@
 	bmrbi = rev-range --revision master --no-range --one-more-command ^ rebase -i
 	; bmbase would always print "master".
 	bmwhodid = files-command whodid bmshowfiles
+	bmwhotouched = rev-range --revision master --end-revision HEAD whodid
 
 	;; bn...: Log variants that cover the differences of the current branch to the base branch.
 	bnchurn = base-command --keep-position rev-range --revision BASE --end-revision HEAD churn
@@ -750,6 +756,7 @@
 	bnrbi = base-command --keep-position rev-range --revision BASE --no-range --one-more-command ^ rebase -i
 	bnbase = base-command --keep-position rev-range --revision BASE --no-range name-rev --name-only
 	bnwhodid = files-command whodid bnshowfiles
+	bnwhotouched = base-command --keep-position rev-range --revision BASE --end-revision HEAD whodid
 
 	;; bl...: Log variants that cover the differences of the current branch to the previously checked out branch (typically the one it was branched off).
 	blchurn = rev-range --revision @{-1} --end-revision HEAD churn
@@ -802,6 +809,7 @@
 	blrbi = rev-range --revision @{-1} --no-range --one-more-command ^ rebase -i
 	blbase = rev-range --revision @{-1} --no-range name-rev --name-only
 	blwhodid = files-command whodid blshowfiles
+	blwhotouched = rev-range --revision @{-1} --end-revision HEAD whodid
 
 	;; b2l...: Log variants that cover the differences of the current branch to the second-last checked out branch.
 	b2churn = rev-range --revision @{-2} --end-revision HEAD churn
@@ -854,6 +862,7 @@
 	b2lrbi = rev-range --revision @{-2} --no-range --one-more-command ^ rebase -i
 	b2lbase = rev-range --revision @{-2} --no-range name-rev --name-only
 	b2lwhodid = files-command whodid b2lshowfiles
+	b2lwhotouched = rev-range --revision @{-2} --end-revision HEAD whodid
 
 	;; bp...: Log variants that cover the differences of the current branch to where the tip of the branch was previously. Useful to see the changes that were just pulled.
 	bpchurn = rev-range --revision @{1} --end-revision HEAD churn
@@ -906,6 +915,7 @@
 	bprbi = rev-range --revision @{1} --no-range --one-more-command ^ rebase -i
 	bpbase = rev-range --revision @{1} --no-range name-rev --name-only
 	bpwhodid = files-command whodid bpshowfiles
+	bpwhotouched = rev-range --revision @{1} --end-revision HEAD whodid
 
 	;; b2p...: Log variants that cover the differences of the current branch to where the tip of the branch was second-last.
 	b2pchurn = rev-range --revision @{2} --end-revision HEAD churn
@@ -958,6 +968,7 @@
 	b2prbi = rev-range --revision @{2} --no-range --one-more-command ^ rebase -i
 	b2pbase = rev-range --revision @{2} --no-range name-rev --name-only
 	b2pwhodid = files-command whodid b2pshowfiles
+	b2pwhotouched = rev-range --revision @{2} --end-revision HEAD whodid
 
 	;; out...: Log variants that cover the differences that already exist on the current branch, but not yet in the corresponding remote branch.
 	outchurn = rev-range-outgoing '' churn
@@ -1010,6 +1021,7 @@
 	; outrbi would be the same as trbi.
 	; outbase would be the same as tracks.
 	outwhodid = files-command whodid outshowfiles
+	outwhotouched = rev-range-outgoing '' whodid
 
 	;; in...: Log variants that cover the differences that already exist in remote on the current branch, but not yet in the local branch.
 	inchurn = rev-range-incoming '' churn
@@ -1062,6 +1074,7 @@
 	; inrbi doesn't make sense; you cannot rebase stuff in a remote branch.
 	; inbase would be the same as tracks.
 	inwhodid = files-command whodid inshowfiles
+	inwhotouched = rev-range-incoming '' whodid
 
 	;; oout...: Log variants that cover the differences that already exist on the current branch, but not yet in the corresponding origin branch.
 	ooutchurn = rev-range-outgoing origin churn
@@ -1114,6 +1127,7 @@
 	; ooutrbi would be the same as orbi.
 	; ooutbase would always print "origin/<branch>".
 	ooutwhodid = files-command whodid ooutshowfiles
+	ooutwhotouched = rev-range-outgoing origin whodid
 
 	;; oin...: Log variants that cover the differences that already exist in origin on the current branch, but not yet in the local branch.
 	oinchurn = rev-range-incoming origin churn
@@ -1166,6 +1180,7 @@
 	; oinrbi doesn't make sense; you cannot rebase stuff in a remote branch.
 	; oinbase would always print "origin/<branch>".
 	oinwhodid = files-command whodid oinshowfiles
+	oinwhotouched = rev-range-incoming origin whodid
 
 	;; uout...: Log variants that cover the differences that already exist on the current branch, but not yet in the corresponding upstream branch.
 	uoutchurn = rev-range-outgoing upstream churn
@@ -1218,6 +1233,7 @@
 	; uoutrbi would be the same as urbi.
 	; uoutbase would always print "upstream/<branch>".
 	uoutwhodid = files-command whodid uoutshowfiles
+	uoutwhotouched = rev-range-outgoing upstream whodid
 
 	;; uin...: Log variants that cover the differences that already exist in upstream on the current branch, but not yet in the local branch.
 	uinchurn = rev-range-incoming upstream churn
@@ -1270,6 +1286,7 @@
 	; uinrbi doesn't make sense; you cannot rebase stuff in a remote branch.
 	; uinbase would always print "upstream/<branch>".
 	uinwhodid = files-command whodid uinshowfiles
+	uinwhotouched = rev-range-incoming upstream whodid
 
 
 	last = cat-file commit HEAD	; Show last commit info: Hashes and author. Use "git show" for more details.

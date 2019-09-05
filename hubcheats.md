@@ -46,8 +46,10 @@ $ hub fetch mislav,cehoffman
 → git fetch --multiple mislav cehoffman
 
 ### check out a pull request for review
+$ hub pr checkout 134
+  or
 $ hub checkout https://github.com/github/hub/pull/134
-(creates a new branch with the contents of the pull request)
+(creates a new local branch _username-branchname_) with the contents of the pull request)
 → git fetch origin pull/134/head:BRANCHNAME
 → git checkout BRANCHNAME
 

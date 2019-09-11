@@ -2,6 +2,13 @@
 set -o pipefail
 readonly ANSI_ESCAPE_PATTERN='\(\[[0-9;]*[mK]\)'
 
+sedLiteral()
+{
+    printf %s "${1:?}" | sed -e 's/[][\$*.^/]/\\&/g'
+}
+
+typeset -a filter=()
+formatAddition=
 typeset -a args=()
 typeset -a colorArg=()
 hasFormat=
@@ -9,6 +16,9 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)		shift; printUsage "$0"; exit 0;;
+	--reviewer)		shift; filter=(sed -e "/ -> \\(${ANSI_ESCAPE_PATTERN}\\?[^->]*, \\|${ANSI_ESCAPE_PATTERN}\\)$(sedLiteral "$1")\\(, [^->]*${ANSI_ESCAPE_PATTERN}\\?\$\\|${ANSI_ESCAPE_PATTERN}\\?\$\\)/!d"); shift;;
+	--creator)		shift; formatAddition="|%au"; filter=(sed -e "s/|\\(.*, \\)\\?$(sedLiteral "$1")\\(, .*\\)\\?$//" -e t -e d); shift;;
+	--assignee)		shift; formatAddition="|%as"; filter=(sed -e "s/|\\(.*, \\)\\?$(sedLiteral "$1")\\(, .*\\)\\?$//" -e t -e d); shift;;
 	--no-color|--color=*)	colorArg=("$1"); shift;;
 	--color)		colorArg=("$1" "$2"); shift; shift;;
 	--format|-f)		args+=("$1" "${2%'%n'} -> %rs%n"); hasFormat=t; shift; shift;;
@@ -18,7 +28,8 @@ do
 done
 
 typeset -a formatArgs=(); [ "$hasFormat" ] || formatArgs=(--format '%pC%>(8)%i%Creset  %t%  l -> %Ccyan%rs%Creset%n')
+[ -n "$formatAddition" ] && formatArgs[1]="${formatArgs[1]%'%n'}${formatAddition}%n"
 isNeedColorArgumentWhenPiping "${colorArg[@]}" && colorArg=(--color=always) || colorArg=()
 
-command hub pr list "${colorArg[@]}" "${formatArgs[@]}" "${args[@]}" "$@" | \
+eval 'command hub pr list "${colorArg[@]}" "${formatArgs[@]}" "${args[@]}" "$@"' "${filter:+|}" '"${filter[@]}"' | \
     grep -e " -> ${ANSI_ESCAPE_PATTERN}\\?[^->]\\+${ANSI_ESCAPE_PATTERN}\\?\$"

@@ -19,7 +19,7 @@ typeset -a filter=()
 formatAddition=
 typeset -a args=()
 typeset -a colorArg=()
-hasFormat=
+typeset -a formatArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -32,13 +32,13 @@ do
 	--assignee=*)		formatAddition="|%as"; setPlainFilter "${1#--assignee=}"; shift;;
 	--no-color|--color=*)	colorArg=("$1"); shift;;
 	--color)		colorArg=("$1" "$2"); shift; shift;;
-	--format|-f)		args+=("$1" "${2%'%n'} -> %rs%n"); hasFormat=t; shift; shift;;
+	--format|-f)		formatArgs+=("$1" "${2%'%n'} -> %rs%n"); shift; shift;;
 	--)			args+=("$1"); shift; break;;
 	*)			args+=("$1"); shift;;
     esac
 done
 
-typeset -a formatArgs=(); [ "$hasFormat" ] || formatArgs=(--format '%pC%>(8)%i%Creset  %t%  l -> %Ccyan%rs%Creset%n')
+[ ${#formatArgs[@]} -eq 0 ] && formatArgs=(--format '%pC%>(8)%i%Creset  %t%  l -> %Ccyan%rs%Creset%n')
 [ -n "$formatAddition" ] && formatArgs[1]="${formatArgs[1]%'%n'}${formatAddition}%n"
 isNeedColorArgumentWhenPiping "${colorArg[@]}" && colorArg=(--color=always) || colorArg=()
 

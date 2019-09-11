@@ -6,6 +6,14 @@ sedLiteral()
 {
     printf %s "${1:?}" | sed -e 's/[][\$*.^/]/\\&/g'
 }
+setAnsiFilter()
+{
+    filter=(sed -e "/ -> \\(${ANSI_ESCAPE_PATTERN}\\?[^->]*, \\|${ANSI_ESCAPE_PATTERN}\\)$(sedLiteral "${1:?}")\\(, [^->]*${ANSI_ESCAPE_PATTERN}\\?\$\\|${ANSI_ESCAPE_PATTERN}\\?\$\\)/!d")
+}
+setPlainFilter()
+{
+    filter=(sed -e "s/|\\(.*, \\)\\?$(sedLiteral "${1:?}")\\(, .*\\)\\?$//" -e t -e d)
+}
 
 typeset -a filter=()
 formatAddition=
@@ -16,9 +24,9 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)		shift; printUsage "$0"; exit 0;;
-	--reviewer)		shift; filter=(sed -e "/ -> \\(${ANSI_ESCAPE_PATTERN}\\?[^->]*, \\|${ANSI_ESCAPE_PATTERN}\\)$(sedLiteral "$1")\\(, [^->]*${ANSI_ESCAPE_PATTERN}\\?\$\\|${ANSI_ESCAPE_PATTERN}\\?\$\\)/!d"); shift;;
-	--creator)		shift; formatAddition="|%au"; filter=(sed -e "s/|\\(.*, \\)\\?$(sedLiteral "$1")\\(, .*\\)\\?$//" -e t -e d); shift;;
-	--assignee)		shift; formatAddition="|%as"; filter=(sed -e "s/|\\(.*, \\)\\?$(sedLiteral "$1")\\(, .*\\)\\?$//" -e t -e d); shift;;
+	--reviewer)		shift; setAnsiFilter "$1"; shift;;
+	--creator)		shift; formatAddition="|%au"; setPlainFilter "$1"; shift;;
+	--assignee)		shift; formatAddition="|%as"; setPlainFilter "$1"; shift;;
 	--no-color|--color=*)	colorArg=("$1"); shift;;
 	--color)		colorArg=("$1" "$2"); shift; shift;;
 	--format|-f)		args+=("$1" "${2%'%n'} -> %rs%n"); hasFormat=t; shift; shift;;

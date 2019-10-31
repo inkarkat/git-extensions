@@ -19,7 +19,7 @@ vimdev: `runVimTests tests/[all.suite]`
 `git flow release start 1.00`
 Inspect changed files list with `git showfiles stable..`
 Check changelog with `git lg stable..`
-vimdev: Update changelog (at least with release date) in `doc/*.txt`
+vimdev: Update changelog (at least with release date) in `doc/*.txt` and do `:UpdateHelpAsReadme`
 `git cu -m 'Release 1.00'`
 vimdev: First GitHub release (of a small plugin):
 vimdev: Execute `:DeleteChangelog`

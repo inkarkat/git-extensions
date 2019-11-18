@@ -1,0 +1,40 @@
+#!/bin/bash
+set -o pipefail
+
+printUsage()
+{
+    cat <<HELPTEXT
+Summarizes commit title "tags" (like "Refactoring:") according to frequency in
+the passed commit range.
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+}
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	*)		break;;
+    esac
+done
+git log --pretty=tformat:%s "$@" | awk '
+{
+    for (i=1; i<=NF && $i ~ /^[^:]+:$/; i++) {
+	tag[$i]+=1
+    }
+}
+function tagCompare(i1, v1, i2, v2)
+{
+    return (v1 == v2 ? (i1 == i2 ? 0 : i1 < i2 ? -1 : 1) : v1 < v2 ? 1 : -1)
+}
+END {
+    for (t in tag) {
+	len = length(t)
+	tagLength = (len > tagLength ? len : tagLength)
+    }
+
+    PROCINFO["sorted_in"] = "tagCompare"
+    for (t in tag) {
+	printf "%-" tagLength "s %s\n", t, tag[t]
+    }
+}
+'

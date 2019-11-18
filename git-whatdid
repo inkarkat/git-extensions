@@ -7,18 +7,20 @@ printUsage()
 Summarizes commit title "tags" (like "Refactoring:") according to frequency in
 the passed commit range.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-m|--match PATTERN] [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
 }
+pattern='^[^:]+:$'
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--match|-m)	shift; pattern="$1"; shift;;
 	*)		break;;
     esac
 done
-git log --pretty=tformat:%s "$@" | awk '
+git log --pretty=tformat:%s "$@" | awk -v pattern="$pattern" '
 {
-    for (i = 1; i <= NF && $i ~ /^[^:]+:$/; i++) {
+    for (i = 1; i <= NF && $i ~ pattern; i++) {
 	tag[$i] += 1
 	tagCount += 1
     }

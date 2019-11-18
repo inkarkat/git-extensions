@@ -33,6 +33,7 @@ HELPDESCRIPTION
 HELPTEXT
 }
 pattern='^[^:]+:$'
+typeset -a gitLogArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -40,9 +41,12 @@ do
 	--match|-m)	shift; pattern="$1"; shift;;
 	--tags|-t)	shift; pattern='^[[:upper:]][[:alnum:]]+:$';;
 	--scope|-s)	shift; pattern='^[^:[:upper:]][^:]+:$';;
-	*)		break;;
+	--)		gitLogArgs+=("$1"); shift; break;;
+	*)		gitLogArgs+=("$1"); shift;;
     esac
 done
+set -- "${gitLogArgs[@]}" "$@"
+
 git log --pretty=tformat:%s "$@" | awk -v pattern="$pattern" '
 {
     for (i = 1; i <= NF && $i ~ pattern; i++) {

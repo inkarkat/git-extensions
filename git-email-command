@@ -35,12 +35,18 @@ HELPTEXT
 case "$1" in
     --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 esac
+typeset -a gitLookupCommand=(log)
 gitLogCommand="$1"; shift
 if [ -z "$gitLogCommand" ]; then
     echo >&2 'ERROR: No GIT-COMMAND passed.'
     echo >&2
     printShortUsage "$0" >&2
     exit 2
+elif [ "$gitLogCommand" = show ]; then
+    # git log would follow all passed revisions; --max-count 1 would only handle
+    # a single passed revision. Therefore, use git show for the lookup as well,
+    # but omit the diff.
+    gitLookupCommand=(show --no-patch)
 fi
 
 isDryRun=
@@ -64,12 +70,12 @@ do
 done
 
 IFS=$'\n'
-typeset -a recipients=($(git log "--pretty=tformat:$emailFormats" "${gitLogArgs[@]}" | sort -u | grep -v '^noreply@'))
+typeset -a recipients=($(git "${gitLookupCommand[@]}" "--pretty=tformat:$emailFormats" "${gitLogArgs[@]}" | sort -u | grep -v '^noreply@'))
 if [ ${#recipients[@]} -eq 0 ]; then
     echo >&2 "No recipients found."
     exit 1
 fi
-typeset -a people=($(git log "--pretty=tformat:$peopleFormats" "${gitLogArgs[@]}" | sort -u))
+typeset -a people=($(git "${gitLookupCommand[@]}" "--pretty=tformat:$peopleFormats" "${gitLogArgs[@]}" | sort -u))
 
 
 isColorOnArgument "${colorArg[@]}" && typeset colorArg=(--color=always) || typeset colorArg=(--no-color)

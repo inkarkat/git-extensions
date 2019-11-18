@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-m|--match PATTERN|-t|--tags] [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-m|--match PATTERN|-t|--tags|-s|--scope] [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -19,10 +19,12 @@ printLongUsage()
     # This is the long "man page" when launched with the help argument.
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
-Summarizes commit title "tags" (like "Refactoring:") that appear at the
+Summarizes commit title prefixes (like "Refactoring:") that appear at the
 beginning, according to frequency in the passed commit range.
     --match|-m PATTERN	Match (extended AWK regexp) PATTERN.
     --tags|-t		Only match official tags ("Foo:" or "FOO:").
+    --scope|-s		Only match scope prefixes (that characterize a file or
+			module).
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
@@ -37,6 +39,7 @@ do
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--match|-m)	shift; pattern="$1"; shift;;
 	--tags|-t)	shift; pattern='^[[:upper:]][[:alnum:]]+:$';;
+	--scope|-s)	shift; pattern='^[^:[:upper:]][^:]+:$';;
 	*)		break;;
     esac
 done

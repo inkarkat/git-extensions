@@ -1,0 +1,89 @@
+#!/bin/bash
+set -o pipefail
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--author=<pattern>] [--committer=<pattern>] [<log-options>] [[--] <path>...] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 'Try %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Prints a summary of contributions in the repository.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    cat <<HELPTEXT
+    --author=<pattern>	    Separately tally the contributions of the matching
+			    author(s) (any of the patterns are included if
+			    passed several times).
+    --committer=<pattern>   Separately tally the contributions of the matching
+			    committer(s).
+HELPTEXT
+}
+
+typeset -a userArgs=()
+typeset -a gitLogArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--author=*|--committer=*)	userArgs+=("$1"); shift;;
+	--)		gitLogArgs+=("$@"); shift; break;;
+	*)		gitLogArgs+=("$1"); shift;;
+    esac
+done
+
+readonly FULL_DATE_EXPR="+%F 03:00"
+todayTimestamp="$(date "$FULL_DATE_EXPR")" || todayTimestamp='yesterday'
+thisWeekTimestamp="$(date -d "last Monday" "$FULL_DATE_EXPR")"
+thisMonthTimestamp="$(date -d "$(date "+%Y-%m-01")" "$FULL_DATE_EXPR")"
+thisYearTimestamp="$(date -d "$(date "+%Y-01-01")" "$FULL_DATE_EXPR")"
+
+tally()
+{
+    local timeRange="$1"; shift
+    local timestamp="$1"; shift
+
+    totalCommitNum="$(git log --pretty=tformat:%h ${timestamp:+--since="$timestamp"} "${gitLogArgs[@]}" | wc -l)" || exit $?
+    totalCommits="$totalCommitNum"
+    totalCommitsPlural=s
+    case "$totalCommits" in
+	0)	totalCommits='no';;
+	1)	totalCommitsPlural=;;
+    esac
+    if [ ${#userArgs[@]} -eq 0 -o $totalCommitNum -eq 0 ]; then
+	printf '%s: %s commit%s' "$timeRange" "$totalCommits" "$totalCommitsPlural"
+	return
+    fi
+
+    userCommitNum="$(git log --pretty=tformat:%h ${timestamp:+--since="$timestamp"} "${userArgs[@]}" "${gitLogArgs[@]}" | wc -l)" || exit $?
+    userCommitProportion="$((100 * userCommitNum / totalCommitNum))"
+    if [ $userCommitProportion -eq 0 ]; then
+	printf '%s: %s/%s commit%s' "$timeRange" "$userCommitNum" "$totalCommits" "$totalCommitsPlural"
+    else
+	printf '%s: %s/%s commit%s (%d%%)' "$timeRange" "$userCommitNum" "$totalCommits" "$totalCommitsPlural" "$userCommitProportion"
+    fi
+}
+
+# Do the first tally separately in order to be able to exit early in case of bad
+# passed git log arguments.
+todayTally="$(tally "today" "$todayTimestamp")" || exit $?
+typeset -a tallies=(
+"$todayTally"
+"$(tally "this week" "$thisWeekTimestamp")"
+"$(tally "this month" "$thisMonthTimestamp")"
+"$(tally "this year" "$thisYearTimestamp")"
+"$(tally "overall" "")"
+)
+joinBy '; ' "${tallies[@]}"

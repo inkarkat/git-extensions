@@ -33,6 +33,12 @@ HELPDESCRIPTION
     --custom-since=<date1>  year, use the custom NAME range together with the
     --custom-until=<date2>  passed --custom-since ... / --custom-until Git
 			    arguments.
+EXIT STATUS
+    0   Complete success.
+    1   Failed to invoke Git.
+    2   Bad invocation, wrong or missing command-line arguments.
+    4   The passed author(s) / committer(s) have never done any contributions
+	here at all.
 HELPTEXT
 }
 
@@ -78,6 +84,10 @@ tally()
     fi
 
     userCommitNum="$(git log --pretty=tformat:%h ${timestamp:+--since="$timestamp"} "${userArgs[@]}" "$@" "${gitLogArgs[@]}" | wc -l)" || exit $?
+    if [ "$timeRange" = 'overall' -a $userCommitNum -eq 0 ]; then
+	exit 4
+    fi
+
     userCommitProportion="$((100 * userCommitNum / totalCommitNum))"
     if [ $userCommitProportion -eq 0 ]; then
 	printf '%s: %s/%s commit%s' "$timeRange" "$userCommitNum" "$totalCommits" "$totalCommitsPlural"

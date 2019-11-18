@@ -39,6 +39,8 @@ EXIT STATUS
     2   Bad invocation, wrong or missing command-line arguments.
     4   The passed author(s) / committer(s) have never done any contributions
 	here at all.
+    5   The passed author(s) / committer(s) have not done any contributions
+	within the custom range.
 HELPTEXT
 }
 
@@ -84,8 +86,12 @@ tally()
     fi
 
     userCommitNum="$(git log --pretty=tformat:%h ${timestamp:+--since="$timestamp"} "${userArgs[@]}" "$@" "${gitLogArgs[@]}" | wc -l)" || exit $?
-    if [ "$timeRange" = 'overall' -a $userCommitNum -eq 0 ]; then
-	exit 4
+    if [ $userCommitNum -eq 0 ]; then
+	if [ "$timeRange" = 'overall' ]; then
+	    exit 4
+	elif [ -n "$customRange" -a "$timeRange" = "$customRange" ]; then
+	    exit 5
+	fi
     fi
 
     userCommitProportion="$((100 * userCommitNum / totalCommitNum))"
@@ -100,8 +106,9 @@ tally()
 # passed git log arguments.
 overallTally="$(tally "overall" "")" || exit $?
 if [ "$customRange" ]; then
+    customTally="$(tally "$customRange" '' "${gitCustomRangeArgs[@]}")" || exit $?
     typeset -a tallies=(
-	"$(tally "$customRange" '' "${gitCustomRangeArgs[@]}")"
+	"$customTally"
 	"$overallTally"
     )
 else

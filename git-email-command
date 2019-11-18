@@ -1,16 +1,48 @@
 #!/bin/bash
 
-printUsage()
+printShortUsage()
 {
-    cat <<HELPTEXT
-Execute GIT-COMMAND (log or a variant) and start composing an email with that
-output to the originators (or limited to --authors|--committers) of the covered
-commits.
-HELPTEXT
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
     printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND [-n|--dry-run] [--authors|--committers] [<log-options>] [<revision range>] [<path>...] [-- EMAIL-OPTIONS ...] [-?|-h|--help]'
 }
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 'Try %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Execute GIT-COMMAND (log or a variant) and start composing an email with that
+output to the originators of the covered commits.
+    --dry-run|-n    Don't launch the email program, just print the command-line
+		    that would do it.
+    --authors	    Only send to authors.
+    --committers    Only send to committers.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    cat <<HELPTEXT
 
+HELPTEXT
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+esac
 gitLogCommand="$1"; shift
+if [ -z "$gitLogCommand" ]; then
+    echo >&2 'ERROR: No GIT-COMMAND passed.'
+    echo >&2
+    printShortUsage "$0" >&2
+    exit 2
+fi
+
 isDryRun=
 emailFormats='%aE%n%cE'
 typeset -a gitLogArgs=()
@@ -18,7 +50,7 @@ typeset -a emailArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--dry-run|-n)	shift; isDryRun=t;;
 	--authors)	shift; emailFormats='%aE';;
 	--committers)	shift; emailFormats='%cE';;

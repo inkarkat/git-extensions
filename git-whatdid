@@ -41,13 +41,12 @@ do
 	--match|-m)	shift; pattern="$1"; shift;;
 	--tags|-t)	shift; pattern='^[[:upper:]][[:alnum:]]+:$';;
 	--scope|-s)	shift; pattern='^[^:[:upper:]][^:]+:$';;
-	--)		gitLogArgs+=("$1"); shift; break;;
+	--)		gitLogArgs+=("$@"); shift; break;;
 	*)		gitLogArgs+=("$1"); shift;;
     esac
 done
-set -- "${gitLogArgs[@]}" "$@"
 
-git log --pretty=tformat:%s "$@" | awk -v pattern="$pattern" '
+git log --pretty=tformat:%s "${gitLogArgs[@]}" | awk -v pattern="$pattern" '
 {
     for (i = 1; i <= NF && $i ~ pattern; i++) {
 	tag[$i] += 1

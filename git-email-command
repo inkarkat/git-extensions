@@ -47,6 +47,7 @@ isDryRun=
 emailFormats='%aE%n%cE'
 peopleFormats='%aN%n%cN'
 typeset -a gitLogArgs=()
+typeset -a colorArg=()
 typeset -a emailArgs=()
 while [ $# -ne 0 ]
 do
@@ -55,6 +56,8 @@ do
 	--dry-run|-n)	shift; isDryRun=t;;
 	--authors)	shift; emailFormats='%aE'; peopleFormats='%aN';;
 	--committers)	shift; emailFormats='%cE'; peopleFormats='%cN';;
+	--no-color|--color=*)	colorArg=("$1"); shift;;
+	--color)		colorArg=("$1" "$2"); shift; shift;;
 	--)		shift; emailArgs=("$@"); break;;
 	*)		gitLogArgs+=("$1"); shift;;
     esac
@@ -68,7 +71,9 @@ if [ ${#recipients[@]} -eq 0 ]; then
 fi
 typeset -a people=($(git log "--pretty=tformat:$peopleFormats" "${gitLogArgs[@]}" | sort -u))
 
-printf -v quotedGitArgs '%q ' "${gitLogArgs[@]}"
+
+isColorOnArgument "${colorArg[@]}" && typeset colorArg=(--color=always) || typeset colorArg=(--no-color)
+printf -v quotedGitArgs '%q ' "${colorArg[@]}" "${gitLogArgs[@]}"
 printf -v quotedEmailArgs '%q ' "${emailArgs[@]}" "$(joinBy , "${recipients[@]}")"
 printf -v peopleCommand 'printf %q %q; ' '%s\n\n' "Hello $(joinBy ', ' "${people[@]}"),"
 [ ${#people[@]} -eq 0 ] && peopleCommand=''

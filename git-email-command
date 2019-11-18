@@ -45,6 +45,7 @@ fi
 
 isDryRun=
 emailFormats='%aE%n%cE'
+peopleFormats='%aN%n%cN'
 typeset -a gitLogArgs=()
 typeset -a emailArgs=()
 while [ $# -ne 0 ]
@@ -52,8 +53,8 @@ do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--dry-run|-n)	shift; isDryRun=t;;
-	--authors)	shift; emailFormats='%aE';;
-	--committers)	shift; emailFormats='%cE';;
+	--authors)	shift; emailFormats='%aE'; peopleFormats='%aN';;
+	--committers)	shift; emailFormats='%cE'; peopleFormats='%cN';;
 	--)		shift; emailArgs=("$@"); break;;
 	*)		gitLogArgs+=("$1"); shift;;
     esac
@@ -65,10 +66,13 @@ if [ ${#recipients[@]} -eq 0 ]; then
     echo >&2 "No recipients found."
     exit 1
 fi
+typeset -a people=($(git log "--pretty=tformat:$peopleFormats" "${gitLogArgs[@]}" | sort -u))
 
 printf -v quotedGitArgs '%q ' "${gitLogArgs[@]}"
 printf -v quotedEmailArgs '%q ' "${emailArgs[@]}" "$(joinBy , "${recipients[@]}")"
-emailCommandLine="git $gitLogCommand ${quotedGitArgs}| emailpipe $quotedEmailArgs"
+printf -v peopleCommand 'printf %q %q; ' '%s\n\n' "Hello $(joinBy ', ' "${people[@]}"),"
+[ ${#people[@]} -eq 0 ] && peopleCommand=''
+emailCommandLine="{ ${peopleCommand}git $gitLogCommand ${quotedGitArgs}; } | emailpipe $quotedEmailArgs"
 if [ "$isDryRun" ]; then
     printf '%s\n' "$emailCommandLine"
 else

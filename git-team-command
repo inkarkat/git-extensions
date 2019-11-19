@@ -1,0 +1,39 @@
+#!/bin/bash
+set -o noglob
+
+IFS=$'\n'
+team=($GIT_TEAMNAMES)
+if [ ${#team[@]} -eq 0 ]; then
+    echo >&2 "No team defined. Put the newline-separated list of user.name's into GIT_TEAMNAMES."
+    exit 2
+fi
+
+if [ "$1" = '--no-option-name' ]; then
+    shift
+    typeset -a teamArgs=("$(joinBy '\|' "${team[@]}")")
+else
+    typeset -a teamArgs=("${team[@]/#/--author=}")
+fi
+
+typeset -a gitCommand=()
+case "$1" in
+    [^-]*-command)  gitCommand+=("$1"); shift
+		    while [ $# -ne 0 ]
+		    do
+			case "$1" in
+			    --)		break;;
+			    -*)		gitCommand+=("$1"); shift;;
+			    *)		gitCommand+=("$1"); shift; break;;
+			esac
+		    done
+		    ;;
+    *)		    while [ $# -ne 0 ]
+		    do
+			case "$1" in
+			    -c) gitCommand+=("$1" "$2"); shift; shift;;
+			    *)	gitCommand+=("$1"); shift; break;;
+			esac
+		    done
+esac
+
+exec git-wrapper "${gitCommand[@]}" "${teamArgs[@]}" "$@"

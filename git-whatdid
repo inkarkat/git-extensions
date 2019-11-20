@@ -48,6 +48,7 @@ done
 
 git log --pretty=tformat:%s "${gitLogArgs[@]}" | awk -v pattern="$pattern" '
 {
+    commitCount += 1
     for (i = 1; i <= NF && $i ~ pattern; i++) {
 	tag[$i] += 1
 	tagCount += 1
@@ -66,8 +67,13 @@ END {
 
     PROCINFO["sorted_in"] = "tagCompare"
     for (t in tag) {
-	percentage = (100 * tag[t] / tagCount)
-	percentageReport = (percentage < 1 ? "" : sprintf("%5s", sprintf(" (%.f%%)", percentage)))
+	tagProportion = (100 * tag[t] / tagCount)
+	commitProportion = (100 * tag[t] / commitCount)
+
+	tagReport = (tagProportion < 1 ? "" : sprintf("%2.f%% of tags", tagProportion))
+	commitReport = (commitProportion < 1 ? "" : sprintf("%2.f%% of commits", commitProportion))
+	percentageReport = (tagReport == "" && commitReport == "" ? "" : " (" tagReport (tagReport != "" && commitReport != "" ? ", " : "") commitReport ")")
+
 	printf "%-" tagLength "s %3d%s\n", t, tag[t], percentageReport
     }
 }

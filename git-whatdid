@@ -33,25 +33,28 @@ HELPDESCRIPTION
 HELPTEXT
 }
 pattern='^[^:]+:$'
+filterPattern=
 typeset -a gitLogArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--match|-m)	shift; pattern="$1"; shift;;
-	--tags|-t)	shift; pattern='^([[:upper:]]+|[[:upper:]][:digit:]]+[[:upper:]]|[[:upper:]][[:lower:]]+):$';;
-	--scope|-s)	shift; pattern='^[^:[:upper:]][^:]+:$';;
+	--tags|-t)	shift; filterPattern='^([[:upper:]]+|[[:upper:]][:digit:]]+[[:upper:]]|[[:upper:]][[:lower:]]+):$';;
+	--scope|-s)	shift; filterPattern='^[^:[:upper:]][^:]+:$';;
 	--)		gitLogArgs+=("$@"); shift; break;;
 	*)		gitLogArgs+=("$1"); shift;;
     esac
 done
 
-git log --pretty=tformat:%s "${gitLogArgs[@]}" | awk -v pattern="$pattern" '
+git log --pretty=tformat:%s "${gitLogArgs[@]}" | awk -v pattern="$pattern" -v filterPattern="$filterPattern" '
 {
     commitCount += 1
     for (i = 1; i <= NF && $i ~ pattern; i++) {
-	tag[$i] += 1
-	tagCount += 1
+	if (filterPattern == "" || $i ~ filterPattern) {
+	    tag[$i] += 1
+	    tagCount += 1
+	}
     }
 }
 

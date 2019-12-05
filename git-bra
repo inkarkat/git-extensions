@@ -5,16 +5,18 @@ printUsage()
     cat <<HELPTEXT
 List local branches ordered by date of most recent commit.
 Pass -r to list remote-tracking branches.
-Pass -a to list both.
+Pass --remote <remote> to list a particular <remote>.
+Pass -a to list both remote and local branches.
 The branches can be optionally filtered by <branch-glob>.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|-a] [<branch-glob>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--remote <remote>|-a] [<branch-glob>] [-?|-h|--help]'
 }
 
 what="refs/heads/$1"
 case $1 in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
     -a)	what="refs/heads/$2 refs/remotes/$2";;
+    --remote) what="refs/remotes/${2}/$3";;
     -r) what="refs/remotes/$2";;
 esac
 git for-each-ref --sort=committerdate --format='(%(authorname), %(committerdate:relative))%09%(refname:short)' $what

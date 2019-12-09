@@ -1,0 +1,42 @@
+#!/bin/bash
+
+: ${GIT_SDIFF_FILE_PREFIX=[01;47m}
+: ${GIT_SDIFF_FILE_SUFFIX=[0m}
+
+# Highlight diff output if available.
+hasColorDiff=
+type -t colordiff >/dev/null && [ -t 1 ] && hasColorDiff=t
+
+typeset -a allargs=()
+while [ $# -gt 0 ]
+do
+    case "$1" in
+	--no-color|--color=never)
+	    shift
+	    hasColorDiff=
+	    GIT_SDIFF_FILE_PREFIX=
+	    GIT_SDIFF_FILE_SUFFIX=
+	    ;;
+	--color|--color=always)
+	    shift
+	    hasColorDiff=t
+	    ;;
+	*)
+	    allargs+=("$1")
+	    shift
+	    ;;
+    esac
+done
+set -- "${allargs[@]}"
+
+if [ $# -eq 0 ]; then
+    echo >&2 'ERROR: No FILEs passed.'
+    exit 2
+fi
+
+root="$(git root)"
+absoluteLastArg="$(readlink -nf -- "${!#}")"
+printf "%s%${COLUMNS:+-${COLUMNS}}s%s\\n" "$GIT_SDIFF_FILE_PREFIX" "${absoluteLastArg#${root}/}:" "$GIT_SDIFF_FILE_SUFFIX"
+
+${hasColorDiff:+color}diff --side-by-side --ignore-all-space --suppress-common-lines ${COLUMNS:+--width $COLUMNS} "$@"
+exit 0	# Need to return success to avoid that Git complains that the "external tool died".

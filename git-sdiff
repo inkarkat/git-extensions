@@ -1,4 +1,5 @@
 #!/bin/bash
+set -o pipefail
 
 : ${GIT_SDIFF_FILE_PREFIX=[01;47m}
 : ${GIT_SDIFF_FILE_SUFFIX=[0m}
@@ -7,10 +8,12 @@
 hasColorDiff=
 type -t colordiff >/dev/null && [ -t 1 ] && hasColorDiff=t
 
+isAsDiffTool=
 typeset -a allargs=()
 while [ $# -gt 0 ]
 do
     case "$1" in
+	--as-difftool) shift; isAsDiffTool=t;;
 	--no-color|--color=never)
 	    shift
 	    hasColorDiff=
@@ -29,14 +32,20 @@ do
 done
 set -- "${allargs[@]}"
 
-if [ $# -eq 0 ]; then
-    echo >&2 'ERROR: No FILEs passed.'
-    exit 2
+if [ "$isAsDiffTool" ]; then
+    if [ $# -eq 0 ]; then
+	echo >&2 'ERROR: No FILEs passed.'
+	exit 2
+    fi
+
+    root="$(git root)"
+    absoluteLastArg="$(readlink -nf -- "${!#}")"
+    printf "%s%${COLUMNS:+-${COLUMNS}}s%s\\n" "$GIT_SDIFF_FILE_PREFIX" "${absoluteLastArg#${root}/}:" "$GIT_SDIFF_FILE_SUFFIX"
+
+    ${hasColorDiff:+color}diff --side-by-side --ignore-all-space --suppress-common-lines ${COLUMNS:+--width $COLUMNS} "$@"
+    exit 0	# Need to return success to avoid that Git complains that the "external tool died".
+else
+    colorArg=--color=always; [ "$hasColorDiff" ] || colorArg=--no-color
+
+    git difftool --no-prompt --extcmd="git-sdiff --as-difftool $colorArg" "$@" | "${PAGER:-less}" --quit-on-intr --RAW-CONTROL-CHARS
 fi
-
-root="$(git root)"
-absoluteLastArg="$(readlink -nf -- "${!#}")"
-printf "%s%${COLUMNS:+-${COLUMNS}}s%s\\n" "$GIT_SDIFF_FILE_PREFIX" "${absoluteLastArg#${root}/}:" "$GIT_SDIFF_FILE_SUFFIX"
-
-${hasColorDiff:+color}diff --side-by-side --ignore-all-space --suppress-common-lines ${COLUMNS:+--width $COLUMNS} "$@"
-exit 0	# Need to return success to avoid that Git complains that the "external tool died".

@@ -5,10 +5,12 @@ set -o pipefail
 hasColorDiff=
 type -t colordiff >/dev/null && [ -t 1 ] && hasColorDiff=t
 
+isAsDiffTool=
 typeset -a allargs=()
 while [ $# -gt 0 ]
 do
     case "$1" in
+	--as-difftool) shift; isAsDiffTool=t;;
 	--no-color|--color=never)
 	    shift
 	    hasColorDiff=
@@ -23,9 +25,18 @@ do
 	    ;;
     esac
 done
+set -- "${allargs[@]}"
 
-if [ "$hasColorDiff" ]; then
-    git difftool -y --extcmd "diff -c" "${allargs[@]}" | colordiff | "${PAGER:-less}" --quit-on-intr --RAW-CONTROL-CHARS
+if [ "$isAsDiffTool" ]; then
+    if [ $# -eq 0 ]; then
+	echo >&2 'ERROR: No FILEs passed.'
+	exit 2
+    fi
+
+    ${hasColorDiff:+color}diff -c "$@"
+    exit 0	# Need to return success to avoid that Git complains that the "external tool died".
 else
-    git difftool -y --extcmd "diff -c" "${allargs[@]}" | "${PAGER:-less}" --quit-on-intr --RAW-CONTROL-CHARS
+    colorArg=--color=always; [ "$hasColorDiff" ] || colorArg=--no-color
+
+    git difftool --no-prompt --extcmd="git-diffc --as-difftool $colorArg" "$@" | "${PAGER:-less}" --quit-on-intr --RAW-CONTROL-CHARS
 fi

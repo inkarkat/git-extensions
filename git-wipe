@@ -7,7 +7,16 @@ esac
 if [ ! "$isForce" ] && [ "$(git diff --shortstat 2>/dev/null | tail -n 1)" ]; then
     echo "Unstaged changes:"
     git status --porcelain | grep -v '^??'
-    exit 1
+
+    while :
+    do
+	< /dev/tty read -r -N 1 -p "Discard these changes? (y/n/diff) " choice; echo
+	case "$choice" in
+	    y) break;;
+	    n) exit 1;;
+	    d) git diff;;
+	esac
+    done
 fi
 
 lastArg=; [ $# -gt 0 ] && lastArg=${!#}

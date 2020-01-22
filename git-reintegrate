@@ -7,9 +7,10 @@ printUsage()
 Merge <branch> to the current branch, then delete it from the local repository
 as well as a tracked remote (if it exists there).
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--ff|--ff-only|--no-ff|<merge-args> ...] -b|--branch <branch> [...] | [--] <branch> [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--push] [--ff|--ff-only|--no-ff|<merge-args> ...] -b|--branch <branch> [...] | [--] <branch> [...]'
 }
 
+isPush=
 typeset -a branches=()
 typeset -a mergeArgs=()
 typeset -a fastForwardArgs=()
@@ -18,6 +19,7 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--push)		shift; isPush=t;;
 	--branch|-b)	shift; branches+=("$1"); shift;;
 	--ff|--no-ff|--ff-only)	fastForwardArgs=("$1"); shift;;
 
@@ -39,6 +41,31 @@ fi
 
 
 git merge "${fastForwardArgs[@]:---no-ff}" "${mergeArgs[@]}" "${branches[@]}" || exit $?
+
+if [ "$isPush" ]; then
+    path="$(git-brname)" || exit $?
+    targetTracks="$(git-tracks 2>/dev/null)"
+    targetTrackedRemote="${targetTracks%%/*}"
+
+    if [ "$targetTrackedRemote" = 'origin' ]; then
+	# First push to upstream; we usually want to catch up origin to
+	# upstream, but keep it at the current state if pushing to upstream
+	# failed.
+	if git-existsbr "upstream/$path"; then
+	    git push upstream "$path" || exit $?
+	fi
+    fi
+    if [ "$targetTrackedRemote" ]; then
+	# Push to the tracked remote (usually origin).
+	git push "$targetTrackedRemote" || exit $?
+    fi
+    if [ "$targetTrackedRemote" != 'origin' ]; then
+	# Push to origin (if it's different from the tracked remote) last.
+	if git-existsbr "origin/$path"; then
+	    git push origin "$path" || exit $?
+	fi
+    fi
+fi
 
 status=0
 for branch in "${branches[@]}"

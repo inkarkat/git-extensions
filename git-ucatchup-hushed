@@ -25,4 +25,31 @@ declutterOutput()
 	    }'
 }
 
-git-ucatchup "$@" 2>&1 | massageOutput | declutterOutput
+joinNewRefLines()
+{
+    awk -F '[[:space:]]+->[[:space:]]+|[[:space:]]+' '
+function join(array, start, end, sep,    result, i)
+{
+    if (sep == "")
+	sep = " "
+    else if (sep == SUBSEP) # magic value
+	sep = ""
+    result = array[start]
+    for (i = start + 1; i <= end; i++)
+	result = result sep array[i]
+    return result
+}
+BEGIN {
+    PROCINFO["sorted_in"] = "@ind_str_asc"
+}
+$2 == "*" && $3 == "[new" && NF == 5 { $4 = substr($4, 1, length($4) - 1); news[$4][++n[$4]] = $5; next }
+/^From / {
+    for (what in n) {
+	print sprintf("%-21s", " * [new " what (what ~ /ch$/ ? "e" : "") "s]") join(news[what], 1, n[what], ", ")
+    }
+}
+{ print }
+'
+}
+
+git-ucatchup "$@" 2>&1 | eval "massageOutput | ${GIT_UP_FETCH:+joinNewRefLines |} declutterOutput"

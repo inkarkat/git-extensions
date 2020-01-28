@@ -1,11 +1,16 @@
 #!/bin/bash
 set -o pipefail
 
-git-ucatchup "$@" 2>&1 | \
+massageOutput()
+{
     sed --unbuffered \
 	-e '/^ \* branch            master     -> FETCH_HEAD$/d' \
 	-e 's#^\( .\+\)\([^ ]\+\) \+-> \+\(upstream/\)\?\2$#\1\2#' \
-	-e '/\(^\|\n\|\r\)Successfully rebased and updated refs\/heads\/master\.$/d' | \
+	-e '/\(^\|\n\|\r\)Successfully rebased and updated refs\/heads\/master\.$/d'
+}
+
+declutterOutput()
+{
     sed --unbuffered \
 	-e '/^From / {
 		N
@@ -18,3 +23,6 @@ git-ucatchup "$@" 2>&1 | \
 		/./ { x; s/^From [^\n]*\n//; s/^No changes in upstream[^\n]*\n//; b; }
 		g
 	    }'
+}
+
+git-ucatchup "$@" 2>&1 | massageOutput | declutterOutput

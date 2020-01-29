@@ -25,6 +25,10 @@ remote="${1:?}"; shift
 path=; [ $# -gt 0 ] && path="${remote}/${!#}" || path=$(git-remotebr "$remote" 2>/dev/null)
 originalRevision=$(git rev-parse "$path" 2>/dev/null)
 
+if [ "$GIT_UP_FETCH" ]; then
+    git fetch "$remote" || exit $?
+fi
+
 # Git 2.6 and later.
 git -c rebase.autoStash=true pull --rebase=preserve "$remote" "$@" || exit $?
 # Git 2.9 and later.

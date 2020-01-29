@@ -6,8 +6,7 @@ printUsage()
 Merge the current branch to master / the passed <branch>, then delete it from
 the local repository as well as a tracked remote (if it exists there).
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<branch>]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--ff|--ff-only|--no-ff|<merge-args> ...] [-b|--branch <branch>]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<branch>] [--ff|--ff-only|--no-ff|<merge-args> ...] [-b|--branch <branch>]'
 }
 
 case "$1" in
@@ -16,20 +15,31 @@ esac
 
 source=$(git rev-parse HEAD) || exit $?
 typeset -a reintegrateArgs=()
-target=master
-if [ $# -eq 1 ]; then
-    target=$1
-else
-    while [ $# -ne 0 ]
-    do
-	case "$1" in
-	    --branch|-b)    shift; target="$1"; shift;;
-	    --)		    reintegrateArgs+=("$1"); shift; break;;
-	    *)		    reintegrateArgs+=("$1"); shift;;
-	esac
-    done
-fi
-
+target=
+case "$1" in
+    -*)	;;
+    ?*)	if git-existsbr "$1"; then
+	    target="$1"
+	    shift
+	fi
+	;;
+esac
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--branch|-b)    shift
+			if [ "$target" ]; then
+			    echo >&2 'ERROR: <branch> can only be passed once.'
+			    exit 2
+			fi
+			target="${1:?}"
+			shift
+			;;
+	--)		reintegrateArgs+=("$1"); shift; break;;
+	*)		reintegrateArgs+=("$1"); shift;;
+    esac
+done
+: ${target:=master}
 
 if [ "$(git rev-parse "$target")" = "$source" ]; then
     printf >&2 'ERROR: Cannot reintegrate %s onto itself; check out a different branch first!\n' "$target"

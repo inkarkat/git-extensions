@@ -4,15 +4,15 @@ shopt -qs extglob
 printUsage()
 {
     cat <<HELPTEXT
-Merge <branch> to the current branch, then delete it from the local repository
-as well as a tracked remote (if it exists there).
+Merge / rebase <branch> to the current branch, then delete it from the local
+repository as well as a tracked remote (if it exists there).
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--push] [--ff|--ff-only|--no-ff|<merge-args> ...] -b|--branch <branch> [...] | [--] <branch> [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--push] [--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] -b|--branch <branch> [...] | [--] <branch> [...]'
 }
 
 isPush=
+isRebase=
 typeset -a branches=()
-typeset -a mergeArgs=()
 typeset -a fastForwardArgs=()
 typeset -a mergeArgs=()
 while [ $# -ne 0 ]
@@ -21,6 +21,7 @@ do
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--push)		shift; isPush=t;;
 	--branch|-b)	shift; branches+=("$1"); shift;;
+	--rebase)	shift; isRebase=t;;
 	--ff|--no-ff|--ff-only)	fastForwardArgs=("$1"); shift;;
 
 	-[sXm])		mergeArgs+=("$1" "$2"); shift; shift;;
@@ -39,6 +40,17 @@ if [ ${#branches[@]} -eq 0 ]; then
     exit 2
 fi
 
+
+if [ "$isRebase" ]; then
+    if [ ${#branches[@]} -ne 1 ]; then
+	echo >&2 'ERROR: Can only rebase exactly one branch.'
+	exit 2
+    fi
+
+    git rebase --preserve-merges "${branches[@]}" || exit $?
+    mergeArgs=()
+    fastForwardArgs=(--ff-only)
+fi
 
 git merge "${fastForwardArgs[@]:---no-ff}" "${mergeArgs[@]}" "${branches[@]}" || exit $?
 

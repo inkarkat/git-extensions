@@ -13,7 +13,7 @@ case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
 
-source=$(git rev-parse HEAD) || exit $?
+sourceBranch="$(git brname)" || exit $?
 typeset -a reintegrateArgs=()
 target=
 case "$1" in
@@ -41,10 +41,10 @@ do
 done
 : ${target:=master}
 
-if [ "$(git rev-parse "$target")" = "$source" ]; then
+if [ "$target" = "$sourceBranch" ]; then
     printf >&2 'ERROR: Cannot reintegrate %s onto itself; check out a different branch first!\n' "$target"
     exit 1
 fi
 
 git checkout "$target" || exit $?
-exec git-reintegrate "${reintegrateArgs[@]}" "$@"
+exec git-reintegrate --branch "$sourceBranch" "${reintegrateArgs[@]}" "$@"

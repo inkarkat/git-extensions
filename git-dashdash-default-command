@@ -1,0 +1,31 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Execute GIT-COMMAND with default ALIAS-PROVIDED-ARGUMENT(s) and -- or
+USER-PROVIDED-ARGUMENT(s), if provided by the user.
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND SEP ALIAS-PROVIDED-ARGUMENT [...] SEP [USER-PROVIDED-ARGUMENT ...] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+sep="${1:?}"; shift
+typeset -a gitCommand=()
+while [ "$1" != "$sep" ]
+do
+    if [ $# -eq 0 ]; then
+	printf >&2 'ERROR: GIT-COMMAND not concluded by %s\n' "$sep"
+	echo >&2
+	printUsage "$0" >&2
+	exit 2
+    fi
+
+    gitCommand+=("$1"); shift
+done
+shift
+
+[ $# -eq 0 ] && set -- --
+exec git-wrapper "${gitCommand[@]}" "$@"

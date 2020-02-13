@@ -1,21 +1,19 @@
 #!/bin/bash
-#
 # Written by Corey Haines
 # Scriptified by Gary Bernhardt
-#
-# Put this anywhere on your $PATH (~/bin is recommended). Then git will see it
-# and you'll be able to do `git churn`.
-#
-# Show churn for whole repo:
-#   $ git churn
-#
-# Show churn for specific directories:
-#   $ git churn app lib
-#
-# Show churn for a time range:
-#   $ git churn --since='1 month ago'
-#
-# (These are all standard arguments to `git log`.)
-
 set -o pipefail
-git log -M -C --name-only --format='format:' "$@" | sort | grep -v '^$' | uniq -c | sort -nr | "${PAGER:-less}" --RAW-CONTROL-CHARS
+
+printUsage()
+{
+    cat <<HELPTEXT
+Show sorted number of changes per file; arguments as to git log, e.g. --since="1 month ago" SUBDIR
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<revision range>] [[--] <path>...] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+git log -M -C --name-only --format='format:' "$@" | \
+    sort | grep -v '^$' | uniq -c | \
+    eval 'sort -nr' "${pager:+|}" '"${pager[@]}"'

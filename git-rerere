@@ -32,16 +32,16 @@ if [ "$action" = delete ]; then
 fi
 
 # Highlight diff output if available.
-hasColorDiff=
-type -t colordiff >/dev/null && hasColorDiff=t
+colorDiff=colordiff; type -t "$colorDiff" >/dev/null || colorDiff=
+typeset -a pager=("${PAGER:-less}" --quit-on-intr --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 
 IFS=$'\n'
 for filespec in $(ls -1t "${rrCacheDir}"/*/postimage)
 do
     if [[ "$choice" != [aA] ]]; then
-	diff --suppress-common-lines -U 1 "${filespec%postimage}preimage" "$filespec" | \
-	    if [ "$hasColorDiff" ]; then colordiff; else cat; fi | \
-	    "${PAGER:-less}" --quit-on-intr --RAW-CONTROL-CHARS
+	eval 'diff --suppress-common-lines -U 1 "${filespec%postimage}preimage" "$filespec"' \
+	    "${colorDiff:+| $colorDiff}" \
+	    "${pager:+|}" '"${pager[@]}"'
     fi
     [[ "$choice" == [aA] ]] || read -p "$choices" choice
     [ "$choice" ] || choice=$previousChoice

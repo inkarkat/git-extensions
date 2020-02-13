@@ -1,4 +1,5 @@
 #!/bin/bash
+set -o pipefail
 
 ensureValidRef()
 {
@@ -22,15 +23,17 @@ else
     remoteBranch=$(git tracks) || exit $?
 fi
 
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 ensureValidRef "$localBranch"
 ensureValidRef "$remoteBranch"
 
-set -o pipefail
-(
+inout()
+{
     echo "incoming ${remoteBranch} -> ${localBranch}:"
     git-onelinelog --no-pager "$localBranch..$remoteBranch"
 
     echo
     echo "outgoing ${localBranch} -> ${remoteBranch}:"
     git-onelinelog --no-pager "$remoteBranch..$localBranch"
-) | "${PAGER:-less}" --RAW-CONTROL-CHARS
+}
+eval 'inout "$@"' "${pager:+|}" '"${pager[@]}"'

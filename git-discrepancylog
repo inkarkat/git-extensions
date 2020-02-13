@@ -10,6 +10,7 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '--field1 FIELD1 --field2 FIELD2 [LOG-ARGUMENTS ...] [-?|-h|--help]'
 }
 
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 field1=
 field2=
 while [ $# -ne 0 ]
@@ -42,7 +43,9 @@ contains()
 # Don't do this if the user explicitly turned it off, though.
 typeset -a colorArg=(); isNeedColorArgumentWhenPiping "${preRangeArgs[@]}" && colorArg=(--color=always) || colorArg=()
 
-git-log "${colorArg[@]}" "$@" | awk -v field1="$field1" -v field2="$field2" '
+discrepancyLog()
+{
+    git-log "${colorArg[@]}" "$@" | awk -v field1="$field1" -v field2="$field2" '
 function printPreviousEntry() {
     if (value1 != value2 ) {
 	print entry
@@ -69,4 +72,7 @@ $1 == field2 {
 END {
     printPreviousEntry()
 }
-' | "${PAGER:-less}" --RAW-CONTROL-CHARS
+'
+}
+
+eval 'discrepancyLog "$@"' "${pager:+|}" '"${pager[@]}"'

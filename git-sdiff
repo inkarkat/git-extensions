@@ -47,5 +47,6 @@ if [ "$isAsDiffTool" ]; then
 else
     colorArg=--color=always; [ "$hasColorDiff" ] || colorArg=--no-color
 
-    git difftool --no-prompt --extcmd="git-sdiff --as-difftool $colorArg" "$@" | "${PAGER:-less}" --quit-on-intr --RAW-CONTROL-CHARS
+    typeset -a pager=("${PAGER:-less}" --quit-on-intr --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+    eval 'git difftool --no-prompt --extcmd="git-sdiff --as-difftool $colorArg" "$@"' "${pager:+|}" '"${pager[@]}"'
 fi

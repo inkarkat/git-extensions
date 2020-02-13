@@ -34,6 +34,7 @@ HELPDESCRIPTION
 HELPTEXT
 }
 
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 haveRange=
 isIncludeIntermediate=
 sorter='cut -f 2- | sort -u'
@@ -57,4 +58,4 @@ elif [ "$haveRange" ]; then
     git diff --name-status "${allargs[@]}" "$@"
 else
     git show --pretty='format:' --name-status "${allargs[@]}" "$@"
-fi | eval "$sorter" | sed -e '/^$/d' | "${PAGER:-less}" --RAW-CONTROL-CHARS
+fi | eval "$sorter | sed -e '/^\$/d'" "${pager:+|}" '"${pager[@]}"'

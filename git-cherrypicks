@@ -12,6 +12,7 @@ HELPTEXT
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 
 typeset arg=
 typeset allargs=()
@@ -34,4 +35,4 @@ else
     filterCommand=" | sed -e 's/^- .*$/${GIT_CHERRYPICKS_PREFIX}&${GIT_CHERRYPICKS_SUFFIX}/'"
 fi
 
-eval 'git cherry "${allargs[@]}"' $filterCommand | "${PAGER:-less}" --RAW-CONTROL-CHARS
+eval 'git cherry "${allargs[@]}"' $filterCommand "${pager:+|}" '"${pager[@]}"'

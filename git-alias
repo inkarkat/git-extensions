@@ -14,50 +14,55 @@ HELPTEXT
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 
-if [ $# -eq 0 ]; then
-sed \
-    -e '
-	/^\[alias\]/,/^\[/{
-	    /^\[alias\]/d;
-	    /^\[/Q;
+printAliases()
+{
+    if [ $# -eq 0 ]; then
+	sed \
+	    -e '
+		/^\[alias\]/,/^\[/{
+		    /^\[alias\]/d;
+		    /^\[/Q;
 
-	    # Remove indent.
-	    s/^[ \t]*//;
+		    # Remove indent.
+		    s/^[ \t]*//;
 
-	    # Keep special comments, and break keyword and explanation into
-	    # separate lines.
-	    s/^;; \([^ \t]\+\):[ \t]\+\(.*\)/\1\n\t\2/
+		    # Keep special comments, and break keyword and explanation into
+		    # separate lines.
+		    s/^;; \([^ \t]\+\):[ \t]\+\(.*\)/\1\n\t\2/
 
-	    # Remove all other comment lines.
-	    /^;/d;
+		    # Remove all other comment lines.
+		    /^;/d;
 
-	    # Break alias definition and alias comment into separate lines.
-	    s/[ \t]=[ \t][^;]*[ \t];[ \t]*/\n\t/;
-	    b
-	}' \
-    "${scriptDir}/gitconfig" \
-    | sed -e '/^\t/!s/[^=]*/[01m&[0m/' -e '/^\t/s/^\t//' | "${PAGER:-less}" --RAW-CONTROL-CHARS
-else
-sed -n \
-    -e '
-	/^\[alias\]/,/^\[/{
-	    /^\[alias\]/d;
-	    /^\[/Q;
+		    # Break alias definition and alias comment into separate lines.
+		    s/[ \t]=[ \t][^;]*[ \t];[ \t]*/\n\t/;
+		    b
+		}' \
+	    "${scriptDir}/gitconfig" \
+	    | sed -e '/^\t/!s/[^=]*/[01m&[0m/' -e '/^\t/s/^\t//'
+    else
+	sed -n \
+	    -e '
+		/^\[alias\]/,/^\[/{
+		    /^\[alias\]/d;
+		    /^\[/Q;
 
-	    # Remove indent.
-	    s/^[ \t]*//;
+		    # Remove indent.
+		    s/^[ \t]*//;
 
 
-	    /^;; \('"$1"'[^:]*\):[ \t]\+/{
-		s/^;; \([^:]\+\):[ \t]\+\(.*\)/[01m\1[0m\n\2/p
-	    }
-	    /^'"$1"'[^=]*=[ \t]/{
-		s/[^=]*/[01m&[0m/
-		s/=[ \t][^;]*[ \t];[ \t]*/\n/;
-		p
-	    }
-	}' \
-    "${scriptDir}/gitconfig" \
-    | "${PAGER:-less}" --RAW-CONTROL-CHARS
-fi
+		    /^;; \('"$1"'[^:]*\):[ \t]\+/{
+			s/^;; \([^:]\+\):[ \t]\+\(.*\)/[01m\1[0m\n\2/p
+		    }
+		    /^'"$1"'[^=]*=[ \t]/{
+			s/[^=]*/[01m&[0m/
+			s/=[ \t][^;]*[ \t];[ \t]*/\n/;
+			p
+		    }
+		}' \
+	    "${scriptDir}/gitconfig"
+    fi
+}
+
+eval 'printAliases "$@"' "${pager:+|}" '"${pager[@]}"'

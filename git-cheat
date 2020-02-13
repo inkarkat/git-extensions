@@ -3,12 +3,18 @@
 readonly scriptDir=$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 2)
 [ -d "$scriptDir" ] || { echo >&2 "ERROR: Cannot determine script directory!"; exit 2; }
 
-# Render primitive subset of Markdown.
-sed -e 's/^# \(.*\)$/[01;36m\1[0m/' \
-    -e 's/^## \(.*\)$/[01;35m\1[0m/' \
-    -e 's/^#\{3,\} \(.*\)$/[01m\1[0m/' \
-    -e 's/^    .*/[47m&[0m/' \
-    -e 's/`\([^`]\+\)`/[47m\1[0m/g' \
-    -e 's/\(^\| \)\*\*\([^ ].*[^ ]\)\*\*\( \|$\)/\1[01m\2[0m\3/g' \
-    "${scriptDir}/gitcheats${1:+"-$1"}.md" | \
-    "${PAGER:-less}" --RAW-CONTROL-CHARS
+: ${GIT_CHEAT_FILE_PREFIX:=gitcheats}
+
+cheat()
+{
+    # Render primitive subset of Markdown.
+    sed -e 's/^# \(.*\)$/[01;36m\1[0m/' \
+	-e 's/^## \(.*\)$/[01;35m\1[0m/' \
+	-e 's/^#\{3,\} \(.*\)$/[01m\1[0m/' \
+	-e 's/^    .*/[47m&[0m/' \
+	-e 's/`\([^`]\+\)`/[47m\1[0m/g' \
+	-e 's/\(^\| \)\*\*\([^ ].*[^ ]\)\*\*\( \|$\)/\1[01m\2[0m\3/g' \
+	"${scriptDir}/${GIT_CHEAT_FILE_PREFIX}${1:+"-$1"}.md"
+}
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+eval 'cheat "$@"' "${pager:+|}" '"${pager[@]}"'

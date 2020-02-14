@@ -37,14 +37,15 @@ HELPTEXT
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 haveRange=
 isIncludeIntermediate=
-sorter='cut -f 2- | sort -u'
+gitNameArg='--name-only'
+sorter='sort -u'
 typeset -a allargs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--intermediate)	shift; isIncludeIntermediate=t;;
-	--status|-s)	shift; sorter='sort -k 2 -u';;
+	--status|-s)	shift; gitNameArg='--name-status'; sorter='sort -k 2 -u';;
 	*..*)		haveRange=t; allargs+=("$1"); shift;;
 	--)		allargs+=("$1"); shift; break;;
 	*)		allargs+=("$1"); shift;;
@@ -52,10 +53,10 @@ do
 done
 
 if [ "$isIncludeIntermediate" ]; then
-    git log --pretty='format:' --name-status "${allargs[@]}" "$@"
+    git log --pretty='format:' "$gitNameArg" "${allargs[@]}" "$@"
 elif [ "$haveRange" ]; then
     # Source: http://stackoverflow.com/a/1552353/813602
-    git diff --name-status "${allargs[@]}" "$@"
+    git diff "$gitNameArg" "${allargs[@]}" "$@"
 else
-    git show --pretty='format:' --name-status "${allargs[@]}" "$@"
+    git show --pretty='format:' "$gitNameArg" "${allargs[@]}" "$@"
 fi | eval "$sorter | sed -e '/^\$/d'" "${pager:+|}" '"${pager[@]}"'

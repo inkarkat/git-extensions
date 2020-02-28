@@ -8,6 +8,16 @@ Merge / rebase <branch> to the current branch, then delete it from the local
 repository as well as a tracked remote (if it exists there).
 HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--push] [--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] -b|--branch <branch> [...] | [--] <branch> [...]'
+    cat <<HELPTEXTCHECK
+
+Merge / rebase <branch> to the current branch, run CHECK-COMMANDS, and if all
+succeed (for stdin: with --worst-status, else if the last succeeds) delete the
+branch from the local repository as well as a tracked remote (if it exists
+there).
+HELPTEXTCHECK
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[...] -c|--command "CHECK-COMMANDLINE" [-c ...]'
+    printf 'Usage: echo CHECK-COMMANDLINES | %q %s\n' "$(basename "$1")" '[...] [--bare|[--trailing-prompt|--no-trailing-prompt] [--emulate-prompt] [--worst-status]] -'
+    printf 'Usage: %q %s <<EOF\n  CHECK-COMMANDLINE\n...\nEOF\n' "$(basename "$1")" '[...]'
 }
 
 isPush=
@@ -15,6 +25,10 @@ isRebase=
 typeset -a branches=()
 typeset -a fastForwardArgs=()
 typeset -a mergeArgs=()
+isBare=
+isCheckFromStdin=
+typeset -a checkCommands=()
+typeset -a runWithPromptArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -23,6 +37,9 @@ do
 	--branch|-b)	shift; branches+=("$1"); shift;;
 	--rebase)	shift; isRebase=t;;
 	--ff|--no-ff|--ff-only)	fastForwardArgs=("$1"); shift;;
+	--command|-c)	shift; checkCommands+=(${checkCommands:+&&} "$1"); shift;;
+	--bare)		shift; isBare=t;;
+	--no-trailing-prompt|--trailing-prompt|--emulate-prompt|--worst-status)  runWithPromptArgs+=("$1"); shift;;
 
 	-[sXm])		mergeArgs+=("$1" "$2"); shift; shift;;
 	--@(strategy|strategy-option|gpg-sign)=*)	mergeArgs+=("$1"); shift;;
@@ -30,10 +47,22 @@ do
 
 	--)		mergeArgs+=("$1"); shift; break;;
 	--*)		mergeArgs+=("$1"); shift;;
+	-)		shift; isCheckFromStdin=t; break;;
 	-*)		mergeArgs+=("$1"); shift;;
 	*)		break;;
     esac
 done
+if [ "${!#}" = '-' ]; then
+    isCheckFromStdin=t
+    set -- "${@:1:$(($#-1))}"
+fi
+if [ "$isCheckFromStdin" ] && [ ${#checkCommands[@]} -gt 0 ]; then
+    echo >&2 'ERROR: Cannot combine CHECK-COMMANDLINE from stdin with -c|--command.'
+    echo >&2
+    printUsage "$0" >&2
+    exit 2
+fi
+
 branches+=("$@")
 if [ ${#branches[@]} -eq 0 ]; then
     echo >&2 'Need (at least one) <branch> to merge!'
@@ -53,6 +82,18 @@ if [ "$isRebase" ]; then
 fi
 
 git merge "${fastForwardArgs[@]:---no-ff}" "${mergeArgs[@]}" "${branches[@]}" || exit $?
+
+
+if [ "$isCheckFromStdin" ]; then
+    if [ "$isBare" ]; then
+	bash -
+    else
+	runWithPrompt "${runWithPromptArgs[@]}"
+    fi
+elif [ ${#checkCommands[@]} -gt 0 ]; then
+    eval "${checkCommands[@]}"
+fi || exit $?
+
 
 if [ "$isPush" ]; then
     path="$(git-brname)" || exit $?

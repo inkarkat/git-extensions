@@ -20,6 +20,7 @@ HELPTEXTCHECK
     printf 'Usage: %q %s <<EOF\n  CHECK-COMMANDLINE\n...\nEOF\n' "$(basename "$1")" '[...]'
 }
 
+isContinue=
 isPush=
 isRebase=
 typeset -a branches=()
@@ -27,17 +28,19 @@ typeset -a fastForwardArgs=()
 typeset -a mergeArgs=()
 isBare=
 isCheckFromStdin=
+typeset -a checkCommandArgs=()
 typeset -a checkCommands=()
 typeset -a runWithPromptArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--continue)	shift; isContinue=t;;
 	--push)		shift; isPush=t;;
 	--branch|-b)	shift; branches+=("$1"); shift;;
 	--rebase)	shift; isRebase=t;;
 	--ff|--no-ff|--ff-only)	fastForwardArgs=("$1"); shift;;
-	--command|-c)	shift; checkCommands+=(${checkCommands:+&&} "$1"); shift;;
+	--command|-c)	checkCommandArgs+=("$1" "$2"); shift; checkCommands+=(${checkCommands:+&&} "$1"); shift;;
 	--bare)		shift; isBare=t;;
 	--no-trailing-prompt|--trailing-prompt|--emulate-prompt|--worst-status)  runWithPromptArgs+=("$1"); shift;;
 
@@ -57,7 +60,7 @@ if [ "${!#}" = '-' ]; then
     set -- "${@:1:$(($#-1))}"
 fi
 if [ "$isCheckFromStdin" ] && [ ${#checkCommands[@]} -gt 0 ]; then
-    echo >&2 'ERROR: Cannot combine CHECK-COMMANDLINE from stdin with -c|--command.'
+    echo >&2 'ERROR: Cannot combine CHECK-COMMANDLINE from stdin (-) with -c|--command.'
     echo >&2
     printUsage "$0" >&2
     exit 2
@@ -70,18 +73,20 @@ if [ ${#branches[@]} -eq 0 ]; then
 fi
 
 
-if [ "$isRebase" ]; then
-    if [ ${#branches[@]} -ne 1 ]; then
-	echo >&2 'ERROR: Can only rebase exactly one branch.'
-	exit 2
+if [ ! "$isContinue" ]; then
+    if [ "$isRebase" ]; then
+	if [ ${#branches[@]} -ne 1 ]; then
+	    echo >&2 'ERROR: Can only rebase exactly one branch.'
+	    exit 2
+	fi
+
+	git rebase --preserve-merges "${branches[@]}" || exit $?
+	mergeArgs=()
+	fastForwardArgs=(--ff-only)
     fi
 
-    git rebase --preserve-merges "${branches[@]}" || exit $?
-    mergeArgs=()
-    fastForwardArgs=(--ff-only)
+    git merge "${fastForwardArgs[@]:---no-ff}" "${mergeArgs[@]}" "${branches[@]}" || exit $?
 fi
-
-git merge "${fastForwardArgs[@]:---no-ff}" "${mergeArgs[@]}" "${branches[@]}" || exit $?
 
 
 if [ "$isCheckFromStdin" ]; then
@@ -95,6 +100,14 @@ elif [ ${#checkCommands[@]} -gt 0 ]; then
 fi || {
     status=$?
     echo >&2 "Checks failed; branch(es) have been merged, but not ${isPush:+pushed or }deleted yet."
+    echo >&2 'Correct the problem by amending or additional commits, then invoke'
+
+    [ "$isCheckFromStdin" ] && printf >&2 'echo CHECK-COMMANDLINES | '
+    printf >&2 '%q ' "$(basename "$0")" '--continue' ${isBare:+--bare} "${runWithPromptArgs[@]}" "${checkCommandArgs[@]}"
+    for branch in "${branches[@]}"; do printf >&2 -- '--branch %q ' "$branch"; done
+    [ "$isCheckFromStdin" ] && printf >&2 '-'
+    printf >&2 '\n'
+
     exit $status
 }
 

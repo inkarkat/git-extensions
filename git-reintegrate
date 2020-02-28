@@ -92,7 +92,11 @@ if [ "$isCheckFromStdin" ]; then
     fi
 elif [ ${#checkCommands[@]} -gt 0 ]; then
     eval "${checkCommands[@]}"
-fi || exit $?
+fi || {
+    status=$?
+    echo >&2 "Checks failed; branch(es) have been merged, but not ${isPush:+pushed or }deleted yet."
+    exit $status
+}
 
 
 if [ "$isPush" ]; then

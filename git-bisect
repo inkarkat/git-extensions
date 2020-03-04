@@ -1,0 +1,33 @@
+#!/bin/bash
+
+report()
+{
+    local exitStatus="${1:?}"; shift
+    local term="${1:?}"; shift
+    local revs="$1"; shift
+
+    [ "$revs" ] || revs="$(git-desc 2>/dev/null)"
+
+    type -t alert >/dev/null && alert --command-name 'git bisect' --exit-status "$exitStatus" ${termOld:+--success-sigil $termOld} ${termNew:+--failure-sigil $termNew} "$@" "$revs"
+}
+
+termOld=
+termNew=
+if terms="$(LANG=C git bisect terms 2>/dev/null)"; then
+    termOld="${terms%%$'\n'*}"
+    termOld="${termOld% for the old state*}"
+    termOld="${termOld#Your current terms are }"
+    termNew="${terms##*$'\n'}"
+    termNew="${termNew% for the new state*}"
+    termNew="${termNew#and }"
+fi
+
+case "$1" in
+    bad|new)	report 1 "$1" "${*:2}";;
+    "$termNew")	report 1 "$1" "${*:2}";;
+    good|old)	report 0 "$1" "${*:2}";;
+    "$termOld")	report 0 "$1" "${*:2}";;
+    skip)	report 0 "$1" "${*:2}" --success ~/public/wave/dong.wav --success-sigil skip;;
+esac
+
+exec git bisect "$@"

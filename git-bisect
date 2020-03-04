@@ -19,6 +19,7 @@ report()
     type -t alert >/dev/null && alert --command-name "git bisect $term" --exit-status "$exitStatus" --success-sigil '' --failure-sigil '' "$@" "$revs"
 }
 
+isReportOnly=
 hasTerms=
 termOld=
 termNew=
@@ -38,6 +39,9 @@ if terms="$(LANG=C git bisect terms 2>/dev/null)"; then
 fi
 
 case "$1" in
+    --report-only)  shift; isReportOnly=t;;
+esac
+case "$1" in
     "$termNew")	report 1 "$1" "${*:2}" "${onOffSoundArgs[@]}";;
     "$termOld")	report 0 "$1" "${*:2}" "${onOffSoundArgs[@]}";;
     bad)	[ "$hasTerms" ] || report 1 "$1" "${*:2}";;
@@ -46,5 +50,6 @@ case "$1" in
     old)	[ "$hasTerms" ] || report 0 "$1" "${*:2}" "${onOffSoundArgs[@]}";;
     skip)	report 0 "$1" "${*:2}" --success "$SKIP_SOUND";;
 esac
+[ "$isReportOnly" ] && exit
 
 exec git bisect "$@"

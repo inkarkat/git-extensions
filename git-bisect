@@ -7,6 +7,7 @@ typeset -a onOffSoundArgs=()
 [ "$ON_SOUND" ] && onOffSoundArgs+=(--fail "$ON_SOUND")
 [ "$OFF_SOUND" ] && onOffSoundArgs+=(--success "$OFF_SOUND")
 
+EXEC=exec
 
 if type -t titleupdate >/dev/null; then
     updateTitle()
@@ -65,8 +66,19 @@ case "$1" in
 		updateTitle --clear
 		;;
 
-    run)	shift; export termOld termNew; set -- run git-bisect-run-wrapper "$@";;
+    run)	shift
+		export termOld termNew
+		set -- run git-bisect-run-wrapper "$@"
+
+		# git-bisect-run-wrapper will update the panel with the Git
+		# revision currently being tested; clear that once the iteration
+		# ends or is aborted by the user.
+		if type -t titleupdate >/dev/null; then
+		    EXEC=
+		    trap 'titleupdate --id git-bisecting --clear 2>/dev/null' EXIT
+		fi
+		;;
 esac
 [ "$isReportOnly" ] && exit
 
-exec git bisect "$@"
+$EXEC git bisect "$@"

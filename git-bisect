@@ -8,12 +8,14 @@ report()
 
     [ "$revs" ] || revs="$(git-desc 2>/dev/null)"
 
-    type -t alert >/dev/null && alert --command-name 'git bisect' --exit-status "$exitStatus" ${termOld:+--success-sigil $termOld} ${termNew:+--failure-sigil $termNew} "$@" "$revs"
+    type -t alert >/dev/null && alert --command-name 'git bisect' --exit-status "$exitStatus" "$@" "$revs"
 }
 
+hasTerms=
 termOld=
 termNew=
 if terms="$(LANG=C git bisect terms 2>/dev/null)"; then
+    hasTerms=t
     termOld="${terms%%$'\n'*}"
     termOld="${termOld% for the old state*}"
     termOld="${termOld#Your current terms are }"
@@ -23,10 +25,10 @@ if terms="$(LANG=C git bisect terms 2>/dev/null)"; then
 fi
 
 case "$1" in
-    bad|new)	report 1 "$1" "${*:2}";;
-    "$termNew")	report 1 "$1" "${*:2}";;
-    good|old)	report 0 "$1" "${*:2}";;
-    "$termOld")	report 0 "$1" "${*:2}";;
+    "$termNew")	report 1 "$1" "${*:2}" --failure-sigil "$termNew";;
+    "$termOld")	report 0 "$1" "${*:2}" --success-sigil "$termOld";;
+    bad|new)	[ "$hasTerms" ] || report 1 "$1" "${*:2}";;
+    good|old)	[ "$hasTerms" ] ||report 0 "$1" "${*:2}";;
     skip)	report 0 "$1" "${*:2}" --success ~/public/wave/dong.wav --success-sigil skip;;
 esac
 

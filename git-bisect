@@ -8,6 +8,15 @@ typeset -a onOffSoundArgs=()
 [ "$OFF_SOUND" ] && onOffSoundArgs+=(--success "$OFF_SOUND")
 
 
+if type -t titleupdate >/dev/null; then
+    updateTitle()
+    {
+	titleupdate --id git-bisect "$@"
+    }
+else
+    updateTitle() { :; }
+fi
+
 report()
 {
     local exitStatus="${1:?}"; shift
@@ -17,6 +26,7 @@ report()
     [ "$revs" ] || revs="$(git-desc 2>/dev/null)"
 
     type -t alert >/dev/null && alert --command-name "git bisect $term" --exit-status "$exitStatus" --success-sigil '' --failure-sigil '' "$@" "$revs"
+    updateTitle --panel "$term $revs"
 }
 
 isReportOnly=
@@ -49,6 +59,12 @@ case "$1" in
     good)	[ "$hasTerms" ] || report 0 "$1" "${*:2}";;
     old)	[ "$hasTerms" ] || report 0 "$1" "${*:2}" "${onOffSoundArgs[@]}";;
     skip)	report 0 "$1" "${*:2}" --success "$SKIP_SOUND";;
+
+    reset|replay)
+		# The previously reported last term (in the title) is cleared / probably invalidated now.
+		updateTitle --clear
+		;;
+
     run)	shift; export termOld termNew; set -- run git-bisect-run-wrapper "$@";;
 esac
 [ "$isReportOnly" ] && exit

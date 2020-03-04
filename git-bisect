@@ -1,5 +1,13 @@
 #!/bin/bash
 
+: ${ON_SOUND=~/public/wave/on3.wav}
+: ${OFF_SOUND=~/public/wave/off3.wav}
+: ${SKIP_SOUND=~/public/wave/dong.wav}
+typeset -a onOffSoundArgs=()
+[ "$ON_SOUND" ] && onOffSoundArgs+=(--fail "$ON_SOUND")
+[ "$OFF_SOUND" ] && onOffSoundArgs+=(--success "$OFF_SOUND")
+
+
 report()
 {
     local exitStatus="${1:?}"; shift
@@ -8,7 +16,7 @@ report()
 
     [ "$revs" ] || revs="$(git-desc 2>/dev/null)"
 
-    type -t alert >/dev/null && alert --command-name 'git bisect' --exit-status "$exitStatus" "$@" "$revs"
+    type -t alert >/dev/null && alert --command-name "git bisect $term" --exit-status "$exitStatus" --success-sigil '' --failure-sigil '' "$@" "$revs"
 }
 
 hasTerms=
@@ -22,14 +30,21 @@ if terms="$(LANG=C git bisect terms 2>/dev/null)"; then
     termNew="${terms##*$'\n'}"
     termNew="${termNew% for the new state*}"
     termNew="${termNew#and }"
+
+    # Terms are initially undefined; after the first manual "git bisect
+    # good|bad|old|new", Git recognizes the combination and insists on using it.
+    # We want to use the default alert sounds for the common good/bad terms.
+    [ "$termOld" = good -a "$termNew" = bad ] && onOffSoundArgs=()
 fi
 
 case "$1" in
-    "$termNew")	report 1 "$1" "${*:2}" --failure-sigil "$termNew";;
-    "$termOld")	report 0 "$1" "${*:2}" --success-sigil "$termOld";;
-    bad|new)	[ "$hasTerms" ] || report 1 "$1" "${*:2}";;
-    good|old)	[ "$hasTerms" ] ||report 0 "$1" "${*:2}";;
-    skip)	report 0 "$1" "${*:2}" --success ~/public/wave/dong.wav --success-sigil skip;;
+    "$termNew")	report 1 "$1" "${*:2}" "${onOffSoundArgs[@]}";;
+    "$termOld")	report 0 "$1" "${*:2}" "${onOffSoundArgs[@]}";;
+    bad)	[ "$hasTerms" ] || report 1 "$1" "${*:2}";;
+    new)	[ "$hasTerms" ] || report 1 "$1" "${*:2}" "${onOffSoundArgs[@]}";;
+    good)	[ "$hasTerms" ] || report 0 "$1" "${*:2}";;
+    old)	[ "$hasTerms" ] || report 0 "$1" "${*:2}" "${onOffSoundArgs[@]}";;
+    skip)	report 0 "$1" "${*:2}" --success "$SKIP_SOUND";;
 esac
 
 exec git bisect "$@"

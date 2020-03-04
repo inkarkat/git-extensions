@@ -6,5 +6,7 @@ else
     typeset -a dirtyArg=()
 fi
 
-git describe --tags "${dirtyArg[@]}" "$@" 2>/dev/null ||
-    git describe --always --all "${dirtyArg[@]}" "$@"
+git describe --tags "${dirtyArg[@]}" "$@" 2>/dev/null && exit
+description="$(git describe --always --all "${dirtyArg[@]}" "$@")" || exit $?
+[ "$description" ] || exit 1
+printf '%s\n' "${description#heads/}"

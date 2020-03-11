@@ -112,10 +112,6 @@ fi
 
 revRangeWithOneMore()
 {
-    # Because of the piping into the pager, we need to explicitly enable color.
-    # Don't do this if the user explicitly turned it off, though.
-    typeset -a colorArg=(); isNeedColorArgumentWhenPiping "${preRangeArgs[@]}" && colorArg=(--color=always) || colorArg=()
-
     if contains '--reverse' "${preRangeArgs[@]}"; then
 	# The (log) output is in reverse order, so the "one more" also needs to
 	# come first instead of last.
@@ -127,6 +123,10 @@ revRangeWithOneMore()
     fi
 }
 if [ "$isShowOneMore" ]; then
+    # Because of the piping into the pager, we need to explicitly enable color.
+    # Don't do this if the user explicitly turned it off, though.
+    typeset -a colorArg=(); isNeedColorArgumentWhenPiping "${preRangeArgs[@]}" && colorArg=(--color=always) || colorArg=()
+
     typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
     eval 'revRangeWithOneMore "$@"' "${pager:+|}" '"${pager[@]}"'
 else

@@ -1,0 +1,45 @@
+#!/bin/bash
+set -o pipefail
+shopt -qs extglob
+
+printUsage()
+{
+    cat <<HELPTEXT
+Show commit logs, limiting the number counting from the beginning instead of
+from the end. (You cannot do this via git log --reverse --max-count, because
+commit limiting is done before commit ordering.)
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '-<number>|-n <number>|--max-count=<number> [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+}
+
+typeset -a gitArgs=()
+typeset -a gitNumberArgs=()
+typeset -a gitPrettyArg=(--pretty=fuller)
+number=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--pretty=*)	gitPrettyArg=("$1"); shift;;
+	--max-count)	gitNumberArgs+=("$1" "$2"); shift; number="${1:?}"; shift;;
+	--max-count=*)	gitNumberArgs+=("$1"); number="${1#--max-count=}"; shift;;
+	-n)		gitNumberArgs+=("$1" "$2"); shift; number="${1:?}"; shift;;
+	-+([0-9]))	gitNumberArgs+=("$1"); number="${1#-}"; shift;;
+	--)		gitArgs+=("$1"); shift; break;;
+	*)		gitArgs+=("$1"); shift;;
+    esac
+done
+if [ ! "$number" ]; then
+    echo >&2 'ERROR: No -<number>|-n <number>|--max-count=<number> passed.'
+    exit 2
+fi
+
+# Pass all arguments except --pretty=... and --max-count to the initial log for
+# determining the total number of resulting commits.
+total="$(git log --pretty=tformat:%H "${gitArgs[@]}" "$@" | wc -l)" || exit $?
+[ $total -eq 0 ] && exit $?
+
+skip=$((total - number))
+typeset -a gitSkipArgs=()
+[ $skip -gt 0 ] && gitSkipArgs=(--skip "$skip")
+exec git-wrapper "${GIT_RNLOG_COMMAND:-log}" "${gitSkipArgs[@]}" "${gitNumberArgs[@]}" "${gitArgs[@]}" "$@"

@@ -16,6 +16,7 @@ typeset -a gitArgs=()
 typeset -a gitNumberArgs=()
 typeset -a gitPrettyArg=(--pretty=fuller)
 number=
+argSkip=0
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -23,6 +24,8 @@ do
 	--pretty=*)	gitPrettyArg=("$1"); shift;;
 	--max-count)	gitNumberArgs+=("$1" "$2"); shift; number="${1:?}"; shift;;
 	--max-count=*)	gitNumberArgs+=("$1"); number="${1#--max-count=}"; shift;;
+	--skip)		shift; argSkip="${1:?}"; shift;;
+	--skip=*)	argSkip="${1#--skip=}"; shift;;
 	-n)		gitNumberArgs+=("$1" "$2"); shift; number="${1:?}"; shift;;
 	-+([0-9]))	gitNumberArgs+=("$1"); number="${1#-}"; shift;;
 	--)		gitArgs+=("$1"); shift; break;;
@@ -39,7 +42,7 @@ fi
 total="$(git log --pretty=tformat:%H "${gitArgs[@]}" "$@" | wc -l)" || exit $?
 [ $total -eq 0 ] && exit $?
 
-skip=$((total - number))
+skip=$((total - number - argSkip))
 typeset -a gitSkipArgs=()
 [ $skip -gt 0 ] && gitSkipArgs=(--skip "$skip")
 exec git-wrapper "${GIT_RNLOG_COMMAND:-log}" "${gitSkipArgs[@]}" "${gitNumberArgs[@]}" "${gitArgs[@]}" "$@"

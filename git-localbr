@@ -8,7 +8,7 @@ printUsage()
 List all local / passed branches (except for the current branch and master (and
 base branch if defined)).
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<branch1> ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--include-current] [--include-master] [--include-base] [--include-all] [--] [<branch1> ...]'
 }
 getBranches()
 {
@@ -20,10 +20,36 @@ getBranches()
     fi
 }
 
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-esac
+isIncludeCurrent=
+isIncludeMaster=
+isIncludeBase=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--include-current)  shift; isIncludeCurrent=t;;
+	--include-master)   shift; isIncludeMaster=t;;
+	--include-base)	    shift; isIncludeBase=t;;
+	--include-all)	    shift; isIncludeCurrent=t; isIncludeMaster=t; isIncludeBase=t;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 
 currentBranch=$(git symbolic-ref HEAD) || exit $?
 currentBranch=${currentBranch##refs/heads/}
-getBranches "$@" | grep -v -F --line-regexp -e 'master' ${GIT_BASE_BRANCH:+-e "$GIT_BASE_BRANCH"} -e "$currentBranch"
+
+typeset -A excludedBranches=(["$currentBranch"]=1 [master]=1)
+[ "$GIT_BASE_BRANCH" ] && excludedBranches+=(["$GIT_BASE_BRANCH"]=1)
+
+[ "$isIncludeCurrent" ] && unset excludedBranches["$currentBranch"]
+[ "$isIncludeMaster" ] && unset excludedBranches['master']
+[ "$isIncludeBase" ] && [ "$GIT_BASE_BRANCH" ] && unset excludedBranches["$GIT_BASE_BRANCH"]
+typeset -a grepArgs=()
+for excludedBranch in "${!excludedBranches[@]}"
+do
+    grepArgs+=(-e "$excludedBranch")
+done
+
+eval 'getBranches "$@"' "${grepArgs:+ | grep -v -F --line-regexp}" '"${grepArgs[@]}"'

@@ -5,18 +5,23 @@ shopt -qs extglob
 printUsage()
 {
     cat <<HELPTEXT
-Show commit logs, limiting the number counting from the beginning instead of
-from the end. (You cannot do this via git log --reverse --max-count, because
-commit limiting is done before commit ordering.)
+Show commit logs, applying skips and number counting after filtering or
+reversing.
+
+Because commit limiting is done before commit ordering, you cannot do this via
+git log --reverse --max-count <number>. Also, skipping in combination with
+filtering of diffs (-S<string>, -G<regex>) doesn't work as expected.
 HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '-<number>|-n <number>|--max-count=<number> [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
 }
 
 typeset -a gitArgs=()
 typeset -a gitNumberArgs=()
-typeset -a gitPrettyArg=(--pretty=fuller)
+typeset -a gitPrettyArg=()
 number=
 argSkip=0
+isReverse=
+isDiffFilter=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -24,11 +29,13 @@ do
 	--pretty=*)	gitPrettyArg=("$1"); shift;;
 	--max-count)	gitNumberArgs+=("$1" "$2"); shift; number="${1:?}"; shift;;
 	--max-count=*)	gitNumberArgs+=("$1"); number="${1#--max-count=}"; shift;;
+	-S*|-G*)	gitArgs+=("$1"); shift; isDiffFilter=t;;
+	--reverse)	gitArgs+=("$1"); shift; isReverse=t;;
 	--skip)		shift; argSkip="${1:?}"; shift;;
 	--skip=*)	argSkip="${1#--skip=}"; shift;;
 	-n)		gitNumberArgs+=("$1" "$2"); shift; number="${1:?}"; shift;;
 	-+([0-9]))	gitNumberArgs+=("$1"); number="${1#-}"; shift;;
-	--)		gitArgs+=("$1"); shift; break;;
+	--)		break;;
 	*)		gitArgs+=("$1"); shift;;
     esac
 done
@@ -37,12 +44,44 @@ if [ ! "$number" ]; then
     exit 2
 fi
 
-# Pass all arguments except --pretty=... and --max-count to the initial log for
-# determining the total number of resulting commits.
-total="$(git log --pretty=tformat:%H "${gitArgs[@]}" "$@" | wc -l)" || exit $?
-[ $total -eq 0 ] && exit $?
+logWithCalculatedSkip()
+{
+    # Pass all arguments except --pretty=... and --max-count to the initial log for
+    # determining the total number of resulting commits.
+    total="$(git log --pretty=tformat:%H "${gitArgs[@]}" "$@" | wc -l)" || exit $?
+    [ $total -eq 0 ] && exit $?
 
-skip=$((total - number - argSkip))
-typeset -a gitSkipArgs=()
-[ $skip -gt 0 ] && gitSkipArgs=(--skip "$skip")
-exec git-wrapper "${GIT_RNLOG_COMMAND:-log}" "${gitSkipArgs[@]}" "${gitNumberArgs[@]}" "${gitArgs[@]}" "$@"
+    skip=$((total - number - argSkip))
+    typeset -a gitSkipArgs=()
+    [ $skip -gt 0 ] && gitSkipArgs=(--skip "$skip")
+    exec git-wrapper "${GIT_RNLOG_COMMAND:-log}" "${gitSkipArgs[@]}" "${gitNumberArgs[@]}" "${gitPrettyArg[@]}" "${gitArgs[@]}" "$@"
+}
+getRevisions()
+{
+    git log --pretty=tformat:%H "${gitArgs[@]}" "$@"
+}
+logEachIndividually()
+{
+    # Reversal is done after the skipping, but here we want to skip from the
+    # reversed start.
+    # Filtering of diffs is done at the very end, which also is not what we
+    # want.
+    if [ $argSkip -eq 0 ]; then
+	getRevisions "$@"
+    else
+	getRevisions "$@" | \
+	    tail -n "+$((argSkip + 1))"
+    fi | \
+	head -n "$number" | \
+	xargs --delimiter '\n' -I '{}' git-wrapper "${GIT_RNLOG_COMMAND:-log}" --max-count 1 "${colorArg[@]}" "${gitPrettyArg[@]}" "${gitArgs[@]}" '{}' "$@"
+}
+if [ $argSkip -ne 0 ] && [ -n "$isReverse" -o -n "$isDiffFilter" ]; then
+    # Because of the piping into the pager, we need to explicitly enable color.
+    # Don't do this if the user explicitly turned it off, though.
+    typeset -a colorArg=(); isNeedColorArgumentWhenPiping "${gitArgs[@]}" && colorArg=(--color=always) || colorArg=()
+
+    typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+    eval 'logEachIndividually "$@"' "${pager:+|}" '"${pager[@]}"'
+else
+    logWithCalculatedSkip "$@"
+fi

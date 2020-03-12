@@ -35,9 +35,13 @@ if contains '--reverse' "$@" && contains '--graph' "$@"; then
     reversePipeline='tac | tr "/\\\\" "\\\\/"'
     [ -t 1 ] && reversePipeline="$reversePipeline"' | "${PAGER:-less}" --RAW-CONTROL-CHARS'
 
-    # We need to drop the --reverse, but converting it into another --graph is
-    # simpler and just as effective.
-    set -- "${@/#--reverse/--graph}"
+    # Remove the --reverse.
+    typeset -a argsCopy=()
+    for arg
+    do
+	[ "$arg" = '--reverse' ] || argsCopy+=("$arg")
+    done
+    set -- "${argsCopy[@]}"
 fi
 
 eval 'git $gitDirectArg log --abbrev-commit --date=relative --decorate --pretty="tformat:${GIT_ONELINELOG_PREFORMAT:-}${FORMAT//${GIT_ONELINELOG_NOFORMAT:-}/}${GIT_ONELINELOG_POSTFORMAT:-}" "$@"' "${reversePipeline:+|}$reversePipeline"

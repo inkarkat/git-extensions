@@ -15,6 +15,21 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '-<number>|-n <number>|--max-count=<number> [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
 }
 
+if [ "$1" = '--call' ]; then
+    appendSeparatorIfMultiLineOutput()
+    {
+	awk '
+NR > 1 { isMultiLine = 1 }
+{ print }
+END { if (isMultiLine) print "" }
+'
+    }
+
+    shift
+    git-wrapper "$@" | appendSeparatorIfMultiLineOutput
+    exit $?
+fi
+
 typeset -a gitArgs=()
 typeset -a gitNumberArgs=()
 typeset -a gitPrettyArg=()
@@ -62,6 +77,8 @@ getRevisions()
 }
 logEachIndividually()
 {
+    readonly scriptFilespec="${BASH_SOURCE[0]}"
+
     # Reversal is done after the skipping, but here we want to skip from the
     # reversed start.
     # Filtering of diffs is done at the very end, which also is not what we
@@ -73,7 +90,7 @@ logEachIndividually()
 	    tail -n "+$((argSkip + 1))"
     fi | \
 	head -n "$number" | \
-	xargs --delimiter '\n' -I '{}' git-wrapper "${GIT_RNLOG_COMMAND:-log}" --max-count 1 "${colorArg[@]}" "${gitPrettyArg[@]}" "${gitArgs[@]}" '{}' "$@"
+	xargs --delimiter '\n' -I '{}' "$scriptFilespec" --call "${GIT_RNLOG_COMMAND:-log}" --max-count 1 "${colorArg[@]}" "${gitPrettyArg[@]}" "${gitArgs[@]}" '{}' "$@"
 }
 if [ $argSkip -ne 0 ] && [ -n "$isReverse" -o -n "$isDiffFilter" ]; then
     # Because of the piping into the pager, we need to explicitly enable color.

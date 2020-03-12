@@ -13,6 +13,17 @@ contains()
     done
     return 1
 }
+containsGlob()
+{
+    local elem glob=$1; shift
+    for elem
+    do
+	case "$elem" in
+	    $glob) return 0;;
+	esac
+    done
+    return 1
+}
 
 gitDirectArg="$1"; shift
 
@@ -24,18 +35,28 @@ fi
 
 typeset -a removeArgs=()
 reversePipeline=
-if contains '--reverse' "$@" && contains '--graph' "$@"; then
-    # Git (2.7.4) does not support this, but it can be useful for the one-line
-    # logs here:
-    # > fatal: cannot combine --reverse with --graph
-    # We can emulate it easily:
-    # - Reverse the lines.
-    # - Flip the / \ graph symbols (as these are unlikely to appear in the
-    #   commit summaries, let's do this globally for now).
-    # - Pipe into pager as git log won't do this for us any longer.
-    reversePipeline='tac | tr "/\\\\" "\\\\/"'
-    [ -t 1 ] && reversePipeline="$reversePipeline"' | "${PAGER:-less}" --RAW-CONTROL-CHARS'
-    removeArgs+='--reverse'
+if contains '--graph' "$@"; then
+    if containsGlob '-[GS]*' "$@" || contains '--grep' "$@" || containsGlob '--grep=*' "$@"; then
+	# When filtering diffs, Git (2.7.4) adds "..." lines between each result
+	# (presumably to indicate that the graph is disjointed; but that's also
+	# the case with --grep and it's not happening there). These are
+	# increasing the number of lines by almost 100% and are just confusing
+	# to me. Instead of filtering them away, just drop the --graph, as it's
+	# not useful for any kind of filtering, anyway.
+	removeArgs+='--graph'
+    elif contains '--reverse' "$@"; then
+	# Git (2.7.4) does not support this, but it can be useful for the one-line
+	# logs here:
+	# > fatal: cannot combine --reverse with --graph
+	# We can emulate it easily:
+	# - Reverse the lines.
+	# - Flip the / \ graph symbols (as these are unlikely to appear in the
+	#   commit summaries, let's do this globally for now).
+	# - Pipe into pager as git log won't do this for us any longer.
+	reversePipeline='tac | tr "/\\\\" "\\\\/"'
+	[ -t 1 ] && reversePipeline="$reversePipeline"' | "${PAGER:-less}" --RAW-CONTROL-CHARS'
+	removeArgs+='--reverse'
+    fi
 fi
 
 if [ ${#removeArgs[@]} -gt 0 ]; then

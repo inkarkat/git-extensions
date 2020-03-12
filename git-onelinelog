@@ -22,6 +22,7 @@ if isColorOffArgument "$@"; then
     FORMAT=${FORMAT//%C+([a-z])/}
 fi
 
+typeset -a removeArgs=()
 reversePipeline=
 if contains '--reverse' "$@" && contains '--graph' "$@"; then
     # Git (2.7.4) does not support this, but it can be useful for the one-line
@@ -34,12 +35,14 @@ if contains '--reverse' "$@" && contains '--graph' "$@"; then
     # - Pipe into pager as git log won't do this for us any longer.
     reversePipeline='tac | tr "/\\\\" "\\\\/"'
     [ -t 1 ] && reversePipeline="$reversePipeline"' | "${PAGER:-less}" --RAW-CONTROL-CHARS'
+    removeArgs+='--reverse'
+fi
 
-    # Remove the --reverse.
+if [ ${#removeArgs[@]} -gt 0 ]; then
     typeset -a argsCopy=()
     for arg
     do
-	[ "$arg" = '--reverse' ] || argsCopy+=("$arg")
+	contains "$arg" "${removeArgs[@]}" || argsCopy+=("$arg")
     done
     set -- "${argsCopy[@]}"
 fi

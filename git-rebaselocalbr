@@ -11,17 +11,19 @@ branch.<name>.remote and branch.<name>.merge) head.
 After that, you can push all branches via to the default (or passed, if you did
 not pass a remote to this command) remote via git push -f --all.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--continue|--skip|--abort] [--upstream <remote>/<branch>] [--branches "<branch1> ..."] [N] [-i|--interactive] [options]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--continue|--skip|--abort] [--upstream <remote>/<branch>] [--include-current] [--include-master] [--include-base] [--include-all] [--branches "<branch1> ..."] [N] [-i|--interactive] [options]'
 }
 
 branchNum=9999
 upstreamBranch=
 inputBranches=
 rebaseAction=
+typeset -a gitLocalbrArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)		    shift; printUsage "$0"; exit 0;;
+	--include-*)		    gitLocalbrArgs+=("$1"); shift;;
 	--branches)		    shift; inputBranches=$1; shift;;	# Internal hook to pass in the branches.
 	--upstream)		    shift; upstreamBranch=$1; shift;;
 	--continue|--skip|--abort)  rebaseAction=$1; shift; break;;
@@ -44,7 +46,7 @@ getNextBranch()
 
 if [ ! "$rebaseAction" ]; then
     IFS=$'\n'
-    typeset -a localBranches=($(git-localbr $inputBranches | tail -n "$branchNum")) || exit $?
+    typeset -a localBranches=($(git-localbr "${gitLocalbrArgs[@]}" -- $inputBranches | tail -n "$branchNum")) || exit $?
     if [ ${#localBranches[@]} -eq 0 ]; then
 	echo >&2 "No local branches found!"
 	exit 1

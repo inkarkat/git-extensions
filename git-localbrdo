@@ -8,7 +8,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-y|--yes] [--continue|--abort|--stashed] [--branches "<branch1> ..."] [N] [-c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-y|--yes] [--continue|--abort|--stashed] [--include-current] [--include-master] [--include-base] [--include-all] [--branches "<branch1> ..."] [N] [-c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -50,12 +50,14 @@ isYes=
 branchNum=9999
 inputBranches=
 iterationAction=
+typeset -a gitLocalbrArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	    shift; printLongUsage "$0"; exit 0;;
 	--stashed)	    shift; isStashed=t;;
 	--yes|-y)	    shift; isYes=t;;
+	--include-*)	    gitLocalbrArgs+=("$1"); shift;;
 	--branches)	    shift; inputBranches=$1; shift;;	# Internal hook to pass in the branches.
 	--continue|--abort) iterationAction=${1#--}; shift;;
 	+([0-9]))	    branchNum=$1; shift;;
@@ -141,7 +143,7 @@ case "$iterationAction" in
 	;;
     '')
 	IFS=$'\n'
-	typeset -a localBranches=($(git-localbr $inputBranches | tail -n "$branchNum")) || exit $?
+	typeset -a localBranches=($(git-localbr "${gitLocalbrArgs[@]}" -- $inputBranches | tail -n "$branchNum")) || exit $?
 	if [ ${#localBranches[@]} -eq 0 ]; then
 	    echo >&2 "No local branches found!"
 	    exit 1

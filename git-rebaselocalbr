@@ -55,7 +55,7 @@ if [ ! "$rebaseAction" ]; then
     typeset -a branches
     for candidateBranch in "${localBranches[@]}"
     do
-	if [ ! "$upstreamBranch" ] || [ "$(git rev-list ${candidateBranch}..${upstreamBranch})" ]; then
+	if [ ! "$upstreamBranch" ] || [ "$(git rev-list "${candidateBranch}..${upstreamBranch}")" ]; then
 	    branches+=("$candidateBranch")
 	else
 	    printf 'Branch %s is up to date.\n' "$candidateBranch"
@@ -72,8 +72,11 @@ ${branches[*]}
     commandSeparator=
     for branch in "${branches[@]}"
     do
-	printf '%sgit rebase -p %s%s%s' "$commandSeparator" "${upstreamBranch}${upstreamBranch:+ }" "$*${*+ }" "$branch"
+	printf '%sgit rebase -p ' "$commandSeparator"
 	commandSeparator=' && '
+	[ "$upstreamBranch" ] && printf '%q ' "$upstreamBranch"
+	[ $# -eq 0 ] || printf '%q ' "$@"
+	printf '%q' "$branch"
     done
     printf '\n'
 
@@ -81,7 +84,7 @@ ${branches[*]}
     read answer
     [ "$answer" = "y" ] || exit 1
 
-    printf '%s\n' "${branches[*]}" > "$branchStore" || exit $?
+    printf '%s\n' "${branches[@]}" > "$branchStore" || exit $?
     git-orig-ref > "$origBranchStore"
 else
     git rebase --preserve-merges "$rebaseAction" || exit $?
@@ -100,6 +103,7 @@ do
 	exit
     fi
 
-    eval 'git rebase --preserve-merges' $upstreamBranch '"$@" $branch' || exit $?
+    [ "$upstreamBranch" ] && set -- "$upstreamBranch" "$@"
+    git rebase --preserve-merges "$@" "$branch" || exit $?
     [ "$(git ls-files --unmerged)" ] && exit 1
 done

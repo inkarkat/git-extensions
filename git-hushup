@@ -1,0 +1,70 @@
+#!/bin/bash
+set -o pipefail
+
+printUsage()
+{
+    cat <<HELPTEXT
+Remove some not so important lines from git pull / fetch, and declutter the output.
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--fetch] <remote> [-?|-h|--help]'
+}
+isFetch=
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --fetch)		shift; isFetch=t;;
+esac
+
+remote="${1:?}"; shift
+
+massageOutput()
+{
+    sed --unbuffered \
+	-e '/^ \* branch            master     -> FETCH_HEAD$/d' \
+	-e 's#^\( .\+\)\([^ ]\+\) \+-> \+\('"$remote"'/\)\?\2$#\1\2#' \
+	-e '/\(^\|\n\|\r\)Successfully rebased and updated refs\/heads\/master\.$/d'
+}
+
+declutterOutput()
+{
+    sed --unbuffered \
+	-e '/^From / {
+		N
+		/\nNo changes in '"$remote"'/ {
+		    N
+		    /\nEverything up-to-date$/d
+		}
+
+		x
+		/./ { x; s/^From [^\n]*\n//; s/^No changes in '"$remote"'[^\n]*\n//; b; }
+		g
+	    }'
+}
+
+joinNewRefLines()
+{
+    awk -F '[[:space:]]+->[[:space:]]+|[[:space:]]+' '
+function join(array, start, end, sep,    result, i)
+{
+    if (sep == "")
+	sep = " "
+    else if (sep == SUBSEP) # magic value
+	sep = ""
+    result = array[start]
+    for (i = start + 1; i <= end; i++)
+	result = result sep array[i]
+    return result
+}
+BEGIN {
+    PROCINFO["sorted_in"] = "@ind_str_asc"
+}
+$2 == "*" && $3 == "[new" && NF == 5 { $4 = substr($4, 1, length($4) - 1); news[$4][++n[$4]] = $5; next }
+/^From / {
+    for (what in n) {
+	print sprintf("%-21s", " * [new " what (n[what] == 1 ? "" : (what ~ /ch$/ ? "e" : "") "s") "]") join(news[what], 1, n[what], ", ")
+    }
+}
+{ print }
+'
+}
+
+eval "massageOutput | ${isFetch:+joinNewRefLines |} declutterOutput"

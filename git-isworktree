@@ -1,0 +1,19 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Test whether the current working copy is a secondary worktree. (That is, links
+to a GIT_DIR that is shared with another working copy.)
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit $?
+case "$gitDir" in
+    */worktrees/*)  exit 0;;
+    *)		    exit 1;;
+esac

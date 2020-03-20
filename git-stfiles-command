@@ -1,0 +1,29 @@
+#!/bin/bash
+set -o noglob
+
+IFS=$'\n'
+typeset -a stfiles=($(${GIT_STFILES_COMMAND:-git-stfiles}))
+[ ${#stfiles[@]} -eq 0 ] && exit 1
+
+typeset -a gitCommand=()
+case "$1" in
+    [^-]*-command)  gitCommand+=("$1"); shift
+		    while [ $# -ne 0 ]
+		    do
+			case "$1" in
+			    --)		break;;
+			    -*)		gitCommand+=("$1"); shift;;
+			    *)		gitCommand+=("$1"); shift; break;;
+			esac
+		    done
+		    ;;
+    *)		    while [ $# -ne 0 ]
+		    do
+			case "$1" in
+			    -c) gitCommand+=("$1" "$2"); shift; shift;;
+			    *)	gitCommand+=("$1"); shift; break;;
+			esac
+		    done
+esac
+
+exec git-wrapper "${gitCommand[@]}" "$@" -- "${stfiles[@]}"

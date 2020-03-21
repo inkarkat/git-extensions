@@ -4,6 +4,7 @@ Copy / sync all plugin files from ~/data/data/Unixhome/.vim to ~/tmp/vim
 - **Don't forget to move the tests/ directory** from ~/.vim/tests/PLUGIN-NAME to ~/tmp/vim/tests
 - Remove test artifacts:
 `rm ~/tmp/vim/tests/*.{out,msgout,msgresult,tap}`
+`hasdir ~/tmp/vim/tests/ && rm ~/tmp/vim/tests/*/*.{out,msgout,msgresult,tap}`
 - Do a directory compare to **ensure that old deleted files are not reintroduced**
 
 `cd ~/Unixhome/.vim/pack/ingo/start/`

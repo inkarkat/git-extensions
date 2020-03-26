@@ -1,6 +1,84 @@
 #!/bin/bash
 set -o pipefail
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header] [--separate-errors] [--no-git-color] GIT-COMMAND [...] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 'Try %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Execute GIT-COMMAND (log or a variant) for staggered date ranges: today, last
+week, last 30 days, last year.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    cat <<HELPTEXT
+
+Puts a header line (unless --no-header) that contains the date range before the
+command output.
+    --no-pager		    Do not page the output (so contents will scroll out
+			    of view if there's too much output).
+    --separate-errors	    Do not combine command output and command errors
+			    into one (paged) stream. Commands that just cause
+			    error output won't have a header then. Error output
+			    will remain on its separate file descriptor and will
+			    not be paged. Useful if you want to suppress errors
+			    or handle them separately.
+Note: For paging and headers, this command has to control Git's color output.
+Pass --no-git-color if GIT-COMMAND does not support the --color=... arguments.
+You can still pass --color=always if you pipe this command's output yet still
+want coloring of headers.
+
+EXIT STATUS
+Returns the most successful exit status.
+HELPTEXT
+}
+
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+isHeader=t
+errorRedir='2>&1'
+isGitColor=t
+typeset -a colorArg=()
+typeset -a args=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)		shift; printLongUsage "$0"; exit 0;;
+	--no-pager)		shift; pager=();;
+	--no-header)		shift; isHeader=
+				[ "$PAGER" = smartless ] && PAGER=less	# XXX: smartless does not page small outputs that fit the terminal, but we explicitly want to page through each date range separately.
+				;;
+	--separate-errors)	shift; errorRedir='';;
+	--no-git-color)		shift; isGitColor=;;
+	--no-color|--color=*)	colorArg=("$1"); shift;;
+	--color)		colorArg=("$1" "$2"); shift; shift;;
+	--)			shift; break;;
+	*)			args+=("$1"); shift;;
+    esac
+done
+# With piping into withHeader / pager, we need to explicitly enable color for
+# Git, unless this command's output itself is redirected. Also don't do this if
+# the user explicitly turned off color.
+if [ -n "$pager" -o -n "$isHeader" ] && isNeedColorArgumentWhenPiping "${colorArg[@]}"; then
+    colorArg=(--color=always)	# Force for withHeader
+    [ "$isGitColor" ] && gitColorArg=(--color=always)	# Force for Git
+else
+    gitColorArg=()
+fi
+set -- "${args[@]}" "$@"
+
 typeset -a dates=("$(date "+%F 03:00" 2>/dev/null || printf yesterday)" '7 days ago' '30 days ago' '365 days ago' '')
 
 typeset -a gitCommand=()
@@ -25,17 +103,21 @@ case "$1" in
 esac
 
 : ${GIT_PASTTIMES_COMMAND_HEADER_ID:="$pasttimes-command-$$-$RANDOM"}
-status=
-previousDate=
-for date in "${dates[@]}"
-do
-    typeset -a rangeArgs=()
-    [ "$date" ] && rangeArgs+=("--since=$date")
-    [ "$previousDate" ] && rangeArgs+=("--until=$previousDate")
+pasttimes()
+{
+    status=
+    previousDate=
+    for date in "${dates[@]}"
+    do
+	typeset -a rangeArgs=()
+	[ "$date" ] && rangeArgs+=("--since=$date")
+	[ "$previousDate" ] && rangeArgs+=("--until=$previousDate")
 
-    git-wrapper "${gitCommand[@]}" "${rangeArgs[@]}" "$@" | withHeader --id "$GIT_PASTTIMES_COMMAND_HEADER_ID" -- "${previousDate:-now}..${date}"
-    exitStatus=$?; if [ -z "$status" ] || [ $exitStatus -lt $status ]; then status=$exitStatus; fi;
+	eval 'git-wrapper "${gitCommand[@]}" "${gitColorArg[@]}" "${rangeArgs[@]}" "$@"' "${isHeader:+$errorRedir | withHeader "${colorArg[@]}" --id '$GIT_PASTTIMES_COMMAND_HEADER_ID' -- '${previousDate:-now}..${date}'}"
+	exitStatus=$?; if [ -z "$status" ] || [ $exitStatus -lt $status ]; then status=$exitStatus; fi;
 
-    previousDate="$date"
-done
+	previousDate="$date"
+    done
+}
+eval "pasttimes "$@" $errorRedir ${pager:+|}" '"${pager[@]}"'
 exit $status

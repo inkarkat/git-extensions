@@ -24,6 +24,7 @@ case "$1" in
 		    done
 esac
 
+status=
 previousDate=
 for date in "${dates[@]}"
 do
@@ -33,4 +34,6 @@ do
     previousDate="$date"
 
     git-wrapper "${gitCommand[@]}" "${rangeArgs[@]}" "$@"
+    exitStatus=$?; if [ -z "$status" ] || [ $exitStatus -lt $status ]; then status=$exitStatus; fi;
 done
+exit $status

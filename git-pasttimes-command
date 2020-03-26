@@ -24,6 +24,7 @@ case "$1" in
 		    done
 esac
 
+: ${GIT_PASTTIMES_COMMAND_HEADER_ID:="$pasttimes-command-$$-$RANDOM"}
 status=
 previousDate=
 for date in "${dates[@]}"
@@ -31,9 +32,10 @@ do
     typeset -a rangeArgs=()
     [ "$date" ] && rangeArgs+=("--since=$date")
     [ "$previousDate" ] && rangeArgs+=("--until=$previousDate")
-    previousDate="$date"
 
-    git-wrapper "${gitCommand[@]}" "${rangeArgs[@]}" "$@"
+    git-wrapper "${gitCommand[@]}" "${rangeArgs[@]}" "$@" | withHeader --id "$GIT_PASTTIMES_COMMAND_HEADER_ID" -- "${previousDate:-now}..${date}"
     exitStatus=$?; if [ -z "$status" ] || [ $exitStatus -lt $status ]; then status=$exitStatus; fi;
+
+    previousDate="$date"
 done
 exit $status

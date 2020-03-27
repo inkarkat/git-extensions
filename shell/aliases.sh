@@ -52,3 +52,15 @@ git-cd()
     typeset root; root="$(git rev-parse --show-toplevel)" || return $?
     cd "${root}/$1"
 }
+
+git-nco()
+{
+    if git checkout "$@"; then
+	typeset newBranch="$(git-brname 2>/dev/null)"
+	if [ "$newBranch" ] && [ "$newBranch" != "$GIT_BASE_BRANCH" ]; then
+	    typeset what=Set; [ "$GIT_BASE_BRANCH" ] && what=Changed
+	    export GIT_BASE_BRANCH="$newBranch"
+	    printf '%s base branch to %s.\n' "$what" "$GIT_BASE_BRANCH"
+	fi
+    fi
+}

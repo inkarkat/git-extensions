@@ -75,18 +75,16 @@ fi
 
 if [ ! "$isContinue" ]; then
     if [ "$isRebase" ]; then
-	if [ ${#branches[@]} -ne 1 ]; then
-	    echo >&2 'ERROR: Can only rebase exactly one branch.'
-	    exit 2
-	fi
-
 	origRef="$(git-orig-ref)" || exit $?
-	git rebase --preserve-merges HEAD "${branches[@]}" && git checkout "$origRef" || exit $?
-	mergeArgs=()
-	fastForwardArgs=(--ff-only)
-    fi
 
-    git merge "${fastForwardArgs[@]:---no-ff}" "${mergeArgs[@]}" "${branches[@]}" || exit $?
+	for branch in "${branches[@]}"
+	do
+	    git rebase --preserve-merges HEAD "$branch" && git checkout "$origRef" || exit $?
+	    git merge --ff-only "$branch" || exit $?
+	done
+    else
+	git merge "${fastForwardArgs[@]:---no-ff}" "${mergeArgs[@]}" "${branches[@]}" || exit $?
+    fi
 fi
 
 

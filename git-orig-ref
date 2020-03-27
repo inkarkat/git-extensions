@@ -6,5 +6,13 @@ git symbolic-ref --short --quiet HEAD 2>/dev/null && exit
 
 # Git 1.7.9 on Cygwin doesn't understand the --short option; fall back to
 # shorting it ourselves.
-longOrig=$(git symbolic-ref HEAD) || exit $?
-printf '%s\n' "${longOrig#refs/heads/}"
+if [ "$1" != --symbolic ]; then
+    if longOrig="$(git symbolic-ref HEAD 2>/dev/null)"; then
+	printf '%s\n' "${longOrig#refs/heads/}"
+    else
+	git rev-parse HEAD
+    fi
+else
+    longOrig="$(git symbolic-ref HEAD)" || exit $?
+    printf '%s\n' "${longOrig#refs/heads/}"
+fi

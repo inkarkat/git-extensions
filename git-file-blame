@@ -1,5 +1,7 @@
 #!/bin/bash
 
+additionalSort=
+additionalSorter=
 printUsage()
 {
     cat <<HELPTEXT
@@ -9,13 +11,14 @@ HELPTEXT
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    -t)			shift; additionalSort='%at'; additionalSorter="sort --reverse --numeric-sort --key 1 | sed 's/^[0-9]\\+[[:space:]]\\+//'";;
 esac
 
 
 fileBlame()
 {
-    git ls-files "$@" | xargs -n 1 -I {} git log -1 --pretty=tformat:'%h %aN (%ar)	{}' -- {} | column -s $'\t' -t
+    git ls-files "$@" | xargs -n 1 -I {} git log -1 --pretty=tformat:"${additionalSort}${additionalSort:+ }%h %aN (%ar)	{}" -- {} | column -s $'\t' -t
 }
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
-eval 'fileBlame "$@"' "${pager:+|}" '"${pager[@]}"'
+eval 'fileBlame "$@"' "${additionalSorter:+|}${additionalSorter}${pager:+|}" '"${pager[@]}"'

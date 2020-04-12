@@ -1,5 +1,17 @@
 #!/bin/bash
 
+printUsage()
+{
+    cat <<HELPTEXT
+Show author name and last date for each file.
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--] [<file>...] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+
 fileBlame()
 {
     git ls-files "$@" | xargs -n 1 -I {} git log -1 --pretty=tformat:'%h %aN (%ar)	{}' -- {} | column -s $'\t' -t

@@ -11,11 +11,13 @@
 # (And more consistent with blame output from other revision control systems
 # (like Subversion), which don't allow spaces in the author name.)
 #
-# -M detects moving lines in the file.
+# -w ignores whitespace
+# -M detects moving lines in the file
+# -C detects moving lines into other files
 # -t uses raw timestamps; which are easiest to parse.
 annotate()
 {
-    git annotate -M -t "$@" | perl \
+    git annotate -w -M -C -t "$@" | perl \
 	-e 'sub fix { my $arg = shift; $arg =~ s/ /_/g; return sprintf("%-14.14s", $arg); }' \
 	-lpe 's/^([^\t]*)\t\(([^\t]+)\t\d+ [+-]\d+\t+\d+\)/$1 . " " . fix($2) . $3 . ") "/e'
 }

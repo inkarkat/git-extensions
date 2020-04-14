@@ -6,7 +6,7 @@ printUsage()
     cat <<HELPTEXT
 Remove some not so important lines from git pull / fetch, and declutter the output.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--fetch] <remote> [-?|-h|--help]'
+    printf 'Usage: git pull|fetch [...] | %q %s\n' "$(basename "$1")" '[--fetch] <remote> [-?|-h|--help]'
 }
 isFetch=
 case "$1" in
@@ -40,7 +40,7 @@ declutterOutput()
 	    }'
 }
 
-joinNewRefLines()
+joinReferencesLines()
 {
     awk -F '[[:space:]]+->[[:space:]]+|[[:space:]]+' '
 function join(array, start, end, sep,    result, i)
@@ -67,4 +67,4 @@ $2 == "*" && $3 == "[new" && NF == 5 { $4 = substr($4, 1, length($4) - 1); news[
 '
 }
 
-eval "massageOutput | ${isFetch:+joinNewRefLines |} declutterOutput"
+eval "massageOutput | ${isFetch:+joinReferencesLines |} declutterOutput"

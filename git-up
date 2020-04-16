@@ -29,8 +29,11 @@ if [ "$GIT_UP_FETCH" ]; then
     git fetch "$remote" || exit $?
 fi
 
+typeset -a gitArgs=(pull --rebase=preserve)
+[ "$GIT_UP_REBASE" ] && gitArgs=(rebase --preserve-merges)
+
 # Git 2.6 and later.
-git -c rebase.autoStash=true pull --rebase=preserve "$remote" "$@" || exit $?
+git -c rebase.autoStash=true "${gitArgs[@]}" "$remote" "$@" || exit $?
 # Git 2.9 and later.
 #git pull --rebase=preserve --autostash "$remote" "$@" || exit $?
 

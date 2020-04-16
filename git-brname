@@ -1,12 +1,48 @@
 #!/bin/bash
 
+printUsage()
+{
+    cat <<HELPTEXT
+Print current (local) branch name, tag, or detached commit.
+--real-branch-only aborts with an error if no ordinary branch is checked out.
+--raw avoids embellishments on tags or detached commits (so that the result can
+be passed to other Git commands as a revision).
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--real-branch-only|--raw] [-?|-h|--help]'
+}
+
+isRealBranchOnly=
+tagEmbellishment='(tag: %s)'
+detachedEmbellishment='(%s...)'
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --real-branch-only)	shift; isRealBranchOnly=t;;
+    --raw)		shift; tagEmbellishment='%s'; detachedEmbellishment='%s';;
+esac
+
 if branch=$(git symbolic-ref HEAD 2>/dev/null); then
     printf '%s\n' "${branch##refs/heads/}"
 elif tags=$(git tag --list --points-at HEAD 2>/dev/null) && [ "$tags" ]; then
-    printf '(tag: %s)\n' "${tags//
+    if [ "$isRealBranchOnly" ]; then
+	printf >&2 'ERROR: Checked out tag %s\n' "${tags//
+/, }"
+	exit 1
+    fi
+
+    if [ "$tagEmbellishment" == '%s' ]; then
+	# Only print the first tag.
+	printf "${tagEmbellishment}\\n" "${tags%%
+*}"
+    else
+	printf "${tagEmbellishment}\\n" "${tags//
 /, tag: }"
+    fi
 elif detached=$(git rev-parse --short HEAD 2>/dev/null); then
-    printf '(%s...)\n' "$detached"
+    if [ "$isRealBranchOnly" ]; then
+	printf >&2 'ERROR: Detached checkout of %s\n' "$detached"
+	exit 1
+    fi
+    printf "${detachedEmbellishment}\\n" "$detached"
 else
     # Re-execute command to obtain the original error message.
     git symbolic-ref HEAD

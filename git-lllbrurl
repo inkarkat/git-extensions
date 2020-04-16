@@ -1,7 +1,8 @@
 #!/bin/bash
+set -o pipefail
 
 remote="${1:?}"; shift
-url=$(git-remoteurl "$remote") || exit $?
-branch=$(git-brname | urlencode --filespec -) || exit $?
+url="$(git-remoteurl "$remote")" || exit $?
+branch="$(git-brname --real-branch-only | urlencode --filespec -)" || exit $?
 
 exec git-lll --prefix "${url%/}/blob/${branch}/" --transform 'urlencode --filespec --newlines -' --no-classify "$@"

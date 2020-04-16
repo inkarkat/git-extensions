@@ -9,7 +9,7 @@ Test whether the working copy has either:
 - outgoing: where not all commits (on the current branch) have already been
 	    pushed to origin (or origin doesn't even exist yet)
 - wipcommit:where the last commit had "WIP:" in the message summary
-- nonmaster:a branch different from the master branch (or \$GIT_BASE_BRANCH if
+- nonmaster:a branch different from the master branch (or the base branch if
 	    defined) is checked out
 - downstreambranches:
 	    a branch that only exists in origin, but not upstream; may represent
@@ -63,7 +63,7 @@ done
     if git l --max-count=1 "${colorArg[@]}" | grep '\(^\| \)WIP: '; then exit 0; fi
 
 [ "${checks[nonmaster]}" ] && \
-    if branchName="$(git-brname --real-branch-only 2>/dev/null)"; [ "$branchName" != 'master' -a "$branchName" != "${GIT_BASE_BRANCH:-not a branch name}" ]; then printf 'On branch %s\n' "$branchName"; exit 0; fi
+    if branchName="$(git-brname --real-branch-only 2>/dev/null)"; [ -n "$branchName" -a "$branchName" != 'master' -a "$branchName" != "$(git-nbr 2>/dev/null)" ]; then printf 'On branch %s\n' "$branchName"; exit 0; fi
 
 findDownstreamBranches()
 {

@@ -10,10 +10,11 @@ remote=$1
 branchPattern=$2
 
 currentBranch="$(git-remotebr "$remote" 2>/dev/null || echo "(remote branch not found)")"
-remoteBranch="$(git-brc -r "${remote}/${branchPattern}" | awk '{ print $NF }' | grep -v -F --line-regexp -e "${remote}/master" ${GIT_BASE_BRANCH:+-e "${remote}/$GIT_BASE_BRANCH"} -e "$currentBranch" | tail -n 1)" || exit $?
+baseBranch="$(git-nbr 2>/dev/null)"
+remoteBranch="$(git-brc -r "${remote}/${branchPattern}" | awk '{ print $NF }' | grep -v -F --line-regexp -e "${remote}/master" ${baseBranch:+-e "${remote}/$baseBranch"} -e "$currentBranch" | tail -n 1)" || exit $?
 if [ -z "$remoteBranch" ]; then
     # git branch does not return an error if there are no matches for the passed pattern.
-    printf >&2 'ERROR: No branch matching %s/%s (excluding the current %s and master%s) found.\n' "$remote" "$branchPattern" "$currentBranch" "${GIT_BASE_BRANCH:+ and ${GIT_BASE_BRANCH}}"
+    printf >&2 'ERROR: No branch matching %s/%s (excluding the current %s and master%s) found.\n' "$remote" "$branchPattern" "$currentBranch" "${baseBranch:+ and ${baseBranch}}"
     exit 1
 fi
 exec git-cobr "${remoteBranch##+( )}"

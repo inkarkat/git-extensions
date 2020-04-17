@@ -8,7 +8,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header] [--separate-errors] [-y|--yes] [--continue|--abort|--stashed] [--include-current] [--include-master] [--include-base] [--include-all] [--branches "<branch1> ..."] [--detach] [N] [-c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [--no-pager] [--no-header] [--separate-errors] [-y|--yes] [--continue|--abort|--stashed] [--include-current] [--include-master] [--include-base] [--include-all] [--branches "<branch1> ..."] [--detach] [N] [-c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -57,6 +57,7 @@ HELPTEXT
 }
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+isQuiet=
 isHeader=; type -t withHeader >/dev/null && isHeader=t
 errorRedir='2>&1'
 typeset -a colorArg=()
@@ -74,6 +75,7 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	    shift; printLongUsage "$0"; exit 0;;
+	--quiet|-q)	    shift; isQuiet=t;;
 	--no-pager)	    shift; pager=();;
 	--no-header)	    shift; isHeader=;;
 	--separate-errors)  shift; errorRedir='';;
@@ -147,10 +149,12 @@ restoreOriginalBranch()
     if [ -f "$origBranchStore" ]; then
 	origBranch="$(<"$origBranchStore")"
 	rm -- "$origBranchStore"
-	git checkout --quiet "$origBranch" &&
+	if git checkout --quiet "$origBranch"; then
 	    [ ${#commands[@]} -eq 0 ] && echo >&2
-	    printf >&2 "Restored branch '%s'\\n" "$origBranch" ||
+	    [ "$isQuiet" ] || printf >&2 "Restored branch '%s'\\n" "$origBranch"
+	else
 	    status=$?
+	fi
     fi
 
     [ -e "$commandLineStore" ] && rm -- "$commandLineStore"
@@ -202,14 +206,14 @@ while true
 do
     branch=$(getNextBranch)
     if [ ! "$branch" ]; then
-	echo >&2 "All local branches have been iterated over."
+	[ "$isQuiet" ] || echo >&2 "All local branches have been iterated over."
 
 	restoreOriginalBranch; exit
     fi
 
     git checkout --quiet "${gitCheckoutArgs[@]}" "${branch}" || exit $?	# Suppress Git's checkout information with --quiet. We're probably not interested in stuff like "Your branch is up-to-date with ...", and we emulate the switch message itself:
     if [ ${#commands[@]} -eq 0 ]; then
-	printf >&2 "\\nSwitched to branch '%s'\\n" "$branch"
+	[ "$isQuiet" ] || printf >&2 "\\nSwitched to branch '%s'\\n" "$branch"
 	exit 0
     else
 	if [ "$isNeedEval" ]; then

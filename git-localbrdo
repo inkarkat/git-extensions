@@ -1,5 +1,5 @@
 #!/bin/bash
-
+set -o pipefail
 shopt -qs extglob
 
 readonly scriptFilespec="${BASH_SOURCE[0]}"
@@ -97,6 +97,14 @@ done
 if [ ! "$isStashed" -a ! "$iterationAction" ]; then
     exec git-autostash "$scriptFilespec" --stashed "${args[@]}"
 fi
+
+# With piping into withHeader / pager, we need to explicitly enable color for
+# Git, unless this command's output itself is redirected. Also don't do this if
+# the user explicitly turned off color.
+if [ -n "$pager" -o -n "$isHeader" ] && isNeedColorArgumentWhenPiping "${colorArg[@]}"; then
+    colorArg=(--color=always)	# Force for withHeader
+fi
+
 if [ $# -ne 0 ]; then
     if [ "$isNeedEval" ]; then
 	# Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
@@ -201,30 +209,34 @@ ${localBranches[*]}"
 	;;
 esac
 
-: ${GIT_LOCALBRDO_HEADER_ID:="localbrdo-$$-$RANDOM"}
-while true
-do
-    branch=$(getNextBranch)
-    if [ ! "$branch" ]; then
-	[ "$isQuiet" ] || echo >&2 "All local branches have been iterated over."
+localbrdo()
+{
+    : ${GIT_LOCALBRDO_HEADER_ID:="localbrdo-$$-$RANDOM"}
+    while true
+    do
+	branch=$(getNextBranch)
+	if [ ! "$branch" ]; then
+	    [ "$isQuiet" ] || echo >&2 "All local branches have been iterated over."
 
-	restoreOriginalBranch; exit
-    fi
+	    restoreOriginalBranch; exit
+	fi
 
-    git checkout --quiet "${gitCheckoutArgs[@]}" "${branch}" || exit $?	# Suppress Git's checkout information with --quiet. We're probably not interested in stuff like "Your branch is up-to-date with ...", and we emulate the switch message itself:
-    if [ ${#commands[@]} -eq 0 ]; then
-	[ "$isQuiet" ] || printf >&2 "\\nSwitched to branch '%s'\\n" "$branch"
-	exit 0
-    else
-	if [ "$isNeedEval" ]; then
-	    typeset -a c=("${commands[@]}")
+	git checkout --quiet "${gitCheckoutArgs[@]}" "${branch}" || exit $?	# Suppress Git's checkout information with --quiet. We're probably not interested in stuff like "Your branch is up-to-date with ...", and we emulate the switch message itself:
+	if [ ${#commands[@]} -eq 0 ]; then
+	    [ "$isQuiet" ] || printf >&2 "\\nSwitched to branch '%s'\\n" "$branch"
+	    exit 0
 	else
-	    typeset -a c=('"${commands[@]}"')
+	    if [ "$isNeedEval" ]; then
+		typeset -a c=("${commands[@]}")
+	    else
+		typeset -a c=('"${commands[@]}"')
+	    fi
+	    if (eval "${c[@]}" "${isHeader:+$errorRedir | withHeader "${colorArg[@]}" --id '$GIT_LOCALBRDO_HEADER_ID' -- '$branch'}"); then
+		dirtyCheck
+	    else
+		interrupt "$?"
+	    fi
 	fi
-	if (eval "${c[@]}" "${isHeader:+$errorRedir | withHeader "${colorArg[@]}" --id '$GIT_LOCALBRDO_HEADER_ID' -- '$branch'}"); then
-	    dirtyCheck
-	else
-	    interrupt "$?"
-	fi
-    fi
-done
+    done
+}
+eval "localbrdo $errorRedir ${pager:+|}" '"${pager[@]}"'

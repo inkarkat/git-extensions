@@ -124,19 +124,21 @@ interrupt()
 
 restoreOriginalBranch()
 {
+    local status=0
     if [ -f "$origBranchStore" ]; then
 	origBranch="$(<"$origBranchStore")"
 	rm -- "$origBranchStore"
 	git checkout --quiet "$origBranch" &&
-	    printf "\\nRestored branch '%s'\\n" "$origBranch"
+	    printf "\\nRestored branch '%s'\\n" "$origBranch" ||
+	    status=$?
     fi
 
     [ -e "$commandLineStore" ] && rm -- "$commandLineStore"
-    return 0
+    return $status
 }
 
 case "$iterationAction" in
-    abort)	restoreOriginalBranch; exit 0;;
+    abort)	restoreOriginalBranch; exit;;
     continue)
 	dirtyCheck
 
@@ -182,8 +184,7 @@ do
     if [ ! "$branch" ]; then
 	echo >&2 "All local branches have been iterated over."
 
-	restoreOriginalBranch
-	exit 0
+	restoreOriginalBranch; exit
     fi
 
     git checkout --quiet "${gitCheckoutArgs[@]}" "${branch}" || exit $?	# Suppress Git's checkout information with --quiet. We're probably not interested in stuff like "Your branch is up-to-date with ...", and we emulate the switch message itself:

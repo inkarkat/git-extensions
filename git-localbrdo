@@ -8,7 +8,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-y|--yes] [--continue|--abort|--stashed] [--include-current] [--include-master] [--include-base] [--include-all] [--branches "<branch1> ..."] [N] [-c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-y|--yes] [--continue|--abort|--stashed] [--include-current] [--include-master] [--include-base] [--include-all] [--branches "<branch1> ..."] [--detach] [N] [-c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -39,6 +39,10 @@ left-behind dirty working copy made the command to fall out of the iteration.
 			just return to the shell for each branch.
     --stashed		Don't create a temporary stash in case the working copy
 			is dirty (as an optimization in case you know you're clean.)
+    --detach		Detach HEAD at the tip of each branch; this avoids
+			errors like "fatal: 'branch' is already checked out at
+			..." with multiple worktrees, but of course also limits
+			your abilities to work with the branch.
 HELPTEXT
 }
 
@@ -51,6 +55,7 @@ branchNum=9999
 inputBranches=
 iterationAction=
 typeset -a gitLocalbrArgs=()
+typeset -a gitCheckoutArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -60,6 +65,7 @@ do
 	--include-*)	    gitLocalbrArgs+=("$1"); shift;;
 	--branches)	    shift; inputBranches=$1; shift;;	# Internal hook to pass in the branches.
 	--continue|--abort) iterationAction=${1#--}; shift;;
+	--detach)	    gitCheckoutArgs+=("$1"); shift;;
 	+([0-9]))	    branchNum=$1; shift;;
 	--command|-c)	    shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
 	--)		    shift; break;;
@@ -178,7 +184,7 @@ do
 	exit 0
     fi
 
-    git checkout --quiet "${branch}" || exit $?	# Suppress Git's checkout information with --quiet. We're probably not interested in stuff like "Your branch is up-to-date with ...", and we emulate the switch message itself:
+    git checkout --quiet "${gitCheckoutArgs[@]}" "${branch}" || exit $?	# Suppress Git's checkout information with --quiet. We're probably not interested in stuff like "Your branch is up-to-date with ...", and we emulate the switch message itself:
     printf "\\nSwitched to branch '%s'\\n" "$branch"
     if [ ${#commands[@]} -eq 0 ]; then
 	exit 0

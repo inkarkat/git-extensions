@@ -8,7 +8,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-y|--yes] [--continue|--abort|--stashed] [--include-current] [--include-master] [--include-base] [--include-all] [--branches "<branch1> ..."] [--detach] [N] [-c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header] [--separate-errors] [-y|--yes] [--continue|--abort|--stashed] [--include-current] [--include-master] [--include-base] [--include-all] [--branches "<branch1> ..."] [--detach] [N] [-c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -34,6 +34,16 @@ If no COMMAND is given, just performs the checkout and returns to the shell; the
 next iteration is then triggered by re-executing with --continue, which can also
 be used to continue with COMMAND execution in case an unclean exit or a
 left-behind dirty working copy made the command to fall out of the iteration.
+COMMAND execution puts a header line (unless --no-header) that contains the
+current Git branch before the command output.
+    --no-pager		Do not page the output (so contents will scroll out of
+			view if there's too much output).
+    --separate-errors	Do not combine command output and command errors into
+			one (paged) stream. Commands that just cause error
+			output won't have a header then. Error output will
+			remain on its separate file descriptor and will not be
+			paged. Useful if you want to suppress errors or handle
+			them separately.
     --command|-c CMD	The command line to be executed. When this is a simple
 			command, it can also be passed as such. If omitted, will
 			just return to the shell for each branch.
@@ -46,6 +56,10 @@ left-behind dirty working copy made the command to fall out of the iteration.
 HELPTEXT
 }
 
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+isHeader=; type -t withHeader >/dev/null && isHeader=t
+errorRedir='2>&1'
+typeset -a colorArg=()
 typeset -a args=("$@")
 isNeedEval=
 typeset -a commands=()
@@ -60,6 +74,11 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	    shift; printLongUsage "$0"; exit 0;;
+	--no-pager)	    shift; pager=();;
+	--no-header)	    shift; isHeader=;;
+	--separate-errors)  shift; errorRedir='';;
+	--no-color|--color=*)	colorArg=("$1"); shift;;
+	--color)		colorArg=("$1" "$2"); shift; shift;;
 	--stashed)	    shift; isStashed=t;;
 	--yes|-y)	    shift; isYes=t;;
 	--include-*)	    gitLocalbrArgs+=("$1"); shift;;
@@ -129,7 +148,8 @@ restoreOriginalBranch()
 	origBranch="$(<"$origBranchStore")"
 	rm -- "$origBranchStore"
 	git checkout --quiet "$origBranch" &&
-	    printf "\\nRestored branch '%s'\\n" "$origBranch" ||
+	    [ ${#commands[@]} -eq 0 ] && echo >&2
+	    printf >&2 "Restored branch '%s'\\n" "$origBranch" ||
 	    status=$?
     fi
 
@@ -177,6 +197,7 @@ ${localBranches[*]}"
 	;;
 esac
 
+: ${GIT_LOCALBRDO_HEADER_ID:="localbrdo-$$-$RANDOM"}
 while true
 do
     branch=$(getNextBranch)
@@ -187,16 +208,16 @@ do
     fi
 
     git checkout --quiet "${gitCheckoutArgs[@]}" "${branch}" || exit $?	# Suppress Git's checkout information with --quiet. We're probably not interested in stuff like "Your branch is up-to-date with ...", and we emulate the switch message itself:
-    printf "\\nSwitched to branch '%s'\\n" "$branch"
     if [ ${#commands[@]} -eq 0 ]; then
+	printf >&2 "\\nSwitched to branch '%s'\\n" "$branch"
 	exit 0
     else
-	if (
-	    if [ "$isNeedEval" ]; then
-		eval "${commands[@]}"
-	    else
-		"${commands[@]}"
-	    fi); then
+	if [ "$isNeedEval" ]; then
+	    typeset -a c=("${commands[@]}")
+	else
+	    typeset -a c=('"${commands[@]}"')
+	fi
+	if (eval "${c[@]}" "${isHeader:+$errorRedir | withHeader "${colorArg[@]}" --id '$GIT_LOCALBRDO_HEADER_ID' -- '$branch'}"); then
 	    dirtyCheck
 	else
 	    interrupt "$?"

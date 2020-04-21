@@ -6,19 +6,58 @@ printUsage()
 Diff with predecessor, either current HEAD or passed commit,
 optionally limited to files in <path>.
 Like the textual diff output of "git show", without the log info.
+If no <commit> is passed but file(s) are, automatically takes the last commit of
+each file.
 HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[<commit>] [<common diff options>] [--] [<path>...] [-?|-h|--help]'
 }
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-esac
 
 revision='HEAD'
 if [ $# -gt 0 -a "${1:0:1}" != '-' -a ! -e "$1" ]; then
     # Take the first argument as a commit specification unless it looks like a
     # diff argument or is an existing file.
-    revision=$1
+    revision="$1"
     shift
 fi
 
-exec git ${GIT_DP_DIFFCOMMAND:-diff} "${revision}^" "$revision" "$@"
+typeset -a gitArgs=()
+typeset -a paths=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--)		gitArgs+=("$1"); shift; paths=("$@"); break;;
+	*)		gitArgs+=("$1"); shift;;
+    esac
+done
+if [ ${#paths[@]} -eq 0 ]; then
+    # No files after -- captured yet; need to investigate parsed and
+    # remaining args from behind for files.
+    gitArgs+=("$@")
+    while [ ${#gitArgs[@]} -ne 0 ]
+    do
+	lastArg="${gitArgs[-1]}"
+	[ -e "$lastArg" ] || break
+
+	paths=("$lastArg" "${paths[@]}")
+	gitArgs=("${gitArgs[@]:0:${#gitArgs[@]}-1}")
+    done
+fi
+
+diffToPrevious()
+{
+    local path="${1:?}"; shift
+    local revision; revision="$(git log --pretty=tformat:%H --max-count 1 -- "$path")" || return $?
+    git ${GIT_DP_DIFFCOMMAND:-diff} "${gitArgs[@]}" "${revision}^" "$revision" -- "$path"
+}
+
+if [ ${#paths[@]} -gt 0 -a "$revision" = 'HEAD' ]; then
+    # DWIM: Determine the last modified revision for each passed file and do the
+    # diff to its previous commit.
+    for path in "${paths[@]}"
+    do
+	diffToPrevious "$path"
+    done
+else
+    exec git ${GIT_DP_DIFFCOMMAND:-diff} "${gitArgs[@]}" "${revision}^" "$revision" "${paths[@]}"
+fi

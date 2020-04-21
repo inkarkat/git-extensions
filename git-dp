@@ -62,6 +62,13 @@ diffToPrevious()
 }
 
 if [ ${#paths[@]} -gt 0 -a "$revision" = 'HEAD' ]; then
+    if [ ${#paths[@]} -eq 1 ]; then
+	# Optimization: For a single file, paging is handled just fine by Git
+	# itself.
+	diffToPrevious "${paths[@]}"
+	exit
+    fi
+
     # Because of the piping into the pager, we need to explicitly enable color.
     # Don't do this if the user explicitly turned it off, though.
     typeset -a colorArg=(); isNeedColorArgumentWhenPiping "${gitArgs[@]}" && colorArg=(--color=always) || colorArg=()

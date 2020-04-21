@@ -1,4 +1,5 @@
 #!/bin/bash
+set -o pipefail
 
 printUsage()
 {
@@ -46,18 +47,29 @@ fi
 
 diffToPrevious()
 {
-    local path="${1:?}"; shift
-    local revision; revision="$(git log --pretty=tformat:%H --max-count 1 -- "$path")" || return $?
-    git ${GIT_DP_DIFFCOMMAND:-diff} "${gitArgs[@]}" "${revision}^" "$revision" -- "$path"
+    local status=0
+    for path in "${paths[@]}"
+    do
+	local revision="$(git log --pretty=tformat:%H --max-count 1 -- "$path")"
+	if [ ! "$revision" ]; then
+	    status=1
+	    continue
+	fi
+
+	git ${GIT_DP_DIFFCOMMAND:-diff} "${colorArg[@]}" "${gitArgs[@]}" "${revision}^" "$revision" -- "$path" || status=$?
+    done
+    return $status
 }
 
 if [ ${#paths[@]} -gt 0 -a "$revision" = 'HEAD' ]; then
+    # Because of the piping into the pager, we need to explicitly enable color.
+    # Don't do this if the user explicitly turned it off, though.
+    typeset -a colorArg=(); isNeedColorArgumentWhenPiping "${gitArgs[@]}" && colorArg=(--color=always) || colorArg=()
+
     # DWIM: Determine the last modified revision for each passed file and do the
     # diff to its previous commit.
-    for path in "${paths[@]}"
-    do
-	diffToPrevious "$path"
-    done
+    typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+    eval 'diffToPrevious' "${pager:+|}" '"${pager[@]}"'
 else
     exec git ${GIT_DP_DIFFCOMMAND:-diff} "${gitArgs[@]}" "${revision}^" "$revision" "${paths[@]}"
 fi

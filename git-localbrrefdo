@@ -1,0 +1,135 @@
+#!/bin/bash
+set -o pipefail
+shopt -qs extglob
+
+readonly scriptFilespec="${BASH_SOURCE[0]}"
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [--no-pager] [--no-header] [--separate-errors] [-y|--yes] [--include-current] [--include-master] [--include-base] [--include-all] [--branches "<branch1> ..."] [N] -c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 'Try %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Iterate over all / the last committed N local branches (except for the current
+branch and master (and base branch if defined)) one by one and execute COMMAND
+for each branch, replacing {} with its name.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    cat <<HELPTEXT
+COMMAND execution puts a header line (unless --no-header) that contains the
+current Git branch before the command output.
+    --no-pager		Do not page the output (so contents will scroll out of
+			view if there's too much output).
+    --separate-errors	Do not combine command output and command errors into
+			one (paged) stream. Commands that just cause error
+			output won't have a header then. Error output will
+			remain on its separate file descriptor and will not be
+			paged. Useful if you want to suppress errors or handle
+			them separately.
+    --command|-c CMD	The command line to be executed. When this is a simple
+			command, it can also be passed as such. The string {} is
+			replaced with the current branch name.
+HELPTEXT
+}
+
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+isQuiet=
+isHeader=; type -t withHeader >/dev/null && isHeader=t
+errorRedir='2>&1'
+typeset -a colorArg=()
+typeset -a args=("$@")
+isNeedEval=
+typeset -a commands=()
+isYes=
+branchNum=9999
+inputBranches=
+typeset -a gitLocalbrArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	    shift; printLongUsage "$0"; exit 0;;
+	--quiet|-q)	    shift; isQuiet=t;;
+	--no-pager)	    shift; pager=();;
+	--no-header)	    shift; isHeader=;;
+	--separate-errors)  shift; errorRedir='';;
+	--no-color|--color=*)	colorArg=("$1"); shift;;
+	--color)		colorArg=("$1" "$2"); shift; shift;;
+	--yes|-y)	    shift; isYes=t;;
+	--include-*)	    gitLocalbrArgs+=("$1"); shift;;
+	--branches)	    shift; inputBranches="$1"; shift;;	# Internal hook to pass in the branches.
+	+([0-9]))	    branchNum=$1; shift;;
+	--command|-c)	    shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
+	--)		    shift; break;;
+	-*)		    { echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		    break;;
+    esac
+done
+# With piping into withHeader / pager, we need to explicitly enable color for
+# Git, unless this command's output itself is redirected. Also don't do this if
+# the user explicitly turned off color.
+if [ -n "$pager" -o -n "$isHeader" ] && isNeedColorArgumentWhenPiping "${colorArg[@]}"; then
+    colorArg=(--color=always)	# Force for withHeader
+fi
+
+if [ $# -ne 0 ]; then
+    if [ "$isNeedEval" ]; then
+	# Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
+	# undo the effects of eval.
+	printf -v quotedSimpleCommand '%q ' "$@"
+	commands+=(${commands:+;} "${quotedSimpleCommand//\\\{\\\}/\{\}}")	# %q escapes {}, we don't want that to have it interpolated later.
+    else
+	commands=("$@")
+    fi
+fi
+if [ ${#commands[@]} -eq 0 ]; then
+    echo >&2 'ERROR: No COMMAND(s) specified; need to pass -c|--command "COMMANDLINE", or SIMPLECOMMAND.'
+    exit 2
+fi
+
+IFS=$'\n'
+typeset -a localBranches=($(git-localbr "${gitLocalbrArgs[@]}" -- $inputBranches | tail -n "$branchNum")) || exit $?
+if [ ${#localBranches[@]} -eq 0 ]; then
+    echo >&2 "No local branches found!"
+    exit 1
+fi
+
+if [ "$isYes" ]; then
+    [ "$isQuiet" ] || echo >&2 "Iterating over these branch(es):
+${localBranches[*]}"
+else
+    echo >/dev/tty "Iterating over these branch(es):
+${localBranches[*]}"
+    < /dev/tty read -r -N 1 -p "Really iterate over these branches? (y/n) " choice; echo >/dev/tty
+    [ "$choice" = "y" ] || exit 1
+fi
+
+localbrrefdo()
+{
+    local status=0
+    : ${GIT_LOCALBRDO_HEADER_ID:="localbrrefdo-$$-$RANDOM"}
+    for branch in "${localBranches[@]}"
+    do
+	typeset -a interpolatedCommands=("${commands[@]//\{\}/$branch}")
+	if [ "$isNeedEval" ]; then
+	    typeset -a c=("${interpolatedCommands[@]}")
+	else
+	    typeset -a c=('"${interpolatedCommands[@]}"')
+	fi
+	(eval "${c[@]}" "${isHeader:+$errorRedir | withHeader "${colorArg[@]}" --id '$GIT_LOCALBRDO_HEADER_ID' -- '$branch'}") || status=$?
+    done
+    return $status
+}
+eval "localbrrefdo ${pager:+$errorRedir |}" '"${pager[@]}"'

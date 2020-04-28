@@ -5,14 +5,30 @@ case "$1" in
     --force|-f)	forceArgs+=("$1"); shift;;
 esac
 
+deleteRemoteBranches()
+{
+    [ ${#remoteBranches[@]} -gt 0 ] || return
+
+    git push "${forceArgs[@]}" "${remote:?}" --delete "${remoteBranches[@]}" || status=$?
+    remoteBranches=()
+}
+
 status=0
+typeset -a remoteBranches=()
 for branch
 do
-    remote="${branch%%/*}"
-    if git-existsremote "$remote"; then
-	git push "${forceArgs[@]}" "$remote" --delete "${branch#*/}" || status=$?
+    remoteCandidate="${branch%%/*}"
+    if git-existsremote "$remoteCandidate"; then
+	if [ "$remoteCandidate" = "$remote" ]; then
+	    remoteBranches+=("${branch#*/}")
+	else
+	    deleteRemoteBranches
+	    remote="$remoteCandidate"
+	    remoteBranches=("${branch#*/}")
+	fi
     else
 	git branch "${forceArgs[@]}" --delete "$branch" || status=$?
     fi
 done
+deleteRemoteBranches
 exit $status

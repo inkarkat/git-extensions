@@ -1,0 +1,19 @@
+#!/bin/bash
+
+printUsage()
+{
+    git-localbrrefdo --help 2>&1 | sed \
+	-e '1s#^.*$#Iterate over all / the last committed N local branches (except for the current branch and master (and base branch if defined)) ordered by date of first commit one by one and execute COMMAND for each branch, replacing {} with its name.#' \
+	-e '2b removeFirstParagraphLoop' \
+	-e '/^ *--foo|-f/b removeOptionLoop' \
+	-e '/^Usage:$/N' -e "/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?git-localbrrefdo /\1\2$(basename "$1") / }" \
+	-e '/^Example:$/N' -e "/\(^\|\n\)Example: */{ s/\(^\|\n\)\(Example: *\)\?git-localbrrefdo /\1\2$(basename "$1") / }" \
+	-e b -e :removeFirstParagraphLoop -e '{ /\(^\|\n\)$/{ s/^\(.*\n\)\?//; b; }; N; b removeFirstParagraphLoop }' \
+	-e b -e :removeOptionLoop -e '{ /\n *----foo|-f[^\n]*$/{ N; b removeOptionLoop; }; /\n *--[^\n]*$\|^$/{ s/^\(.*\n\)\?//; b; }; N; b removeOptionLoop }'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+branches=$(git-brc | awk '{ print $NF }') || exit $?
+exec git-localbrrefdo --branches "$branches" "$@"

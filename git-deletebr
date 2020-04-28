@@ -1,0 +1,18 @@
+#!/bin/bash
+
+typeset -a forceArgs=()
+case "$1" in
+    --force|-f)	forceArgs+=("$1"); shift;;
+esac
+
+status=0
+for branch
+do
+    remote="${branch%%/*}"
+    if git-existsremote "$remote"; then
+	git push "${forceArgs[@]}" "$remote" --delete "${branch#*/}" || status=$?
+    else
+	git branch "${forceArgs[@]}" --delete "$branch" || status=$?
+    fi
+done
+exit $status

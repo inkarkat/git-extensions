@@ -11,7 +11,7 @@ repository as well as origin.
 Use this to remove old branches that have been incorporated into master (or the
 base branch), or pass -f to force archiving.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--branches "<branch1> ..."] [N] [-f|--force]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--branches "<branch1> ..."] [-q|--quiet] [-y|--yes] [-f|--force] [N]'
 }
 
 branchNum=9999
@@ -22,23 +22,39 @@ if [ "$1" = '--branches' ]; then
     inputBranches=$1
     shift
 fi
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    +([0-9]))		branchNum=$1; shift;;
-esac
+isQuiet=
+isYes=
+typeset -a gitArchiveArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--quiet|-q)	shift; isQuiet=t;;
+	--yes|-y)	shift; isYes=t;;
+	+([0-9]))	branchNum="$1"; shift;;
+	--force|-f)	gitArchiveArgs+=("$1"); shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 
-branches=$(git-localbr $inputBranches | head -n "$branchNum") || exit $?
+branches="$(git-localbr $inputBranches | head -n "$branchNum")" || exit $?
 if [ ! "$branches" ]; then
     echo >&2 "No local branches found!"
     exit 1
 fi
-echo "Archiving:
+
+if [ "$isYes" ]; then
+    [ "$isQuiet" ] || echo >&2 "Archiving:
 ${branches// /
 }"
-echo '
-git archivebr' $* $branches
+else
+    echo >/dev/tty "Archiving:
+${branches// /
+}"
+    < /dev/tty read -r -N 1 -p "Really archive these branches? (y/n) " choice; echo >/dev/tty
+    [ "$choice" = "y" ] || exit 1
+fi
 
-< /dev/tty read -r -N 1 -p "Really archive these branches? (y/n) " choice; echo >/dev/tty
-[ "$choice" = "y" ] || exit 1
-
-git archivebr "$@" $branches
+exec git-archivebr "${gitArchiveArgs[@]}" $branches

@@ -76,20 +76,51 @@ if [ ${#branches[@]} -eq 0 ]; then
 fi
 
 
+canFastForward()
+{
+    local previousBranch=HEAD
+    for branch in "${branches[@]}"
+    do
+	if [ -n "$(git log --pretty=tformat:%H --max-count 1 "${branch}..$previousBranch")" ]; then
+	    # At least one branch has diverged from its predecessor.
+	    return 1
+	fi
+	previousBranch="$branch"
+    done
+    return 0
+}
+canRebase()
+{
+    for branch in "${branches[@]}"
+    do
+	if [ "$(git log --pretty=tformat:%H --max-count 2 --no-merges "..$branch" | wc -l)" -gt 1 ]; then
+	    # At least one branch has more than one non-merge commit.
+	    return 1
+	fi
+    done
+    return 0
+}
+
 if [ ! "$isContinue" ]; then
     if [ ! "$hasMergeResolutionArg" ]; then
-	# Default to rebase if it's only a single commit (ignoring merges).
-	isRebase=t
-	for branch in "${branches[@]}"
-	do
-	    if [ "$(git log --pretty=tformat:%H --max-count 2 --no-merges "..$branch" | wc -l)" -gt 1 ]; then
-		# At least one branch has more than one non-merge commit; do a
-		# plain merge instead of rebasing.
-		isRebase=
-		break
-	    fi
-	done
+	branchesPlural=es
+	branchesSubject=them
+	verbPlural=
+	if [ ${#branches[@]} -eq 1 ]; then
+	    branchesPlural=
+	    branchesSubject=it
+	    verbPlural=s
+	fi
+
+	if canFastForward; then
+	    < /dev/tty read -r -N 1 -p "The branch$branchesPlural can be fast-forwarded instead of merged. Fast-forward? (y/n) " choice; echo >/dev/tty
+	    [ "$choice" = 'y' ] && fastForwardArgs=(--ff-only)
+	elif canRebase; then
+	    < /dev/tty read -r -N 1 -p "The branch$branchesPlural only consist$verbPlural of a single commit. Rebase $branchesSubject instead of creating a separate merge commit? (y/n) " choice; echo >/dev/tty
+	    [ "$choice" = 'y' ] && isRebase=t
+	fi
     fi
+
 
     if [ "$isRebase" ]; then
 	origRef="$(git-orig-ref)" || exit $?

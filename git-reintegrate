@@ -1,4 +1,5 @@
 #!/bin/bash
+set -o pipefail
 shopt -qs extglob
 
 printUsage()
@@ -22,6 +23,7 @@ HELPTEXTCHECK
 
 isContinue=
 isPush=
+hasMergeResolutionArg=
 isRebase=
 typeset -a branches=()
 typeset -a fastForwardArgs=()
@@ -38,8 +40,9 @@ do
 	--continue)	shift; isContinue=t;;
 	--push)		shift; isPush=t;;
 	--branch|-b)	shift; branches+=("$1"); shift;;
-	--rebase)	shift; isRebase=t;;
-	--ff|--no-ff|--ff-only)	fastForwardArgs=("$1"); shift;;
+	--rebase)	shift; hasMergeResolutionArg=t; isRebase=t;;
+	--ff|--no-ff|--ff-only)
+			hasMergeResolutionArg=t; fastForwardArgs=("$1"); shift;;
 	--command|-c)	checkCommandArgs+=("$1" "$2"); shift; checkCommands+=(${checkCommands:+&&} "$1"); shift;;
 	--bare)		shift; isBare=t;;
 	--no-trailing-prompt|--trailing-prompt|--emulate-prompt|--worst-status)  runWithPromptArgs+=("$1"); shift;;
@@ -74,6 +77,20 @@ fi
 
 
 if [ ! "$isContinue" ]; then
+    if [ ! "$hasMergeResolutionArg" ]; then
+	# Default to rebase if it's only a single commit (ignoring merges).
+	isRebase=t
+	for branch in "${branches[@]}"
+	do
+	    if [ "$(git log --pretty=tformat:%H --max-count 2 --no-merges "..$branch" | wc -l)" -gt 1 ]; then
+		# At least one branch has more than one non-merge commit; do a
+		# plain merge instead of rebasing.
+		isRebase=
+		break
+	    fi
+	done
+    fi
+
     if [ "$isRebase" ]; then
 	origRef="$(git-orig-ref)" || exit $?
 

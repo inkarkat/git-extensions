@@ -8,14 +8,14 @@ printUsage()
 Merge / rebase <branch> to the current branch, then delete it from the local
 repository as well as a tracked remote (if it exists there).
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--push] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] -b|--branch <branch> [...] | [--] <branch> [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--push] [--no-delete] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] -b|--branch <branch> [...] | [--] <branch> [...]'
     cat <<HELPTEXTCHECK
 
 Merge / rebase <branch> (with --rebase-single rebase only if it's a single
 non-merge commit, else merge) to the current branch, run CHECK-COMMANDS, and if
 all succeed (for -c|--commands, for stdin: only with --worst-status, else if the
 last succeeds) delete the branch from the local repository as well as a tracked
-remote (if it exists there).
+remote (if it exists there) (unless --no-delete is given).
 HELPTEXTCHECK
     printf 'Usage: %q %s\n' "$(basename "$1")" '[...] -c|--command "CHECK-COMMANDLINE" [-c ...]'
     printf 'Usage: echo CHECK-COMMANDLINES | %q %s\n' "$(basename "$1")" '[...] [--bare|[--trailing-prompt|--no-trailing-prompt] [--emulate-prompt] [--worst-status]] -'
@@ -23,6 +23,7 @@ HELPTEXTCHECK
 }
 
 isContinue=
+isDelete=t
 isPush=
 hasMergeResolutionArg=
 isRebase=
@@ -40,6 +41,7 @@ do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--continue)	shift; isContinue=t;;
+	--no-delete)	shift; isDelete=;;
 	--push)		shift; isPush=t;;
 	--branch|-b)	shift; branches+=("$1"); shift;;
 	--rebase)	shift; hasMergeResolutionArg=t; isRebase=t;;
@@ -159,7 +161,7 @@ if [ ! "$isContinue" ]; then
 		    missingBranches=("${missingBranches[@]:1}")
 
 		    echo >&2 "After this branch has been successfully rebased (see above), you can continue rebasing, merge $branchesSubject and ${isCheckFromStdin:+run checks and }${isPush:+push and }delete $branchesSubject via"
-		    printf >&2 'git checkout %q && git merge --ff-only %q && %q --rebase ' "$origRef" "$branch" "$(basename "$0")"
+		    printf >&2 'git checkout %q && git merge --ff-only %q && %q --rebase --no-delete ' "$origRef" "$branch" "$(basename "$0")"
 		    printf >&2 -- '--branch %q ' "${missingBranches[@]}"
 		    printf >&2 '&& '
 		    printContinueCommand
@@ -221,6 +223,7 @@ if [ "$isPush" ]; then
     fi
 fi
 
+[ "$isDelete" ] || exit 0
 status=0
 for branch in "${branches[@]}"
 do

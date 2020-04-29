@@ -144,11 +144,37 @@ if [ ! "$isContinue" ]; then
 
 	for branch in "${branches[@]}"
 	do
-	    git rebase HEAD "$branch" && git checkout "$origRef" || exit $?
+	    git rebase HEAD "$branch" && git checkout "$origRef" || {
+		status=$?
+		if [ "$branch" = "${branches[-1]}" ]; then
+		    echo >&2 "After this branch has been successfully rebased (see above), you can merge $branchesSubject and ${isCheckFromStdin:+run checks and }${isPush:+push and }delete $branchesSubject via"
+		    printf >&2 'git checkout %q && git merge --ff-only %q && ' "$origRef" "$branch"
+		    printContinueCommand
+		else
+		    typeset -a missingBranches=("${branches[@]}")
+		    while [ "${missingBranches[0]}" != "$branch" ]
+		    do
+			missingBranches=("${missingBranches[@]:1}")
+		    done
+		    missingBranches=("${missingBranches[@]:1}")
+
+		    echo >&2 "After this branch has been successfully rebased (see above), you can continue rebasing, merge $branchesSubject and ${isCheckFromStdin:+run checks and }${isPush:+push and }delete $branchesSubject via"
+		    printf >&2 'git checkout %q && git merge --ff-only %q && %q --rebase ' "$origRef" "$branch" "$(basename "$0")"
+		    printf >&2 -- '--branch %q ' "${missingBranches[@]}"
+		    printf >&2 '&& '
+		    printContinueCommand
+		fi
+		exit $status
+	    }
 	    git merge --ff-only "$branch" || exit $?
 	done
     else
-	git merge "${fastForwardArgs[@]:---no-ff}" "${mergeArgs[@]}" "${branches[@]}" || exit $?
+	git merge "${fastForwardArgs[@]:---no-ff}" "${mergeArgs[@]}" "${branches[@]}" || {
+	    status=$?
+	    echo >&2 "After $branchesSubjectAuxiliaryVerb been merged, you can ${isCheckFromStdin:+run checks and }${isPush:+push and }delete $branchesSubject via"
+	    printContinueCommand
+	    exit $status
+	}
     fi
 fi
 

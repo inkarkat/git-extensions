@@ -1,0 +1,25 @@
+#!/bin/bash
+
+if [ "$1" = '--since' ]; then
+    typeset -a rangeArgs=("$1" "$2"); shift; shift;
+elif [ $# -gt 0 ]; then
+    typeset -a rangeArgs=("${!#}")
+    set -- "${@:1:$(($#-1))}"
+else
+    echo >&2 'ERROR: Need <range>.'
+    exit 2
+fi
+
+commit="$(
+    git log --pretty='tformat:%H %s' "${rangeArgs[@]}" | \
+    truncate-trailing -w | commandWithHiddenId --stdin -p -c 'commandOnSelected --stdin --single-only'
+)"
+status=$?
+if [ $status -eq 124 ]; then
+    echo >&2 'ERROR: No commits available.'
+    exit 1
+elif [ $status -ne 0 ]; then
+    exit $status
+fi
+
+exec git-rbfixup "${commit:?}" "$@"

@@ -1,9 +1,34 @@
 #!/bin/bash
 set -o pipefail
 
+printUsage()
+{
+    cat <<HELPTEXT
+List URLs to passed <remote of all archived branches.
+# Note: short followed by long option; if the user knows the short one, she can
+# skim the long one.
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--foo bar] [FILE ...] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
 remote="${1:?}"; shift
 url="$(git-remoteurl "$remote")" || exit $?
-literalUrl="${url}/tree/"
+
+prefix=
+suffix=
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --verbose|-v)	shift
+			prefix='This has gotten stable; if you still want it, it has been archived at the [&]('
+			suffix=') tag.'
+			;;
+esac
+
+
+literalUrl="${url}/commits/"
 literalUrl="${literalUrl//\\/\\\\}"
 literalUrl="${literalUrl//&/\\&}"
-git archived "$@" | sed -e "s#^#${literalUrl//#/\\#}#"
+git archived "$@" | sed -e "s#.*#${prefix}${literalUrl//#/\\#}&${suffix}#"

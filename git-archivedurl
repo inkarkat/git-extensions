@@ -1,0 +1,9 @@
+#!/bin/bash
+set -o pipefail
+
+remote="${1:?}"; shift
+url="$(git-remoteurl "$remote")" || exit $?
+literalUrl="${url}/tree/"
+literalUrl="${literalUrl//\\/\\\\}"
+literalUrl="${literalUrl//&/\\&}"
+git archived "$@" | sed -e "s#^#${literalUrl//#/\\#}#"

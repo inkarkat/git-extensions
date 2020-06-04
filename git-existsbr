@@ -1,3 +1,8 @@
 #!/bin/sh
 
-exec git rev-parse --verify --quiet "$@" >/dev/null
+# First check whether any valid ref is passed.
+git rev-parse --verify --quiet "$@" >/dev/null || exit 1
+
+# Then verify that a branch with that name exists (and it isn't a tag or raw
+# commit).
+[ "$(git branch --list --all "$@")" ]

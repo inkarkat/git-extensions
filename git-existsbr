@@ -1,16 +1,49 @@
 #!/bin/bash
 
+printUsage()
+{
+    cat <<HELPTEXT
+Check whether [all of] the passed [<remote>/]<branch> exists.
+With -v|--verbose, print any invalid branches.
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-v|--verbose] [<remote>/]<branch> [...] [-?|-h|--help]'
+}
+isVerbose=
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --verbose|-v)	shift; isVerbose=t;;
+esac
 if [ $# -eq 0 ]; then
     echo >&2 'ERROR: No <branch> passed.'
     exit 2
 fi
 
-# First check whether any valid ref is passed.
-git rev-parse --verify --quiet "$@" >/dev/null || exit 1
+existsBranch()
+{
+    # First check whether any valid ref is passed.
+    git rev-parse --verify --quiet "$@" >/dev/null || return 1
 
-# Then verify that a branch with that name exists (and it isn't a tag or raw
-# commit).
-for branch
-do
-    [ "$(git branch --list --all "$branch")" ] || exit 1
-done
+    # Then verify that a branch with that name exists (and it isn't a tag or raw
+    # commit).
+    for branch
+    do
+	[ "$(git branch --list --all "$branch")" ] || return 1
+    done
+}
+printInvalidBranches()
+{
+    typeset -a invalidBranches=()
+    for branch
+    do
+	[ "$(git branch --list --all "$branch")" ] || invalidBranches+=("$branch")
+    done
+
+    if [ ${#invalidBranches[@]} -eq 1 ]; then
+	printf >&2 'ERROR: Not a valid branch: %s\n' "${invalidBranches[0]}"
+    else
+	printf >&2 'ERROR: Invalid branches: %s\n' "$(joinBy ', ' "${invalidBranches[@]}")"
+    fi
+    return 1
+}
+
+eval 'existsBranch "$@"' "${isVerbose:+ || printInvalidBranches \"\$@\"}"

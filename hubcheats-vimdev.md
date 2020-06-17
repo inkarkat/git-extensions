@@ -51,7 +51,7 @@ Add github snippets after INSTALLATION and after IDEAS.
 `:CloneHelpAsReadme`
 `:MarkdownPreview`
 
-`cp ~/.vim/.gitignore .`
+`cp -r ~/.vim/{.gitignore,.github} .`
 `git adduu && git c -m "Add Readme and gitignore"`
 `git opush`
 

@@ -3,16 +3,16 @@ set -o pipefail
 
 yesterdayTimestamp="$(date "+%F 03:00")" || yesterdayTimestamp='yesterday'
 
-typeset -a rangeArgs=()
-if [ "$1" = '--no-range' ]; then
-    shift
-    rangeArgs=("$(git lh --since "$yesterdayTimestamp" | tail -n 1)") || exit $?
-else
-    # For commands that take a range (i.e. the log variants), we can directly
-    # inject the --since argument.
-    rangeArgs=('--since' "$yesterdayTimestamp")
-fi
-
+# For commands that take a range (i.e. the log variants), we can directly inject
+# the --since argument.
+typeset -a rangeArgs=('--since' "$yesterdayTimestamp")
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--no-range) shift; rangeArgs=("$(git lh --since "$yesterdayTimestamp" | tail -n 1)") || exit $?;;
+	*)	    break;;
+    esac
+done
 if [ $# -eq 0 ]; then
     echo >&2 'ERROR: No GIT-COMMAND passed.'
     exit 2

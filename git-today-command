@@ -3,13 +3,18 @@ set -o pipefail
 
 yesterdayTimestamp="$(date "+%F 03:00")" || yesterdayTimestamp='yesterday'
 
+getTodayCommit()
+{
+    git lh --since "$yesterdayTimestamp" | tail -n 1
+}
+
 # For commands that take a range (i.e. the log variants), we can directly inject
 # the --since argument.
 typeset -a rangeArgs=('--since' "$yesterdayTimestamp")
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--no-range) shift; rangeArgs=("$(git lh --since "$yesterdayTimestamp" | tail -n 1)") || exit $?;;
+	--no-range) shift; rangeArgs=("$(getTodayCommit)") || exit $?;;
 	*)	    break;;
     esac
 done

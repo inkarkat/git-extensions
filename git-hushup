@@ -56,6 +56,12 @@ function join(array, start, end, sep,    result, i)
 	result = result sep array[i]
     return result
 }
+function printJoinedReferences(      what)
+{
+    for (what in n) {
+	print sprintf("%-21s", prefix[what] what (n[what] == 1 ? "" : (what ~ /ch$/ ? "e" : "") "s") "]") join(news[what], 1, n[what], ", ")
+    }
+}
 BEGIN {
     PROCINFO["sorted_in"] = "@ind_str_asc"
     deletedWhat = "deleted ref"
@@ -72,11 +78,7 @@ $2 == "x" && $3 == "[deleted]" && $4 == "(none)" && NF == 5 {
     news[deletedWhat][++n[deletedWhat]] = ref
     next
 }
-/^From / {
-    for (what in n) {
-	print sprintf("%-21s", prefix[what] what (n[what] == 1 ? "" : (what ~ /ch$/ ? "e" : "") "s") "]") join(news[what], 1, n[what], ", ")
-    }
-}
+/^From / { printJoinedReferences() }
 { print }
 '
 }

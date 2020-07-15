@@ -8,19 +8,28 @@ getTodayCommit()
     git lh --since "$yesterdayTimestamp" | tail -n 1
 }
 
-# For commands that take a range (i.e. the log variants), we can directly inject
-# the --since argument.
-typeset -a rangeArgs=('--since' "$yesterdayTimestamp")
+isRange=t
+isShowOneMore=
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--no-range) shift; rangeArgs=("$(getTodayCommit)") || exit $?;;
-	*)	    break;;
+	--no-range)	shift; isRange=;;
+	--one-more|+1)	shift; isShowOneMore=t;;
+	*)		break;;
     esac
 done
 if [ $# -eq 0 ]; then
     echo >&2 'ERROR: No GIT-COMMAND passed.'
     exit 2
+fi
+
+typeset -a rangeArgs=()
+if [ "$isRange" ] && [ ! "$isShowOneMore" ]; then
+    # For commands that take a range (i.e. the log variants), we can directly
+    # inject the --since argument.
+    rangeArgs=('--since' "$yesterdayTimestamp")
+else
+    rangeArgs=("$(getTodayCommit)${isShowOneMore:+^}${isRange:+^..}") || exit $?
 fi
 
 typeset -a gitCommand=()

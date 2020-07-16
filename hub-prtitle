@@ -1,0 +1,60 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Obtain corresponding GitHub pull request(s) that have <commit>(s) as the
+branch's HEAD, and print its title(s; on separate lines, with a summary header
+listing the PR numbers followed by an empty line) then.
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '<commit> [...] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+if [ $# -eq 0 ]; then
+    echo >&2 'ERROR: No <commit> passed.'
+    echo >&2
+    printUsage "$0" >&2
+    exit 2
+fi
+
+contains()
+{
+    local elem needle=$1; shift
+    for elem
+    do
+	[ "$needle" = "$elem" ] && return 0
+    done
+    return 1
+}
+
+
+typeset -a commitIds=()
+for c
+do
+    commitId="$(git rev-parse "$c" 2>/dev/null)" && commitIds+=("$commitId")
+done
+[ ${#commitIds[@]} -eq 0 ] && exit 1
+
+
+typeset -a titles=()
+typeset -a numbers=()
+while IFS=$'\t' read -r prCommitId prNumber prTitle
+do
+    if contains "$prCommitId" "${commitIds[@]}"; then
+	titles+=("$prTitle")
+	numbers+=("$prNumber")
+    fi
+done < <(hub pr list -f '%sH	%i	%t%n')
+
+
+IFS=$'\n'
+case "${#titles[@]}" in
+    0)	exit 1;;
+    1)	printf '%s\n' "${titles[0]}";;
+    *)	printf -v summary '%s, ' "${numbers[@]}"
+	printf 'Merge pull requests %s\n\n' "${summary%, }"
+	printf '%s\n' "${titles[@]}"
+	;;
+esac

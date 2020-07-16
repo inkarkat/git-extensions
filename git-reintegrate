@@ -25,6 +25,12 @@ HELPTEXTCHECK
 isContinue=
 isDelete=t
 isPush=
+if [ "$HUB" ]; then
+    # Need to push to remote first so that GitHub recognizes that the branch has
+    # been merged. If the branch is first deleted, GitHub marks a corresponding
+    # pull request as "closed".
+    isPush=t
+fi
 hasMergeResolutionArg=
 isRebase=
 isRebaseSingle=
@@ -94,6 +100,15 @@ if [ ${#branches[@]} -eq 1 ]; then
     verbPlural=s
 fi
 
+
+if [ "$HUB" ] && [ ! "$isRebase" ]; then
+    # Try to obtain corresponding pull requests based on the passed branches'
+    # HEAD commits and seed the merge message with it / them (as the PR title
+    # already summarizes the changeset and makes for a great merge title). This
+    # saves the user from opening the PR and copy-and-pasting it.
+    pullRequestTitles="$(hub-prtitle "${branches[@]}")"
+    [ -n "$pullRequestTitles" ] && mergeArgs+=(-m "$pullRequestTitles" --edit)
+fi
 
 
 canFastForward()

@@ -1,0 +1,26 @@
+#!/bin/bash
+
+mtime()
+{
+    stat --format=%Y "$@" 2>/dev/null || echo '-1'
+}
+
+IFS=$'\n'
+latestEpoch=0
+for filespec in $(git-stfiles)
+do
+    fileAge=$(mtime "$filespec")
+    [ $fileAge -gt $latestEpoch ] && latestEpoch=$fileAge
+done
+
+if [ $latestEpoch -eq 0 ]; then
+    echo >&2 "ERROR: No files found."
+    exit 1
+fi
+
+commitDate="$(date --iso-8601=seconds --date "@$latestEpoch")" || exit $?
+relativeCommitDate=; type -t reldate >/dev/null && relativeCommitDate=" ($(reldate --epoch "$latestEpoch"))"
+
+printf >&2 'Committing with date %s.\n' "${commitDate}${relativeCommitDate}"
+
+exec git-commit --date "$commitDate" "$@"

@@ -1,33 +1,62 @@
 #!/bin/bash
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '-a|--auto-revision|-r|--revision REVISION [--author=<pattern>|--committer=<pattern> ...] [--no-range|--with-range ...|--last-only] [+1|--one-more] [GIT-COMMAND ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND -a|--auto-revision|-r|--revision REVISION [...] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 'Try %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 Print / execute GIT-COMMAND with a revision range starting from HEAD / the
 passed REVISION / (with -a|--auto-revision:) the first found revision from the
 passed author / committer(s) and including all commits done by the passed author
 / committer(s) (or the author (+ committer if different) from the start
 revision).
+    --no-range	    Only use the earliest consecutive commit from the passed
+		    author.
+    --with-range ...
+		    Use ... instead of .. as the range specifier.
+    --last-only	    Only use the latest commit from the passed author.
+    --one-more|+1   Include the commit preceding the author's commit.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    cat <<HELPTEXT
+
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '-a|--auto-revision|-r|--revision REVISION [--author=<pattern>|--committer=<pattern> ...] [GIT-COMMAND ...] [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND -a|--auto-revision|-r|--revision REVISION [--author=<pattern>|--committer=<pattern> ...] [-?|-h|--help]'
 }
 typeset -a gitCommand=()
 isFirstArg=t
 isAutoRevision=
 revision='HEAD'
 range=..
+isLastOnly=
+isShowOneMore=
 typeset userFilterArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)		    shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)		    shift; printLongUsage "$0"; exit 0;;
 	--auto-revision|-a)	    shift; isAutoRevision=t;;
 	--revision|-r)		    shift; revision="$1"; shift;;
 	--author|--committer)	    userFilterArgs+=("$1" "$2"); shift; shift;;
 	--author=*|--committer=*)   userFilterArgs+=("$1"); shift;;
 	--no-range)		    shift; range=;;
 	--with-range)		    shift; range="$1"; shift;;
+	--last-only)		    shift; isLastOnly=t; range=;;
+	--one-more|+1)		    shift; isShowOneMore=t;;
 	*)  if [ "$isFirstArg" ]; then
 		case "$1" in
 		    -c) gitCommand+=("$1" "$2"); shift; shift;;
@@ -52,7 +81,7 @@ if [ "$isAutoRevision" ]; then
     if [ "$revision" != 'HEAD' ]; then
 	echo >&2 'ERROR: Cannot combine --auto-revision with --revision.'
 	echo >&2
-	printUsage "$0" >&2
+	printShortUsage "$0" >&2
 	exit 2
     fi
 
@@ -73,10 +102,16 @@ if [ "$difference" ]; then
 	printf >&2 'The %s revision already is from another user (%s).\n' "$revision" "$author"
 	exit 1
     else
-	startRevision="${revision}~$((firstDifferentLnum - 1))"
+	startRevision="${revision}~$((firstDifferentLnum - 1 ${isShowOneMore:++ 1}))"
     fi
 fi
-revisionRange="${range:+${startRevision}${startRevision:+$range}}${revision}"
+
+revisionSuffix=; [ "$isShowOneMore" ] && [ -z "$startRevision" -o -z "$range" ] && revisionSuffix='^'
+if [ "$isLastOnly" ]; then
+    revisionRange="${range:+${startRevision}${startRevision:+$range}}${revision}${revisionSuffix}"
+else
+    revisionRange="${startRevision}${startRevision:+$range}${range:+${revision}${revisionSuffix}}"
+fi
 
 
 if [ ${#gitCommand[@]} -eq 0 -a $# -eq 0 ]; then

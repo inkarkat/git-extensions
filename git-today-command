@@ -3,22 +3,51 @@ set -o pipefail
 
 yesterdayTimestamp="$(date "+%F 03:00")" || yesterdayTimestamp='yesterday'
 
+printUsage()
+{
+    cat <<HELPTEXT
+Print / execute GIT-COMMAND with a revision range starting from the first
+revision committed today; possibly including one previous commit.
+The revision range (with --no-range, only the starting revision will be used) is
+appended at the end of GIT-COMMAND ....
+HELPTEXT
+printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-range] [+1|--one-more] [GIT-COMMAND ...] [-?|-h|--help]'
+}
+
+getTodayCommit()
+{
+    local revision;
+    revision="$(git lh --since "$yesterdayTimestamp" | tail -n 1)" || exit $?
+    [ "$revision" ] || exit 1
+    printf %s "$revision"
+}
+
+isRange=t
+isShowOneMore=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-range)	shift; isRange=;;
+	--one-more|+1)	shift; isShowOneMore=t;;
+	*)		break;;
+    esac
+done
+typeset -a gitCommand=()
+if [ $# -eq 0 ]; then
+    isRange=
+    gitCommand=(name-rev --name-only)
+fi
+
 typeset -a rangeArgs=()
-if [ "$1" = '--no-range' ]; then
-    shift
-    rangeArgs=("$(git lh --since "$yesterdayTimestamp" | tail -n 1)") || exit $?
-else
+if [ "$isRange" ] && [ ! "$isShowOneMore" ]; then
     # For commands that take a range (i.e. the log variants), we can directly
     # inject the --since argument.
     rangeArgs=('--since' "$yesterdayTimestamp")
+else
+    rangeArgs=("$(getTodayCommit)${isShowOneMore:+^}${isRange:+^..}") || exit $?
 fi
 
-if [ $# -eq 0 ]; then
-    echo >&2 'ERROR: No GIT-COMMAND passed.'
-    exit 2
-fi
-
-typeset -a gitCommand=()
 case "$1" in
     [^-]*-command)  gitCommand+=("$1"); shift
 		    while [ $# -ne 0 ]

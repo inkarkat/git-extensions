@@ -106,7 +106,10 @@ if [ "$HUB" ] && [ ! "$isRebase" ]; then
     # HEAD commits and seed the merge message with it / them (as the PR title
     # already summarizes the changeset and makes for a great merge title). This
     # saves the user from opening the PR and copy-and-pasting it.
-    pullRequestTitles="$(hub-prtitle "${branches[@]}")"
+    typeset -a prefixCommands=()
+    type -t timeout >/dev/null && prefixCommands=(timeout 10 "${prefixCommands[@]}")
+    type -t invocationMessage >/dev/null && prefixCommands=(invocationMessage --message 'Searching for PR...' --success FOUND --fail NONE -- "${prefixCommands[@]}")
+    pullRequestTitles="$("${prefixCommands[@]}" hub-prtitle "${branches[@]}")"
     [ -n "$pullRequestTitles" ] && mergeArgs+=(-m "$pullRequestTitles" --edit)
 fi
 

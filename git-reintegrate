@@ -153,9 +153,19 @@ if [ ! "$isContinue" ]; then
 	    < /dev/tty read -r -N 1 -p "The branch$branchesPlural can be fast-forwarded instead of merged. Fast-forward? (y/n) " choice; echo >/dev/tty
 	    [ "$choice" = 'y' ] && fastForwardArgs=(--ff-only)
 	elif canRebase; then
-	    hubNote=; [ "$HUB" ] && [ -n "$pullRequestTitles" ] && hubNote='Note: GitHub cannot detect the rebase and will say that the PR has been closed. If you need proper indication, please directly rebase in GitHub itself instead.'
-	    < /dev/tty read -r -N 1 -p "The branch$branchesPlural only consist$verbPlural of a single commit. Rebase $branchesSubject instead of creating a separate merge commit?${hubNote:+$'\n'}${hubNote} (y/n) " choice; echo >/dev/tty
-	    [ "$choice" = 'y' ] && isRebase=t
+	    hubNote=; [ "$HUB" ] && [ -n "$pullRequestTitles" ] && hubNote='Note: GitHub cannot detect the rebase and will say that the PR has been closed. If you need proper indication, please quit now and directly rebase in GitHub itself instead.'
+	    < /dev/tty read -r -N 1 -p "The branch$branchesPlural only consist$verbPlural of a single commit. Rebase $branchesSubject instead of creating a separate merge commit?${hubNote:+$'\n'}${hubNote} (y/n/q) " choice; echo >/dev/tty
+	    case "$choice" in
+		y)  isRebase=t;;
+		q)  if [ -n "$hubNote" ]; then
+			echo "After rebasing in GitHub, you can delete the branch$branchesPlural via:"
+			printf 'git oldelete -f'
+			printf ' %q' "${branches[@]}"
+			printf '\n'
+		    fi >2
+		    exit 1
+		    ;;
+	    esac
 	fi
     elif [ "$isRebaseSingle" ]; then
 	canRebase && isRebase=t

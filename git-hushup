@@ -59,7 +59,7 @@ function join(array, start, end, sep,    result, i)
 function printJoinedReferences(      what)
 {
     for (what in n) {
-	print sprintf("%-21s", prefix[what] what (n[what] == 1 ? "" : (what ~ /ch$/ ? "e" : "") "s") "]") join(news[what], 1, n[what], ", ")
+	print sprintf("%-21s", prefix[what] "[" n[what] " " what (n[what] == 1 ? "" : (what ~ /ch$/ ? "e" : "") "s") "]") join(news[what], 1, n[what], ", ")
     }
 
     delete prefix
@@ -72,12 +72,13 @@ BEGIN {
 }
 $2 == "*" && $3 == "[new" && NF == 5 {
     $4 = substr($4, 1, length($4) - 1)
-    prefix[$4] = " " $2 " " $3 " "
-    news[$4][++n[$4]] = $5
+    newWhat = substr($3, 2) " " $4
+    prefix[newWhat] = " " $2 " "
+    news[newWhat][++n[newWhat]] = $5
     next
 }
 $2 == "x" && $3 == "[deleted]" && $4 == "(none)" && NF == 5 {
-    prefix[deletedWhat] = " " $2 " ["
+    prefix[deletedWhat] = " " $2 " "
     ref = (substr($5, 1, length(remote) + 1) == remote "/" ? substr($5, length(remote) + 2) : $5)
     news[deletedWhat][++n[deletedWhat]] = ref
     next

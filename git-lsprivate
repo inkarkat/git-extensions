@@ -7,12 +7,15 @@ printUsage()
 List unversioned files. Show a summary for unversioned directories or with -l
 the entire subdir contents. With -x also files from the ignore list.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-l|--long] [-x] [<path>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-l|--long|-D|--ignore-empty-directories] [-x] [<path>] [-?|-h|--help]'
 }
 isLongFormat=
+isIgnoreEmptyDirectories=
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
     --long|-l)		shift; isLongFormat=t;;
+    --ignore-empty-directories|-D)
+			shift; isIgnoreEmptyDirectories=t;;
 esac
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
@@ -22,13 +25,13 @@ lsprivate()
     status=1
     while read filespec
     do
-	status=0
 	if [ -d "$filespec" ]; then
 	    if [ "$isLongFormat" ]; then
 		find "$filespec"
 	    else
 		fileNum=$(find "$filespec" -type f | wc -l)
 		if [ $fileNum -eq 0 ]; then
+		    [ "$isIgnoreEmptyDirectories" ] && continue
 		    dirNum=$(find "$filespec" -mindepth 1 -type d | wc -l)
 		    if [ $dirNum -eq 0 ]; then
 			printf '%s [empty directory]\n' "$filespec"
@@ -45,6 +48,7 @@ lsprivate()
 	else
 	    printf '%s\n' "$filespec"
 	fi
+	status=0
     done < <(git clean --dry-run -d "$@" | sed -e 's/^Would \(not \)\?remove //')
 
     return $status

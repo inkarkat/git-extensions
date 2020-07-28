@@ -1,10 +1,12 @@
 #!/bin/bash
+set -o noglob
 
 printUsage()
 {
     cat <<HELPTEXT
 Test whether the working copy has either:
 - dirty:    uncommitted changes
+- private:  unversioned files (that are not ignored)
 - noremote: no remotes have been defined yet; the repository only exists locally
 - outgoing: where not all commits (on the current branch) have already been
 	    pushed to origin (or origin doesn't even exist yet)
@@ -16,7 +18,7 @@ Test whether the working copy has either:
 	    concurrent work or a pull request
 Individual checks can be selected / deselected via +name / -name.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] (+|-)(dirty|noremote|outgoing|wipcommit|nonmaster|downstreambranches) [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] (+|-)(dirty|private|noremote|outgoing|wipcommit|nonmaster|downstreambranches) [-?|-h|--help]'
 }
 typeset -a colorArg=()
 typeset -a gitColorConfigArg=()
@@ -35,7 +37,7 @@ else
 fi
 
 isFirst=t
-declare -A checks=([dirty]=t [noremote]=t [outgoing]=t [wipcommit]=t [nonmaster]=t [downstreambranches]=t)
+declare -A checks=([dirty]=t [private]=t [noremote]=t [outgoing]=t [wipcommit]=t [nonmaster]=t [downstreambranches]=t)
 while [ $# -gt 0 ]
 do
     case "$1" in
@@ -52,6 +54,21 @@ done
 
 [ "${checks[dirty]}" ] && \
     if git dirty; then git "${gitColorConfigArg[@]}" st; exit 0; fi
+
+findPrivateFiles()
+{
+    local IFS=$'\n'
+    typeset -a privateFiles; privateFiles=($(git-lsprivate)) || return $?
+    case ${#privateFiles[@]} in
+	0)  return 1;;
+	1)  printf 'Unversioned file: %s\n' "${privateFiles[0]}";;
+	*)  printf 'Unversioned files:\n'
+	    printf '%s\n' "${privateFiles[@]}"
+	    ;;
+    esac
+}
+[ "${checks[private]}" ] && \
+    if findPrivateFiles; then exit 0; fi
 
 [ "${checks[noremote]}" ] && \
     if ! git existsremote; then echo "Local-only repository; no remotes defined yet."; exit 0; fi

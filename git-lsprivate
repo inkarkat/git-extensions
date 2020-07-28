@@ -31,9 +31,19 @@ lsprivate()
 		find "$filespec"
 	    else
 		fileNum=$(find "$filespec" -type f | wc -l)
-		dirsize=$(du -s --human-readable -- "$filespec" | cut -f 1)
-		fileNumPlural=s; [ $fileNum -eq 1 ] && fileNumPlural=
-		printf '%s [directory; %d file%s, %s]\n' "$filespec" "$fileNum" "$fileNumPlural" "$dirsize"
+		if [ $fileNum -eq 0 ]; then
+		    dirNum=$(find "$filespec" -mindepth 1 -type d | wc -l)
+		    if [ $dirNum -eq 0 ]; then
+			printf '%s [empty directory]\n' "$filespec"
+		    else
+			dirNumPlural=s; [ $dirNum -eq 1 ] && dirNumPlural=
+			printf '%s [directory with %d nested empty subdir%s]\n' "$filespec" "$dirNum" "$dirNumPlural"
+		    fi
+		else
+		    dirsize=$(du -s --human-readable -- "$filespec" | cut -f 1)
+		    fileNumPlural=s; [ $fileNum -eq 1 ] && fileNumPlural=
+		    printf '%s [directory; %d file%s, %s]\n' "$filespec" "$fileNum" "$fileNumPlural" "$dirsize"
+		fi
 	    fi
 	else
 	    printf '%s\n' "$filespec"

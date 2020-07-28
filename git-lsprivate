@@ -22,8 +22,10 @@ fi
 
 lsprivate()
 {
+    status=1
     while read filespec
     do
+	status=0
 	if [ -d "$filespec" ]; then
 	    if [ "$isLongFormat" ]; then
 		find "$filespec"
@@ -36,5 +38,7 @@ lsprivate()
 	    echo "$filespec"
 	fi
     done < <(git clean --dry-run -d "$@" | sed -e 's/^Would \(not \)\?remove //')
+
+    return $status
 }
 eval 'lsprivate "$@"' "${pager:+|}" '"${pager[@]}"'

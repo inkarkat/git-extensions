@@ -59,13 +59,8 @@ findPrivateFiles()
 {
     local IFS=$'\n'
     typeset -a privateFiles; privateFiles=($(git-lsprivate)) || return $?
-    case ${#privateFiles[@]} in
-	0)  return 1;;
-	1)  printf 'Unversioned file: %s\n' "${privateFiles[0]}";;
-	*)  printf 'Unversioned files:\n'
-	    printf '%s\n' "${privateFiles[@]}"
-	    ;;
-    esac
+    [ ${#privateFiles[@]} -eq 0 ] && return 1
+    printf 'Unversioned file: %s\n' "${privateFiles[0]}"
 }
 [ "${checks[private]}" ] && \
     if findPrivateFiles; then exit 0; fi

@@ -2,19 +2,24 @@
 
 printUsage()
 {
+    local splitPattern='/^Note:/'
+    git-wcdo --help 2>&1 | sed \
+	-e '1s#^.*$#Execute "git SIMPLECOMMAND" and/or COMMANDLINE on all repositories that are checked out (directly, not in subdirs) in any DIRSPEC.#' \
+	-e '2b removeFirstParagraphLoop' \
+	-e "${splitPattern},\$d" \
+	-e '/^Usage:$/N' -e "/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?git-wcdo /\1\2$(basename "$1") [--worktrees] [--skip-symlinks] / }" \
+	-e '/^Example:$/N' -e "/\(^\|\n\)Example: */{ s/\(^\|\n\)\(Example: *\)\?git-wcdo /\1\2$(basename "$1") -n /; s/-f gaga// }" \
+	-e b -e :removeFirstParagraphLoop -e '{ /\(^\|\n\)$/{ s/^\(.*\n\)\?//; b; }; N; b removeFirstParagraphLoop }' \
+
     cat <<HELPTEXT
-Execute "git SIMPLECOMMAND" and/or COMMANDLINE on all repositories that are
-checked out (directly, not in subdirs) in any DIRSPEC.
     --worktrees		    Also include additional working copies checked out
 			    from the same repository (via git worktree).
     --skip-symlinks	    Do not consider passed DIRSPEC(s) that are symbolic
 			    links to another directory. (This cannot be easily
 			    checked from inside the working copy with
 			    --predicate-command.)
-    --foreign-command CMD   Execute CMD in (accessible) directories that are not
-			    a Git working copy (e.g. to initialize a Git repo).
 HELPTEXT
-printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header|--branch-name] [--no-git-color] [--worktrees] [--skip-symlinks] [--single-success] [--foreign-command "COMMANDLINE" [...]] [--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] DIRSPEC [...] [-- SIMPLECOMMAND ...] [-?|-h|--help]'
+    git-wcdo --help 2>&1 | sed -e "${splitPattern}p" -e "1,${splitPattern}d"
 }
 
 isForeign=

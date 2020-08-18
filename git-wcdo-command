@@ -8,6 +8,31 @@ if [ "${GIT_WCDO_COMMAND%%* }" = 'git-wcs-in-dir-do' ]; then
     : ${GIT_WCDO_COMMAND_LONG_OPTIONS=worktrees|skip-symlinks}
 fi
 
+printUsage()
+{
+    local splitPattern='/^Note:/'
+    local additions=
+    [ -n "$wrapper" ] || additions="${additions}${additions:+ }WRAPPER-NAME"
+    [ -n "$what" ] || additions="${additions}${additions:+ }WRAPPER-DESCRIPTION"
+    "$GIT_WCDO_COMMAND" --help 2>&1 | sed \
+	-e "1s#^.*\$#Execute \"git SIMPLECOMMAND\" and/or COMMANDLINE inside ${what:=CONFIGURED SUBJECTS} that are under Git source control. Considers a ${wrapper:-WRAPPER}-SIMPLECOMMAND wrapper.\\nLists all filespecs if no command(s) are passed.#" \
+	-e '2b removeFirstParagraphLoop' \
+	-e "${splitPattern},\$d" \
+	-e '/^Usage:$/N' -e "/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?$GIT_WCDO_COMMAND /\1\2${wrapper:-$(basename "$1")}${additions:+ }$additions / }" \
+	-e b -e :removeFirstParagraphLoop -e '{ /\(^\|\n\)$/{ s/^\(.*\n\)\?//; b; }; N; b removeFirstParagraphLoop }'
+
+    cat <<HELPTEXT
+Supports the following special commands:
+    repo-missing	    Show those ${what:=CONFIGURED SUBJECTS} that are not yet
+			    under Git source control.
+HELPTEXT
+    [ "$GIT_WCDO_COMMAND_ADDITIONAL_HELP" ] && printf '%s\n' "$GIT_WCDO_COMMAND_ADDITIONAL_HELP"
+    git-wcdo --help 2>&1 | sed -e "${splitPattern}p" -e "1,${splitPattern}d"
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
 wrapper="${1:?}"; shift
 what="${1:?}"; shift
 typeset -a wcs=()
@@ -21,20 +46,6 @@ do
 done
 [ ${#wcs[@]} -eq 0 ] && exit 3
 
-
-printUsage()
-{
-    cat <<HELPTEXT
-Execute "git SIMPLECOMMAND" and/or COMMANDLINE inside $what
-that are under Git source control. Considers a ${wrapper}-SIMPLECOMMAND wrapper.
-Lists all filespecs if no command(s) are passed.
-Supports the following special commands:
-repo-missing	Show those $what that are not yet under Git source
-		control.
-HELPTEXT
-    [ "$GIT_WCDO_COMMAND_ADDITIONAL_HELP" ] && printf '%s\n' "$GIT_WCDO_COMMAND_ADDITIONAL_HELP"
-    printf 'Usage: %q %s\n' "$wrapper" '-c|--command "COMMANDLINE" [-c ...] | [[--] SIMPLECOMMAND [...]] [-?|-h|--help]'
-}
 typeset -a wcdoArgs=()
 while [ $# -ne 0 ]
 do

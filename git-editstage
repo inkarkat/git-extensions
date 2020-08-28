@@ -1,4 +1,5 @@
 #!/bin/bash
+set -o noglob
 
 printUsage()
 {
@@ -7,7 +8,7 @@ Directly edit file(s) in the index (or the HEAD revision if the file hasn't been
 staged yet) without modifying the corresponding files in the working copy.
 You can re-edit the same set of files again with --continue.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[EDITOR-ARGS ... [--]] <pathspec> ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[EDITOR-ARGS ... [--]] [<pathspec> ...] [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '--continue [EDITOR-ARGS ... [--]] [-?|-h|--help]'
 }
 isContinue=
@@ -20,7 +21,7 @@ do
     esac
 done
 
-
+IFS=$'\n'
 getIndex()
 {
     local i=1 elem needle=$1; shift
@@ -52,9 +53,12 @@ else
     done
     typeset paths=("$@")
 fi
-if [ -z "$isContinue" ] && [ ${#paths[@]} -eq 0 ]; then
-    printUsage "$0" >&2
-    exit 2
+if [ ! "$isContinue" ] && [ ${#paths[@]} -eq 0 ]; then
+    typeset -a paths=($(git diff --name-only --cached --))
+    if [ ${#paths[@]} -eq 0 ]; then
+	echo >&2 'ERROR: No staged files found.'
+	exit 1
+    fi
 elif [ "$isContinue" ] && [ ${#paths[@]} -gt 0 ]; then
     echo >&2 "ERROR: --continue uses the original <pathspec>s, don't add new ones."
     exit 2

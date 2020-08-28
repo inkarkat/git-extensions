@@ -18,7 +18,7 @@ printf 'Usage: %q %s\n' "$(basename "$1")" '[-n|--branch-number N] [--no-range] 
 
 let branchNumber=1
 isAny=
-startRev=HEAD
+startRev=
 typeset -a include=('heads')
 typeset -a revRangeArgs=()
 while [ $# -ne 0 ]
@@ -45,7 +45,7 @@ contains()
     return 1
 }
 
-previousRev=$startRev
+previousRev="${startRev:-HEAD}"
 let branchCnt=0
 while [ $branchCnt -lt $branchNumber ]
 do
@@ -61,4 +61,4 @@ do
     let branchCnt+=1
 done
 
-exec git-rev-range --revision "$previousRev" "${revRangeArgs[@]}"
+exec git-rev-range --revision "$previousRev" ${startRev:+--end-revision} $startRev "${revRangeArgs[@]}"

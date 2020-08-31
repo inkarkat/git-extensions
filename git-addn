@@ -1,7 +1,5 @@
 #!/bin/bash
-
 shopt -qs nullglob
-IFS=$'\n'
 
 remove()
 {
@@ -26,7 +24,10 @@ if [ $# -eq 0 ]; then
     exit 2
 fi
 
+IFS=$'\n'
+set -o noglob
 typeset -a reportedAdditions=($(git add --update --dry-run)) || exit $?
+set +o noglob
 if [ ${#reportedAdditions[@]} -eq 0 ]; then
     echo >&2 'ERROR: Nothing to add'
     exit 1
@@ -56,5 +57,4 @@ do
     fi
 done
 
-#echo "****" "${!additions[@]}"
 git add -- "${!additions[@]}" && git status -sb

@@ -20,7 +20,6 @@ logChanges()
 	*)	    printf >&2 'ASSERT: Invalid log: %q\n' "$log"; exit 3;;
     esac
 }
-
 remote="${1:?}"; shift
 path=; [ $# -gt 0 ] && path="${remote}/${!#}" || path=$(git-remotebr "$remote" 2>/dev/null)
 originalRevision=$(git rev-parse "$path" 2>/dev/null)
@@ -29,13 +28,20 @@ if [ "$GIT_UP_FETCH" ]; then
     git fetch "$remote" || exit $?
 fi
 
-typeset -a gitArgs=(pull --rebase=preserve) # Here, merges typically happen from the master / base branch to pick up changes. If we need to rebase a (feature) branch during pulling, that means that there was (accidentally?) concurrent development. Here, we still like to keep the merges intact; the decision to flatten them or not should only come when reintegrating the branch (namely, whether to rebase or merge).
-[ "$GIT_UP_REBASE" ] && gitArgs=(rebase --preserve-merges)
+# Here, merges typically happen from the master / base branch to pick up
+# changes. If we need to rebase a (feature) branch during pulling, that means
+# that there was (accidentally?) concurrent development. Here, we still like to
+# keep the merges intact; the decision to flatten them or not should only come
+# when reintegrating the branch (namely, whether to rebase or merge).
+if [ "$GIT_UP_REBASE" ]; then
+    git -c rebase.autoStash=true rebase --preserve-merges "${@:1:$(($#-1))}" "$path" || exit $?
+else
 
-# Git 2.6 and later.
-git -c rebase.autoStash=true "${gitArgs[@]}" "$remote" "$@" || exit $?
-# Git 2.9 and later.
-#git pull --rebase=preserve --autostash "$remote" "$@" || exit $?
+    # Git 2.6 and later.
+    git -c rebase.autoStash=true pull --rebase=preserve "$remote" "$@" || exit $?
+    # Git 2.9 and later.
+    #git pull --rebase=preserve --autostash "$remote" "$@" || exit $?
+fi
 
 if [ ! "$path" ]; then
     [ "$log" ] && echo >&2 "Warning: Could not determine updated path, no logging possible."

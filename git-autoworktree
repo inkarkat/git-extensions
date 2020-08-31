@@ -1,0 +1,140 @@
+#!/bin/bash
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '-n|--name NAME|<path> [--detach] [-b|--branch <branch>] [--wipe] [--leave-detached] [--leave-branch <branch>] -c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 'Try %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Automatically create / use a separate worktree before executing COMMAND (which
+probably contains Git command(s)). This means that you can run Git commands that
+otherwise would complain on a dirty worktree or would fail to change the branch.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    cat <<HELPTEXT
+    --name|-n NAME	Create / reuse the worktree at the directory NAME next
+			to the working copy.
+    --name|-n <path>	Create / reuse the worktree at <path>.
+    --detach		Detach HEAD in the worktree before executing CMD.
+    --branch|-b <branch>
+			Checkout <branch> in the worktree. If --detach is also
+			given, HEAD of the tip of <branch> is detached.
+    --wipe		Reset the worktree and index before executing CMD.
+    --leave-detached	Detach HEAD / the branch left after executing CMD.
+    --leave-branch <branch>
+			Checkout <branch> in the worktree after executing CMD.
+			If --leave-detached is also given, HEAD of the tip of
+			<branch> is detached.
+    --command|-c CMD	The command line to be executed. When this is a simple
+			command, it can also be passed as such.
+HELPTEXT
+}
+
+typeset -a detachArg=()
+typeset -a branchArg=()
+path=
+isWipe=
+typeset -a leaveDetachedArg=()
+typeset -a leaveBranchArg=()
+isNeedEval=
+typeset -a commands=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--name|-n)	shift
+			if [ "${1//\//}" = "$1" ]; then
+			    root="$(git root)" || exit $?
+			    path="${root}/../$1"
+			else
+			    path="$1"
+			fi
+			shift
+			;;
+	--detach)	detachArg+=("$1"); shift;;
+	--branch|-b)	shift; branchArg=("$1"); shift;;
+	--wipe)		shift; isWipe=t;;
+	--leave-detached)
+			shift; leaveDetachedArg=(--detach);;
+	--leave-branch)	shift; leaveBranchArg=("$1"); shift;;
+	--command|-c)	shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if [ ! "$path" ]; then
+    echo >&2 'ERROR: No -n|--name NAME|<path> passed.'
+    echo >&2
+    printUsage "$0" >&2
+    exit 2
+fi
+if [ $# -ne 0 ]; then
+    if [ "$isNeedEval" ]; then
+	# Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
+	# undo the effects of eval.
+	commands+=(${commands:+;} $(printf '%q ' "$@"))
+    else
+	commands=("$@")
+    fi
+fi
+if [ ${#commands[@]} -eq 0 ]; then
+    echo >&2 'ERROR: No COMMAND(s) specified; need to pass -c|--command "COMMANDLINE", or SIMPLECOMMAND.'
+    exit 2
+fi
+
+if [ -d "$path" ]; then
+    cd "$path" || exit $?
+
+    if [ "$isWipe" ]; then
+	git reset --hard >/dev/null || exit $?
+    fi
+
+    if ! git checkout --quiet "${detachArg[@]}" "${branchArg[@]}"; then
+	status=$?
+	printf >&2 'ERROR: Failed prepare worktree %s\n' "$path"
+	exit $status
+    fi
+else
+    if ! git worktree add "${detachArg[@]}" "$path" "${branchArg[@]}" >/dev/null || ! cd "$path"; then
+	status=$?
+	printf >&2 'ERROR: Failed to add worktree %s\n' "$path"
+	exit $status
+    fi
+fi
+worktreeDirspec="$PWD"
+
+finally()
+{
+    if [ ${#leaveDetachedArg[@]} -gt 0 -o ${#leaveBranchArg[@]} -gt 0 ]; then
+	# Ensure that we're still in the correct worktree.
+	[ "$PWD" = "$worktreeDirspec" ] || cd "$worktreeDirspec" || exit $?
+
+	git checkout --quiet "${leaveDetachedArg[@]}" "${leaveBranchArg[@]}" || status=$?
+    fi
+
+    exit $status
+}
+trap 'finally' EXIT
+
+
+(
+    if [ "$isNeedEval" ]; then
+	eval "${commands[@]}"
+    else
+	"${commands[@]}"
+    fi
+); status=$?

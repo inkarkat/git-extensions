@@ -1,4 +1,5 @@
 #!/bin/bash
+
 shopt -qs globstar # ** matches files and/only (as **/) subdirs recursively.
 
 printUsage()
@@ -28,11 +29,11 @@ do
 	*)		break;;
     esac
 done
-branchGlob="${1//\*/**}"    # As we're doing file system lookup, a branch name glob needs to be converted into a directory hierarchy one in case the branch name contains slashes.
+dirBranchGlob="${1//\*/*/**}"    # As we're doing file system lookup, a branch name glob needs to be converted into a directory hierarchy one in case the branch name contains slashes.
 case $locality in
-    local)  what="refs/heads/$branchGlob";;
-    all)    what="refs/heads/$branchGlob refs/remotes/$branchGlob";;
-    remote) what="refs/remotes/$branchGlob";;
+    local)  what="refs/heads/$1 refs/heads/$dirBranchGlob";;
+    all)    what="refs/heads/$1 refs/heads/$dirBranchGlob refs/remotes/$1 refs/remotes/$dirBranchGlob";;
+    remote) what="refs/remotes/$1 refs/remotes/$dirBranchGlob";;
 esac
 
 typeset -a branches=($(git for-each-ref --format='%(refname:short)' $what)) || exit $?

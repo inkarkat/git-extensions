@@ -11,11 +11,13 @@ branch.<name>.remote and branch.<name>.merge) head.
 After that, you can push all branches via to the default (or passed, if you did
 not pass a remote to this command) remote via git push -f --all.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--continue|--skip|--abort] [--upstream <remote>/<branch>] [--include-current] [--include-master] [--include-base] [--include-all] [--branches "<branch1> ..."] [N] [-i|--interactive] [options]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--continue|--skip|--abort] [--upstream <remote>/<branch>] [--push|--push-to <remote>] [--include-current] [--include-master] [--include-base] [--include-all] [--branches "<branch1> ..."] [N] [-i|--interactive] [options]'
 }
 
 branchNum=9999
 upstreamBranch=
+isPush=
+pushRemote=
 inputBranches=
 rebaseAction=
 typeset -a gitLocalbrArgs=()
@@ -26,6 +28,8 @@ do
 	--include-*)		    gitLocalbrArgs+=("$1"); shift;;
 	--branches)		    shift; inputBranches="$1"; shift;;	# Internal hook to pass in the branches.
 	--upstream)		    shift; upstreamBranch="$1"; shift;;
+	--push)			    shift; isPush=t;;
+	--push-to)		    shift; isPush=t; pushRemote="$1"; shift;;
 	--continue|--skip|--abort)  rebaseAction="$1"; shift; break;;
 	+([0-9]))		    branchNum="$1"; shift;;
 	*)			    break;;
@@ -80,7 +84,7 @@ ${branches[*]}
     done
     printf '\n'
 
-    < /dev/tty read -r -N 1 -p "Really rebase these branches? (y/n) " choice; echo >/dev/tty
+    < /dev/tty read -r -N 1 -p "Really rebase ${isPush:+and then push }these branches${pushRemote:+ to $pushRemote}? (y/n) " choice; echo >/dev/tty
     [ "$choice" = "y" ] || exit 1
 
     printf '%s\n' "${branches[@]}" > "$branchStore" || exit $?
@@ -89,6 +93,7 @@ else
     git rebase "$rebaseAction" || exit $?
 fi
 
+status=0
 while true
 do
     branch="$(getNextBranch)"
@@ -99,10 +104,27 @@ do
 	    git checkout "$(<"$origBranchStore")"
 	    rm --force -- "$origBranchStore" 2>/dev/null
 	fi
-	exit
+
+	exit $status
     fi
 
     [ "$upstreamBranch" ] && set -- "$upstreamBranch" "$@"
     git rebase --preserve-merges "$@" "$branch" || exit $?
     [ "$(git ls-files --unmerged)" ] && exit 1
+
+    if [ "$isPush" ]; then
+	if [ -n "$pushRemote" ]; then
+	    targetRemote="$pushRemote"
+	    target="${targetRemote}/$branch"
+	    typeset -a targetBranchArg=("$branch")
+	else
+	    target="$(git-tracks 2>/dev/null)"
+	    targetRemote="${target%%/*}"
+	    typeset -a targetBranchArg=()
+	fi
+
+	if git-existsbr "$target"; then
+	    git push --force "$targetRemote" "${targetBranchArg[@]}" || status=$?   # Need to use --force because rebasing changed history.
+	fi
+    fi
 done

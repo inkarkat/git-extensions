@@ -1,0 +1,13 @@
+#!/bin/bash
+
+{
+    git ufetch || exit $?
+
+    if [ "$(git-brname --raw)" = "master" ]; then
+	git-urebaselocalbr --push origin --include-master --include-current "$@"
+    else
+	worktreeName="$(git-root)"
+	worktreeName="${worktreeName%.*}.rebasewc"
+	git-autoworktree --name "$worktreeName" --branch master --leave-detached git-urebaselocalbr --push origin --include-master --include-current "$@"
+    fi
+} 2>&1 | git-hushup --fetch upstream

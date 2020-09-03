@@ -1,0 +1,14 @@
+#!/bin/bash
+
+branch="${1:?}"; shift
+{
+    if [ "$(git-brname --raw)" = "$branch" ]; then
+	git-ufetchup "$@"
+    else
+	git ufetch || exit $?
+
+	worktreeName="$(git-root)"
+	worktreeName="${worktreeName%.*}.rebasewc"
+	GIT_UP_REBASE=t git-autoworktree --name "$worktreeName" --branch "$branch" --leave-detached git-ucatchup "$@"
+    fi
+} 2>&1 | git-hushup --fetch upstream

@@ -3,11 +3,26 @@
 {
     git ufetch || exit $?
 
-    if [ "$(git-brname --raw)" = "master" ]; then
+    isOnMasterBranch=; [ "$(git-brname --raw)" = "master" ] && isOnMasterBranch=t
+
+    if [ "$isOnMasterBranch" ] && ! git-dirty; then
 	git-urebaselocalbr --push origin --include-master --include-current "$@"
     else
 	worktreeName="$(git-root)"
 	worktreeName="${worktreeName%.*}.rebasewc"
-	git-autoworktree --name "$worktreeName" --branch master --leave-detached git-urebaselocalbr --push origin --include-master --include-current "$@"
+
+	if [ "$isOnMasterBranch" ]; then
+	    # We've been launched on a dirty master; detach the worktree to
+	    # avoid a checkout error and don't consider the master == current
+	    # branch when rebasing.
+	    typeset -a autoWorkTreeMasterArgs=(--detach)
+	    typeset -a rebaseLocalBranchMasterArgs=()
+	else
+	    # Start the rebase on master and also include it in rebasing.
+	    typeset -a autoWorkTreeMasterArgs=(--branch master)
+	    typeset -a rebaseLocalBranchMasterArgs=(--include-master)
+	fi
+
+	git-autoworktree --name "$worktreeName" "${autoWorkTreeMasterArgs[@]}" --leave-detached git-urebaselocalbr --push origin "${rebaseLocalBranchMasterArgs[@]}" "$@"
     fi
 } 2>&1 | git-hushup --fetch upstream

@@ -1,6 +1,16 @@
 #!/bin/bash
 set -o noglob
 
+typeset -a commandOnSelectedArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--accept-single|--single-only)
+			commandOnSelectedArgs+=("$1"); shift;;
+	*)		break;;
+    esac
+done
+
 if [ $# -eq 0 ]; then
     echo >&2 'ERROR: No GIT-COMMAND passed.'
     exit 2
@@ -20,6 +30,7 @@ if type -t commandOnSelected >/dev/null; then
     # Delegate to external tool.
     printf -v quotedGitCommand '%q ' "${gitCommand[@]}"; quotedGitCommand=${quotedGitCommand% }
     exec commandOnSelected \
+    "${commandOnSelectedArgs[@]}" \
     --generator "$generator" \
     --command "git-wrapper $quotedGitCommand" \
     -- "$@"

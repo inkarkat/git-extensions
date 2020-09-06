@@ -1,0 +1,29 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Interactively select from existing stashes (or directly pass N, M, ...
+selections) to manipulate by number.
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'show|drop|pop|apply|branch [STASH-ARG ...] [N [M ...]] [-?|-h|--help]'
+}
+
+typeset -a stashCommand=(stash)
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	show|drop|pop|apply)
+			stashCommand+=("$1"); shift;;
+	branch)		stashCommand+=("$1" "$2"); shift; shift;;
+	--)		shift; break;;
+	-*)		stashCommand+=("$1"); shift;;
+	*)		break;;
+    esac
+done
+printf -v quotedStashCommand '%q ' "${stashCommand[@]}"; quotedStashCommand=${quotedStashCommand% }
+printf -v doubleQuotedStashCommand %q "$quotedStashCommand"
+
+export GIT_SELECTED_COMMAND_DEFAULT_FILES='git stash list'
+exec git-selected-command --single-only "exec argsToLines --command 'sed s/:.*//' --sink-command git-wrapper\\ $doubleQuotedStashCommand" "$@"

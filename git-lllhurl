@@ -13,6 +13,11 @@ fi
 
 for filespec
 do
-    hash="$(git lh --max-count 1 "$rev" -- "$filespec")"
+    # XXX: Git 2.7.4 gives an error when trying to expand an alias in a
+    # subdirectory of a worktree;
+    # cp. https://bugzilla.redhat.com/show_bug.cgi?id=1377440
+    # Expand the "lh" alias into the effective log command.
+    #hash="$(git lh --max-count 1 "$rev" -- "$filespec")"
+    hash="$(git log --pretty=tformat:%H --max-count 1 "$rev" -- "$filespec")"
     git-lll --prefix "${url%/}/blob/${hash}/" --transform 'urlencode --filespec --newlines -' --no-classify "$filespec"
 done

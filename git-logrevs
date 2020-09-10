@@ -34,13 +34,8 @@ do
 done
 
 IFS=$'\n'
-typeset -a revisionsInOrder=($(git-graphsortrevs "${graphSortRevsArgs[@]}" "$@"))
+typeset -a revisionsInOrder=($(eval 'git-graphsortrevs "${graphSortRevsArgs[@]}" "$@"' ${maxCount:+ | head -n $maxCount}))
 [ ${#revisionsInOrder[@]} -eq 0 ] && exit 1
-
-if [ -n "$maxCount" ]; then
-    # Need to do the commit limiting after the ordering.
-    revisionsInOrder=("${revisionsInOrder[@]:0:$maxCount}")
-fi
 
 # Drop [--] <path>; that's only relevant for the log command that provides the
 # revisions.

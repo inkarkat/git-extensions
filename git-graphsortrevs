@@ -1,0 +1,39 @@
+#!/bin/bash
+set -o noglob -o pipefail
+
+printUsage()
+{
+    cat <<HELPTEXT
+Sort the passed revisions R1, R2, ... in graph order, regardless of the order in
+which they've been passed.
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[LOG-ARGS ...] -r|--revision R1 [-r ...] [-?|-h|--help]'
+    printf 'Usage: echo R1 R2 R3 | %q %s\n' "$(basename "$1")" '[LOG-ARGS ...] [-?|-h|--help]'
+}
+
+typeset -a logArgs=()
+typeset -a revisions=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--revision|-r)	shift; revisions+=("$1"); shift;;
+	--)		shift; break;;
+	*)		logArgs+=("$1"); shift;;
+    esac
+done
+if [ ${#revisions[@]} -eq 0 ]; then
+    revisions=($(< /dev/stdin))
+fi
+
+IFS=$'\n'
+typeset -a revisionsInOrder=($(git lh "${logArgs[@]}" "$@" | grep --fixed-strings --file <(printf '%s\n' "${revisions[@]}")))
+
+revisionDifference=$(($# - ${#revisionsInOrder[@]}))
+if [ $revisionDifference -gt 0 ]; then
+    revisionDifferencePlural=s; [ $revisionDifference -eq 1 ] && revisionDifferencePlural=
+    printf >&2 'ERROR: Did not find %d revision%s.\n' "$revisionDifference" "$revisionDifferencePlural"
+    exit 1
+fi
+
+printf '%s\n' "${revisionsInOrder[@]}"

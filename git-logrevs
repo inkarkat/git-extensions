@@ -14,6 +14,7 @@ HELPTEXT
 
 typeset -a graphSortRevsArgs=()
 isDashDash=
+isReverse=
 typeset -a showArgs=()
 typeset -a revisions=()
 maxCount=
@@ -22,6 +23,7 @@ do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--revision|-r)	graphSortRevsArgs+=("$1" "$2"); shift; revisions+=("$1"); shift;;
+	--reverse)	shift; isReverse=t;;
 
 	--max-count|-n) shift; maxCount="$1"; shift;;
 	--max=count=*)	maxCount="${1#*=}"; shift;;
@@ -34,7 +36,7 @@ do
 done
 
 IFS=$'\n'
-typeset -a revisionsInOrder=($(eval 'git-graphsortrevs "${graphSortRevsArgs[@]}" "$@"' ${maxCount:+ | head -n $maxCount}))
+typeset -a revisionsInOrder=($(eval 'git-graphsortrevs "${graphSortRevsArgs[@]}" "$@"' ${isReverse:+ | tac}${maxCount:+ | head -n $maxCount}))
 [ ${#revisionsInOrder[@]} -eq 0 ] && exit 1
 
 # Drop [--] <path>; that's only relevant for the log command that provides the

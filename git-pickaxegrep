@@ -1,0 +1,34 @@
+#!/bin/bash
+set -o pipefail
+
+printUsage()
+{
+    cat <<HELPTEXT
+Combination of logg and findlog / touchedlog: Log where log messages match text
+or /regexp/ or where the text or /regexp/ was added or removed (i.e. those
+filepairs whose preimage and postimage have different number of occurrences of
+the text). With --more also log where lines were modified where text or /regexp/
+just appears (without necessarily modifying text or /regexp/ itself).
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--more] [<log-options>] [<since>..<until>] [[--] <path>...] text|/regexp/ [-?|-h|--help]'
+}
+
+typeset -a moreArg=()
+typeset -a argsWithoutMore=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--more)		moreArg+=("$1"); shift;;
+	--)		argsWithoutMore+=("$1"); shift; break;;
+	*)		argsWithoutMore+=("$1"); shift;;
+    esac
+done
+typeset -a argsWithoutMoreAndSearchString=("${argsWithoutMore[@]}" "$@")
+argsWithoutMoreAndSearchString=("${argsWithoutMoreAndSearchString[@]:0:$((${#argsWithoutMoreAndSearchString[@]}-1))}")
+
+{
+    git-pickaxe "${moreArg[@]}" --pretty=tformat:%H "${argsWithoutMore[@]}" "$@"
+    git-logg --pretty=tformat:%H "${argsWithoutMore[@]}" "$@"
+} | git-graphsortrevs "${argsWithoutMoreAndSearchString[@]}" | \
+    git-logrevs ${GIT_PICKAXEGREP_LOGARG} "${argsWithoutMoreAndSearchString[@]}"

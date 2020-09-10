@@ -1,5 +1,6 @@
 #!/bin/bash
 set -o noglob -o pipefail
+shopt -qs extglob
 
 printUsage()
 {
@@ -11,23 +12,35 @@ HELPTEXT
     printf 'Usage: echo R1 R2 R3 | %q %s\n' "$(basename "$1")" '[SHOW-ARGS ...] [-?|-h|--help]'
 }
 
-typeset -a allArgs=("$@")
+typeset -a graphSortRevsArgs=()
 isDashDash=
 typeset -a showArgs=()
 typeset -a revisions=()
+maxCount=
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-	--revision|-r)	shift; revisions+=("$1"); shift;;
-	--)		shift; isDashDash=t; break;;
-	*)		showArgs+=("$1"); shift;;
+	--revision|-r)	graphSortRevsArgs+=("$1" "$2"); shift; revisions+=("$1"); shift;;
+
+	--max-count|-n) shift; maxCount="$1"; shift;;
+	--max=count=*)	maxCount="${1#*=}"; shift;;
+	-n+([0-9]))	maxCount="${1#-n}"; shift;;
+	-+([0-9]))	maxCount="${1#-}"; shift;;
+
+	--)		graphSortRevsArgs+=("$1"); shift; isDashDash=t; break;;
+	*)		graphSortRevsArgs+=("$1"); showArgs+=("$1"); shift;;
     esac
 done
 
 IFS=$'\n'
-typeset -a revisionsInOrder=($(git-graphsortrevs "${allArgs[@]}"))
+typeset -a revisionsInOrder=($(git-graphsortrevs "${graphSortRevsArgs[@]}" "$@"))
 [ ${#revisionsInOrder[@]} -eq 0 ] && exit 1
+
+if [ -n "$maxCount" ]; then
+    # Need to do the commit limiting after the ordering.
+    revisionsInOrder=("${revisionsInOrder[@]:0:$maxCount}")
+fi
 
 # Drop [--] <path>; that's only relevant for the log command that provides the
 # revisions.
@@ -40,4 +53,3 @@ if [ ! "$isDashDash" ]; then
 fi
 
 exec git show "${showArgs[@]}" "${revisionsInOrder[@]}"
-# TODO: Handle --max-count via head.

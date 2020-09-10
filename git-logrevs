@@ -1,0 +1,43 @@
+#!/bin/bash
+set -o noglob -o pipefail
+
+printUsage()
+{
+    cat <<HELPTEXT
+Log the passed revisions R1, R2, ... in graph order, regardless of the order in
+which they've been passed.
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[SHOW-ARGS ...] -r|--revision R1 [-r ...] [-?|-h|--help]'
+    printf 'Usage: echo R1 R2 R3 | %q %s\n' "$(basename "$1")" '[SHOW-ARGS ...] [-?|-h|--help]'
+}
+
+typeset -a allArgs=("$@")
+isDashDash=
+typeset -a showArgs=()
+typeset -a revisions=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--revision|-r)	shift; revisions+=("$1"); shift;;
+	--)		shift; isDashDash=t; break;;
+	*)		showArgs+=("$1"); shift;;
+    esac
+done
+
+IFS=$'\n'
+typeset -a revisionsInOrder=($(git-graphsortrevs "${allArgs[@]}"))
+[ ${#revisionsInOrder[@]} -eq 0 ] && exit 1
+
+# Drop [--] <path>; that's only relevant for the log command that provides the
+# revisions.
+if [ ! "$isDashDash" ]; then
+    while [ ${#showArgs[@]} -gt 0 ]
+    do
+	[ -e "${showArgs[@]:$((${#showArgs[@]}-1))}" ] || break
+	showArgs=("${showArgs[@]:0:$((${#showArgs[@]}-1))}")
+    done
+fi
+
+exec git show "${showArgs[@]}" "${revisionsInOrder[@]}"
+# TODO: Handle --max-count via head.

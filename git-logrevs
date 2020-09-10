@@ -1,0 +1,52 @@
+#!/bin/bash
+set -o noglob -o pipefail
+shopt -qs extglob
+
+printUsage()
+{
+    cat <<HELPTEXT
+Log the passed revisions R1, R2, ... in graph order, regardless of the order in
+which they've been passed.
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[SHOW-ARGS ...] -r|--revision R1 [-r ...] [-?|-h|--help]'
+    printf 'Usage: echo R1 R2 R3 | %q %s\n' "$(basename "$1")" '[SHOW-ARGS ...] [-?|-h|--help]'
+}
+
+typeset -a graphSortRevsArgs=()
+isDashDash=
+isReverse=
+typeset -a showArgs=()
+typeset -a revisions=()
+maxCount=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--revision|-r)	graphSortRevsArgs+=("$1" "$2"); shift; revisions+=("$1"); shift;;
+	--reverse)	shift; isReverse=t;;
+
+	--max-count|-n) shift; maxCount="$1"; shift;;
+	--max=count=*)	maxCount="${1#*=}"; shift;;
+	-n+([0-9]))	maxCount="${1#-n}"; shift;;
+	-+([0-9]))	maxCount="${1#-}"; shift;;
+
+	--)		graphSortRevsArgs+=("$1"); shift; isDashDash=t; break;;
+	*)		graphSortRevsArgs+=("$1"); showArgs+=("$1"); shift;;
+    esac
+done
+
+IFS=$'\n'
+typeset -a revisionsInOrder=($(eval 'git-graphsortrevs "${graphSortRevsArgs[@]}" "$@"' ${isReverse:+ | tac}${maxCount:+ | head -n $maxCount}))
+[ ${#revisionsInOrder[@]} -eq 0 ] && exit 1
+
+# Drop [--] <path>; that's only relevant for the log command that provides the
+# revisions.
+if [ ! "$isDashDash" ]; then
+    while [ ${#showArgs[@]} -gt 0 ]
+    do
+	[ -e "${showArgs[@]:$((${#showArgs[@]}-1))}" ] || break
+	showArgs=("${showArgs[@]:0:$((${#showArgs[@]}-1))}")
+    done
+fi
+
+exec git ${GIT_LOGREVS_SHOW_COMMAND:-show} "${showArgs[@]}" "${revisionsInOrder[@]}"

@@ -1,5 +1,6 @@
 #!/bin/bash
 set -o pipefail
+shopt -qs extglob
 
 printUsage()
 {
@@ -13,6 +14,7 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--more] [<log-options>] [<since>..<until>] [[--] <path>...] text|/regexp/ [-?|-h|--help]'
 }
 
+typeset -a logrevArgs=()
 typeset -a moreArg=()
 typeset -a argsWithoutMore=()
 while [ $# -ne 0 ]
@@ -20,6 +22,11 @@ do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--more)		moreArg+=("$1"); shift;;
+
+	--max-count|-n) logrevArgs+=("$1" "$2"); shift; shift;;
+	--max=count=*|-n+([0-9])|-+([0-9])|--reverse)
+			logrevArgs+=("$1"); shift;;
+
 	--)		argsWithoutMore+=("$1"); shift; break;;
 	*)		argsWithoutMore+=("$1"); shift;;
     esac
@@ -31,4 +38,4 @@ argsWithoutMoreAndSearchString=("${argsWithoutMoreAndSearchString[@]:0:$((${#arg
     git-pickaxe "${moreArg[@]}" --pretty=tformat:%H "${argsWithoutMore[@]}" "$@"
     git-logg --pretty=tformat:%H "${argsWithoutMore[@]}" "$@"
 } | git-graphsortrevs "${argsWithoutMoreAndSearchString[@]}" | \
-    git-logrevs ${GIT_PICKAXEGREP_LOGARG} "${argsWithoutMoreAndSearchString[@]}"
+    git-logrevs ${GIT_PICKAXEGREP_LOGARG} "${logrevArgs[@]}" "${argsWithoutMoreAndSearchString[@]}"

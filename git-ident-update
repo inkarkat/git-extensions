@@ -28,7 +28,7 @@ do
     case "$1" in
 	--help|-h|-\?)	    shift; printUsage "$0"; exit 0;;
 	--install)	    shift
-			    hook=$(getHookFilespec)
+			    hook="$(getHookFilespec)"
 			    if [ -e "$hook" ]; then
 				echo "A hook already exists; add the following to \"${hook}\":"
 				printHook
@@ -39,14 +39,14 @@ do
 			    ;;
 	--uninstall|--deinstall|--remove)
 			    shift
-			    hook=$(getHookFilespec)
+			    hook="$(getHookFilespec)"
 			    echo "Remove the hook from \"${hook}\" yourself!"
 			    exit 1
 			    ;;
 	--status)	    shift
-			    hook=$(getHookFilespec)
+			    hook="$(getHookFilespec)"
 			    if [ -x "$hook" ] && grep -q -e "$(basename -- "$0")" "$hook"; then
-				coveredFiles=$(find . -name .gitattributes -exec grep -H -e '\bident\b' {} \;)
+				coveredFiles="$(find . -name .gitattributes -exec grep -H -e '\bident\b' {} \;)"
 				if [ "$coveredFiles" ]; then
 				    echo 'The hook is installed; $Id$ and $Id:...$ will be updated in the following directories for files matching the subsequent patterns:'
 				    printf '%s\n' "$coveredFiles"
@@ -92,7 +92,7 @@ done
 [ "$didAction" ] && exit 0
 
 case ",${DEBUG}," in *,git-ident-update,*) echo '**** git-ident-update hook called';; esac
-readonly orig=$(git-orig-ref)
+readonly orig="$(git-orig-ref)"
 if [ ! "$orig" ]; then
     printf >&2 '%q: Failed to get the symbolic ref to the current branch; cannot update the ident attribute!\n' "$(basename -- "$0")"
     exit 1
@@ -102,10 +102,11 @@ git checkout --quiet HEAD^ || exit $?
 if git checkout --quiet "$orig"; then
     isIdentUpdate=
     echo 'Updated ident string for:'
+    set -o noglob
     IFS=$'\n'
     for file in $(git diff --name-only --diff-filter=ACMR HEAD^)
     do
-	attrCheck=$(git check-attr ident -- "$file")
+	attrCheck="$(git check-attr ident -- "$file")"
 	if [ "${attrCheck%: ident: set}" != "$attrCheck" ]; then
 	    isIdentUpdate=t
 	    printf '%s\n' "$file"

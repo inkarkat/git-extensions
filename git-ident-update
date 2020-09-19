@@ -67,7 +67,7 @@ INSTRUCTIONS
 				    exit 2
 				fi
 			    else
-				echo "The hook isn't installed in this repository; use $(basename -- "$0") --install to do so."
+				printf >&2 'The hook is not installed in this repository; use %q --install to do so.\n' "$(basename -- "$0")"
 				exit 1
 			    fi
 			    ;;
@@ -94,7 +94,7 @@ done
 case ",${DEBUG}," in *,git-ident-update,*) echo '**** git-ident-update hook called';; esac
 readonly orig=$(git-orig-ref)
 if [ ! "$orig" ]; then
-    echo >&2 "$(basename -- "$0"): Failed to get the symbolic ref to the current branch; cannot update the ident attribute!"
+    printf >&2 '%q: Failed to get the symbolic ref to the current branch; cannot update the ident attribute!\n' "$(basename -- "$0")"
     exit 1
 fi
 
@@ -112,7 +112,7 @@ if git checkout --quiet "$orig"; then
 	fi
     done
     if [ ! "$isIdentUpdate" ]; then
-	echo "No file(s) were affected. You can check with \"$(basename -- "$0")\" --status where ident update is configured."
+	printf >&2 'No file(s) were affected. You can check with %q --status where ident update is configured.\n' "$(basename -- "$0")"
     fi
 else
     exit $?

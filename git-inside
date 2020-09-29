@@ -4,8 +4,8 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-s|--skip-foreign|--foreign-command "COMMANDLINE"] -c|--command "COMMANDLINE" [-c ...] | SIMPLECOMMAND [...] -- FILE [...] [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-s|--skip-foreign|--foreign-command "COMMANDLINE"] -c|--command "COMMANDLINE" [-c ...] | SIMPLECOMMAND [...] [--] FILE [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--from-root] [-s|--skip-foreign|--foreign-command "COMMANDLINE"] -c|--command "COMMANDLINE" [-c ...] | SIMPLECOMMAND [...] -- FILE [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--from-root] [-s|--skip-foreign|--foreign-command "COMMANDLINE"] -c|--command "COMMANDLINE" [-c ...] | SIMPLECOMMAND [...] [--] FILE [-?|-h|--help]'
 }
 printUsage()
 {
@@ -33,6 +33,8 @@ HELPDESCRIPTION
 			    working copy as \$ROOT (both with absolute paths,
 			    also in SIMPLECOMMAND when it's a separate
 			    argument).
+    --from-root|-r	    Use the Git working copy root directory instead of
+			    the directory of FILE for executing CMD.
     --skip-foreign|-s	    Silently skip FILEs that are not inside a Git
 			    working copy (instead of printing an error message).
     --foreign-command CMD   Execute CMD in (accessible) directories that are not
@@ -41,6 +43,7 @@ HELPDESCRIPTION
 HELPTEXT
 }
 
+isFromRoot=
 isSkipForeign=
 typeset -a foreignCommands=()
 isNeedEval=
@@ -50,6 +53,7 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	    shift; printLongUsage "$0"; exit 0;;
+	--from-root|-r)	    shift; isFromRoot=t;;
 	--skip-foreign|-s)  shift; isSkipForeign=t;;
 	--foreign-command)  shift; foreignCommands+=(${foreignCommands:+;} "$1"); shift;;
 	--command|-c)	    shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
@@ -126,6 +130,13 @@ do
 	    continue
 	fi
     fi
+    if [ "$isFromRoot" ];then
+	if ! cd "$ROOT" 2>/dev/null; then
+	    printf >&2 'ERROR: Cannot chdir to %s (for %s)!\n' "$ROOT" "$FILE"
+	    status=1; continue
+	fi
+    fi
+
     if [ "$isNeedEval" ]; then
 	eval "${commands[@]}"
     else

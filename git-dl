@@ -13,7 +13,7 @@ contains()
     return 1
 }
 
-TMPDIR=$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TEMP:-/tmp}/$(basename -- "$0").$$$RANDOM")
+TMPDIR="$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || { dirspec="${TEMP:-/tmp}/$(basename -- "$0").$$$RANDOM"; mkdir -p -- "$dirspec" && printf %s "$dirspec"; })" || exit $?
 [ "$DEBUG" ] || trap 'rm -rf "$TMPDIR" 2>/dev/null' EXIT
 
 TMPFILE="${TMPDIR}/input"   # splitdiff cannot directly read from stdin ("-" is taken literally).

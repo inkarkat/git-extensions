@@ -34,44 +34,61 @@ do
 done
 
 
+if type -t commandOnSelected >/dev/null; then
+    # Delegate to external tool.
+    selectCandidates()
+    {
+	typeset -a commandOnSelectedArgs=()
+
+	[ "$isSelectMany" ] || commandOnSelectedArgs+=(--single-only)
+
+	if [ ${#personFilter[@]} -gt 0 ]; then
+	    printf -v quotedPersonFilter '%q ' "${personFilter[@]}"
+	    commandOnSelectedArgs+=(--post-filter "printf %s\\\\n {} | ${quotedPersonFilter% }")
+	fi
+
+	commandOnSelected "${commandOnSelectedArgs[@]}" -- "$@"
+    }
+else
+    selectCandidates()
+    {
+	if [ $# -eq 0 ]; then
+	    echo >&2 'ERROR: No candidates found.'
+	    exit 1
+	elif [ $# -eq 1 ]; then
+	    printPersons "$1"
+	else
+	    typeset -a selectedPersons=()
+	    select person
+	    do
+		if [ "$person" ]; then
+		    selectedPersons+=("$person")
+		    [ "$isSelectMany" ] || break
+		elif [ "$REPLY" = '.' ]; then
+		    break
+		elif [ ! "$REPLY" ]; then
+		    exit 1
+		elif [ "$REPLY" = '?' ]; then
+		    cat >&2 <<-'EOF'
+			Enter a number to select the person.
+			Filter the list by entering "grep" arguments. (Double backslashes.)
+			Abort via Ctrl-D.
+EOF
+		else
+		    typeset -a filteredCandidates=($(unset IFS; printf '%s\n' "$@" | grep $REPLY))
+		    selectCandidates "${filteredCandidates[@]}"
+		    break
+		fi
+	    done
+
+	    printPersons "${selectedPersons[@]}"
+	fi
+    }
+fi
+
 printPersons()
 {
     eval 'printf %s\\n "$@"' "${personFilter:+|}" '"${personFilter[@]}"' "${personFilter:+|sort --unique}"
-}
-
-selectCandidates()
-{
-    if [ $# -eq 0 ]; then
-	echo >&2 'ERROR: No candidates found.'
-	exit 1
-    elif [ $# -eq 1 ]; then
-	printPersons "$1"
-    else
-	typeset -a selectedPersons=()
-	select person
-	do
-	    if [ "$person" ]; then
-		selectedPersons+=("$person")
-		[ "$isSelectMany" ] || break
-	    elif [ "$REPLY" = '.' ]; then
-		break
-	    elif [ ! "$REPLY" ]; then
-		exit 1
-	    elif [ "$REPLY" = '?' ]; then
-		cat >&2 <<-'EOF'
-		    Enter a number to select the person.
-		    Filter the list by entering "grep" arguments. (Double backslashes.)
-		    Abort via Ctrl-D.
-EOF
-	    else
-		typeset -a filteredCandidates=($(unset IFS; printf '%s\n' "$@" | grep $REPLY))
-		selectCandidates "${filteredCandidates[@]}"
-		break
-	    fi
-	done
-
-	printPersons "${selectedPersons[@]}"
-    fi
 }
 
 IFS=$'\n'

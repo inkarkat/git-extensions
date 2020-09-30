@@ -6,7 +6,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [--no-pager] [--no-header] [--separate-errors] [-y|--yes] --branches "<branch1> ..." [--branches ...] -c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [--no-pager] [--no-header] [--separate-errors] [-y|--yes] -b|--branch <branch1>|--branches "<branch1> ..." [...] -c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -49,6 +49,7 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--branch|-b)	shift; hasPassedBranches=t; inputBranches+=("$1"); shift;;
 	--branches)	shift; hasPassedBranches=t; inputBranches+=($1); shift;;
 
 	-+([qy]))	gitLocalbrrefdoArgs+=("$1"); shift;;
@@ -63,7 +64,7 @@ do
     esac
 done
 if [ ! "$hasPassedBranches" ]; then
-    echo 'ERROR: No --branch "<branch1> ..." passed.'
+    echo 'ERROR: No -b|--branch <branch1> | --branches "<branch1> ..." passed.'
     echo
     printShortUsage "$0"
     exit 2

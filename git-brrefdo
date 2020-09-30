@@ -1,0 +1,75 @@
+#!/bin/bash
+set -o noglob -o pipefail
+shopt -qs extglob
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [--no-pager] [--no-header] [--separate-errors] [-y|--yes] --branches "<branch1> ..." [--branches ...] -c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 'Try %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Iterate over the passed <branch1>, ... one by one and execute COMMAND for each
+branch, replacing {} with its name.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    cat <<HELPTEXT
+COMMAND execution puts a header line (unless --no-header) that contains the
+current Git branch before the command output.
+    --no-pager		Do not page the output (so contents will scroll out of
+			view if there's too much output).
+    --separate-errors	Do not combine command output and command errors into
+			one (paged) stream. Commands that just cause error
+			output won't have a header then. Error output will
+			remain on its separate file descriptor and will not be
+			paged. Useful if you want to suppress errors or handle
+			them separately.
+    --command|-c CMD	The command line to be executed. When this is a simple
+			command, it can also be passed as such. The string {} is
+			replaced with the current branch name.
+HELPTEXT
+}
+
+hasPassedBranches=
+typeset -a inputBranches=()
+typeset -a gitLocalbrrefdoArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--branches)	shift; hasPassedBranches=t; inputBranches+=($1); shift;;
+
+	-+([qy]))	gitLocalbrrefdoArgs+=("$1"); shift;;
+	+([0-9]))	gitLocalbrrefdoArgs+=("$1"); shift;;
+	--@(quiet|no-pager|no-header|separate-errors|no-color|color=*|yes))
+			gitLocalbrrefdoArgs+=("$1"); shift;;
+	-c)		gitLocalbrrefdoArgs+=("$1" "$2"); shift; shift;;
+	--@(color|command))
+			gitLocalbrrefdoArgs+=("$1" "$2"); shift; shift;;
+	--)		gitLocalbrrefdoArgs+=("$1"); shift; break;;
+	*)		break;;
+    esac
+done
+if [ ! "$hasPassedBranches" ]; then
+    echo 'ERROR: No --branch "<branch1> ..." passed.'
+    echo
+    printShortUsage "$0"
+    exit 2
+elif [ ${#inputBranches[@]} -eq 0 ]; then
+    echo 'ERROR: No branches given.'
+    exit 2
+fi >&2
+
+exec git-localbrrefdo --include-all --branches "${inputBranches[*]}" "${gitLocalbrrefdoArgs[@]}" "$@"

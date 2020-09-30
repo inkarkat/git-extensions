@@ -1,5 +1,5 @@
 #!/bin/bash
-
+set -o noglob
 shopt -qs extglob
 
 printUsage()
@@ -15,11 +15,11 @@ HELPTEXT
 }
 
 branchNum=9999
-inputBranches=
+typeset -a inputBranches=()
 if [ "$1" = '--branches' ]; then
     # Internal hook to pass in the branches.
     shift
-    inputBranches=$1
+    inputBranches=($1)
     shift
 fi
 isQuiet=
@@ -39,22 +39,21 @@ do
     esac
 done
 
-branches="$(git-localbr $inputBranches | head -n "$branchNum")" || exit $?
-if [ ! "$branches" ]; then
+IFS=$'\n'
+typeset -a localBranches=($(git-localbr -- "${inputBranches[@]}" | head -n "$branchNum")) || exit $?
+if [ ${#localBranches[@]} -eq 0 ]; then
     echo >&2 "No local branches found!"
     exit 1
 fi
 
 if [ "$isYes" ]; then
     [ "$isQuiet" ] || echo >&2 "Archiving:
-${branches// /
-}"
+${localBranches[*]}"
 else
     echo >/dev/tty "Archiving:
-${branches// /
-}"
+${localBranches[*]}"
     < /dev/tty read -r -N 1 -p "Really archive these branches? (y/n) " choice; echo >/dev/tty
     [ "$choice" = "y" ] || exit 1
 fi
 
-exec git-archivebr "${gitArchiveArgs[@]}" $branches
+exec git-archivebr "${gitArchiveArgs[@]}" "${localBranches[@]}"

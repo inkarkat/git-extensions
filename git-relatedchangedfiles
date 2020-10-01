@@ -1,6 +1,9 @@
 #!/bin/bash
 set -o pipefail
 
+: ${GIT_RELATEDCHANGEDFILES_ORIGINAL_FILE_PREFIX=[01;37m}
+: ${GIT_RELATEDCHANGEDFILES_ORIGINAL_FILE_SUFFIX=[0m}
+
 printUsage()
 {
     cat <<HELPTEXT
@@ -11,20 +14,26 @@ touches a passed file; 0% means it's included in less than one commit out of
 hundred. Files are shown if correlation is at least 10% / PCT.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-N|--no-percentage|-%|--percentage-threshold PCT] [<log-options>] [<revision range>] [--] <path>|<commit> [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-N|--no-percentage|-%|--percentage-threshold PCT] [-a|--include-original-files|-d|--drop-original-files] [<log-options>] [<revision range>] [--] <path>|<commit> [...] [-?|-h|--help]'
 }
 
 typeset -a gitLogArgs=()
 isPercentage=t
 percentageThreshold=10
+filterCommand="s/.*/${GIT_RELATEDCHANGEDFILES_ORIGINAL_FILE_PREFIX}&${GIT_RELATEDCHANGEDFILES_ORIGINAL_FILE_SUFFIX}/"
+originalFilePrefixPattern='^[0-9]\+%	'
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--no-percentage|-N)
-			shift; isPercentage=;;
+			shift; isPercentage=; originalFilePrefixPattern='^';;
 	--percentage-threshold|-%)
 			shift; percentageThreshold="$1"; shift;;
+	--include-original-files|-a)
+			shift; filterCommand='';;
+	--drop-original-files|-d)
+			shift; filterCommand='d';;
 	--)		gitLogArgs+=("$1"); shift; break;;
 	*)		gitLogArgs+=("$1"); shift;;
     esac
@@ -41,9 +50,11 @@ removeStatus()
 	-e 's/^\(.*\)	\(.*\)$/\1\n\2/'
 }
 
-if [ "$isPercentage" ]; then
-    GIT_LOGRELATEDCHANGES_COMMAND=logv git-logrelatedchanges --pretty=format:--- "${gitLogArgs[@]}" "$@" | \
-	removeStatus | awk -v percentageThreshold="$percentageThreshold" '
+logRelatedChanges()
+{
+    if [ "$isPercentage" ]; then
+	GIT_LOGRELATEDCHANGES_COMMAND=logv git-logrelatedchanges --pretty=format:--- "${gitLogArgs[@]}" "$@" | \
+	    removeStatus | awk -v percentageThreshold="$percentageThreshold" '
 BEGIN {
     PROCINFO["sorted_in"] = "@val_num_desc"
 }
@@ -63,7 +74,20 @@ END {
     }
 }
 '
-else
-    GIT_LOGRELATEDCHANGES_COMMAND=logv git-logrelatedchanges --pretty= "${gitLogArgs[@]}" "$@" | \
-	removeStatus | sort -u
+    else
+	GIT_LOGRELATEDCHANGES_COMMAND=logv git-logrelatedchanges --pretty= "${gitLogArgs[@]}" "$@" | \
+	    removeStatus | sort -u
+    fi
+}
+
+if [ -n "$filterCommand" ]; then
+    typeset -a filterPipeline=()
+    while IFS=$'\n' read -r literalOriginalFile
+    do
+	[ ${#filterPipeline[@]} -eq 0 ] && filterPipeline+=(sed)
+	filterPipeline+=(-e "/${originalFilePrefixPattern}${literalOriginalFile}\$/${filterCommand}")
+    done < <(git-logrelatedchanges --only-list-expanded-paths "${gitLogArgs[@]}" "$@" | sed -e 's/[][\$*.^/]/\\&/g')
+
 fi
+
+eval 'logRelatedChanges "$@"' "${filterPipeline:+|}" '"${filterPipeline[@]}"'

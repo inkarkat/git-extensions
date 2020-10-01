@@ -1,0 +1,69 @@
+#!/bin/bash
+set -o pipefail
+
+printUsage()
+{
+    cat <<HELPTEXT
+Show a log of commits that cover (at least partially) the files in <path> / the
+files affected by <commit>.
+Arguments are as to git log (e.g. --since="1 month ago" SUBDIR; but nothing that
+affects the output formatting), plus at least one mandatory <path> or <commit>.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<log-options>] [<revision range>] [--] <path>|<commit> [...] [-?|-h|--help]'
+}
+
+typeset -a gitLogArgs=()
+typeset -A files=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--)		gitLogArgs+=("$1"); shift; break;;
+	*)		gitLogArgs+=("$1"); shift;;
+    esac
+done
+
+addPathOrCommit()
+{
+    local pathOrCommit="${1?}"; shift
+    if git rev-parse --verify --quiet "$pathOrCommit" >/dev/null; then
+	while IFS=$'\n' read -r path
+	do
+	    files["$path"]=t
+	done < <(git show --name-only --pretty=format: "$pathOrCommit")
+    elif [ -e "$pathOrCommit" ]; then
+	files["$pathOrCommit"]=t
+    else
+	return 1
+    fi
+}
+if [ $# -eq 0 ]; then
+    # No files after -- captured yet; need to investigate parsed and
+    # remaining args from behind for files.
+    gitLogArgs+=("$@")
+    while [ ${#gitLogArgs[@]} -ne 0 ]
+    do
+	addPathOrCommit "${gitLogArgs[-1]}" || break
+	gitLogArgs=("${gitLogArgs[@]:0:${#gitLogArgs[@]}-1}")
+    done
+    if [ ${#files[@]} -eq 0 ]; then
+	echo >&2 'ERROR: No <path>|<commit> passed.'
+	exit 2
+    fi
+else
+    for arg
+    do
+	if ! addPathOrCommit "$arg"; then
+	    printf >&2 'ERROR: Not a <path> or <commit>: %s\n' "$arg"
+	    exit 2
+	fi
+    done
+fi
+typeset -a uniqueFiles=("${!files[@]}")
+if [ ${#uniqueFiles[@]} -eq 0 ]; then
+    echo >&2 'ERROR: No modified files found in the passed <commit>(s).'
+    exit 1
+fi
+
+exec git-wrapper ${GIT_LOGRELATEDCHANGES_COMMAND:-log} "${gitLogArgs[@]}" -- "${uniqueFiles[@]}"

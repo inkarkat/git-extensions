@@ -1,0 +1,69 @@
+#!/bin/bash
+set -o pipefail
+
+printUsage()
+{
+    cat <<HELPTEXT
+Show the files affected by commits that also cover (at least partially) the
+files in <path> / the files affected by <commit>, and the correlation between
+the commits; 100% means an affected file is included in every commit that
+touches a passed file; 0% means it's included in less than one commit out of
+hundred. Files are shown if correlation is at least 10% / PCT.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-N|--no-percentage|-%|--percentage-threshold PCT] [<log-options>] [<revision range>] [--] <path>|<commit> [...] [-?|-h|--help]'
+}
+
+typeset -a gitLogArgs=()
+isPercentage=t
+percentageThreshold=10
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-percentage|-N)
+			shift; isPercentage=;;
+	--percentage-threshold|-%)
+			shift; percentageThreshold="$1"; shift;;
+	--)		gitLogArgs+=("$1"); shift; break;;
+	*)		gitLogArgs+=("$1"); shift;;
+    esac
+done
+
+removeStatus()
+{
+    sed	\
+	-e '/^$/d' \
+	-e 's/^[CR][^	]*	//' \
+	-e 't splitRename' \
+	-e 's/^[^	]\+	//' \
+	-e ':splitRename' \
+	-e 's/^\(.*\)	\(.*\)$/\1\n\2/'
+}
+
+if [ "$isPercentage" ]; then
+    GIT_LOGRELATEDCHANGES_COMMAND=logv git-logrelatedchanges --pretty=format:--- "${gitLogArgs[@]}" "$@" | \
+	removeStatus | awk -v percentageThreshold="$percentageThreshold" '
+BEGIN {
+    PROCINFO["sorted_in"] = "@val_num_desc"
+}
+/^---$/ {
+    ++commitCnt
+    next
+}
+{
+    ++fileCnt[$0]
+}
+END {
+    for (file in fileCnt) {
+	percentage = 100 * fileCnt[file] / commitCnt
+	if (percentage >= percentageThreshold) {
+	    printf "%d%%\t%s\n", percentage, file
+	}
+    }
+}
+'
+else
+    GIT_LOGRELATEDCHANGES_COMMAND=logv git-logrelatedchanges --pretty= "${gitLogArgs[@]}" "$@" | \
+	removeStatus | sort -u
+fi

@@ -10,15 +10,18 @@ Arguments are as to git log (e.g. --since="1 month ago" SUBDIR; but nothing that
 affects the output formatting), plus at least one mandatory <path> or <commit>.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<log-options>] [<revision range>] [--] <path>|<commit> [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--only-list-expanded-paths|<log-options>] [<revision range>] [--] <path>|<commit> [...] [-?|-h|--help]'
 }
 
 typeset -a gitLogArgs=()
 typeset -A files=()
+isOnlyListExpandedPaths=
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--only-list-expanded-paths)
+			shift; isOnlyListExpandedPaths=t;;
 	--)		gitLogArgs+=("$1"); shift; break;;
 	*)		gitLogArgs+=("$1"); shift;;
     esac
@@ -66,4 +69,8 @@ if [ ${#uniqueFiles[@]} -eq 0 ]; then
     exit 1
 fi
 
+if [ "$isOnlyListExpandedPaths" ]; then
+    printf '%s\n' "${uniqueFiles[@]}"
+    exit
+fi
 exec git-wrapper ${GIT_LOGRELATEDCHANGES_COMMAND:-log} "${gitLogArgs[@]}" -- "${uniqueFiles[@]}"

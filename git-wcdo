@@ -97,15 +97,16 @@ if [ ${#args[@]} -eq 0 ]; then
     printUsage "$0" >&2
     exit 2
 fi
-typeset -a simpleCommand=()
+typeset -a uncoloredSimpleCommand=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--no-color|--color=*)	colorArg=("$1"); shift;;
 	--color)		colorArg=("$1" "$2"); shift; shift;;
-	*)			simpleCommand+=("$1"); shift;;
+	*)			uncoloredSimpleCommand+=("$1"); shift;;
     esac
 done
+set -- "${uncoloredSimpleCommand[@]}"
 
 # If we're launched from within a Git operation (e.g. the external editor opened
 # by git commit), the environment variable GIT_DIR may have been set, and this
@@ -130,17 +131,45 @@ else
     gitColorArg=()
 fi
 
-readonly gitCommand='git-wrapper'
-if [ ${#simpleCommand[@]} -gt 0 ]; then
+typeset -a gitCommand=(git-wrapper)
+if [ $# -gt 0 ]; then
+    if [ ${#gitColorArg[@]} -gt 0 ]; then
+	# Simply appending gitColorArg doesn't work; many Git commands have a
+	# special <path> or <commit> part at the end. Place it just behind the
+	# Git subcommand by iterating arguments in the same way as the various
+	# git-*-command metaprograms, and moving anything that is in front from
+	# $@ to gitCommand.
+	case "$1" in
+	    [^-]*-command)  gitCommand+=("$1"); shift
+			    while [ $# -ne 0 ]
+			    do
+				case "$1" in
+				    --)		break;;
+				    -*)		gitCommand+=("$1"); shift;;
+				    *)		gitCommand+=("$1"); shift; break;;
+				esac
+			    done
+			    ;;
+	    *)		    while [ $# -ne 0 ]
+			    do
+				case "$1" in
+				    -c) gitCommand+=("$1" "$2"); shift; shift;;
+				    *)	gitCommand+=("$1"); shift; break;;
+				esac
+			    done
+	esac
+	gitCommand+=("${gitColorArg[@]}")
+    fi
+
     if [ "$isNeedEval" ]; then
 	# Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
 	# undo the effects of eval.
-	commands+=(${commands:+;} $(printf '%q ' "$gitCommand" "${simpleCommand[@]}" "${gitColorArg[@]}"))
+	commands+=(${commands:+;} $(printf '%q ' "${gitCommand[@]}" "$@"))
     else
-	commands=("$gitCommand" "${simpleCommand[@]}" "${gitColorArg[@]}")
+	commands=("${gitCommand[@]}" "$@")
     fi
 fi
-[ ${#commands[@]} -eq 0 ] && commands=("$gitCommand" noop)
+[ ${#commands[@]} -eq 0 ] && commands=("${gitCommand[@]}" noop)
 
 
 

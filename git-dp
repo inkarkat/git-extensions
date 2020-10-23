@@ -1,16 +1,17 @@
 #!/bin/bash
 set -o pipefail
+shopt -qs extglob
 
 printUsage()
 {
     cat <<HELPTEXT
-Diff with predecessor, either current HEAD or passed commit,
+Diff with [Nth] predecessor, either current HEAD or passed commit,
 optionally limited to files in <path>.
 Like the textual diff output of "git show", without the log info.
-If no <commit> is passed but file(s) are, automatically takes the last commit of
-each file.
+If no <commit> is passed but file(s) are, automatically takes the last / Nth
+previous commit of each file.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<commit>] [<common diff options>] [--] [<path>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-<number>|-n <number>|--count=<number>] [<commit>] [<common diff options>] [--] [<path>...] [-?|-h|--help]'
 }
 
 revision='HEAD'
@@ -21,12 +22,16 @@ if [ $# -gt 0 -a "${1:0:1}" != '-' -a ! -e "$1" ]; then
     shift
 fi
 
+count=1
 typeset -a gitArgs=()
 typeset -a paths=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--count|-n)	shift; count="$1"; shift;;
+	--count=*)	count="${1#--count=}"; shift;;
+	-+([0-9]))	count="${1#-}"; shift;;
 	--)		gitArgs+=("$1"); shift; paths=("$@"); break;;
 	*)		gitArgs+=("$1"); shift;;
     esac
@@ -56,7 +61,7 @@ diffToPrevious()
 	    continue
 	fi
 
-	git ${GIT_DP_DIFFCOMMAND:-diff} "${colorArg[@]}" "${gitArgs[@]}" "${revision}^" "$revision" -- "$path" || status=$?
+	git ${GIT_DP_DIFFCOMMAND:-diff} "${colorArg[@]}" "${gitArgs[@]}" "${revision}~${count}" "$revision" -- "$path" || status=$?
     done
     return $status
 }
@@ -74,9 +79,9 @@ if [ ${#paths[@]} -gt 0 -a "$revision" = 'HEAD' ]; then
     typeset -a colorArg=(); isNeedColorArgumentWhenPiping "${gitArgs[@]}" && colorArg=(--color=always) || colorArg=()
 
     # DWIM: Determine the last modified revision for each passed file and do the
-    # diff to its previous commit.
+    # diff to its [Nth] previous commit.
     typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
     eval 'diffToPrevious' "${pager:+|}" '"${pager[@]}"'
 else
-    exec git ${GIT_DP_DIFFCOMMAND:-diff} "${gitArgs[@]}" "${revision}^" "$revision" "${paths[@]}"
+    exec git ${GIT_DP_DIFFCOMMAND:-diff} "${gitArgs[@]}" "${revision}~${count}" "$revision" "${paths[@]}"
 fi

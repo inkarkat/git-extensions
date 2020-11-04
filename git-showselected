@@ -1,0 +1,27 @@
+#!/bin/bash
+set -o noglob
+IFS=$'\n'
+
+if [ "$1" = '--since' ]; then
+    typeset -a rangeArgs=("$1" "$2"); shift; shift;
+elif [ $# -gt 0 ]; then
+    typeset -a rangeArgs=("${!#}")
+    set -- "${@:1:$(($#-1))}"
+else
+    echo >&2 'ERROR: Need <range>.'
+    exit 2
+fi
+
+typeset -a commits; commits=($(
+    git log --pretty='tformat:%H %s' "${rangeArgs[@]}" | \
+    truncate-trailing -w | commandWithHiddenId --stdin -p -c 'commandOnSelected --stdin'
+	))
+status=$?
+if [ $status -eq 124 ]; then
+    echo >&2 'ERROR: No commits available.'
+    exit 1
+elif [ $status -ne 0 ]; then
+    exit $status
+fi
+
+exec git-wrapper ${GIT_SHOWSELECTED_COMMAND:-show} "$@" "${commits[@]}"

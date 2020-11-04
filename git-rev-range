@@ -83,6 +83,25 @@ getIndex()
     done
     return 1
 }
+getIndexOfLastOptionArg()
+{
+    [ $# -eq 0 ] && return 1
+
+    # Trust the "args -- files" separator.
+    getIndex '--' "$@" && return 0
+
+    lastArg=${!#}
+    [ -e "$lastArg" ] || return 1   # No file arguments.
+
+    for ((i=$# - 1; i > 0; i--))
+    do
+	lastArg=${@:$i:1}
+	[ -e "$lastArg" ] || break
+    done
+
+    echo $((i + 1))
+    return 0
+}
 
 if [ ! "$(git rev-list "${revision}..${endRevision}")" ] && [ "$range" ]; then
     # Resulting range is empty (but we want a range); abort. Especially with
@@ -97,7 +116,7 @@ if [ $# -eq 0 ]; then
 fi
 
 
-afterEndOfArgsIndex=$(getIndex '--' "$@") || afterEndOfArgsIndex=$(($#+1))
+afterEndOfArgsIndex=$(getIndexOfLastOptionArg "$@") || afterEndOfArgsIndex=$(($#+1))
 endOfArgsIndex=$((afterEndOfArgsIndex-1))
 beforeEndOfArgsIndex=$((endOfArgsIndex-1))
 

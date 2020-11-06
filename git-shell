@@ -7,7 +7,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--on-dirty|--on-wips [--wip-check +NAME] [...]] [--pre-command "COMMANDLINE" [...]] [--with-status] [--with-diff] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [--on-dirty|--on-wips [--wip-check +NAME] [...]] [--pre-command "COMMANDLINE" [...]] [--with-status] [--with-diff] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -29,6 +29,8 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
+	--quiet|-q	Suppress any information printed from the dirty or WIP
+			check.
 	--on-dirty	Invoke only if the working copy has uncommitted changes.
 	--on-wips	Invoke only if there's some sort of work in progress.
 	--wip-check +NAME|-NAME
@@ -49,12 +51,14 @@ HELPTEXT
     printf 'git-wcdo-command dev "of my development projects" ~/dev -- %q\n' "${commandName#git-}"
 }
 
+isQuiet=
 typeset -a predicate=()
 typeset -a predicateArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--quiet|-q)	shift; isQuiet=t;;
 	--on-dirty)	shift; predicate=(git-dirty);;
 	--on-wips)	shift; predicate=(git-wips);;
 	--wip-check)	shift; predicateArgs+=("$1"); shift;;
@@ -68,7 +72,7 @@ do
 done
 
 if [ ${#predicate[@]} -gt 0 ]; then
-    "${predicate[@]}" "${predicateArgs[@]}" || exit $GIT_SHELL_NOOP_EXIT
+    eval "${isQuiet:+>/dev/null}" '"${predicate[@]}" "${predicateArgs[@]}" || exit $GIT_SHELL_NOOP_EXIT'
 fi
 
 exec "$SHELL" -i

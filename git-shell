@@ -1,0 +1,64 @@
+#!/bin/bash
+
+: ${SHELL:=bash}
+: ${GIT_SHELL_NOOP_EXIT:=99}
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--on-dirty|--on-wips [--wip-check +NAME] [...]] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Launch an interactive shell (${SHELL}). That alone wouldn't be very interesting,
+but it's valuable in combination with git-wcdo and the selective invocation
+based on the provided options.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+	--on-dirty	Invoke only if the working copy has uncommitted changes.
+	--on-wips	Invoke only if there's some sort of work in progress.
+	--wip-check +NAME|-NAME
+			Select / deselect the WIP check with NAME.
+EXIT STATUS
+    *   any exit status from the interactive shell session
+    $GIT_SHELL_NOOP_EXIT	No invocation has happened.
+
+Example:
+HELPTEXT
+    printf '%q %s\n' "$(basename "$1")" '--foo bar /tmp/foobar'
+}
+
+typeset -a predicate=()
+typeset -a predicateArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--on-dirty)	shift; predicate=(git-dirty);;
+	--on-wips)	shift; predicate=(git-wips);;
+	--wip-check)	shift; predicateArgs+=("$1"); shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+
+if [ ${#predicate[@]} -gt 0 ]; then
+    "${predicate[@]}" "${predicateArgs[@]}" || exit $GIT_SHELL_NOOP_EXIT
+fi
+
+exec "$SHELL" -i

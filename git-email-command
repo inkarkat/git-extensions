@@ -12,7 +12,7 @@ printUsage()
     # This is the short help when launched with no or incorrect arguments.
     # It is printed to stderr to avoid accidental processing.
     printShortUsage "$1" >&2
-    printf >&2 'Try %q --help for more information.\n' "$(basename "$1")"
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
 }
 printLongUsage()
 {
@@ -36,19 +36,20 @@ HELPTEXT
 case "$1" in
     --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 esac
+
 typeset -a gitLookupCommand=(log)
 gitLogCommand="$1"; shift
 if [ -z "$gitLogCommand" ]; then
-    echo >&2 'ERROR: No GIT-COMMAND passed.'
-    echo >&2
-    printShortUsage "$0" >&2
+    echo 'ERROR: No GIT-COMMAND passed.'
+    echo
+    printShortUsage "$0"
     exit 2
 elif [ "$gitLogCommand" = show ]; then
     # git log would follow all passed revisions; --max-count 1 would only handle
     # a single passed revision. Therefore, use git show for the lookup as well,
     # but omit the diff.
     gitLookupCommand=(show --no-patch)
-fi
+fi >&2
 
 isDryRun=
 emailFormats='%aE%n%cE'

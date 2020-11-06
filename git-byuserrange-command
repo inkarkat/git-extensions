@@ -6,6 +6,7 @@ printShortUsage()
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
     printf 'Usage: %q %s\n' "$(basename "$1")" '-a|--auto-revision|-r|--revision REVISION [--author=<pattern>|--committer=<pattern> ...] [--no-range|--with-range ...|--last-only] [+1|--one-more] [GIT-COMMAND ...] [-?|-h|--help]'
+    echo
     printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND -a|--auto-revision|-r|--revision REVISION [...] [-?|-h|--help]'
 }
 printUsage()
@@ -13,7 +14,7 @@ printUsage()
     # This is the short help when launched with no or incorrect arguments.
     # It is printed to stderr to avoid accidental processing.
     printShortUsage "$1" >&2
-    printf >&2 'Try %q --help for more information.\n' "$(basename "$1")"
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
 }
 printLongUsage()
 {
@@ -80,11 +81,11 @@ if [ ${#userFilterArgs[@]} -eq 0 ]; then
 fi
 if [ "$isAutoRevision" ]; then
     if [ "$revision" != 'HEAD' ]; then
-	echo >&2 'ERROR: Cannot combine --auto-revision with --revision.'
-	echo >&2
-	printShortUsage "$0" >&2
+	echo 'ERROR: Cannot combine --auto-revision with --revision.'
+	echo
+	printUsage "$0"
 	exit 2
-    fi
+    fi >&2
 
     revision="$(git log --max-count 1 --pretty=tformat:%H "${userFilterArgs[@]}")"
     if [ -z "$revision" ]; then

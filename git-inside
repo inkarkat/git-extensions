@@ -5,6 +5,7 @@ printShortUsage()
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--from-root] [-s|--skip-foreign|--foreign-command "COMMANDLINE"] -c|--command "COMMANDLINE" [-c ...] | SIMPLECOMMAND [...] -- FILE [...] [-?|-h|--help]'
+    echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--from-root] [-s|--skip-foreign|--foreign-command "COMMANDLINE"] -c|--command "COMMANDLINE" [-c ...] | SIMPLECOMMAND [...] [--] FILE [-?|-h|--help]'
 }
 printUsage()
@@ -12,7 +13,7 @@ printUsage()
     # This is the short help when launched with no or incorrect arguments.
     # It is printed to stderr to avoid accidental processing.
     printShortUsage "$1" >&2
-    printf >&2 'Try %q --help for more information.\n' "$(basename "$1")"
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
 }
 printLongUsage()
 {
@@ -83,14 +84,14 @@ fi
 fileArgs+=("$@")
 
 if [ ${#commands[@]} -eq 0 ]; then
-    echo >&2 'ERROR: No COMMAND(s) specified; need to pass -c|--command "COMMANDLINE", or SIMPLECOMMAND.'
-    printUsage "$0" >&2
+    echo 'ERROR: No COMMAND(s) specified; need to pass -c|--command "COMMANDLINE", or SIMPLECOMMAND.'
+    printUsage "$0"
     exit 2
 elif [ ${#fileArgs[@]} -eq 0 ] || [ $# -eq 1 -a "$1" = '--' ]; then
-    echo >&2 'ERROR: No FILE(s) specified; need a file for the working copy location.'
-    printUsage "$0" >&2
+    echo 'ERROR: No FILE(s) specified; need a file for the working copy location.'
+    printUsage "$0"
     exit 2
-fi
+fi >&2
 
 # If we're launched from within a Git operation (e.g. the external editor opened
 # by git commit), the environment variable GIT_DIR may have been set, and this

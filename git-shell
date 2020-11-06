@@ -7,7 +7,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--on-dirty|--on-wips [--wip-check +NAME] [...]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--on-dirty|--on-wips [--wip-check +NAME] [...]] [--pre-command "COMMANDLINE"] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -33,6 +33,9 @@ HELPDESCRIPTION
 	--on-wips	Invoke only if there's some sort of work in progress.
 	--wip-check +NAME|-NAME
 			Select / deselect the WIP check with NAME.
+The following rely on the evaluation of \$INIT_COMMANDS in the shell's rc file:
+	--pre-command "COMMANDLINE"
+			Execute COMMANDLINE after entering the shell.
 EXIT STATUS
     *   any exit status from the interactive shell session
     $GIT_SHELL_NOOP_EXIT	No invocation has happened.
@@ -52,6 +55,7 @@ do
 	--on-dirty)	shift; predicate=(git-dirty);;
 	--on-wips)	shift; predicate=(git-wips);;
 	--wip-check)	shift; predicateArgs+=("$1"); shift;;
+	--pre-command)	shift; export INIT_COMMANDS="${INIT_COMMANDS}${INIT_COMMANDS:+; }$1"; shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;

@@ -7,7 +7,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--on-dirty|--on-wips [--wip-check +NAME] [...]] [--pre-command "COMMANDLINE"] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--on-dirty|--on-wips [--wip-check +NAME] [...]] [--pre-command "COMMANDLINE" [...]] [--with-status] [--with-diff] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -36,6 +36,9 @@ HELPDESCRIPTION
 The following rely on the evaluation of \$INIT_COMMANDS in the shell's rc file:
 	--pre-command "COMMANDLINE"
 			Execute COMMANDLINE after entering the shell.
+	--with-status	Show the Git status after entering the shell.
+	--with-diff	Show the unstaged changes in working copy after entering
+			the shell.
 EXIT STATUS
     *   any exit status from the interactive shell session
     $GIT_SHELL_NOOP_EXIT	No invocation has happened.
@@ -56,6 +59,8 @@ do
 	--on-wips)	shift; predicate=(git-wips);;
 	--wip-check)	shift; predicateArgs+=("$1"); shift;;
 	--pre-command)	shift; export INIT_COMMANDS="${INIT_COMMANDS}${INIT_COMMANDS:+; }$1"; shift;;
+	--with-status)	shift; export INIT_COMMANDS="${INIT_COMMANDS}${INIT_COMMANDS:+; }git status${GIT_SHELL_STATUS_ARGS:+ }$GIT_SHELL_STATUS_ARGS";;
+	--with-diff)	shift; export INIT_COMMANDS="${INIT_COMMANDS}${INIT_COMMANDS:+; }git diff${GIT_SHELL_DIFF_ARGS:+ }$GIT_SHELL_DIFF_ARGS";;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;

@@ -1,0 +1,36 @@
+#!/bin/bash
+
+: ${GIT_LASTYEAR_OPTION_PREFIX=}
+: ${GIT_LASTYEAR_DESCRIPTION_OPTION=}
+: ${GIT_LASTYEAR_COMMAND_START_MONTH:=01}
+
+year="$(date +%Y)"
+yearOffset=-1; [ "$(date +%m)" -ge $GIT_LASTYEAR_COMMAND_START_MONTH ] && yearOffset=0
+
+endYear=$((year + yearOffset))
+startYear=$((endYear - 1))
+
+typeset -a gitCommand=()
+case "$1" in
+    [^-]*-command)  gitCommand+=("$1"); shift
+		    while [ $# -ne 0 ]
+		    do
+			case "$1" in
+			    --)		break;;
+			    -*)		gitCommand+=("$1"); shift;;
+			    *)		gitCommand+=("$1"); shift; break;;
+			esac
+		    done
+		    ;;
+    *)		    while [ $# -ne 0 ]
+		    do
+			case "$1" in
+			    -c) gitCommand+=("$1" "$2"); shift; shift;;
+			    *)	gitCommand+=("$1"); shift; break;;
+			esac
+		    done
+esac
+
+[ "$GIT_LASTYEAR_DESCRIPTION_OPTION" ] && gitCommand+=("$GIT_LASTYEAR_DESCRIPTION_OPTION" "FY-${startYear}")
+
+exec git-wrapper "${gitCommand[@]}" --${GIT_LASTYEAR_OPTION_PREFIX}since="${startYear}-${GIT_LASTYEAR_COMMAND_START_MONTH}-01" --${GIT_LASTYEAR_OPTION_PREFIX}until="${endYear}-${GIT_LASTYEAR_COMMAND_START_MONTH}-01" "$@"

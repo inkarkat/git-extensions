@@ -1,8 +1,15 @@
 #!/bin/bash
 shopt -qs extglob
 
-TMPDIR="$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || { dirspec="${TEMP:-/tmp}/$(basename -- "$0").$$$RANDOM"; mkdir -p -- "$dirspec" && printf %s "$dirspec"; })" || exit $?
-[ "$DEBUG" ] || trap 'rm -rf "$TMPDIR" 2>/dev/null' EXIT
+printUsage()
+{
+    cat <<HELPTEXT
+Show separate log together with diff of each passed revision (instead of
+concatenating all commits), paged through with less.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[options] <object> <object> [...] [-?|-h|--help]'
+}
 
 typeset -a showArgs=()
 while [ $# -ne 0 ]
@@ -18,6 +25,9 @@ do
 	*)		break;;
     esac
 done
+
+TMPDIR="$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || { dirspec="${TEMP:-/tmp}/$(basename -- "$0").$$$RANDOM"; mkdir -p -- "$dirspec" && printf %s "$dirspec"; })" || exit $?
+[ "$DEBUG" ] || trap 'rm -rf "$TMPDIR" 2>/dev/null' EXIT
 
 typeset -a outputs=()
 status=0

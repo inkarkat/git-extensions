@@ -1,0 +1,36 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Retrieve the contents of <path> as it exists in revision <ref> and save it as
+<path>.<ref> (or <target> if given).
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '<ref> <path> [to <target>] [...] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+if [ $# -lt 2 ]; then
+    printUsage "$0"
+    exit 2
+fi
+
+
+ref="$1"; shift
+commitId=$(git-commitid "$ref") || exit $?
+
+status=0
+while [ $# -ne 0 ]
+do
+    path="$1"; shift
+
+    if [ "$1" = to ]; then
+	shift; target="$1"; shift
+    else
+	target="${path}.${ref}"
+    fi
+
+    git show "${commitId}:$path" > "$target" || status=$?
+done
+exit $status

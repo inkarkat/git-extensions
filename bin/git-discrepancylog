@@ -53,6 +53,10 @@ function printPreviousEntry() {
     }
     entry = ""
 }
+function getFollowingFields()
+{
+    $1 = ""; sub(OFS, ""); return $0
+}
 
 /commit [[:xdigit:]]{32}/ {
     inHeader = 1
@@ -64,12 +68,8 @@ function printPreviousEntry() {
 /^$/ {
     inHeader = 0
 }
-$1 == field1 {
-    $1 = ""; sub(FS, ""); value1 = $0
-}
-$1 == field2 {
-    $1 = ""; sub(FS, ""); value2 = $0
-}
+$1 == field1 { value1 = getFollowingFields() }
+$2 == field2 { value2 = getFollowingFields() }
 END {
     printPreviousEntry()
 }

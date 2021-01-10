@@ -1,0 +1,34 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Test whether the current directory / passed DIRSPEC is inside a Git working copy
+/ the passed FILESPEC is tracked by Git (i.e. not unversioned).
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[DIRSPEC|FILESPEC] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+if [ $# -gt 1 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+filename=
+if [ -n "$1" ]; then
+    if [ -d "$1" ]; then
+	dirspec="$1"
+    else
+	dirspec="$(dirname -- "$1")"
+	filename="$(basename -- "$1")"
+    fi
+    [ "$dirspec" = '.' ] || cd "$dirspec" || exit 3
+fi
+git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 1
+
+if [ -n "$filename" ]; then
+    git ls-files --error-unmatch -- "$filename" >/dev/null 2>&1
+fi

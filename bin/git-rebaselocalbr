@@ -93,8 +93,9 @@ else
     git rebase "$rebaseAction" || exit $?
 fi
 
+[ "$upstreamBranch" ] && set -- "$upstreamBranch" "$@"
 status=0
-while true
+while :
 do
     branch="$(getNextBranch)"
     if [ ! "$branch" ]; then
@@ -108,7 +109,6 @@ do
 	exit $status
     fi
 
-    [ "$upstreamBranch" ] && set -- "$upstreamBranch" "$@"
     git rebase --preserve-merges "$@" "$branch" || exit $?
     [ "$(git ls-files --unmerged)" ] && exit 1
 

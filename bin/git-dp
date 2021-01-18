@@ -16,12 +16,14 @@ HELPTEXT
 
 revision=
 count=1
+typeset -a gitCommandArgs=()
 typeset -a gitArgs=()
 typeset -a paths=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	-c)		gitCommandArgs+=("$1" "$2"); shift; shift;;
 	--count|-n)	shift; count="$1"; shift;;
 	--count=*)	count="${1#--count=}"; shift;;
 	-+([0-9]))	count="${1#-}"; shift;;
@@ -65,7 +67,7 @@ diffToPrevious()
 	    continue
 	fi
 
-	git ${GIT_DP_DIFFCOMMAND:-diff} "${colorArg[@]}" "${gitArgs[@]}" "${revision}~${count}" "$revision" -- "$path" || status=$?
+	git "${gitCommandArgs[@]}" ${GIT_DP_DIFFCOMMAND:-diff} "${colorArg[@]}" "${gitArgs[@]}" "${revision}~${count}" "$revision" -- "$path" || status=$?
     done
     return $status
 }
@@ -87,5 +89,5 @@ if [ ${#paths[@]} -gt 0 -a "$revision" = 'HEAD' ]; then
     typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
     eval 'diffToPrevious' "${pager:+|}" '"${pager[@]}"'
 else
-    exec git ${GIT_DP_DIFFCOMMAND:-diff} "${gitArgs[@]}" "${revision}~${count}" "$revision" "${paths[@]}"
+    exec git "${gitCommandArgs[@]}" ${GIT_DP_DIFFCOMMAND:-diff} "${gitArgs[@]}" "${revision}~${count}" "$revision" "${paths[@]}"
 fi

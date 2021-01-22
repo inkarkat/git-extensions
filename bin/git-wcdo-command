@@ -27,6 +27,9 @@ Supports the following special commands:
 			    under Git source control.
     dirty-sh [COMMAND ...]  Open an interactive shell / execute COMMAND in those
 			    ${what:=CONFIGURED SUBJECTS} that have uncommitted changes.
+    wips-sh [(+|-)CHECK] [COMMAND ...]
+			    Open an interactive shell / execute COMMAND in those
+			    ${what:=CONFIGURED SUBJECTS} that have work in progress.
 HELPTEXT
     [ "$GIT_WCDO_COMMAND_ADDITIONAL_HELP" ] && printf '%s\n' "$GIT_WCDO_COMMAND_ADDITIONAL_HELP"
     git-wcdo --help 2>&1 | sed -e "${splitPattern}p" -e "1,${splitPattern}d"
@@ -87,6 +90,24 @@ elif [ "${1:0:1}" != '-' ]; then
 	    else
 		printf -v quotedSimpleCommand '%q ' "$@"
 		wcdoArgs+=("git dirty && ${quotedSimpleCommand# }")
+		set --
+	    fi
+	    ;;
+	wips-sh)
+	    # Synthesized new command.
+	    shift
+	    wcdoArgs+=(--no-pager --no-header --no-git-color --command)
+	    typeset -a wipsArgs=()
+	    while [ $# -ne 0 ] && [[ "$1" =~ ^[+-][[:alpha:]]+$ ]]
+	    do
+		wipsArgs+=("$1"); shift
+	    done
+	    quotedWipsArgs=; [ ${#quotedWipsArgs[@]} -gt 0 ] && printf -v quotedWipsArgs '%q ' "${wipsArgs[@]}"
+	    if [ $# -eq 0 ]; then
+		wcdoArgs+=("git wips ${quotedWipsArgs}&& bash -i")
+	    else
+		printf -v quotedSimpleCommand '%q ' "$@"
+		wcdoArgs+=("git wips --quiet ${quotedWipsArgs}&& ${quotedSimpleCommand# }")
 		set --
 	    fi
 	    ;;

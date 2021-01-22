@@ -25,6 +25,8 @@ printUsage()
 Supports the following special commands:
     repo-missing	    Show those ${what:=CONFIGURED SUBJECTS} that are not yet
 			    under Git source control.
+    dirty-sh [COMMAND ...]  Open an interactive shell / execute COMMAND in those
+			    ${what:=CONFIGURED SUBJECTS} that have uncommitted changes.
 HELPTEXT
     [ "$GIT_WCDO_COMMAND_ADDITIONAL_HELP" ] && printf '%s\n' "$GIT_WCDO_COMMAND_ADDITIONAL_HELP"
     git-wcdo --help 2>&1 | sed -e "${splitPattern}p" -e "1,${splitPattern}d"
@@ -75,6 +77,18 @@ elif [ "${1:0:1}" != '-' ]; then
 	    # Synthesized new command.
 	    shift
 	    wcdoArgs+=(--no-header --skip-files --foreign-command 'pwd' --command :)
+	    ;;
+	dirty-sh)
+	    # Synthesized new command.
+	    shift
+	    wcdoArgs+=(--no-pager --no-header --no-git-color --command)
+	    if [ $# -eq 0 ]; then
+		wcdoArgs+=('git dirty && bash -i')
+	    else
+		printf -v quotedSimpleCommand '%q ' "$@"
+		wcdoArgs+=("git dirty && ${quotedSimpleCommand# }")
+		set --
+	    fi
 	    ;;
 	wips)
 	    # Succeed if a single working copy has WIP.

@@ -27,13 +27,16 @@ typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 ensureValidRef "$localBranch"
 ensureValidRef "$remoteBranch"
 
+gitColorArg=()
+[ -n "$pager" ] && isNeedColorArgumentWhenPiping "$@" && gitColorArg=(--color=always)
+
 inout()
 {
     echo "incoming ${remoteBranch} -> ${localBranch}:"
-    git-onelinelog --no-pager "$localBranch..$remoteBranch"
+    git-onelinelog --no-pager "${gitColorArg[@]}" "$localBranch..$remoteBranch"
 
     echo
     echo "outgoing ${localBranch} -> ${remoteBranch}:"
-    git-onelinelog --no-pager "$remoteBranch..$localBranch"
+    git-onelinelog --no-pager "${gitColorArg[@]}" "$remoteBranch..$localBranch"
 }
 eval 'inout "$@"' "${pager:+|}" '"${pager[@]}"'

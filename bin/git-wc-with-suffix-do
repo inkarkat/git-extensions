@@ -10,13 +10,14 @@ WC.SUFFIX is preferred if it exists, but it falls back to using the plain WC.
 (If you want to only execute in WC.SUFFIX, you can directly pass the SUFFIX in
 the WORKING-COPY arguments to git-wcdo.)
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--suffix SUFFIX|--worktrees] [--no-pager] [--no-header|--branch-name] [--no-git-color] [--single-success] [--skip-files] [-s|--skip-foreign|--foreign-command "COMMANDLINE" [...]] [--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] WORKING-COPY [...] [-- SIMPLECOMMAND ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--suffix SUFFIX|--worktrees] [--ignore-nonexisting] [--no-pager] [--no-header|--branch-name] [--no-git-color] [--single-success] [--skip-files] [-s|--skip-foreign|--foreign-command "COMMANDLINE" [...]] [--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] WORKING-COPY [...] [-- SIMPLECOMMAND ...] [-?|-h|--help]'
 }
 
 typeset -a wcs=()
 typeset -a wcdoArgs=()
 suffix=
 isWorktrees=
+isIgnoreNonexisting=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -27,6 +28,8 @@ do
 			wcdoArgs+=("$1" "$2"); shift; shift;;
 	--worktrees)	shift; isWorktrees=t;;
 	--suffix)	shift; suffix="$1"; shift;;
+	--ignore-nonexisting)
+			shift; isIgnoreNonexisting=t;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		wcs+=("$1"); shift;;
@@ -59,7 +62,7 @@ for dir in "${wcs[@]}"
 do
     [ "$suffix" -a -d "${dir}${suffix}" ] && dir="${dir}${suffix}"
     if ! [ -d "$dir" ]; then
-	printf >&2 'Warning: No working copy %s found, skipping.\n' "$dir"
+	[ "$isIgnoreNonexisting" ] || printf >&2 'Warning: No working copy %s found, skipping.\n' "$dir"
 	continue
     fi
 

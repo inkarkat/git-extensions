@@ -9,7 +9,7 @@
 # git, anyway, follow their advice and alias git=hub (adapted to my wrapper).
 git() {
     typeset gitAlias="git-$1"
-    typeset gitCommand="$(which hub || which git)"
+    typeset gitCommand="$(which hub 2>/dev/null || which git)"
     if [ $# -eq 0 ]; then
 	git ${GIT_DEFAULT_COMMAND:-st}
     elif type ${BASH_VERSION:+-t} "$gitAlias" >/dev/null 2>&1; then
@@ -25,7 +25,7 @@ git() {
     fi
 }
 
-which hub > /dev/null 2>&1 || return
+which hub >/dev/null 2>&1 || return
 hub() {
     typeset hubAlias="hub-$1"
     if [ $# -eq 0 ]; then

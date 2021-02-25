@@ -5,7 +5,7 @@
 _git_initAndCloneExtension()
 {
     typeset command=$1
-    typeset -r gitCommand="$(which hub || which git)"
+    typeset -r gitCommand="$(which hub 2>/dev/null || which git)"
     shift
 
     "$gitCommand" "$command" "$@" || return $?

@@ -3,7 +3,8 @@
 {
     git ufetch || exit $?
 
-    isOnMasterBranch=; [ "$(git-brname --raw)" = "master" ] && isOnMasterBranch=t
+    masterBranch="$(git-mbr)"
+    isOnMasterBranch=; [ "$(git-brname --raw)" = "$masterBranch" ] && isOnMasterBranch=t
 
     if [ "$isOnMasterBranch" ] && ! git-dirty; then
 	git-urebaselocalbr --push origin --include-master --include-current "$@"
@@ -19,7 +20,7 @@
 	    typeset -a rebaseLocalBranchMasterArgs=()
 	else
 	    # Start the rebase on master and also include it in rebasing.
-	    typeset -a autoWorkTreeMasterArgs=(--branch master)
+	    typeset -a autoWorkTreeMasterArgs=(--branch "$masterBranch")
 	    typeset -a rebaseLocalBranchMasterArgs=(--include-master)
 	fi
 

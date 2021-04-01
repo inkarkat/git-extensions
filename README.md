@@ -22,4 +22,6 @@ This is used by the `git customtool` command.
 
 It is recommended to also use the (Bash, but should also work in Korn shell and Dash) shell functions (e.g. in your `.bashrc`) found at [shell/wrappers.sh](shell/wrappers.sh) to transparently invoke the extensions in the same way as the built-in Git commands, via `git SUBCOMMAND`. It also supports the [hub](https://github.com/github/hub) extension.
 
-The [shell/aliases.sh](shell/aliases.sh) script (also meant to be sourced in `.bashrc`) defines additional (Bash-only) aliases for stuff that cannot be done by an extension script (like automatically changing your current directory).
+The [shell/aliases.sh](shell/aliases.sh) script (also meant to be sourced in `.bashrc`) defines additional (Bash-only) aliases for stuff that cannot be done by an extension script (like automatically changing your current directory). [shell/completions.sh](shell/completions.sh) set up Bash completion for commands that take shell commands.
+
+The [profile/aliases.sh](profile/aliases.sh) sets up system-specific Git aliases, which will be persisted in the system-local configuration; these only need to be sourced once, e.g. from your `.profile`.

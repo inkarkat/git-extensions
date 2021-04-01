@@ -1,0 +1,45 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Execute GIT-COMMAND with the branch name where the current branch / N previous
+branch got branched off. If there's no branch, an error is printed.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-n|--branch-number N] GIT-COMMAND [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-n|--branch-number N] --keep-position GIT-COMMAND [... BRANCH ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-n|--branch-number N] -N BRANCH GIT-COMMAND [...] [-?|-h|--help]'
+}
+
+typeset -a gitRevRangeThisBranchArgs=()
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --branch-number|-n)	gitRevRangeThisBranchArgs=("$1" "$2"); shift; shift;;
+esac
+
+branchBranch="$(git-rev-range-this-branch --no-range "${gitRevRangeThisBranchArgs[@]}" 2>/dev/null)"
+if ! git-existsbr "$branchBranch"; then
+    echo >&2 'No branch found.'
+    exit 1
+fi
+
+typeset -a branchArgs=()
+case "$1" in
+    -[1-9])
+	typeset branchArgNum=${1#-}
+	branchArgs=("${@:2:${branchArgNum}}")
+	set -- "${@:$((2 + branchArgNum))}"
+
+	branchArgs=("${branchArgs[@]//BRANCH/${branchBranch}}")
+
+	exec git-wrapper "$@" "${branchArgs[@]}"
+	;;
+    --keep-position)
+	shift
+	exec git-wrapper "${@//BRANCH/${branchBranch}}"
+	;;
+    *)
+	exec git-wrapper "$@" "$branchBranch"
+	;;
+esac

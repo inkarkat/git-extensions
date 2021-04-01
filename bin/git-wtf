@@ -260,7 +260,23 @@ end
 #### EXECUTION STARTS HERE ####
 
 ## find config file and load it
-$config = { "integration-branches" => %w(heads/master heads/next heads/edge), "ignore" => [], "max_commits" => 5 }.merge begin
+gitFlowDevelopBranch = `git config --get gitflow.branch.develop`.chomp
+if gitFlowDevelopBranch.empty?
+  masterBranch = `git-mbr`.chomp
+  integrationBranches = [masterBranch]
+  baseBranch = `git-nbr 2>/dev/null`.chomp
+  baseBranch.empty? || integrationBranches << baseBranch
+else
+  integrationBranches = [gitFlowDevelopBranch]
+  gitFlowMasterBranch = `git config --get gitflow.branch.master`.chomp
+  if gitFlowMasterBranch.empty?
+    puts "#{red "Warning"}: Incomplete git-flow configuration: master branch not configured"
+  else
+    integrationBranches << gitFlowMasterBranch
+  end
+end
+
+$config = { "integration-branches" => integrationBranches.map{|b| "heads/" + b}, "ignore" => [], "max_commits" => 5 }.merge begin
   fn = find_file CONFIG_FN
   if fn && (h = YAML::load_file(fn)) # yaml turns empty files into false
     h["integration-branches"] ||= h["versions"] # support old nomenclature

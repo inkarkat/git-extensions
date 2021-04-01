@@ -1,0 +1,31 @@
+#!/bin/bash
+
+readonly GIT_CONFIG_KEY=gitextensions.masterBranch
+
+# If the repository is git-flow enabled, the "develop" branch configuration
+# corresponds to what I consider the master branch.
+masterBranch="$(git config --get gitflow.branch.develop 2>/dev/null)"
+if [ -z "$masterBranch" ]; then
+    # Try looking up the cached branch first.
+    masterBranch="$(git config --get "$GIT_CONFIG_KEY" 2>/dev/null)"
+
+    if [ -z "$masterBranch" ]; then
+	for remote in upstream origin
+	do
+	    masterBranch="$(git remote show "$remote" | sed -ne 's/^[[:space:]]*HEAD branch: //p')"
+	    if [ -n "$masterBranch" ]; then
+		# Cache the information in a custom Git configuration, as this
+		# remote lookup is costly.
+		git config --local "$GIT_CONFIG_KEY" "$masterBranch"
+
+		break
+	    fi
+	done
+    fi
+    if [ -z "$masterBranch" ]; then
+	echo >&2 'Note: The name of the master branch could not be determined; defaulting to "master".'
+	masterBranch=master
+    fi
+fi
+
+printf '%s\n' "$masterBranch"

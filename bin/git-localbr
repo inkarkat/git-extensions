@@ -39,12 +39,13 @@ done
 currentBranch=$(git symbolic-ref HEAD) || exit $?
 currentBranch=${currentBranch##refs/heads/}
 
-typeset -A excludedBranches=(["$currentBranch"]=1 [master]=1)
+masterBranch="$(git-mbr)"
+typeset -A excludedBranches=(["$currentBranch"]=1 ["$masterBranch"]=1)
 baseBranch="$(git-nbr 2>/dev/null)"
 [ "$baseBranch" ] && excludedBranches+=(["$baseBranch"]=1)
 
 [ "$isIncludeCurrent" ] && unset excludedBranches["$currentBranch"]
-[ "$isIncludeMaster" ] && unset excludedBranches['master']
+[ "$isIncludeMaster" ] && unset excludedBranches["$masterBranch"]
 [ "$isIncludeBase" ] && [ "$baseBranch" ] && unset excludedBranches["$baseBranch"]
 typeset -a grepArgs=()
 for excludedBranch in "${!excludedBranches[@]}"

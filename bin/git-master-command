@@ -1,0 +1,28 @@
+#!/bin/bash
+
+if ! masterBranch="$(git-mbr)"; then
+    exit 2
+elif [ $# -eq 0 ]; then
+    echo >&2 'ERROR: No GIT-COMMAND passed.'
+    exit 2
+fi
+
+typeset -a masterArgs=()
+case "$1" in
+    -[1-9])
+	typeset masterArgNum=${1#-}
+	masterArgs=("${@:2:${masterArgNum}}")
+	set -- "${@:$((2 + masterArgNum))}"
+
+	masterArgs=("${masterArgs[@]//MASTER/${masterBranch}}")
+
+	exec git-wrapper "$@" "${masterArgs[@]}"
+	;;
+    --keep-position)
+	shift
+	exec git-wrapper "${@//MASTER/${masterBranch}}"
+	;;
+    *)
+	exec git-wrapper "$@" "$masterBranch"
+	;;
+esac

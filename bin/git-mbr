@@ -34,8 +34,19 @@ if [ -z "$masterBranch" ]; then
 	done
     fi
     if [ -z "$masterBranch" ]; then
-	echo >&2 'Note: The name of the master branch could not be determined; defaulting to "master".'
-	masterBranch=master
+	for candidateBranch in master main
+	do
+	    if git-existsbr "$candidateBranch"; then
+		printf >&2 'Note: The name of the master branch could not be determined; defaulting to "%s".\n' "$candidateBranch"
+		masterBranch="$candidateBranch"
+		setMasterBranchConfiguration "$masterBranch"
+		break
+	    fi
+	done
+	if [ -z "$masterBranch" ]; then
+	    echo >&2 'ERROR: The name of the master branch could not be determined.'
+	    exit 1
+	fi
     fi
 fi
 

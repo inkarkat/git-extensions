@@ -5,13 +5,17 @@ printUsage()
 {
     cat <<HELPTEXT
 List unversioned files. Show a summary for unversioned directories or with -l
-the entire subdir contents. With -x also files from the ignore list.
+the entire subdir contents. With -x also files from the ignore list. With
+-X|--orphaned-submodules also subdirectories that have a .git directory (likely
+incompletely deregistered submodules or created by downloading another Git repo
+into the working copy) - Git mentions those as "Would skip repository NAME".
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-l|--long|-D|--ignore-empty-directories] [-x] [--] [<path>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-l|--long|-D|--ignore-empty-directories] [-X|--orphaned-submodules] [-x] [--] [<path>] [-?|-h|--help]'
 }
 typeset -a gitCleanArgs=()
 isLongFormat=
 isIgnoreEmptyDirectories=
+isOrphanedSubmodules=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -19,6 +23,8 @@ do
 	--long|-l)	shift; isLongFormat=t;;
 	--ignore-empty-directories|-D)
 			shift; isIgnoreEmptyDirectories=t;;
+	--orphaned-submodules|-X)
+			shift; isOrphanedSubmodules=t;;
 	--)		break;;
 	*)		gitCleanArgs+=("$1"); shift;;
     esac
@@ -26,11 +32,20 @@ done
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 
+GIT_ORPHANED_REPOSITORY_MESSAGE_PREFIX='Would skip repository '
 lsprivate()
 {
     local status=1 filespec
     while read -r filespec
     do
+	if [[ "$filespec" =~ ^"$GIT_ORPHANED_REPOSITORY_MESSAGE_PREFIX" ]]; then
+	    if [ "$isOrphanedSubmodules" ]; then
+		filespec="${filespec#$GIT_ORPHANED_REPOSITORY_MESSAGE_PREFIX}"
+	    else
+		printf '%s\n' "$filespec"
+		continue
+	    fi
+	fi
 	if [ -d "$filespec" ]; then
 	    if [ "$isLongFormat" ]; then
 		find "$filespec"
@@ -55,7 +70,7 @@ lsprivate()
 	    printf '%s\n' "$filespec"
 	fi
 	status=0
-    done < <(git clean --dry-run -d "${gitCleanArgs[@]}" "$@" | sed -e 's/^Would \(not \)\?remove //')
+    done < <(LC_ALL=C git clean --dry-run -d "${gitCleanArgs[@]}" "$@" | sed -e 's/^Would \(not \)\?remove //')
 
     return $status
 }

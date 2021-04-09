@@ -7,16 +7,22 @@ printUsage()
 List unversioned files. Show a summary for unversioned directories or with -l
 the entire subdir contents. With -x also files from the ignore list.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-l|--long|-D|--ignore-empty-directories] [-x] [<path>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-l|--long|-D|--ignore-empty-directories] [-x] [--] [<path>] [-?|-h|--help]'
 }
+typeset -a gitCleanArgs=()
 isLongFormat=
 isIgnoreEmptyDirectories=
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --long|-l)		shift; isLongFormat=t;;
-    --ignore-empty-directories|-D)
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--long|-l)	shift; isLongFormat=t;;
+	--ignore-empty-directories|-D)
 			shift; isIgnoreEmptyDirectories=t;;
-esac
+	--)		break;;
+	*)		gitCleanArgs+=("$1"); shift;;
+    esac
+done
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 
@@ -49,7 +55,7 @@ lsprivate()
 	    printf '%s\n' "$filespec"
 	fi
 	status=0
-    done < <(git clean --dry-run -d "$@" | sed -e 's/^Would \(not \)\?remove //')
+    done < <(git clean --dry-run -d "${gitCleanArgs[@]}" "$@" | sed -e 's/^Would \(not \)\?remove //')
 
     return $status
 }

@@ -1,22 +1,76 @@
 #!/bin/bash
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r [-X|--orphaned-submodules]] [-x] [<path>] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 Remove unversioned files.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
 With -r also any unversioned directory trees.
 With -x also files from the ignore list.
+With -X|--orphaned-submodules also subdirectories that have a .git directory
+(likely incompletely deregistered submodules or created by downloading another
+Git repo into the working copy) - Git mentions those as "Would skip repository
+NAME".
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r] [-x] [<path>] [-?|-h|--help]'
 }
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-esac
+typeset -a gitCleanArgs=()
+isRecursive=
+isOrphanedSubmodules=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	-r)		shift; gitCleanArgs+=(-d); isRecursive=t;;
+	--orphaned-submodules|-X)
+			shift; isOrphanedSubmodules=t;;
+	--)		break;;
+	*)		gitCleanArgs+=("$1"); shift;;
+    esac
+done
 
-recursiveFlag=
-if [ "$1" = "-r" ]; then
-    recursiveFlag='-d'
-    shift
+if [ "$isOrphanedSubmodules" ]; then
+    if [ ! "$isRecursive" ]; then
+	echo >&2 'ERROR: -X|--orphaned-submodules also needs -r option to remove the whole submodule.'
+	echo >&2
+	printUsage "$0" >&2
+	exit 2
+    fi
+
+    # Git doesn't touch subdirectories that have a .git subdir. There doesn't
+    # seem to be a force option for that; we have to manually remove those
+    # first. To get the right scope (<path>) for it, let's do a dry-run to find
+    # those directories (similar to what git-lsprivate does).
+    GIT_ORPHANED_REPOSITORY_MESSAGE_PREFIX='Would skip repository '
+    while read -r filespec
+    do
+	if [[ "$filespec" =~ ^"$GIT_ORPHANED_REPOSITORY_MESSAGE_PREFIX" ]]; then
+	    filespec="${filespec#$GIT_ORPHANED_REPOSITORY_MESSAGE_PREFIX}"
+	    gitDirspec="${filespec}/.git"
+	    if [ -e "$gitDirspec" ]; then
+		printf 'Removing %s\n' "$gitDirspec"
+		rm --force --recursive "$gitDirspec"
+	    fi
+	fi
+    done < <(LC_ALL=C git clean --dry-run -d "${gitCleanArgs[@]}" "$@")
 fi
 
-exec git clean $recursiveFlag "$@"
+exec git clean "${gitCleanArgs[@]}" "$@"

@@ -36,6 +36,8 @@ do
     esac
 done
 
+typeset gitRebaseMergesArg=(--rebase-merges)
+versionCompare "$(git --version 2>/dev/null)" -lt 2.18 && gitRebaseMergesArg=(--preserve-merges)
 
 gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit $?
 origBranchStore="${gitDir}/rebaselocalorigbr"
@@ -109,7 +111,7 @@ do
 	exit $status
     fi
 
-    git rebase --preserve-merges "$@" "$branch" || exit $?
+    git rebase "${gitRebaseMergesArg[@]}" "$@" "$branch" || exit $?
     [ "$(git ls-files --unmerged)" ] && exit 1
 
     if [ "$isPush" ]; then

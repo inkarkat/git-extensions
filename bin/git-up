@@ -25,13 +25,19 @@ path=; [ $# -gt 0 ] && path="${remote}/${!#}" || path=$(git-remotebr "$remote" 2
 originalRevision=$(git rev-parse HEAD 2>/dev/null)
 
 GIT_VERSION="$(git --version 2>/dev/null)"
-typeset -a gitRebaseMergesArg=(--rebase-merges)	# Git 2.18 and later.
-typeset -a gitPullRebaseAutoStashArgs=(pull --rebase=merges --autostash)    # --autostash is Git 2.9 and later.
+# --rebase-merges and --rebase=merges is Git 2.18 and later.
+typeset -a gitRebaseMergesArg=(--rebase-merges)
+typeset -a gitPullRebaseMergesArg=(--rebase=merges)
+# --autostash is Git 2.9 and later.
+# -c rebase.autoStash=true is Git 2.6 and later.
+typeset -a gitAutoStashGitArg=()
+typeset -a gitAutoStashPullOrRebaseArg=(--autostash)
 if versionCompare "$GIT_VERSION" -lt 2.18; then
     gitRebaseMergesArg=(--preserve-merges)
-    gitPullRebaseAutoStashArgs=(pull --rebase=preserve --autostash)
+    gitPullRebaseMergesArg=(--rebase=preserve)
     if versionCompare "$GIT_VERSION" -lt 2.9; then
-	gitPullRebaseAutoStashArgs=(-c rebase.autoStash=true pull --rebase=preserve)	# -c rebase.autoStash=true is Git 2.6 and later.
+	gitAutoStashGitArg=(-c rebase.autoStash=true)
+	gitAutoStashPullOrRebaseArg=()
     fi
 fi
 
@@ -45,9 +51,9 @@ fi
 # keep the merges intact; the decision to flatten them or not should only come
 # when reintegrating the branch (namely, whether to rebase or merge).
 if [ "$GIT_UP_REBASE" ]; then
-    git -c rebase.autoStash=true rebase "${gitRebaseMergesArg[@]}" "${@:1:$(($#-1))}" "$path" || exit $?
+    git "${gitAutoStashGitArg[@]}" rebase "${gitAutoStashPullOrRebaseArg[@]}" "${gitRebaseMergesArg[@]}" "${@:1:$(($#-1))}" "$path" || exit $?
 else
-    git "${gitPullRebaseAutoStashArgs[@]}" "$remote" "$@" || exit $?
+    git "${gitAutoStashGitArg[@]}" pull "${gitAutoStashPullOrRebaseArg[@]}" "${gitPullRebaseMergesArg[@]}" "$remote" "$@" || exit $?
 fi
 
 if [ ! "$path" ]; then

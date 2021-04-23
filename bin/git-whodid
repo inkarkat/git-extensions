@@ -1,3 +1,19 @@
 #!/bin/bash
+set -o pipefail
+shopt -qs extglob
 
-exec git shortlog -n "$@"
+typeset -a logArgs=()
+typeset -a shortlogArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	-+([cens]))	shortlogArgs+=("$1"); shift;;
+	-w*)		shortlogArgs+=("$1"); shift; shift;;
+	--@(committer|email|numbered|summary))
+			shortlogArgs+=("$1"); shift;;
+	--)		break;;
+	*)		logArgs+=("$1"); shift;;
+    esac
+done
+
+git log --pretty=short "${logArgs[@]}" "$@" | git shortlog "${shortlogArgs[@]}"

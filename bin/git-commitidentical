@@ -1,14 +1,24 @@
 #!/bin/bash
 
+printUsage()
+{
+    cat <<HELPTEXT
+Commit directly (without further edits) with the same commit message as <commit>.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<commit-arguments> ...] <ref>|:/<pattern> [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
 if [ $# -eq 0 ]; then
     echo >&2 "ERROR: Must pass <commit>!"
     exit 2
 fi
+ref="${!#}"
+commitId="$(git-commitid "$ref")" || exit $?
 
-ref=${!#}
-commitId=$(git-commitid "$ref") || exit $?
-
-commitMessageFilespec=$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TEMP:-/tmp}/$(basename -- "$0").$$$RANDOM")
+commitMessageFilespec="$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TEMP:-/tmp}/$(basename -- "$0").$$$RANDOM")"
 cleanup()
 {
     rm -f "$commitMessageFilespec" 2>/dev/null

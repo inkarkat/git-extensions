@@ -1,0 +1,32 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Commit as a correction of <commit> (when it's too late or cumbersome to fixup
+the existing commit). This just adds a reference to the prior commit in the
+commit message (title and body).
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<commit-arguments> ...] <ref>|:/<pattern> [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+if [ $# -eq 0 ]; then
+    echo >&2 "ERROR: Must pass <commit>!"
+    exit 2
+fi
+ref="${!#}"
+commitId="$(git-commitid "$ref")" || exit $?
+shortCommitId="$(git-commitid --short "$ref")" || exit $?
+
+commitMessageFilespec="$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TEMP:-/tmp}/$(basename -- "$0").$$$RANDOM")"
+cleanup()
+{
+    rm -f "$commitMessageFilespec" 2>/dev/null
+}
+[ "$DEBUG" ] || trap 'cleanup' EXIT
+printf '%s (after %s)\n\n(This corrects commit %s)\n' "$(git lo1 "$commitId")" "$shortCommitId" "$commitId" > "$commitMessageFilespec" || exit $?
+
+exec git-commit --edit --file "$commitMessageFilespec" "${@:1:$(($#-1))}"

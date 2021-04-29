@@ -98,7 +98,9 @@
 	cu = wrapper commit --all	; Commit all modified and deleted files, without new.
 	commitu = wrapper commit --all	; Commit all modified and deleted files, without new.
 	;; cuu: Commit modified and deleted, and add new files, respecting the ignore patterns. Combination of git adduu && git commit.
+	;; correct: Commit as a correction of <commit> (when it's too late or cumbersome to fixup the existing commit). This just adds a reference to the prior commit in the commit message (title and body).
 	;; fixup: Commit with the intent of squashing this with the passed <commit> (id or :/<pattern>) via interactive rebase later.
+	correctselected = selectedcommit-command --single-only correct	; Commit as a correction of the commit interactively chosen from the commits in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
 	fixupselected = selectedcommit-command --single-only fixup	; Commit with the intent of squashing this with the commit interactively chosen from the commits in the passed <range> via interactive rebase later.
 	;; rbfixup: Commit and squash with the passed <commit> (id or :/<pattern>) via interactive rebase.
 	rbfixupselected = selectedcommit-command --single-only rbfixup	; Commit and squash with the commit interactively chosen from the commits in the passed <range> via interactive rebase.
@@ -681,6 +683,7 @@
 	tdlogmine = today-command logmine
 	tdlogteam = today-command logteam
 	tdlogby = dashdash-default-command : today-command others-command log :
+	tdcorrect = today-command correctselected
 	tdfixup = today-command fixupselected
 	tdrbfixup = today-command rbfixupselected
 	tdrbi = today-command --no-range --one-more rebase -i
@@ -777,6 +780,7 @@
 	weeklogmine = week-command logmine
 	weeklogteam = week-command logteam
 	weeklogby = dashdash-default-command : week-command others-command log :
+	weekcorrect = week-command correctselected
 	weekfixup = week-command fixupselected
 	weekrbfixup = week-command rbfixupselected
 	weekrbi = week-command --no-range rebase -i
@@ -873,6 +877,7 @@
 	bylogmine = byuserrange-command logmine
 	bylogteam = byuserrange-command logteam
 	bylogby = dashdash-default-command : byuserrange-command others-command log :
+	bycorrect = byuserrange-command correctselected
 	byfixup = byuserrange-command fixupselected
 	byrbfixup = byuserrange-command rbfixupselected
 	byrbi = byuserrange-command --no-range --one-more rebase -i
@@ -977,6 +982,7 @@
 	brlogmine = rev-range-this-branch --any --one-more logmine
 	brlogteam = rev-range-this-branch --any --one-more logteam
 	brlogby = dashdash-default-command : rev-range-this-branch --any --one-more others-command log :
+	brcorrect = rev-range-this-branch --any correctselected
 	brfixup = rev-range-this-branch --any fixupselected
 	brrbfixup = rev-range-this-branch --any rbfixupselected
 	brrbi = rev-range-this-branch --any --no-range rebase -i
@@ -1076,6 +1082,7 @@
 	b2rlogmine = rev-range-this-branch --any --branch-number 2 --one-more logmine
 	b2rlogteam = rev-range-this-branch --any --branch-number 2 --one-more logteam
 	b2rlogby = dashdash-default-command : rev-range-this-branch --any --branch-number 2 --one-more others-command log :
+	b2rcorrect = rev-range-this-branch --any --branch-number 2 correctselected
 	b2rfixup = rev-range-this-branch --any --branch-number 2 fixupselected
 	b2rrbfixup = rev-range-this-branch --any --branch-number 2 rbfixupselected
 	b2rrbi = rev-range-this-branch --any --branch-number 2 --no-range rebase -i
@@ -1175,6 +1182,7 @@
 	b3rlogmine = rev-range-this-branch --any --branch-number 3 --one-more logmine
 	b3rlogteam = rev-range-this-branch --any --branch-number 3 --one-more logteam
 	b3rlogby = dashdash-default-command : rev-range-this-branch --any --branch-number 3 --one-more others-command log :
+	b3rcorrect = rev-range-this-branch --any --branch-number 3 correctselected
 	b3rfixup = rev-range-this-branch --any --branch-number 3 fixupselected
 	b3rrbfixup = rev-range-this-branch --any --branch-number 3 rbfixupselected
 	b3rrbi = rev-range-this-branch --any --branch-number 3 --no-range rebase -i
@@ -1274,6 +1282,7 @@
 	bmlogmine = master-command --keep-position rev-range --revision MASTER --end-revision HEAD --one-more logmine
 	bmlogteam = master-command --keep-position rev-range --revision MASTER --end-revision HEAD --one-more logteam
 	bmlogby = dashdash-default-command : master-command --keep-position rev-range --revision MASTER --end-revision HEAD --one-more others-command log :
+	bmcorrect = master-command --keep-position rev-range --revision MASTER --end-revision HEAD correctselected
 	bmfixup = master-command --keep-position rev-range --revision MASTER --end-revision HEAD fixupselected
 	bmrbfixup = master-command --keep-position rev-range --revision MASTER --end-revision HEAD rbfixupselected
 	bmrbi = master-command --keep-position rev-range --revision MASTER --no-range rebase -i
@@ -1373,6 +1382,7 @@
 	bnlogmine = base-command --keep-position rev-range --revision BASE --end-revision HEAD --one-more logmine
 	bnlogteam = base-command --keep-position rev-range --revision BASE --end-revision HEAD --one-more logteam
 	bnlogby = dashdash-default-command : base-command --keep-position rev-range --revision BASE --end-revision HEAD --one-more others-command log :
+	bncorrect = base-command --keep-position rev-range --revision BASE --end-revision HEAD correctselected
 	bnfixup = base-command --keep-position rev-range --revision BASE --end-revision HEAD fixupselected
 	bnrbfixup = base-command --keep-position rev-range --revision BASE --end-revision HEAD rbfixupselected
 	bnrbi = base-command --keep-position rev-range --revision BASE --no-range rebase -i
@@ -1472,6 +1482,7 @@
 	bllogmine = rev-range --revision @{-1} --end-revision HEAD --one-more logmine
 	bllogteam = rev-range --revision @{-1} --end-revision HEAD --one-more logteam
 	bllogby = dashdash-default-command : rev-range --revision @{-1} --end-revision HEAD --one-more others-command log :
+	blcorrect = rev-range --revision @{-1} --end-revision HEAD correctselected
 	blfixup = rev-range --revision @{-1} --end-revision HEAD fixupselected
 	blrbfixup = rev-range --revision @{-1} --end-revision HEAD rbfixupselected
 	blrbi = rev-range --revision @{-1} --no-range rebase -i
@@ -1571,6 +1582,7 @@
 	b2llogmine = rev-range --revision @{-2} --end-revision HEAD --one-more logmine
 	b2llogteam = rev-range --revision @{-2} --end-revision HEAD --one-more logteam
 	b2llogby = dashdash-default-command : rev-range --revision @{-2} --end-revision HEAD --one-more others-command log :
+	b2lcorrect = rev-range --revision @{-2} --end-revision HEAD correctselected
 	b2lfixup = rev-range --revision @{-2} --end-revision HEAD fixupselected
 	b2lrbfixup = rev-range --revision @{-2} --end-revision HEAD rbfixupselected
 	b2lrbi = rev-range --revision @{-2} --no-range rebase -i
@@ -1670,6 +1682,7 @@
 	bplogmine = rev-range --revision @{1} --end-revision HEAD --one-more logmine
 	bplogteam = rev-range --revision @{1} --end-revision HEAD --one-more logteam
 	bplogby = dashdash-default-command : rev-range --revision @{1} --end-revision HEAD --one-more others-command log :
+	bpcorrect = rev-range --revision @{1} --end-revision HEAD correctselected
 	bpfixup = rev-range --revision @{1} --end-revision HEAD fixupselected
 	bprbfixup = rev-range --revision @{1} --end-revision HEAD rbfixupselected
 	bprbi = rev-range --revision @{1} --no-range --one-more-command ^ rebase -i
@@ -1769,6 +1782,7 @@
 	b2plogmine = rev-range --revision @{2} --end-revision HEAD --one-more logmine
 	b2plogteam = rev-range --revision @{2} --end-revision HEAD --one-more logteam
 	b2plogby = dashdash-default-command : rev-range --revision @{2} --end-revision HEAD --one-more others-command log :
+	b2pcorrect = rev-range --revision @{2} --end-revision HEAD correctselected
 	b2pfixup = rev-range --revision @{2} --end-revision HEAD fixupselected
 	b2prbfixup = rev-range --revision @{2} --end-revision HEAD rbfixupselected
 	b2prbi = rev-range --revision @{2} --no-range --one-more-command ^ rebase -i
@@ -1868,6 +1882,7 @@
 	outlogmine = rev-range-outgoing '' --one-more logmine
 	outlogteam = rev-range-outgoing '' --one-more logteam
 	outlogby = dashdash-default-command : rev-range-outgoing '' --one-more others-command log :
+	outcorrect = rev-range-outgoing '' correctselected
 	outfixup = rev-range-outgoing '' fixupselected
 	outrbfixup = rev-range-outgoing '' rbfixupselected
 	outrbi = trbi
@@ -2065,6 +2080,7 @@
 	ooutlogmine = rev-range-outgoing origin --one-more logmine
 	ooutlogteam = rev-range-outgoing origin --one-more logteam
 	ooutlogby = dashdash-default-command : rev-range-outgoing origin --one-more others-command log :
+	ooutcorrect = rev-range-outgoing origin correctselected
 	ooutfixup = rev-range-outgoing origin fixupselected
 	ooutrbfixup = rev-range-outgoing origin rbfixupselected
 	ooutrbi = orbi
@@ -2262,6 +2278,7 @@
 	uoutlogmine = rev-range-outgoing upstream --one-more logmine
 	uoutlogteam = rev-range-outgoing upstream --one-more logteam
 	uoutlogby = dashdash-default-command : rev-range-outgoing upstream --one-more others-command log :
+	uoutcorrect = rev-range-outgoing upstream correctselected
 	uoutfixup = rev-range-outgoing upstream fixupselected
 	uoutrbfixup = rev-range-outgoing upstream rbfixupselected
 	uoutrbi = urbi
@@ -2459,6 +2476,7 @@
 	localbrlogmine = localbrrefdo git rev-range-this-branch --start-rev {} --any logmine --color=always
 	localbrlogteam = localbrrefdo git rev-range-this-branch --start-rev {} --any logteam --color=always
 	localbrlogby = localbrrefdo git dashdash-default-command : rev-range-this-branch --start-rev {} --any others-command log --color=always :
+	localbrcorrect = localbrrefdo git rev-range-this-branch --start-rev {} --any correctselected
 	localbrfixup = localbrrefdo git rev-range-this-branch --start-rev {} --any fixupselected
 	localbrrbfixup = localbrrefdo git rev-range-this-branch --start-rev {} --any rbfixupselected
 	; localbrrbi would be a generic implementation of the specialized rebaselocalbr.

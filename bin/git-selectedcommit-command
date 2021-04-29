@@ -1,0 +1,51 @@
+#!/bin/bash
+set -o noglob
+
+typeset -a commandOnSelectedArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--accept-single|--single-only)
+			commandOnSelectedArgs+=("$1"); shift;;
+	*)		break;;
+    esac
+done
+
+if [ $# -eq 0 ]; then
+    echo >&2 'ERROR: No GIT-COMMAND passed.'
+    exit 2
+fi
+typeset -a gitCommand=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	-c) gitCommand+=("$1" "$2"); shift; shift;;
+	*)  eval "gitCommand+=($1)"	# Note: The Git command itself can consist of command + arguments, so it must not be quoted here!
+	    shift; break;;
+    esac
+done
+
+if [ "$1" = '--since' ]; then
+    typeset -a rangeArgs=("$1" "$2"); shift; shift;
+elif [ $# -gt 0 ]; then
+    typeset -a rangeArgs=("${!#}")
+    set -- "${@:1:$(($#-1))}"
+else
+    echo >&2 'ERROR: Need <range>.'
+    exit 2
+fi
+
+IFS=$'\n'
+typeset -a commits; commits=($(
+    git log --pretty='tformat:%H %s' "${rangeArgs[@]}" | \
+    truncate-trailing -w | commandWithHiddenId --stdin -p -c "commandOnSelected --stdin${commandOnSelectedArgs:+ }${commandOnSelectedArgs[*]}"
+))
+status=$?
+if [ $status -eq 124 ]; then
+    echo >&2 'ERROR: No commits available.'
+    exit 1
+elif [ $status -ne 0 ]; then
+    exit $status
+fi
+
+exec git-wrapper "${gitCommand[@]}" "$@" "${commits[@]}"

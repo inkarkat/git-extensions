@@ -7,13 +7,16 @@ Resolve commit id from the passed commit ref, with error message (unless
 -n|--no-error). With -q|--quiet, just performs the check without any output.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet|-n|--no-error] [--] <rev> [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--short[=length]] [-q|--quiet|-n|--no-error] [--] <rev> [-?|-h|--help]'
 }
+typeset -a verifyArgs=(--verify)
 noErrorMessage=
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--short|--short=*)
+			verifyArgs=("$1"); shift;;
 	--quiet|-q)	shift; exec >/dev/null;;
 	--no-error|-n)  shift; noErrorMessage=t;;
 	--)		shift; break;;
@@ -27,7 +30,7 @@ if [ $# -ne 1 ]; then
 fi
 
 typeAssertion='^{commit}'; [[ "$1" =~ ^:/ ]] && typeAssertion=''    # XXX: A type assertion does not work for :/<text> (in Git 2.25.1).
-if ! git rev-parse --verify --quiet "${1?}${typeAssertion}"; then
+if ! git rev-parse "${verifyArgs[@]}" --quiet "${1?}${typeAssertion}"; then
     [ "$noErrorMessage" ] || printf >&2 'ERROR: Not a valid commit: %s\n' "$1"
     exit 1
 fi

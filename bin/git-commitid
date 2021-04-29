@@ -1,12 +1,24 @@
 #!/bin/bash
 
+printUsage()
+{
+    cat <<HELPTEXT
+Resolve commit id from the passed commit ref, with error message (unless
+-n|--no-error). With -q|--quiet, just performs the check without any output.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet|-n|--no-error] <rev> [-?|-h|--help]'
+}
 noErrorMessage=
 case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
     --quiet|-q)	    shift; exec >/dev/null;;
     --no-error|-n)  shift; noErrorMessage=t;;
 esac
-
-[ $# -eq 1 ] || exit 2
+if [ $# -ne 1 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
 
 if ! git rev-parse --verify --quiet "${1?}^{commit}"; then
     [ "$noErrorMessage" ] || printf >&2 'ERROR: Not a valid commit: %s\n' "$1"

@@ -6,18 +6,38 @@ printUsage()
 Commit with the intent of squashing this with the passed <commit> (id or
 :/<pattern>) via interactive rebase later.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '<ref>|:/<pattern> [<commit-arguments> ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<commit-arguments> ...] <ref>|:/<pattern> [--] [<pathspec>...] [-?|-h|--help]'
 }
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-esac
-if [ $# -eq 0 ]; then
+typeset -a gitCommitArgs=()
+typeset -a files=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--)		gitCommitArgs+=("$1"); shift; files=("$@"); break;;
+	*)		gitCommitArgs+=("$1"); shift;;
+    esac
+done
+if [ ${#files[@]} -eq 0 ]; then
+    # No files after -- captured yet; need to investigate parsed and
+    # remaining args from behind for files.
+    gitCommitArgs+=("$@")
+    while [ ${#gitCommitArgs[@]} -ne 0 ]
+    do
+	lastArg="${gitCommitArgs[-1]}"
+	[ -e "$lastArg" ] || break
+
+	files=("$lastArg" "${files[@]}")
+	gitCommitArgs=("${gitCommitArgs[@]:0:${#gitCommitArgs[@]}-1}")
+    done
+fi
+if [ ${#gitCommitArgs[@]} -eq 0 ]; then
     printUsage "$0" >&2
     exit 2
 fi
 
-fixupCommit=$1; shift
+fixupCommit="${gitCommitArgs[@]:$((${#gitCommitArgs[@]}-1))}"
 
 # --fixup will do good error handling for us ("fatal: could not lookup commit
 # :/doesNotExist), just pass it along.
-exec git-commit --fixup "$fixupCommit" "$@"
+exec git-commit --fixup "$fixupCommit" "${gitCommitArgs[@]:0:$((${#gitCommitArgs[@]}-1))}" "${files[@]}"

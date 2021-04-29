@@ -1,6 +1,30 @@
 #!/bin/bash
 set -o noglob
 
+typeset -a gitCommandArgs=()
+typeset -a files=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--)		shift; files=("$@"); break;;
+	*)		gitCommandArgs+=("$1"); shift;;
+    esac
+done
+if [ ${#files[@]} -eq 0 ]; then
+    # No files after -- captured yet; need to investigate parsed and
+    # remaining args from behind for files.
+    gitCommandArgs+=("$@")
+    while [ ${#gitCommandArgs[@]} -ne 0 ]
+    do
+	lastArg="${gitCommandArgs[-1]}"
+	[ -e "$lastArg" ] || break
+
+	files=("$lastArg" "${files[@]}")
+	gitCommandArgs=("${gitCommandArgs[@]:0:${#gitCommandArgs[@]}-1}")
+    done
+fi
+set -- "${gitCommandArgs[@]}"
 if [ "$1" = '--since' ]; then
     typeset -a rangeArgs=("$1" "$2"); shift; shift;
 elif [ $# -gt 0 ]; then
@@ -12,7 +36,7 @@ fi
 
 IFS=$'\n'
 typeset -a commits; commits=($(
-    git log --pretty='tformat:%H %s' "${rangeArgs[@]}" | \
+    git log --pretty='tformat:%H %s' "${rangeArgs[@]}" ${files:+--} "${files[@]}" | \
     truncate-trailing -w | commandWithHiddenId --stdin -p -c 'commandOnSelected --stdin'
 	))
 status=$?

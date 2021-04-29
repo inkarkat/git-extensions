@@ -3,9 +3,9 @@
 printUsage()
 {
     cat <<HELPTEXT
-Commit directly (without further edits) with the same commit message as <commit>.
-This is similar to git commit -c|--reedit-message|-C|--reuse-message, but
-doesn't include authorship and timestamp as well.
+Commit as a correction of <commit> (when it's too late or cumbersome to fixup
+the existing commit). This just adds a reference to the prior commit in the
+commit message (title and body).
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[<commit-arguments> ...] <ref>|:/<pattern> [-?|-h|--help]'
@@ -19,6 +19,7 @@ if [ $# -eq 0 ]; then
 fi
 ref="${!#}"
 commitId="$(git-commitid "$ref")" || exit $?
+shortCommitId="$(git-commitid --short "$ref")" || exit $?
 
 commitMessageFilespec="$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TEMP:-/tmp}/$(basename -- "$0").$$$RANDOM")"
 cleanup()
@@ -26,10 +27,6 @@ cleanup()
     rm -f "$commitMessageFilespec" 2>/dev/null
 }
 [ "$DEBUG" ] || trap 'cleanup' EXIT
-git lo1 "$commitId" > "$commitMessageFilespec" || exit $?
-if [ ! -s "$commitMessageFilespec" ]; then
-    echo >&2 "ERROR: No commit message"
-    exit 1
-fi
+printf '%s (after %s)\n\n(This corrects commit %s)\n' "$(git lo1 "$commitId")" "$shortCommitId" "$commitId" > "$commitMessageFilespec" || exit $?
 
-exec git-commit --file "$commitMessageFilespec" "${@:1:$(($#-1))}"
+exec git-commit --edit --file "$commitMessageFilespec" "${@:1:$(($#-1))}"

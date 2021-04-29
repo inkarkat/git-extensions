@@ -4,12 +4,37 @@ set -o noglob
 printUsage()
 {
     cat <<HELPTEXT
-Log together with diff for the commit interactively chosen from the commits
-[that cover FILE ...] in the passed <range>.
+Execute GIT-COMMAND for the commit interactively chosen from the commits [that
+cover FILE ...] in the passed <range>.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '--since <date>|<range> [<show-args> ...] [--] [FILE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-accept-single] [--single-only] [-c ...] GIT-COMMAND --since <date>|<range> [<git-command-args> ...] [--] [FILE ...] [-?|-h|--help]'
 }
+typeset -a commandOnSelectedArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--accept-single|--single-only)
+			commandOnSelectedArgs+=("$1"); shift;;
+	*)		break;;
+    esac
+done
+
+if [ $# -eq 0 ]; then
+    echo >&2 'ERROR: No GIT-COMMAND passed.'
+    exit 2
+fi
+typeset -a gitCommand=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	-c) gitCommand+=("$1" "$2"); shift; shift;;
+	*)  eval "gitCommand+=($1)"	# Note: The Git command itself can consist of command + arguments, so it must not be quoted here!
+	    shift; break;;
+    esac
+done
+
 typeset -a gitCommandArgs=()
 typeset -a files=()
 while [ $# -ne 0 ]
@@ -34,6 +59,7 @@ if [ ${#files[@]} -eq 0 ]; then
     done
 fi
 set -- "${gitCommandArgs[@]}"
+
 if [ "$1" = '--since' ]; then
     typeset -a rangeArgs=("$1" "$2"); shift; shift;
 elif [ $# -gt 0 ]; then
@@ -46,8 +72,8 @@ fi
 IFS=$'\n'
 typeset -a commits; commits=($(
     git log --pretty='tformat:%H %s' "${rangeArgs[@]}" ${files:+--} "${files[@]}" | \
-    truncate-trailing -w | commandWithHiddenId --stdin -p -c 'commandOnSelected --stdin'
-	))
+    truncate-trailing -w | commandWithHiddenId --stdin -p -c "commandOnSelected --stdin${commandOnSelectedArgs:+ }${commandOnSelectedArgs[*]}"
+))
 status=$?
 if [ $status -eq 124 ]; then
     echo >&2 'ERROR: No commits available.'
@@ -56,4 +82,4 @@ elif [ $status -ne 0 ]; then
     exit $status
 fi
 
-exec git-wrapper ${GIT_SHOWSELECTED_COMMAND:-show} "$@" "${commits[@]}"
+exec git-wrapper "${gitCommand[@]}" "$@" "${commits[@]}"

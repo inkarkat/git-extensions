@@ -7,14 +7,20 @@ Resolve commit id from the passed commit ref, with error message (unless
 -n|--no-error). With -q|--quiet, just performs the check without any output.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet|-n|--no-error] <rev> [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet|-n|--no-error] [--] <rev> [-?|-h|--help]'
 }
 noErrorMessage=
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --quiet|-q)	    shift; exec >/dev/null;;
-    --no-error|-n)  shift; noErrorMessage=t;;
-esac
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--quiet|-q)	shift; exec >/dev/null;;
+	--no-error|-n)  shift; noErrorMessage=t;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 if [ $# -ne 1 ]; then
     printUsage "$0" >&2
     exit 2

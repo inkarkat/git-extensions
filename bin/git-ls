@@ -5,13 +5,14 @@ printUsage()
     cat <<HELPTEXT
 List files under version control; skip unversioned files.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-l|--long [--date FORMAT|--relative-date]] [-r|--recursive|-d|--directory] [--no-classify] [FILE, ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-l|--long [--date FORMAT|--relative-date]] [-r|--recursive|-d|--directory] [-f|--only-files] [--no-classify] [FILE, ...] [-?|-h|--help]'
 }
 
 isNeedLog=
 formatPrefix=
 formatSuffix=
 maxDepth=1
+isOnlyFiles=
 classifyDirectories=/
 typeset -a gitLogArgs=()
 while [ $# -ne 0 ]
@@ -21,6 +22,8 @@ do
 	--long|-l)	shift; isNeedLog=t; formatPrefix='%h %<(12,trunc)%aN %<(22)%ad '; formatSuffix=;;
 	--recursive|-r)	shift; maxDepth='';;
 	--directory|-d)	shift; maxDepth=0;;
+	--only-files|-f)
+			shift; isOnlyFiles=t;;
 	--date)			isNeedLog=t; gitLogArgs+=("$1" "$2"); shift; shift;;
 	--date=*)		isNeedLog=t; gitLogArgs+=("$1"); shift;;
 	--relative-date)	isNeedLog=t; gitLogArgs+=("$1"); shift;;
@@ -47,10 +50,15 @@ do
 	# than git log.
 	git ls-files --error-unmatch -- "$filespec" >/dev/null 2>/dev/null || continue
 
-	filespecSuffix=; [ -d "$filespec" ] && filespecSuffix=$classifyDirectories
+	filespecSuffix=
+	if [ -d "$filespec" ]; then
+	    [ "$isOnlyFiles" ] && continue
+	    filespecSuffix="$classifyDirectories"
+	fi
 	git log --pretty=tformat:"${formatPrefix}${filespec//%/%%}${filespecSuffix}${formatSuffix}" --max-count 1 "${gitLogArgs[@]}" -- "$filespec"
     else
 	if [ -d "$filespec" ]; then
+	    [ "$isOnlyFiles" ] && continue
 	    # Print directory (name) if it contains any tracked files.
 	    if git ls-files --error-unmatch -- "$filespec" >/dev/null 2>&1; then
 		printf '%s%s\n' "${filespec%/}" "$classifyDirectories"

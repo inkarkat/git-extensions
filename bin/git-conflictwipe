@@ -1,11 +1,25 @@
 #!/bin/bash
 
-gitDir=$(git rev-parse --git-dir 2>/dev/null) || exit $?
+printUsage()
+{
+    cat <<HELPTEXT
+Abort the merge conflicts and MERGING / CHERRYPICKING state, e.g. when you want
+to wipe / change the working copy, anyway, and currently can't because of
+"error: you need to resolve your current index first".
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--foo bar] [--] [FILE ...] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit $?
 
 if [ -f "${gitDir}/MERGE_HEAD" ]; then
-    git reset --merge
+    exec git reset --merge
 elif [ -f "${gitDir}/CHERRY_PICK_HEAD" ]; then
-    git cherry-pick --abort
+    exec git cherry-pick --abort
 else
     echo >&2 "ERROR: It appears that you're neither merging nor cherry-picking."
     exit 1

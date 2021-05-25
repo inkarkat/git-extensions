@@ -1,6 +1,29 @@
 #!/bin/bash
 set -o noglob
 
+printUsage()
+{
+    if [ "$GIT_UP_FETCH" ]; then
+	cat <<HELPTEXT
+Fetch all upstream changes, then pull and rebase (onto potentially dirty working
+copy), and push this to my GitHub clone. Use this when you directly follow all
+concurrent activity in upstream, and want to update your repo to its most recent
+version.
+HELPTEXT
+    else
+	cat <<HELPTEXT
+Pull and rebase upstream changes (onto potentially dirty working copy), and push
+this to my GitHub clone. Use this when you directly follow upstream, and want to
+update your repo to its most recent version.
+HELPTEXT
+    fi
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
 # Need to specify a branch, because the current branch presumably tracks origin,
 # not upstream. Because of this, Git wouldn't normally allow pulling from
 # upstream:

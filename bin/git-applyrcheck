@@ -1,4 +1,17 @@
-#!/bin/sh
-rootdir=$(git rev-parse --show-cdup) || exit $?
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Try to apply the passed patch to the root and print statistics and result.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<apply-args> ...] [<patch>...] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+rootdir="$(git rev-parse --show-cdup)" || exit $?
 cd "$rootdir" || exit $?
-git applycheck "$@"
+exec git applycheck "$@"

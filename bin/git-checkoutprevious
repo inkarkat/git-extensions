@@ -1,5 +1,22 @@
 #!/bin/bash
 
+printUsage()
+{
+    cat <<HELPTEXT
+Revert changes [for FILE(s)] in the working copy to the commit prior to passed
+<commit> / HEAD. Like "git checkout <commit>^ [-- FILE ...]" but doesn't write
+to the index / cause the "detached HEAD" status when no FILEs are passed.
+This is meant to be for temporary investigation or verifying a test failure
+without the committed fix, so no dirty working copy is allowed.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[FILE ...] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+
 if git-dirty; then
     echo >&2 "ERROR: working copy is still dirty; please clean up first."
     git status

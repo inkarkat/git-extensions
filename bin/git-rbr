@@ -1,11 +1,26 @@
 #!/bin/bash
 set -o pipefail
 
+printUsage()
+{
+    cat <<HELPTEXT
+List all branches in ${remote:-REMOTE}.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [-?|-h|--help]"
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
 if [ $# -eq 0 ]; then
     echo >&2 "ERROR: Must pass remote and branch name"
     exit 2
 fi
 remote="$1"; shift
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
 [ $# -gt 0 ] || set -- '*'
 
 git branch -r --list "${@/#/${remote}/}" | sed -e "/^ *${remote}\/HEAD -> /d"

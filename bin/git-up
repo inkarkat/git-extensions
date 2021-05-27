@@ -4,8 +4,22 @@
 #   https://stackoverflow.com/questions/30208928/can-git-pull-automatically-stash-and-pop-pending-changes
 #   https://github.com/aanand/git-up
 
+printUsage()
+{
+    local action='Pull and rebase'
+    [ "$GIT_UP_REBASE" ] && action='Rebase'
+    [ "$GIT_UP_FETCH" ] && action='Fetch and rebase'
+
+    cat <<HELPTEXT
+$action changes in ${remote:-REMOTE}, and show a log of the changes.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[--gui|--terminal|--none] ${remote:-REMOTE} [PULL/REBASE-ARGS ...] [-?|-h|--help]"
+}
+
 log=terminal; type -t rabbitvcs >/dev/null && log=graphical
 case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
     --gui)	shift; log=graphical;;
     --terminal)	shift; log=terminal;;
     --none)	shift; log=;;
@@ -21,6 +35,10 @@ logChanges()
     esac
 }
 remote="${1:?}"; shift
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
 path=; [ $# -gt 0 ] && path="${remote}/${!#}" || path=$(git-remotebr "$remote" 2>/dev/null)
 originalRevision=$(git rev-parse HEAD 2>/dev/null)
 

@@ -1,6 +1,20 @@
 #!/bin/bash
 
-[ $# -gt 0 ] || exit 2
+printUsage()
+{
+    cat <<HELPTEXT
+Check whether all passed refs refer to the same commit.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '<ref> <ref> [...] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+if [ $# -lt 2 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
 
 prevCommitId=
 for rev

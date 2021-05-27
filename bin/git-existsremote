@@ -1,7 +1,19 @@
 #!/bin/bash
 
+printUsage()
+{
+    cat <<HELPTEXT
+Check whether a / the passed REMOTE has been configured in the working copy.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[REMOTE] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
 case $# in
     0)	[ -n "$(git remote show 2>/dev/null)" ];;
-    1)	git config "remote.${1:?}.url" >/dev/null;;
-    *)	echo >&2 "ERROR: Pass one <remote> or nothing to check whether any remote is defined."; exit 2;;
+    1)	exec git config "remote.${1:?}.url" >/dev/null;;
+    *)	echo >&2 "ERROR: Pass one REMOTE or nothing to check whether any remote is defined."; exit 2;;
 esac

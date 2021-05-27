@@ -1,6 +1,20 @@
-#!/bin/sh
+#!/bin/bash
 
-if [ "$(uname -o 2>/dev/null)" = "Cygwin" ]; then
+printUsage()
+{
+    cat <<HELPTEXT
+Setup system-specific Git configuration for a system.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+readonly operatingSystem="$(uname --operating-system 2>/dev/null)"
+
+if [ "$operatingSystem" = "Cygwin" ]; then
     mkdir -p /usr/etc || exit $?
     touch /usr/etc/gitconfig || exit $?
 
@@ -18,4 +32,6 @@ if [ "$(uname -o 2>/dev/null)" = "Cygwin" ]; then
 
     # Show all applied configuration changes.
     git config --system --list
+else
+    printf >&2 'No setup necessary for %s.\n' "$operatingSystem"
 fi

@@ -1,3 +1,16 @@
-#!/bin/sh
+#!/bin/bash
 
-git diff "$@" && git submodule foreach "git diff $*"
+printUsage()
+{
+    cat <<HELPTEXT
+Show diff of repository and any submodules, too.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[DIFF-ARGS ...] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+quotedDiffArgs=; if [ $# -gt 0 ]; then printf -v quotedDiffArgs '%q ' "$@"; quotedDiffArgs="${quotedDiffArgs% }"; fi
+git diff "$@" && git submodule foreach "git diff $quotedDiffArgs"

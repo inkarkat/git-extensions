@@ -2622,36 +2622,14 @@
 	pull = pull --ff-only	; Get and fast-forward changes; don't merge or rebase. Let's do that explicitly via the corresponding commands.
 	;; rtrack: Make the current branch track in the passed <remote> the passed <branch> / eponymous branch.
 	rb = rebase
-	; For merging, you switch to the target branch (e.g. master), then merge the source branch.
-	; For rebasing, you stay in your working branch and rebase to master.
-	; Therefore, the meaning of "ours" and "theirs" is somewhat unintuitive:
-	; - what we have on the checked out master branch is 'ours',
-	; - what we had (and is being merged or replayed) in our working branch is 'theirs'.
-	; Possible actions:
-	; 	a) Remove commits by deleting lines. Like the revert command, but off the
-	; 	   record: it will be as if the commit never existed.
-	; 	b) Reorder commits by reordering lines.
-	; Replace pick with:
-	;	d) "edit" to mark a commit for amending.
-	;	e) "reword" to change the log message.
-	;	f) "squash" to merge a commit with the previous one.
-	;	g) "fixup" to merge a commit with the previous one and discard the log message.
-	; During a rebase:
-	; 	1. Resolve the conflicted files; "git conflicts" tells them (again)
-	; 	   To completely override upstream's changes, we have to use "theirs" (from the branch being rebased, i.e. git cot), not "ours"; this is unintuitive!
-	; 	2. git add # after the conflicts have been resolved
-	; 	3. git rbc
-	; It may help to have both our and their changes separately:
-	; 	git lc master
-	; 	git lc
 	rbi = rebase -i
 	; brrbi et al: see above
 	rbc = rebase --continue	; Commit (after adding resolved conflicts) and continue with any subsequent commits to be cherry-picked.
 	;; rbcu: addu + rbc: Stage modified files (i.e. those with resolved conflicts) and continue rebasing.
-	rbs = rebase --skip	; Restart the rebasing process by skipping the current patch.
+	rbs = rebase --skip	; Skip the current patch (as if you had deleted the line).
 	rbq = rebase --abort	; Cancel the operation and return to the pre-sequence state.
 	rbe = rebase --edit-todo	; Edit the todo list during an interactive rebase.
-	rbu = reset @{1}
+	rbu = reset @{1}	; Undo the last rebase commit. Effectively squashes this patch with the previous one.
 	;; git rebase HEAD <feature> && git rebase HEAD @{-2}: Rebase <feature> to current branch and merge back to current
 	;; git rebase master --onto <newbase> <=> git bmrbi --onto <newbase>:	Rebase the changes in the current branch (with regards to master) to appear as if they were committed onto <newbase>. Can be used to move a set of commits to another base commit.
 	;; git rebase HEAD^ --onto <newbase>:	Rebase the last commit to appear as if they were committed onto <newbase>.

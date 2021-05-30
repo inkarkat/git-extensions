@@ -8,14 +8,18 @@ Supply <paths> or use -a to apply this to all conflicted files in the index.
 HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-a|--all] [--] [<file>...] [-?|-h|--help]'
 }
+typeset -a gitCheckoutIndexArgs=()
+typeset -a gitAddArgs=()
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --all|-a)		gitCheckoutIndexArgs+=("$1"); shift; gitAddArgs+=(--update);;
 esac
-if [ $# -eq 0 ]; then
+if [ ${#gitCheckoutIndexArgs[@]} -eq 0 -a $# -eq 0 ]; then
     # Alert when no file passed; git checkout then prints the unhelpful "fatal: --ours/--theirs is incompatible with switching branches"
     printUsage "$0" >&2
     exit 2
 fi
 
 # git checkout apparently cannot do this: "error: path is unmerged"
-exec git checkout-index -f --stage=1 "$@"
+git checkout-index -f --stage=1 "${gitCheckoutIndexArgs[@]}" "$@" && \
+    git add "${gitAddArgs[@]}" "$@"

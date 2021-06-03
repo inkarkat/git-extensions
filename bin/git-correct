@@ -27,6 +27,10 @@ cleanup()
     rm -f "$commitMessageFilespec" 2>/dev/null
 }
 [ "$DEBUG" ] || trap 'cleanup' EXIT
-printf '%s (after %s)\n\n(This corrects commit %s)\n' "$(git lo1 "$commitId")" "$shortCommitId" "$commitId" > "$commitMessageFilespec" || exit $?
+{
+    IFS=$'\n' read -r titleLine
+    remainingLines="$(</dev/stdin)"
+} < <(git lo1 "$commitId")
+printf '%s (after %s)\n%s\n\n(This corrects commit %s)\n' "$titleLine" "$shortCommitId" "$remainingLines" "$commitId" > "$commitMessageFilespec" || exit $?
 
 exec git-commit --edit --file "$commitMessageFilespec" "${@:1:$(($#-1))}"

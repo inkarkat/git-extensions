@@ -1,5 +1,20 @@
 #!/bin/bash
 
+printUsage()
+{
+    cat <<HELPTEXT
+Print the current ref in a format that can later be returned to via "git
+checkout". So this isn't simply a SHA (which would lead to a detached head
+checkout).
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--foo bar] [--] [FILE ...] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+
 git symbolic-ref --short --quiet HEAD 2>/dev/null && exit
 # Add --quiet and suppress stderr so that a potential "unknown switch" error
 # message isn't shown here. (It will when we retry next.)

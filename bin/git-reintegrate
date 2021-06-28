@@ -21,7 +21,7 @@ HELPTEXTCHECK
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[...] -c|--command "CHECK-COMMANDLINE" [-c ...]'
     echo
-    printf 'Usage: echo CHECK-COMMANDLINES | %q %s\n' "$(basename "$1")" '[...] [--bare|[--initial-status NUM] [--trailing-prompt|--no-trailing-prompt] [--no-output-no-prompt] [--no-output-no-error] [--no-success-no-count|--no-count-on N] [--exit-on-success|--exit-on-failure|--exit-on NUM] [--emulate-prompt] [--worst-status] [--comment COMMENT] [--summarize-failed ERROR-TEXT [--summarize-failed-separator SEP]]] -'
+    printf 'Usage: echo CHECK-COMMANDLINES | %q %s\n' "$(basename "$1")" '[...] [--bare|[--initial-status NUM] [--trailing-prompt|--no-trailing-prompt] [--no-output-no-prompt] [--no-output-no-error] [--emulate-prompt]] [--no-success-no-count|--no-count-on N] [--exit-on-success|--exit-on-failure|--exit-on NUM] [--worst-status] [--comment COMMENT] [--summarize-failed ERROR-TEXT [--summarize-failed-separator SEP]] -'
     echo
     printf 'Usage: %q %s - <<EOF\n  CHECK-COMMANDLINE\n...\nEOF\n' "$(basename "$1")" '[...]'
 }
@@ -46,6 +46,7 @@ isCheckFromStdin=
 typeset -a checkCommandArgs=()
 typeset -a checkCommands=()
 typeset -a bashArgs=()
+runWithCommand=runWithPrompt
 typeset -a runWithPromptArgs=()
 while [ $# -ne 0 ]
 do
@@ -61,7 +62,7 @@ do
 	--ff|--no-ff|--ff-only)
 			hasMergeResolutionArg=t; fastForwardArgs=("$1"); shift;;
 	--command|-c)	checkCommandArgs+=("$1" "$2"); shift; checkCommands+=(${checkCommands:+&&} "$1"); shift;;
-	--bare)		shift; isBare=t;;
+	--bare)		shift; isBare=t; runWithCommand=runWith;;
 	--exit-on-failure)
 			bashArgs+=(-e); runWithPromptArgs+=("$1"); shift;;
 	--trailing-prompt|--no-trailing-prompt|--no-output-no-prompt|--no-output-no-error|--no-success-no-count|--exit-on-success|--emulate-prompt|--worst-status)
@@ -223,10 +224,10 @@ fi
 
 
 if [ "$isCheckFromStdin" ]; then
-    if [ "$isBare" ]; then
+    if [ "$isBare" ] && [ ${#runWithPromptArgs[@]} -eq 0 -o "${#runWithPromptArgs[*]}" = --exit-on-failure ]; then
 	bash "${bashArgs[@]}" -
     else
-	runWithPrompt "${runWithPromptArgs[@]}"
+	${runWithCommand:?} "${runWithPromptArgs[@]}"
     fi
 elif [ ${#checkCommands[@]} -gt 0 ]; then
     eval "${checkCommands[@]}"

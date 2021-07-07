@@ -7,15 +7,27 @@ printUsage()
 Show statistics of GitHub issues and pull requests.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<issue-args> ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--with-oldest-date] [--with-newest-date] [<issue-args> ...] [-?|-h|--help]'
 }
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-esac
+typeset -a issueArgs=()
+isWithOldestDate=
+isWithNewestDate=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)		shift; printUsage "$0"; exit 0;;
+	--with-oldest-date)	shift; isWithOldestDate=t;;
+	--with-newest-date)	shift; isWithNewestDate=t;;
+	--)			issueArgs+=("$1"); break;;
+	*)			issueArgs+=("$1"); shift;;
+    esac
+done
 
 
-exec hub-cr --format '%au %as%n' "$@" | awk \
+exec hub-cr --format '%ct %au %as%n' "${issueArgs[@]}" "$@" | awk \
     -F ',? +' \
+    -v "isWithOldestDate=$isWithOldestDate" \
+    -v "isWithNewestDate=$isWithNewestDate" \
     -v "me=$(git me-in-github)" \
 '
 function join(array, start, end, sep,    result, i)
@@ -61,8 +73,19 @@ function stats(what, count, mineCount, assignedCount, assignedToUsCount, assigne
 	(aCnt ? " (" join(additionals, 0, --aCnt, ", ") ")" : "") \
     )
 }
+function recordDates(what) {
+    if (oldestDate[what] == "") oldestDate[what] = 2147483647
+    if (newestDate[what] == "") newestDate[what] = 0
+
+    if ($2 < oldestDate[what]) oldestDate[what] = $2
+    if ($2 > newestDate[what]) newestDate[what] = $2
+}
+function printDates(what) {
+    if (isWithOldestDate) printf("@%d\t", oldestDate[what])
+    if (isWithNewestDate) printf("@%d\t", newestDate[what])
+}
 function isAssignedAlsoToMe(otherAssignees, coAssignees,     i) {
-    for (i = 3; i <= NF; i++) {
+    for (i = 4; i <= NF; i++) {
 	if ($i == me && NF > 3) {
 	    recordAssignees(coAssignees)
 	    return 1
@@ -72,18 +95,19 @@ function isAssignedAlsoToMe(otherAssignees, coAssignees,     i) {
     return 0
 }
 function isAssignedOnlyToMe(    i) {
-    return (NF == 3 && $3 == me)
+    return (NF == 4 && $4 == me)
 }
 function recordAssignees(assignees) {
-    for (i = 3; i <= NF; i++) {
+    for (i = 4; i <= NF; i++) {
 	assignees[$i] = 1
     }
 }
 
 $1 == "pull" {
     pullCnt += 1
-    if ($2 == me) pullMineCnt+=1
-    if ($3) {
+    recordDates("pull request")
+    if ($3 == me) pullMineCnt+=1
+    if ($4) {
 	pullAssignCnt += 1
 	pullToUsCnt += isAssignedAlsoToMe(pullOtherAssignees, pullCoAssignees)
 	pullToMeCnt += isAssignedOnlyToMe()
@@ -91,22 +115,22 @@ $1 == "pull" {
 }
 $1 == "issue" {
     issueCnt += 1
-    if ($2 == me) issueMineCnt+=1
-    if ($3) {
+    recordDates("issue")
+    if ($3 == me) issueMineCnt+=1
+    if ($4) {
 	issueAssignCnt += 1
 	issueToUsCnt += isAssignedAlsoToMe(issueOtherAssignees, issueCoAssignees)
 	issueToMeCnt += isAssignedOnlyToMe()
     }
 }
 END {
-    if (issueCnt) stat[typeCnt++] = stats("issue", issueCnt, issueMineCnt, issueAssignCnt, issueToUsCnt, issueToMeCnt, issueOtherAssignees, issueCoAssignees)
-    if (pullCnt)  stat[typeCnt++] = stats("pull request", pullCnt, pullMineCnt, pullAssignCnt, pullToUsCnt, pullToMeCnt, pullOtherAssignees, pullCoAssignees)
-
-    if (typeCnt) {
-	for (t = 0; t < typeCnt; t++) {
-	    printf("%s%s", (t ? ", " : ""), stat[t])
-	}
-	printf "\n"
+    if (issueCnt) {
+	printDates("issue")
+	print stats("issue", issueCnt, issueMineCnt, issueAssignCnt, issueToUsCnt, issueToMeCnt, issueOtherAssignees, issueCoAssignees)
+    }
+    if (pullCnt) {
+	printDates("pull request")
+	print stats("pull request", pullCnt, pullMineCnt, pullAssignCnt, pullToUsCnt, pullToMeCnt, pullOtherAssignees, pullCoAssignees)
     }
 }
 '

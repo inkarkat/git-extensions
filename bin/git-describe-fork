@@ -101,23 +101,23 @@ showCommit()
 	    url)
 		# DWIM: Link to individual origin commit(s), but upstream commit log.
 		local view=commits; [ -n "$endCommit" ] && view=commit
-		GITLHURL_VIEW="$view" git-lhurl "$remote" ${endCommit:---max-count 1 }${endCommit:+..}"${commit}"
+		GITLHURL_VIEW="$view" git-lhurl "$remote" --first-parent ${endCommit:---max-count 1 }${endCommit:+..}"${commit}"
 		;;
 	    url1)
 		# DWIM: Link to a single individual origin commit, or commit log
 		# if more than one.
 		local view=commits; [ -n "$endCommit" -a $originCommitDelta -eq 1 ] && view=commit
-		GITLHURL_VIEW="$view" git-lhurl "$remote" --max-count 1 "${commit}"
+		GITLHURL_VIEW="$view" git-lhurl "$remote" --first-parent --max-count 1 "${commit}"
 		;;
 	    *)
-		git-wrapper --no-pager "$renderer" ${endCommit:---max-count 1 }${endCommit:+..}"${commit}"
+		git-wrapper --no-pager "$renderer" --first-parent ${endCommit:---max-count 1 }${endCommit:+..}"${commit}"
 		;;
 	esac
     done
 }
 
 firstUpstreamCommit="$(getFirstUpstreamCommit "${originBranch}${backlog}")" || exit $?
-originCommitDelta="$(gitLh "${firstUpstreamCommit}..${originBranch}${backlog}" 2>/dev/null | wc -l)" || exit $?
+originCommitDelta="$(gitLh --first-parent "${firstUpstreamCommit}..${originBranch}${backlog}" 2>/dev/null | wc -l)" || exit $?
 originCommitDeltaPlural=s; [ $originCommitDelta -eq 1 ] && originCommitDeltaPlural=
 if [ $originCommitDelta -eq 0 ]; then
     showCommit "$origin" "${originBranch}${backlog}" "$firstUpstreamCommit"

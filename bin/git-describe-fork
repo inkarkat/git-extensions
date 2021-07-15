@@ -7,18 +7,20 @@ Show relation of my tracking GitHub clone in ORIGIN to the UPSTREAM GitHub
 repository.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--origin ORIGIN] [--upstream UPSTREAM] [--short[=number]] [<commit-ish>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--origin ORIGIN] [--upstream UPSTREAM] [--as hash|l[1]|lg[1]|log[1]|show [--as ...]] [--short[=number]] [<commit-ish>...] [-?|-h|--help]'
 }
 
 origin=origin
 upstream=upstream
 typeset -a gitRevParseArgs=()
+typeset -a renderers=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--origin)	shift; origin="$1"; shift;;
 	--upstream)	shift; upstream="$1"; shift;;
+	--as)		shift; renderers+=("$1"); shift;;
 	--short|--short=*)
 			gitRevParseArgs+=("$1"); shift;;
 	--)		shift; break;;
@@ -76,10 +78,29 @@ showCommit()
     local commit="${1:?}"; shift
     local endCommit="$1"; shift
 
-    local format='%s in %s'; [ -n "$endCommit" ] && format="${format} " || format=" ${format}\\n"
-    printf "$format" \
-	"$(git rev-parse "${gitRevParseArgs[@]}" "$commit")" \
-	"$remote"
+    # Add newline after "is N commits ahead of".
+    [ "${#renderers[*]}" != 'hash' ] && [ -z "$endCommit" ] && echo
+
+    local renderer; for renderer in "${renderers[@]:-hash}"
+    do
+	case "$renderer" in
+	    hash)
+		local format='%s in %s'
+		if [ ${#renderers[@]} -gt 1 ]; then
+		    format="${format}\\n"
+		else
+		    [ -n "$endCommit" ] && format="${format} " || format=" ${format}\\n"
+		fi
+
+		printf "$format" \
+		    "$(git rev-parse "${gitRevParseArgs[@]}" "$commit")" \
+		    "$remote"
+		;;
+	    *)
+		git-wrapper --no-pager "$renderer" ${endCommit:---max-count 1 }${endCommit:+..}"${commit}"
+		;;
+	esac
+    done
 }
 
 firstUpstreamCommit="$(getFirstUpstreamCommit "$originBranch")" || exit $?

@@ -119,12 +119,16 @@ showCommit()
 firstUpstreamCommit="$(getFirstUpstreamCommit "${originBranch}${backlog}")" || exit $?
 originCommitDelta="$(gitLh "${firstUpstreamCommit}..${originBranch}${backlog}" 2>/dev/null | wc -l)" || exit $?
 originCommitDeltaPlural=s; [ $originCommitDelta -eq 1 ] && originCommitDeltaPlural=
+if [ $originCommitDelta -eq 0 ]; then
+    showCommit "$origin" "${originBranch}${backlog}" "$firstUpstreamCommit"
+    printf 'is up-to-date with %s\n' "$upstream"
+else
+    showCommit "$origin" "${originBranch}${backlog}" "$firstUpstreamCommit"
+    printf 'is %d commit%s ahead of' "$originCommitDelta" "$originCommitDeltaPlural"
+    showCommit "$upstream" "$firstUpstreamCommit"
+fi
+
 localCommitDelta="$(gitLh "${originBranch}${backlog}..${commit}" 2>/dev/null | wc -l)" || exit $?
-
-showCommit "$origin" "${originBranch}${backlog}" "$firstUpstreamCommit"
-printf 'is %d commit%s ahead of' "$originCommitDelta" "$originCommitDeltaPlural"
-showCommit "$upstream" "$firstUpstreamCommit"
-
 if [ $localCommitDelta -gt 0 ]; then
     localCommitDeltaPlural=s; [ $localCommitDelta -eq 1 ] && localCommitDeltaPlural=
     localIsBranch=; git-existsbr "$commit" && localIsBranch=branch

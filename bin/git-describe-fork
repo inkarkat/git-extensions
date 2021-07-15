@@ -1,0 +1,87 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Show relation of my tracking GitHub clone in ORIGIN to the UPSTREAM GitHub
+repository.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--origin ORIGIN] [--upstream UPSTREAM] [<commit-ish>...] [-?|-h|--help]'
+}
+
+origin=origin
+upstream=upstream
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--origin)	shift; origin="$1"; shift;;
+	--upstream)	shift; upstream="$1"; shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+case $# in
+    0)	commit=HEAD;;
+    1)	commit="$1"; shift;;
+    *)	printUsage "$0" >&2
+	exit 2
+	;;
+esac
+
+if ! originBranch="$(git-tracks "$commit" 2>/dev/null)"; then
+    originBranch="${origin}/$(git name-rev --name-only "$commit")"
+    if ! git-existsbr "$originBranch"; then
+	printf >&2 'ERROR: %s does not track a branch and no corresponding %s branch exists.\n' "$commit" "$origin"
+	exit 1
+    fi
+fi
+if [ "${originBranch%%/*}" != "$origin" ]; then
+    otherBranch="${originBranch%%/*}"
+    originBranch="${origin}/${originBranch#*/}"
+    if ! git-existsbr "$originBranch"; then
+	printf >&2 'ERROR: %s tracks %s and no corresponding %s branch exists.\n' "$commit" "$otherBranch" "$origin"
+	exit 1
+    fi
+fi
+
+gitLh()
+{
+    git log --pretty=tformat:%H "$@"
+}
+
+getFirstUpstreamCommit()
+{
+    local originBranch="${1:?}"; shift
+    local originCommit; while IFS=$'\n' read -r originCommit
+    do
+	if git branch --remotes --contains "$originCommit" | grep --quiet "^[[:space:]]*${upstream}/"; then
+	    printf '%s\n' "$originCommit"
+	    return 0
+	fi
+    done < <(gitLh "$originBranch" 2>/dev/null)
+
+    printf >&2 'ERROR: Could not find an upsteam commit on which %s is based on.\n' "$originBranch"
+    exit 1
+}
+
+firstUpstreamCommit="$(getFirstUpstreamCommit "$originBranch")" || exit $?
+originCommitDelta="$(gitLh "${firstUpstreamCommit}..${originBranch}" 2>/dev/null | wc -l)" || exit $?
+originCommitDeltaPlural=s; [ $originCommitDelta -eq 1 ] && originCommitDeltaPlural=
+localCommitDelta="$(gitLh "${originBranch}..${commit}" 2>/dev/null | wc -l)" || exit $?
+
+printf '%s in %s is %d commit%s ahead of %s in %s.\n' \
+    "$(git rev-parse "${gitRevParseArgs[@]}" "$originBranch")" \
+    "$origin" \
+    "$originCommitDelta" "$originCommitDeltaPlural" \
+    "$firstUpstreamCommit" \
+    "$upstream"
+
+if [ $localCommitDelta -gt 0 ]; then
+    localCommitDeltaPlural=s; [ $localCommitDelta -eq 1 ] && localCommitDeltaPlural=
+    localIsBranch=; git-existsbr "$commit" && localIsBranch=branch
+
+    printf >&2 "Warning: %s is %d commit%s behind the local %s${localIsBranch:+ }${localIsBranch}.\\n" "$originBranch" "$localCommitDelta" "$localCommitDeltaPlural" "$commit"
+fi

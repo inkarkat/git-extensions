@@ -29,6 +29,7 @@ do
 	*)		break;;
     esac
 done
+[ ${#renderers[@]} -eq 0 ] && renderers=('hash')
 case $# in
     0)	commit=HEAD; backlog=;;
     1)	commit="${1%%+(^)}"; commit="${commit%~+([0-9])}"; backlog="${1#"$commit"}"; shift;;
@@ -80,9 +81,9 @@ showCommit()
     local endCommit="$1"; shift
 
     # Add newline after "is N commits ahead of".
-    [ "${#renderers[*]}" != 'hash' ] && [ -z "$endCommit" ] && echo
+    [ "${renderers[*]}" != 'hash' ] && [ -z "$endCommit" ] && echo
 
-    local renderer; for renderer in "${renderers[@]:-hash}"
+    local renderer; for renderer in "${renderers[@]}"
     do
 	case "$renderer" in
 	    hash)

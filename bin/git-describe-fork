@@ -1,4 +1,5 @@
 #!/bin/bash
+shopt -qs extglob
 
 printUsage()
 {
@@ -29,8 +30,8 @@ do
     esac
 done
 case $# in
-    0)	commit=HEAD;;
-    1)	commit="$1"; shift;;
+    0)	commit=HEAD; backlog=;;
+    1)	commit="${1%%+(^)}"; commit="${commit%~+([0-9])}"; backlog="${1#"$commit"}"; shift;;
     *)	printUsage "$0" >&2
 	exit 2
 	;;
@@ -59,16 +60,16 @@ gitLh()
 
 getFirstUpstreamCommit()
 {
-    local originBranch="${1:?}"; shift
+    local originRev="${1:?}"; shift
     local originCommit; while IFS=$'\n' read -r originCommit
     do
 	if git branch --remotes --contains "$originCommit" | grep --quiet "^[[:space:]]*${upstream}/"; then
 	    printf '%s\n' "$originCommit"
 	    return 0
 	fi
-    done < <(gitLh "$originBranch" 2>/dev/null)
+    done < <(gitLh "$originRev" 2>/dev/null)
 
-    printf >&2 'ERROR: Could not find an upsteam commit on which %s is based on.\n' "$originBranch"
+    printf >&2 'ERROR: Could not find an upsteam commit on which %s is based on.\n' "$originRev"
     exit 1
 }
 
@@ -114,12 +115,12 @@ showCommit()
     done
 }
 
-firstUpstreamCommit="$(getFirstUpstreamCommit "$originBranch")" || exit $?
-originCommitDelta="$(gitLh "${firstUpstreamCommit}..${originBranch}" 2>/dev/null | wc -l)" || exit $?
+firstUpstreamCommit="$(getFirstUpstreamCommit "${originBranch}${backlog}")" || exit $?
+originCommitDelta="$(gitLh "${firstUpstreamCommit}..${originBranch}${backlog}" 2>/dev/null | wc -l)" || exit $?
 originCommitDeltaPlural=s; [ $originCommitDelta -eq 1 ] && originCommitDeltaPlural=
-localCommitDelta="$(gitLh "${originBranch}..${commit}" 2>/dev/null | wc -l)" || exit $?
+localCommitDelta="$(gitLh "${originBranch}${backlog}..${commit}" 2>/dev/null | wc -l)" || exit $?
 
-showCommit "$origin" "$originBranch" "$firstUpstreamCommit"
+showCommit "$origin" "${originBranch}${backlog}" "$firstUpstreamCommit"
 printf 'is %d commit%s ahead of' "$originCommitDelta" "$originCommitDeltaPlural"
 showCommit "$upstream" "$firstUpstreamCommit"
 
@@ -127,5 +128,5 @@ if [ $localCommitDelta -gt 0 ]; then
     localCommitDeltaPlural=s; [ $localCommitDelta -eq 1 ] && localCommitDeltaPlural=
     localIsBranch=; git-existsbr "$commit" && localIsBranch=branch
 
-    printf >&2 "Warning: %s is %d commit%s behind the local %s${localIsBranch:+ }${localIsBranch}.\\n" "$originBranch" "$localCommitDelta" "$localCommitDeltaPlural" "$commit"
+    printf >&2 "Warning: %s is %d commit%s behind the local %s${localIsBranch:+ }${localIsBranch}.\\n" "${originBranch}${backlog}" "$localCommitDelta" "$localCommitDeltaPlural" "$commit"
 fi

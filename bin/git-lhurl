@@ -1,13 +1,15 @@
 #!/bin/bash
 set -o pipefail
 
+: ${GITLHURL_VIEW=commit}
+
 printUsage()
 {
     cat <<HELPTEXT
 Log URLs to ${remote:-REMOTE} of all found commits.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]"
+    printf 'Usage: [GITLHURL_VIEW=commit|commits|tree] %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]"
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
@@ -62,6 +64,7 @@ git log --pretty=tformat:%H "$@" | \
 	-v pathSuffix="$GIT_LHURL_PATH_SUFFIX" \
 	-v filePrefix="$GIT_LHURL_FILE_PREFIX" \
 	-v fileSuffix="$GIT_LHURL_FILE_SUFFIX" \
+	-v "view=${GITLHURL_VIEW//\\/\\\\}" \
 '
 function basename( filespec ) {
     sub(".*/", "", filespec)
@@ -74,7 +77,7 @@ function dirname( filespec ) {
 }
 
 /^$/{ next; }
-/^[0-9a-f]+$/{ $0 = urlPrefix url "/commit/" urlSuffix hashPrefix $0 hashSuffix; print; next; }
+/^[0-9a-f]+$/{ $0 = urlPrefix url "/" view "/" urlSuffix hashPrefix $0 hashSuffix; print; next; }
 {
     sub(/^\S*\s+/, "")
     filespecs[$0] = 1

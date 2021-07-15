@@ -7,17 +7,20 @@ Show relation of my tracking GitHub clone in ORIGIN to the UPSTREAM GitHub
 repository.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--origin ORIGIN] [--upstream UPSTREAM] [<commit-ish>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--origin ORIGIN] [--upstream UPSTREAM] [--short[=number]] [<commit-ish>...] [-?|-h|--help]'
 }
 
 origin=origin
 upstream=upstream
+typeset -a gitRevParseArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--origin)	shift; origin="$1"; shift;;
 	--upstream)	shift; upstream="$1"; shift;;
+	--short|--short=*)
+			gitRevParseArgs+=("$1"); shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -67,17 +70,26 @@ getFirstUpstreamCommit()
     exit 1
 }
 
+showCommit()
+{
+    local remote="${1:?}"; shift
+    local commit="${1:?}"; shift
+    local endCommit="$1"; shift
+
+    local format='%s in %s'; [ -n "$endCommit" ] && format="${format} " || format=" ${format}\\n"
+    printf "$format" \
+	"$(git rev-parse "${gitRevParseArgs[@]}" "$commit")" \
+	"$remote"
+}
+
 firstUpstreamCommit="$(getFirstUpstreamCommit "$originBranch")" || exit $?
 originCommitDelta="$(gitLh "${firstUpstreamCommit}..${originBranch}" 2>/dev/null | wc -l)" || exit $?
 originCommitDeltaPlural=s; [ $originCommitDelta -eq 1 ] && originCommitDeltaPlural=
 localCommitDelta="$(gitLh "${originBranch}..${commit}" 2>/dev/null | wc -l)" || exit $?
 
-printf '%s in %s is %d commit%s ahead of %s in %s.\n' \
-    "$(git rev-parse "${gitRevParseArgs[@]}" "$originBranch")" \
-    "$origin" \
-    "$originCommitDelta" "$originCommitDeltaPlural" \
-    "$firstUpstreamCommit" \
-    "$upstream"
+showCommit "$origin" "$originBranch" "$firstUpstreamCommit"
+printf 'is %d commit%s ahead of' "$originCommitDelta" "$originCommitDeltaPlural"
+showCommit "$upstream" "$firstUpstreamCommit"
 
 if [ $localCommitDelta -gt 0 ]; then
     localCommitDeltaPlural=s; [ $localCommitDelta -eq 1 ] && localCommitDeltaPlural=

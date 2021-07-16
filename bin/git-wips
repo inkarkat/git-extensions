@@ -1,6 +1,8 @@
 #!/bin/bash
 set -o noglob
 
+: ${GITWIPS_DOWNSTREAM_BRANCHES_IGNORE_PATTERN='stable'}
+
 printUsage()
 {
     cat <<HELPTEXT
@@ -82,7 +84,7 @@ findDownstreamBranches()
     local originBranch
     local IFS=$'\n'
     local status=1
-    for originBranch in $(git obr | sed -e 's/^ \+//')
+    for originBranch in $(git obr | sed -e 's/^ \+//' ${GITWIPS_DOWNSTREAM_BRANCHES_IGNORE_PATTERN:+-e "/^origin\\/\\(${GITWIPS_DOWNSTREAM_BRANCHES_IGNORE_PATTERN}\\)\$/d"})
     do
 	if ! git existsbr "${originBranch/#origin/upstream}"; then
 	    printf 'origin-only: %s\n' "${originBranch/#origin\//}"

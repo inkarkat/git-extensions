@@ -115,6 +115,19 @@ alias vimgitlll='commandOnSelected --command '"${_aliases_vim}"' --generator "gi
 # sgitshowfiles [<since>..<until>] [<path> ...] [-- SELECTIONs ...]
 #			Print selected filespecs modified in passed commit or
 #			commit range.
+# sgitshowfilesmine [<path> ...] [-- SELECTIONs ...]
+#			Print selected filespecs modified by me in my last commit.
+# sgitshowfilesteam [<path> ...] [-- SELECTIONs ...]
+#			Print selected filespecs modified by my team in our last
+#			commit.
+# sgitbymeshowfiles [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+#			Print selected filespecs modified by me in the last /
+#			passed -r <commit> and directly preceding, as long as
+#			they also were by me.
+# sgitbyteamshowfiles [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+#			Print selected filespecs modified by my team in the last
+#			/ passed -r <commit> and directly preceding, as long as
+#			they also were by them.
 # sgitshowfilesfind [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
 #			Print selected filespecs modified in passed commit or
 #			commit range where text or /regexp/ was added or
@@ -123,13 +136,30 @@ alias vimgitlll='commandOnSelected --command '"${_aliases_vim}"' --generator "gi
 #			Print selected filespecs modified in passed commit or
 #			commit range where lines were modified where text or
 #			/regexp/ appears.
-alias        sgitshowfiles='commandOnSelected --generator "git-showfiles" --entries'
-alias    sgitshowfilesfind='commandOnSelected --generator "git-showfilesfind" --entries'
-alias sgitshowfilestouched='commandOnSelected --generator "git-showfilestouched" --entries'
+alias        sgitshowfiles='commandOnSelected --generator "git showfiles" --entries'
+alias    sgitshowfilesmine='commandOnSelected --generator "git showfilesmine" --entries'
+alias    sgitshowfilesteam='commandOnSelected --generator "git showfilesteam" --entries'
+alias    sgitbymeshowfiles='commandOnSelected --generator "git bymeshowfiles" --entries'
+alias  sgitbyteamshowfiles='commandOnSelected --generator "git byteamshowfiles" --entries'
+alias    sgitshowfilesfind='commandOnSelected --generator "git showfilesfind" --entries'
+alias sgitshowfilestouched='commandOnSelected --generator "git showfilestouched" --entries'
 
 # ygitshowfiles [<since>..<until>] [<path> ...] [-- SELECTIONs ...]
 #			Yank selected filespecs modified in passed commit or
 #			commit range.
+# ygitshowfilesmine [<path> ...] [-- SELECTIONs ...]
+#			Yank selected filespecs modified by me in my last commit.
+# ygitshowfilesteam [<path> ...] [-- SELECTIONs ...]
+#			Yank selected filespecs modified by my team in our last
+#			commit.
+# ygitbymeshowfiles [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+#			Yank selected filespecs modified by me in the last /
+#			passed -r <commit> and directly preceding, as long as
+#			they also were by me.
+# ygitbyteamshowfiles [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+#			Yank selected filespecs modified by my team in the last
+#			/ passed -r <commit> and directly preceding, as long as
+#			they also were by them.
 # ygitshowfilesfind [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
 #			Yank selected filespecs modified in passed commit or
 #			commit range where text or /regexp/ was added or
@@ -138,13 +168,31 @@ alias sgitshowfilestouched='commandOnSelected --generator "git-showfilestouched"
 #			Yank selected filespecs modified in passed commit or
 #			commit range where lines were modified where text or
 #			/regexp/ appears.
-alias        ygitshowfiles='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git-showfiles" --entries'
-alias    ygitshowfilesfind='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git-showfilesfind" --entries'
-alias ygitshowfilestouched='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git-showfilestouched" --entries'
+alias        ygitshowfiles='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git showfiles" --entries'
+alias    ygitshowfilesmine='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git showfilesmine" --entries'
+alias    ygitshowfilesteam='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git showfilesteam" --entries'
+alias    ygitbymeshowfiles='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git bymeshowfiles" --entries'
+alias  ygitbyteamshowfiles='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git byteamshowfiles" --entries'
+alias    ygitshowfilesfind='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git showfilesfind" --entries'
+alias ygitshowfilestouched='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git showfilestouched" --entries'
 
 # vgitshowfiles [<since>..<until>] [<path> ...] [-- SELECTIONs ...]
 #			Edit selected files modified in passed commit or commit
 #			range in GVIM.
+# vgitshowfilesmine [<path> ...] [-- SELECTIONs ...]
+#			Edit selected filespecs modified by me in my last commit
+#			in GVIM.
+# vgitshowfilesteam [<path> ...] [-- SELECTIONs ...]
+#			Edit selected filespecs modified by my team in our last
+#			commit in GVIM.
+# vgitbymeshowfiles [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+#			Edit selected filespecs modified by me in the last /
+#			passed -r <commit> and directly preceding, as long as
+#			they also were by me in GVIM.
+# vgitbyteamshowfiles [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+#			Edit selected filespecs modified by my team in the last
+#			/ passed -r <commit> and directly preceding, as long as
+#			they also were by them in GVIM.
 # vgitshowfilesfind [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
 #			Edit selected files modified in passed commit or commit
 #			range where text or /regexp/ was added or removed in
@@ -153,13 +201,31 @@ alias ygitshowfilestouched='commandOnSelected --command "printf %s\\\\n {} | cli
 #			Edit selected files modified in passed commit or commit
 #			range where lines were modified where text or /regexp/
 #			appears in GVIM.
-alias        vgitshowfiles='commandOnSelected --command SendToGVIM --generator "git-showfiles" --entries'
-alias    vgitshowfilesfind='commandOnSelected --command SendToGVIM --generator "git-showfilesfind" --entries'
-alias vgitshowfilestouched='commandOnSelected --command SendToGVIM --generator "git-showfilestouched" --entries'
+alias        vgitshowfiles='commandOnSelected --command SendToGVIM --generator "git showfiles" --entries'
+alias    vgitshowfilesmine='commandOnSelected --command SendToGVIM --generator "git showfilesmine" --entries'
+alias    vgitshowfilesteam='commandOnSelected --command SendToGVIM --generator "git showfilesteam" --entries'
+alias    vgitbymeshowfiles='commandOnSelected --command SendToGVIM --generator "git bymeshowfiles" --entries'
+alias  vgitbyteamshowfiles='commandOnSelected --command SendToGVIM --generator "git byteamshowfiles" --entries'
+alias    vgitshowfilesfind='commandOnSelected --command SendToGVIM --generator "git showfilesfind" --entries'
+alias vgitshowfilestouched='commandOnSelected --command SendToGVIM --generator "git showfilestouched" --entries'
 
 # vimgitshowfiles [<since>..<until>] [<path> ...] [-- SELECTIONs ...]
 #			Edit selected files modified in passed commit or commit
 #			range in Vim.
+# vimgitshowfilesmine [<path> ...] [-- SELECTIONs ...]
+#			Edit selected filespecs modified by me in my last commit
+#			in Vim.
+# vimgitshowfilesteam [<path> ...] [-- SELECTIONs ...]
+#			Edit selected filespecs modified by my team in our last
+#			commit in Vim.
+# vimgitbymeshowfiles [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+#			Edit selected filespecs modified by me in the last /
+#			passed -r <commit> and directly preceding, as long as
+#			they also were by me in Vim.
+# vimgitbyteamshowfiles [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+#			Edit selected filespecs modified by my team in the last
+#			/ passed -r <commit> and directly preceding, as long as
+#			they also were by them in Vim.
 # vimgitshowfilesfind [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
 #			Edit selected files modified in passed commit or commit
 #			range where text or /regexp/ was added or removed in
@@ -168,9 +234,10 @@ alias vgitshowfilestouched='commandOnSelected --command SendToGVIM --generator "
 #			Edit selected files modified in passed commit or commit
 #			range where lines were modified where text or /regexp/
 #			appears in Vim.
-alias        vimgitshowfiles='commandOnSelected --command '"${_aliases_vim}"' --generator "git-showfiles" --entries'
-alias    vimgitshowfilesfind='commandOnSelected --command '"${_aliases_vim}"' --generator "git-showfilesfind" --entries'
-alias vimgitshowfilestouched='commandOnSelected --command '"${_aliases_vim}"' --generator "git-showfilestouched" --entries'
+alias        vimgitshowfiles='commandOnSelected --command '"${_aliases_vim}"' --generator "git showfiles" --entries'
+alias    vimgitshowfilesmine='commandOnSelected --command '"${_aliases_vim}"' --generator "git showfilesmine" --entries'
+alias    vimgitshowfilesfind='commandOnSelected --command '"${_aliases_vim}"' --generator "git showfilesfind" --entries'
+alias vimgitshowfilestouched='commandOnSelected --command '"${_aliases_vim}"' --generator "git showfilestouched" --entries'
 
 
 

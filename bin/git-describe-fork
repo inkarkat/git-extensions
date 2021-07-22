@@ -8,7 +8,7 @@ Show relation of my tracking GitHub clone in ORIGIN to the UPSTREAM GitHub
 repository.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--origin ORIGIN] [--upstream UPSTREAM] [--as hash|url[1]|l[1]|lg[1]|log[1]|show [--as ...]] [--short[=number]] [<commit-ish>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--origin ORIGIN] [--upstream UPSTREAM] [--as [(ORIGIN|UPSTREAM)-](hash|url[1]|l[1]|lg[1]|log[1]|show) [--as ...]] [--short[=number]] [<commit-ish>...] [-?|-h|--help]'
 }
 
 origin=origin
@@ -85,6 +85,23 @@ showCommit()
 
     local renderer; for renderer in "${renderers[@]}"
     do
+	case "$renderer" in
+	    ${origin}-*)
+		if [ -n "$endCommit" ]; then
+		    renderer="${renderer#${origin}-}"
+		else
+		    continue
+		fi
+		;;
+	    ${upstream}-*)
+		if [ -n "$endCommit" ]; then
+		    continue
+		else
+		    renderer="${renderer#${upstream}-}"
+		fi
+		;;
+	esac
+
 	case "$renderer" in
 	    hash)
 		local format='%s in %s'

@@ -82,6 +82,20 @@ alias  ygitls='commandOnSelected --command "printf %s\\\\n {} | clipboard" --gen
 alias ygitlsr='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git-ls --recursive --only-files" --entries'
 alias ygitlll='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git-lll --only-files" --entries'
 
+# lgitls [DIR ...] [-- SELECTIONs ...]
+#			View selected files that are under source control in the
+#			passed / current directory with the pager.
+# lgitlsr [DIR ...] [-- SELECTIONs ...]
+#			View selected files that are under source control in the
+#			passed / current directory and below with the pager.
+# lgitlll [-r|--recursive] [DIR ...] [-- SELECTIONs ...]
+#			View selected files that are under source control with
+#			relative paths [to DIR] from the working copy's root
+#			with the pager.
+alias  lgitls='commandOnSelected --command "${PAGER:-less}" --generator "git-ls --only-files" --entries'
+alias lgitlsr='commandOnSelected --command "${PAGER:-less}" --generator "git-ls --recursive --only-files" --entries'
+alias lgitlll='commandOnSelected --command "${PAGER:-less}" --generator "git-lll --only-files" --entries'
+
 # vgitls [DIR ...] [-- SELECTIONs ...]
 #			Edit selected files that are under source control in the
 #			passed / current directory in GVIM.
@@ -176,6 +190,39 @@ alias  ygitbyteamshowfiles='commandOnSelected --command "printf %s\\\\n {} | cli
 alias    ygitshowfilesfind='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git showfilesfind" --entries'
 alias ygitshowfilestouched='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git showfilestouched" --entries'
 
+# lgitshowfiles [<since>..<until>] [<path> ...] [-- SELECTIONs ...]
+#			View selected files modified in passed commit or commit
+#			range with the pager.
+# lgitshowfilesmine [<path> ...] [-- SELECTIONs ...]
+#			View selected filespecs modified by me in my last commit
+#			with the pager.
+# lgitshowfilesteam [<path> ...] [-- SELECTIONs ...]
+#			View selected filespecs modified by my team in our last
+#			commit with the pager.
+# lgitbymeshowfiles [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+#			View selected filespecs modified by me in the last /
+#			passed -r <commit> and directly preceding, as long as
+#			they also were by me with the pager.
+# lgitbyteamshowfiles [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+#			View selected filespecs modified by my team in the last
+#			/ passed -r <commit> and directly preceding, as long as
+#			they also were by them with the pager.
+# lgitshowfilesfind [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+#			View selected files modified in passed commit or commit
+#			range where text or /regexp/ was added or removed with
+#			the pager.
+# lgitshowfilestouched [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+#			View selected files modified in passed commit or commit
+#			range where lines were modified where text or /regexp/
+#			appears with the pager.
+alias        lgitshowfiles='commandOnSelected --command "${PAGER:-less}" --generator "git showfiles" --entries'
+alias    lgitshowfilesmine='commandOnSelected --command "${PAGER:-less}" --generator "git showfilesmine" --entries'
+alias    lgitshowfilesteam='commandOnSelected --command "${PAGER:-less}" --generator "git showfilesteam" --entries'
+alias    lgitbymeshowfiles='commandOnSelected --command "${PAGER:-less}" --generator "git bymeshowfiles" --entries'
+alias  lgitbyteamshowfiles='commandOnSelected --command "${PAGER:-less}" --generator "git byteamshowfiles" --entries'
+alias    lgitshowfilesfind='commandOnSelected --command "${PAGER:-less}" --generator "git showfilesfind" --entries'
+alias lgitshowfilestouched='commandOnSelected --command "${PAGER:-less}" --generator "git showfilestouched" --entries'
+
 # vgitshowfiles [<since>..<until>] [<path> ...] [-- SELECTIONs ...]
 #			Edit selected files modified in passed commit or commit
 #			range in GVIM.
@@ -249,6 +296,10 @@ alias sgitconflicts='commandOnSelected --generator "git-conflicts" --entries'
 #			Yank selected filespecs with conflicts.
 alias ygitconflicts='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git-conflicts" --entries'
 
+# lgitconflicts [DIR ...] [-- SELECTIONs ...]
+#			View selected files with conflicts with the pager.
+alias lgitconflicts='commandOnSelected --command "${PAGER:-less}" --generator "git-conflicts" --entries'
+
 # vgitconflicts [DIR ...] [-- SELECTIONs ...]
 #			Edit selected files with conflicts in GVIM.
 alias vgitconflicts='commandOnSelected --command SendToGVIM --generator "git-conflicts" --entries'
@@ -269,6 +320,11 @@ alias sgitlsprivate='commandOnSelected --generator "git-lsprivate --long --ignor
 #			in the current directory and below.
 alias ygitlsprivate='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git-lsprivate --long --ignore-empty-directories" --entries'
 
+# lgitlsprivate [-X|--orphaned-submodules] [-x] [<path>] [-- SELECTIONs ...]
+#			View selected files that are under source control in the
+#			current directory and below with the pager.
+alias lgitlsprivate='commandOnSelected --command "${PAGER:-less}" --generator "git-lsprivate --long --ignore-empty-directories" --entries'
+
 # vgitlsprivate [-X|--orphaned-submodules] [-x] [<path>] [-- SELECTIONs ...]
 #			Edit selected files that are under source control in the
 #			current directory and below in GVIM.
@@ -288,6 +344,10 @@ alias sgitstfiles='commandOnSelected --generator "git-stfiles" --entries'
 # ygitstfiles [<path>] [-- SELECTIONs ...] Yank selected changed filespecs.
 alias ygitstfiles='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git-stfiles" --entries'
 
+# lgitstfiles [<path>] [-- SELECTIONs ...]
+#			View selected changed files with the pager.
+alias lgitstfiles='commandOnSelected --command "${PAGER:-less}" --generator "git-stfiles" --entries'
+
 # vgitstfiles [<path>] [-- SELECTIONs ...]
 #			Edit selected changed files in GVIM.
 alias vgitstfiles='commandOnSelected --command SendToGVIM --generator "git-stfiles" --entries'
@@ -305,6 +365,10 @@ alias sgitstifiles='commandOnSelected --generator "git-stifiles" --entries'
 # ygitstifiles [<path>] [-- SELECTIONs ...]
 #			Yank selected staged filespecs.
 alias ygitstifiles='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git-stifiles" --entries'
+
+# lgitstifiles [<path>] [-- SELECTIONs ...]
+#			View selected staged files with the pager.
+alias lgitstifiles='commandOnSelected --command "${PAGER:-less}" --generator "git-stifiles" --entries'
 
 # vgitstifiles [<path>] [-- SELECTIONs ...]
 #			Edit selected staged files in GVIM.
@@ -329,6 +393,14 @@ alias sgitgF='commandOnSelected --generator "git g-f" --entries'
 #			Yank selected filespecs that do not match PATTERN.
 alias ygitgf='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git gf" --entries'
 alias ygitgF='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git g-f" --entries'
+
+# lgitgf [<GREP-OPTIONS> ...] [-e] PATTERN [<pathspec> ...] [-- SELECTIONs ...]
+#			View selected files that match PATTERN with the pager.
+# lgitgF [<GREP-OPTIONS> ...] [-e] PATTERN [<pathspec> ...] [-- SELECTIONs ...]
+#			View selected files that do not match PATTERN with the
+#			pager.
+alias lgitgf='commandOnSelected --command "${PAGER:-less}" --generator "git gf" --entries'
+alias lgitgF='commandOnSelected --command "${PAGER:-less}" --generator "git g-f" --entries'
 
 # vgitgf [<GREP-OPTIONS> ...] [-e] PATTERN [<pathspec> ...] [-- SELECTIONs ...]
 #			Edit selected files that match PATTERN in GVIM.

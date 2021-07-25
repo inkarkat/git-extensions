@@ -7,21 +7,46 @@ Reset HEAD, working copy and index [to <branch>] [<paths>...]. Ensures that the
 current branch isn't dirty.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<branch>] [--] [<paths> ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<branch>] [-?|-h|--help]'
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[CHECKOUT-ARGS ...] [<branch>] [--] <paths> ...'
 }
 
 isForce=
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --force|-f)		shift; isForce=t;;
-esac
+typeset -a gitArgs=()
+typeset -a paths=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--force|-f)	shift; isForce=t;;
+	--)		shift; paths=("$@"); break;;
+	*)		gitArgs+=("$1"); shift;;
+    esac
+done
+# DWIM here: Allow both git wipe FILE1 ... and git wipe <commit> FILE1 ... by
+# checking whether the arguments exist as files.
+if [ ${#paths[@]} -eq 0 ]; then
+    # No files after -- captured yet; need to investigate parsed and
+    # remaining args from behind for files.
+    gitArgs+=("$@")
+    while [ ${#gitArgs[@]} -ne 0 ]
+    do
+	lastArg="${gitArgs[-1]}"
+	[ -e "$lastArg" ] || break
+
+	paths=("$lastArg" "${paths[@]}")
+	gitArgs=("${gitArgs[@]:0:${#gitArgs[@]}-1}")
+    done
+fi
+
 if [ ! "$isForce" ] && [ "$(git diff --shortstat 2>/dev/null | tail -n 1)" ]; then
     echo "Unstaged changes:"
     git status --porcelain | grep -v '^??'
 
     while :
     do
-	</dev/tty read -r -N 1 -p "Discard these changes? (y/n/diff) " choice; echo >/dev/tty
+	</dev/tty read -r -N 1 -p 'Discard these changes? (y/n/diff) ' choice; echo >/dev/tty
 	case "$choice" in
 	    y) break;;
 	    n) exit 1;;
@@ -30,31 +55,13 @@ if [ ! "$isForce" ] && [ "$(git diff --shortstat 2>/dev/null | tail -n 1)" ]; th
     done
 fi
 
-lastArg=; [ $# -gt 0 ] && lastArg=${!#}
-if [ -r "$lastArg" ]; then
+if [ ${#paths[@]} -gt 0 ]; then
     # git reset --hard ... <paths>... is not allowed ("fatal: Cannot do hard reset with paths.")
     # The right command is git checkout HEAD <paths>...
-    # DWIM here: Allow both git wipe FILE1 ... and git wipe <commit> FILE1 ...
-    # by checking whether the arguments exist as files.
-    typeset -a gitArgs=()
-    commitArg=HEAD
-    for arg
-    do
-	# Skip command-line arguments.
-	case "$arg" in
-	    --) break;;
-	    -*)	gitArgs+=("$arg"); shift; continue;;
-	esac
-	if [ ! -r "$arg" ]; then
-	    [ "$arg" = '--' ] || commitArg="$arg"
-	    shift
-	fi
-	break
-    done
-
-    if [ $# -gt 0 ]; then   # Duplicate check; should always be true.
-	exec git checkout "${gitArgs[@]}" "$commitArg" -- "$@"
+    if [ ${#gitArgs[@]} -eq 0 ] || ! git rev-parse --verify --quiet "${gitArgs[-1]}" >/dev/null 2>&1; then
+	gitArgs+=(HEAD)
     fi
+    exec git checkout "${gitArgs[@]}" -- "${paths[@]}"
 fi
 
-exec git reset --hard "$@"
+exec git reset --hard "${gitArgs[@]}"

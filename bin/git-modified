@@ -13,9 +13,31 @@ case "$1" in
 esac
 
 
-paths="$(git diff --name-only HEAD -- "$@")"
-if [ -n "$paths" ]; then
-    printf '%s\n' "$paths"
+
+typeset -A stagedFiles=()
+while IFS=$'\n' read -r filespec
+do
+    stagedFiles["$filespec"]=t
+done < <(git diff --name-only --cached -- "$@")
+
+readarray -t modifiedFiles < <(git diff --name-only HEAD -- "$@")
+
+if [ ${#stagedFiles[@]} -gt 0 ]; then
+    for filespec in "${modifiedFiles[@]}"
+    do
+	unset "stagedFiles[$filespec]"
+    done
+fi
+
+if [ ${#modifiedFiles[@]} -gt 0 -o ${#stagedFiles[@]} -gt 0 ]; then
+    if [ ${#stagedFiles[@]} -eq 0 ]; then
+	printf '%s\n' "${modifiedFiles[@]}"
+    else
+	# Some file(s) are staged, but the change is undone in the working copy,
+	# so it's not contained in $modifiedFiles. We need to combine both
+	# lists.
+	printf '%s\n' "${modifiedFiles[@]}" "${!stagedFiles[@]}" | sort
+    fi
 else
     exit 1
 fi

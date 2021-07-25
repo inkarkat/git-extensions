@@ -40,8 +40,13 @@ if [ ${#paths[@]} -eq 0 ]; then
     done
 fi
 
-if [ ! "$isForce" ] && [ "$(git diff --shortstat 2>/dev/null | tail -n 1)" ]; then
-    echo "Unstaged changes:"
+if [ ! "$isForce" ]; then
+    if ! git-dirty; then
+	echo >&2 'No uncommitted changes; working copy and index are clean.'
+	exit 1
+    fi
+
+    echo "Uncommitted changes:"
     git status --porcelain | grep -v '^??'
 
     while :

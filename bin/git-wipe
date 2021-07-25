@@ -41,13 +41,14 @@ if [ ${#paths[@]} -eq 0 ]; then
 fi
 
 if [ ! "$isForce" ]; then
-    if ! git-dirty; then
-	echo >&2 'No uncommitted changes; working copy and index are clean.'
+    if ! git-dirty -- "${paths[@]}"; then
+	IFS=' '
+	printf >&2 'No uncommitted changes; working copy and index are clean%s.\n' "${paths:+ below }${paths[*]}"
 	exit 1
     fi
 
     echo "Uncommitted changes:"
-    git status --porcelain | grep -v '^??'
+    git status --porcelain -- "${paths[@]}" | grep -v '^??'
 
     while :
     do

@@ -60,11 +60,12 @@ if [ ${#files[@]} -eq 0 ]; then
 fi
 set -- "${gitCommandArgs[@]}"
 
-if [ "$1" = '--since' ]; then
-    typeset -a rangeArgs=("$1" "$2"); shift; shift;
-elif [ $# -gt 0 ]; then
-    typeset -a rangeArgs=("$1"); shift
-else
+typeset -a rangeArgs=()
+case "$1" in
+    --since)	rangeArgs=("$1" "$2"); shift; shift;;
+    ?*)		rangeArgs=("$1"); shift;;
+esac
+if [ ${#rangeArgs[@]} -eq 0 ]; then
     echo >&2 'ERROR: Need <range>.'
     exit 2
 fi

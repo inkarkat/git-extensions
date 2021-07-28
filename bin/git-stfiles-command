@@ -15,9 +15,14 @@ if [ $# -eq 0 ]; then
     exit 2
 fi
 
-IFS=$'\n'
-typeset -a stfiles=($(${GIT_STFILES_COMMAND:-git-stfiles}))
-[ ${#stfiles[@]} -eq 0 ] && exit 1
+readarray -t stfiles < <(eval "${GIT_STFILES_COMMAND:-git-stfiles}"; printf '\n%d\n' "$?")	# Exit status from the process substitution is lost; return the actual exit status via an appended additional line.
+[ ${stfiles[-1]} -ne 0 ] && exit ${stfiles[-1]}
+unset "stfiles[$((${#stfiles[@]}-1))]"
+[ -z "${stfiles[-1]}" ] && unset "stfiles[$((${#stfiles[@]}-1))]"
+if [ ${#stfiles[@]} -eq 0 ]; then
+    echo >&2 'ERROR: No files.'
+    exit 1
+fi
 
 typeset -a gitCommand=()
 case "$1" in

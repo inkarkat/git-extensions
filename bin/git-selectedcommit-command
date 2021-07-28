@@ -1,5 +1,6 @@
 #!/bin/bash
 set -o noglob
+shopt -qs extglob
 
 printUsage()
 {
@@ -61,10 +62,16 @@ fi
 set -- "${gitCommandArgs[@]}"
 
 typeset -a rangeArgs=()
-case "$1" in
-    --since)	rangeArgs=("$1" "$2"); shift; shift;;
-    ?*)		rangeArgs=("$1"); shift;;
-esac
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--since)	rangeArgs+=("$1" "$2"); shift; shift;;
+	--max-count|-n)	rangeArgs+=("$1" "$2"); shift; shift;;
+	--max-count=*|-+([0-9]))
+			rangeArgs+=("$1"); shift;;
+	*)		rangeArgs+=("$1"); shift; break;;
+    esac
+done
 if [ ${#rangeArgs[@]} -eq 0 ]; then
     echo >&2 'ERROR: Need <range>.'
     exit 2

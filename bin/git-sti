@@ -1,5 +1,4 @@
 #!/bin/bash
-set -o noglob
 
 printUsage()
 {
@@ -13,8 +12,7 @@ case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
 
-IFS=$'\n'
-typeset -a stagedFiles=($(git-staged))
+readarray -t stagedFiles < <(git diff --name-only --cached "$@")
 [ ${#stagedFiles[@]} -gt 0 ] || exit 1
 
 exec git ${GIT_STI_STATUS_COMMAND:-st} -- "${stagedFiles[@]}"

@@ -43,9 +43,15 @@ fi
 handleDirtyWorkingCopy()
 {
     if ! git-dirty -- "${paths[@]}"; then
-	IFS=' '
-	printf >&2 'No uncommitted changes; working copy and index are clean%s.\n' "${paths:+ below }${paths[*]}"
-	return 1
+	if [ ${#gitArgs[@]} -eq 0 ]; then
+	    IFS=' '
+	    printf >&2 'No uncommitted changes; working copy and index are clean%s.\n' "${paths:+ below }${paths[*]}"
+	    return 1
+	else
+	    # The user requested a special checkout (e.g. of another <branch>);
+	    # as the working copy is clean, we're free to immediately do this.
+	    return 0
+	fi
     fi
 
     echo 'Uncommitted changes:'

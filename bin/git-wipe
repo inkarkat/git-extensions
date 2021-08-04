@@ -40,7 +40,8 @@ if [ ${#paths[@]} -eq 0 ]; then
     done
 fi
 
-if [ ! "$isForce" ]; then
+handleDirtyWorkingCopy()
+{
     if ! git-dirty -- "${paths[@]}"; then
 	IFS=' '
 	printf >&2 'No uncommitted changes; working copy and index are clean%s.\n' "${paths:+ below }${paths[*]}"
@@ -59,7 +60,9 @@ if [ ! "$isForce" ]; then
 	    d) git diff;;
 	esac
     done
-fi
+}
+
+[ "$isForce" ] || handleDirtyWorkingCopy
 
 if [ ${#paths[@]} -gt 0 ]; then
     # git reset --hard ... <paths>... is not allowed ("fatal: Cannot do hard reset with paths.")

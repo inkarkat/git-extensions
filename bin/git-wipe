@@ -45,10 +45,10 @@ handleDirtyWorkingCopy()
     if ! git-dirty -- "${paths[@]}"; then
 	IFS=' '
 	printf >&2 'No uncommitted changes; working copy and index are clean%s.\n' "${paths:+ below }${paths[*]}"
-	exit 1
+	return 1
     fi
 
-    echo "Uncommitted changes:"
+    echo 'Uncommitted changes:'
     git status --porcelain -- "${paths[@]}" | grep -v '^??'
 
     while :
@@ -56,13 +56,13 @@ handleDirtyWorkingCopy()
 	</dev/tty read -r -N 1 -p 'Discard these changes? (y/n/diff) ' choice; echo >/dev/tty
 	case "$choice" in
 	    y) break;;
-	    n) exit 1;;
+	    n) return 1;;
 	    d) git diff;;
 	esac
     done
 }
 
-[ "$isForce" ] || handleDirtyWorkingCopy
+[ "$isForce" ] || handleDirtyWorkingCopy || exit $?
 
 if [ ${#paths[@]} -gt 0 ]; then
     # git reset --hard ... <paths>... is not allowed ("fatal: Cannot do hard reset with paths.")

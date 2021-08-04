@@ -7,9 +7,9 @@ Reset HEAD, working copy and index [to <branch>] [for <paths> ... only]. Ensures
 that the current branch isn't dirty.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<branch>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [<branch>] [-?|-h|--help]'
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[CHECKOUT-ARGS ...] [<branch>] [--] <paths> ...'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [CHECKOUT-ARGS ...] [<branch>] [--] <paths> ...'
 }
 
 isForce=
@@ -40,14 +40,21 @@ if [ ${#paths[@]} -eq 0 ]; then
     done
 fi
 
-if [ ! "$isForce" ]; then
+handleDirtyWorkingCopy()
+{
     if ! git-dirty -- "${paths[@]}"; then
-	IFS=' '
-	printf >&2 'No uncommitted changes; working copy and index are clean%s.\n' "${paths:+ below }${paths[*]}"
-	exit 1
+	if [ ${#gitArgs[@]} -eq 0 ]; then
+	    IFS=' '
+	    printf >&2 'No uncommitted changes; working copy and index are clean%s.\n' "${paths:+ below }${paths[*]}"
+	    return 1
+	else
+	    # The user requested a special checkout (e.g. of another <branch>);
+	    # as the working copy is clean, we're free to immediately do this.
+	    return 0
+	fi
     fi
 
-    echo "Uncommitted changes:"
+    echo 'Uncommitted changes:'
     git status --porcelain -- "${paths[@]}" | grep -v '^??'
 
     while :
@@ -55,11 +62,13 @@ if [ ! "$isForce" ]; then
 	</dev/tty read -r -N 1 -p 'Discard these changes? (y/n/diff) ' choice; echo >/dev/tty
 	case "$choice" in
 	    y) break;;
-	    n) exit 1;;
+	    n) return 1;;
 	    d) git diff;;
 	esac
     done
-fi
+}
+
+[ "$isForce" ] || handleDirtyWorkingCopy || exit $?
 
 if [ ${#paths[@]} -gt 0 ]; then
     # git reset --hard ... <paths>... is not allowed ("fatal: Cannot do hard reset with paths.")

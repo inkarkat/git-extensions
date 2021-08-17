@@ -11,7 +11,7 @@ git() {
     typeset gitAlias="git-$1"
     typeset gitCommand="$(which hub 2>/dev/null || which git)"
     if [ $# -eq 0 ]; then
-	git ${GIT_DEFAULT_COMMAND:-st}
+	command git ${GIT_DEFAULT_COMMAND:-st}
     elif type ${BASH_VERSION:+-t} "$gitAlias" >/dev/null 2>&1; then
 	shift
 	eval $gitAlias '"$@"'
@@ -29,7 +29,7 @@ which hub >/dev/null 2>&1 || return
 hub() {
     typeset hubAlias="hub-$1"
     if [ $# -eq 0 ]; then
-	hub ${HUB_DEFAULT_COMMAND:-st}
+	command hub ${HUB_DEFAULT_COMMAND:-st}
     elif type ${BASH_VERSION:+-t} "$hubAlias" >/dev/null 2>&1; then
 	shift
 	eval $hubAlias '"$@"'

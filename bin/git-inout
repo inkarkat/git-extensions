@@ -46,11 +46,14 @@ gitColorArg=()
 
 inout()
 {
-    echo "incoming ${remoteBranch} -> ${localBranch}:"
-    git-onelinelog --no-pager "${gitColorArg[@]}" "$localBranch..$remoteBranch"
+    local status=1
+    local padding=$'\n'
+    git-onelinelog --no-pager "${gitColorArg[@]}" "$localBranch..$remoteBranch" | \
+	outputAndPrintf "incoming ${remoteBranch} -> ${localBranch}:\\n" && status=0 || padding=''
 
-    echo
-    echo "outgoing ${localBranch} -> ${remoteBranch}:"
-    git-onelinelog --no-pager "${gitColorArg[@]}" "$remoteBranch..$localBranch"
+    git-onelinelog --no-pager "${gitColorArg[@]}" "$remoteBranch..$localBranch" | \
+	outputAndPrintf "${padding}outgoing ${localBranch} -> ${remoteBranch}:\\n" && status=0
+
+    return $status
 }
 eval 'inout "$@"' "${pager:+|}" '"${pager[@]}"'

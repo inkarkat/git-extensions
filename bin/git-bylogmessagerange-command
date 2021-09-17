@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-a|--auto-revision|-r|--revision REVISION] [--no-range|--with-range ...|--last-only] [+1|--one-more] [--invert-grep] [GIT-COMMAND ...] text|/regexp/ [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-a|--auto-revision|-r|--revision REVISION] [--no-range|--with-range ...|--last-only] [+1|--one-more] [--with-log-args|--with-log-args-except-last] [--invert-grep] [GIT-COMMAND ...] text|/regexp/ [-?|-h|--help]'
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-a|--auto-revision|-r|--revision REVISION] [--no-range|--with-range ...|--last-only] [+1|--one-more] [--invert-grep] --grep=<pattern> [GIT-COMMAND ...]'
     echo
@@ -32,6 +32,10 @@ log messages match the specified text or /regexp/.
 		    Use ... instead of .. as the range specifier.
     --last-only	    Only use the latest matching commit.
     --one-more|+1   Include the commit preceding the earliest matching commit.
+    --with-log-args All GIT-COMMAND arguments should also be used when
+		    determining the revision range.
+    --with-log-args-except-last
+		    All GIT-COMMAND arguments expect the very last should also
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
@@ -48,6 +52,7 @@ isLastOnly=
 isShowOneMore=
 typeset logArgs=()
 typeset logModificationArgs=()
+withLogArgs=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -61,6 +66,9 @@ do
 	--with-range)		    shift; range="$1"; shift;;
 	--last-only)		    shift; isLastOnly=t; range=;;
 	--one-more|+1)		    shift; isShowOneMore=t;;
+	--with-log-args)	    shift; withLogArgs=all;;
+	--with-log-args-except-last)
+				    shift; withLogArgs=except-last;;
 	*)  if [ "$isFirstArg" ]; then
 		case "$1" in
 		    -c) gitCommand+=("$1" "$2"); shift; shift;;
@@ -90,6 +98,11 @@ if [ ${#logArgs[@]} -eq 0 ]; then
     fi
     set -- "${@:1:$(($#-1))}"
 fi
+typeset sharedLogArgs=()
+case "$withLogArgs" in
+    all)	    sharedLogArgs+=("$@");;
+    except-last)    sharedLogArgs+=("${@:1:$(($#-1))}");;
+esac
 
 if [ "$isAutoRevision" ]; then
     if [ "$revision" != 'HEAD' ]; then
@@ -99,7 +112,7 @@ if [ "$isAutoRevision" ]; then
 	exit 2
     fi >&2
 
-    revision="$(git log --max-count 1 --pretty=tformat:%H "${logModificationArgs[@]}" "${logArgs[@]}" "$@")"
+    revision="$(git log --max-count 1 --pretty=tformat:%H "${logModificationArgs[@]}" "${logArgs[@]}" "${sharedLogArgs[@]}")"
     if [ -z "$revision" ]; then
 	echo >&2 'Could not find a matching commit.'
 	exit 1
@@ -107,15 +120,13 @@ if [ "$isAutoRevision" ]; then
 fi
 
 startRevision=
-difference="$(cmp -- <(git log --first-parent --pretty=tformat:%H "$revision"; echo x) <(git log --first-parent --pretty=tformat:%H "${logArgs[@]}" "$revision"; echo y))"
-[ $? -eq 2 ] && exit 3	# Abort on cmp trouble.
-if [ "$difference" ]; then
-    firstDifferentLnum="${difference##* }"  # cmp output is like "x y differ: byte 985, line 25"; take the last number
-    if [ $firstDifferentLnum -eq 1 ]; then
+< <(diff --unchanged-line-format= --old-line-format='%dn %L' --new-line-format= -- <(git log --first-parent --pretty=tformat:%H "$revision" "${sharedLogArgs[@]}") <(git log --first-parent --pretty=tformat:%H "${logArgs[@]}" "$revision" "${sharedLogArgs[@]}")) IFS=' ' read -r firstDifferentCount firstDifferentRevision	# Fortunately, "git log <revision> --follow -- <path>" also works; else, we would have to split sharedLogArgs into options and path arguments.
+if [ -n "$firstDifferentRevision" ]; then
+    if [ $firstDifferentCount -eq 1 ]; then
 	printf >&2 'The %s revision already does not match.\n' "$revision"
 	exit 1
     else
-	startRevision="${revision}~$((firstDifferentLnum - 1 ${isShowOneMore:++ 1}))"
+	startRevision="${firstDifferentRevision}${isShowOneMore:+^}"
     fi
 fi
 

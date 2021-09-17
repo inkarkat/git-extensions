@@ -62,6 +62,7 @@ fi
 set -- "${gitCommandArgs[@]}"
 
 typeset -a rangeArgs=()
+typeset -a rangeModificationArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -69,6 +70,7 @@ do
 	--max-count|-n)	rangeArgs+=("$1" "$2"); shift; shift;;
 	--max-count=*|-+([0-9]))
 			rangeArgs+=("$1"); shift;;
+	--follow)	rangeModificationArgs+=("$1"); shift;;
 	*)		rangeArgs+=("$1"); shift; break;;
     esac
 done
@@ -79,7 +81,7 @@ fi
 
 IFS=$'\n'
 typeset -a commits; commits=($(
-    git log --pretty='tformat:%H %s' "${rangeArgs[@]}" ${files:+--} "${files[@]}" | \
+    git log --pretty='tformat:%H %s' "${rangeModificationArgs[@]}" "${rangeArgs[@]}" ${files:+--} "${files[@]}" | \
     truncate-trailing -w | commandWithHiddenId --stdin -p -c "commandOnSelected --stdin${commandOnSelectedArgs:+ }${commandOnSelectedArgs[*]}"
 ))
 status=$?

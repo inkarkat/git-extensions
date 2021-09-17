@@ -7,7 +7,9 @@ printShortUsage()
     # skim the long one.
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-a|--auto-revision|-r|--revision REVISION] [--no-range|--with-range ...|--last-only] [+1|--one-more] [--invert-grep] [GIT-COMMAND ...] text|/regexp/ [-?|-h|--help]'
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND [-a|--auto-revision|-r|--revision REVISION] [...] [--invert-grep] text|/regexp/ [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-a|--auto-revision|-r|--revision REVISION] [--no-range|--with-range ...|--last-only] [+1|--one-more] [--invert-grep] --grep=<pattern> [GIT-COMMAND ...]'
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND [-a|--auto-revision|-r|--revision REVISION] [...] [--invert-grep] --grep=<pattern>|text|/regexp/'
 }
 printUsage()
 {
@@ -45,13 +47,16 @@ range=..
 isLastOnly=
 isShowOneMore=
 typeset logArgs=()
+typeset logModificationArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)		    shift; printLongUsage "$0"; exit 0;;
 	--auto-revision|-a)	    shift; isAutoRevision=t;;
 	--revision|-r)		    shift; revision="$1"; shift;;
-	--invert-grep)		    logArgs+=("$1"); shift;;
+	--grep)			    logArgs+=("$1" "$2"); shift; shift;;
+	--grep=*)		    logArgs+=("$1"); shift;;
+	--invert-grep)		    logModificationArgs+=("$1"); shift;;
 	--no-range)		    shift; range=;;
 	--with-range)		    shift; range="$1"; shift;;
 	--last-only)		    shift; isLastOnly=t; range=;;
@@ -69,20 +74,22 @@ do
 	    ;;
     esac
 done
-if [ $# -eq 0 ]; then
-    printUsage "$0"
-    exit 2
-fi
+if [ ${#logArgs[@]} -eq 0 ]; then
+    # No --grep given; the last argument is the text or /regexp/.
+    if [ $# -eq 0 ]; then
+	printUsage "$0"
+	exit 2
+    fi
 
-# The last argument is the text or /regexp/.
-lastArg="${!#}"
-searchString=$(printf '%s' "$lastArg" | sed -ne 's/^\([^a-zA-Z0-9]\)\(.*\)\1$/\2/p')
-if [ "$searchString" ]; then
-    logArgs+=(--grep "$searchString")
-else
-    logArgs+=(--grep "$lastArg" --fixed-strings)
+    lastArg="${!#}"
+    searchString=$(printf '%s' "$lastArg" | sed -ne 's/^\([^a-zA-Z0-9]\)\(.*\)\1$/\2/p')
+    if [ "$searchString" ]; then
+	logArgs+=(--grep "$searchString")
+    else
+	logArgs+=(--grep "$lastArg" --fixed-strings)
+    fi
+    set -- "${@:1:$(($#-1))}"
 fi
-set -- "${@:1:$(($#-1))}"
 
 if [ "$isAutoRevision" ]; then
     if [ "$revision" != 'HEAD' ]; then
@@ -92,7 +99,7 @@ if [ "$isAutoRevision" ]; then
 	exit 2
     fi >&2
 
-    revision="$(git log --max-count 1 --pretty=tformat:%H "${logArgs[@]}" "$@")"
+    revision="$(git log --max-count 1 --pretty=tformat:%H "${logModificationArgs[@]}" "${logArgs[@]}" "$@")"
     if [ -z "$revision" ]; then
 	echo >&2 'Could not find a matching commit.'
 	exit 1

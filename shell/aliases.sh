@@ -10,16 +10,15 @@ _git_initAndCloneExtension()
 
     "$gitCommand" "$command" "$@" || return $?
     if [ $# -gt 0 ]; then
-	eval typeset repoOrDir=\${$#}
+	eval "typeset repoOrDir=\${$#}"
 	typeset dir=${repoOrDir%.git}
-	dir=${dir##*/}
-	[ -d "$dir" ] || { echo >&2 "Cannot locate working copy; quitting"; return 1; }
+	[ -d "$dir" ] || { echo >&2 'Note: Cannot locate working copy'; return 1; }
 
 	# Feature: Automatically chdir into the created repository. That's why this
 	# cannot be a script, and must be a function.
 	cd "$dir"
     else
-	[ -d .git ] || { echo >&2 "No arguments and not in working copy; quitting"; return 1; }
+	[ -d .git ] || { echo >&2 'Note: No arguments and not in working copy'; return 1; }
     fi
 
     if "$gitCommand" config --system --get core.filemode >/dev/null; then
@@ -35,7 +34,46 @@ _git_initAndCloneExtension()
 }
 git-init()
 {
-    _git_initAndCloneExtension init "$@"
+    typeset -a gitInitArgs=()
+    typeset isForce=
+    while [ $# -ne 0 ]
+    do
+	case "$1" in
+	    --force|-f)	shift; isForce=t;;
+	    -q)		gitInitArgs+=("$1"); shift;;
+	    --quiet|--bare)
+			gitInitArgs+=("$1"); shift;;
+	    --template=*|--separate-git-dir=*|--shared=*)
+			gitInitArgs+=("$1"); shift;;
+	    --template|--separate-git-dir|--shared)
+			gitInitArgs+=("$1" "$2"); shift; shift;;
+	    --)		gitInitArgs+=("$1"); shift; break;;
+	    *)		break;;
+	esac
+    done
+
+    if [ $# -eq 1 ] && [ ! -e "$1" ]; then
+	# DIRECTORY is passed, and it does not exist yet. If it is inside the
+	# current directory, ensure that it won't be created inside a Git repo,
+	# as this likely is a user error.
+	typeset directory="${1%/}"
+	if case "$directory" in
+	    ../*)   false;;
+	    /*)	    [ "${directory:0:$((${#PWD} + 1))}" = "${PWD}/" ];;
+	esac; then
+	    typeset existingRepoRootDir
+	    if existingRepoRootDir="$(git root 2>/dev/null)"; then
+		if [ "$isForce" ]; then
+		    printf >&2 'Note: The new Git repository %s lies within the existing %s repo.\n' "${directory%/}" "$existingRepoRootDir"
+		else
+		    printf >&2 'ERROR: Will not create a Git repository within the existing %s repo; use -f|--force to override.\n' "$existingRepoRootDir"
+		    return 1
+		fi
+	    fi
+	fi
+    fi
+
+    _git_initAndCloneExtension init "${gitInitArgs[@]}" "$@"
 }
 git-clone()
 {

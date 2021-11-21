@@ -10,7 +10,7 @@ _git_initAndCloneExtension()
 
     "$gitCommand" "$command" "$@" || return $?
     if [ $# -gt 0 ]; then
-	eval typeset repoOrDir=\${$#}
+	eval "typeset repoOrDir=\${$#}"
 	typeset dir=${repoOrDir%.git}
 	dir=${dir##*/}
 	[ -d "$dir" ] || { echo >&2 "Cannot locate working copy; quitting"; return 1; }

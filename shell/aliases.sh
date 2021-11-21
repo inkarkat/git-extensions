@@ -13,13 +13,13 @@ _git_initAndCloneExtension()
 	eval "typeset repoOrDir=\${$#}"
 	typeset dir=${repoOrDir%.git}
 	dir=${dir##*/}
-	[ -d "$dir" ] || { echo >&2 "Cannot locate working copy; quitting"; return 1; }
+	[ -d "$dir" ] || { echo >&2 'Note: Cannot locate working copy'; return 1; }
 
 	# Feature: Automatically chdir into the created repository. That's why this
 	# cannot be a script, and must be a function.
 	cd "$dir"
     else
-	[ -d .git ] || { echo >&2 "No arguments and not in working copy; quitting"; return 1; }
+	[ -d .git ] || { echo >&2 'Note: No arguments and not in working copy'; return 1; }
     fi
 
     if "$gitCommand" config --system --get core.filemode >/dev/null; then

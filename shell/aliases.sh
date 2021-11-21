@@ -34,7 +34,40 @@ _git_initAndCloneExtension()
 }
 git-init()
 {
-    _git_initAndCloneExtension init "$@"
+    typeset -a gitInitArgs=()
+    while [ $# -ne 0 ]
+    do
+	case "$1" in
+	    -q)		gitInitArgs+=("$1"); shift;;
+	    --quiet|--bare)
+			gitInitArgs+=("$1"); shift;;
+	    --template=*|--separate-git-dir=*|--shared=*)
+			gitInitArgs+=("$1"); shift;;
+	    --template|--separate-git-dir|--shared)
+			gitInitArgs+=("$1" "$2"); shift; shift;;
+	    --)		gitInitArgs+=("$1"); shift; break;;
+	    *)		break;;
+	esac
+    done
+
+    if [ $# -eq 1 ] && [ ! -e "$1" ]; then
+	# DIRECTORY is passed, and it does not exist yet. If it is inside the
+	# current directory, ensure that it won't be created inside a Git repo,
+	# as this likely is a user error.
+	typeset directory="${1%/}"
+	if case "$directory" in
+	    ../*)   false;;
+	    /*)	    [ "${directory:0:$((${#PWD} + 1))}" = "${PWD}/" ];;
+	esac; then
+	    typeset existingRepoRootDir
+	    if existingRepoRootDir="$(git root 2>/dev/null)"; then
+		printf >&2 'ERROR: Will not create a Git repository within the existing %s repo.\n' "$existingRepoRootDir"
+		return 1
+	    fi
+	fi
+    fi
+
+    _git_initAndCloneExtension init "${gitInitArgs[@]}" "$@"
 }
 git-clone()
 {

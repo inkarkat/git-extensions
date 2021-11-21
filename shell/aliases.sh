@@ -35,9 +35,11 @@ _git_initAndCloneExtension()
 git-init()
 {
     typeset -a gitInitArgs=()
+    typeset isForce=
     while [ $# -ne 0 ]
     do
 	case "$1" in
+	    --force|-f)	shift; isForce=t;;
 	    -q)		gitInitArgs+=("$1"); shift;;
 	    --quiet|--bare)
 			gitInitArgs+=("$1"); shift;;
@@ -61,8 +63,12 @@ git-init()
 	esac; then
 	    typeset existingRepoRootDir
 	    if existingRepoRootDir="$(git root 2>/dev/null)"; then
-		printf >&2 'ERROR: Will not create a Git repository within the existing %s repo.\n' "$existingRepoRootDir"
-		return 1
+		if [ "$isForce" ]; then
+		    printf >&2 'Note: The new Git repository %s lies within the existing %s repo.\n' "${directory%/}" "$existingRepoRootDir"
+		else
+		    printf >&2 'ERROR: Will not create a Git repository within the existing %s repo; use -f|--force to override.\n' "$existingRepoRootDir"
+		    return 1
+		fi
 	    fi
 	fi
     fi

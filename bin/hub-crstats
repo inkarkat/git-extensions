@@ -24,7 +24,7 @@ do
 done
 
 
-exec hub-cr --format '%ct %au %as%n' "${issueArgs[@]}" "$@" | awk \
+exec hub-cr --format '%ct %au%n%as%n' "${issueArgs[@]}" "$@" | awk \
     -F ',? +' \
     -v "isWithOldestDate=$isWithOldestDate" \
     -v "isWithNewestDate=$isWithNewestDate" \
@@ -85,8 +85,8 @@ function printDates(what) {
     if (isWithNewestDate) printf("@%d\t", newestDate[what])
 }
 function isAssignedAlsoToMe(otherAssignees, coAssignees,     i) {
-    for (i = 4; i <= NF; i++) {
-	if ($i == me && NF > 3) {
+    for (i = 1; i <= NF; i++) {
+	if ($i == me && NF > 0) {
 	    recordAssignees(coAssignees)
 	    return 1
 	}
@@ -94,11 +94,11 @@ function isAssignedAlsoToMe(otherAssignees, coAssignees,     i) {
     recordAssignees(otherAssignees)
     return 0
 }
-function isAssignedOnlyToMe(    i) {
-    return (NF == 4 && $4 == me)
+function isAssignedOnlyToMe() {
+    return (NF == 1 && $1 == me)
 }
 function recordAssignees(assignees) {
-    for (i = 4; i <= NF; i++) {
+    for (i = 1; i <= NF; i++) {
 	assignees[$i] = 1
     }
 }
@@ -107,7 +107,7 @@ $1 == "pull" {
     pullCnt += 1
     recordDates("pull request")
     if ($3 == me) pullMineCnt+=1
-    if ($4) {
+    if (getline == 1 && $0 != "") {
 	pullAssignCnt += 1
 	pullToUsCnt += isAssignedAlsoToMe(pullOtherAssignees, pullCoAssignees)
 	pullToMeCnt += isAssignedOnlyToMe()
@@ -117,7 +117,7 @@ $1 == "issue" {
     issueCnt += 1
     recordDates("issue")
     if ($3 == me) issueMineCnt+=1
-    if ($4) {
+    if (getline == 1 && $0 != "") {
 	issueAssignCnt += 1
 	issueToUsCnt += isAssignedAlsoToMe(issueOtherAssignees, issueCoAssignees)
 	issueToMeCnt += isAssignedOnlyToMe()

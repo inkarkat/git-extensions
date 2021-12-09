@@ -1,33 +1,72 @@
 #!/bin/bash
 set -o pipefail
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--with-oldest-date] [--with-newest-date] [--ignore-label PATTERN [...]] [--only-label PATTERN [...]] [<issue-args> ...] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 Show statistics of GitHub issues and pull requests.
-HELPTEXT
+HELPDESCRIPTION
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--with-oldest-date] [--with-newest-date] [<issue-args> ...] [-?|-h|--help]'
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --with-oldest-date	Prepend the Unix @epoch of the oldest issue / pull
+			request, separated by a tab character.
+    --with-newest-date	Prepend the Unix @epoch of the newest issue / pull
+			request, separated by a tab character. This will always
+			come after a requested oldest date, regardless of the
+			option order.
+    --ignore-label PATTERN
+			Only consider issues / pull requests that do not have a
+			label matching PATTERN.
+    --only-label PATTERN
+			Only consider issues / pull requests that have a label
+			matching PATTERN. Other issues / pull requests (and
+			those that also match --ignore-label) are ignored.
+PATTERN is an AWK-style extended regular expression.
+HELPTEXT
 }
 typeset -a issueArgs=()
 isWithOldestDate=
 isWithNewestDate=
+ignoreLabelPattern=
+onlyLabelPattern=
+hubCrLabelFormat=
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)		shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)		shift; printLongUsage "$0"; exit 0;;
 	--with-oldest-date)	shift; isWithOldestDate=t;;
 	--with-newest-date)	shift; isWithNewestDate=t;;
+	--ignore-label)		shift; hubCrLabelFormat='labels %L%n'; ignoreLabelPattern="${ignoreLabelPattern}${ignoreLabelPattern:+|}${1:?}"; shift;;
+	--only-label)		shift; hubCrLabelFormat='labels %L%n'; onlyLabelPattern="${onlyLabelPattern}${onlyLabelPattern:+|}${1:?}"; shift;;
 	--)			issueArgs+=("$1"); break;;
 	*)			issueArgs+=("$1"); shift;;
     esac
 done
 
 
-exec hub-cr --format '%ct %au%n%as%n' "${issueArgs[@]}" "$@" | awk \
+exec hub-cr --format "${hubCrLabelFormat}%ct %au%n%as%n" "${issueArgs[@]}" "$@" | awk \
     -F ',? +' \
     -v "isWithOldestDate=$isWithOldestDate" \
     -v "isWithNewestDate=$isWithNewestDate" \
+    -v "ignoreLabelPattern=${ignoreLabelPattern//\\/\\\\}" \
+    -v "onlyLabelPattern=${onlyLabelPattern//\\/\\\\}" \
     -v "me=$(git me-in-github)" \
 '
 function join(array, start, end, sep,    result, i)
@@ -106,7 +145,33 @@ function recordAssignees(assignees) {
 	assignees[$i] = 1
     }
 }
+function isLabelMatch(labelPattern,      i, labelLine, labelCnt, labels) {
+    # Labels can have spaces, so we must only accept comma-separation here.
+    labelLine = substr($0, 1 + length($1) + 1 + length($2) + 1)
+    labelCnt = split(labelLine, labels, /, /)
 
+    for (i = 1; i <= labelCnt; i++) {
+	if (labels[i] ~ labelPattern) {
+	    return 1
+	}
+    }
+    return 0
+}
+
+$2 == "labels" {
+    if ((ignoreLabelPattern != "" && isLabelMatch(ignoreLabelPattern)) ||
+	(onlyLabelPattern != "" && ! isLabelMatch(onlyLabelPattern))) {
+	getline
+	getline
+	next
+    } else {
+	# Add the prepended CR type to the next line, too, so that the non-label
+	# parsing can remain ignorant of the label filtering.
+	crType = $1
+	getline
+	$0 = crType " " $0
+    }
+}
 $1 == "pull" {
     pullCnt += 1
     recordDates("pull request")

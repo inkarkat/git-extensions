@@ -12,7 +12,7 @@ printUsage()
 List the labels defined for the current GitHub repository.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'list [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--color=(always|auto|never)|--no-color] list [-?|-h|--help]'
     echo
     cat <<HELPTEXT
 Add / update my default labels to the current GitHub repository.
@@ -29,13 +29,29 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" 'delete LABEL-NAME [...]'
 }
 
+isColor=; type -t colorizeHex >/dev/null && [ -t 1 ] && isColor=t
 action=usageError
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    list)		shift; action=listLabels;;
-    set)		shift; action=setDefaultLabels;;
-    delete)		shift; action=deleteLabels;;
-esac
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=never)
+			isColor=; shift;;
+	--color=always)	isColor=t; shift;;
+	--color)	case "$2" in
+			    always) isColor=t;;
+			    never)  isColor=;;
+			esac
+			shift; shift
+			;;
+	list)		shift; action=listLabels; break;;
+	set)		shift; action=setDefaultLabels; break;;
+	delete)		shift; action=deleteLabels; break;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 
 usageError()
 {
@@ -49,7 +65,7 @@ listLabels()
 
     hub api 'repos/{owner}/{repo}/labels' | \
 	jq -r '.[] | "#" + .color + "\t" + .name + "\t" + (.description // "(no description)")' | \
-	column -s $'\t' -t
+	eval "column -s \$'\\t' -t" "${isColor:+|colorizeHex}"
 }
 
 setDefaultLabels()

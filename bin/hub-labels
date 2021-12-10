@@ -17,6 +17,12 @@ with a single header line; by default ${HUB_LABELS_DEFAULT_LABEL_FILESPEC}
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" 'set [DEFAULT-LABEL-FILESPEC]'
+    echo
+    cat <<HELPTEXT
+Delete the passed labels on the current GitHub repository.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'delete LABEL-NAME [...]'
 }
 
 action=usageError
@@ -24,6 +30,7 @@ case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
     list)		shift; action=listLabels;;
     set)		shift; action=setDefaultLabels;;
+    delete)		shift; action=deleteLabels;;
 esac
 
 usageError()
@@ -90,6 +97,18 @@ setDefaultLabels()
     if [ ${#unprocessedLabels[@]} -gt 0 ]; then
 	printf 'Additional label in GitHub: %s\n' "${!unprocessedLabels[@]}"
     fi
+}
+
+deleteLabels()
+{
+    [ $# -gt 0 ] || usageError
+
+    local status=0
+    for label
+    do
+	hub api --method DELETE "repos/{owner}/{repo}/labels/${label}" || status=$?
+    done
+    return $status
 }
 
 $action "$@"

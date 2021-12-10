@@ -1,5 +1,7 @@
 #!/bin/bash
 
+: ${HUB_LABELS_DEFAULT_LABEL_FILESPEC:=~/Unixhome/.vim/entries/text/issue_labels.txt}
+
 printUsage()
 {
     cat <<HELPTEXT
@@ -7,12 +9,19 @@ List the labels defined for the current GitHub repository.
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" 'list [-?|-h|--help]'
+    echo
+    cat <<HELPTEXT
+Add / update my default labels to the current GitHub repository.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'set'
 }
 
 action=usageError
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
     list)		shift; action=listLabels;;
+    set)		shift; action=setDefaultLabels;;
 esac
 
 usageError()
@@ -28,6 +37,53 @@ listLabels()
     hub api 'repos/{owner}/{repo}/labels' | \
 	jq -r '.[] | "#" + .color + "\t" + .name + "\t" + (.description // "(no description)")' | \
 	column -s $'\t' -t
+}
+
+setDefaultLabels()
+{
+    [ $# -eq 0 ] || usageError
+
+    typeset -A existingLabels=() unprocessedLabels=()
+    local line; while IFS=$'\n' read -r line
+    do
+	existingLabels["$line"]=t
+	unprocessedLabels["$line"]=t
+    done < <(
+	hub api 'repos/{owner}/{repo}/labels' | \
+	    jq -r '.[] | .name'
+    )
+
+    local defaultLabelsFilespec="$HUB_LABELS_DEFAULT_LABEL_FILESPEC"
+    if [ ! -r "$defaultLabelsFilespec" ]; then
+	printf >&2 'ERROR: Default labels definition does not exist: %s\n' "$defaultLabelsFilespec"
+	exit 1
+    fi
+
+    local header color label description
+    exec 3<&0
+    {
+	IFS=$'\n' read -r header
+
+	while IFS=$'\t' read -r color label description
+	do
+	    local labelJson="{\"name\":\"${label}\", \"color\":\"${color#\#}\", \"description\":\"${description}\"}"
+	    if [ "${existingLabels["$label"]}" ]; then
+		if hub api --method PATCH --input <(printf "%s\n" "$labelJson") "repos/{owner}/{repo}/labels/${label}" >/dev/null <&3; then
+		    unset unprocessedLabels["$label"]
+		    printf 'Updated label %s\n' "$label"
+		fi
+	    else
+		if hub api --method POST --input <(printf '%s\n' "$labelJson") 'repos/{owner}/{repo}/labels' >/dev/null <&3; then
+		    unset unprocessedLabels["$label"]
+		    printf 'Added label %s\n' "$label"
+		fi
+	    fi
+	done
+    } < "$defaultLabelsFilespec"
+
+    if [ ${#unprocessedLabels[@]} -gt 0 ]; then
+	printf 'Additional label in GitHub: %s\n' "${!unprocessedLabels[@]}"
+    fi
 }
 
 $action

@@ -130,7 +130,7 @@ elif [ "${1:0:1}" != '-' ]; then
 	    # These hub commands need a remote.
 	    wcdoArgs+=(--predicate-command git-existsremote)
 	    ;;
-	cr|crrecent|crstats|issue|pr)
+	cr|crrecent|crstats|issue|pr|prtitle|reviews)
 	    wcdoArgs+=(--single-success)
 	    # These hub commands need a remote.
 	    if [ "$GIT_WCDO_COMMAND_EXCLUDE_FORKS" ]; then
@@ -140,6 +140,18 @@ elif [ "${1:0:1}" != '-' ]; then
 	    else
 		wcdoArgs+=(--predicate-command git-existsremote)
 	    fi
+	    ;;
+	labels)
+	    # This hub command needs a remote.
+	    if [ "$GIT_WCDO_COMMAND_EXCLUDE_FORKS" ]; then
+		# This setting indicates that I only care about my own projects,
+		# not my forks of other projects.
+		wcdoArgs+=(--predicate-command 'git-existsremote origin && ! git-existsremote upstream')
+	    else
+		wcdoArgs+=(--predicate-command git-existsremote)
+	    fi
+	    # This command does not support a --color argument.
+	    wcdoArgs+=(--no-git-color)
 	    ;;
 	create)
 	    wcdoArgs+=(--single-success)

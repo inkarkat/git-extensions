@@ -1,6 +1,10 @@
 #!/bin/bash
 
-: ${HUB_LABELS_DEFAULT_LABEL_FILESPEC:=~/Unixhome/.vim/entries/text/issue_labels.txt}
+readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
+[ -d "$scriptDir" ] || { echo >&2 "ERROR: Cannot determine script directory!"; exit 3; }
+readonly projectDir="${scriptDir}/.."
+
+: ${HUB_LABELS_DEFAULT_LABEL_FILESPEC:=${projectDir}/etc/github-issue-labels.tsv}
 
 printUsage()
 {
@@ -12,8 +16,8 @@ HELPTEXT
     echo
     cat <<HELPTEXT
 Add / update my default labels to the current GitHub repository.
-The labels are stored as tab-separated values (COLOR NAME DESCRIPTION) in a file
-with a single header line; by default ${HUB_LABELS_DEFAULT_LABEL_FILESPEC}
+The labels are stored as tab-separated values (RGB-COLOR NAME DESCRIPTION); by
+default in file ${HUB_LABELS_DEFAULT_LABEL_FILESPEC}
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" 'set [DEFAULT-LABEL-FILESPEC]'
@@ -72,27 +76,23 @@ setDefaultLabels()
 	exit 1
     fi
 
-    local header color label description
+    local color label description
     exec 3<&0
-    {
-	IFS=$'\n' read -r header
-
-	while IFS=$'\t' read -r color label description
-	do
-	    local labelJson="{\"name\":\"${label}\", \"color\":\"${color#\#}\", \"description\":\"${description}\"}"
-	    if [ "${existingLabels["$label"]}" ]; then
-		if hub api --method PATCH --input <(printf "%s\n" "$labelJson") "repos/{owner}/{repo}/labels/${label}" >/dev/null <&3; then
-		    unset unprocessedLabels["$label"]
-		    printf 'Updated label %s\n' "$label"
-		fi
-	    else
-		if hub api --method POST --input <(printf '%s\n' "$labelJson") 'repos/{owner}/{repo}/labels' >/dev/null <&3; then
-		    unset unprocessedLabels["$label"]
-		    printf 'Added label %s\n' "$label"
-		fi
+    while IFS=$'\t' read -r color label description
+    do
+	local labelJson="{\"name\":\"${label}\", \"color\":\"${color#\#}\", \"description\":\"${description}\"}"
+	if [ "${existingLabels["$label"]}" ]; then
+	    if hub api --method PATCH --input <(printf "%s\n" "$labelJson") "repos/{owner}/{repo}/labels/${label}" >/dev/null <&3; then
+		unset unprocessedLabels["$label"]
+		printf 'Updated label %s\n' "$label"
 	    fi
-	done
-    } < "$defaultLabelsFilespec"
+	else
+	    if hub api --method POST --input <(printf '%s\n' "$labelJson") 'repos/{owner}/{repo}/labels' >/dev/null <&3; then
+		unset unprocessedLabels["$label"]
+		printf 'Added label %s\n' "$label"
+	    fi
+	fi
+    done < "$defaultLabelsFilespec"
 
     if [ ${#unprocessedLabels[@]} -gt 0 ]; then
 	printf 'Additional label in GitHub: %s\n' "${!unprocessedLabels[@]}"

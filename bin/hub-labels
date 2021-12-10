@@ -12,9 +12,11 @@ HELPTEXT
     echo
     cat <<HELPTEXT
 Add / update my default labels to the current GitHub repository.
+The labels are stored as tab-separated values (COLOR NAME DESCRIPTION) in a file
+with a single header line; by default ${HUB_LABELS_DEFAULT_LABEL_FILESPEC}
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'set'
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'set [DEFAULT-LABEL-FILESPEC]'
 }
 
 action=usageError
@@ -41,7 +43,7 @@ listLabels()
 
 setDefaultLabels()
 {
-    [ $# -eq 0 ] || usageError
+    [ $# -le 1 ] || usageError
 
     typeset -A existingLabels=() unprocessedLabels=()
     local line; while IFS=$'\n' read -r line
@@ -53,7 +55,11 @@ setDefaultLabels()
 	    jq -r '.[] | .name'
     )
 
-    local defaultLabelsFilespec="$HUB_LABELS_DEFAULT_LABEL_FILESPEC"
+    if [ $# -eq 0 ]; then
+	local defaultLabelsFilespec="$HUB_LABELS_DEFAULT_LABEL_FILESPEC"
+    else
+	local defaultLabelsFilespec="$1"; shift
+    fi
     if [ ! -r "$defaultLabelsFilespec" ]; then
 	printf >&2 'ERROR: Default labels definition does not exist: %s\n' "$defaultLabelsFilespec"
 	exit 1
@@ -86,4 +92,4 @@ setDefaultLabels()
     fi
 }
 
-$action
+$action "$@"

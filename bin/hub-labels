@@ -96,7 +96,7 @@ setDefaultLabels()
     exec 3<&0
     while IFS=$'\t' read -r color label description
     do
-	local labelJson="{\"name\":\"${label}\", \"color\":\"${color#\#}\", \"description\":\"${description}\"}"
+	local labelJson; labelJson="$(jo -- name="$label" -s color="${color#\#}" description="$description")" || exit $?
 	if [ "${existingLabels["$label"]}" ]; then
 	    if hub api --method PATCH --input <(printf "%s\n" "$labelJson") "repos/{owner}/{repo}/labels/${label}" >/dev/null <&3; then
 		unset unprocessedLabels["$label"]

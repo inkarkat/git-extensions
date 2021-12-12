@@ -14,54 +14,54 @@ case "$1" in
 esac
 remote="${1:?}"; shift
 
-: ${GIT_LHURL_URL_PREFIX=}
-: ${GIT_LHURL_URL_SUFFIX=}
-: ${GIT_LHURL_HASH_PREFIX=}
-: ${GIT_LHURL_HASH_SUFFIX=}
-: ${GIT_LHURL_PATH_PREFIX=[35m}
-: ${GIT_LHURL_PATH_SUFFIX=[0m}
-: ${GIT_LHURL_FILE_PREFIX=[01;35m}
-: ${GIT_LHURL_FILE_SUFFIX=[0m}
+: ${GIT_LURL_URL_PREFIX=}
+: ${GIT_LURL_URL_SUFFIX=}
+: ${GIT_LURL_HASH_PREFIX=}
+: ${GIT_LURL_HASH_SUFFIX=}
+: ${GIT_LURL_PATH_PREFIX=[35m}
+: ${GIT_LURL_PATH_SUFFIX=[0m}
+: ${GIT_LURL_FILE_PREFIX=[01;35m}
+: ${GIT_LURL_FILE_SUFFIX=[0m}
 
 if ! isNeedColorArgumentWhenPiping "$@"; then
     # This is for us, to disable the highlighting {pre,suf}fixes. As git-log
     # understands it (and is inconsequential with our --pretty format), we don't
     # need to drop it from the arguments passed to it.
-    GIT_LHURL_URL_PREFIX=
-    GIT_LHURL_URL_SUFFIX=
-    GIT_LHURL_HASH_PREFIX=
-    GIT_LHURL_HASH_SUFFIX=
-    GIT_LHURL_PATH_PREFIX=
-    GIT_LHURL_PATH_SUFFIX=
-    GIT_LHURL_FILE_PREFIX=
-    GIT_LHURL_FILE_SUFFIX=
+    GIT_LURL_URL_PREFIX=
+    GIT_LURL_URL_SUFFIX=
+    GIT_LURL_HASH_PREFIX=
+    GIT_LURL_HASH_SUFFIX=
+    GIT_LURL_PATH_PREFIX=
+    GIT_LURL_PATH_SUFFIX=
+    GIT_LURL_FILE_PREFIX=
+    GIT_LURL_FILE_SUFFIX=
 fi
 
-url=$(git lhurl "$remote" --max-count 1 "$@")
+url="$(git-lurl "$remote" --max-count 1 "$@")"
 
 literalBaseUrl="${url%commit/*}"
 literalBaseUrl=${literalBaseUrl//\\/\\\\}
 literalBaseUrl=${literalBaseUrl//&/\\&}
 
 printf 'Commit: %s%s%s%s%s%s\n' \
-    "$GIT_LHURL_URL_PREFIX" "${url%/*}/" "$GIT_LHURL_URL_SUFFIX" \
-    "$GIT_LHURL_HASH_PREFIX" "${url##*/}" "$GIT_LHURL_HASH_SUFFIX"
+    "$GIT_LURL_URL_PREFIX" "${url%/*}/" "$GIT_LURL_URL_SUFFIX" \
+    "$GIT_LURL_HASH_PREFIX" "${url##*/}" "$GIT_LURL_HASH_SUFFIX"
 git log -m --first-parent --max-count 1 "$@" | \
     sed \
 	-e '/commit /d' \
-	-e 's#\(^Merge: \)\([0-9a-fA-F]\+\) \([0-9a-fA-F]\+\)$'"#\\1 ${GIT_LHURL_URL_PREFIX}${literalBaseUrl//#/}compare/${GIT_LHURL_URL_SUFFIX}${GIT_LHURL_HASH_PREFIX}\\2...\\3${GIT_LHURL_HASH_SUFFIX}#"
+	-e 's#\(^Merge: \)\([0-9a-fA-F]\+\) \([0-9a-fA-F]\+\)$'"#\\1 ${GIT_LURL_URL_PREFIX}${literalBaseUrl//#/}compare/${GIT_LURL_URL_SUFFIX}${GIT_LURL_HASH_PREFIX}\\2...\\3${GIT_LURL_HASH_SUFFIX}#"
 
 printf '\n'
 git show -m --first-parent --pretty= --name-status "$@" | \
     awk \
-	-v urlPrefix="$GIT_LHURL_URL_PREFIX" \
-	-v urlSuffix="$GIT_LHURL_URL_SUFFIX" \
-	-v hashPrefix="$GIT_LHURL_HASH_PREFIX" \
-	-v hashSuffix="$GIT_LHURL_HASH_SUFFIX" \
-	-v pathPrefix="$GIT_LHURL_PATH_PREFIX" \
-	-v pathSuffix="$GIT_LHURL_PATH_SUFFIX" \
-	-v filePrefix="$GIT_LHURL_FILE_PREFIX" \
-	-v fileSuffix="$GIT_LHURL_FILE_SUFFIX" \
+	-v urlPrefix="$GIT_LURL_URL_PREFIX" \
+	-v urlSuffix="$GIT_LURL_URL_SUFFIX" \
+	-v hashPrefix="$GIT_LURL_HASH_PREFIX" \
+	-v hashSuffix="$GIT_LURL_HASH_SUFFIX" \
+	-v pathPrefix="$GIT_LURL_PATH_PREFIX" \
+	-v pathSuffix="$GIT_LURL_PATH_SUFFIX" \
+	-v filePrefix="$GIT_LURL_FILE_PREFIX" \
+	-v fileSuffix="$GIT_LURL_FILE_SUFFIX" \
 '
 function basename( filespec ) {
     sub(".*/", "", filespec)

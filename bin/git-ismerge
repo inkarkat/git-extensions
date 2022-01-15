@@ -7,12 +7,14 @@ Test whether the last commit / <commit> has been created by a merge.
 (In other words, whether it has multiple parents.)
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<commit>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--single-branch] [<commit>] [-?|-h|--help]'
 }
+typeset -a compareArgs=(-gt 0)
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --single-branch)	shift; compareArgs=(-eq 1);;
 esac
 [ $# -eq 0 ] && set -- HEAD
 
 mergeCount="$(git rev-list --no-walk --count --merges "$@")" || exit $?
-[ ${mergeCount:-0} -gt 0 ]
+[ ${mergeCount:-0} "${compareArgs[@]}" ]

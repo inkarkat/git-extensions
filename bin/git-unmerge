@@ -1,0 +1,62 @@
+#!/bin/bash
+set -o pipefail
+
+printUsage()
+{
+    cat <<HELPTEXT
+Undo the merge done in the last commit of the current branch, and checkout the
+original unmerged branch again.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [-y|--yes] [-b|--branch <branch>] [-?|-h|--help]'
+}
+branchName=
+isQuiet=
+isYes=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	    shift; printUsage "$0"; exit 0;;
+	--quiet|-q)	    shift; isQuiet=t;;
+	--yes|-y)	    shift; isYes=t;;
+	--branch|-b)	    shift; branchName="$1"; shift;;
+	-*)		    { echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		    break;;
+    esac
+done
+if [ $# -gt 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+elif git-dirty; then
+    echo >&2 'ERROR: working copy is still dirty; please clean up first.'
+    git status
+    exit 1
+elif ! git-ismerge --single-branch; then
+    if git-ismerge; then
+	echo >&2 'ERROR: Last commit merged more than one branch.'
+    else
+	echo >&2 'ERROR: Last commit is not a merge.'
+    fi
+    exit 1
+fi
+
+branchCommit="$(git rev-parse HEAD^2)" || exit $?
+[ -n "$branchName" ] || branchName="$(git log --max-count 1 --pretty=format:%b HEAD | sed -n -e "s#^Merge branch '\\(.*\\)'[[:space:]]*\$#\\1#p")" || exit $?
+if [ -z "$branchName" ]; then
+    </dev/tty read -r -p "Branch name not found in merge commit; please enter branch name: " branchName
+fi
+[ -n "$branchName" ] || exit 1
+if git-existsbr "$branchName"; then
+    printf >&2 "ERROR: Branch '%s' already exists.\\n" "$branchName"
+    exit 1
+fi
+
+if [ "$isYes" ]; then
+    [ "$isQuiet" ] || echo >&2 "Unmerging ${branchName}."
+else
+    </dev/tty read -r -N 1 -p "Really ummerge branch '$branchName'? (y/n) " choice; echo >/dev/tty
+    [ "$choice" = "y" ] || exit 1
+fi
+
+git reset --hard HEAD^ || exit $?
+exec git checkout -b "$branchName" "$branchCommit"

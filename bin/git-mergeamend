@@ -1,0 +1,163 @@
+#!/bin/bash
+shopt -qs extglob
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [-y|--yes] [-b|--branch <branch>] [-M|--original-merge-message] [--amen|--amend] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Commit the staged changes to the (revived) branch that was merged into the last
+commit of the current branch, and merge it again.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --branch|-b <branch>
+			Use <branch> instead of reviving the original branch.
+    --original-merge-message|-M
+			Do not re-edit the merge message, but reuse the original
+			merge message as-is.
+    --amend		Amend the staged changes to the last commit on the
+			revived branch instead of creating a new commit.
+    --amen		Amend the staged changes without re-editing the last
+			commit message on the revived branch.
+HELPTEXT
+}
+
+typeset -a branchCommitArgs=()
+typeset -a unmergeArgs=()
+isOriginalMergeMessage=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+
+	--original-merge-message|-M)
+			shift; isOriginalMergeMessage=t;;
+	--amend)	branchCommitArgs+=("$1"); shift;;
+	--amen)		branchCommitArgs+=(--amend '--reuse-message=HEAD'); shift;;
+
+	-+([qy]))	unmergeArgs+=("$1"); shift;;
+	--@(quiet|yes))	unmergeArgs+=("$1"); shift;;
+	-[b])		unmergeArgs+=("$1" "$2"); shift; shift;;
+	--@(branch))	unmergeArgs+=("$1" "$2"); shift; shift;;
+
+	--)		unmergeArgs+=("$1"); shift; break;;
+	*)		break;;
+    esac
+done
+
+if ! git-staged --quiet; then
+    echo >&2 'ERROR: Nothing staged.'
+    exit 1
+elif ! git-ismerge --single-branch; then
+    if git-ismerge; then
+	echo >&2 'ERROR: Last commit merged more than one branch.'
+    else
+	echo >&2 'ERROR: Last commit is not a merge.'
+    fi
+    exit 1
+fi
+
+originalBranch="$(git-brname --real-branch-only)" || exit $?
+
+mergeMessageFilespec="$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TEMP:-/tmp}/$(basename -- "$0").$$$RANDOM")"
+cleanup()
+{
+    rm -f "$mergeMessageFilespec" 2>/dev/null
+}
+[ "$DEBUG" ] || trap 'cleanup' EXIT
+git lo1 HEAD > "$mergeMessageFilespec"
+if [ -s "$mergeMessageFilespec" ]; then
+    mergeArgs+=("--file=$mergeMessageFilespec")
+    [ "$isOriginalMergeMessage" ] && \
+	mergeArgs+=(--no-edit) || \
+	mergeArgs+=(--edit)
+fi
+
+hasUnstagedChanges=
+if git-unstaged; then
+    hasUnstagedChanges=t
+    # First stash only unstaged changes not yet in the index.
+    git stash push --keep-index --message 'unstaged changes'
+fi
+
+# Stash the staged changes.
+git stash push --message 'staged changes' || {
+    status=$?
+    [ "$hasUnstagedChanges" ] && \
+	git stash pop
+    exit $status
+}
+
+# Undo the merge and revive the original branch that was merged.
+git-unmerge "${unmergeArgs[@]}" || {
+    status=$?
+    git stash pop && \
+	[ "$hasUnstagedChanges" ] && \
+	git stash pop
+    exit $status
+}
+revivedBranch="$(git-brname --real-branch-only)" || exit $?
+
+
+# Apply the staged changes.
+git stash pop --index || {
+    status=$?
+
+    printf 'Application of the staged changes failed.\n\nAfter resolving the issue, commit and merge via:\ngit stash drop && '
+    printf '%q ' git commit "${branchCommitArgs[@]}"
+    printf '&& '
+    printf '%q ' git reintegrateto "$originalBranch" --no-ff "${mergeArgs[@]}"
+    [ ! "$hasUnstagedChanges" ] || printf '&& git stash pop'
+    echo
+
+    exit $status
+}
+
+# Commit the staged changes, either as a new commit or amending to the last
+# commit on the revived branch.
+git-commit "${branchCommitArgs[@]}" || {
+    status=$?
+
+    printf 'Committing the staged changes failed.\nAfter a successful commit, merge via:\n'
+    printf '%q ' git reintegrateto "$originalBranch" --no-ff "${mergeArgs[@]}"
+    [ ! "$hasUnstagedChanges" ] || printf '&& git stash pop'
+    echo
+
+    exit $status
+}
+
+# Merge the revived branch again to the original branch, and then delete it.
+git-reintegrateto --branch "$originalBranch" --no-ff "${mergeArgs[@]}" || {
+    status=$?
+
+    printf 'Reintegration of the revived branch failed:\n'
+    if [ "$(git-brname --real-branch-only)" = "$originalBranch" ]; then
+	printf '%q ' git reintegrate --branch "$revivedBranch" --no-ff "${mergeArgs[@]}"
+    elif [ "$(git-brname --real-branch-only)" = "$revivedBranch" ]; then
+	printf '%q ' git reintegrateto --branch "$originalBranch" --no-ff "${mergeArgs[@]}"
+    fi
+    echo
+
+    [ ! "$hasUnstagedChanges" ] || printf '\nAfter a successful merge, restore the unstaged changes via:\ngit stash pop\n'
+
+    exit $status
+}
+
+# Reapply the unstaged changes to the original branch.
+[ ! "$hasUnstagedChanges" ] || git stash pop

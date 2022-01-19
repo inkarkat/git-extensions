@@ -12,7 +12,8 @@ Copy / sync all plugin files from ~/data/Unixhome/.vim to ~/tmp/vim
 `git-writebackup-ingo-import ~/tmp/vim`
 - Backup and remove plugin files from ~/Unixhome/.vim/
 `runVimTests tests/[all.suite]` to verify that the tests haven't been broken by the conversion
-- Remove tests invocation from ~/Unixhome/.vim/tests/noninteractive.suite, add to ~/Unixhome/.vim/pack/ingo/start/noninteractive.suite
+- Remove tests invocation from ~/Unixhome/.vim/tests/noninteractive.suite
+- Add tests invocation to ~/Unixhome/.vim/pack/ingo/start/noninteractive.suite
 `hub create -d "Plugin description from doc/*.txt"`
 `git opublish`
 `hub url`
@@ -41,7 +42,7 @@ Support branches? [support/]
 Version tag prefix? []
 Hooks and filters directory?
 
-`git opush --all`
+`git opa` # opush --all
 
 # convert plugin from writebackups to GitHub - readme
 

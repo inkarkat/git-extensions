@@ -1,6 +1,6 @@
 # convert writebackup plugin to GitHub - import
 
-Copy / sync all plugin files from ~/data/data/Unixhome/.vim to ~/tmp/vim
+Copy / sync all plugin files from ~/data/Unixhome/.vim to ~/tmp/vim
 - **Don't forget to move the tests/ directory** from ~/.vim/tests/PLUGIN-NAME to ~/tmp/vim/tests
 - Remove test artifacts:
 `rm ~/tmp/vim/tests/*.{out,msgout,msgresult,tap}`

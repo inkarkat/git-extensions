@@ -16,6 +16,7 @@ Copy / sync all plugin files from ~/data/Unixhome/.vim to ~/tmp/vim
 - Add tests invocation to ~/Unixhome/.vim/pack/ingo/start/noninteractive.suite
 `hub create -d "Plugin description from doc/*.txt"`
 `git opublish`
+`hub labels set`
 `hub url`
 - Add GitHub repo link to ~/Unixhome/.vim/thesaurus/vimscripts.txt
 

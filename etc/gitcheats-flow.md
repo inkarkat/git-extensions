@@ -10,6 +10,7 @@ Branch name for "next release" development: master
 `git adduntracked; git commit -m "Initial implementation"`
 `hub create -d "Plugin description from doc/*.txt"`
 `git opublish`
+`hub labels set`
 `hub url`
 - Add GitHub repo link to ~/Unixhome/.vim/thesaurus/vimscripts.txt
 

@@ -16,10 +16,10 @@ git()
 	command git ${GIT_DEFAULT_COMMAND:-st}
     elif type ${BASH_VERSION:+-t} "$gitSubAlias" >/dev/null 2>&1; then
 	shift; shift
-	eval $gitSubAlias '"$@"'
+	$gitSubAlias "$@"
     elif type ${BASH_VERSION:+-t} "$gitAlias" >/dev/null 2>&1; then
 	shift
-	eval $gitAlias '"$@"'
+	$gitAlias "$@"
     elif [ "$1" = "${1#-}" ] && expr "$1" : '.*[[:upper:]]' >/dev/null; then
 	# Translate "X" to "-x" to enable aliases with uppercase letters.
 	translatedAlias=$(echo "$1" | sed -e 's/[[:upper:]]/-\l\0/g')
@@ -39,10 +39,10 @@ hub()
 	command hub ${HUB_DEFAULT_COMMAND:-st}
     elif type ${BASH_VERSION:+-t} "$hubSubAlias" >/dev/null 2>&1; then
 	shift; shift
-	eval $hubSubAlias '"$@"'
+	$hubSubAlias "$@"
     elif type ${BASH_VERSION:+-t} "$hubAlias" >/dev/null 2>&1; then
 	shift
-	eval $hubAlias '"$@"'
+	$hubAlias "$@"
     else
 	command hub "$@"
     fi

@@ -9,15 +9,15 @@ Copy / sync all plugin files from ~/data/Unixhome/.vim to ~/tmp/vim
 
 `cd ~/Unixhome/.vim/pack/ingo/start/`
 `git init vim-PluginName`
-`git-writebackup-ingo-import ~/tmp/vim`
+`git-writebackup-ingo-import --yes ~/tmp/vim`
 - Backup and remove plugin files from ~/Unixhome/.vim/
 `runVimTests tests/[all.suite]` to verify that the tests haven't been broken by the conversion
 - Remove tests invocation from ~/Unixhome/.vim/tests/noninteractive.suite
 - Add tests invocation to ~/Unixhome/.vim/pack/ingo/start/noninteractive.suite
 `hub create -d "Plugin description from doc/*.txt"`
 `git opublish`
-`hub labels set`
 `hub url`
+`hub labels set`
 - Add GitHub repo link to ~/Unixhome/.vim/thesaurus/vimscripts.txt
 
 # convert plugin from writebackups to GitHub - git flow

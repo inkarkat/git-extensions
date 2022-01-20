@@ -7,11 +7,16 @@
 # --files-without-match). As a workaround, translate "X" to "-x".
 # Add support for the "hub" extension. As this messes with the completion for
 # git, anyway, follow their advice and alias git=hub (adapted to my wrapper).
-git() {
+git()
+{
+    typeset gitSubAlias="git-$1-$2"
     typeset gitAlias="git-$1"
     typeset gitCommand="$(which hub 2>/dev/null || which git)"
     if [ $# -eq 0 ]; then
 	command git ${GIT_DEFAULT_COMMAND:-st}
+    elif type ${BASH_VERSION:+-t} "$gitSubAlias" >/dev/null 2>&1; then
+	shift; shift
+	eval $gitSubAlias '"$@"'
     elif type ${BASH_VERSION:+-t} "$gitAlias" >/dev/null 2>&1; then
 	shift
 	eval $gitAlias '"$@"'
@@ -26,10 +31,15 @@ git() {
 }
 
 which hub >/dev/null 2>&1 || return
-hub() {
+hub()
+{
+    typeset hubSubAlias="hub-$1-$2"
     typeset hubAlias="hub-$1"
     if [ $# -eq 0 ]; then
 	command hub ${HUB_DEFAULT_COMMAND:-st}
+    elif type ${BASH_VERSION:+-t} "$hubSubAlias" >/dev/null 2>&1; then
+	shift; shift
+	eval $hubSubAlias '"$@"'
     elif type ${BASH_VERSION:+-t} "$hubAlias" >/dev/null 2>&1; then
 	shift
 	eval $hubAlias '"$@"'

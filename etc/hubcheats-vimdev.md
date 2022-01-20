@@ -22,27 +22,7 @@ Copy / sync all plugin files from ~/data/Unixhome/.vim to ~/tmp/vim
 
 # convert plugin from writebackups to GitHub - git flow
 
-`git branch stable`
 `git flow init`
-
-Which branch should be used for bringing forth production releases?
-   - master
-   - stable
-Branch name for production releases: [master] stable
-
-Which branch should be used for integration of the "next release"?
-   - master
-Branch name for "next release" development: [master]
-
-How to name your supporting branch prefixes?
-Feature branches? [feature/]
-Bugfix branches? [bugfix/]
-Release branches? [release/]
-Hotfix branches? [hotfix/]
-Support branches? [support/]
-Version tag prefix? []
-Hooks and filters directory?
-
 `git opa` # opush --all
 
 # convert plugin from writebackups to GitHub - readme

@@ -22,8 +22,7 @@ Copy / sync all plugin files from ~/data/Unixhome/.vim to ~/tmp/vim
 
 # convert plugin from writebackups to GitHub - git flow
 
-`git flow init`
-`git opa` # opush --all
+`git flow init --push`
 
 # convert plugin from writebackups to GitHub - readme
 

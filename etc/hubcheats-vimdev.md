@@ -9,7 +9,7 @@ Copy / sync all plugin files from ~/data/Unixhome/.vim to ~/tmp/vim
 
 `cd ~/Unixhome/.vim/pack/ingo/start/`
 `git init vim-PluginName`
-`git-writebackup-ingo-import --yes ~/tmp/vim`
+`withGVIM git-writebackup-ingo-import --yes ~/tmp/vim`
 - Backup and remove plugin files from ~/Unixhome/.vim/
 `runVimTests tests/[all.suite]` to verify that the tests haven't been broken by the conversion
 - Remove tests invocation from ~/Unixhome/.vim/tests/noninteractive.suite

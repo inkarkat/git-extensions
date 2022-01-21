@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# DWIM: Derive the feature name from the current branch.
+if [ $# -eq 0 ] && \
+    branchName="$(git brname --real-branch-only 2>/dev/null)" && \
+    featureName="${branchName#feature/}"
+then
+    if [ "$featureName" = "$branchName" ]; then
+	printf >&2 'ERROR: Not on a feature branch: %s\n' "$branchName"
+	exit 1
+    else
+	set -- "$featureName"
+    fi
+fi
+
+exec git flow feature finish "$@"

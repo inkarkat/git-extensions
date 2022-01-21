@@ -68,10 +68,15 @@ done
 if [ $# -eq 0 ]; then
     set -- --no-header --command 'echo $ROOT'
 elif [ "${1:0:1}" != '-' ]; then
+    commandSubAlias="${wrapper}-$1-$2"
     commandAlias="${wrapper}-$1"
-    if type -t "$commandAlias" >/dev/null; then
+    if type -t "$commandSubAlias" >/dev/null; then
+	shift; shift	# The first two arguments are part of the alias.
+	$commandSubAlias "$@"
+	exit $?
+    elif type -t "$commandAlias" >/dev/null; then
 	shift	# The first argument is part of the alias.
-	eval $commandAlias '"$@"'
+	$commandAlias "$@"
 	exit $?
     fi
 

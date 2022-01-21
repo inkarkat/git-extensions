@@ -1,10 +1,15 @@
 #!/bin/bash
 
+: ${PROGRESSNOTIFICATION_REPORT_MARKER='{}'}
+
+hasProgressNotification=; type -t progressNotification >/dev/null && hasProgressNotification=t
+hasProgressNotificationToAddendum=; type -t progressNotificationToAddendum >/dev/null && hasProgressNotificationToAddendum=t
+
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header|--branch-name] [--separate-errors] [--no-git-color] [--single-success] [--skip-files] [-s|--skip-foreign|--foreign-command "COMMANDLINE" [...]] [--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] WORKING-COPY [...] [-- SIMPLECOMMAND ...] [-?|-h|--help]'
+    printf 'Usage: %q %s%s%s\n' "$(basename "$1")" '[--no-pager] [--no-header|--branch-name]' "${hasProgressNotification:+ [--progress overlay|title|command|notify${hasProgressNotificationToAddendum:+|addendum}]}" ' [--separate-errors] [--no-git-color] [--single-success] [--skip-files] [-s|--skip-foreign|--foreign-command "COMMANDLINE" [...]] [--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] WORKING-COPY [...] [-- SIMPLECOMMAND ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -30,7 +35,23 @@ Puts a header line (unless --no-header) that contains the WORKING-COPY name
 			    of view if there's too much output).
     --no-header		    Do not output the header line before command output
 			    (and no separating empty line after it).
-    --branch-name	    Include the current Git branch in the header.
+    --branch-name	    Include the current Git branch in the header and
+			    progress report.${hasProgressNotification:+
+    --progress overlay|title|command|notify${hasProgressNotificationToAddendum:+|addendum}
+			    Report the current WORKING-COPY name (and count +
+			    percentage) in one of the following ways:
+			    overlay:	in the form of overlaid text, written
+					via ANSI escape sequences in the first
+					line of the terminal
+			    title:	in the terminal's window title via ANSI
+					escape sequences
+			    command:	by invoking
+					PROGRESSNOTIFICATION_COMMANDLINE${PROGRESSNOTIFICATION_REPORT_MARKER:+
+					while replacing $PROGRESSNOTIFICATION_REPORT_MARKER with the report}
+			    notify:	via notify-send to the system's
+					notification system}${hasProgressNotificationToAddendum:+
+			    addendum:	via the addendum of the terminal"'"s
+					window title}
     --separate-errors	    Do not combine command output and command errors
 			    into one (paged) stream. Commands that just cause
 			    error output won't have a header then. Error output
@@ -81,6 +102,7 @@ isNeedEval=
 typeset -a commands=()
 isHeader=; type -t withHeader >/dev/null && isHeader=t
 isBranchName=
+progressSink=
 errorRedir='2>&1'
 isGitColor=t
 typeset -a colorArg=()
@@ -98,6 +120,7 @@ do
 	--no-pager)		shift; pager=();;
 	--no-header)		shift; isHeader=;;
 	--branch-name)		shift; isBranchName=t;;
+	--progress)		shift; progressSink="$1"; shift;;
 	--separate-errors)	shift; errorRedir='';;
 	--no-git-color)		shift; isGitColor=;;
 	--no-color|--color=*)	colorArg=("$1"); shift;;
@@ -185,7 +208,21 @@ if [ $# -gt 0 ]; then
 fi
 [ ${#commands[@]} -eq 0 ] && commands=("${gitCommand[@]}" noop)
 
+if [ "$hasProgressNotification" ] && [ -n "$progressSink" ]; then
+    if [ "$progressSink" = addendum ]; then
+	[ "$hasProgressNotificationToAddendum" ] && \
+	    exec 3> >(progressNotificationToAddendum --count 'working copy' --percentage "${#wcs[@]}")
+    else
+	exec 3> >(progressNotification --to "$progressSink" --count 'working copy' --percentage "${#wcs[@]}")
+    fi
 
+    reportProgress()
+    {
+	printf '%s\n' "$*" >&3
+    }
+else
+    reportProgress() { :; }
+fi
 
 set -o pipefail
 wcdo()
@@ -206,6 +243,7 @@ wcdo()
 		    header="${dirspec##*/}"
 		    [ "$isBranchName" ] && header="${header%.*} outside Git"
 		fi
+		reportProgress "$header"
 		eval "${foreignCommands[@]}" "${isHeader:+$errorRedir | withHeader "${colorArg[@]}" --id '$GIT_WCDO_HEADER_ID' -- '$header'}" && isSuccess=t || status=$?
 	    elif [ ! "$isSkipForeign" ]; then
 		printf >&2 'ERROR: %s is not inside a Git working copy!\n' "$dirspec"
@@ -229,6 +267,7 @@ wcdo()
 	else
 	    typeset -a c=('"${commands[@]}"')
 	fi
+	reportProgress "$header"
 	eval "${c[@]}" "${isHeader:+$errorRedir | withHeader "${colorArg[@]}" --id '$GIT_WCDO_HEADER_ID' -- '$header'}" && isSuccess=t || status=$?
     done
 

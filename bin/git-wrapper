@@ -14,8 +14,14 @@ wrappedCommand=git
 if type -t hub >/dev/null; then
     wrappedCommand=hub
 
+    hubSubAlias="hub-$1-$2"
     hubAlias="hub-$1"
-    if type -t "$hubAlias" >/dev/null; then
+    if type -t "$hubSubAlias" >/dev/null; then
+	shift; shift
+	fixPath
+	$hubSubAlias "$@"
+	exit $?
+    elif type -t "$hubAlias" >/dev/null; then
 	shift
 	fixPath
 	$hubAlias "$@"
@@ -23,8 +29,13 @@ if type -t hub >/dev/null; then
     fi
 fi
 
+gitSubAlias="git-$1-$2"
 gitAlias="git-$1"
-if type -t "$gitAlias" >/dev/null; then
+if type -t "$gitSubAlias" >/dev/null; then
+    shift; shift
+    fixPath
+    $gitSubAlias "$@"
+elif type -t "$gitAlias" >/dev/null; then
     shift
     fixPath
     $gitAlias "$@"

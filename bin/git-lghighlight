@@ -17,12 +17,21 @@ if [ $# -eq 0 ]; then
     printUsage "$0"
     exit 2
 fi >&2
+pattern="${1:?}"; shift
+typeset -a gitLogArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--)		gitLogArgs+=("$@"); break;;
+	*)		gitLogArgs+=("$1"); shift;;
+    esac
+done
 
 
 lghighlight()
 {
-    pattern=${1:?}; shift
-    git lg "$@" | sed -e "/${pattern//\//\/}/"'{ s#\[0*m#&[07m#g; s#.*#[07m&[0m# }'
+    git lg "${gitLogArgs[@]}" | sed -e "/${pattern//\//\/}/"'{ s#\[0*m#&[07m#g; s#.*#[07m&[0m# }'
 }
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()

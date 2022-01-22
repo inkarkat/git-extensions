@@ -1,6 +1,7 @@
 #!/bin/bash
 
 : ${PROGRESSNOTIFICATION_REPORT_MARKER='{}'}
+: ${GIT_WCDO_PROGRESS_WHAT=working copy}
 
 hasProgressNotification=; type -t progressNotification >/dev/null && hasProgressNotification=t
 hasProgressNotificationToAddendum=; type -t progressNotificationToAddendum >/dev/null && hasProgressNotificationToAddendum=t
@@ -215,9 +216,9 @@ fi
 if [ "$hasProgressNotification" ] && [ -n "$progressSink" ]; then
     if [ "$progressSink" = addendum ]; then
 	[ "$hasProgressNotificationToAddendum" ] && \
-	    exec 3> >(progressNotificationToAddendum --prepend-count 'working copy' --count-to "${#wcs[@]}" 2>/dev/null)  # Silence "Cannot notify via titleupdate; TERMID not defined."
+	    exec 3> >(progressNotificationToAddendum --prepend-count "$GIT_WCDO_PROGRESS_WHAT" --count-to "${#wcs[@]}" 2>/dev/null)  # Silence "Cannot notify via titleupdate; TERMID not defined."
     else
-	exec 3> >(progressNotification --to "$progressSink" --prepend-count 'working copy' --count-to "${#wcs[@]}" 2>/dev/null)
+	exec 3> >(progressNotification --to "$progressSink" --prepend-count "$GIT_WCDO_PROGRESS_WHAT" --count-to "${#wcs[@]}" 2>/dev/null)
     fi
 
     reportProgress()

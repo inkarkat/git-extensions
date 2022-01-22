@@ -18,6 +18,16 @@ if [ $# -eq 0 ]; then
     exit 2
 fi >&2
 pattern="${1:?}"; shift
+if [[ "$pattern" =~ ^(\\\()*\^ ]]; then
+    # The ^ anchor is supposed to match at the beginning of the commit title,
+    # but as git lg has additional elements at the beginning, we need to convert
+    # it. The title is separated by the preceding stuff via two spaces (which
+    # hopefully do not regularly occur within the title); however, there may
+    # also be ref name decoration (git log --decorate) after those two spaces.
+    # And with color highlighting, we need to skip that as well.
+    pattern="${pattern/^/ \\(\\x1b\\[[0-9:;]*[mK]\\)* \\([^)]\\+)\\(\\x1b\\[[0-9:;]*[mK]\\)* \\)\\?}"
+fi
+
 typeset -a colorArg=(--color=always)
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
 if [ ! -t 1 ]; then

@@ -1,0 +1,36 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Check whether the conditions for a merge are good. Fails if:
+- there still exist fixup commit(s) (that should be squashed before the merge)
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'TARGET-BRANCH [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+if [ $# -ne 1 ]; then
+    echo 'ERROR: No TARGET-BRANCH passed.'
+    echo
+    printUsage "$0"
+    exit 2
+fi >&2
+targetBranch="$1"; shift
+branchRange="${targetBranch:?}.."
+
+readonly FIXUP_PATTERN='^fixup: '
+fixupCommitCount=$(git log --pretty=tformat:%s "$branchRange" | grep --count -e "$FIXUP_PATTERN")
+if [ $fixupCommitCount -gt 0 ]; then
+    if [ $fixupCommitCount -eq 1 ]; then
+	echo 'There is still a fixup commit; please squash it first:'
+    else
+	printf 'There are still %d fixup commits; please squash them first:\n' "$fixupCommitCount"
+    fi
+
+    git lghighlight "$FIXUP_PATTERN" "$branchRange"
+
+    exit 1
+fi

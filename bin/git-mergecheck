@@ -7,30 +7,51 @@ Check whether the conditions for a merge are good. Fails if:
 - there still exist fixup commit(s) (that should be squashed before the merge)
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'TARGET-BRANCH [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--merge-to TARGET-BRANCH|SOURCE-BRANCH [...] [-?|-h|--help]'
 }
+branchFormat='..%s'
+typeset -a branches=()
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --merge-to)		shift
+			branches+=("${1:?}"); shift
+			branchFormat='%s..'
+			if [ $# -gt 0 ]; then
+			    printUsage "$0" >&2
+			    exit 2
+			fi
+			;;
+    --)			shift;;
+    -*)			{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 esac
-if [ $# -ne 1 ]; then
-    echo 'ERROR: No TARGET-BRANCH passed.'
+branches+=("$@")
+if [ ${#branches[@]} -eq 0 ]; then
+    echo 'ERROR: No --merge-to TARGET-BRANCH or SOURCE-BRANCH(es) passed.'
     echo
     printUsage "$0"
     exit 2
 fi >&2
-targetBranch="$1"; shift
-branchRange="${targetBranch:?}.."
 
+status=0
 readonly FIXUP_PATTERN='^fixup: '
-fixupCommitCount=$(git log --pretty=tformat:%s "$branchRange" | grep --count -e "$FIXUP_PATTERN")
-if [ $fixupCommitCount -gt 0 ]; then
-    if [ $fixupCommitCount -eq 1 ]; then
-	echo 'There is still a fixup commit; please squash it first:'
-    else
-	printf 'There are still %d fixup commits; please squash them first:\n' "$fixupCommitCount"
+separator=
+for branch in "${branches[@]}"
+do
+    printf -v branchRange "$branchFormat" "$branch"
+    fixupCommitCount=$(git log --pretty=tformat:%s "$branchRange" | grep --count -e "$FIXUP_PATTERN")
+    if [ $fixupCommitCount -gt 0 ]; then
+	status=1
+
+	branchHint=; [ ${#branches[@]} -gt 1 ] && branchHint="on $branch"
+
+	if [ $fixupCommitCount -eq 1 ]; then
+	    printf '%sThere is still a fixup commit%s; please squash it first:\n' "$separator" "${branchHint:+ }$branchHint"
+	else
+	    printf '%sThere are still %d fixup commits%s; please squash them first:\n' "$separator" "$fixupCommitCount" "${branchHint:+ }$branchHint"
+	fi
+	separator=$'\n'
+
+	git lghighlight "$FIXUP_PATTERN" "$branchRange"
     fi
-
-    git lghighlight "$FIXUP_PATTERN" "$branchRange"
-
-    exit 1
-fi
+done
+exit $status

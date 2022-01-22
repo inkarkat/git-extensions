@@ -17,11 +17,11 @@ esac
 
 sourceBranch="$(git-brname --real-branch-only)" || exit $?
 typeset -a reintegrateArgs=()
-target=
+targetBranch=
 case "$1" in
     -*)	;;
     ?*)	if git-existsbr "$1"; then
-	    target="$1"
+	    targetBranch="$1"
 	    shift
 	fi
 	;;
@@ -30,26 +30,26 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--branch|-b)    shift
-			if [ "$target" ]; then
+			if [ "$targetBranch" ]; then
 			    echo >&2 'ERROR: <branch> can only be passed once.'
 			    exit 2
 			fi
-			target="${1:?}"
+			targetBranch="${1:?}"
 			shift
 			;;
 	--)		reintegrateArgs+=("$1"); shift; break;;
 	*)		reintegrateArgs+=("$1"); shift;;
     esac
 done
-if [ -z "$target" ]; then
+if [ -z "$targetBranch" ]; then
     echo >&2 'ERROR: Missing <branch>.'
     exit 2
 fi
 
-if [ "$target" = "$sourceBranch" ]; then
-    printf >&2 'ERROR: Cannot reintegrate %s onto itself; check out a different branch first!\n' "$target"
+if [ "$targetBranch" = "$sourceBranch" ]; then
+    printf >&2 'ERROR: Cannot reintegrate %s onto itself; check out a different branch first!\n' "$targetBranch"
     exit 1
 fi
 
-git checkout "$target" || exit $?
+git checkout "$targetBranch" || exit $?
 exec git-reintegrate --branch "$sourceBranch" "${reintegrateArgs[@]}" "$@"

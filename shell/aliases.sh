@@ -418,38 +418,38 @@ alias vimgitstifiles='commandOnSelected --command '"${_aliases_vim}"' --generato
 
 
 
-# sgitgf [<GREP-OPTIONS> ...] [-e] PATTERN [<pathspec> ...] [-- SELECTIONs ...]
+# sgitgf [<GREP-OPTIONS> ...] [-e] PATTERN [<path> ...] [-- SELECTIONs ...]
 #			Print selected filespecs that match PATTERN.
-# sgitgF [<GREP-OPTIONS> ...] [-e] PATTERN [<pathspec> ...] [-- SELECTIONs ...]
+# sgitgF [<GREP-OPTIONS> ...] [-e] PATTERN [<path> ...] [-- SELECTIONs ...]
 #			Print selected filespecs that do not match PATTERN.
 alias sgitgf='commandOnSelected --generator "git gf" --entries'
 alias sgitgF='commandOnSelected --generator "git g-f" --entries'
 
-# ygitgf [<GREP-OPTIONS> ...] [-e] PATTERN [<pathspec> ...] [-- SELECTIONs ...]
+# ygitgf [<GREP-OPTIONS> ...] [-e] PATTERN [<path> ...] [-- SELECTIONs ...]
 #			Yank selected filespecs that match PATTERN.
-# ygitgF [<GREP-OPTIONS> ...] [-e] PATTERN [<pathspec> ...] [-- SELECTIONs ...]
+# ygitgF [<GREP-OPTIONS> ...] [-e] PATTERN [<path> ...] [-- SELECTIONs ...]
 #			Yank selected filespecs that do not match PATTERN.
 alias ygitgf='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git gf" --entries'
 alias ygitgF='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git g-f" --entries'
 
-# lgitgf [<GREP-OPTIONS> ...] [-e] PATTERN [<pathspec> ...] [-- SELECTIONs ...]
+# lgitgf [<GREP-OPTIONS> ...] [-e] PATTERN [<path> ...] [-- SELECTIONs ...]
 #			View selected files that match PATTERN with the pager.
-# lgitgF [<GREP-OPTIONS> ...] [-e] PATTERN [<pathspec> ...] [-- SELECTIONs ...]
+# lgitgF [<GREP-OPTIONS> ...] [-e] PATTERN [<path> ...] [-- SELECTIONs ...]
 #			View selected files that do not match PATTERN with the
 #			pager.
 alias lgitgf='commandOnSelected --command "${PAGER:-less}" --generator "git gf" --entries'
 alias lgitgF='commandOnSelected --command "${PAGER:-less}" --generator "git g-f" --entries'
 
-# vgitgf [<GREP-OPTIONS> ...] [-e] PATTERN [<pathspec> ...] [-- SELECTIONs ...]
+# vgitgf [<GREP-OPTIONS> ...] [-e] PATTERN [<path> ...] [-- SELECTIONs ...]
 #			Edit selected files that match PATTERN in GVIM.
-# vgitgF [<GREP-OPTIONS> ...] [-e] PATTERN [<pathspec> ...] [-- SELECTIONs ...]
+# vgitgF [<GREP-OPTIONS> ...] [-e] PATTERN [<path> ...] [-- SELECTIONs ...]
 #			Edit selected files that do not match PATTERN in GVIM.
 alias vgitgf='commandOnSelected --command SendToGVIM --generator "git gf" --entries'
 alias vgitgF='commandOnSelected --command SendToGVIM --generator "git g-f" --entries'
 
-# vimgitgf [<GREP-OPTIONS> ...] [-e] PATTERN [<pathspec> ...] [-- SELECTIONs ...]
+# vimgitgf [<GREP-OPTIONS> ...] [-e] PATTERN [<path> ...] [-- SELECTIONs ...]
 #			Edit selected files that match PATTERN in Vim.
-# vimgitgF [<GREP-OPTIONS> ...] [-e] PATTERN [<pathspec> ...] [-- SELECTIONs ...]
+# vimgitgF [<GREP-OPTIONS> ...] [-e] PATTERN [<path> ...] [-- SELECTIONs ...]
 #			Edit selected files that do not match PATTERN in Vim.
 alias vimgitgf='commandOnSelected --command '"${_aliases_vim}"' --generator "git gf" --entries'
 alias vimgitgF='commandOnSelected --command '"${_aliases_vim}"' --generator "git g-f" --entries'

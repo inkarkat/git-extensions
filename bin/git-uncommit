@@ -1,0 +1,28 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Cancel the last commit; keep working copy and index.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+    echo
+    cat <<HELPTEXT
+Remove <path>s from the last commit. Those changes will then be in the working
+copy; the index won't be touched.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--] <path> [...]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --)			shift;
+esac
+
+[ $# -eq 0 ] && exec git reset --soft HEAD^
+
+set -e
+git reset --soft HEAD^
+git reset HEAD -- "$@"	# Note: This won't fail even if all <path>s do not exist.
+git commit --reuse-message ORIG_HEAD

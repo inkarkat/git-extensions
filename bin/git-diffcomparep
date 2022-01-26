@@ -1,0 +1,63 @@
+#!/bin/bash
+set -o pipefail
+shopt -qs extglob
+
+printUsage()
+{
+    cat <<HELPTEXT
+Compare the diff of unstaged changes in working copy (or index with --cached)
+side-by-side with the diff with the [Nth] predecessor, either current HEAD or
+passed commit, optionally limited to files in <path>.
+If no <commit> is passed but file(s) are, automatically takes the last / Nth
+previous commit of each file.
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--cached] [-<number>|-n <number>|--count=<number>] [<commit>] [<common diff options>] [--] [<path>...] [-?|-h|--help]'
+}
+
+revision=
+count=1
+typeset -a gitCommandArgs=()
+typeset -a gitCommonDiffArgs=()
+typeset -a gitDiffArgs=()
+typeset -a gitDiffPredArgs=()
+typeset -a paths=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	-c)		gitCommandArgs+=("$1" "$2"); shift; shift;;
+	--cached)	gitDiffArgs+=("$1"); shift;;
+	--count|-n)	gitDiffPredArgs+=("$1" "$2"); shift; shift;;
+	--count=*)	gitDiffPredArgs+=("$1"); shift;;
+	-+([0-9]))	gitDiffPredArgs+=("$1"); shift;;
+	--)		shift; paths=("$@"); break;;
+	-*)		gitCommonDiffArgs+=("$1"); shift;;
+	*)		if [ -z "$revision" ] && [ ! -e "$1" ] && git-commitid "$1" --no-quiet --no-error; then
+			    # Take the first argument as a commit specification
+			    # when it looks like one and is not is an existing
+			    # file.
+			    revision="$1"
+			else
+			    gitCommonDiffArgs+=("$1")
+			fi
+			shift
+			;;
+    esac
+done
+if [ ${#paths[@]} -eq 0 ]; then
+    # No files after -- captured yet; need to investigate parsed and
+    # remaining args from behind for files.
+    gitCommonDiffArgs+=("$@")
+    while [ ${#gitCommonDiffArgs[@]} -ne 0 ]
+    do
+	lastArg="${gitCommonDiffArgs[-1]}"
+	[ -e "$lastArg" ] || break
+
+	paths=("$lastArg" "${paths[@]}")
+	gitCommonDiffArgs=("${gitCommonDiffArgs[@]:0:${#gitCommonDiffArgs[@]}-1}")
+    done
+fi
+
+diff --side-by-side \
+    <(git-dp "${gitCommandArgs[@]}" "${gitDiffPredArgs[@]}" -- "${paths[@]}") \
+    <(git diff "${gitCommandArgs[@]}" "${gitDiffArgs[@]}" -- "${paths[@]}")

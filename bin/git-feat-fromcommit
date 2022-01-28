@@ -8,26 +8,42 @@ and including <commit>, which is/are then removed from the current branch so
 that it/they will exclusively reside on the new feature branch.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<commit>] <name> [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<commit>] [<name>] [-?|-h|--help]'
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
-if [ $# -eq 0 ]; then
-    echo 'ERROR: Missing argument <name>.'
-    echo
-    printUsage "$0"
-    exit 2
-elif [ $# -gt 2 ]; then
+if [ $# -gt 2 ]; then
     printUsage "$0"
     exit 2
 fi >&2
 
+name=
 firstFeatureCommit=HEAD
 if [ $# -eq 2 ]; then
     firstFeatureCommit="${1:?}"; shift
+    name="${1:?}"; shift
+elif [ $# -eq 1 ]; then
+    if git rev-parse --verify --quiet "$1" >/dev/null; then
+	# Sole <commit> arg.
+	firstFeatureCommit="${1:?}"; shift
+    else
+	# Sole <name> arg.
+	name="${1:?}"; shift
+    fi
 fi
-name="${1:?}"; shift
+# DWIM: Query for feature name, derive the suggested feature name from the
+# changed file.
+if [ -z "$name" ]; then
+    # Duplicated to +/nameSuggestion= git-feat-start
+    nameSuggestion=
+    readarray -t filespecs < <(git-showfiles "${firstFeatureCommit}^.." 2>/dev/null)
+    [ ${#filespecs[@]} -eq 1 ] && nameSuggestion="$(basename "${filespecs[0]}")"
+
+    name="$(userquery -p 'Enter feature name: ' -e ${nameSuggestion:+-i "$nameSuggestion"} -r)" || exit $?
+    [ -n "$name" ] || exit 4
+fi
+
 
 currentCommit="$(git-commitid HEAD)" || exit $?
 beforeFirstFeatureCommit="$(git-commitid "${firstFeatureCommit}^")" || exit $?

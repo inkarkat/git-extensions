@@ -1,6 +1,5 @@
 #!/bin/bash
 # Source: https://stackoverflow.com/a/39644782/813602
-set -e # Terminate the script at first error.
 set -o pipefail
 
 printUsage()
@@ -20,15 +19,15 @@ esac
 # working copy, then the index, then undoing the working copy stashing.
 
 # Stash only unstaged changes not yet in the index temporarily.
-git stash --keep-index
+git stash push --keep-index --quiet || exit $?
 
 # Stash everything that remains (only the staged changes should remain). This is
 # the stash we want to keep, allow to give it a name / influence the stashing
 # via additional arguments.
-git stash save "$@"
+git stash push "$@" || exit $?
 
 # Apply the original stash to get us back to where we started.
-git stash apply stash@{1}
+git stash apply 'stash@{1}' || exit $?
 
 # Create a temporary patch to reverse the originally staged changes and apply
 # it.

@@ -31,7 +31,21 @@ git stash apply 'stash@{1}' || exit $?
 
 # Create a temporary patch to reverse the originally staged changes and apply
 # it.
-git stash show -p | git apply -R
+status=0
+printf '\nRestoring working directory state by removing staged changes...\n'
+git stash show -p | git apply -R --reject || status=$?
 
 # Delete the temporary stash.
-git stash drop stash@{1}
+git stash drop --quiet 'stash@{1}'
+
+if [ $status -ne 0 ]; then
+    readarray -t rejectFilespecs < <(find . -name '*.rej' -mmin -1 -type f -print)
+    [ ${#rejectFilespecs[@]} -gt 0 ] || exit $status
+
+    printf >&2 '\nERROR: The following reversals of the index failed and need to be applied manually (in reverse!):\n'
+    type -t colordiff >/dev/null && [ -t 1 ] && hasColorDiff=t
+    eval 'cat "${rejectFilespecs[@]}"' "${hasColorDiff:+|}colordiff" && \
+	rm --force -- "${rejectFilespecs[@]}"
+
+    exit $status
+fi

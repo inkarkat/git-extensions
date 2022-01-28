@@ -14,12 +14,21 @@ case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
 
+if ! git-staged --quiet; then
+    echo >&2 'ERROR: Nothing staged.'
+    exit 1
+elif ! git-unstaged; then
+    # Every change is in the index already, we can simply stash it.
+    exec git stash push --no-keep-index "$@"
+fi
+
+
 # There's no direct way (a la --keep-working-copy) to ignore unstaged changes,
 # so it has to be done the other way around, by first temporarily stashing the
 # working copy, then the index, then undoing the working copy stashing.
 
 # Stash only unstaged changes not yet in the index temporarily.
-git stash push --keep-index --quiet || exit $?
+git stash push --keep-index --quiet --message 'unstaged changes' || exit $?
 
 # Stash everything that remains (only the staged changes should remain). This is
 # the stash we want to keep, allow to give it a name / influence the stashing

@@ -18,9 +18,16 @@ if git-staged --quiet 2>/dev/null; then
     git-stashi || exit $?
     hasStashed=t
 fi
+finally()
+{
+    if [ "$hasStashed" ]; then
+	git stash pop --index && echo "Recreated index." || exit $?
+    fi
+    exit $status
+}
+trap 'finally' EXIT
+
+
+status=1
 git-adduntracked && git-commit "$@"
 status=$?
-if [ "$hasStashed" ]; then
-    git stash pop || exit $?
-fi
-exit $status

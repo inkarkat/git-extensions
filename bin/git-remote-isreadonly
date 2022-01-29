@@ -1,0 +1,22 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Test whether there's a push URL for <name>, or whether that remote is read-only
+(i.e. there's only a fetch URL).
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '<name> [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+if [ $# -ne 1 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+remote="$1"; shift
+
+remoteUrl="$(git remote get-url --push "$remote")" || exit 99
+[ "$remoteUrl" = no_push ]

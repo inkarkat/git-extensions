@@ -251,17 +251,17 @@ if [ "$isPush" ]; then
 	# First push to upstream; we usually want to catch up origin to
 	# upstream, but keep it at the current state if pushing to upstream
 	# failed.
-	if git-existsbr "upstream/$path"; then
+	if git-existsbr "upstream/$path" && ! git-remote-isreadonly upstream; then
 	    git push upstream "$path" || exit $?
 	fi
     fi
-    if [ "$targetTrackedRemote" ]; then
+    if [ -n "$targetTrackedRemote" ]; then
 	# Push to the tracked remote (usually origin).
 	git push "$targetTrackedRemote" || exit $?
     fi
     if [ "$targetTrackedRemote" != 'origin' ]; then
 	# Push to origin (if it's different from the tracked remote) last.
-	if git-existsbr "origin/$path"; then
+	if git-existsbr "origin/$path" && ! git-remote-isreadonly origin; then
 	    git push origin "$path" || exit $?
 	fi
     fi

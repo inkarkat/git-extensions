@@ -1,0 +1,21 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Removes the push URL for <name>, which disables pushes to it. It can only be
+fetched from, until the push URL is restored to the fetch URL.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '<name> [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+if [ $# -ne 1 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+remote="$1"; shift
+
+git remote set-url --push "$remote" no_push || exit 99

@@ -1,0 +1,84 @@
+#!/bin/bash
+set -o pipefail
+
+: ${GIT_LOGDISTRIBUTION_MAX_GRAPHED_MONTHS:=3}	# Maximum number of months that gets graphed as concatenated distributions over the month.
+: ${GIT_LOGDISTRIBUTION_MAX_GRAPHED_DAYS:=14}	# Maximum number of days that gets graphed as concatenated distributions over the day.
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-footer] [--as colorbox-calendar|green-[large-]calendar] [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Print the distribution of the number of commits that fall into the logged range.
+Depending on the span of time during which the commits were authored, this will
+be the distribution over the day (for a maximum of $GIT_LOGDISTRIBUTION_MAX_GRAPHED_DAYS days), over the month (for
+a maximum of $GIT_LOGDISTRIBUTION_MAX_GRAPHED_MONTHS months), or over year(s) (for everything longer).
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --no-footer		Omit the footer.
+    --as NAME-calendar	Special out-of-the-box spark style customizations.
+HELPTEXT
+}
+typeset -a distributionArgs=()
+typeset -a gitArgs=()
+typeset -a gitArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+
+	--no-footer)	distributionArgs+=("$1"); shift;;
+	--as)		distributionArgs+=("$1" "$2"); shift; shift;;
+
+	--pretty|--pretty=*|--format|--format=*)
+			echo >&2 'ERROR: Cannot influence the log format via --pretty|--format.'
+			echo >&2
+			printUsage "$0" >&2
+			exit 2
+			;;
+	--)		gitArgs+=("$1"); shift; break;;
+	*)		gitArgs+=("$1"); shift;;
+    esac
+done
+
+# The logged dates still need to be sorted, because sorting happens by commit
+# date, but we'd like to show the author date distribution. The
+# --split-graph-field would be disturbed by an earlier date reappeared after a
+# later date again.
+readarray -t dates < <(git log --pretty=tformat:'%ai' "${gitArgs[@]}" "$@" | sort --numeric-sort; printf '\n%d\n' "$?")	# Exit status from the process substitution is lost; return the actual exit status via an appended additional line.
+[ ${dates[-1]} -ne 0 ] && exit ${dates[-1]}
+unset 'dates[-1]'
+[ -z "${dates[-1]}" ] && unset 'dates[-1]'
+
+firstDate="${dates[0]%% *}"
+lastDate="${dates[-1]%% *}"
+
+monthDiff="$(datediff --output months "$firstDate" "$lastDate")" || exit $?
+if [ $monthDiff -gt $GIT_LOGDISTRIBUTION_MAX_GRAPHED_MONTHS ]; then
+    typeset -a distributionCommand=(distribution-over-the-year --graph-field 1 --split-graph-field 1)
+else
+    dayDiff="$(datediff --output days "$firstDate" "$lastDate")" || exit $?
+    if [ $dayDiff -gt $GIT_LOGDISTRIBUTION_MAX_GRAPHED_DAYS ]; then
+	typeset -a distributionCommand=(distribution-over-the-month --graph-field 2 --footer-field 1 --split-graph-field 1)
+    else
+	typeset -a distributionCommand=(distribution-over-the-day --first-hour 6 --last-hour 23 --hour-field 4 --minute-field 5 --graph-field 3 --footer-field 2 --split-graph-field 1 --split-graph-field 2 --split-graph-field 3)
+    fi
+fi
+
+printf '%s\n' "${dates[@]}" | "${distributionCommand[@]}" "${distributionArgs[@]}"

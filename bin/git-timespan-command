@@ -1,0 +1,72 @@
+#!/bin/bash
+set -o pipefail
+
+: ${GIT_TIMESPANCOMMAND_TIMESPAN:?}
+: ${GIT_TIMESPANCOMMAND_WHEN:="$GIT_TIMESPANCOMMAND_TIMESPAN"}
+
+printUsage()
+{
+    cat <<HELPTEXT
+Print / execute GIT-COMMAND with a revision range starting from the first
+revision committed ${GIT_TIMESPANCOMMAND_WHEN}; possibly including one previous commit.
+The revision range (with --no-range, only the starting revision will be used) is
+appended at the end of GIT-COMMAND ....
+HELPTEXT
+printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-range] [+1|--one-more] [GIT-COMMAND ...] [-?|-h|--help]'
+}
+
+getTimespanAgoCommit()
+{
+    local revision;
+    revision="$(git lh --since "$GIT_TIMESPANCOMMAND_TIMESPAN" | tail -n 1)" || exit $?
+    [ "$revision" ] || exit 1
+    printf %s "$revision"
+}
+
+isRange=t
+isShowOneMore=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-range)	shift; isRange=;;
+	--one-more|+1)	shift; isShowOneMore=t;;
+	*)		break;;
+    esac
+done
+typeset -a gitCommand=()
+if [ $# -eq 0 ]; then
+    isRange=
+    gitCommand=(name-rev --name-only)
+fi
+
+typeset -a rangeArgs=()
+if [ "$isRange" ] && [ ! "$isShowOneMore" ]; then
+    # For commands that take a range (i.e. the log variants), we can directly
+    # inject the --since argument.
+    rangeArgs=('--since' "$GIT_TIMESPANCOMMAND_TIMESPAN")
+else
+    rangeArgs=("$(getTimespanAgoCommit)${isShowOneMore:+^}${isRange:+^..}") || exit $?
+fi
+
+case "$1" in
+    [^-]*-command)  gitCommand+=("$1"); shift
+		    while [ $# -ne 0 ]
+		    do
+			case "$1" in
+			    --)		break;;
+			    -*)		gitCommand+=("$1"); shift;;
+			    *)		gitCommand+=("$1"); shift; break;;
+			esac
+		    done
+		    ;;
+    *)		    while [ $# -ne 0 ]
+		    do
+			case "$1" in
+			    -c) gitCommand+=("$1" "$2"); shift; shift;;
+			    *)	gitCommand+=("$1"); shift; break;;
+			esac
+		    done
+esac
+
+exec git-wrapper "${gitCommand[@]}" "${rangeArgs[@]}" "$@"

@@ -276,6 +276,9 @@
 	;; activity: Prints a summary of contributions in the repository.
 	activitymine = mine-command activity
 	activityteam = team-command activity
+	;; logdistribution: Print the distribution of the number of commits that fall into the logged range.
+	logdistributionmine = mine-command logdistribution
+	logdistributionteam = team-command logdistribution
 	whatis = show -s --pretty='tformat:%h (%s, %ad)' --date=short	; Print info about hash or commit name.
 
 	;; customtool: Permanently set / execute remaining arguments with temporary diff.tool / merge.tool set to <toolname>.
@@ -825,16 +828,21 @@
 	tdwhotouched = today-command whodid
 	tdwhatdid = today-command whatdid
 	; tdactivity would just show activity for today
+	; tdactivitymine would just show activity for today
+	; tdactivityteam would just show activity for today
+	tdlogdistribution = today-command logdistribution
+	tdlogdistributionmine = today-command logdistributionmine
+	tdlogdistributionteam = today-command logdistributionteam
 	tdemaillog = today-command email-command log
 	tdemaillc = today-command email-command show
 	; tdreintegrate does not cover a branch
 	; tdpull-request does not cover a branch
 
-	;; week...: Log variants that only cover changes committed week.
+	;; week...: Log variants that only cover changes committed over one week.
 	weekchurn = week-command churn
-	weekd = week-command --no-range diffuntil ; Show all changes from week in a single big diff.
-	weekdl = week-command --no-range diffuntill ; Show all changes from week in a big diffs, separately for each changed file.
-	weekdt = week-command --no-range difftooluntil ; Show all changes from week in a single big diff.
+	weekd = week-command --no-range diffuntil ; Show all changes from the last seven days in a single big diff.
+	weekdl = week-command --no-range diffuntill ; Show all changes from the last seven days in a big diffs, separately for each changed file.
+	weekdt = week-command --no-range difftooluntil ; Show all changes from the last seven days in a single big diff.
 	weekma = week-command --no-range --one-more format-patch
 	weekfindlog = week-command findlog
 	weekfindlogv = week-command findlogv
@@ -943,11 +951,264 @@
 	weekwhodid = files-command whodid weekshowfiles
 	weekwhotouched = week-command whodid
 	weekwhatdid = week-command whatdid
-	; weekactivity would just show activity for week
+	; weekactivity would just show activity for the last seven days
+	; weekactivitymine would just show activity for the last seven days
+	; weekactivityteam would just show activity for the last seven days
+	weeklogdistribution = week-command logdistribution
+	weeklogdistributionmine = week-command logdistributionmine
+	weeklogdistributionteam = week-command logdistributionteam
 	weekemaillog = week-command email-command log
 	weekemaillc = week-command email-command show
 	; weekreintegrate does not cover a branch
 	; weekpull-request does not cover a branch
+
+	;; month...: Log variants that only cover changes committed over one month.
+	monthchurn = month-command churn
+	monthd = month-command --no-range diffuntil ; Show all changes from the last 30/31 days in a single big diff.
+	monthdl = month-command --no-range diffuntill ; Show all changes from the last 30/31 days in a big diffs, separately for each changed file.
+	monthdt = month-command --no-range difftooluntil ; Show all changes from the last 30/31 days in a single big diff.
+	monthma = month-command --no-range --one-more format-patch
+	monthfindlog = month-command findlog
+	monthfindlogv = month-command findlogv
+	monthfindlg = month-command findlg
+	monthfindlc = month-command findlc
+	monthfindlcl = month-command findlcl
+	monthfindshow = month-command findshow
+	monthfindlogg = month-command findlogg
+	monthfindloggv = month-command findloggv
+	monthfindlgg = month-command findlgg
+	monthfindlcg = month-command findlcg
+	monthfindlclg = month-command findlclg
+	monthtouchedlog = month-command touchedlog
+	monthtouchedlogv = month-command touchedlogv
+	monthtouchedlg = month-command touchedlg
+	monthtouchedlc = month-command touchedlc
+	monthtouchedlcl = month-command touchedlcl
+	monthtouchedshow = month-command touchedshow
+	monthtouchedlogg = month-command touchedlogg
+	monthtouchedloggv = month-command touchedloggv
+	monthtouchedlgg = month-command touchedlgg
+	monthtouchedlcg = month-command touchedlcg
+	monthtouchedlclg = month-command touchedlclg
+	monthwherelastlog = month-command wherelastlog
+	monthwherelastlogv = month-command wherelastlogv
+	monthwherelastshow = month-command wherelastshow
+	monthwherelastlogg = month-command wherelastlogg
+	monthwherelastloggv = month-command wherelastloggv
+	monthwherelastshowg = month-command wherelastshowg
+	monthwhereintroducedlog = month-command whereintroducedlog
+	monthwhereintroducedlogv = month-command whereintroducedlogv
+	monthwhereintroducedshow = month-command whereintroducedshow
+	monthwhereintroducedlogg = month-command whereintroducedlogg
+	monthwhereintroducedloggv = month-command whereintroducedloggv
+	monthwhereintroducedshowg = month-command whereintroducedshowg
+	monthlc = month-command lc
+	monthlcf = month-command lcf --reverse
+	monthlcl = month-command lcl --reverse
+	monthlclf = month-command lclf --reverse
+	monthlcmine = month-command lcmine --reverse
+	monthlcteam = month-command lcteam --reverse
+	monthlcby = dashdash-default-command : month-command others-command lc --reverse :
+	monthlcfmine = month-command lcfmine --reverse
+	monthlcfteam = month-command lcfteam --reverse
+	monthlcfby = month-command lcfby --reverse
+	monthshow = month-command show
+	monthshoww = month-command showw
+	monthshowc = month-command showc
+	monthshowa = month-command showa
+	monthshowfiles = month-command --no-range showfiles
+	monthshowselected = month-command showselected
+	monthshowlselected = month-command showlselected
+	monthlog = month-command log
+	monthlogv = month-command logv
+	monthglog = month-command glog
+	monthlogg = month-command logg
+	monthlgg = month-command lgg
+	monthl = month-command l
+	monthlmine = month-command lmine
+	monthlteam = month-command lteam
+	monthlby = dashdash-default-command : month-command others-command l :
+	monthlg = month-command lg
+	monthlgv = month-command lgv
+	monthlh = month-command lh --reverse
+	monthlhmine = month-command lhmine --reverse
+	monthlhteam = month-command lhteam --reverse
+	monthlhby = dashdash-default-command : month-command others-command lh --reverse :
+	monthlurl = month-command lurl
+	monthlourl = month-command lourl --reverse
+	monthluurl = month-command luurl --reverse
+	monthlourlv = month-command lourlv --reverse
+	monthluurlv = month-command luurlv --reverse
+	monthtreeurl = month-command treeurl
+	monthtreeourl = month-command treeourl --reverse
+	monthtreeuurl = month-command treeuurl --reverse
+	monthtreeourlv = month-command treeourlv --reverse
+	monthtreeuurlv = month-command treeuurlv --reverse
+	monthlgmine = month-command lgmine
+	monthlgteam = month-command lgteam
+	monthlgby = dashdash-default-command : month-command others-command lg :
+	monthlogmine = month-command logmine
+	monthlogteam = month-command logteam
+	monthlogby = dashdash-default-command : month-command others-command log :
+	monthrevert = month-command revertselected
+	monthrevertcommit = month-command revertcommitselected
+	monthcorrect = month-command correctselected
+	monthcorrectst = month-command correctst
+	monthcorrecti = month-command correcti
+	monthcorrect-i = month-command correct-i
+	monthfixup = month-command fixupselected
+	monthfixupst = month-command fixupst
+	monthfixupi = month-command fixupi
+	monthfixup-i = month-command fixup-i
+	monthrbfixup = month-command rbfixupselected
+	monthcommitidentical = month-command commitidenticalselected
+	monthcommitidenticalst = month-command commitidenticalst
+	monthcommitidenticali = month-command commitidenticali
+	monthcommitidentical-i = month-command commitidentical-i
+	monthcommitlike = month-command commitlikeselected
+	monthcommitlikest = month-command commitlikest
+	monthcommitlikei = month-command commitlikei
+	monthcommitlike-i = month-command commitlike-i
+	monthrbi = month-command --no-range --one-more rebase -i
+	monthwipe = month-command --one-more wipetoselected
+	monthbase = month-command --no-range name-rev --name-only
+	monthwhodid = files-command whodid monthshowfiles
+	monthwhotouched = month-command whodid
+	monthwhatdid = month-command whatdid
+	; monthactivity would just show activity for the last 30/31 days
+	; monthactivitymine would just show activity for the last 30/31 days
+	; monthactivityteam would just show activity for the last 30/31 days
+	monthlogdistribution = month-command logdistribution
+	monthlogdistributionmine = month-command logdistributionmine
+	monthlogdistributionteam = month-command logdistributionteam
+	monthemaillog = month-command email-command log
+	monthemaillc = month-command email-command show
+	; monthreintegrate does not cover a branch
+	; monthpull-request does not cover a branch
+
+	;; year...: Log variants that only cover changes committed over one year.
+	yearchurn = year-command churn
+	yeard = year-command --no-range diffuntil ; Show all changes from the last 365 days in a single big diff.
+	yeardl = year-command --no-range diffuntill ; Show all changes from the last 365 days in a big diffs, separately for each changed file.
+	yeardt = year-command --no-range difftooluntil ; Show all changes from the last 365 days in a single big diff.
+	yearma = year-command --no-range --one-more format-patch
+	yearfindlog = year-command findlog
+	yearfindlogv = year-command findlogv
+	yearfindlg = year-command findlg
+	yearfindlc = year-command findlc
+	yearfindlcl = year-command findlcl
+	yearfindshow = year-command findshow
+	yearfindlogg = year-command findlogg
+	yearfindloggv = year-command findloggv
+	yearfindlgg = year-command findlgg
+	yearfindlcg = year-command findlcg
+	yearfindlclg = year-command findlclg
+	yeartouchedlog = year-command touchedlog
+	yeartouchedlogv = year-command touchedlogv
+	yeartouchedlg = year-command touchedlg
+	yeartouchedlc = year-command touchedlc
+	yeartouchedlcl = year-command touchedlcl
+	yeartouchedshow = year-command touchedshow
+	yeartouchedlogg = year-command touchedlogg
+	yeartouchedloggv = year-command touchedloggv
+	yeartouchedlgg = year-command touchedlgg
+	yeartouchedlcg = year-command touchedlcg
+	yeartouchedlclg = year-command touchedlclg
+	yearwherelastlog = year-command wherelastlog
+	yearwherelastlogv = year-command wherelastlogv
+	yearwherelastshow = year-command wherelastshow
+	yearwherelastlogg = year-command wherelastlogg
+	yearwherelastloggv = year-command wherelastloggv
+	yearwherelastshowg = year-command wherelastshowg
+	yearwhereintroducedlog = year-command whereintroducedlog
+	yearwhereintroducedlogv = year-command whereintroducedlogv
+	yearwhereintroducedshow = year-command whereintroducedshow
+	yearwhereintroducedlogg = year-command whereintroducedlogg
+	yearwhereintroducedloggv = year-command whereintroducedloggv
+	yearwhereintroducedshowg = year-command whereintroducedshowg
+	yearlc = year-command lc
+	yearlcf = year-command lcf --reverse
+	yearlcl = year-command lcl --reverse
+	yearlclf = year-command lclf --reverse
+	yearlcmine = year-command lcmine --reverse
+	yearlcteam = year-command lcteam --reverse
+	yearlcby = dashdash-default-command : year-command others-command lc --reverse :
+	yearlcfmine = year-command lcfmine --reverse
+	yearlcfteam = year-command lcfteam --reverse
+	yearlcfby = year-command lcfby --reverse
+	yearshow = year-command show
+	yearshoww = year-command showw
+	yearshowc = year-command showc
+	yearshowa = year-command showa
+	yearshowfiles = year-command --no-range showfiles
+	yearshowselected = year-command showselected
+	yearshowlselected = year-command showlselected
+	yearlog = year-command log
+	yearlogv = year-command logv
+	yearglog = year-command glog
+	yearlogg = year-command logg
+	yearlgg = year-command lgg
+	yearl = year-command l
+	yearlmine = year-command lmine
+	yearlteam = year-command lteam
+	yearlby = dashdash-default-command : year-command others-command l :
+	yearlg = year-command lg
+	yearlgv = year-command lgv
+	yearlh = year-command lh --reverse
+	yearlhmine = year-command lhmine --reverse
+	yearlhteam = year-command lhteam --reverse
+	yearlhby = dashdash-default-command : year-command others-command lh --reverse :
+	yearlurl = year-command lurl
+	yearlourl = year-command lourl --reverse
+	yearluurl = year-command luurl --reverse
+	yearlourlv = year-command lourlv --reverse
+	yearluurlv = year-command luurlv --reverse
+	yeartreeurl = year-command treeurl
+	yeartreeourl = year-command treeourl --reverse
+	yeartreeuurl = year-command treeuurl --reverse
+	yeartreeourlv = year-command treeourlv --reverse
+	yeartreeuurlv = year-command treeuurlv --reverse
+	yearlgmine = year-command lgmine
+	yearlgteam = year-command lgteam
+	yearlgby = dashdash-default-command : year-command others-command lg :
+	yearlogmine = year-command logmine
+	yearlogteam = year-command logteam
+	yearlogby = dashdash-default-command : year-command others-command log :
+	yearrevert = year-command revertselected
+	yearrevertcommit = year-command revertcommitselected
+	yearcorrect = year-command correctselected
+	yearcorrectst = year-command correctst
+	yearcorrecti = year-command correcti
+	yearcorrect-i = year-command correct-i
+	yearfixup = year-command fixupselected
+	yearfixupst = year-command fixupst
+	yearfixupi = year-command fixupi
+	yearfixup-i = year-command fixup-i
+	yearrbfixup = year-command rbfixupselected
+	yearcommitidentical = year-command commitidenticalselected
+	yearcommitidenticalst = year-command commitidenticalst
+	yearcommitidenticali = year-command commitidenticali
+	yearcommitidentical-i = year-command commitidentical-i
+	yearcommitlike = year-command commitlikeselected
+	yearcommitlikest = year-command commitlikest
+	yearcommitlikei = year-command commitlikei
+	yearcommitlike-i = year-command commitlike-i
+	yearrbi = year-command --no-range --one-more rebase -i
+	yearwipe = year-command --one-more wipetoselected
+	yearbase = year-command --no-range name-rev --name-only
+	yearwhodid = files-command whodid yearshowfiles
+	yearwhotouched = year-command whodid
+	yearwhatdid = year-command whatdid
+	; yearactivity would just show activity for the last 365 days
+	; yearactivitymine would just show activity for the last 365 days
+	; yearactivityteam would just show activity for the last 365 days
+	yearlogdistribution = year-command logdistribution
+	yearlogdistributionmine = year-command logdistributionmine
+	yearlogdistributionteam = year-command logdistributionteam
+	yearemaillog = year-command email-command log
+	yearemaillc = year-command email-command show
+	; yearreintegrate does not cover a branch
+	; yearpull-request does not cover a branch
 
 	;; by...: Log variants that only cover changes committed by the author of the HEAD / passed -r|--revision REVISION / (with -a|--auto-revision:) the first found revision from the passed --author / --committer(s)
 	bychurn = byuserrange-command --with-log-args churn
@@ -1065,6 +1326,9 @@
 	byactivity = byuserrange-command --with-log-args activity
 	byactivitymine = byuserrange-command --with-log-args activitymine
 	byactivityteam = byuserrange-command --with-log-args activityteam
+	bylogdistribution = byuserrange-command --with-log-args logdistribution
+	bylogdistributionmine = byuserrange-command --with-log-args logdistributionmine
+	bylogdistributionteam = byuserrange-command --with-log-args logdistributionteam
 	byemaillog = byuserrange-command email-command log
 	byemaillc = byuserrange-command email-command lc
 	; byreintegrate does not cover a branch
@@ -1186,6 +1450,9 @@
 	msgactivity = bylogmessagerange-command --with-log-args activity
 	msgactivitymine = bylogmessagerange-command --with-log-args activitymine
 	msgactivityteam = bylogmessagerange-command --with-log-args activityteam
+	msglogdistribution = bylogmessagerange-command --with-log-args logdistribution
+	msglogdistributionmine = bylogmessagerange-command --with-log-args logdistributionmine
+	msglogdistributionteam = bylogmessagerange-command --with-log-args logdistributionteam
 	msgemaillog = bylogmessagerange-command email-command log
 	msgemaillc = bylogmessagerange-command email-command lc
 	; msgreintegrate does not cover a branch
@@ -1307,6 +1574,9 @@
 	lastmsgactivity = bylogmessagerange-command --with-log-args --auto-revision activity
 	lastmsgactivitymine = bylogmessagerange-command --with-log-args --auto-revision activitymine
 	lastmsgactivityteam = bylogmessagerange-command --with-log-args --auto-revision activityteam
+	lastmsglogdistribution = bylogmessagerange-command --with-log-args --auto-revision logdistribution
+	lastmsglogdistributionmine = bylogmessagerange-command --with-log-args --auto-revision logdistributionmine
+	lastmsglogdistributionteam = bylogmessagerange-command --with-log-args --auto-revision logdistributionteam
 	lastmsgemaillog = bylogmessagerange-command --auto-revision email-command log
 	lastmsgemaillc = bylogmessagerange-command --auto-revision email-command lc
 	; lastmsgreintegrate does not cover a branch
@@ -1434,6 +1704,9 @@
 	bractivity = rev-range-this-branch --any activity
 	bractivitymine = rev-range-this-branch --any activitymine
 	bractivityteam = rev-range-this-branch --any activityteam
+	brlogdistribution = rev-range-this-branch --any logdistribution
+	brlogdistributionmine = rev-range-this-branch --any logdistributionmine
+	brlogdistributionteam = rev-range-this-branch --any logdistributionteam
 	bremaillog = rev-range-this-branch --any email-command log
 	bremaillc = rev-range-this-branch --any email-command lc
 	brreintegrate = previousbranch-command --keep-position reintegrateto --branch BRANCH
@@ -1556,6 +1829,9 @@
 	b2ractivity = rev-range-this-branch --any --branch-number 2 activity
 	b2ractivitymine = rev-range-this-branch --any --branch-number 2 activitymine
 	b2ractivityteam = rev-range-this-branch --any --branch-number 2 activityteam
+	b2rlogdistribution = rev-range-this-branch --any --branch-number 2 logdistribution
+	b2rlogdistributionmine = rev-range-this-branch --any --branch-number 2 logdistributionmine
+	b2rlogdistributionteam = rev-range-this-branch --any --branch-number 2 logdistributionteam
 	b2remaillog = rev-range-this-branch --any --branch-number 2 email-command log
 	b2remaillc = rev-range-this-branch --any --branch-number 2 email-command lc
 	b2rreintegrate = previousbranch-command --branch-number 2 --keep-position reintegrateto --branch BRANCH
@@ -1678,6 +1954,9 @@
 	b3ractivity = rev-range-this-branch --any --branch-number 3 activity
 	b3ractivitymine = rev-range-this-branch --any --branch-number 3 activitymine
 	b3ractivityteam = rev-range-this-branch --any --branch-number 3 activityteam
+	b3rlogdistribution = rev-range-this-branch --any --branch-number 3 logdistribution
+	b3rlogdistributionmine = rev-range-this-branch --any --branch-number 3 logdistributionmine
+	b3rlogdistributionteam = rev-range-this-branch --any --branch-number 3 logdistributionteam
 	b3remaillog = rev-range-this-branch --any --branch-number 3 email-command log
 	b3remaillc = rev-range-this-branch --any --branch-number 3 email-command lc
 	b3rreintegrate = previousbranch-command --branch-number 3 --keep-position reintegrateto --branch BRANCH
@@ -1800,6 +2079,9 @@
 	bmactivity = master-command --keep-position rev-range --revision MASTER --end-revision HEAD activity
 	bmactivitymine = master-command --keep-position rev-range --revision MASTER --end-revision HEAD activitymine
 	bmactivityteam = master-command --keep-position rev-range --revision MASTER --end-revision HEAD activityteam
+	bmlogdistribution = master-command --keep-position rev-range --revision MASTER --end-revision HEAD logdistribution
+	bmlogdistributionmine = master-command --keep-position rev-range --revision MASTER --end-revision HEAD logdistributionmine
+	bmlogdistributionteam = master-command --keep-position rev-range --revision MASTER --end-revision HEAD logdistributionteam
 	bmemaillog = master-command --keep-position rev-range --revision MASTER --end-revision HEAD email-command log
 	bmemaillc = master-command --keep-position rev-range --revision MASTER --end-revision HEAD email-command lc
 	bmreintegrate = master-command --keep-position reintegrateto --branch MASTER
@@ -1922,6 +2204,9 @@
 	bnactivity = base-command --keep-position rev-range --revision BASE --end-revision HEAD activity
 	bnactivitymine = base-command --keep-position rev-range --revision BASE --end-revision HEAD activitymine
 	bnactivityteam = base-command --keep-position rev-range --revision BASE --end-revision HEAD activityteam
+	bnlogdistribution = base-command --keep-position rev-range --revision BASE --end-revision HEAD logdistribution
+	bnlogdistributionmine = base-command --keep-position rev-range --revision BASE --end-revision HEAD logdistributionmine
+	bnlogdistributionteam = base-command --keep-position rev-range --revision BASE --end-revision HEAD logdistributionteam
 	bnemaillog = base-command --keep-position rev-range --revision BASE --end-revision HEAD email-command log
 	bnemaillc = base-command --keep-position rev-range --revision BASE --end-revision HEAD email-command lc
 	bnreintegrate = base-command --keep-position reintegrateto --branch BASE
@@ -2044,6 +2329,9 @@
 	blactivity = rev-range --revision @{-1} --end-revision HEAD activity
 	blactivitymine = rev-range --revision @{-1} --end-revision HEAD activitymine
 	blactivityteam = rev-range --revision @{-1} --end-revision HEAD activityteam
+	bllogdistribution = rev-range --revision @{-1} --end-revision HEAD logdistribution
+	bllogdistributionmine = rev-range --revision @{-1} --end-revision HEAD logdistributionmine
+	bllogdistributionteam = rev-range --revision @{-1} --end-revision HEAD logdistributionteam
 	blemaillog = rev-range --revision @{-1} --end-revision HEAD email-command log
 	blemaillc = rev-range --revision @{-1} --end-revision HEAD email-command lc
 	blreintegrate = previousbranch-command --last-checkout --keep-position reintegrateto --branch BRANCH
@@ -2166,6 +2454,9 @@
 	b2lactivity = rev-range --revision @{-2} --end-revision HEAD activity
 	b2lactivitymine = rev-range --revision @{-2} --end-revision HEAD activitymine
 	b2lactivityteam = rev-range --revision @{-2} --end-revision HEAD activityteam
+	b2logdistribution = rev-range --revision @{-2} --end-revision HEAD logdistribution
+	b2logdistributionmine = rev-range --revision @{-2} --end-revision HEAD logdistributionmine
+	b2logdistributionteam = rev-range --revision @{-2} --end-revision HEAD logdistributionteam
 	b2lemaillog = rev-range --revision @{-2} --end-revision HEAD email-command log
 	b2lemaillc = rev-range --revision @{-2} --end-revision HEAD email-command lc
 	b2lreintegrate = previousbranch-command --last-checkout --branch-number 2 --keep-position reintegrateto --branch BRANCH
@@ -2288,6 +2579,9 @@
 	bpactivity = rev-range --revision @{1} --end-revision HEAD activity
 	bpactivitymine = rev-range --revision @{1} --end-revision HEAD activitymine
 	bpactivityteam = rev-range --revision @{1} --end-revision HEAD activityteam
+	bplogdistribution = rev-range --revision @{1} --end-revision HEAD logdistribution
+	bplogdistributionmine = rev-range --revision @{1} --end-revision HEAD logdistributionmine
+	bplogdistributionteam = rev-range --revision @{1} --end-revision HEAD logdistributionteam
 	bpemaillog = rev-range --revision @{1} --end-revision HEAD email-command log
 	bpemaillc = rev-range --revision @{1} --end-revision HEAD email-command lc
 	bpreintegrate = previousbranch-command --previous --keep-position reintegrateto --branch BRANCH
@@ -2410,6 +2704,9 @@
 	b2pactivity = rev-range --revision @{2} --end-revision HEAD activity
 	b2pactivitymine = rev-range --revision @{2} --end-revision HEAD activitymine
 	b2pactivityteam = rev-range --revision @{2} --end-revision HEAD activityteam
+	b2plogdistribution = rev-range --revision @{2} --end-revision HEAD logdistribution
+	b2plogdistributionmine = rev-range --revision @{2} --end-revision HEAD logdistributionmine
+	b2plogdistributionteam = rev-range --revision @{2} --end-revision HEAD logdistributionteam
 	b2pemaillog = rev-range --revision @{2} --end-revision HEAD email-command log
 	b2pemaillc = rev-range --revision @{2} --end-revision HEAD email-command lc
 	b2preintegrate = previousbranch-command --previous --branch-number 2 --keep-position reintegrateto --branch BRANCH
@@ -2532,6 +2829,9 @@
 	outactivity = rev-range-outgoing '' activity
 	outactivitymine = rev-range-outgoing '' activitymine
 	outactivityteam = rev-range-outgoing '' activityteam
+	outlogdistribution = rev-range-outgoing '' logdistribution
+	outlogdistributionmine = rev-range-outgoing '' logdistributionmine
+	outlogdistributionteam = rev-range-outgoing '' logdistributionteam
 	outemaillog = rev-range-outgoing '' email-command log
 	outemaillc = rev-range-outgoing '' email-command lc
 	; outreintegrate likely does not cover a branch
@@ -2636,6 +2936,9 @@
 	inactivity = rev-range-incoming '' activity
 	inactivitymine = rev-range-incoming '' activitymine
 	inactivityteam = rev-range-incoming '' activityteam
+	inlogdistribution = rev-range-incoming '' logdistribution
+	inlogdistributionmine = rev-range-incoming '' logdistributionmine
+	inlogdistributionteam = rev-range-incoming '' logdistributionteam
 	inemaillog = rev-range-incoming '' email-command log
 	inemaillc = rev-range-incoming '' email-command lc
 	; inreintegrate likely does not cover a branch
@@ -2758,6 +3061,9 @@
 	ooutactivity = rev-range-outgoing origin activity
 	ooutactivitymine = rev-range-outgoing origin activitymine
 	ooutactivityteam = rev-range-outgoing origin activityteam
+	ooutlogdistribution = rev-range-outgoing origin logdistribution
+	ooutlogdistributionmine = rev-range-outgoing origin logdistributionmine
+	ooutlogdistributionteam = rev-range-outgoing origin logdistributionteam
 	ooutemaillog = rev-range-outgoing origin email-command log
 	ooutemaillc = rev-range-outgoing origin email-command lc
 	; ooutreintegrate would address a remote branch if at all
@@ -2862,6 +3168,9 @@
 	oinactivity = rev-range-incoming origin activity
 	oinactivitymine = rev-range-incoming origin activitymine
 	oinactivityteam = rev-range-incoming origin activityteam
+	oinlogdistribution = rev-range-incoming origin logdistribution
+	oinlogdistributionmine = rev-range-incoming origin logdistributionmine
+	oinlogdistributionteam = rev-range-incoming origin logdistributionteam
 	oinemaillog = rev-range-incoming origin email-command log
 	oinemaillc = rev-range-incoming origin email-command lc
 	; oinreintegrate would address a remote branch if at all
@@ -2984,6 +3293,9 @@
 	uoutactivity = rev-range-outgoing upstream activity
 	uoutactivitymine = rev-range-outgoing upstream activitymine
 	uoutactivityteam = rev-range-outgoing upstream activityteam
+	uoutlogdistribution = rev-range-outgoing upstream logdistribution
+	uoutlogdistributionmine = rev-range-outgoing upstream logdistributionmine
+	uoutlogdistributionteam = rev-range-outgoing upstream logdistributionteam
 	uoutemaillog = rev-range-outgoing upstream email-command log
 	uoutemaillc = rev-range-outgoing upstream email-command lc
 	; uoutreintegrate would address a remote branch if at all
@@ -3088,6 +3400,9 @@
 	uinactivity = rev-range-incoming upstream activity
 	uinactivitymine = rev-range-incoming upstream activitymine
 	uinactivityteam = rev-range-incoming upstream activityteam
+	uinlogdistribution = rev-range-incoming upstream logdistribution
+	uinlogdistributionmine = rev-range-incoming upstream logdistributionmine
+	uinlogdistributionteam = rev-range-incoming upstream logdistributionteam
 	uinemaillog = rev-range-incoming upstream email-command log
 	uinemaillc = rev-range-incoming upstream email-command lc
 	; uinreintegrate would address a remote branch if at all
@@ -3198,6 +3513,9 @@
 	localbractivity = localbrrefdo git rev-range-this-branch --start-rev {} --any activity
 	localbractivitymine = localbrrefdo git rev-range-this-branch --start-rev {} --any activitymine
 	localbractivityteam = localbrrefdo git rev-range-this-branch --start-rev {} --any activityteam
+	localbrlogdistribution = localbrrefdo git rev-range-this-branch --start-rev {} --any logdistribution
+	localbrlogdistributionmine = localbrrefdo git rev-range-this-branch --start-rev {} --any logdistributionmine
+	localbrlogdistributionteam = localbrrefdo git rev-range-this-branch --start-rev {} --any logdistributionteam
 	localbremaillog = localbrrefdo git rev-range-this-branch --start-rev {} --any email-command log
 	localbremaillc = localbrrefdo git rev-range-this-branch --start-rev {} --any email-command lc
 	; localbrreintegrate would cover multiple branches

@@ -36,6 +36,26 @@ HELPDESCRIPTION
 HELPTEXT
 }
 typeset -a distributionArgs=()
+typeset -a distributionRenderArgs=()
+typeset -a dayDistributionDefaultRenderArgs=()
+typeset -a monthDistributionDefaultRenderArgs=()
+typeset -a yearDistributionDefaultRenderArgs=()
+if [ -t 1 ]; then
+    dayDistributionDefaultRenderArgs=(--as green-calendar)
+    monthDistributionDefaultRenderArgs=(--as green-calendar)
+    yearDistributionDefaultRenderArgs=(--as green-calendar)
+    : ${COLUMNS:=80}
+    if [ $COLUMNS -ge 150 ]; then
+	dayDistributionDefaultRenderArgs=(--as green-large-calendar)
+	monthDistributionDefaultRenderArgs=(--as green-large-calendar)
+	yearDistributionDefaultRenderArgs=(--as green-large-calendar)
+    elif [ $COLUMNS -ge 120 ]; then
+	monthDistributionDefaultRenderArgs=(--as green-large-calendar)
+	yearDistributionDefaultRenderArgs=(--as green-large-calendar)
+    elif [ $COLUMNS -ge 70 ]; then
+	monthDistributionDefaultRenderArgs=(--as green-large-calendar)
+    fi
+fi
 typeset -a gitArgs=()
 typeset -a gitArgs=()
 while [ $# -ne 0 ]
@@ -44,7 +64,7 @@ do
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 
 	--no-footer)	distributionArgs+=("$1"); shift;;
-	--as)		distributionArgs+=("$1" "$2"); shift; shift;;
+	--as)		distributionRenderArgs=("$1" "$2"); shift; shift;;
 
 	--pretty|--pretty=*|--format|--format=*)
 			echo >&2 'ERROR: Cannot influence the log format via --pretty|--format.'
@@ -72,13 +92,16 @@ lastDate="${dates[-1]%% *}"
 monthDiff="$(datediff --output months "$firstDate" "$lastDate")" || exit $?
 if [ $monthDiff -gt $GIT_LOGDISTRIBUTION_MAX_GRAPHED_MONTHS ]; then
     typeset -a distributionCommand=(distribution-over-the-year --graph-field 1 --split-graph-field 1)
+    [ ${#distributionRenderArgs[@]} -gt 0 ] || distributionRenderArgs=("${yearDistributionDefaultRenderArgs[@]}")
 else
     dayDiff="$(datediff --output days "$firstDate" "$lastDate")" || exit $?
     if [ $dayDiff -gt $GIT_LOGDISTRIBUTION_MAX_GRAPHED_DAYS ]; then
 	typeset -a distributionCommand=(distribution-over-the-month --graph-field 2 --footer-field 1 --split-graph-field 1)
+	[ ${#distributionRenderArgs[@]} -gt 0 ] || distributionRenderArgs=("${monthDistributionDefaultRenderArgs[@]}")
     else
 	typeset -a distributionCommand=(distribution-over-the-day --first-hour 6 --last-hour 23 --hour-field 4 --minute-field 5 --graph-field 3 --footer-field 2 --split-graph-field 1 --split-graph-field 2 --split-graph-field 3)
+	[ ${#distributionRenderArgs[@]} -gt 0 ] || distributionRenderArgs=("${dayDistributionDefaultRenderArgs[@]}")
     fi
 fi
 
-printf '%s\n' "${dates[@]}" | "${distributionCommand[@]}" "${distributionArgs[@]}"
+printf '%s\n' "${dates[@]}" | "${distributionCommand[@]}" "${distributionArgs[@]}" "${distributionRenderArgs[@]}"

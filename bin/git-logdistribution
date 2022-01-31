@@ -35,8 +35,6 @@ HELPDESCRIPTION
     --as NAME-calendar	Special out-of-the-box spark style customizations.
 HELPTEXT
 }
-typeset -a distributionArgs=()
-typeset -a distributionRenderArgs=()
 typeset -a dayDistributionDefaultRenderArgs=()
 typeset -a monthDistributionDefaultRenderArgs=()
 typeset -a yearDistributionDefaultRenderArgs=()
@@ -56,14 +54,18 @@ if [ -t 1 ]; then
 	monthDistributionDefaultRenderArgs=(--as green-large-calendar)
     fi
 fi
-typeset -a gitArgs=()
+typeset -a distributionArgs=()
+typeset -a distributionFooterArgs=()
+typeset -a distributionRenderArgs=()
 typeset -a gitArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 
-	--no-footer)	distributionArgs+=("$1"); shift;;
+	--no-footer|--final-footer-only|--footer-only-on-change)
+			distributionFooterArgs+=("$1"); shift;;
+	--footer-every) distributionFooterArgs+=("$1" "$2"); shift; shift;;
 	--as)		distributionRenderArgs=("$1" "$2"); shift; shift;;
 
 	--pretty|--pretty=*|--format|--format=*)
@@ -98,10 +100,12 @@ else
     if [ $dayDiff -gt $GIT_LOGDISTRIBUTION_MAX_GRAPHED_DAYS ]; then
 	typeset -a distributionCommand=(distribution-over-the-month --graph-field 2 --footer-field 1 --split-graph-field 1)
 	[ ${#distributionRenderArgs[@]} -gt 0 ] || distributionRenderArgs=("${monthDistributionDefaultRenderArgs[@]}")
+	[ ${#distributionFooterArgs[@]} -gt 0 ] || distributionFooterArgs=(--footer-every 6)
     else
 	typeset -a distributionCommand=(distribution-over-the-day --first-hour 6 --last-hour 23 --hour-field 4 --minute-field 5 --graph-field 3 --footer-field 2 --split-graph-field 1 --split-graph-field 2 --split-graph-field 3)
 	[ ${#distributionRenderArgs[@]} -gt 0 ] || distributionRenderArgs=("${dayDistributionDefaultRenderArgs[@]}")
+	[ ${#distributionFooterArgs[@]} -gt 0 ] || distributionFooterArgs=(--footer-every 7)
     fi
 fi
 
-printf '%s\n' "${dates[@]}" | "${distributionCommand[@]}" "${distributionArgs[@]}" "${distributionRenderArgs[@]}"
+printf '%s\n' "${dates[@]}" | "${distributionCommand[@]}" "${distributionArgs[@]}" "${distributionFooterArgs[@]}" "${distributionRenderArgs[@]}"

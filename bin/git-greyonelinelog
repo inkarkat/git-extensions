@@ -1,0 +1,28 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Log wrapper that tones down the oneline output into a medium grey.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+}
+isGreyedOut=t
+typeset -a gitLogArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=never)
+			isGreyedOut=; shift;;
+	--color=*)	shift;;
+	--color)	if [ "$2" = never ]; then isGreyedOut=; fi; shift; shift;;
+	--)		gitLogArgs+=("$1"); shift; break;;
+	*)		gitLogArgs+=("$1"); shift;;
+    esac
+done
+
+# Note: Cannot enable coloring here, as the commit highlighting will already
+# override the grey color completely.
+eval "git-onelinelog ${isGreyedOut:+--color=never} \"\${gitLogArgs[@]}\" \"\$@\" ${isGreyedOut:+| colored 245}"

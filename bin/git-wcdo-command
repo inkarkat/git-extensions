@@ -41,6 +41,7 @@ esac
 wrapper="${1:?}"; shift
 what="${1:?}"; shift
 typeset -a wcs=()
+typeset -a accumulationCommand=()
 while [ $# -ne 0 ]
 do
     if [ "$1" == '--' ]; then
@@ -170,4 +171,8 @@ elif [ "${1:0:1}" != '-' ]; then
     set -- -- "$@"
 fi
 
-exec $GIT_WCDO_COMMAND "${wcdoArgs[@]}" "${wcs[@]}" "$@"
+if [ ${#accumulationCommand[@]} -eq 0 ]; then
+    exec $GIT_WCDO_COMMAND "${wcdoArgs[@]}" "${wcs[@]}" "$@"
+else
+    $GIT_WCDO_COMMAND "${wcdoArgs[@]}" "${wcs[@]}" "$@" | "${accumulationCommand[@]}"
+fi

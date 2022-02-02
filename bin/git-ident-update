@@ -93,29 +93,26 @@ done
 
 case ",${DEBUG}," in *,git-ident-update,*) echo '**** git-ident-update hook called';; esac
 readonly orig="$(git-orig-ref)"
-if [ ! "$orig" ]; then
+if [ -z "$orig" ]; then
     printf >&2 '%q: Failed to get the symbolic ref to the current branch; cannot update the ident attribute!\n' "$(basename -- "$0")"
     exit 3
 fi
 
-git checkout --quiet HEAD^ || exit $?
-if git checkout --quiet "$orig"; then
-    isIdentUpdate=
-    set -o noglob
-    IFS=$'\n'
-    for file in $(git diff --name-only --diff-filter=ACMR HEAD^)
-    do
-	attrCheck="$(git check-attr ident -- "$file")"
-	if [ "${attrCheck%: ident: set}" != "$attrCheck" ]; then
-	    [ "$isIdentUpdate" ] || echo 'Updated ident string for:'
-	    isIdentUpdate=t
-	    printf '%s\n' "$file"
-	fi
-    done
-    if [ ! "$isIdentUpdate" ]; then
-	printf >&2 'No file(s) were affected. You can check with %q --status where ident update is configured.\n' "$(basename -- "$0")"
-	exit 1
+git checkout --quiet HEAD^ 2>/dev/null && git checkout --quiet "$orig" || exit $?
+
+isIdentUpdate=
+set -o noglob
+IFS=$'\n'
+for file in $(git diff --name-only --diff-filter=ACMR HEAD^)
+do
+    attrCheck="$(git check-attr ident -- "$file")"
+    if [ "${attrCheck%: ident: set}" != "$attrCheck" ]; then
+	[ "$isIdentUpdate" ] || echo 'Updated ident string for:'
+	isIdentUpdate=t
+	printf '%s\n' "$file"
     fi
-else
-    exit $?
+done
+if [ ! "$isIdentUpdate" ]; then
+    printf >&2 'No file(s) were affected. You can check with %q --status where ident update is configured.\n' "$(basename -- "$0")"
+    exit 1
 fi

@@ -36,6 +36,8 @@ HELPDESCRIPTION
     --as NAME-calendar	Special out-of-the-box spark style customizations.
 HELPTEXT
 }
+
+action=obtainLogDates
 typeset -a dayDistributionDefaultRenderArgs=()
 typeset -a monthDistributionDefaultRenderArgs=()
 typeset -a yearDistributionDefaultRenderArgs=()
@@ -87,14 +89,20 @@ getLogDates()
     git log --pretty=tformat:'%ai' "${gitArgs[@]}"
 }
 
-# The logged dates still need to be sorted, because sorting happens by commit
-# date, but we'd like to show the author date distribution. The
-# --split-graph-field would be disturbed by an earlier date reappeared after a
-# later date again.
-readarray -t dates < <(getLogDates | sort --numeric-sort; printf '\n%d\n' "$?")	# Exit status from the process substitution is lost; return the actual exit status via an appended additional line.
-[ ${dates[-1]} -ne 0 ] && exit ${dates[-1]}
-unset 'dates[-1]'
-[ -z "${dates[-1]}" ] && unset 'dates[-1]'
+typeset -a dates=()
+obtainLogDates()
+{
+    # The logged dates still need to be sorted, because sorting happens by commit
+    # date, but we'd like to show the author date distribution. The
+    # --split-graph-field would be disturbed by an earlier date reappeared after a
+    # later date again.
+    readarray -t dates < <(getLogDates | sort --numeric-sort; printf '\n%d\n' "$?")	# Exit status from the process substitution is lost; return the actual exit status via an appended additional line.
+    [ ${dates[-1]} -ne 0 ] && exit ${dates[-1]}
+    unset 'dates[-1]'
+    [ -z "${dates[-1]}" ] && unset 'dates[-1]'
+}
+
+$action
 
 firstDate="${dates[0]%% *}"
 lastDate="${dates[-1]%% *}"

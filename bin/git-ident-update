@@ -12,6 +12,8 @@ HELPTEXT
 }
 
 printf -v hookInvocation %q "$(basename -- "$0")"
+hookShebang='#!/bin/sh'
+hookExec="exec $hookInvocation"
 
 getHookFilespec()
 {
@@ -29,7 +31,7 @@ do
 				printf 'A hook already exists; add the following to "%s":\n%s\n' "$hook" "$hookInvocation"
 				exit 1
 			    else
-				printf '#!/bin/sh\nexec %s\n' "$hookInvocation" >> "$hook" && \
+				printf '%s\n' "$hookShebang" "$hookExec" >> "$hook" && \
 				    chmod +x "$hook" && \
 				    printf 'Hook installed to "%s".\n' "$hook" || \
 				    exit $?

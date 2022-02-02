@@ -11,15 +11,11 @@ HELPTEXT
     printf 'Example: %q %s && git commituntracked -m "Housekeeping: Add ident-update for applications"\n' "$(basename "$1")" '--install --set bin/'
 }
 
+printf -v hookInvocation %q "$(basename -- "$0")"
+
 getHookFilespec()
 {
     printf %s "$(git rev-parse --git-dir)/hooks/post-commit"
-}
-
-printHook()
-{
-    local hookName; hookName="$(basename -- "$0")" || exit $?
-    printf '#!/bin/sh\nexec %q\n' "$hookName"
 }
 
 didAction=
@@ -30,11 +26,13 @@ do
 	--install)	    shift
 			    hook="$(getHookFilespec)"
 			    if [ -e "$hook" ]; then
-				echo "A hook already exists; add the following to \"${hook}\":"
-				printHook
+				printf 'A hook already exists; add the following to "%s":\n%s\n' "$hook" "$hookInvocation"
 				exit 1
 			    else
-				printHook >> "$hook" && chmod +x "$hook" && echo "Hook installed to \"${hook}\"." || exit $?
+				printf '#!/bin/sh\nexec %s\n' "$hookInvocation" >> "$hook" && \
+				    chmod +x "$hook" && \
+				    printf 'Hook installed to "%s".\n' "$hook" || \
+				    exit $?
 			    fi
 			    ;;
 	--uninstall|--deinstall|--remove)

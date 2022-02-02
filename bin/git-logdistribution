@@ -11,6 +11,8 @@ printShortUsage()
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
     printf 'Usage: %q %s %s %s\n' "$(basename "$1")" "$distributionArguments" "$logArguments" '[-?|-h|--help]'
+    echo
+    printf 'Usage: %q %s %s | %q --stdin %s\n' "$(basename "$1")" '--log-only' "$logArguments" "$(basename "$1")" "$distributionArguments"
 }
 printUsage()
 {
@@ -65,6 +67,8 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--log-only)	shift; action=printLogDates;;
+	--stdin)	shift; action=readLogDates;;
 
 	--weekly)	distributionArgs+=("$1"); shift;;
 	--no-footer|--final-footer-only|--footer-only-on-change)
@@ -88,6 +92,11 @@ getLogDates()
 {
     git log --pretty=tformat:'%ai' "${gitArgs[@]}"
 }
+printLogDates()
+{
+    getLogDates
+    exit $?
+}
 
 typeset -a dates=()
 obtainLogDates()
@@ -101,9 +110,14 @@ obtainLogDates()
     unset 'dates[-1]'
     [ -z "${dates[-1]}" ] && unset 'dates[-1]'
 }
+readLogDates()
+{
+    readarray -t dates < <(sort --numeric-sort)
+    [ ${#dates[@]} -gt 0 ] || exit 1
+}
+
 
 $action
-
 firstDate="${dates[0]%% *}"
 lastDate="${dates[-1]%% *}"
 

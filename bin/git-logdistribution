@@ -63,6 +63,7 @@ do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 
+	--weekly)	distributionArgs+=("$1"); shift;;
 	--no-footer|--final-footer-only|--footer-only-on-change)
 			distributionFooterArgs+=("$1"); shift;;
 	--footer-every) distributionFooterArgs+=("$1" "$2"); shift; shift;;
@@ -95,6 +96,7 @@ monthDiff="$(datediff --output months "$firstDate" "$lastDate")" || exit $?
 if [ $monthDiff -gt $GIT_LOGDISTRIBUTION_MAX_GRAPHED_MONTHS ]; then
     typeset -a distributionCommand=(distribution-over-the-year --graph-field 1 --split-graph-field 1)
     [ ${#distributionRenderArgs[@]} -gt 0 ] || distributionRenderArgs=("${yearDistributionDefaultRenderArgs[@]}")
+    [ ${#distributionFooterArgs[@]} -gt 0 ] || contains --weekly "${distributionArgs[@]}" && distributionFooterArgs=(--footer-every $((${LINES:-0} ? (LINES > 2 ? LINES - 2 : 10) : 10)))
 else
     dayDiff="$(datediff --output days "$firstDate" "$lastDate")" || exit $?
     if [ $dayDiff -gt $GIT_LOGDISTRIBUTION_MAX_GRAPHED_DAYS ]; then

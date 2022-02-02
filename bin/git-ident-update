@@ -39,6 +39,10 @@ do
 			    ;;
 	--uninstall|--deinstall|--remove)
 			    shift
+			    if [ -z "${SED+t}" ]; then which sedInplaceAndDeleteEmpty >/dev/null 2>&1 && SED='sedInplaceAndDeleteEmpty' || SED='sed'; fi
+			    find . -name .gitattributes -exec "$SED" -i -e '/\bident\b/d' {} \;
+			    shopt -qs globstar; git status --short -- **/.gitattributes
+
 			    hook="$(getHookFilespec)"
 			    echo "Remove the hook from \"${hook}\" yourself!"
 			    exit 1

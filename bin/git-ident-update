@@ -11,18 +11,15 @@ HELPTEXT
     printf 'Example: %q %s && git commituntracked -m "Housekeeping: Add ident-update for applications"\n' "$(basename "$1")" '--install --set bin/'
 }
 
+printf -v hookInvocation %q "$(basename -- "$0")"
+hookShebang='#!/bin/sh'
+hookExec="exec $hookInvocation"
+
 getHookFilespec()
 {
     printf %s "$(git rev-parse --git-dir)/hooks/post-commit"
 }
 
-printHook()
-{
-    local hookName; hookName="$(basename -- "$0")" || exit $?
-    printf '#!/bin/sh\nexec %q\n' "$hookName"
-}
-
-didAction=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -30,18 +27,31 @@ do
 	--install)	    shift
 			    hook="$(getHookFilespec)"
 			    if [ -e "$hook" ]; then
-				echo "A hook already exists; add the following to \"${hook}\":"
-				printHook
+				printf 'A hook already exists; add the following to "%s":\n%s\n' "$hook" "$hookInvocation"
 				exit 1
 			    else
-				printHook >> "$hook" && chmod +x "$hook" && echo "Hook installed to \"${hook}\"." || exit $?
+				printf '%s\n' "$hookShebang" "$hookExec" >> "$hook" && \
+				    chmod +x "$hook" && \
+				    printf 'Hook installed to "%s".\n' "$hook" || \
+				    exit $?
 			    fi
 			    ;;
 	--uninstall|--deinstall|--remove)
 			    shift
+			    if [ -z "${SED+t}" ]; then which sedInplaceAndDeleteEmpty >/dev/null 2>&1 && SED='sedInplaceAndDeleteEmpty' || SED='sed'; fi
+			    find . -name .gitattributes -exec "$SED" -i -e '/\bident\b/d' {} \;
+			    shopt -qs globstar; git status --short -- **/.gitattributes
+
 			    hook="$(getHookFilespec)"
-			    echo "Remove the hook from \"${hook}\" yourself!"
-			    exit 1
+			    sed -i -e 1N -e "\${ 2 { /^${hookShebang//\//\\/}\\n${hookExec//\//\\/}\$/d } }" -e '$q 1' -- "$hook" && \
+				[ ! -s "$hook" ] && \
+				rm --force -- "$hook" && \
+				echo "Removed the hook from \"${hook}\"." && \
+				exit 0 || {
+				    printf 'Remove the hook (%s) from "%s" yourself!\n' "$hookInvocation" "$hook"
+				    cat -- "$hook"
+				    exit 1
+				}
 			    ;;
 	--status)	    shift
 			    hook="$(getHookFilespec)"
@@ -50,7 +60,7 @@ do
 				if [ "$coveredFiles" ]; then
 				    echo 'The hook is installed; $Id$ and $Id:...$ will be updated in the following directories for files matching the subsequent patterns:'
 				    printf '%s\n' "$coveredFiles"
-				    didAction=t
+				    exit 0
 				else
 				    cat <<'INSTRUCTIONS'
     The hook is installed, but no .gitattributes have been configured yet.
@@ -83,13 +93,12 @@ INSTRUCTIONS
 				    esac
 				done
 			    fi
-			    didAction=t
+			    exit 0
 			    ;;
 	-*)		    { echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		    printUsage "$0" >&2; exit 2;;
     esac
 done
-[ "$didAction" ] && exit 0
 
 case ",${DEBUG}," in *,git-ident-update,*) echo '**** git-ident-update hook called';; esac
 readonly orig="$(git-orig-ref)"

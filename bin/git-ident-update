@@ -44,8 +44,14 @@ do
 			    shopt -qs globstar; git status --short -- **/.gitattributes
 
 			    hook="$(getHookFilespec)"
-			    echo "Remove the hook from \"${hook}\" yourself!"
-			    exit 1
+			    sed -i -e 1N -e "\${ 2 { /^${hookShebang//\//\\/}\\n${hookExec//\//\\/}\$/d } }" -e '$q 1' -- "$hook" && \
+				[ ! -s "$hook" ] && \
+				rm --force -- "$hook" && \
+				echo "Removed the hook from \"${hook}\"." && \
+				exit 0 || {
+				    echo "Remove the hook from \"${hook}\" yourself!"
+				    exit 1
+				}
 			    ;;
 	--status)	    shift
 			    hook="$(getHookFilespec)"

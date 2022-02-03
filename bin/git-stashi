@@ -19,7 +19,7 @@ if ! git-staged --quiet; then
     exit 1
 elif ! git-unstaged --quiet; then
     # Every change is in the index already, we can simply stash it.
-    exec git stash push --no-keep-index "$@"
+    exec git stash save --no-keep-index "$@"
 fi
 
 
@@ -28,12 +28,12 @@ fi
 # working copy, then the index, then undoing the working copy stashing.
 
 # Stash only unstaged changes not yet in the index temporarily.
-git stash push --keep-index --quiet --message 'unstaged changes' || exit $?
+git stash save --keep-index --quiet --message 'unstaged changes' || exit $?
 
 # Stash everything that remains (only the staged changes should remain). This is
 # the stash we want to keep, allow to give it a name / influence the stashing
 # via additional arguments.
-git stash push "$@" || exit $?
+git stash save "$@" || exit $?
 
 # Apply the original stash to get us back to where we started.
 git stash apply 'stash@{1}' || exit $?

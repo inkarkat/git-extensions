@@ -9,15 +9,32 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[N [M ...]] [--] [FILE ...] [-?|-h|--help]'
 }
 
+canUseStashPush=t
+versionCompare "$(git --version 2>/dev/null)" -lt 2.13.7 && canUseStashPush=
+
 addCommand='add'
+pushArg=
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --edit|--patch)	addCommand="$addCommand $1"; shift;;
+    --edit)		addCommand="$addCommand $1"
+			shift
+			canUseStashPush=    # Even Git 2.35.1 only supports stash push --patch, but no --edit; we still need to emulate it.
+			;;
+    --patch)		addCommand="$addCommand $1"
+			pushArg="$1"
+			shift
+			;;
 esac
 
-if ! git diff-index --cached --quiet HEAD --; then
-    echo 'ERROR: Index must be clean.' >&2
-    exit 1
-fi
+export GIT_SELECTED_COMMAND_DEFAULT_FILES='git-unstaged --' # Only offer unstaged files; "git stash push --keep-index" does not touch the index and the legacy implementation needs a clean index, anyway.
 
-git-selected-command --filter '' "$addCommand" "$@" && git-stashi || git unstage
+if [ "$canUseStashPush" ]; then
+    exec git-selected-command --filter '' "stash push${pushArg:+ }${pushArg} --keep-index --" "$@"
+else
+    if ! git diff-index --cached --quiet HEAD --; then
+	echo 'ERROR: Index must be clean.' >&2
+	exit 1
+    fi
+
+    git-selected-command --filter '' "$addCommand --" "$@" && git-stashi || git unstage
+fi

@@ -25,8 +25,10 @@ printUsage()
 Supports the following special commands:
     repo-missing	    Show those ${what:=CONFIGURED SUBJECTS} that are not yet
 			    under Git source control.
-    logs-distribution	    Print the distribution of the number of commits in
+    *logs-distribution [LOGDISTRIBUTION-OPTIONS ...] [<log-options>] [<revision range>] [[--] <path>...]
+			    Print the distribution of the number of commits in
 			    ${what:=CONFIGURED SUBJECTS} that fall into the logged range.
+			    * stands for any logdistribution range variant (td, year, ...).
     dirty-sh [COMMAND ...]  Open an interactive shell / execute COMMAND in those
 			    ${what:=CONFIGURED SUBJECTS} that have uncommitted changes.
     wips-sh [(+|-)CHECK] [COMMAND ...]
@@ -93,17 +95,23 @@ elif [ "${1:0:1}" != '-' ]; then
 	    shift
 	    wcdoArgs+=(--no-header --skip-files --foreign-command 'pwd' --command :)
 	    ;;
-	logs-distribution)
+	*logs-distribution)
 	    # Synthesized new command; don't override "logdistribution" as the
 	    # user may want to execute that separately on each repo, too.
+
+	    # Translate e.g. tdlogs-distribution to "git tdlogdistribution".
+	    # This way, all ranges supplied by my various br...log variants can
+	    # be used.
+	    logDistributionCommand="git ${1%logs-distribution}logdistribution"
 	    shift
+
 	    # Supply any arguments both to the git-logdistribution that gets
 	    # iterated over (it will pick the log options and ignore the
 	    # distribution ones), and to the git-logdistribution that
 	    # accumulates and graphs the data (it will pick the distribution
 	    # options and ignore the log options).
-	    printf -v quotedLogDistributionCommand '%q ' git-logdistribution --log-only "$@"; quotedLogDistributionCommand="${quotedLogDistributionCommand% }"
-	    wcdoArgs+=(--no-header --skip-files --no-git-color --command "$quotedLogDistributionCommand")
+	    printf -v quotedLogDistributionArgs '%q ' --log-only "$@"; quotedLogDistributionArgs="${quotedLogDistributionArgs% }"
+	    wcdoArgs+=(--no-header --skip-files --no-git-color --command "$logDistributionCommand $quotedLogDistributionArgs")
 	    accumulationCommand=(git-logdistribution --stdin "$@")
 	    set --
 	    ;;

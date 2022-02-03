@@ -1,9 +1,6 @@
 #!/bin/bash
 set -o pipefail
 
-: ${GIT_LOGDISTRIBUTION_MAX_GRAPHED_MONTHS:=3}	# Maximum number of months that gets graphed as concatenated distributions over the month.
-: ${GIT_LOGDISTRIBUTION_MAX_GRAPHED_DAYS:=14}	# Maximum number of days that gets graphed as concatenated distributions over the day.
-
 printShortUsage()
 {
     local distributionArguments='[--no-footer|--final-footer-only|footer-only-on-change|--footer-every N] [--as colorbox-calendar|green-[large-]calendar|...] [--weekly]'
@@ -28,53 +25,32 @@ printLongUsage()
     cat <<HELPDESCRIPTION
 Print the distribution of the number of commits that fall into the logged range.
 Depending on the span of time during which the commits were authored, this will
-be the distribution over the day (for a maximum of $GIT_LOGDISTRIBUTION_MAX_GRAPHED_DAYS days), over the month (for
-a maximum of $GIT_LOGDISTRIBUTION_MAX_GRAPHED_MONTHS months), or over year(s) (for everything longer).
+be the distribution over the day, month, or over year(s) (for anything longer).
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
-    --as NAME-calendar	Special out-of-the-box spark style customizations.
+SEE ALSO:
+- git log
+- distribution-over-autorange
 HELPTEXT
 }
 
-action=obtainLogDates
-typeset -a dayDistributionDefaultRenderArgs=()
-typeset -a monthDistributionDefaultRenderArgs=()
-typeset -a yearDistributionDefaultRenderArgs=()
-if [ -t 1 ]; then
-    dayDistributionDefaultRenderArgs=(--as green-calendar)
-    monthDistributionDefaultRenderArgs=(--as green-calendar)
-    yearDistributionDefaultRenderArgs=(--as green-calendar)
-    : ${COLUMNS:=80}
-    if [ $COLUMNS -ge 150 ]; then
-	dayDistributionDefaultRenderArgs=(--as green-large-calendar)
-	monthDistributionDefaultRenderArgs=(--as green-large-calendar)
-	yearDistributionDefaultRenderArgs=(--as green-large-calendar)
-    elif [ $COLUMNS -ge 120 ]; then
-	monthDistributionDefaultRenderArgs=(--as green-large-calendar)
-	yearDistributionDefaultRenderArgs=(--as green-large-calendar)
-    elif [ $COLUMNS -ge 70 ]; then
-	monthDistributionDefaultRenderArgs=(--as green-large-calendar)
-    fi
-fi
+action=printGraphFromObtainedLogs
 typeset -a distributionArgs=()
-typeset -a distributionFooterArgs=()
-typeset -a distributionRenderArgs=()
 typeset -a gitArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
-	--log-only)	shift; action=printLogDates;;
-	--stdin)	shift; action=readLogDates;;
+	--log-only)	shift; action=getLogs;;
+	--stdin)	shift; action=printGraphFromInput;;
 
-	--weekly)	distributionArgs+=("$1"); shift;;
-	--no-footer|--final-footer-only|--footer-only-on-change)
-			distributionFooterArgs+=("$1"); shift;;
-	--footer-every) distributionFooterArgs+=("$1" "$2"); shift; shift;;
-	--as)		distributionRenderArgs=("$1" "$2"); shift; shift;;
+	--no-footer|--final-footer-only|--footer-only-on-change|--weekly)
+			distributionArgs+=("$1"); shift;;
+	--footer-every|--as)
+			distributionArgs+=("$1" "$2"); shift; shift;;
 
 	--pretty|--pretty=*|--format|--format=*)
 			echo >&2 'ERROR: Cannot influence the log format via --pretty|--format.'
@@ -88,57 +64,28 @@ do
 done
 gitArgs+=("$@")
 
-getLogDates()
+getLogs()
 {
     git log --pretty=tformat:'%ai' "${gitArgs[@]}"
 }
-printLogDates()
-{
-    getLogDates
-    exit $?
-}
 
-typeset -a dates=()
-obtainLogDates()
+printGraphFromObtainedLogs()
 {
     # The logged dates still need to be sorted, because sorting happens by commit
     # date, but we'd like to show the author date distribution. The
     # --split-graph-field would be disturbed by an earlier date reappeared after a
     # later date again.
-    readarray -t dates < <(getLogDates | sort --numeric-sort; printf '\n%d\n' "$?")	# Exit status from the process substitution is lost; return the actual exit status via an appended additional line.
-    [ ${dates[-1]} -ne 0 ] && exit ${dates[-1]}
-    unset 'dates[-1]'
-    [ -z "${dates[-1]}" ] && unset 'dates[-1]'
-}
-readLogDates()
-{
-    readarray -t dates < <(sort --numeric-sort)
-    [ ${#dates[@]} -gt 0 ] || exit 1
+    getLogs | sort --numeric-sort | printGraph
 }
 
+printGraphFromInput()
+{
+    sort --numeric-sort | printGraph
+}
+
+printGraph()
+{
+    distribution-over-autorange "${distributionArgs[@]}"
+}
 
 $action
-firstDate="${dates[0]%% *}"
-lastDate="${dates[-1]%% *}"
-
-monthDiff="$(datediff --output months "$firstDate" "$lastDate")" || exit $?
-if [ $monthDiff -gt $GIT_LOGDISTRIBUTION_MAX_GRAPHED_MONTHS ]; then
-    typeset -a distributionCommand=(distribution-over-the-year --graph-field 1 --split-graph-field 1)
-    [ ${#distributionRenderArgs[@]} -gt 0 ] || distributionRenderArgs=("${yearDistributionDefaultRenderArgs[@]}")
-    [ ${#distributionFooterArgs[@]} -gt 0 ] || contains --weekly "${distributionArgs[@]}" && distributionFooterArgs=(--footer-every $((${LINES:-0} ? (LINES > 2 ? LINES - 2 : 10) : 10)))
-else
-    dayDiff="$(datediff --output days "$firstDate" "$lastDate")" || exit $?
-    if [ $dayDiff -gt $GIT_LOGDISTRIBUTION_MAX_GRAPHED_DAYS ]; then
-	typeset -a distributionCommand=(distribution-over-the-month --graph-field 2 --footer-field 1 --split-graph-field 1 --split-graph-field 2)
-	[ ${#distributionRenderArgs[@]} -gt 0 ] || distributionRenderArgs=("${monthDistributionDefaultRenderArgs[@]}")
-	[ ${#distributionFooterArgs[@]} -gt 0 ] || distributionFooterArgs=(--footer-every 6)
-    else
-	typeset -a distributionCommand=(distribution-over-the-day --first-hour 6 --last-hour 23 --hour-field 4 --minute-field 5 --graph-field 3 --footer-field 2 --split-graph-field 1 --split-graph-field 2 --split-graph-field 3)
-	[ ${#distributionRenderArgs[@]} -gt 0 ] || distributionRenderArgs=("${dayDistributionDefaultRenderArgs[@]}")
-	[ ${#distributionFooterArgs[@]} -gt 0 ] || distributionFooterArgs=(--footer-every 7)
-    fi
-fi
-
-typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
-printf '%s\n' "${dates[@]}" | \
-    eval '"${distributionCommand[@]}" "${distributionArgs[@]}" "${distributionFooterArgs[@]}" "${distributionRenderArgs[@]}"' "${pager:+|}" '"${pager[@]}"'

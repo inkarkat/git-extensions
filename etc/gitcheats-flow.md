@@ -17,7 +17,7 @@ Branch name for "next release" development: master
 # releases
 
 vimdev: `runVimTests tests/[all.suite]`
-`git flow release start 1.00`
+`git release start 1.00`
 Inspect changed files list with `git showfiles stable..`
 Check changelog with `git lg stable..`
 vimdev: Update changelog (at least with release date) in `doc/*.txt` and do `:UpdateHelpAsReadme`
@@ -27,7 +27,7 @@ vimdev: Execute `:DeleteChangelog`
 `git cu -m 'Cosmetics: Delete changelogs'`
 vimdev: First release: Create manifest
 
-vimdev: Create Vimball: `:CloneHelpAsText` | `:Make 1.00` | `:Zip`
+vimdev: Create Vimball: `:CloneHelpAsText` | `:EditManifest` | `:Make 1.00` | `:Zip`
 Note: I don't publish the release branch if it just contains trivial mechanics of preparing the release.
-`git flow release finish 1.00` -> tag name: "Version 1.00"
+`git release finish` -> tag name: "Version 1.00"
 `git opa` (git opush --tags && git opush --all)

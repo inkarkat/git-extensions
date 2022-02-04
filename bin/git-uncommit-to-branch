@@ -1,0 +1,85 @@
+#!/bin/bash
+set -o pipefail
+
+printUsage()
+{
+    cat <<HELPTEXT
+Undo the the last commit / N commits / commits up to <commit> of the current
+branch, and check it out in a newly created <branch> instead.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [-y|--yes] [-b|--branch <branch>] [-n|--count N|<commit>] [-?|-h|--help]'
+}
+branchName=
+isQuiet=
+isYes=
+commit=HEAD
+commitNum=1
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	    shift; printUsage "$0"; exit 0;;
+	--quiet|-q)	    shift; isQuiet=t;;
+	--yes|-y)	    shift; isYes=t;;
+	--branch|-b)	    shift; branchName="$1"; shift;;
+	--count|-n)	    shift
+			    if ! [[ "$1" =~ ^[0-9]+$ ]]; then
+				printUsage "$0" >&2
+				exit 2
+			    fi
+			    commit="HEAD~$1"
+			    commitNum=$(($1 + 1))
+			    shift
+			    ;;
+	-*)		    { echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		    break;;
+    esac
+done
+if [ $# -gt 0 ]; then
+    commit="$1"; shift
+
+    # Check reachability.
+    if git rev-list --quiet --first-parent "${commit}.." -- 2>/dev/null; then
+	commitNum=$(git rev-list "${commit}.." -- | wc -l)
+	let commitNum+=1
+    elif commitNum=$(git rev-list "${commit}.." -- 2>/dev/null | wc -l); then
+	let commitNum+=1
+	# The commit has been merged from a branch; this is dubious.
+	if [ ! "$isYes" ]; then
+	    </dev/tty read -r -N 1 -p "The target commit is on a side branch that was merged into the current branch; really move to that? (y/n) " choice; echo >/dev/tty
+	    [ "$choice" = "y" ] || exit 1
+	fi
+    else
+	[ "$isQuiet" ] || echo >&2 'ERROR: The target commit is not an ancestor of the current branch!'
+	exit 1
+    fi
+fi
+if [ $# -gt 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+elif git-dirty; then
+    echo >&2 'ERROR: working copy is still dirty; please clean up first.'
+    git status
+    exit 1
+fi
+
+branchCommit="$(git rev-parse HEAD)" || exit $?
+if [ -z "$branchName" ] && [ ! "$isYes" ]; then
+    </dev/tty read -r -p "Please enter branch name: " branchName
+fi
+[ -n "$branchName" ] || exit 1
+if git-existsbr "$branchName"; then
+    printf >&2 "ERROR: Branch '%s' already exists.\\n" "$branchName"
+    exit 1
+fi
+
+commitNumPlural=s; [ $commitNum -eq 1 ] && commitNumPlural=
+if [ "$isYes" ]; then
+    [ "$isQuiet" ] || printf >&2 'Moving %d commit%s onto %s.\n' "$commitNum" "$commitNumPlural" "$branchName"
+else
+    </dev/tty read -r -N 1 -p "Really move $commitNum commit${commitNumPlural} onto branch '$branchName'? (y/n) " choice; echo >/dev/tty
+    [ "$choice" = "y" ] || exit 1
+fi
+
+git reset --hard "${commit}^" || exit $?
+exec git checkout -b "$branchName" "$branchCommit"

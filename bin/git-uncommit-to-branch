@@ -63,6 +63,7 @@ elif git-dirty; then
     exit 1
 fi
 
+currentBranchName="$(git-brname --raw)" || exit $?
 branchCommit="$(git rev-parse HEAD)" || exit $?
 if [ -z "$branchName" ] && [ ! "$isYes" ]; then
     </dev/tty read -r -p "Please enter branch name: " branchName
@@ -81,5 +82,5 @@ else
     [ "$choice" = "y" ] || exit 1
 fi
 
-git reset --hard "${commit}^" || exit $?
-exec git checkout -b "$branchName" "$branchCommit"
+git checkout -b "$branchName" "$branchCommit" || exit $?
+exec git update-ref -m "uncommit-to-branch: move $commitNum commit${commitNumPlural} onto $branchName" "refs/heads/$currentBranchName" "${commit}^"

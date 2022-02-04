@@ -10,6 +10,7 @@ type -t colordiff >/dev/null && [ -t 1 ] && hasColorDiff=t
 
 isAsDiffTool=
 typeset -a allargs=()
+typeset -a diffArgs=()
 while [ $# -gt 0 ]
 do
     case "$1" in
@@ -24,6 +25,8 @@ do
 	    shift
 	    hasColorDiff=t
 	    ;;
+	--suppress-common-lines)
+	    diffArgs+=("$1"); shift;;
 	*)
 	    allargs+=("$1")
 	    shift
@@ -42,11 +45,11 @@ if [ "$isAsDiffTool" ]; then
     absoluteLastArg="$(readlink -nf -- "${!#}")"
     printf "%s%${COLUMNS:+-${COLUMNS}}s%s\\n" "$GIT_DIFFY_FILE_PREFIX" "${absoluteLastArg#${root}/}:" "$GIT_DIFFY_FILE_SUFFIX"
 
-    ${hasColorDiff:+color}diff ${hasColorDiff:+--difftype=diffy} --side-by-side --ignore-all-space --suppress-common-lines ${COLUMNS:+--width $COLUMNS} "$@"
+    ${hasColorDiff:+color}diff ${hasColorDiff:+--difftype=diffy} --side-by-side --ignore-all-space ${COLUMNS:+--width $COLUMNS} "${diffArgs[@]}" "$@"
     exit 0	# Need to return success to avoid that Git complains that the "external tool died".
 else
     colorArg=--color=always; [ "$hasColorDiff" ] || colorArg=--no-color
 
     typeset -a pager=("${PAGER:-less}" --quit-on-intr --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
-    eval 'git difftool --no-prompt --extcmd="git-diffy --as-difftool $colorArg" "$@"' "${pager:+|}" '"${pager[@]}"'
+    eval 'git difftool --no-prompt --extcmd="git-diffY --as-difftool $colorArg${diffArgs:+ }${diffArgs[*]}" "$@"' "${pager:+|}" '"${pager[@]}"'
 fi

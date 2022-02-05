@@ -1,5 +1,6 @@
 #!/bin/bash
 set -o pipefail
+shopt -qs extglob
 
 printShortUsage()
 {
@@ -47,12 +48,12 @@ do
 	--log-only)	shift; action=getLogs;;
 	--stdin)	shift; action=printGraphFromInput;;
 
-	--no-footer|--final-footer-only|--footer-only-on-change|--weekly)
+	--@(no-footer|final-footer-only|footer-only-on-change|weekly))
 			distributionArgs+=("$1"); shift;;
-	--footer-every|--as)
+	--@(footer-every|graph-legend|footer-legend|as))
 			distributionArgs+=("$1" "$2"); shift; shift;;
 
-	--pretty|--pretty=*|--format|--format=*)
+	--@(pretty|format)?(=*))
 			echo >&2 'ERROR: Cannot influence the log format via --pretty|--format.'
 			echo >&2
 			printUsage "$0" >&2

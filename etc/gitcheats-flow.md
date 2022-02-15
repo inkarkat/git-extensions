@@ -21,7 +21,7 @@ vimdev: `runVimTests tests/[all.suite]`
 Inspect changed files list with `git showfiles stable..`
 Check changelog with `git lg stable..`
 vimdev: Update changelog (at least with release date) in `doc/*.txt` and do `:UpdateHelpAsReadme`
-`git cu -m 'Release 1.00'`
+`git release commit` (`git cu -m 'Release 1.00'`)
 vimdev: First GitHub release (of a small plugin):
 vimdev: Execute `:DeleteChangelog`
 `git cu -m 'Cosmetics: Delete changelogs'`

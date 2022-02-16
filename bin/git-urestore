@@ -1,3 +1,22 @@
-#!/bin/sh
+#!/bin/bash
 
-git uwipe "$@" && if git-existsremote origin; then git push -f origin; fi
+printUsage()
+{
+    cat <<HELPTEXT
+Reset my current branch to the HEAD of the current / passed branch of upstream,
+and push this to my GitHub clone. Use this after my pull requests have been
+accepted into upstream (but cherry-picked, in a different order, or intermingled
+with other requests, so that the commit history deviates from mine). Ensures
+that the current branch isn't dirty.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [<branch>] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+git uwipe "$@" && \
+    if git-existsremote origin; then
+	    git push -f origin
+    fi

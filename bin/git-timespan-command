@@ -1,26 +1,18 @@
 #!/bin/bash
 set -o pipefail
 
-: ${GIT_TIMESPANCOMMAND_TIMESPAN:?}
 : ${GIT_TIMESPANCOMMAND_WHEN:="$GIT_TIMESPANCOMMAND_TIMESPAN"}
 
 printUsage()
 {
     cat <<HELPTEXT
 Print / execute GIT-COMMAND with a revision range starting from the first
-revision committed ${GIT_TIMESPANCOMMAND_WHEN}; possibly including one previous commit.
+revision committed ${GIT_TIMESPANCOMMAND_WHEN:-\$GIT_TIMESPANCOMMAND_TIMESPAN ago}; possibly including one previous commit.
 The revision range (with --no-range, only the starting revision will be used) is
 appended at the end of GIT-COMMAND ....
 HELPTEXT
-printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-range] [+1|--one-more] [GIT-COMMAND ...] [-?|-h|--help]'
-}
-
-getTimespanAgoCommit()
-{
-    local revision;
-    revision="$(git lh --since "$GIT_TIMESPANCOMMAND_TIMESPAN" | tail -n 1)" || exit $?
-    [ "$revision" ] || exit 1
-    printf %s "$revision"
+    local requiredEnvironmentVariables; [ -n "$GIT_TIMESPANCOMMAND_TIMESPAN" ] || requiredEnvironmentVariables='GIT_TIMESPANCOMMAND_TIMESPAN=SINCE-ARG'
+    printf "Usage: ${requiredEnvironmentVariables}${requiredEnvironmentVariables:+ }%q %s\\n" "$(basename "$1")" '[--no-range] [+1|--one-more] [GIT-COMMAND ...] [-?|-h|--help]'
 }
 
 isRange=t
@@ -39,6 +31,16 @@ if [ $# -eq 0 ]; then
     isRange=
     gitCommand=(name-rev --name-only)
 fi
+
+: ${GIT_TIMESPANCOMMAND_TIMESPAN:?}
+
+getTimespanAgoCommit()
+{
+    local revision;
+    revision="$(git lh --since "$GIT_TIMESPANCOMMAND_TIMESPAN" | tail -n 1)" || exit $?
+    [ "$revision" ] || exit 1
+    printf %s "$revision"
+}
 
 typeset -a rangeArgs=()
 if [ "$isRange" ] && [ ! "$isShowOneMore" ]; then

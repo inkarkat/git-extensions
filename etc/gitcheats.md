@@ -4,7 +4,7 @@
 ### [WORK.COPY]  [INDEX]    [LOCAL REPOSITORY]  [REMOTE REPO]
 <------------ pull or rebase ----------------------------/
 .                  XX                ^-- fetch ----------/
-<--------- checkout-head ------------------/
+<--------- checkout-committed -------------/
 <-- checkout -- . /------------------------/
 .                            ^- uncommit --/
 .                  <---------^- peel ------/

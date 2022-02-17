@@ -1,0 +1,50 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Execute GIT-COMMAND with HEAD argument(s) replaced by the name of a passed
+-b|--branch BRANCH branch (or kept as HEAD).
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--keep-position GIT-COMMAND [... HEAD ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '-N HEAD GIT-COMMAND [...] [-?|-h|--help]'
+}
+
+branch=
+typeset -a args=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--branch|-b)	shift; branch="$1"; shift;;
+	--)		args+=("$1"); shift; break;;
+	*)		args+=("$1"); shift;;
+    esac
+done
+set -- "${args[@]}" "$@"
+
+if [ $# -eq 0 ]; then
+    echo >&2 'ERROR: No GIT-COMMAND passed.'
+    exit 2
+fi
+
+case "$1" in
+    -[1-9])
+	typeset headArgNum=${1#-}
+	typeset -a headArgs=("${@:2:${headArgNum}}")
+	set -- "${@:$((2 + headArgNum))}"
+
+	headArgs=("${headArgs[@]//HEAD/${branch}}")
+
+	exec git-wrapper "$@" "${headArgs[@]}"
+	;;
+    --keep-position)
+	shift
+	exec git-wrapper "${@//HEAD/${branch}}"
+	;;
+    *)
+	exec git-wrapper "$@" "$branch"
+	;;
+esac

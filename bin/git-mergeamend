@@ -118,6 +118,7 @@ revivedBranch="$(git-brname --real-branch-only)" || exit $?
 # Apply the staged changes.
 git stash pop --index || {
     status=$?
+    trap EXIT	# Keep the mergeMessageFilespec; it is referenced in mergeArgs.
 
     printf 'Application of the staged changes failed.\n\nAfter resolving the issue, commit and merge via:\ngit stash drop && '
     printf '%q ' git commit "${branchCommitArgs[@]}"
@@ -133,6 +134,7 @@ git stash pop --index || {
 # commit on the revived branch.
 git-commit "${branchCommitArgs[@]}" || {
     status=$?
+    trap EXIT	# Keep the mergeMessageFilespec; it is referenced in mergeArgs.
 
     printf 'Committing the staged changes failed.\nAfter a successful commit, merge via:\n'
     printf '%q ' git reintegrateto "$originalBranch" --no-ff "${mergeArgs[@]}"
@@ -145,6 +147,7 @@ git-commit "${branchCommitArgs[@]}" || {
 # Merge the revived branch again to the original branch, and then delete it.
 git-reintegrateto --branch "$originalBranch" --no-ff "${mergeArgs[@]}" || {
     status=$?
+    trap EXIT	# Keep the mergeMessageFilespec; it is referenced in mergeArgs.
 
     printf 'Reintegration of the revived branch failed:\n'
     if [ "$(git-brname --real-branch-only)" = "$originalBranch" ]; then

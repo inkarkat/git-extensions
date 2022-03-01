@@ -1,0 +1,33 @@
+#!/bin/bash
+
+typeset -a gitCommand=()
+printUsage()
+{
+    cat <<HELPTEXT
+Show first tag of the commit where text or /regexp/ was first mentioned in the log message or diff.
+HELPTEXT
+    local gitCommandArg=GIT-COMMAND; [ ${#gitCommand[@]} -gt 0 ] && gitCommandArg="${gitCommand[-1]}"
+    printf 'Usage: %q %s %s\n' "$(basename "$1")" "$gitCommandArg" '[--more] [--source-count=<number>] [<log-options>] [<since>..<until>] [[--] <path>...] text|/regexp/ [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+if [ $# -eq 0 ]; then
+    echo >&2 'ERROR: No GIT-COMMAND passed.'
+    exit 2
+fi
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	-c) gitCommand+=("$1" "$2"); shift; shift;;
+	*)  gitCommand+=("$1"); shift; break;;
+    esac
+done
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+commit="$(git whereintroducedlogg --pretty=tformat:%H "$@")" || exit $?
+[ -n "$commit" ] || exit 1
+
+exec git-contained-command "${gitCommand[@]}" "$commit"

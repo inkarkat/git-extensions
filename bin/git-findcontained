@@ -5,11 +5,20 @@ gitFindLogCommand="${1:?}"; shift
 typeset -a gitCommand=()
 printUsage()
 {
-    cat <<HELPTEXT
-Show first tag of the commits where text or /regexp/ was first mentioned (added) in the diff.
-HELPTEXT
+    local isFindLogg=; [[ "$gitFindLogCommand" =~ logg$ ]] && isFindLogg=t
+    if [ "$isFindLogg" ]; then
+	echo 'Show first tag of the commit where text or /regexp/ was first mentioned in the log message or diff.'
+    else
+	echo 'Show first tag of the commits where text or /regexp/ was first mentioned (added) in the diff.'
+    fi
+
     local gitCommandArg=GIT-COMMAND; [ ${#gitCommand[@]} -gt 0 ] && gitCommandArg="${gitCommand[-1]}"
-    printf 'Usage: %q %s %s\n' "$(basename "$1")" "$gitCommandArg" '[--more] [<log-options>] [<since>..<until>] [[--] <path>...] text|/regexp/ [-?|-h|--help]'
+
+    if [ "$isFindLogg" ]; then
+	printf 'Usage: %q %s %s %s\n' "$(basename "$1")" "$gitFindLogCommand" "$gitCommandArg" '[--more] [--source-count=<number>] [<log-options>] [<since>..<until>] [[--] <path>...] text|/regexp/ [-?|-h|--help]'
+    else
+	printf 'Usage: %q %s %s %s\n' "$(basename "$1")" "$gitFindLogCommand" "$gitCommandArg" '[--more] [<log-options>] [<since>..<until>] [[--] <path>...] text|/regexp/ [-?|-h|--help]'
+    fi
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;

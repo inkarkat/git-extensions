@@ -1,0 +1,49 @@
+#!/bin/bash
+
+gitFindLogCommand="${1:?}"; shift
+
+typeset -a gitCommand=()
+printUsage()
+{
+    local isFindLogg=; [[ "$gitFindLogCommand" =~ logg$ ]] && isFindLogg=t
+    if [ "$isFindLogg" ]; then
+	echo 'Show first tag of the commit where text or /regexp/ was first mentioned in the log message or diff.'
+    else
+	echo 'Show first tag of the commits where text or /regexp/ was first mentioned (added) in the diff.'
+    fi
+
+    local gitCommandArg=GIT-COMMAND; [ ${#gitCommand[@]} -gt 0 ] && gitCommandArg="${gitCommand[-1]}"
+
+    if [ "$isFindLogg" ]; then
+	printf 'Usage: %q %s %s %s\n' "$(basename "$1")" "$gitFindLogCommand" "$gitCommandArg" '[--more] [--source-count=<number>] [<log-options>] [<since>..<until>] [[--] <path>...] text|/regexp/ [-?|-h|--help]'
+    else
+	printf 'Usage: %q %s %s %s\n' "$(basename "$1")" "$gitFindLogCommand" "$gitCommandArg" '[--more] [<log-options>] [<since>..<until>] [[--] <path>...] text|/regexp/ [-?|-h|--help]'
+    fi
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+if [ $# -eq 0 ]; then
+    echo >&2 'ERROR: No GIT-COMMAND passed.'
+    exit 2
+fi
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	-c) gitCommand+=("$1" "$2"); shift; shift;;
+	*)  gitCommand+=("$1"); shift; break;;
+    esac
+done
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+readarray -t commits < <(git "$gitFindLogCommand" --pretty=tformat:%H "$@")
+[ ${#commits[@]} -eq 0 ] && exit 1
+
+status=0
+for commit in "${commits[@]}"
+do
+    git-contained-command "${gitCommand[@]}" "$commit" || status=$?
+done
+exit $status

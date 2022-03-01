@@ -1,10 +1,12 @@
 #!/bin/bash
 
+gitFindLogCommand="${1:?}"; shift
+
 typeset -a gitCommand=()
 printUsage()
 {
     cat <<HELPTEXT
-Show first tag of the commit where text or /regexp/ was first mentioned (added) in the diff.
+Show first tag of the commits where text or /regexp/ was first mentioned (added) in the diff.
 HELPTEXT
     local gitCommandArg=GIT-COMMAND; [ ${#gitCommand[@]} -gt 0 ] && gitCommandArg="${gitCommand[-1]}"
     printf 'Usage: %q %s %s\n' "$(basename "$1")" "$gitCommandArg" '[--more] [<log-options>] [<since>..<until>] [[--] <path>...] text|/regexp/ [-?|-h|--help]'
@@ -27,7 +29,12 @@ case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
 
-commit="$(git whereintroducedlog --pretty=tformat:%H "$@")" || exit $?
-[ -n "$commit" ] || exit 1
+readarray -t commits < <(git "$gitFindLogCommand" --pretty=tformat:%H "$@")
+[ ${#commits[@]} -eq 0 ] && exit 1
 
-exec git-contained-command "${gitCommand[@]}" "$commit"
+status=0
+for commit in "${commits[@]}"
+do
+    git-contained-command "${gitCommand[@]}" "$commit" || status=$?
+done
+exit $status

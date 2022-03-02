@@ -1,14 +1,33 @@
 #!/bin/bash
 set -o pipefail
 
+: ${GITCONTAINEDCOMMAND_FALLBACK_PREFIX=(}
+: ${GITCONTAINEDCOMMAND_FALLBACK_SUFFIX=)}
+
 typeset -a gitCommand=()
 printUsage()
 {
-    cat <<HELPTEXT
-Show first tag [that matches GREP-ARGS] that the passed <commit> is based on.
+    local excludeArg='[--exclude GLOB [--exclude ...]]'
+    local gitCommandArg=GIT-COMMAND
+    if [ ${#gitCommand[@]} -gt 0 ]; then
+	gitCommandArg="${gitCommand[-1]}"
+	[ "$gitCommandArg" = describe ] || excludeArg=''
+    fi
+
+    if [ "$gitCommandArg" = describe ]; then
+	cat <<HELPTEXT
+Show first tag [that matches GLOB(s)] that the passed <commit> is based on.
+(Or fall back to a branch name or the commit SHA.) With $gitCommandArg,
+GREP-ARGS would completely filter those tags and show the fallback instead, so
+prefer --exclude here.
 HELPTEXT
-    local gitCommandArg=GIT-COMMAND; [ ${#gitCommand[@]} -gt 0 ] && gitCommandArg="${gitCommand[-1]}"
-    printf 'Usage: %q %s %s\n' "$(basename "$1")" "$gitCommandArg" '[GREP-ARGS] <commit> [-?|-h|--help]'
+    else
+	cat <<HELPTEXT
+Show first tag [that matches GREP-ARGS] that the passed <commit> is based on.
+(Or fall back to a branch name or the commit SHA.)
+HELPTEXT
+    fi
+    printf 'Usage: %q %s%s%s\n' "$(basename "$1")" "${gitCommandArg}${gitCommandArg:+ }" "${excludeArg}${excludeArg:+ }" '[GREP-ARGS] <commit> [-?|-h|--help]'
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
@@ -24,6 +43,13 @@ do
 	*)  gitCommand+=("$1"); shift; break;;
     esac
 done
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--exclude)  gitCommand+=("$1" "$2"); shift; shift;;
+	*)	    break;;
+    esac
+done
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
@@ -36,6 +62,11 @@ fi >&2
 
 revision="${!#}"
 typeset -a grepArgs=("${@:1:$(($#-1))}")
-
-eval 'git "${gitCommand[@]}" --contains "$revision" | ' ${grepArgs:+grep} '"${grepArgs[@]}"' ${grepArgs:+|} 'head -n 1' 2>/dev/null || \
-    git name-rev --name-only "$revision"
+readarray -t containedTags < <(eval 'git "${gitCommand[@]}" --contains "$revision" 2>/dev/null' "${grepArgs:+| grep}" '"${grepArgs[@]}"')
+if [ ${#containedTags[@]} -gt 0 ]; then
+    printf '%s\n' "${containedTags[0]}"
+    exit 0
+fi
+containedName="$(git name-rev --name-only --exclude 'refs/tags/*' "$revision")"
+[ -n "$containedName" ] || exit 1
+printf '%s%s%s\n' "$GITCONTAINEDCOMMAND_FALLBACK_PREFIX" "$containedName" "$GITCONTAINEDCOMMAND_FALLBACK_SUFFIX"

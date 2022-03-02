@@ -7,12 +7,27 @@ set -o pipefail
 typeset -a gitCommand=()
 printUsage()
 {
-    cat <<HELPTEXT
+    local excludeArg='[--exclude GLOB [--exclude ...]]'
+    local gitCommandArg=GIT-COMMAND
+    if [ ${#gitCommand[@]} -gt 0 ]; then
+	gitCommandArg="${gitCommand[-1]}"
+	[ "$gitCommandArg" = describe ] || excludeArg=''
+    fi
+
+    if [ "$gitCommandArg" = describe ]; then
+	cat <<HELPTEXT
+Show first tag [that matches GLOB(s)] that the passed <commit> is based on.
+(Or fall back to a branch name or the commit SHA.) With $gitCommandArg,
+GREP-ARGS would completely filter those tags and show the fallback instead, so
+prefer --exclude here.
+HELPTEXT
+    else
+	cat <<HELPTEXT
 Show first tag [that matches GREP-ARGS] that the passed <commit> is based on.
 (Or fall back to a branch name or the commit SHA.)
 HELPTEXT
-    local gitCommandArg=GIT-COMMAND; [ ${#gitCommand[@]} -gt 0 ] && gitCommandArg="${gitCommand[-1]}"
-    printf 'Usage: %q %s %s\n' "$(basename "$1")" "$gitCommandArg" '[GREP-ARGS] <commit> [-?|-h|--help]'
+    fi
+    printf 'Usage: %q %s%s%s\n' "$(basename "$1")" "${gitCommandArg}${gitCommandArg:+ }" "${excludeArg}${excludeArg:+ }" '[GREP-ARGS] <commit> [-?|-h|--help]'
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
@@ -26,6 +41,13 @@ do
     case "$1" in
 	-c) gitCommand+=("$1" "$2"); shift; shift;;
 	*)  gitCommand+=("$1"); shift; break;;
+    esac
+done
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--exclude)  gitCommand+=("$1" "$2"); shift; shift;;
+	*)	    break;;
     esac
 done
 case "$1" in

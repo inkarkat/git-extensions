@@ -1,0 +1,26 @@
+#!/bin/bash
+set -o pipefail
+
+printUsage()
+{
+    cat <<HELPTEXT
+List annotated tags (used for official versions etc.) without lightweight ones.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--contains <commit>] [--no-contains <commit>] [GIT-TAG-ARGS ...] [-?|-h|--help]'
+}
+
+format='%(objecttype) %(refname:strip=2)'
+typeset -a gitTagArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--format)	format="%(objecttype) $2"; shift; shift;;
+	--format=*)	format="%(objecttype) ${1#--format=}"; shift;;
+	--)		gitTagArgs+=("$1"); shift; break;;
+	*)		gitTagArgs+=("$1"); shift;;
+    esac
+done
+git tag --list --format "$format" "${gitTagArgs[@]}" "$@" | \
+    sed -n -e 's/^tag //p'

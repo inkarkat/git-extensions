@@ -1,6 +1,9 @@
 #!/bin/bash
 set -o pipefail
 
+: ${GITCONTAINEDCOMMAND_FALLBACK_PREFIX=(}
+: ${GITCONTAINEDCOMMAND_FALLBACK_SUFFIX=)}
+
 typeset -a gitCommand=()
 printUsage()
 {
@@ -36,6 +39,11 @@ fi >&2
 
 revision="${!#}"
 typeset -a grepArgs=("${@:1:$(($#-1))}")
-
-eval 'git "${gitCommand[@]}" --contains "$revision" | ' ${grepArgs:+grep} '"${grepArgs[@]}"' ${grepArgs:+|} 'head -n 1' 2>/dev/null || \
-    git name-rev --name-only "$revision"
+readarray -t containedTags < <(eval 'git "${gitCommand[@]}" --contains "$revision" 2>/dev/null' "${grepArgs:+| grep}" '"${grepArgs[@]}"')
+if [ ${#containedTags[@]} -gt 0 ]; then
+    printf '%s\n' "${containedTags[0]}"
+    exit 0
+fi
+containedName="$(git name-rev --name-only "$revision")"
+[ -n "$containedName" ] || exit 1
+printf '%s%s%s\n' "$GITCONTAINEDCOMMAND_FALLBACK_PREFIX" "$containedName" "$GITCONTAINEDCOMMAND_FALLBACK_SUFFIX"

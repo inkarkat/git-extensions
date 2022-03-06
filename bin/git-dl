@@ -1,5 +1,6 @@
 #!/bin/bash
 set -o pipefail
+shopt -qs nullglob
 
 printUsage()
 {
@@ -34,9 +35,12 @@ git ${GIT_DL_DIFFCOMMAND:-diff} "$@" > "$TMPFILE" || exit $?
 splitdiff -D "$TMPDIR" -d -a -p 1 "$TMPFILE" >/dev/null || exit $?
 rm -f "$TMPFILE" 2>/dev/null
 
+typeset -a patches=("${TMPDIR}"/*.patch)
+[ ${#patches[@]} -gt 0 ] || exit 1
+
 if ! isColorOffArgument "$@"; then
-    pipethrough --piped -- colordiff --color=yes -- "${TMPDIR}"/*.patch 2>/dev/null
+    pipethrough --piped -- colordiff --color=yes -- "${patches[@]}" 2>/dev/null
 fi
 
 [ "$PAGER" = smartless ] && PAGER=less	# smartless does not page small outputs that fit the terminal, but we explicitly want to page through each date range separately.
-"${PAGER:-less}" --RAW-CONTROL-CHARS "${TMPDIR}"/*.patch
+"${PAGER:-less}" --RAW-CONTROL-CHARS "${patches[@]}"

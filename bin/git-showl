@@ -34,6 +34,7 @@ elif [ "$1" = '-' ]; then
     readarray -t objects
     set -- "${objects[@]}"
 fi
+[ $# -gt 0 ] || exit 1
 
 TMPDIR="$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || { dirspec="${TEMP:-/tmp}/$(basename -- "$0").$$$RANDOM"; mkdir -p -- "$dirspec" && printf %s "$dirspec"; })" || exit $?
 [ "$DEBUG" ] || trap 'rm -rf "$TMPDIR" 2>/dev/null' EXIT
@@ -42,10 +43,12 @@ typeset -a outputs=()
 status=0
 for object
 do
+    [ -n "$object" ] || continue
     tempOutput="${TMPDIR}/$object"
     git show "${showArgs[@]}" "$object" > "$tempOutput" || status=$?
     [ -s  "$tempOutput" ] && outputs+=("$tempOutput")
 done
+[ ${#outputs[@]} -gt 0 ] || exit 1
 
 if ! isColorOffArgument "${showArgs[@]}"; then
     pipethrough --piped -- colordiff --color=yes -- "${outputs[@]}" 2>/dev/null

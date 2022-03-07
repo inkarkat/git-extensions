@@ -9,6 +9,7 @@ concatenating all commits), paged through with less.
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[options] <object> <object> [...] [-?|-h|--help]'
+    printf 'Usage: cat <object> <object> [...] | %q %s\n' "$(basename "$1")" '[options] -'
 }
 
 typeset -a showArgs=()
@@ -20,11 +21,19 @@ do
 	--@(pretty|format|encoding|unified|diff-algorithm|word-diff-regex|ws-error-highlight|diff-filter|src-prefix|dst-prefix))	showArgs+=("$1" "$2"); shift; shift;;
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--)		showArgs+=("$1"); shift; break;;
-	--*)	showArgs+=("$1"); shift;;
-	-*)	showArgs+=("$1"); shift;;
+	--*)		showArgs+=("$1"); shift;;
+	-)		break;;
+	-*)		showArgs+=("$1"); shift;;
 	*)		break;;
     esac
 done
+if [ $# -eq 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+elif [ "$1" = '-' ]; then
+    readarray -t objects
+    set -- "${objects[@]}"
+fi
 
 TMPDIR="$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || { dirspec="${TEMP:-/tmp}/$(basename -- "$0").$$$RANDOM"; mkdir -p -- "$dirspec" && printf %s "$dirspec"; })" || exit $?
 [ "$DEBUG" ] || trap 'rm -rf "$TMPDIR" 2>/dev/null' EXIT

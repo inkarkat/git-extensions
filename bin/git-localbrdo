@@ -1,5 +1,5 @@
 #!/bin/bash
-set -o noglob -o pipefail
+set -o pipefail
 shopt -qs extglob
 
 readonly scriptFilespec="${BASH_SOURCE[0]}"
@@ -185,13 +185,13 @@ case "$iterationAction" in
 	fi
 	;;
     '')
-	IFS=$'\n'
-	typeset -a localBranches=($(git-localbr "${gitLocalbrArgs[@]}" -- "${inputBranches[@]}" | tail -n "$branchNum")) || exit $?
+	readarray -t localBranches < <(git-localbr "${gitLocalbrArgs[@]}" -- "${inputBranches[@]}" | tail -n "$branchNum")
 	if [ ${#localBranches[@]} -eq 0 ]; then
-	    echo >&2 "No local branches found!"
+	    echo >&2 'No local branches found!'
 	    exit 1
 	fi
 
+	IFS=$'\n'
 	if [ "$isYes" ]; then
 	    [ "$isQuiet" ] || echo >&2 "Iterating over these branch(es):
 ${localBranches[*]}"

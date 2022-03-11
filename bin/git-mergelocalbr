@@ -1,5 +1,4 @@
 #!/bin/bash
-set -o noglob
 shopt -qs extglob
 
 printUsage()
@@ -42,7 +41,7 @@ done
 
 getOneByOneMergeCommand()
 {
-    local gitArgs=$1; shift
+    local gitArgs="$1"; shift
     local commandSeparator=
     local branch
     for branch
@@ -52,16 +51,14 @@ getOneByOneMergeCommand()
     done
 }
 
-IFS=$'\n'
-typeset -a localBranches=($(git-localbr "${gitLocalbrArgs[@]}" -- "${inputBranches[@]}" | tail -n "$branchNum")) || exit $?
+readarray -t localBranches < <(git-localbr "${gitLocalbrArgs[@]}" -- "${inputBranches[@]}" | tail -n "$branchNum")
 if [ ${#localBranches[@]} -eq 0 ]; then
-    echo >&2 "No local branches found!"
+    echo >&2 'No local branches found!'
     exit 1
 fi
 
-unset IFS
 if [ "$isOneByOneMerge" ]; then
-    typeset -a mergeCommand=($(getOneByOneMergeCommand "$*" "${localBranches[@]}"))
+    readarray -t mergeCommand < <(getOneByOneMergeCommand "$*" "${localBranches[@]}")
 else
     typeset -a mergeCommand=(git merge "$@" "${localBranches[@]}")
 fi

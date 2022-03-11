@@ -36,7 +36,11 @@ case $locality in
     remote) what="refs/remotes/$1 refs/remotes/$dirBranchGlob";;
 esac
 
-typeset -a branches=($(git for-each-ref --format='%(refname:short)' $what)) || exit $?
+readarray -t branches < <(git for-each-ref --format='%(refname:short)' $what; printf '\n%d\n' "$?")	# Exit status from the process substitution is lost; return the actual exit status via an appended additional line.
+[ ${branches[-1]} -ne 0 ] && exit ${branches[-1]}
+unset 'branches[-1]'
+[ -z "${branches[-1]}" ] && unset 'branches[-1]'
+
 typeset -a firstCommits=()
 for branch in "${branches[@]}"
 do
@@ -55,7 +59,7 @@ do
     fi
     firstCommits+=("$firstCommit $branch")
 done
-IFS=$'\n' sortedFirstCommits=($(sort <<<"${firstCommits[*]}"))
+readarray -t sortedFirstCommits < <(sort <<<"${firstCommits[*]}")
 
 # Print the sorted information without the leading Unix timestamp used as the
 # sort key.

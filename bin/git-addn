@@ -1,5 +1,4 @@
 #!/bin/bash
-shopt -qs nullglob
 
 printUsage()
 {
@@ -37,10 +36,11 @@ if [ $# -eq 0 ]; then
     exit 2
 fi
 
-IFS=$'\n'
-set -o noglob
-typeset -a reportedAdditions=($(git add --update --dry-run)) || exit $?
-set +o noglob
+readarray -t reportedAdditions < <(git add --update --dry-run; printf '\n%d\n' "$?")	# Exit status from the process substitution is lost; return the actual exit status via an appended additional line.
+[ ${reportedAdditions[-1]} -ne 0 ] && exit ${reportedAdditions[-1]}
+unset 'reportedAdditions[-1]'
+[ -z "${reportedAdditions[-1]}" ] && unset 'reportedAdditions[-1]'
+
 if [ ${#reportedAdditions[@]} -eq 0 ]; then
     echo >&2 'ERROR: Nothing to add'
     exit 1
@@ -53,7 +53,6 @@ do
     additions["$a"]=1
 done
 
-typeset -a exclusions=()
 for exclusion
 do
     if [ -e "$exclusion" ]; then

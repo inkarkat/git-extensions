@@ -1,5 +1,5 @@
 #!/bin/bash
-set -o noglob -o pipefail
+set -o pipefail
 shopt -qs extglob
 
 printUsage()
@@ -35,8 +35,7 @@ do
     esac
 done
 
-IFS=$'\n'
-typeset -a revisionsInOrder=($(eval 'git-graphsortrevs "${graphSortRevsArgs[@]}" "$@"' ${isReverse:+ | tac}${maxCount:+ | head -n $maxCount}))
+readarray -t revisionsInOrder < <(eval 'git-graphsortrevs "${graphSortRevsArgs[@]}" "$@"' ${isReverse:+ | tac}${maxCount:+ | head -n $maxCount})
 [ ${#revisionsInOrder[@]} -eq 0 ] && exit 1
 
 # Drop [--] <path>; that's only relevant for the log command that provides the
@@ -44,7 +43,7 @@ typeset -a revisionsInOrder=($(eval 'git-graphsortrevs "${graphSortRevsArgs[@]}"
 if [ ! "$isDashDash" ]; then
     while [ ${#showArgs[@]} -gt 0 ]
     do
-	[ -e "${showArgs[@]:$((${#showArgs[@]}-1))}" ] || break
+	[ -e "${showArgs[*]:$((${#showArgs[@]}-1))}" ] || break
 	showArgs=("${showArgs[@]:0:$((${#showArgs[@]}-1))}")
     done
 fi

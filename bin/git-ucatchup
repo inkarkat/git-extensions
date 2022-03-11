@@ -1,5 +1,4 @@
 #!/bin/bash
-set -o noglob
 
 printUsage()
 {
@@ -30,7 +29,10 @@ esac
 # > You asked to pull from the remote 'upstream', but did not specify
 # > a branch. Because this is not the default configured remote
 # > for your current branch, you must specify a branch on the command line.
-typeset -a args; args=($(git-parse-last-remotebr-argument --separate-remote-and-branch upstream "$@")) || exit $?
+readarray -t args < <(git-parse-last-remotebr-argument --separate-remote-and-branch upstream "$@"; printf '\n%d\n' "$?")	# Exit status from the process substitution is lost; return the actual exit status via an appended additional line.
+[ ${args[-1]} -ne 0 ] && exit ${args[-1]}
+unset 'args[-1]'
+[ -z "${args[-1]}" ] && unset 'args[-1]'
 set -- "${args[@]}"
 
 git-up "$@" || exit $?

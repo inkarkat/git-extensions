@@ -1,5 +1,4 @@
 #!/bin/bash
-set -o noglob
 shopt -qs extglob
 
 printUsage()
@@ -51,14 +50,13 @@ getNextBranch()
 }
 
 if [ ! "$rebaseAction" ]; then
-    IFS=$'\n'
-    typeset -a localBranches=($(git-localbr "${gitLocalbrArgs[@]}" -- "${inputBranches[@]}" | tail -n "$branchNum")) || exit $?
+    readarray -t localBranches < <(git-localbr "${gitLocalbrArgs[@]}" -- "${inputBranches[@]}" | tail -n "$branchNum")
     if [ ${#localBranches[@]} -eq 0 ]; then
-	echo >&2 "No local branches found!"
+	echo >&2 'No local branches found!'
 	exit 1
     fi
 
-    typeset -a branches
+    typeset -a branches=()
     for candidateBranch in "${localBranches[@]}"
     do
 	if [ ! "$upstreamBranch" ] || [ "$(git rev-list "${candidateBranch}..${upstreamBranch}")" ]; then
@@ -68,7 +66,7 @@ if [ ! "$rebaseAction" ]; then
 	fi
     done
     if [ ${#branches[@]} -eq 0 ]; then
-	echo >&2 "All local branches are up to date!"
+	echo >&2 'All local branches are up to date!'
 	exit 1
     fi
 
@@ -101,7 +99,7 @@ while :
 do
     branch="$(getNextBranch)"
     if [ ! "$branch" ]; then
-	echo >&2 "All local branches have been rebased."
+	echo >&2 'All local branches have been rebased.'
 
 	if [ -f "$origBranchStore" ]; then
 	    git checkout "$(<"$origBranchStore")"

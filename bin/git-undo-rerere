@@ -1,5 +1,4 @@
 #!/bin/bash
-set -o noglob
 
 printUsage()
 {
@@ -14,9 +13,8 @@ typeset -a allFiles
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
     --all|-a)		shift
-			IFS=$'\n'
-			allFiles=($(git conflicts))
-			[ ${#allFiles[@]} -gt 0 ] || { echo >&2 "No conflicts found!"; exit 1; }
+			readarray -t allFiles < <(git conflicts)
+			[ ${#allFiles[@]} -gt 0 ] || { echo >&2 'No conflicts found!'; exit 1; }
 			;;
 esac
 if [ $# -eq 0 -a ${#allFiles[@]} -eq 0 ]; then

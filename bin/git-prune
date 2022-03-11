@@ -1,6 +1,5 @@
 #!/bin/bash
 # Source: http://stackoverflow.com/questions/13064613/git-how-to-prune-local-tracking-branches-that-do-not-exist-on-remote-anymore
-set -o noglob
 
 contains()
 {
@@ -41,18 +40,18 @@ if [ $# -ne 1 ]; then
     echo >&2 'Need <remote> to compare to!'
     exit 2
 fi
-remote=$1
+remote="$1"
 
 
-IFS=$'\n'
-typeset -a remoteBranches=($(git branch -r | grep "^  ${remote}/" | awk '{print $1}'))
+readarray -t remoteBranches < <(git branch -r | grep "^  ${remote}/" | awk '{print $1}')
+readarray -t localBranches < <(git branch | awk '{print $NF}')
 
 status=0
-for localBranch in $(git branch | awk '{print $NF}')
+for localBranch in "${localBranches[@]}"
 do
-    trackedRemote=$(git config "branch.${localBranch}.remote" 2>/dev/null)
+    trackedRemote="$(git config "branch.${localBranch}.remote" 2>/dev/null)"
     if [ "$trackedRemote" = "$remote" ]; then
-	trackedBranch=$(git config "branch.${localBranch}.merge")
+	trackedBranch="$(git config "branch.${localBranch}.merge")"
 	if ! contains "${remote}/${trackedBranch##refs/heads/}" "${remoteBranches[@]}"; then
 	    if [ "$isTest" ]; then
 		echo "Prune $localBranch"

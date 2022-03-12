@@ -18,13 +18,17 @@ esac
 typeset -a logArgs=()
 typeset -a shortlogOrderingArg=(--numbered)
 typeset -a shortlogArgs=()
+typeset -a filter=(grep -v -e '^[[:space:]]*<none>$')
 while [ $# -ne 0 ]
 do
     case "$1" in
-	-+([ces]))	shortlogArgs+=("$1"); shift;;
+	-+([ce]))	shortlogArgs+=("$1"); shift;;
 	-w*)		shortlogArgs+=("$1"); shift; shift;;
-	--@(committer|email|summary))
+	--@(committer|email))
 			shortlogArgs+=("$1"); shift;;
+	--summary|-s)	shortlogArgs+=("$1"); shift
+			filter=(sed -e ':loop' -e 's/^[[:space:]]*1[[:space:]]\+\(.*\)$/\1/' -e T -e 'H; $!{ N; s/.*\n//; b loop }' -e '${ g; s/^\n/Single contributors: /; s/\n/, /g }'  )
+			;;
 	--alphabetic|-N)
 			shift; shortlogOrderingArg=();;
 	--)		break;;
@@ -36,4 +40,5 @@ if [ ${#logArgs[@]} -eq 0 ]; then
     git shortlog "${shortlogOrderingArg[@]}" "${shortlogArgs[@]}" "$@"
 else
     git log --pretty=short "${logArgs[@]}" "$@" | git shortlog "${shortlogOrderingArg[@]}" "${shortlogArgs[@]}"
-fi
+fi | \
+    "${filter[@]}"

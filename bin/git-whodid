@@ -36,9 +36,10 @@ do
     esac
 done
 
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 if [ ${#logArgs[@]} -eq 0 ]; then
     git shortlog "${shortlogOrderingArg[@]}" "${shortlogArgs[@]}" "$@"
 else
     git log --pretty=short "${logArgs[@]}" "$@" | git shortlog "${shortlogOrderingArg[@]}" "${shortlogArgs[@]}"
 fi | \
-    "${filter[@]}"
+    eval '"${filter[@]}"' "${pager:+|}" '"${pager[@]}"'

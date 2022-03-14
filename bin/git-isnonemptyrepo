@@ -1,0 +1,22 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Test whether the current directory / passed DIRSPEC is a repository that has at
+least one commit in it. Fails if not a working copy or a just-initialized empty
+repo without any commits.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[DIRSPEC] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+if [ $# -gt 1 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+dirspec="${1:-.}"
+[ "$dirspec" = '.' ] || cd "$dirspec" || exit 3
+git rev-parse HEAD >/dev/null 2>&1 || exit 1

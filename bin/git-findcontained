@@ -1,6 +1,15 @@
 #!/bin/bash
 shopt -qs extglob
 
+case "$1" in
+    --help|-h|-\?)	shift
+			echo 'Show first tag [that matches GLOB(s) / GREP-ARGS] of the commit where GIT-FIND-COMMAND found something.'
+			echo
+			printf 'Usage: %q %s\n' "$(basename "$0")" 'GIT-FIND-COMMAND GIT-COMMAND [--exclude GLOB [--exclude ...]] [GREP-ARGS] [--more] [--source-count=<number>] [<log-options>] [<since>..<until>] [[--] <path>...] text|/regexp/ [-?|-h|--help]'
+			exit 0
+			;;
+esac
+
 gitFindLogCommand="${1:?}"; shift
 
 typeset -a gitCommand=()
@@ -15,8 +24,9 @@ printUsage()
 
     local gitCommandArg=GIT-COMMAND; [ ${#gitCommand[@]} -gt 0 ] && gitCommandArg="${gitCommand[-1]}"
 
+    echo
     if [ "$isFindLogg" ]; then
-	    printf 'Usage: %q %s %s %s\n' "$(basename "$1")" "$gitFindLogCommand" "$gitCommandArg" '[--exclude GLOB [--exclude ...]] [GREP-ARGS] [--more] [--source-count=<number>] [<log-options>] [<since>..<until>] [[--] <path>...] text|/regexp/ [-?|-h|--help]'
+	printf 'Usage: %q %s %s %s\n' "$(basename "$1")" "$gitFindLogCommand" "$gitCommandArg" '[--exclude GLOB [--exclude ...]] [GREP-ARGS] [--more] [--source-count=<number>] [<log-options>] [<since>..<until>] [[--] <path>...] text|/regexp/ [-?|-h|--help]'
     else
 	printf 'Usage: %q %s %s %s\n' "$(basename "$1")" "$gitFindLogCommand" "$gitCommandArg" '[--exclude GLOB [--exclude ...]] [GREP-ARGS] [--more] [<log-options>] [<since>..<until>] [[--] <path>...] text|/regexp/ [-?|-h|--help]'
     fi
@@ -46,7 +56,7 @@ do
 	-@([EFGPivwxsaIrRUz]))	grepArgs+=("$1"); shift;;
 	--@(extended-regexp|fixed-strings|basic-regexp|perl-regexp|ignore-case|invert-match|word-regexp|line-regexp|no-messages|text|recursive|dereference-recursive|binary|null-data))		grepArgs+=("$1"); shift;;
 	-[efmDd])		grepArgs+=("$1" "$2"); shift; shift;;
-	--@(regexp|file|color|colour|max-count|binary-files|devices|directories|exclude|exclude-from|include)=*)   grepArgs+=("$1"); shift;;
+	--@(regexp|file|color|colour|max-count|binary-files|devices|directories|exclude|exclude-from|include)=*)    grepArgs+=("$1"); shift;;
 	--@(regexp|file|color|colour|max-count|binary-files|devices|directories|exclude|exclude-from|include))	    grepArgs+=("$1" "$2"); shift; shift;;
 
 	*)		break;;
@@ -59,6 +69,6 @@ readarray -t commits < <(git "$gitFindLogCommand" --pretty=tformat:%H "$@")
 status=0
 for commit in "${commits[@]}"
 do
-    git-contained-command "${gitCommand[@]}" "$commit" || status=$?
+    git-contained-command "${gitCommand[@]}" "${grepArgs[@]}" "$commit" || status=$?
 done
 exit $status

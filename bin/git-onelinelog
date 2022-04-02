@@ -62,7 +62,13 @@ if contains '--graph' "$@"; then
 	#   commit summaries, let's do this globally for now).
 	# - Pipe into pager as git log won't do this for us any longer.
 	reversePipeline='tac | tr "/\\\\" "\\\\/"'
-	[ -t 1 ] && reversePipeline="$reversePipeline"' | "${PAGER:-less}" --RAW-CONTROL-CHARS'
+	if [ -t 1 ]; then
+	    # Need to explicitly enable color because of the appended pipeline
+	    # processing. Don't do this if the user explicitly turned it off,
+	    # though.
+	    isColorOffArgument "$@" || set -- '--color=always' "$@"
+	    reversePipeline="$reversePipeline"' | "${PAGER:-less}" --RAW-CONTROL-CHARS'
+	fi
 	removeArgs+=('--reverse')
     fi
 fi

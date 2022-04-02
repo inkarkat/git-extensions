@@ -12,7 +12,9 @@ _git_initAndCloneExtension()
     if [ $# -gt 0 ]; then
 	eval "typeset repoOrDir=\${$#}"
 	typeset dir=${repoOrDir%.git}
-	[ -d "$dir" ] || { echo >&2 'Note: Cannot locate working copy'; return 1; }
+	[ -d "$dir" ] || \
+	    { dir="${dir##*/}"; [ -d "$dir" ]; } || \
+	    { echo >&2 'Note: Cannot locate working copy'; return 1; }
 
 	# Feature: Automatically chdir into the created repository. That's why this
 	# cannot be a script, and must be a function.

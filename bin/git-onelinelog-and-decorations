@@ -1,0 +1,166 @@
+#!/bin/bash
+shopt -qs extglob
+
+printUsage()
+{
+    cat <<HELPTEXT
+One-line author, date, tags and commit summary for files in <path>, plus any ref
+names, also of commits not covered.
+This can be useful if tagging and development are done on separate branches, but
+you want to find out which commits that changed a file were in a release.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--full-decorations] [<log-options>] [<revision range>] [--] <path> [...] [-?|-h|--help]'
+}
+unset decorationsFilterSedCommandSymbol
+decorationsFilterSedCommandPrefix='s/^\([^\n]\+\)\n.*\n\([^\n]\+\)$/\1'
+decorationsFilterSedCommandSymbol=' [01;31m[...][0;38;5;245m'
+decorationsFilterSedCommandSuffix='\n\2/'
+recolorDecorationsSedCommand='s#\x1b\[[0-9:;]*[mK]##g; s#\[\(.*\)\]#[1;31m\1[0;38;5;245m#; s#^#[38;5;245m#g; s#$#[0m#'
+typeset -a gitLogArgs=()
+typeset -a gitGraphLogArg=()
+typeset -a files=()
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+isColor=
+if [ -t 1 ]; then
+    isColor=t
+else
+    pager=()
+fi
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+
+	--no-color|--color=never)
+			isColor=; shift;;
+	--color=always)	isColor=t; shift;;
+	--color)	case "$2" in
+			    always) isColor=t;;
+			    never)  isColor=;;
+			    *)	    echo >&2 "ERROR: Invalid --color arg: $2"
+				    echo >&2
+				    printUsage "$0" >&2
+				    exit 2
+				    ;;
+			esac
+			shift; shift
+			;;
+
+	--full-decorations)
+			shift; decorationsFilterSedCommand='';;
+
+	--graph)	gitGraphLogArg=("$1"); shift;;
+	--)		shift; files=("$@"); break;;
+	*)		gitLogArgs+=("$1"); shift;;
+    esac
+done
+if [ ${#files[@]} -eq 0 ]; then
+    # No files after -- captured yet; need to investigate parsed and
+    # remaining args from behind for files.
+    gitLogArgs+=("$@")
+    while [ ${#gitLogArgs[@]} -ne 0 ]
+    do
+	lastArg="${gitLogArgs[-1]}"
+	[ -e "$lastArg" ] || break
+
+	files=("$lastArg" "${files[@]}")
+	gitLogArgs=("${gitLogArgs[@]:0:${#gitLogArgs[@]}-1}")
+    done
+fi
+if [ ${#files} -eq 0 ]; then
+    echo 'ERROR: No <path> passed.'
+    echo
+    printUsage "$0"
+    exit 2
+fi >&2
+
+FORMAT='%C(cyan){%h}%Creset %Cgreen(%aN, %ar)%Creset %C(red bold)[%d]%Creset %s'
+if [ "$isColor" ]; then
+    gitLogArgs+=('--color=always')
+else
+    decorationsFilterSedCommandSymbol=' [...]'
+    recolorDecorationsSedCommand=''
+
+    FORMAT=${FORMAT//%C\(+([^\)])\)/}
+    FORMAT=${FORMAT//%C+([a-z])/}
+fi
+: ${decorationsFilterSedCommand="${decorationsFilterSedCommandPrefix}${decorationsFilterSedCommandSymbol}${decorationsFilterSedCommandSuffix}"}
+
+
+contains()
+{
+    needle=$1; shift
+    for elem
+    do
+	[ "$needle" = "$elem" ] && return 0
+    done
+    return 1
+}
+containsGlob()
+{
+    local elem glob=$1; shift
+    for elem
+    do
+	case "$elem" in
+	    @($glob)) return 0;;
+	esac
+    done
+    return 1
+}
+
+filterDecorationsAndCommits()
+{
+    local IFS=' '
+    local concatenatedCommits="$*"
+    local concatenatedCommitsPattern="\\(${concatenatedCommits// /\\|}\\)"
+
+    sed -n \
+	-e '//!d' \
+	-e '/\[\]/!{ '"${recolorDecorationsSedCommand}${recolorDecorationsSedCommand:+; }"'s/\[\|{\|}\|\]//g; H }' \
+	-e "/{${concatenatedCommitsPattern//\//\/}}/"'{ s/\[\|{\|}\|\]//g; x; s/^\n//; '"${decorationsFilterSedCommand}${decorationsFilterSedCommand:+; }"'G; s/^\n//; p; s/.*//; h }'
+}
+
+
+typeset -a removeArgs=()
+reversePipeline=
+if [ ${#gitGraphLogArg[@]} -gt 0 ]; then
+    if containsGlob '-[GS]*' "${gitLogArgs[@]}" || contains '--grep' "${gitLogArgs[@]}" || containsGlob '--grep=*' "${gitLogArgs[@]}"; then
+	# When filtering diffs, Git (2.7.4) adds "..." lines between each result
+	# (presumably to indicate that the graph is disjointed; but that's also
+	# the case with --grep and it's not happening there). These are
+	# increasing the number of lines by almost 100% and are just confusing
+	# to me. Instead of filtering them away, just drop the --graph, as it's
+	# not useful for any kind of filtering, anyway.
+	gitGraphLogArg=()
+    elif contains '--reverse' "${gitLogArgs[@]}"; then
+	# Git (2.7.4) does not support this, but it can be useful for the one-line
+	# logs here:
+	# > fatal: cannot combine --reverse with --graph
+	# We can emulate it easily:
+	# - Reverse the lines.
+	# - Flip the / \ graph symbols (as these are unlikely to appear in the
+	#   commit summaries, let's do this globally for now).
+	# - Pipe into pager as git log won't do this for us any longer.
+	reversePipeline='tac | tr "/\\\\" "\\\\/"'
+	removeArgs+=('--reverse')
+    fi
+fi
+
+if [ ${#removeArgs[@]} -gt 0 ]; then
+    typeset -a argsCopy=()
+    for arg in "${gitLogArgs[@]}"
+    do
+	contains "$arg" "${removeArgs[@]}" || argsCopy+=("$arg")
+    done
+    gitLogArgs=("${argsCopy[@]}")
+fi
+
+readarray -t commits < <(git log --pretty=tformat:%h "${gitLogArgs[@]}" -- "${files[@]}")
+if [ ${#commits[@]} -eq 0 ]; then
+    echo >&2 'No commits found.'
+    exit 1
+fi
+
+git $GIT_ONELINELOG_DIRECT_ARG log --abbrev-commit --date=relative --decorate --pretty="tformat:${GIT_ONELINELOG_PREFORMAT:-}${FORMAT//${GIT_ONELINELOG_NOFORMAT:-}/}${GIT_ONELINELOG_POSTFORMAT:-}" "${gitGraphLogArg[@]}" "${gitLogArgs[@]}" | \
+    eval filterDecorationsAndCommits "${commits[@]}" "${reversePipeline:+|}$reversePipeline" "${pager:+|}" '"${pager[@]}"'

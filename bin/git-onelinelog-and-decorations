@@ -16,10 +16,33 @@ decorationsFilterSedCommand='s/^\([^\n]\+\)\n.*\n\([^\n]\+\)$/\1 [...]\n\2/'
 recolorDecorationsSedCommand='s#\x1b\[[0-9:;]*[mK]##g; s#\[\(.*\)\]#[1;31m\1[0;38;5;245m#; s#^#[38;5;245m#g; s#$#[0m#'
 typeset -a gitLogArgs=()
 typeset -a files=()
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+isColor=
+if [ -t 1 ]; then
+    isColor=t
+else
+    pager=()
+fi
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+
+	--no-color|--color=never)
+			isColor=; shift;;
+	--color=always)	isColor=t; shift;;
+	--color)	case "$2" in
+			    always) isColor=t;;
+			    never)  isColor=;;
+			    *)	    echo >&2 "ERROR: Invalid --color arg: $2"
+				    echo >&2
+				    printUsage "$0" >&2
+				    exit 2
+				    ;;
+			esac
+			shift; shift
+			;;
+
 	--full-decorations)
 			shift; decorationsFilterSedCommand='';;
 	--)		shift; files=("$@"); break;;
@@ -45,6 +68,14 @@ if [ ${#files} -eq 0 ]; then
     printUsage "$0"
     exit 2
 fi >&2
+
+FORMAT='%C(cyan){%h}%Creset %Cgreen(%aN, %ar)%Creset %C(red bold)[%d]%Creset %s'
+if [ "$isColor" ]; then
+    gitLogArgs+=('--color=always')
+else
+    FORMAT=${FORMAT//%C\(+([^\)])\)/}
+    FORMAT=${FORMAT//%C+([a-z])/}
+fi
 
 
 contains()
@@ -79,11 +110,6 @@ filterDecorationsAndCommits()
 	-e "/{${concatenatedCommitsPattern//\//\/}}/"'{ s/\[\|{\|}\|\]//g; x; s/^\n//; '"${decorationsFilterSedCommand}${decorationsFilterSedCommand:+; }"'G; s/^\n//; p; s/.*//; h }'
 }
 
-FORMAT='%C(cyan){%h}%Creset %Cgreen(%aN, %ar)%Creset %C(red bold)[%d]%Creset %s'
-if isColorOffArgument "${gitLogArgs[@]}"; then
-    FORMAT=${FORMAT//%C\(+([^\)])\)/}
-    FORMAT=${FORMAT//%C+([a-z])/}
-fi
 
 typeset -a removeArgs=()
 reversePipeline=
@@ -125,11 +151,5 @@ if [ ${#commits[@]} -eq 0 ]; then
     exit 1
 fi
 
-typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
-if [ -t 1 ]; then
-    isColorOffArgument "${gitLogArgs[@]}" || gitLogArgs+=('--color=always')
-else
-    pager=()
-fi
 git $GIT_ONELINELOG_DIRECT_ARG log --abbrev-commit --date=relative --decorate --pretty="tformat:${GIT_ONELINELOG_PREFORMAT:-}${FORMAT//${GIT_ONELINELOG_NOFORMAT:-}/}${GIT_ONELINELOG_POSTFORMAT:-}" "${gitLogArgs[@]}" | \
     eval filterDecorationsAndCommits "${commits[@]}" "${reversePipeline:+|}$reversePipeline" "${pager:+|}" '"${pager[@]}"'

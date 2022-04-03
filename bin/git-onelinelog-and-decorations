@@ -13,6 +13,7 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--full-decorations] [<log-options>] [<revision range>] [--] <path> [...] [-?|-h|--help]'
 }
 decorationsFilterSedCommand='s/^\([^\n]\+\)\n.*\n\([^\n]\+\)$/\1 [...]\n\2/'
+recolorDecorationsSedCommand='s#\x1b\[[0-9:;]*[mK]##g; s#\[\(.*\)\]#[1;31m\1[0;38;5;245m#; s#^#[38;5;245m#g; s#$#[0m#'
 typeset -a gitLogArgs=()
 typeset -a files=()
 while [ $# -ne 0 ]
@@ -74,8 +75,8 @@ filterDecorationsAndCommits()
     local concatenatedCommitsPattern="\\(${concatenatedCommits// /\\|}\\)"
 
     sed -n \
-	-e '/\[\]/!{ s/\[\|{\|}\|\]//g; H }' \
-	-e "/{${concatenatedCommitsPattern//\//\/}}/"'{ s/\[\|{\|}\|\]//g; x; s/^\n//; '"$decorationsFilterSedCommand${decorationsFilterSedCommand:+; }"'G; s/^\n//; p; s/.*//; h }'
+	-e '/\[\]/!{ '"${recolorDecorationsSedCommand}${recolorDecorationsSedCommand:+; }"'s/\[\|{\|}\|\]//g; H }' \
+	-e "/{${concatenatedCommitsPattern//\//\/}}/"'{ s/\[\|{\|}\|\]//g; x; s/^\n//; '"${decorationsFilterSedCommand}${decorationsFilterSedCommand:+; }"'G; s/^\n//; p; s/.*//; h }'
 }
 
 FORMAT='%C(cyan){%h}%Creset %Cgreen(%aN, %ar)%Creset %C(red bold)[%d]%Creset %s'

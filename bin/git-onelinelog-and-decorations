@@ -18,6 +18,7 @@ decorationsFilterSedCommandSymbol=' [01;31m[...][0;38;5;245m'
 decorationsFilterSedCommandSuffix='\n\2/'
 recolorDecorationsSedCommand='s#\x1b\[[0-9:;]*[mK]##g; s#\[\(.*\)\]#[1;31m\1[0;38;5;245m#; s#^#[38;5;245m#g; s#$#[0m#'
 typeset -a gitLogArgs=()
+typeset -a gitGraphLogArg=()
 typeset -a files=()
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
 isColor=
@@ -48,6 +49,8 @@ do
 
 	--full-decorations)
 			shift; decorationsFilterSedCommand='';;
+
+	--graph)	gitGraphLogArg=("$1"); shift;;
 	--)		shift; files=("$@"); break;;
 	*)		gitLogArgs+=("$1"); shift;;
     esac
@@ -113,6 +116,7 @@ filterDecorationsAndCommits()
     local concatenatedCommitsPattern="\\(${concatenatedCommits// /\\|}\\)"
 
     sed -n \
+	-e '//!d' \
 	-e '/\[\]/!{ '"${recolorDecorationsSedCommand}${recolorDecorationsSedCommand:+; }"'s/\[\|{\|}\|\]//g; H }' \
 	-e "/{${concatenatedCommitsPattern//\//\/}}/"'{ s/\[\|{\|}\|\]//g; x; s/^\n//; '"${decorationsFilterSedCommand}${decorationsFilterSedCommand:+; }"'G; s/^\n//; p; s/.*//; h }'
 }
@@ -120,16 +124,16 @@ filterDecorationsAndCommits()
 
 typeset -a removeArgs=()
 reversePipeline=
-if contains '--graph' "$@"; then
-    if containsGlob '-[GS]*' "$@" || contains '--grep' "$@" || containsGlob '--grep=*' "$@"; then
+if [ ${#gitGraphLogArg[@]} -gt 0 ]; then
+    if containsGlob '-[GS]*' "${gitLogArgs[@]}" || contains '--grep' "${gitLogArgs[@]}" || containsGlob '--grep=*' "${gitLogArgs[@]}"; then
 	# When filtering diffs, Git (2.7.4) adds "..." lines between each result
 	# (presumably to indicate that the graph is disjointed; but that's also
 	# the case with --grep and it's not happening there). These are
 	# increasing the number of lines by almost 100% and are just confusing
 	# to me. Instead of filtering them away, just drop the --graph, as it's
 	# not useful for any kind of filtering, anyway.
-	removeArgs+=('--graph')
-    elif contains '--reverse' "$@"; then
+	gitGraphLogArg=()
+    elif contains '--reverse' "${gitLogArgs[@]}"; then
 	# Git (2.7.4) does not support this, but it can be useful for the one-line
 	# logs here:
 	# > fatal: cannot combine --reverse with --graph
@@ -158,5 +162,5 @@ if [ ${#commits[@]} -eq 0 ]; then
     exit 1
 fi
 
-git $GIT_ONELINELOG_DIRECT_ARG log --abbrev-commit --date=relative --decorate --pretty="tformat:${GIT_ONELINELOG_PREFORMAT:-}${FORMAT//${GIT_ONELINELOG_NOFORMAT:-}/}${GIT_ONELINELOG_POSTFORMAT:-}" "${gitLogArgs[@]}" | \
+git $GIT_ONELINELOG_DIRECT_ARG log --abbrev-commit --date=relative --decorate --pretty="tformat:${GIT_ONELINELOG_PREFORMAT:-}${FORMAT//${GIT_ONELINELOG_NOFORMAT:-}/}${GIT_ONELINELOG_POSTFORMAT:-}" "${gitGraphLogArg[@]}" "${gitLogArgs[@]}" | \
     eval filterDecorationsAndCommits "${commits[@]}" "${reversePipeline:+|}$reversePipeline" "${pager:+|}" '"${pager[@]}"'

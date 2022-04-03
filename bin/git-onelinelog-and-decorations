@@ -71,11 +71,8 @@ filterDecorationsAndCommits()
     local concatenatedCommitsPattern="\\(${concatenatedCommits// /\\|}\\)"
 
     sed -n \
-	-e '/\[\]/!b print' \
-	-e "/{${concatenatedCommitsPattern//\//\/}}/b print" \
-	-e b \
-	-e ':print' \
-	-e 's/\[\|{\|}\|\]//g' -e p
+	-e '/\[\]/!{ s/\[\|{\|}\|\]//g; H }' \
+	-e "/{${concatenatedCommitsPattern//\//\/}}/"'{ s/\[\|{\|}\|\]//g; x; s/^\n//; s/^\([^\n]\+\)\n.*\n\([^\n]\+\)$/\1 [...]\n\2/; G; s/^\n//; p; s/.*//; h }'
 }
 
 FORMAT='%C(cyan){%h}%Creset %Cgreen(%aN, %ar)%Creset %C(red bold)[%d]%Creset %s'

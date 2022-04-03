@@ -10,14 +10,17 @@ This can be useful if tagging and development are done on separate branches, but
 you want to find out which commits that changed a file were in a release.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<log-options>] [<revision range>] [--] <path> [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--full-decorations] [<log-options>] [<revision range>] [--] <path> [...] [-?|-h|--help]'
 }
+decorationsFilterSedCommand='s/^\([^\n]\+\)\n.*\n\([^\n]\+\)$/\1 [...]\n\2/'
 typeset -a gitLogArgs=()
 typeset -a files=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--full-decorations)
+			shift; decorationsFilterSedCommand='';;
 	--)		shift; files=("$@"); break;;
 	*)		gitLogArgs+=("$1"); shift;;
     esac
@@ -72,7 +75,7 @@ filterDecorationsAndCommits()
 
     sed -n \
 	-e '/\[\]/!{ s/\[\|{\|}\|\]//g; H }' \
-	-e "/{${concatenatedCommitsPattern//\//\/}}/"'{ s/\[\|{\|}\|\]//g; x; s/^\n//; s/^\([^\n]\+\)\n.*\n\([^\n]\+\)$/\1 [...]\n\2/; G; s/^\n//; p; s/.*//; h }'
+	-e "/{${concatenatedCommitsPattern//\//\/}}/"'{ s/\[\|{\|}\|\]//g; x; s/^\n//; '"$decorationsFilterSedCommand${decorationsFilterSedCommand:+; }"'G; s/^\n//; p; s/.*//; h }'
 }
 
 FORMAT='%C(cyan){%h}%Creset %Cgreen(%aN, %ar)%Creset %C(red bold)[%d]%Creset %s'

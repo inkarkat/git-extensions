@@ -12,7 +12,10 @@ HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--full-decorations] [<log-options>] [<revision range>] [--] <path> [...] [-?|-h|--help]'
 }
-decorationsFilterSedCommand='s/^\([^\n]\+\)\n.*\n\([^\n]\+\)$/\1 [...]\n\2/'
+unset decorationsFilterSedCommandSymbol
+decorationsFilterSedCommandPrefix='s/^\([^\n]\+\)\n.*\n\([^\n]\+\)$/\1'
+decorationsFilterSedCommandSymbol=' [01;31m[...][0;38;5;245m'
+decorationsFilterSedCommandSuffix='\n\2/'
 recolorDecorationsSedCommand='s#\x1b\[[0-9:;]*[mK]##g; s#\[\(.*\)\]#[1;31m\1[0;38;5;245m#; s#^#[38;5;245m#g; s#$#[0m#'
 typeset -a gitLogArgs=()
 typeset -a files=()
@@ -73,11 +76,13 @@ FORMAT='%C(cyan){%h}%Creset %Cgreen(%aN, %ar)%Creset %C(red bold)[%d]%Creset
 if [ "$isColor" ]; then
     gitLogArgs+=('--color=always')
 else
+    decorationsFilterSedCommandSymbol=' [...]'
     recolorDecorationsSedCommand=''
 
     FORMAT=${FORMAT//%C\(+([^\)])\)/}
     FORMAT=${FORMAT//%C+([a-z])/}
 fi
+: ${decorationsFilterSedCommand="${decorationsFilterSedCommandPrefix}${decorationsFilterSedCommandSymbol}${decorationsFilterSedCommandSuffix}"}
 
 
 contains()

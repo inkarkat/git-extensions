@@ -98,16 +98,13 @@ setDefaultLabels()
     do
 	local labelJson; labelJson="$(jo -- name="$label" -s color="${color#\#}" description="$description")" || exit $?
 	if [ "${existingLabels["$label"]}" ]; then
-	    if hub api --method PATCH --input <(printf "%s\n" "$labelJson") "repos/{owner}/{repo}/labels/${label}" >/dev/null <&3; then
-		unset unprocessedLabels["$label"]
-		printf 'Updated label %s\n' "$label"
-	    fi
+	    hub api --method PATCH --input <(printf "%s\n" "$labelJson") "repos/{owner}/{repo}/labels/${label}" >/dev/null <&3 && \
+		printf 'Updated label "%s"\n' "$label"
 	else
-	    if hub api --method POST --input <(printf '%s\n' "$labelJson") 'repos/{owner}/{repo}/labels' >/dev/null <&3; then
-		unset unprocessedLabels["$label"]
-		printf 'Added label %s\n' "$label"
-	    fi
+	    hub api --method POST --input <(printf '%s\n' "$labelJson") 'repos/{owner}/{repo}/labels' >/dev/null <&3 && \
+		printf 'Added label "%s"\n' "$label"
 	fi
+	unset unprocessedLabels["$label"]
     done < "$defaultLabelsFilespec"
 
     if [ ${#unprocessedLabels[@]} -gt 0 ]; then

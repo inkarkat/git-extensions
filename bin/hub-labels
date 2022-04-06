@@ -15,12 +15,13 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--color=(always|auto|never)|--no-color] list [-?|-h|--help]'
     echo
     cat <<HELPTEXT
-Add / update my default labels to the current GitHub repository.
+Add / update [/ delete only LABEL-NAME(s) from] my default labels to the current
+GitHub repository.
 The labels are stored as tab-separated values (RGB-COLOR NAME DESCRIPTION); by
 default in file ${HUB_LABELS_DEFAULT_LABEL_FILESPEC}
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'set [DEFAULT-LABEL-FILESPEC]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'set [DEFAULT-LABEL-FILESPEC] [LABEL-NAME ...]'
     echo
     cat <<HELPTEXT
 Delete the passed labels on the current GitHub repository.
@@ -70,8 +71,6 @@ listLabels()
 
 setDefaultLabels()
 {
-    [ $# -le 1 ] || usageError
-
     typeset -A existingLabels=() unprocessedLabels=()
     local line; while IFS=$'\n' read -r line
     do
@@ -82,20 +81,30 @@ setDefaultLabels()
 	    jq -r '.[] | .name'
     )
 
-    if [ $# -eq 0 ]; then
-	local defaultLabelsFilespec="$HUB_LABELS_DEFAULT_LABEL_FILESPEC"
-    else
+    if [ -r "$1" ]; then
 	local defaultLabelsFilespec="$1"; shift
+    else
+	local defaultLabelsFilespec="$HUB_LABELS_DEFAULT_LABEL_FILESPEC"
     fi
     if [ ! -r "$defaultLabelsFilespec" ]; then
 	printf >&2 'ERROR: Default labels definition does not exist: %s\n' "$defaultLabelsFilespec"
 	exit 1
     fi
 
-    local color label description
+    local hasPassedLabels=
+    typeset -A passedLabels=()
+    local label; for label
+    do
+	hasPassedLabels=t
+	passedLabels["$label"]=t
+    done
+
+    local color description
     exec 3<&0
     while IFS=$'\t' read -r color label description
     do
+	[ ! "$hasPassedLabels" ] || [ "${passedLabels["$label"]}" ] || continue
+
 	local labelJson; labelJson="$(jo -- name="$label" -s color="${color#\#}" description="$description")" || exit $?
 	if [ "${existingLabels["$label"]}" ]; then
 	    hub api --method PATCH --input <(printf "%s\n" "$labelJson") "repos/{owner}/{repo}/labels/${label}" >/dev/null <&3 && \
@@ -105,10 +114,22 @@ setDefaultLabels()
 		printf 'Added label "%s"\n' "$label"
 	fi
 	unset unprocessedLabels["$label"]
+	unset passedLabels["$label"]
     done < "$defaultLabelsFilespec"
 
-    if [ ${#unprocessedLabels[@]} -gt 0 ]; then
-	printf 'Additional label in GitHub: %s\n' "${!unprocessedLabels[@]}"
+    if [ "$hasPassedLabels" ]; then
+	typeset -a undesiredLabels=()
+	for label in "${!passedLabels[@]}"
+	do
+	    if [ "${unprocessedLabels["$label"]}" ]; then
+		undesiredLabels+=("$label")
+	    else
+		printf 'Note: Label "%s" does not exist in GitHub.\n' "$label"
+	    fi
+	done
+	[ ${#undesiredLabels[@]} -eq 0 ] || deleteLabels "${undesiredLabels[@]}"
+    elif [ ${#unprocessedLabels[@]} -gt 0 ]; then
+	printf 'Note: Additional label in GitHub: "%s"\n' "${!unprocessedLabels[@]}"
     fi
 }
 

@@ -33,7 +33,9 @@ Supports the following special commands:
 			    ${what:=CONFIGURED SUBJECTS} that have uncommitted changes.
     wips-sh [(+|-)CHECK] [COMMAND ...]
 			    Open an interactive shell / execute COMMAND in those
-			    ${what:=CONFIGURED SUBJECTS} that have work in progress.
+			    ${what:=CONFIGURED SUBJECTS} that have work in
+			    progress. You can abort the iteration by exiting the
+			    shell with exit status 126.
 HELPTEXT
     [ "$GIT_WCDO_COMMAND_ADDITIONAL_HELP" ] && printf '%s\n' "$GIT_WCDO_COMMAND_ADDITIONAL_HELP"
     git-wcdo --help 2>&1 | sed -e "${splitPattern}p" -e "1,${splitPattern}d"
@@ -131,7 +133,7 @@ elif [ "${1:0:1}" != '-' ]; then
 	wips-sh)
 	    # Synthesized new command.
 	    shift
-	    wcdoArgs+=(--no-pager --no-header --no-git-color --command)
+	    wcdoArgs+=(--no-pager --no-header --no-git-color --abort-on 126 --command)
 	    typeset -a wipsArgs=()
 	    while [ $# -gt 0 ] && [[ "$1" =~ ^[+-][[:alpha:]]+$ ]]
 	    do

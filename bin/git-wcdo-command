@@ -28,9 +28,12 @@ Supports the following special commands:
     *logs-distribution [LOGDISTRIBUTION-OPTIONS ...] [<log-options>] [<revision range>] [[--] <path>...]
 			    Print the distribution of the number of commits in
 			    ${what:=CONFIGURED SUBJECTS} that fall into the logged range.
-			    * stands for any logdistribution range variant (td, year, ...).
+			    * stands for any logdistribution range variant (td,
+			    year, ...).
     dirty-sh [COMMAND ...]  Open an interactive shell / execute COMMAND in those
 			    ${what:=CONFIGURED SUBJECTS} that have uncommitted changes.
+			    You can abort the iteration by exiting the shell
+			    with exit status 126.
     wips-sh [(+|-)CHECK] [COMMAND ...]
 			    Open an interactive shell / execute COMMAND in those
 			    ${what:=CONFIGURED SUBJECTS} that have work in
@@ -121,7 +124,7 @@ elif [ "${1:0:1}" != '-' ]; then
 	dirty-sh)
 	    # Synthesized new command.
 	    shift
-	    wcdoArgs+=(--no-pager --no-header --no-git-color --command)
+	    wcdoArgs+=(--no-pager --no-header --no-git-color --abort-on 126 --command)
 	    if [ $# -eq 0 ]; then
 		wcdoArgs+=('git dirty && bash -i')
 	    else
@@ -161,6 +164,8 @@ elif [ "${1:0:1}" != '-' ]; then
 	    wcdoArgs+=(--no-header --no-pager)
 	    # This command does not support a --color argument.
 	    wcdoArgs+=(--no-git-color)
+	    # Enable the user to abort the iteration via a special exit status.
+	    wcdoArgs+=(--abort-on 126)
 	    ;;
 	browse|ci-status|compare|delete|pull-request|fork|release|sync)
 	    wcdoArgs+=(--single-success)

@@ -1,0 +1,26 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Print the version about to be released.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+if [ $# -gt 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+# Derive the release name from the current branch.
+branchName="$(git brname --real-branch-only 2>/dev/null)" || exit $?
+releaseName="${branchName#release/}"
+if [ "$releaseName" = "$branchName" ]; then
+    printf >&2 'ERROR: Not on a release branch: %s\n' "$branchName"
+    exit 1
+fi
+printf '%s\n' "$releaseName"

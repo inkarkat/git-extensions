@@ -14,12 +14,7 @@ case "$1" in
 esac
 
 # DWIM: Derive the release name from the current branch.
-branchName="$(git brname --real-branch-only 2>/dev/null)" || exit $?
-releaseName="${branchName#release/}"
-if [ "$releaseName" = "$branchName" ]; then
-    printf >&2 'ERROR: Not on a release branch: %s\n' "$branchName"
-    exit 1
-fi
+releaseName="$(git-release-version)" || exit $?
 
 [ $# -gt 0 ] || set -- --all	# DWIM: Commit all modified files by default (to save the "git add"); there shouldn't be any concurrent other development during a release, anyway.
 

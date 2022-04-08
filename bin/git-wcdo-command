@@ -6,6 +6,13 @@ shopt -qs extglob
 : ${SHELL:=bash}
 printf -v quotedShell '%q' "$SHELL"
 
+# Because of the interactive shell, we must not interfere with terminal access,
+# so no header (the shell prompt will indicate the working directory, anyway),
+# and no paging.
+# A --color argument is not supported.
+# Enable the user to abort the iteration via a special exit status.
+typeset -ra shellWcdoArgs=(--no-pager --no-header --no-git-color --abort-on 126)
+
 if [ "${GIT_WCDO_COMMAND%%* }" = 'git-wcs-in-dir-do' ]; then
     # Add additional arguments of the default git-wcs-in-dir-do.
     : ${GIT_WCDO_COMMAND_LONG_OPTIONS=worktrees|skip-symlinks}
@@ -127,7 +134,7 @@ elif [ "${1:0:1}" != '-' ]; then
 	dirty-sh)
 	    # Synthesized new command.
 	    shift
-	    wcdoArgs+=(--no-pager --no-header --no-git-color --abort-on 126 --command)
+	    wcdoArgs+=("${shellWcdoArgs[@]}" --command)
 	    if [ $# -eq 0 ]; then
 		wcdoArgs+=("git dirty && $quotedShell -i")
 		echo "Note: To abort the iteration of ${what:=CONFIGURED SUBJECTS}, use \"exit 126\"."
@@ -140,7 +147,7 @@ elif [ "${1:0:1}" != '-' ]; then
 	wips-sh)
 	    # Synthesized new command.
 	    shift
-	    wcdoArgs+=(--no-pager --no-header --no-git-color --abort-on 126 --command)
+	    wcdoArgs+=("${shellWcdoArgs[@]}" --command)
 	    typeset -a wipsArgs=()
 	    while [ $# -gt 0 ] && [[ "$1" =~ ^[+-][[:alpha:]]+$ ]]
 	    do
@@ -161,16 +168,9 @@ elif [ "${1:0:1}" != '-' ]; then
 	    wcdoArgs+=(--single-success)
 	    ;;
 	shell)
+	    wcdoArgs+=("${shellWcdoArgs[@]}")
 	    # Succeed if a single working copy has WIP.
 	    wcdoArgs+=(--single-success)
-	    # Because of the interactive shell, we must not interfere with
-	    # terminal access, so no header (the shell prompt will indicate the
-	    # working directory, anyway), and no paging.
-	    wcdoArgs+=(--no-header --no-pager)
-	    # This command does not support a --color argument.
-	    wcdoArgs+=(--no-git-color)
-	    # Enable the user to abort the iteration via a special exit status.
-	    wcdoArgs+=(--abort-on 126)
 	    echo "Note: To abort the iteration of ${what:=CONFIGURED SUBJECTS}, use \"exit 126\"."
 	    ;;
 	browse|ci-status|compare|delete|pull-request|fork|release|sync)

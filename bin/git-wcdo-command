@@ -3,6 +3,9 @@ shopt -qs extglob
 
 : ${GIT_WCDO_COMMAND:=git-wcs-in-dir-do}
 
+: ${SHELL:=bash}
+printf -v quotedShell '%q' "$SHELL"
+
 if [ "${GIT_WCDO_COMMAND%%* }" = 'git-wcs-in-dir-do' ]; then
     # Add additional arguments of the default git-wcs-in-dir-do.
     : ${GIT_WCDO_COMMAND_LONG_OPTIONS=worktrees|skip-symlinks}
@@ -126,7 +129,7 @@ elif [ "${1:0:1}" != '-' ]; then
 	    shift
 	    wcdoArgs+=(--no-pager --no-header --no-git-color --abort-on 126 --command)
 	    if [ $# -eq 0 ]; then
-		wcdoArgs+=('git dirty && bash -i')
+		wcdoArgs+=("git dirty && $quotedShell -i")
 		echo "Note: To abort the iteration of ${what:=CONFIGURED SUBJECTS}, use \"exit 126\"."
 	    else
 		printf -v quotedSimpleCommand '%q ' "$@"
@@ -145,7 +148,7 @@ elif [ "${1:0:1}" != '-' ]; then
 	    done
 	    quotedWipsArgs=; [ ${#wipsArgs[@]} -gt 0 ] && printf -v quotedWipsArgs '%q ' "${wipsArgs[@]}"
 	    if [ $# -eq 0 ]; then
-		wcdoArgs+=("git wips ${quotedWipsArgs}&& bash -i")
+		wcdoArgs+=("git wips ${quotedWipsArgs}&& $quotedShell -i")
 		echo "Note: To abort the iteration of ${what:=CONFIGURED SUBJECTS}, use \"exit 126\"."
 	    else
 		printf -v quotedSimpleCommand '%q ' "$@"

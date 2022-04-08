@@ -27,7 +27,8 @@ vimdev: Execute `:DeleteChangelog`
 `git cu -m 'Cosmetics: Delete changelogs'`
 vimdev: First release: Create manifest
 
-vimdev: Create Vimball: `:EditManifest` | `:Make 1.00` | `:Zip` | `:EditDoc | CloneHelpAsText`
+vimdev: Create Vimball: `vim-pluginbuild` (`:EditManifest | :Make 1.00 | :Zip`)
+vimdev: Update vim.org description (if necessary): `:EditDoc | CloneHelpAsText`
 Note: I don't publish the release branch if it just contains trivial mechanics of preparing the release.
 `git release finish` -> tag name: "Version 1.00"
 `git opa` (git opush --tags && git opush --all)

@@ -8,6 +8,7 @@ printUsage()
 Test whether the working copy has either:
 - dirty:    uncommitted changes
 - private:  unversioned files (that are not ignored)
+- stashed:  recorded local changes that have been stashed away
 - noremote: no remotes have been defined yet; the repository only exists locally
 - outgoing: where not all commits (on the current branch) have already been
 	    pushed to origin (or origin doesn't even exist yet)
@@ -20,7 +21,7 @@ Test whether the working copy has either:
 Individual checks can be selected (from a baseline of no checks) via +name /
 deselected (from all checks on offer) via -name.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet|--color=(always|auto|never)|--no-color] [(+|-)(dirty|private|noremote|outgoing|wipcommit|nonmaster|downstreambranches) ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet|--color=(always|auto|never)|--no-color] [(+|-)(dirty|private|stashed|noremote|outgoing|wipcommit|nonmaster|downstreambranches) ...] [-?|-h|--help]'
 }
 typeset -a colorArg=()
 typeset -a gitColorConfigArg=()
@@ -39,7 +40,7 @@ else
 fi
 
 isFirst=t
-declare -A checks=([dirty]=t [private]=t [noremote]=t [outgoing]=t [wipcommit]=t [nonmaster]=t [downstreambranches]=t)
+declare -A checks=([dirty]=t [private]=t [stashed]=t [noremote]=t [outgoing]=t [wipcommit]=t [nonmaster]=t [downstreambranches]=t)
 while [ $# -gt 0 ]
 do
     case "$1" in
@@ -69,6 +70,9 @@ findPrivateFiles()
 }
 [ "${checks[private]}" ] && \
     if findPrivateFiles; then exit 0; fi
+
+[ "${checks[stashed]}" ] && \
+    if git rev-parse --verify --quiet refs/stash >/dev/null; then git stash list; exit 0; fi
 
 [ "${checks[noremote]}" ] && \
     if ! git existsremote; then echo "Local-only repository; no remotes defined yet."; exit 0; fi

@@ -1,4 +1,5 @@
 #!/bin/bash
+shopt -qs extglob
 
 printUsage()
 {
@@ -7,7 +8,7 @@ Log together with diff for the commit interactively chosen from the commits
 [that cover FILE ...] in the passed <range>.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '--since <date>|<range> [<show-args> ...] [--] [FILE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--since <date>|--max-count|-n|<range> [<show-args> ...] [--] [FILE ...] [-?|-h|--help]'
 }
 typeset -a gitCommandArgs=()
 typeset -a files=()
@@ -33,17 +34,27 @@ if [ ${#files[@]} -eq 0 ]; then
     done
 fi
 set -- "${gitCommandArgs[@]}"
-if [ "$1" = '--since' ]; then
-    typeset -a rangeArgs=("$1" "$2"); shift; shift;
-elif [ $# -gt 0 ]; then
-    typeset -a rangeArgs=("$1"); shift
-else
+
+typeset -a rangeArgs=()
+typeset -a rangeModificationArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--since)	rangeArgs+=("$1" "$2"); shift; shift;;
+	--max-count|-n)	rangeArgs+=("$1" "$2"); shift; shift;;
+	--max-count=*|-+([0-9]))
+			rangeArgs+=("$1"); shift;;
+	--follow)	rangeModificationArgs+=("$1"); shift;;
+	*)		rangeArgs+=("$1"); shift; break;;
+    esac
+done
+if [ ${#rangeArgs[@]} -eq 0 ]; then
     echo >&2 'ERROR: Need <range>.'
     exit 2
 fi
 
 readarray -t commits < <(
-    git log --pretty='tformat:%H %s' "${rangeArgs[@]}" ${files:+--} "${files[@]}" | \
+    git log --pretty='tformat:%H %s' "${rangeModificationArgs[@]}" "${rangeArgs[@]}" ${files:+--} "${files[@]}" | \
     truncate-trailing -w | commandWithHiddenId --stdin -p -c 'commandOnSelected --stdin'
     printf '\n%d\n' "$?"
 )   # Exit status from the process substitution is lost; return the actual exit status via an appended additional line.

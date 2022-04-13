@@ -1,0 +1,24 @@
+#!/bin/bash
+set -o pipefail
+
+printUsage()
+{
+    cat <<HELPTEXT
+Execute GIT-COMMAND for the commit interactively chosen from the (recent | N)
+commits [that cover FILE ...] from the reflog.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--accept-single] [--single-only] [-c ...] GIT-COMMAND --since <date>|--max-count|-n|<range> [<git-command-args> ...] [--] [FILE ...] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --source)		shift
+			git reflog show "$@" | uniqueStable --skip ' .*$'
+			exit $?
+			;;
+esac
+
+readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
+
+GIT_SELECTEDCOMMIT_COMMAND="${scriptName#git-} --source" GIT_SELECTEDCOMMIT_COMMAND_FORMAT='%d %gs' \
+    exec git-selectedcommit-command "$@"

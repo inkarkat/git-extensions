@@ -12,23 +12,19 @@ HELPTEXT
     echo
     printf 'Usage: parsedArguments="$(%q %s)" || exit $?\n       eval "set -- $parsedArguments"\n' "$(basename "$1")" '[--separate-remote-and-branch] REMOTE [ARGS ...] [BRANCH] [-?|-h|--help]'
 }
+isRemoteAndBranchAsSeparateArguments=
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --separate-remote-and-branch)
+			shift; isRemoteAndBranchAsSeparateArguments=t;;
 esac
+remote="${1:?}"; shift
 
-isRemoteAndBranchAsSeparateArguments=
-if [ "$1" = '--separate-remote-and-branch' ]; then
-    isRemoteAndBranchAsSeparateArguments=t
-    shift
-fi
-
-remote=${1:?}; shift
-
-lastArg=; [ $# -gt 0 ] && lastArg=${!#}
-if [ "$lastArg" ] && remoteBranch=$(git-remotebr "$remote" "$lastArg" 2>/dev/null); then
+lastArg=; [ $# -gt 0 ] && lastArg="${!#}"
+if [ -n "$lastArg" ] && remoteBranch="$(git-remotebr "$remote" "$lastArg" 2>/dev/null)"; then
     set -- "${@:1:$(($#-1))}"
 else
-    remoteBranch=$(git-remotebr "$remote") || exit $?
+    remoteBranch="$(git-remotebr "$remote")" || exit $?
 fi
 
 if [ "$isRemoteAndBranchAsSeparateArguments" ]; then

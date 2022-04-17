@@ -36,7 +36,7 @@ HELPTEXT
 }
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
-range=
+typeset -a range=()
 isIncludeIntermediate=
 gitNameArg='--name-only'
 sorter='sort -u'
@@ -47,7 +47,7 @@ do
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--intermediate)	shift; isIncludeIntermediate=t;;
 	--status|-s)	shift; gitNameArg='--name-status'; sorter='sort -k 2 -u';;
-	*..*)		range="$1"; shift;;
+	*..*)		range=("${1%%..*}"); range+=("${1#*..}"); shift;;
 	--)		break;;
 	*)		allargs+=("$1"); shift;;
     esac
@@ -55,9 +55,10 @@ done
 
 if [ "$isIncludeIntermediate" ]; then
     git log --pretty='format:' "$gitNameArg" "${allargs[@]}" "$@"
-elif [ -n "$range" ]; then
+elif [ ${#range[@]} -gt 0 ]; then
+    baseCommit="$(git merge-base "${range[0]:-HEAD}" "${range[1]:-HEAD}")" || exit $?
     # Source: http://stackoverflow.com/a/1552353/813602
-    git diff "$gitNameArg" "${allargs[@]}" "$range" "$@"
+    git diff "$gitNameArg" "${allargs[@]}" "$baseCommit" "${range[1]:-HEAD}" "$@"
 else
     git show --pretty='format:' "$gitNameArg" "${allargs[@]}" "$@"
 fi | eval "$sorter | sed -e '/^\$/d'" "${pager:+|}" '"${pager[@]}"'

@@ -3,11 +3,13 @@
 printUsage()
 {
     cat <<HELPTEXT
-Parse an optional BRANCH given as the last argument and turn it into its
-corresponding remote branch for REMOTE. If no BRANCH is given, determine the
-remote branch for the current branch instead. Return the other ARGS followed by
-the remote branch at the end; with --separate-remote-and-branch as two separate
-arguments instead of a single REMOTE/BRANCH.
+Parse an optional BRANCH given as the last argument (before any -- [<path> ...],
+which are ignored) and turn it into its corresponding remote branch for REMOTE.
+If no BRANCH is given, determine the remote branch for the current branch
+instead.
+Return the other ARGS followed by the remote branch at the end (followed by --
+[<path> ...]); with --separate-remote-and-branch as two separate arguments
+instead of a single REMOTE/BRANCH.
 HELPTEXT
     echo
     printf 'Usage: parsedArguments="$(%q %s)" || exit $?\n       eval "set -- $parsedArguments"\n' "$(basename "$1")" '[--separate-remote-and-branch] REMOTE [ARGS ...] [BRANCH] [-?|-h|--help]'
@@ -20,9 +22,19 @@ case "$1" in
 esac
 remote="${1:?}"; shift
 
-lastArg=; [ $# -gt 0 ] && lastArg="${!#}"
+typeset -a optionArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--)		break;;
+	*)		optionArgs+=("$1"); shift;;
+    esac
+done
+
+
+lastArg=; [ ${#optionArgs[@]} -gt 0 ] && lastArg="${optionArgs[*]:$((${#optionArgs[@]}-1))}"
 if [ -n "$lastArg" ] && remoteBranch="$(git-remotebr "$remote" "$lastArg" 2>/dev/null)"; then
-    set -- "${@:1:$(($#-1))}"
+    set -- "${optionArgs[@]:0:$((${#optionArgs[@]}-1))}"
 else
     remoteBranch="$(git-remotebr "$remote")" || exit $?
 fi
@@ -33,4 +45,4 @@ else
     typeset -a remoteBranchArgs=("$remoteBranch")
 fi
 
-printf '%q ' "$@" "${remoteBranchArgs[@]}"
+printf '%q ' "${optionArgs[@]}" "${remoteBranchArgs[@]}" "$@"

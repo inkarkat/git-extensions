@@ -14,6 +14,8 @@ Test whether the working copy has either:
 	    pushed to origin
 - incoming: where the current branch misses commits that have been fetched and
 	    exist in origin
+- behind:   where the current branch misses commits that have been fetched and
+	    exist in upstream
 - wipcommit:where the last commit had "WIP:" in the message summary
 - nonmaster:a branch different from the master branch (or the base branch if
 	    defined) is checked out
@@ -23,7 +25,7 @@ Test whether the working copy has either:
 Individual checks can be selected (from a baseline of no checks) via +name /
 deselected (from all checks on offer) via -name.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet|--color=(always|auto|never)|--no-color] [(+|-)(dirty|private|stashed|noremote|outgoing|incoming|wipcommit|nonmaster|downstreambranches) ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet|--color=(always|auto|never)|--no-color] [(+|-)(dirty|private|stashed|noremote|outgoing|incoming|behind|wipcommit|nonmaster|downstreambranches) ...] [-?|-h|--help]'
 }
 typeset -a colorArg=()
 typeset -a gitColorConfigArg=()
@@ -42,7 +44,7 @@ else
 fi
 
 isFirst=t
-declare -A checks=([dirty]=t [private]=t [stashed]=t [noremote]=t [outgoing]=t [incoming]=t [wipcommit]=t [nonmaster]=t [downstreambranches]=t)
+declare -A checks=([dirty]=t [private]=t [stashed]=t [noremote]=t [outgoing]=t [incoming]=t [behind]=t [wipcommit]=t [nonmaster]=t [downstreambranches]=t)
 while [ $# -gt 0 ]
 do
     case "$1" in
@@ -84,6 +86,9 @@ findPrivateFiles()
 
 [ "${checks[incoming]}" ] && \
     if git existsremote origin && git remotebr origin >/dev/null 2>&1 && git oinlgn "${colorArg[@]}"; then exit 0; fi
+
+[ "${checks[behind]}" ] && \
+    if git existsremote upstream && git remotebr upstream >/dev/null 2>&1 && git uinlgn "${colorArg[@]}"; then exit 0; fi
 
 [ "${checks[wipcommit]}" ] && \
     if git l --max-count=1 "${colorArg[@]}" | grep '\(^\| \)WIP: '; then exit 0; fi

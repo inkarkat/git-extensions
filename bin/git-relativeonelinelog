@@ -1,0 +1,12 @@
+#!/bin/bash
+
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+if [ -t 1 ]; then
+    isColorOffArgument "$@" || set -- '--color=always' "$@"
+else
+    pager=()
+fi
+
+GIT_ONELINELOG_DATEFORMAT='@%at' git-onelinelog "$@" | \
+    eval 'reldate --date-pattern "" --delta-each --short-relations --keep-width --within all' \
+    "${pager:+|}" '"${pager[@]}"'

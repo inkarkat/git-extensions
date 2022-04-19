@@ -1,4 +1,30 @@
 #!/bin/bash
+shopt -qs extglob
+
+containsGlob()
+{
+    local elem glob=$1; shift
+    for elem
+    do
+	case "$elem" in
+	    @($glob)) return 0;;
+	esac
+    done
+    return 1
+}
+
+printUsage()
+{
+    cat <<HELPTEXT
+One-line topology, author, dates relative to the previous commit, tags and commit summary.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+}
+if containsGlob '--help|-h|-\?' "$@"; then
+    printUsage "$0"
+    exit 0
+fi
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
 if [ -t 1 ]; then

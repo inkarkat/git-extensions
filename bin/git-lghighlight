@@ -1,10 +1,12 @@
 #!/bin/bash
 set -o pipefail
 
+: ${GIT_LGHIGHLIGHT_LG:=lg}
+
 printUsage()
 {
     cat <<HELPTEXT
-git lg, with lines that match passed PATTERN highlighted.
+git ${GIT_LGHIGHLIGHT_LG}, with lines that match passed PATTERN highlighted.
 PATTERN is a sed-style unanchored basic regular expresion.
 HELPTEXT
     echo
@@ -52,7 +54,7 @@ done
 
 lghighlight()
 {
-    git lg "${colorArg[@]}" "${gitLogArgs[@]}" | sed -e "/${pattern//\//\/}/"'{ s#\[0*m#&[07m#g; s#.*#[07m&[0m# }'
+    git ${GIT_LGHIGHLIGHT_LG:?} "${colorArg[@]}" "${gitLogArgs[@]}" | sed -e "/${pattern//\//\/}/"'{ s#\[0*m#&[07m#g; s#.*#[07m&[0m# }'
 }
 
 eval 'lghighlight "$@"' "${pager:+|}" '"${pager[@]}"'

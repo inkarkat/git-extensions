@@ -1,19 +1,6 @@
 #!/bin/bash
 shopt -qs extglob
 
-printUsage()
-{
-    cat <<HELPTEXT
-One-line author, date, tags and commit summary.
-HELPTEXT
-    echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
-}
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-esac
-
-
 contains()
 {
     needle=$1; shift
@@ -34,6 +21,19 @@ containsGlob()
     done
     return 1
 }
+
+printUsage()
+{
+    cat <<HELPTEXT
+One-line author, date, tags and commit summary.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+}
+if containsGlob '--help|-h|-\?' "$@"; then
+    printUsage "$0"
+    exit 0
+fi
 
 FORMAT="%C(cyan)%h%Creset %Cgreen(%aN, ${GIT_ONELINELOG_DATEFORMAT:-%ar})%Creset %C(red bold)%d%Creset %s"
 if isColorOffArgument "$@"; then

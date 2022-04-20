@@ -3,6 +3,7 @@ set -o pipefail
 shopt -qs nullglob
 
 : ${GITWIPS_DOWNSTREAM_BRANCHES_IGNORE_PATTERN='stable'}
+: ${GIT_WIPS_CHANGELOG_FILENAME:=CHANGELOG.md}
 
 printUsage()
 {
@@ -94,9 +95,9 @@ findPrivateFiles()
 printChangelogDifferences()
 {
     local root; root="$(git root 2>/dev/null)" || return 1
-    local changelogFilespec="${root}/CHANGELOG.md"
+    local changelogFilespec="${root}/${GIT_WIPS_CHANGELOG_FILENAME}"
     if [ ! -r "$changelogFilespec" ]; then
-	typeset -a changelogs=("$root"/*/CHANGELOG.md)
+	typeset -a changelogs=("$root"/*/"${GIT_WIPS_CHANGELOG_FILENAME}")
 	[ ${#changelogs[@]} -gt 0 ] && changelogFilespec="${changelogs[0]}" || return 1
     fi
 

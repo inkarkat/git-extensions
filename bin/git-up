@@ -39,8 +39,8 @@ case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
 
-path=; [ $# -gt 0 ] && path="${remote}/${!#}" || path=$(git-remotebr "$remote" 2>/dev/null)
-originalRevision=$(git rev-parse HEAD 2>/dev/null)
+remoteBranch=; [ $# -gt 0 ] && remoteBranch="${remote}/${!#}" || remoteBranch=$(git-remotebr "$remote" 2>/dev/null)
+originalRevision="$(git rev-parse HEAD 2>/dev/null)"
 
 GIT_VERSION="$(git --version 2>/dev/null)"
 # --rebase-merges and --rebase=merges is Git 2.18 and later.
@@ -69,15 +69,15 @@ fi
 # keep the merges intact; the decision to flatten them or not should only come
 # when reintegrating the branch (namely, whether to rebase or merge).
 if [ "$GIT_UP_REBASE" ]; then
-    git "${gitAutoStashGitArg[@]}" rebase "${gitAutoStashPullOrRebaseArg[@]}" "${gitRebaseMergesArg[@]}" "${@:1:$(($#-1))}" "$path" || exit $?
+    git "${gitAutoStashGitArg[@]}" rebase "${gitAutoStashPullOrRebaseArg[@]}" "${gitRebaseMergesArg[@]}" "${@:1:$(($#-1))}" "$remoteBranch" || exit $?
 else
     git "${gitAutoStashGitArg[@]}" pull "${gitAutoStashPullOrRebaseArg[@]}" "${gitPullRebaseMergesArg[@]}" "$remote" "$@" || exit $?
 fi
 
-if [ ! "$path" ]; then
-    [ "$log" ] && echo >&2 "Warning: Could not determine updated path, no logging possible."
+if [ -z "$remoteBranch" ]; then
+    [ -z "$log" ] || echo >&2 "Warning: Could not determine remote branch, no logging possible."
 elif [ "$(git rev-parse HEAD 2>/dev/null)" = "$originalRevision" ]; then
-    printf 'No changes in %s.\n' "$path"
+    printf 'No changes in %s.\n' "$remoteBranch"
 else
     logChanges "${originalRevision}.."
 fi

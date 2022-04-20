@@ -1,5 +1,6 @@
 #!/bin/bash
 set -o pipefail
+shopt -qs nullglob
 
 : ${GITWIPS_DOWNSTREAM_BRANCHES_IGNORE_PATTERN='stable'}
 
@@ -15,6 +16,8 @@ Test whether the working copy has either:
 	    pushed to origin
 - incoming: where the current branch misses commits that have been fetched and
 	    exist in origin
+- fallenbehind:
+	    differences in the changelog document exist in upstream
 - behind:   where the current branch misses commits that have been fetched and
 	    exist in upstream
 - wipcommit:where the last commit had "WIP:" in the message summary
@@ -26,7 +29,7 @@ Test whether the working copy has either:
 Individual checks can be selected (from a baseline of no checks) via +name /
 deselected (from all checks on offer) via -name.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet|--color=(always|auto|never)|--no-color] [(+|-)(dirty|private|stashed|noremote|outgoing|incoming|behind|wipcommit|nonmaster|downstreambranches) ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet|--color=(always|auto|never)|--no-color] [(+|-)(dirty|private|stashed|noremote|outgoing|incoming|fallenbehind|behind|wipcommit|nonmaster|downstreambranches) ...] [-?|-h|--help]'
 }
 typeset -a colorArg=()
 typeset -a gitColorConfigArg=()
@@ -45,7 +48,7 @@ else
 fi
 
 isFirst=t
-declare -A checks=([dirty]=t [private]=t [stashed]=t [noremote]=t [outgoing]=t [incoming]=t [behind]=t [wipcommit]=t [nonmaster]=t [downstreambranches]=t)
+declare -A checks=([dirty]=t [private]=t [stashed]=t [noremote]=t [outgoing]=t [incoming]=t [fallenbehind]=t [behind]=t [wipcommit]=t [nonmaster]=t [downstreambranches]=t)
 while [ $# -gt 0 ]
 do
     case "$1" in
@@ -54,7 +57,7 @@ do
 	    shift
 	    ;;
 	-[^-]?*)
-	    unset checks["${1:1}"]
+	    unset "checks[${1:1}]"
 	    shift
 	    ;;
 	-*) { echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
@@ -87,6 +90,21 @@ findPrivateFiles()
 
 [ "${checks[incoming]}" ] && \
     if git existsremote origin && git remotebr origin >/dev/null 2>&1 && git oinlgn "${colorArg[@]}" | headtail --separator $'\t\t\t\t\t[...]' | outputAndPrintf 'Incoming from origin:\n'; then exit 0; fi
+
+printChangelogDifferences()
+{
+    local root; root="$(git root 2>/dev/null)" || return 1
+    local changelogFilespec="${root}/CHANGELOG.md"
+    if [ ! -r "$changelogFilespec" ]; then
+	typeset -a changelogs=("$root"/*/CHANGELOG.md)
+	[ ${#changelogs[@]} -gt 0 ] && changelogFilespec="${changelogs[0]}" || return 1
+    fi
+
+    local remoteBranch; remoteBranch="$(git-remotebr upstream 2>/dev/null)" || return 1
+    git diff -R "${colorArg[@]}" "$remoteBranch" -- "$changelogFilespec" | outputAndPrintf 'Behind changes in upstream:\n'
+}
+[ "${checks[fallenbehind]}" ] && \
+    if git existsremote upstream && git remotebr upstream >/dev/null 2>&1 && printChangelogDifferences; then exit 0; fi
 
 [ "${checks[behind]}" ] && \
     if git existsremote upstream && git remotebr upstream >/dev/null 2>&1 && git uinlgn "${colorArg[@]}" | headtail --separator $'\t\t\t\t\t[...]' | outputAndPrintf 'Behind upstream:\n'; then exit 0; fi

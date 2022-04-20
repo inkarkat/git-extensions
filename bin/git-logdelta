@@ -1,0 +1,60 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Show a log of the changes done by COMMAND to HEAD / BRANCH.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--gui|--terminal|--none] [-b|--branch BRANCH] -c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...] [-?|-h|--help]'
+}
+
+branch=
+log=terminal; type -t rabbitvcs >/dev/null && log=graphical
+isNeedEval=
+typeset -a commands=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--gui)		shift; log=graphical;;
+	--terminal)	shift; log=terminal;;
+	--none)		shift; log=;;
+	--branch|-b)	shift; branch="$1"; shift;;
+	--command|-c)	shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if [ $# -ne 0 ]; then
+    if [ "$isNeedEval" ]; then
+	# Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
+	# undo the effects of eval.
+	printf -v quotedSimpleCommand '%q ' "$@"
+	commands+=(${commands:+;} "${quotedSimpleCommand% }")
+    else
+	commands=("$@")
+    fi
+fi
+if [ ${#commands[@]} -eq 0 ]; then
+    echo 'ERROR: No COMMAND(s) specified; need to pass -c|--command "COMMANDLINE", or SIMPLECOMMAND.'
+    echo
+    printUsage "$0"
+    exit 2
+fi >&2
+
+originalRevision="$(git rev-parse "${branch:-HEAD}" 2>/dev/null)"
+    if [ "$isNeedEval" ]; then
+	eval "${commands[@]}"
+    else
+	"${commands[@]}"
+    fi; status=$?
+if [ -z "$originalRevision" ]; then
+    [ -z "$log" ] || echo >&2 "Warning: Could not determine original revision${branch:+ on $branch}, no logging possible."
+elif [ "$(git rev-parse "${branch:-HEAD}" 2>/dev/null)" = "$originalRevision" ]; then
+    [ -z "$log" ] || echo "No changes${branch:+ on $branch}."
+else
+    logChanges "${originalRevision}..${branch}"
+fi
+exit $status

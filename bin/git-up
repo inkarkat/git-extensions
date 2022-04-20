@@ -18,25 +18,32 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" "[--gui|--terminal|--none] ${remote:-REMOTE} [PULL/REBASE-ARGS ...] [-?|-h|--help]"
 }
 
+remote=
 typeset -a logDeltaArgs=()
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --@(gui|terminal|none))
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--@(gui|terminal|none))
 			logDeltaArgs+=("$1"); shift;;
-esac
-case "$2" in	# $1 is REMOTE
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-esac
+	--launch)	break;;
+	*)		if [ -z "$remote" ]; then
+			    remote="$1"; shift
+			else
+			    break
+			fi
+			;;
+    esac
+done
 if [ "$1" = '--launch' ]; then
     shift
 else
     readonly scriptFilespec="${BASH_SOURCE[0]}"
     export $(compgen -v)	# Export any script variables so that they are available to the callee, too.
-    exec git-logdelta "${logDeltaArgs[@]}" -- "$scriptFilespec" --launch "$@"
+    exec git-logdelta "${logDeltaArgs[@]}" -- "$scriptFilespec" "${remote:?}" --launch "$@"
 fi
 
-remote="${1:?}"; shift
-remoteBranch=; [ $# -gt 0 ] && remoteBranch="${remote}/${!#}" || remoteBranch=$(git-remotebr "$remote" 2>/dev/null)
+remoteBranch=; [ $# -gt 0 ] && remoteBranch="${remote:?}/${!#}" || remoteBranch=$(git-remotebr "${remote:?}" 2>/dev/null)
 
 GIT_VERSION="$(git --version 2>/dev/null)"
 # --rebase-merges and --rebase=merges is Git 2.18 and later.

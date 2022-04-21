@@ -6,11 +6,12 @@ printUsage()
 Show a log of the changes done by COMMAND to HEAD / BRANCH.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--gui|--terminal|--none] [-b|--branch BRANCH] -c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--gui|--terminal|--none] [-q|--quiet] [-b|--branch BRANCH] -c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...] [-?|-h|--help]'
 }
 
 branch=
 log=terminal; type -t rabbitvcs >/dev/null && log=graphical
+isQuiet=
 isNeedEval=
 typeset -a commands=()
 while [ $# -ne 0 ]
@@ -20,6 +21,7 @@ do
 	--gui)		shift; log=graphical;;
 	--terminal)	shift; log=terminal;;
 	--none)		shift; log=;;
+	--quiet|-q)	shift; isQuiet=t;;
 	--branch|-b)	shift; branch="$1"; shift;;
 	--command|-c)	shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
 	--)		shift; break;;
@@ -53,7 +55,7 @@ originalRevision="$(git rev-parse "${branch:-HEAD}" 2>/dev/null)"
 if [ -z "$originalRevision" ]; then
     [ -z "$log" ] || echo >&2 "Warning: Could not determine original revision${branch:+ on $branch}, no logging possible."
 elif [ "$(git rev-parse "${branch:-HEAD}" 2>/dev/null)" = "$originalRevision" ]; then
-    [ -z "$log" ] || echo "No changes${branch:+ on $branch}."
+    [ -z "$log" ] || [ "$isQuiet" ] || echo "No changes${branch:+ on $branch}."
 else
     logChanges "${originalRevision}..${branch}"
 fi

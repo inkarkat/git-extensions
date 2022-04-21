@@ -8,14 +8,16 @@ shopt -qs extglob
 printUsage()
 {
     local action='Pull and rebase'
-    if [ "$GIT_UP_FETCH" ]; then
-	action='Fetch and rebase'
+    if [ "$GIT_UP_NO_UPDATE" ]; then
+	action='Only fetch changes (no update of local branches)'
+    elif [ "$GIT_UP_FETCH" ]; then
+	action='Fetch and rebase changes'
     elif [ "$GIT_UP_REBASE" ]; then
-	action='Rebase'
+	action='Rebase changes'
     fi
 
     cat <<HELPTEXT
-$action changes in ${remote:-REMOTE}, and show a log of the changes.
+$action in ${remote:-REMOTE}, and show a log of the changes.
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" "[--gui|--terminal|--none] ${remote:-REMOTE} [PULL/REBASE-ARGS ...] [-?|-h|--help]"
@@ -74,7 +76,9 @@ fi
 # that there was (accidentally?) concurrent development. Here, we still like to
 # keep the merges intact; the decision to flatten them or not should only come
 # when reintegrating the branch (namely, whether to rebase or merge).
-if [ "$GIT_UP_REBASE" ]; then
+if [ "$GIT_UP_NO_UPDATE" ]; then
+    :
+elif [ "$GIT_UP_REBASE" ]; then
     git "${gitAutoStashGitArg[@]}" rebase "${gitAutoStashPullOrRebaseArg[@]}" "${gitRebaseMergesArg[@]}" "${@:1:$(($#-1))}" "$remoteBranch" || exit $?
 else
     git "${gitAutoStashGitArg[@]}" pull "${gitAutoStashPullOrRebaseArg[@]}" "${gitPullRebaseMergesArg[@]}" "$remote" "$@" || exit $?

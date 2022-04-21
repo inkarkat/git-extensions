@@ -20,7 +20,7 @@ do
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--gui)		shift; log=graphical;;
 	--terminal)	shift; log=terminal;;
-	--none)		shift; log=;;
+	--none)		shift; log='';;
 	--quiet|-q)	shift; isQuiet=t;;
 	--branch|-b)	shift; branch="$1"; shift;;
 	--command|-c)	shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
@@ -45,6 +45,16 @@ if [ ${#commands[@]} -eq 0 ]; then
     printUsage "$0"
     exit 2
 fi >&2
+
+logChanges()
+{
+    case "$log" in
+	'') ;;
+	terminal)   git-onelinelog "$1";;
+	graphical)  git-glog "$1" 2>&1;;
+	*)          printf >&2 'ASSERT: Invalid log: %q\n' "$log"; exit 3;;
+    esac
+}
 
 originalRevision="$(git rev-parse "${branch:-HEAD}" 2>/dev/null)"
     if [ "$isNeedEval" ]; then

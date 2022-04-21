@@ -23,6 +23,15 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" "[--gui|--terminal|--none] ${remote:-REMOTE} [PULL/REBASE-ARGS ...] [-?|-h|--help]"
 }
 
+getRemoteBranch()
+{
+    if [ $# -gt 0 ] && git-existsbr "${!#}"; then
+	git-remotebr "${remote:?}" "${!#}"
+    else
+	git-remotebr "${remote:?}"
+    fi
+}
+
 remote=
 typeset -a logDeltaArgs=()
 while [ $# -ne 0 ]
@@ -46,13 +55,6 @@ else
     readonly scriptFilespec="${BASH_SOURCE[0]}"
     export $(compgen -v)	# Export any script variables so that they are available to the callee, too.
     exec git-logdelta "${logDeltaArgs[@]}" -- "$scriptFilespec" "${remote:?}" --launch "$@"
-fi
-
-remoteBranch=
-if [ $# -gt 0 ] && git-existsbr "${!#}"; then
-    remoteBranch="$(git-remotebr "${remote:?}" "${!#}")" || exit $?
-else
-    remoteBranch="$(git-remotebr "${remote:?}")" || exit $?
 fi
 
 GIT_VERSION="$(git --version 2>/dev/null)"
@@ -84,6 +86,7 @@ fi
 if [ "$GIT_UP_NO_UPDATE" ]; then
     :
 elif [ "$GIT_UP_REBASE" ]; then
+    remoteBranch="$(getRemoteBranch "$@")" || exit $?
     git "${gitAutoStashGitArg[@]}" rebase "${gitAutoStashPullOrRebaseArg[@]}" "${gitRebaseMergesArg[@]}" "${@:1:$(($#-1))}" "$remoteBranch" || exit $?
 else
     git "${gitAutoStashGitArg[@]}" pull "${gitAutoStashPullOrRebaseArg[@]}" "${gitPullRebaseMergesArg[@]}" "$remote" "$@" || exit $?

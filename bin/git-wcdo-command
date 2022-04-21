@@ -49,6 +49,13 @@ Supports the following special commands:
 			    ${what:=CONFIGURED SUBJECTS} that have work in
 			    progress. You can abort the iteration by exiting the
 			    shell with exit status 126.
+    ufetch [--gui|--terminal|--none]
+			    Fetch all upstream changes, and show a log of changes.
+    uprogress [WIPS-ARGS ...]
+			    Test whether changes in upstream have been fetched
+			    that could be incorporated into the working copy.
+			    Ignores local customizations and private files that
+			    may happen when just following an upstream repo.
 HELPTEXT
     [ "$GIT_WCDO_COMMAND_ADDITIONAL_HELP" ] && printf '%s\n' "$GIT_WCDO_COMMAND_ADDITIONAL_HELP"
     git-wcdo --help 2>&1 | sed -e "${splitPattern}p" -e "1,${splitPattern}d"
@@ -162,6 +169,20 @@ elif [ "${1:0:1}" != '-' ]; then
 		wcdoArgs+=("git wips --quiet ${quotedWipsArgs}&& ${quotedSimpleCommand# }")
 		set --
 	    fi
+	    ;;
+	ufetch)
+	    # Synthesized new command.
+	    shift
+	    set -- ufetchonly-hushed "$@"
+	    ;;
+	uprogress)
+	    # Synthesized new command.
+	    shift
+	    # DWIM: Omit some WIP checks:
+	    #   -dirty:	    local customizations of checked-in files may be necessary
+	    #   -private:   builds may create private files
+	    #   -nonmaster: I may follow a stable branch
+	    set -- wips -dirty -private -nonmaster "$@"
 	    ;;
 	wips)
 	    # Succeed if a single working copy has WIP.

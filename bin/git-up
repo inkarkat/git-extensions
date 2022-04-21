@@ -54,6 +54,18 @@ if [ "$1" = '--launch' ]; then
 else
     readonly scriptFilespec="${BASH_SOURCE[0]}"
     export $(compgen -v)	# Export any script variables so that they are available to the callee, too.
+
+    if [ "$GIT_UP_NO_UPDATE" ] && [ "$GIT_UP_FETCH" ]; then
+	if remoteBranch="$(getRemoteBranch "$@")"; then
+	    # The delta needs to be done on the remote branch, as there'll be no
+	    # update of local branches / HEAD.
+	    logDeltaArgs+=(--branch "$remoteBranch")
+	else
+	    [ "${logDeltaArgs[*]}" = '--none' ] || echo >&2 "Warning: Could not determine corresponding ${remote:-REMOTE} branch, no logging possible."
+	    logDeltaArgs=(--none)
+	fi
+    fi
+
     exec git-logdelta "${logDeltaArgs[@]}" -- "$scriptFilespec" "${remote:?}" --launch "$@"
 fi
 

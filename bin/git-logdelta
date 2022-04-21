@@ -6,11 +6,12 @@ printUsage()
 Show a log of the changes done by COMMAND to HEAD / BRANCH.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--gui|--terminal|--none] [-q|--quiet] [-b|--branch BRANCH] -c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--gui|--terminal|--none] [--color=(always|auto|never)|--no-color] [-q|--quiet] [-b|--branch BRANCH] -c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...] [-?|-h|--help]'
 }
 
 branch=
 log=terminal; type -t rabbitvcs >/dev/null && log=graphical
+typeset -a colorArg=()
 isQuiet=
 isNeedEval=
 typeset -a commands=()
@@ -21,6 +22,9 @@ do
 	--gui)		shift; log=graphical;;
 	--terminal)	shift; log=terminal;;
 	--none)		shift; log='';;
+	--no-color|--color=*)
+			colorArg=("$1"); shift;;
+	--color)	colorArg=("$1" "$2"); shift; shift;;
 	--quiet|-q)	shift; isQuiet=t;;
 	--branch|-b)	shift; branch="$1"; shift;;
 	--command|-c)	shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
@@ -50,7 +54,7 @@ logChanges()
 {
     case "$log" in
 	'') ;;
-	terminal)   git-onelinelog "$1";;
+	terminal)   git-onelinelog "${colorArg[@]}" "$1";;
 	graphical)  git-glog "$1" 2>&1;;
 	*)          printf >&2 'ASSERT: Invalid log: %q\n' "$log"; exit 3;;
     esac

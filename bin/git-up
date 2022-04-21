@@ -34,6 +34,7 @@ getRemoteBranch()
 
 remote=
 typeset -a logDeltaArgs=()
+typeset -a colorArg=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -42,6 +43,9 @@ do
 			logDeltaArgs+=("$1"); shift;;
 	-[q])
 			logDeltaArgs+=("$1"); shift;;
+	--no-color|--color=*)
+			colorArg=("$1"); shift;;
+	--color)	colorArg=("$1" "$2"); shift; shift;;
 	--launch)	break;;
 	*)		if [ -z "$remote" ]; then
 			    remote="$1"; shift
@@ -75,7 +79,7 @@ else
 	fi
     fi
 
-    exec git-logdelta "${logDeltaArgs[@]}" -- "$scriptFilespec" "${remote:?}" --launch "$@"
+    exec git-logdelta "${colorArg[@]}" "${logDeltaArgs[@]}" -- "$scriptFilespec" "${remote:?}" --launch "$@"
 fi
 
 GIT_VERSION="$(git --version 2>/dev/null)"

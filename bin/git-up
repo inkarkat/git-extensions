@@ -58,9 +58,16 @@ else
     export $(compgen -v)	# Export any script variables so that they are available to the callee, too.
 
     if [ "$GIT_UP_NO_UPDATE" ] && [ "$GIT_UP_FETCH" ]; then
-	if remoteBranch="$(getRemoteBranch "$@")"; then
+	if remoteBranch="$(getRemoteBranch "$@" 2>/dev/null)"; then
 	    # The delta needs to be done on the remote branch, as there'll be no
 	    # update of local branches / HEAD.
+	    logDeltaArgs+=(--branch "$remoteBranch")
+	elif localBranch="$(git-lastbranch-command echo 2>/dev/null)" && remoteBranch="$(git-remotebr "${remote:?}" "$localBranch")"; then
+	    # Though there's no branch checked out that has a corresponding
+	    # remote branch, we've found a local branch in the reflog and that
+	    # one has a remote branch. Typically, the working copy has checked
+	    # out a tag, and that branch is the last one checked out before
+	    # switching to tags.
 	    logDeltaArgs+=(--branch "$remoteBranch")
 	else
 	    [ "${logDeltaArgs[*]}" = '--none' ] || echo >&2 "Warning: Could not determine corresponding ${remote:-REMOTE} branch, no logging possible."

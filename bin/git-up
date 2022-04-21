@@ -48,7 +48,12 @@ else
     exec git-logdelta "${logDeltaArgs[@]}" -- "$scriptFilespec" "${remote:?}" --launch "$@"
 fi
 
-remoteBranch=; [ $# -gt 0 ] && remoteBranch="${remote:?}/${!#}" || remoteBranch=$(git-remotebr "${remote:?}" 2>/dev/null)
+remoteBranch=
+if [ $# -gt 0 ] && git-existsbr "${!#}"; then
+    remoteBranch="$(git-remotebr "${remote:?}" "${!#}")" || exit $?
+else
+    remoteBranch="$(git-remotebr "${remote:?}")" || exit $?
+fi
 
 GIT_VERSION="$(git --version 2>/dev/null)"
 # --rebase-merges and --rebase=merges is Git 2.18 and later.

@@ -1,11 +1,29 @@
 #!/bin/bash
 set -o pipefail
 
+printUsage()
+{
+    cat <<HELPTEXT
+Annotate FILE lines with the first tag [that matches GREP-ARGS] that the commit
+that created that line is based on. git-contained-${command:-COMMAND} is invoked for that
+lookup.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${command:-COMMAND} [GREP-ARGS ...] FILE [-?|-h|--help]"
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
 command="${1:?}"; shift
 annotationWidthVar="GIT_ANNOTATE_CONTAINED_${command^^}"
 annotationWidthDefault=14; [ "$command" = 'version' ] && annotationWidthDefault=8
 
-file=${!#}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+file="${!#}"
 revision=
 lastGrepArg=$(($#-1))
 [ $lastGrepArg -gt 0 -a "${@:$lastGrepArg:1}" = '--' ] && let lastGrepArg-=1

@@ -1,7 +1,20 @@
 #!/bin/bash
 set -o noglob
 
-remote=${1:?}; shift
+printUsage()
+{
+    cat <<HELPTEXT
+Execute GIT-COMMAND with the REMOTE branch for the current branch or
+REMOTE/BRANCH appended.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'REMOTE GIT-COMMAND [...] [BRANCH] [-- <path> ...] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+remote="${1:?}"; shift
 if [ $# -eq 0 ]; then
     echo >&2 'ERROR: No GIT-COMMAND passed.'
     exit 2

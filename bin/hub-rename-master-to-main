@@ -1,0 +1,28 @@
+#!/bin/bash
+set -e
+
+printUsage()
+{
+    cat <<HELPTEXT
+Rename the master branch to main, both in the local repository and in my GitHub clone.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+elif git-existsbr main && ! git-existsbr master; then
+    echo >&2 'The default branch already is main.'
+    exit 99
+fi
+
+me="$(git me-in-github)"
+git com
+git renamebr main
+git opublish
+hub api --method PATCH -f default_branch=main "repos/${me:?}/{repo}"
+git odeletebr master

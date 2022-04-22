@@ -54,7 +54,7 @@ typeset -a colorArg=()
 isNeedEval=
 typeset -a commands=()
 isYes=
-branchNum=9999
+branchNum=
 typeset -a inputBranches=()
 typeset -a gitBrArgs=()
 while [ $# -ne 0 ]
@@ -106,7 +106,7 @@ if [ ${#commands[@]} -eq 0 ]; then
     exit 2
 fi
 
-readarray -t branches < <($GIT_BRREFDO_BRANCH_COMMAND "${gitBrArgs[@]}" ${inputBranches:+--} "${inputBranches[@]}" | tail -n "$branchNum")
+readarray -t branches < <(eval '$GIT_BRREFDO_BRANCH_COMMAND "${gitBrArgs[@]}" ${inputBranches:+--} "${inputBranches[@]}"' ${branchNum:+ | tail -n "$branchNum"})
 if [ ${#branches[@]} -eq 0 ]; then
     echo >&2 "No ${GIT_BRREFDO_WHAT} found!"
     exit 1

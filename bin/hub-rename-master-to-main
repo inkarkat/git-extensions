@@ -4,7 +4,8 @@ set -e
 printUsage()
 {
     cat <<HELPTEXT
-Rename the master branch to main, both in the local repository and in my GitHub clone.
+Rename the master branch to main in the local repository and (if origin exists)
+also in my GitHub clone.
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
@@ -20,9 +21,11 @@ elif git-existsbr main && ! git-existsbr master; then
     exit 99
 fi
 
-me="$(git me-in-github)"
 git com
 git renamebr main
+git-mbr --set main
+git existsremote origin || exit 0
+
 git opublish
 
 # GitHub won't allow deletion of a branch as long it's configured as the default
@@ -34,7 +37,7 @@ git opublish
 # (https://stevenmortimer.com/5-steps-to-change-github-default-branch-from-master-to-main/#step-4---change-default-branch-to-main-on-github-site)
 # but we'd like to do this via the API.
 # Source: https://github.com/cli/cli/issues/929#issuecomment-629253585
+me="$(git me-in-github)"
 hub api --method PATCH -f default_branch=main "repos/${me:?}/{repo}"
 
 git odeletebr master
-git-mbr --set main

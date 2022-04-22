@@ -1,10 +1,17 @@
 #!/bin/bash
 set -o noglob
 
-IFS=$'\n'
-team=($GIT_TEAMNAMES)
+gitDir=$(git rev-parse --git-dir 2>/dev/null) || exit $?
+teamConfigFilespec="${gitDir}/teamnames"
+
+typeset -a team=()
+if [ -r "$teamConfigFilespec" ]; then
+    readarray -t team < "$teamConfigFilespec"
+elif [ -n "$GIT_TEAMNAMES" ]; then
+    readarray -t team <<<"$GIT_TEAMNAMES"
+fi
 if [ ${#team[@]} -eq 0 ]; then
-    echo >&2 "No team defined. Put the newline-separated list of user.name's into GIT_TEAMNAMES."
+    echo >&2 "No team defined. Put the newline-separated list of user.name's into .git/teamnames or the GIT_TEAMNAMES environment variable."
     exit 2
 fi
 

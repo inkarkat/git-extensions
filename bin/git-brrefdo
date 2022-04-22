@@ -1,27 +1,31 @@
 #!/bin/bash
-set -o noglob -o pipefail
+set -o pipefail
 shopt -qs extglob
+
+: ${GIT_BRREFDO_BRANCH_COMMAND:=git-abr}
+: ${GIT_BRREFDO_COMMANDNAME:=$(basename -- "$0")}
+: ${GIT_BRREFDO_WHAT:=branches}
 
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [--no-pager] [--no-header] [--separate-errors] [-y|--yes] -b|--branch <branch1>|--branches "<branch1> ..." [...] -c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$GIT_BRREFDO_COMMANDNAME" "[-q|--quiet] [--no-pager] [--no-header] [--separate-errors] [-y|--yes]${GIT_BRREFDO_ADDITIONAL_ARGS:+ }${GIT_BRREFDO_ADDITIONAL_ARGS} [--branches \"<branch1> ...\"] [N] -c|--command \"COMMANDLINE\" [-c ...] | [--] SIMPLECOMMAND [...] [-?|-h|--help]"
 }
 printUsage()
 {
     # This is the short help when launched with no or incorrect arguments.
     # It is printed to stderr to avoid accidental processing.
     printShortUsage "$1" >&2
-    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+    printf >&2 '\nTry %q --help for more information.\n' "$GIT_BRREFDO_COMMANDNAME"
 }
 printLongUsage()
 {
     # This is the long "man page" when launched with the help argument.
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
-Iterate over the passed <branch1>, ... one by one and execute COMMAND for each
-branch, replacing {} with its name.
+Iterate over all / the last N ${GIT_BRREFDO_WHAT}${GIT_BRREFDO_WHAT_DETAILS:+ }${GIT_BRREFDO_WHAT_DETAILS} one by one
+and execute COMMAND for each branch, replacing {} with its name.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
@@ -42,37 +46,97 @@ current Git branch before the command output.
 HELPTEXT
 }
 
-hasPassedBranches=
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+isQuiet=
+isHeader=; type -t withHeader >/dev/null && isHeader=t
+errorRedir='2>&1'
+typeset -a colorArg=()
+isNeedEval=
+typeset -a commands=()
+isYes=
+branchNum=
 typeset -a inputBranches=()
-typeset -a gitLocalbrrefdoArgs=()
+typeset -a gitBrArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
-	--branch|-b)	shift; hasPassedBranches=t; inputBranches+=("$1"); shift;;
-	--branches)	shift; hasPassedBranches=t; inputBranches+=($1); shift;;
-
-	-+([qy]))	gitLocalbrrefdoArgs+=("$1"); shift;;
-	+([0-9]))	gitLocalbrrefdoArgs+=("$1"); shift;;
-	--@(quiet|no-pager|no-header|separate-errors|no-color|color=*|yes))
-			gitLocalbrrefdoArgs+=("$1"); shift;;
-	-c)		gitLocalbrrefdoArgs+=("$1" "$2"); shift; shift;;
-	--@(color|command))
-			gitLocalbrrefdoArgs+=("$1" "$2"); shift; shift;;
-	--)		gitLocalbrrefdoArgs+=("$1"); shift; break;;
-	*)		break;;
+	--help|-h|-\?)	    shift; printLongUsage "$0"; exit 0;;
+	--quiet|-q)	    shift; isQuiet=t;;
+	--no-pager)	    shift; pager=();;
+	--no-header)	    shift; isHeader=;;
+	--separate-errors)  shift; errorRedir='';;
+	--no-color|--color=*)	colorArg=("$1"); shift;;
+	--color)		colorArg=("$1" "$2"); shift; shift;;
+	--yes|-y)	    shift; isYes=t;;
+	-+([${GIT_BRREFDO_SHORT_OPTIONS:-[]}]))
+			    gitBrArgs+=("$1"); shift;;
+	--@(${GIT_BRREFDO_LONG_OPTIONS:-[]}))
+			    gitBrArgs+=("$1"); shift;;
+	-[${GIT_BRREFDO_SHORT_PARAMS:-[]}])
+			    gitBrArgs+=("$1" "$2"); shift; shift;;
+	--@(${GIT_BRREFDO_LONG_PARAMS:-[]}))
+			    gitBrArgs+=("$1" "$2"); shift; shift;;
+	--branches)	    shift; inputBranches=($1); shift;;	# Internal hook to pass in the branches.
+	+([0-9]))	    branchNum=$1; shift;;
+	--command|-c)	    shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
+	--)		    shift; break;;
+	-*)		    { echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		    break;;
     esac
 done
-if [ ! "$hasPassedBranches" ]; then
-    echo 'ERROR: No -b|--branch <branch1> | --branches "<branch1> ..." passed.'
-    echo
-    printShortUsage "$0"
-    exit 2
-elif [ ${#inputBranches[@]} -eq 0 ]; then
-    echo 'ERROR: No branches given.'
-    echo
-    printShortUsage "$0"
-    exit 2
-fi >&2
+# With piping into withHeader / pager, we need to explicitly enable color for
+# Git, unless this command's output itself is redirected. Also don't do this if
+# the user explicitly turned off color.
+if [ -n "$pager" -o -n "$isHeader" ] && isNeedColorArgumentWhenPiping "${colorArg[@]}"; then
+    colorArg=(--color=always)	# Force for withHeader
+fi
 
-exec git-localbrrefdo --include-all --branches "${inputBranches[*]}" "${gitLocalbrrefdoArgs[@]}" "$@"
+if [ $# -ne 0 ]; then
+    if [ "$isNeedEval" ]; then
+	# Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
+	# undo the effects of eval.
+	printf -v quotedSimpleCommand '%q ' "$@"
+	commands+=(${commands:+;} "${quotedSimpleCommand//\\\{\\\}/\{\}}")	# %q escapes {}, we don't want that to have it interpolated later.
+    else
+	commands=("$@")
+    fi
+fi
+if [ ${#commands[@]} -eq 0 ]; then
+    echo >&2 'ERROR: No COMMAND(s) specified; need to pass -c|--command "COMMANDLINE", or SIMPLECOMMAND.'
+    exit 2
+fi
+
+readarray -t branches < <(eval '$GIT_BRREFDO_BRANCH_COMMAND "${gitBrArgs[@]}" ${inputBranches:+--} "${inputBranches[@]}"' ${branchNum:+ | tail -n "$branchNum"})
+if [ ${#branches[@]} -eq 0 ]; then
+    echo >&2 "No ${GIT_BRREFDO_WHAT} found!"
+    exit 1
+fi
+
+IFS=$'\n'
+if [ "$isYes" ]; then
+    [ "$isQuiet" ] || echo >&2 "Iterating over these ${GIT_BRREFDO_WHAT}:
+${branches[*]}"
+else
+    echo >/dev/tty "Iterating over these ${GIT_BRREFDO_WHAT}:
+${branches[*]}"
+    </dev/tty read -r -N 1 -p "Really iterate over these branches? (y/n) " choice; echo >/dev/tty
+    [ "$choice" = "y" ] || exit 1
+fi
+
+brrefdo()
+{
+    local status=0
+    : ${GIT_BRREFDO_HEADER_ID:="brrefdo-$$-$RANDOM"}
+    for branch in "${branches[@]}"
+    do
+	typeset -a interpolatedCommands=("${commands[@]//\{\}/$branch}")
+	if [ "$isNeedEval" ]; then
+	    typeset -a c=("${interpolatedCommands[@]}")
+	else
+	    typeset -a c=('"${interpolatedCommands[@]}"')
+	fi
+	(eval "${c[@]}" "${isHeader:+$errorRedir | withHeader "${colorArg[@]}" --id '$GIT_BRREFDO_HEADER_ID' -- '$branch'}") || status=$?
+    done
+    return $status
+}
+eval "brrefdo ${pager:+$errorRedir |}" '"${pager[@]}"'

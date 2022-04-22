@@ -1,5 +1,4 @@
 #!/bin/bash
-
 shopt -qs globstar # ** matches files and/only (as **/) subdirs recursively.
 
 printUsage()
@@ -12,11 +11,12 @@ Pass -r to list remote-tracking branches.
 Pass -a to list both.
 The branches can be optionally filtered by <branch-glob>.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|-a] [-b|--base <branch>] [<branch-glob>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--bare] [-r|-a] [-b|--base <branch>] [<branch-glob>] [-?|-h|--help]'
 }
 
 locality='local'
 base=
+format='%at %h (%aN, %ar)'
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -24,6 +24,7 @@ do
 	--all|-a)	shift; locality='all';;
 	--remote|-r)	shift; locality='remote';;
 	--base|-b)	shift; base="$1"; shift;;
+	--bare)		shift; format='%at';;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -31,12 +32,12 @@ do
 done
 dirBranchGlob="${1//\*/*/**}"    # As we're doing file system lookup, a branch name glob needs to be converted into a directory hierarchy one in case the branch name contains slashes.
 case $locality in
-    local)  what="refs/heads/$1 refs/heads/$dirBranchGlob";;
-    all)    what="refs/heads/$1 refs/heads/$dirBranchGlob refs/remotes/$1 refs/remotes/$dirBranchGlob";;
-    remote) what="refs/remotes/$1 refs/remotes/$dirBranchGlob";;
+    local)  typeset -a what=("refs/heads/$1" "refs/heads/$dirBranchGlob");;
+    all)    typeset -a what=("refs/heads/$1" "refs/heads/$dirBranchGlob" "refs/remotes/$1" "refs/remotes/$dirBranchGlob");;
+    remote) typeset -a what=("refs/remotes/$1" "refs/remotes/$dirBranchGlob");;
 esac
 
-readarray -t branches < <(git for-each-ref --format='%(refname:short)' $what; printf '\n%d\n' "$?")	# Exit status from the process substitution is lost; return the actual exit status via an appended additional line.
+readarray -t branches < <(git for-each-ref --format='%(refname:short)' "${what[@]}"; printf '\n%d\n' "$?")	# Exit status from the process substitution is lost; return the actual exit status via an appended additional line.
 [ ${branches[-1]} -ne 0 ] && exit ${branches[-1]}
 unset 'branches[-1]'
 [ -z "${branches[-1]}" ] && unset 'branches[-1]'
@@ -49,18 +50,19 @@ do
     else
 	mergeBase=$(git merge-base --octopus "$branch") || exit $?
     fi
-    firstCommit=$(git log --pretty="tformat:%at %h (%aN, %ar)" "${mergeBase}..${branch}" | tail -n 1)
+    firstCommit=$(git log --pretty="tformat:$format" "${mergeBase}..${branch}" | tail -n 1)
     if [ ! "$firstCommit" ]; then
 	# There's no log output when the merge base is identical to the branch;
 	# i.e. there's only one commit on the branch so far. Grab that commit
 	# separately; this is easier than first checking with get show-ref
 	# whether the hashes are identical.
-	firstCommit=$(git log -1 --pretty="tformat:%at %h (%aN, %ar)" "${branch}")
+	firstCommit=$(git log -1 --pretty="tformat:$format" "${branch}")
     fi
     firstCommits+=("$firstCommit $branch")
 done
+IFS=$'\n'
 readarray -t sortedFirstCommits < <(sort <<<"${firstCommits[*]}")
 
 # Print the sorted information without the leading Unix timestamp used as the
 # sort key.
-IFS=$'\n' printf '%s\n' "${sortedFirstCommits[*]#* }"
+printf '%s\n' "${sortedFirstCommits[*]#* }"

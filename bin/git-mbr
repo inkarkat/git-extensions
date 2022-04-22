@@ -11,6 +11,26 @@ setMasterBranchConfiguration()
     git config --local "$GIT_CONFIG_KEY" "${1:?}"
 }
 
+printUsage()
+{
+    cat <<HELPTEXT
+Obtain the name of the default branch (master, or main).
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+    echo
+    cat <<HELPTEXT
+Set the name of the default branch to NAME.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--set NAME'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --set)		shift; setMasterBranchConfiguration "${1:?}"; exit $?;;
+esac
+
+
 # If the repository is git-flow enabled, the "develop" branch configuration
 # corresponds to what I consider the master branch.
 masterBranch="$(git config --get gitflow.branch.develop 2>/dev/null)"

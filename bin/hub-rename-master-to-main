@@ -1,0 +1,43 @@
+#!/bin/bash
+set -e
+
+printUsage()
+{
+    cat <<HELPTEXT
+Rename the master branch to main in the local repository and (if origin exists)
+also in my GitHub clone.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+elif git-existsbr main && ! git-existsbr master; then
+    echo >&2 'The default branch already is main.'
+    exit 99
+fi
+
+git com
+git renamebr main
+git-mbr --set main
+git existsremote origin || exit 0
+
+git opublish
+
+# GitHub won't allow deletion of a branch as long it's configured as the default
+# branch (base branch for pull requests).
+#   To github.com:inkarkat/REPO.vim.git
+#    ! [remote rejected] master (refusing to delete the current branch: refs/heads/master)
+#   error: failed to push some refs to 'git@github.com:inkarkat/REPO.vim.git'
+# It can be reconfigured in the browser
+# (https://stevenmortimer.com/5-steps-to-change-github-default-branch-from-master-to-main/#step-4---change-default-branch-to-main-on-github-site)
+# but we'd like to do this via the API.
+# Source: https://github.com/cli/cli/issues/929#issuecomment-629253585
+me="$(git me-in-github)"
+hub api --method PATCH -f default_branch=main "repos/${me:?}/{repo}"
+
+git odeletebr master

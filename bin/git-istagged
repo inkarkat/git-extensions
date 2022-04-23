@@ -6,10 +6,12 @@ printUsage()
     cat <<HELPTEXT
 Test whether the current working copy directly refers to a tagged commit.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-p|--print] [-?|-h|--help]'
 }
+redir='>/dev/null 2>&1'
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --print|-p)		shift; redir='2>/dev/null';;
 esac
 
-exec git describe --tags HEAD >/dev/null 2>&1
+eval "exec git describe --tags --exact-match HEAD${redir:+ }${redir}"

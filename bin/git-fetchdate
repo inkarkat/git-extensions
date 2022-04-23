@@ -6,20 +6,31 @@ printUsage()
 Show when (any) remote was last fetched.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--absolute|-a|--epoch] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--absolute|-a|--epoch| -n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [-?|-h|--help]'
 }
 isAbsolute=
 isEpoch=
+typeset -a fileAgeArgs=()
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
     --epoch)		shift; isEpoch=t;;
     --absolute|-a)	shift; isAbsolute=t;;
+    -*)			if [ $# -eq 2 ]; then
+			    fileAgeArgs=("$1" "$2")
+			    shift; shift
+			fi
+			;;
 esac
-
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
 
 gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit $?
 
-if [ ! "$isAbsolute" ]  && [ ! "$isEpoch" ] && type -t reldate >/dev/null; then
+if [ ${#fileAgeArgs[@]} -gt 0 ]; then
+    exec fileAge "${fileAgeArgs[@]}" "${gitDir}/FETCH_HEAD"
+elif [ ! "$isAbsolute" ]  && [ ! "$isEpoch" ] && type -t reldate >/dev/null; then
     exec reldate "${gitDir}/FETCH_HEAD"
 else
     epoch=$(stat -c %Y "${gitDir}/FETCH_HEAD") || exit $?

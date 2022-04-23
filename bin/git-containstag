@@ -1,0 +1,36 @@
+#!/bin/bash
+set -o pipefail
+
+printUsage()
+{
+    cat <<HELPTEXT
+List tag(s) that are reachable from the passed <commit> / HEAD.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<commit>] [-?|-h|--help]'
+    echo
+    cat <<HELPTEXT
+Test whether TAG is reachable from the passed <commit>.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" "TAG <commit>|''"
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+listContainedTags()
+{
+    # Source: https://stackoverflow.com/a/39084124/813602
+    git tag --merged "$@"
+}
+case $# in
+    0|1)
+	listContainedTags "$@";;
+    2)
+	listContainedTags "${2:-HEAD}" | grep --quiet --fixed-strings --line-regexp "${1:?}";;
+    *)
+	printUsage "$0" >&2
+	exit 2
+	;;
+esac

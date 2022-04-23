@@ -27,13 +27,14 @@ if [ $# -ne 0 ]; then
 fi
 
 gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit $?
+fetchFilespec="${gitDir}/FETCH_HEAD"
 
 if [ ${#fileAgeArgs[@]} -gt 0 ]; then
-    exec fileAge "${fileAgeArgs[@]}" "${gitDir}/FETCH_HEAD"
+    exec fileAge "${fileAgeArgs[@]}" "$fetchFilespec"
 elif [ ! "$isAbsolute" ]  && [ ! "$isEpoch" ] && type -t reldate >/dev/null; then
-    exec reldate "${gitDir}/FETCH_HEAD"
+    exec reldate "$fetchFilespec"
 else
-    epoch=$(stat -c %Y "${gitDir}/FETCH_HEAD") || exit $?
+    epoch=$(stat -c %Y "$fetchFilespec") || exit $?
     if [ "$isEpoch" ]; then
 	printf '%s\n' "$epoch"
     else

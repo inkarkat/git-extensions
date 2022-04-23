@@ -49,6 +49,10 @@ Supports the following special commands:
 			    ${what:=CONFIGURED SUBJECTS} that have work in
 			    progress. You can abort the iteration by exiting the
 			    shell with exit status 126.
+    fetchdate [--absolute|-a|--epoch] [-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]]
+			    Show when (any) remote was last fetched if it
+			    matches the condition. Allows to identify repos in
+			    need of an update.
     ufetch [--gui|--terminal|--none]
 			    Fetch all upstream changes, and show a log of changes.
     uprogress [WIPS-ARGS ...]
@@ -169,6 +173,25 @@ elif [ "${1:0:1}" != '-' ]; then
 		wcdoArgs+=("git wips --quiet ${quotedWipsArgs}&& ${quotedSimpleCommand# }")
 		set --
 	    fi
+	    ;;
+	fetchdate)
+	    # Synthesized new command.
+	    shift
+	    typeset -a fetchDateFormatArgs=()
+	    typeset -a fetchDateAgeArgs=()
+	    while [ $# -ne 0 ]
+	    do
+		case "$1" in
+		    --absolute|-a|--epoch)	fetchDateFormatArgs+=("$1"); shift;;
+		    *)				fetchDateAgeArgs+=("$1"); shift;;
+		esac
+	    done
+	    if [ ${#fetchDateAgeArgs[@]} -gt 0 ]; then
+		printf -v quotedFetchDateAgeArgs '%q ' "${fetchDateAgeArgs[@]}"
+		wcdoArgs+=(--predicate-command "git-fetchdate ${quotedFetchDateAgeArgs% }")
+	    fi
+	    wcdoArgs+=(--no-git-color)
+	    set -- fetchdate "${fetchDateFormatArgs[@]}"
 	    ;;
 	ufetch)
 	    # Synthesized new command.

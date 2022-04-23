@@ -6,17 +6,20 @@ printUsage()
 Show when (any) remote was last fetched.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--absolute|--epoch] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--absolute|-a|--epoch] [-?|-h|--help]'
 }
+isAbsolute=
+isEpoch=
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --epoch)		shift; isEpoch=t;;
+    --absolute|-a)	shift; isAbsolute=t;;
 esac
 
 
-gitDir=$(git rev-parse --git-dir 2>/dev/null) || exit $?
-isEpoch=; [ "$1" = '--epoch' ] && isEpoch=t
+gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit $?
 
-if ! [ "$isEpoch" -o "$1" = '--absolute' -o "$1" = '-a' ] && type -t reldate >/dev/null; then
+if [ ! "$isAbsolute" ]  && [ ! "$isEpoch" ] && type -t reldate >/dev/null; then
     exec reldate "${gitDir}/FETCH_HEAD"
 else
     epoch=$(stat -c %Y "${gitDir}/FETCH_HEAD") || exit $?

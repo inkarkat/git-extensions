@@ -1,0 +1,23 @@
+#!/bin/bash
+set -e
+
+printUsage()
+{
+    cat <<HELPTEXT
+Test whether my GitHub clone has been archived (made read-only).
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+git existsremote origin || exit 4
+
+me="$(git me-in-github)"
+response="$(gh api "repos/${me:?}/{repo}" --jq '.archived')" || exit 3
+[ "$response" = true ]

@@ -1,0 +1,28 @@
+#!/bin/bash
+set -e
+
+printUsage()
+{
+    cat <<HELPTEXT
+Archive my GitHub clone (i.e. make it read-only).
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+git existsremote origin || exit 4
+
+me="$(git me-in-github)"
+# XXX: gh does not understand {repo} here.
+#exec gh repo archive "${me:?}/{repo}" --confirm
+
+repo="$(git remote get-url origin)" || exit 3
+[[ "$repo" =~ [:/]"$me"/([^/]+)\.git$ ]] || exit 3
+repo="${BASH_REMATCH[1]}"
+exec gh repo archive "${me:?}/${repo}" --confirm

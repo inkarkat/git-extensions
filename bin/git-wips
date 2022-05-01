@@ -147,10 +147,9 @@ considerCheck nonmaster && \
 
 findDownstreamBranches()
 {
-    local originBranch
-    local status=1
+    typeset -a originBranches=()
     readarray -t originBranches < <(git obr | sed -e 's/^ \+//' ${GIT_WIPS_DOWNSTREAM_BRANCHES_IGNORE_PATTERN:+-e "/^origin\\/\\(${GIT_WIPS_DOWNSTREAM_BRANCHES_IGNORE_PATTERN}\\)\$/d"})
-    for originBranch in "${originBranches[@]}"
+    local originBranch status=1; for originBranch in "${originBranches[@]}"
     do
 	if ! git existsbr "${originBranch/#origin/upstream}"; then
 	    printf 'origin-only: %s\n' "${originBranch/#origin\//}"

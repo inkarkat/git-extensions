@@ -46,15 +46,19 @@ positiveCheck() { exit 0; }
 typeset -a colorArg=()
 typeset -a gitColorConfigArg=()
 isVerbose=
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
 			colorArg=("$1"); shift;;
-    --color)		colorArg=("$1" "$2"); shift; shift;;
-    --all|-a)		shift; positiveCheck() { echo; overallStatus=0; };;
-    --verbose|-v)	shift; isVerbose=t;;
-    --quiet|-q)		shift; exec 1>/dev/null;;
-esac
+	--color)	colorArg=("$1" "$2"); shift; shift;;
+	--all|-a)	shift; positiveCheck() { echo; overallStatus=0; };;
+	--verbose|-v)	shift; isVerbose=t;;
+	--quiet|-q)	shift; exec 1>/dev/null;;
+	*)		break;;
+    esac
+done
 if isNeedColorArgumentWhenPiping "${colorArg[@]}"; then
     colorArg=('--color=always')
 else

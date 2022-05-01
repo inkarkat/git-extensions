@@ -19,5 +19,11 @@ fi
 git existsremote origin || exit 4
 
 me="$(git me-in-github)"
-response="$(gh api "repos/${me:?}/{repo}" --jq '.archived')" || exit 3
+# XXX: gh for some repos (?) does not understand {repo}.
+#response="$(gh api "repos/${me:?}/{repo}" --jq '.archived')" || exit 3
+#gh: Not Found (HTTP 404)
+repo="$(git remote get-url origin)" || exit 3
+[[ "$repo" =~ [:/]"$me"/([^/]+)\.git$ ]] || exit 3
+repo="${BASH_REMATCH[1]}"
+response="$(gh api "repos/${me:?}/${repo}" --jq '.archived')" || exit 3
 [ "$response" = true ]

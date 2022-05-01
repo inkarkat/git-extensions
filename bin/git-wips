@@ -40,8 +40,9 @@ Test whether the working copy has either:
 Individual checks can be selected (from a baseline of no checks) via +name /
 deselected (from all checks on offer) via -name.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-v|--verbose] [-q|--quiet|--color=(always|auto|never)|--no-color] [(+|-)(dirty|private|stashed|noremote|outgoing|incoming|fallenbehind|behind|behindtags|wipcommit|nonmaster|unmergeddownstream|downstreambranches|inactivefork) ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-a|--all] [-v|--verbose] [-q|--quiet|--color=(always|auto|never)|--no-color] [(+|-)(dirty|private|stashed|noremote|outgoing|incoming|fallenbehind|behind|behindtags|wipcommit|nonmaster|unmergeddownstream|downstreambranches|inactivefork) ...] [-?|-h|--help]'
 }
+positiveCheck() { exit 0; }
 typeset -a colorArg=()
 typeset -a gitColorConfigArg=()
 isVerbose=
@@ -50,6 +51,7 @@ case "$1" in
     --no-color|--color=*)
 			colorArg=("$1"); shift;;
     --color)		colorArg=("$1" "$2"); shift; shift;;
+    --all|-a)		shift; positiveCheck() { echo; overallStatus=0; };;
     --verbose|-v)	shift; isVerbose=t;;
     --quiet|-q)		shift; exec 1>/dev/null;;
 esac
@@ -94,8 +96,9 @@ considerCheck()
     return 0
 }
 
+overallStatus=1
 considerCheck dirty && \
-    if git dirty; then git "${gitColorConfigArg[@]}" st; exit 0; fi
+    if git dirty; then git "${gitColorConfigArg[@]}" st; positiveCheck; fi
 
 findPrivateFiles()
 {
@@ -105,19 +108,19 @@ findPrivateFiles()
     printf 'Unversioned file: %s\n' "${privateFiles[@]}"
 }
 considerCheck private && \
-    if findPrivateFiles; then exit 0; fi
+    if findPrivateFiles; then positiveCheck; fi
 
 considerCheck stashed && \
-    if git rev-parse --verify --quiet refs/stash >/dev/null; then git stash list; exit 0; fi
+    if git rev-parse --verify --quiet refs/stash >/dev/null; then git stash list; positiveCheck; fi
 
 considerCheck noremote && \
-    if ! git existsremote; then echo "Local-only repository; no remotes defined yet."; exit 0; fi
+    if ! git existsremote; then echo "Local-only repository; no remotes defined yet."; positiveCheck; fi
 
 considerCheck outgoing && \
-    if git existsremote origin && git remotebr origin >/dev/null 2>&1 && git ooutlgn "${colorArg[@]}" | headtail --separator $'\t\t\t\t\t[...]' | outputAndPrintf 'Outgoing to origin:\n'; then exit 0; fi
+    if git existsremote origin && git remotebr origin >/dev/null 2>&1 && git ooutlgn "${colorArg[@]}" | headtail --separator $'\t\t\t\t\t[...]' | outputAndPrintf 'Outgoing to origin:\n'; then positiveCheck; fi
 
 considerCheck incoming && \
-    if git existsremote origin && git remotebr origin >/dev/null 2>&1 && git oinlgn "${colorArg[@]}" | headtail --separator $'\t\t\t\t\t[...]' | outputAndPrintf 'Incoming from origin:\n'; then exit 0; fi
+    if git existsremote origin && git remotebr origin >/dev/null 2>&1 && git oinlgn "${colorArg[@]}" | headtail --separator $'\t\t\t\t\t[...]' | outputAndPrintf 'Incoming from origin:\n'; then positiveCheck; fi
 
 printChangelogDifferences()
 {
@@ -132,22 +135,22 @@ printChangelogDifferences()
     git diff -R "${colorArg[@]}" "$remoteBranch" -- "$changelogFilespec" | outputAndPrintf 'Behind changes in upstream:\n'
 }
 considerCheck fallenbehind && \
-    if git existsremote upstream && git remotebr upstream >/dev/null 2>&1 && printChangelogDifferences; then exit 0; fi
+    if git existsremote upstream && git remotebr upstream >/dev/null 2>&1 && printChangelogDifferences; then positiveCheck; fi
 
 considerCheck behind && \
-    if git existsremote upstream && git remotebr upstream >/dev/null 2>&1 && git uinlgn "${colorArg[@]}" | headtail --separator $'\t\t[... use "git uinl[o]g" for the full list ...]' | outputAndPrintf 'Behind upstream:\n'; then exit 0; fi
+    if git existsremote upstream && git remotebr upstream >/dev/null 2>&1 && git uinlgn "${colorArg[@]}" | headtail --separator $'\t\t[... use "git uinl[o]g" for the full list ...]' | outputAndPrintf 'Behind upstream:\n'; then positiveCheck; fi
 
 considerCheck behindtags && \
     git existsremote upstream && \
 	tagName="$(git istagged --print)" && \
 	if GIT_BRREFDO_BRANCH_COMMAND='git ubr' git-brrefdo --no-header --no-pager --quiet --yes -- git lgtaggeduntiltag "$tagName" --color=always {} | \
-	    uniqueStable | outputAndPrintf 'Behind these tags in upstream:\n'; then exit 0; fi
+	    uniqueStable | outputAndPrintf 'Behind these tags in upstream:\n'; then positiveCheck; fi
 
 considerCheck wipcommit && \
-    if git l --max-count=1 "${colorArg[@]}" | grep '\(^\| \)WIP: '; then exit 0; fi
+    if git l --max-count=1 "${colorArg[@]}" | grep '\(^\| \)WIP: '; then positiveCheck; fi
 
 considerCheck nonmaster && \
-    if branchName="$(git-brname --real-branch-only 2>/dev/null)"; [ -n "$branchName" -a "$branchName" != "$(git-mbr)" -a "$branchName" != "$(git-nbr 2>/dev/null)" ]; then printf 'On branch %s\n' "$branchName"; exit 0; fi
+    if branchName="$(git-brname --real-branch-only 2>/dev/null)"; [ -n "$branchName" -a "$branchName" != "$(git-mbr)" -a "$branchName" != "$(git-nbr 2>/dev/null)" ]; then printf 'On branch %s\n' "$branchName"; positiveCheck; fi
 
 findUnmergedDownstreamBranches()
 {
@@ -162,7 +165,7 @@ findUnmergedDownstreamBranches()
 	outputAndPrintf 'These branches in origin have not yet been merged to upstream:\n'
 }
 considerCheck unmergeddownstream && \
-    if git existsremote origin && git existsremote upstream && findUnmergedDownstreamBranches; then exit 0; fi
+    if git existsremote origin && git existsremote upstream && findUnmergedDownstreamBranches; then positiveCheck; fi
 
 findDownstreamBranches()
 {
@@ -178,7 +181,7 @@ findDownstreamBranches()
     return $status
 }
 considerCheck downstreambranches && \
-    if git existsremote origin && git existsremote upstream && findDownstreamBranches; then exit 0; fi
+    if git existsremote origin && git existsremote upstream && findDownstreamBranches; then positiveCheck; fi
 
 findInactiveFork()
 {
@@ -190,7 +193,7 @@ findInactiveFork()
     echo 'origin has no active branches, is up-to-date with upstream, and can be archived.'
 }
 considerCheck inactivefork && \
-    if git existsremote origin && git existsremote upstream && findInactiveFork; then exit 0; fi
+    if git existsremote origin && git existsremote upstream && findInactiveFork; then positiveCheck; fi
 
 [ "$isVerbose" ] && printf >/dev/tty %s "$CLEAR_PREVIOUS_LINE"
-exit 1
+exit $overallStatus

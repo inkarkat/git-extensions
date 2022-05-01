@@ -6,10 +6,34 @@ shopt -qs nullglob
 : ${GIT_WIPS_UPSTREAM_BRANCHES_IGNORE_PATTERN=''}   # Upstream branches that are not considered as merge targets for origin branches in +unmergeddownstream check.
 : ${GIT_WIPS_CHANGELOG_FILENAME:=CHANGELOG.md}	# Filename of a changelog file in the repository root or one subdirectory below.
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-a|--all] [-v|--verbose] [-q|--quiet|--color=(always|auto|never)|--no-color] [(+|-)(dirty|private|stashed|noremote|outgoing|incoming|fallenbehind|behind|behindtags|wipcommit|nonmaster|unmergeddownstream|downstreambranches|inactivefork) ...] [-?|-h|--help]'
+}
 printUsage()
 {
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Test whether the repository (working copy and remote branches) is in an
+incomplete, "work-in-progress" state that will require follow-up actions to
+conclude the project.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
     cat <<HELPTEXT
-Test whether the working copy has either:
+Individual checks can be selected (from a baseline of no checks) via +name /
+deselected (from all checks on offer) via -name.
 - dirty:    uncommitted changes
 - private:  unversioned files (that are not ignored)
 - stashed:  recorded local changes that have been stashed away
@@ -37,10 +61,7 @@ Test whether the working copy has either:
 - inactivefork:
 	    my GitHub clone is up-to-date with upstream, has no non-master
 	    branches, and therefore can be archived (made read-only).
-Individual checks can be selected (from a baseline of no checks) via +name /
-deselected (from all checks on offer) via -name.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-a|--all] [-v|--verbose] [-q|--quiet|--color=(always|auto|never)|--no-color] [(+|-)(dirty|private|stashed|noremote|outgoing|incoming|fallenbehind|behind|behindtags|wipcommit|nonmaster|unmergeddownstream|downstreambranches|inactivefork) ...] [-?|-h|--help]'
 }
 positiveCheck() { exit 0; }
 typeset -a colorArg=()
@@ -49,7 +70,7 @@ isVerbose=
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--no-color|--color=*)
 			colorArg=("$1"); shift;;
 	--color)	colorArg=("$1" "$2"); shift; shift;;

@@ -73,7 +73,13 @@ do
     isFirst=
 done
 
-[ "${checks[dirty]}" ] && \
+considerCheck()
+{
+    local check="${1:?}"; shift
+    [ "${checks[$check]}" ]
+}
+
+considerCheck dirty && \
     if git dirty; then git "${gitColorConfigArg[@]}" st; exit 0; fi
 
 findPrivateFiles()
@@ -83,19 +89,19 @@ findPrivateFiles()
     [ ${#privateFiles[@]} -eq 0 ] && return 1
     printf 'Unversioned file: %s\n' "${privateFiles[@]}"
 }
-[ "${checks[private]}" ] && \
+considerCheck private && \
     if findPrivateFiles; then exit 0; fi
 
-[ "${checks[stashed]}" ] && \
+considerCheck stashed && \
     if git rev-parse --verify --quiet refs/stash >/dev/null; then git stash list; exit 0; fi
 
-[ "${checks[noremote]}" ] && \
+considerCheck noremote && \
     if ! git existsremote; then echo "Local-only repository; no remotes defined yet."; exit 0; fi
 
-[ "${checks[outgoing]}" ] && \
+considerCheck outgoing && \
     if git existsremote origin && git remotebr origin >/dev/null 2>&1 && git ooutlgn "${colorArg[@]}" | headtail --separator $'\t\t\t\t\t[...]' | outputAndPrintf 'Outgoing to origin:\n'; then exit 0; fi
 
-[ "${checks[incoming]}" ] && \
+considerCheck incoming && \
     if git existsremote origin && git remotebr origin >/dev/null 2>&1 && git oinlgn "${colorArg[@]}" | headtail --separator $'\t\t\t\t\t[...]' | outputAndPrintf 'Incoming from origin:\n'; then exit 0; fi
 
 printChangelogDifferences()
@@ -110,22 +116,22 @@ printChangelogDifferences()
     local remoteBranch; remoteBranch="$(git-remotebr upstream 2>/dev/null)" || return 1
     git diff -R "${colorArg[@]}" "$remoteBranch" -- "$changelogFilespec" | outputAndPrintf 'Behind changes in upstream:\n'
 }
-[ "${checks[fallenbehind]}" ] && \
+considerCheck fallenbehind && \
     if git existsremote upstream && git remotebr upstream >/dev/null 2>&1 && printChangelogDifferences; then exit 0; fi
 
-[ "${checks[behind]}" ] && \
+considerCheck behind && \
     if git existsremote upstream && git remotebr upstream >/dev/null 2>&1 && git uinlgn "${colorArg[@]}" | headtail --separator $'\t\t[... use "git uinl[o]g" for the full list ...]' | outputAndPrintf 'Behind upstream:\n'; then exit 0; fi
 
-[ "${checks[behindtags]}" ] && \
+considerCheck behindtags && \
     git existsremote upstream && \
 	tagName="$(git istagged --print)" && \
 	if GIT_BRREFDO_BRANCH_COMMAND='git ubr' git-brrefdo --no-header --no-pager --quiet --yes -- git lgtaggeduntiltag "$tagName" --color=always {} | \
 	    uniqueStable | outputAndPrintf 'Behind these tags in upstream:\n'; then exit 0; fi
 
-[ "${checks[wipcommit]}" ] && \
+considerCheck wipcommit && \
     if git l --max-count=1 "${colorArg[@]}" | grep '\(^\| \)WIP: '; then exit 0; fi
 
-[ "${checks[nonmaster]}" ] && \
+considerCheck nonmaster && \
     if branchName="$(git-brname --real-branch-only 2>/dev/null)"; [ -n "$branchName" -a "$branchName" != "$(git-mbr)" -a "$branchName" != "$(git-nbr 2>/dev/null)" ]; then printf 'On branch %s\n' "$branchName"; exit 0; fi
 
 findDownstreamBranches()
@@ -142,7 +148,7 @@ findDownstreamBranches()
     done
     return $status
 }
-[ "${checks[downstreambranches]}" ] && \
+considerCheck downstreambranches && \
     if git existsremote origin && git existsremote upstream && findDownstreamBranches; then exit 0; fi
 
 findInactiveFork()
@@ -154,7 +160,7 @@ findInactiveFork()
 
     echo 'origin has no active branches, is up-to-date with upstream, and can be archived.'
 }
-[ "${checks[inactivefork]}" ] && \
+considerCheck inactivefork && \
     if git existsremote origin && git existsremote upstream && findInactiveFork; then exit 0; fi
 
 exit 1

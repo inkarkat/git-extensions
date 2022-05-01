@@ -30,10 +30,13 @@ Test whether the working copy has either:
 - downstreambranches:
 	    a branch that only exists in origin, but not upstream; may represent
 	    concurrent work or a pull request
+- inactivefork:
+	    my GitHub clone is up-to-date with upstream, has no non-master
+	    branches, and therefore can be archived (made read-only).
 Individual checks can be selected (from a baseline of no checks) via +name /
 deselected (from all checks on offer) via -name.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet|--color=(always|auto|never)|--no-color] [(+|-)(dirty|private|stashed|noremote|outgoing|incoming|fallenbehind|behind|behindtags|wipcommit|nonmaster|downstreambranches) ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet|--color=(always|auto|never)|--no-color] [(+|-)(dirty|private|stashed|noremote|outgoing|incoming|fallenbehind|behind|behindtags|wipcommit|nonmaster|downstreambranches|inactivefork) ...] [-?|-h|--help]'
 }
 typeset -a colorArg=()
 typeset -a gitColorConfigArg=()
@@ -52,7 +55,7 @@ else
 fi
 
 isFirst=t
-declare -A checks=([dirty]=t [private]=t [stashed]=t [noremote]=t [outgoing]=t [incoming]=t [fallenbehind]=t [behind]=t [behindtags]=t [wipcommit]=t [nonmaster]=t [downstreambranches]=t)
+declare -A checks=([dirty]=t [private]=t [stashed]=t [noremote]=t [outgoing]=t [incoming]=t [fallenbehind]=t [behind]=t [behindtags]=t [wipcommit]=t [nonmaster]=t [downstreambranches]=t [inactivefork]=t)
 while [ $# -gt 0 ]
 do
     case "$1" in
@@ -141,5 +144,17 @@ findDownstreamBranches()
 }
 [ "${checks[downstreambranches]}" ] && \
     if git existsremote origin && git existsremote upstream && findDownstreamBranches; then exit 0; fi
+
+findInactiveFork()
+{
+    local masterBranch; masterBranch="$(git-mbr)" || return 3
+    git obr | grep -v --quiet --fixed-strings --line-regexp "origin/$masterBranch" && return 1 # There still are non-master origin branches.
+    git diff --quiet "upstream/$masterBranch" "origin/$masterBranch" || return 1    # origin and upstream have diverged.
+    hub-isarchived && return 1	# origin has already been archived (made read-only).
+
+    echo 'origin has no active branches, is up-to-date with upstream, and can be archived.'
+}
+[ "${checks[inactivefork]}" ] && \
+    if git existsremote origin && git existsremote upstream && findInactiveFork; then exit 0; fi
 
 exit 1

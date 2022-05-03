@@ -8,40 +8,7 @@ rebase.
 HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[<commit-arguments> ...] <ref>|:/<pattern> [--] [<path> ...] [-?|-h|--help]'
 }
-typeset -a gitCommitArgs=()
-typeset -a files=()
-while [ $# -ne 0 ]
-do
-    case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-	--)		gitCommitArgs+=("$1"); shift; files=("$@"); break;;
-	*)		gitCommitArgs+=("$1"); shift;;
-    esac
-done
-if [ ${#files[@]} -eq 0 ]; then
-    # No files after -- captured yet; need to investigate parsed and
-    # remaining args from behind for files.
-    gitCommitArgs+=("$@")
-    while [ ${#gitCommitArgs[@]} -ne 0 ]
-    do
-	lastArg="${gitCommitArgs[-1]}"
-	[ -e "$lastArg" ] || break
-
-	files=("$lastArg" "${files[@]}")
-	gitCommitArgs=("${gitCommitArgs[@]:0:${#gitCommitArgs[@]}-1}")
-    done
-fi
-if [ ${#gitCommitArgs[@]} -eq 0 ]; then
-    printUsage "$0" >&2
-    exit 2
-fi
-
-fixupCommit="${gitCommitArgs[@]:$((${#gitCommitArgs[@]}-1))}"
-
-# Need to resolve the revision first; after commiting the fixup, an unanchored
-# passed :/<pattern> will find the fixup commit now. Also, we need the commit ID
-# in order to reference the commit before it for rebase.
-fixupRev=$(git-commitid "$fixupCommit") || exit $?
-
-git-commit --fixup "$fixupRev" "${gitCommitArgs[@]:0:$((${#gitCommitArgs[@]}-1))}" "${files[@]}" || exit $?
-exec git-rbni "${fixupRev}^"
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+exec git-fixup --rebase "$@"

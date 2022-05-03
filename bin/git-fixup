@@ -4,16 +4,18 @@ printUsage()
 {
     cat <<HELPTEXT
 Commit with the intent of squashing this with the passed <commit> (id or
-:/<pattern>) via interactive rebase later.
+:/<pattern>) via interactive rebase later (now with --rebase).
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<commit-arguments> ...] <ref>|:/<pattern> [--] [<path> ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--rebase] [<commit-arguments> ...] <ref>|:/<pattern> [--] [<path> ...] [-?|-h|--help]'
 }
 typeset -a gitCommitArgs=()
 typeset -a files=()
+isRebase=
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--rebase)	shift; isRebase=t;;
 	--)		gitCommitArgs+=("$1"); shift; files=("$@"); break;;
 	*)		gitCommitArgs+=("$1"); shift;;
     esac
@@ -38,6 +40,16 @@ fi
 
 fixupCommit="${gitCommitArgs[*]:$((${#gitCommitArgs[@]}-1))}"
 
-# --fixup will do good error handling for us ("fatal: could not lookup commit
-# :/doesNotExist), just pass it along.
-exec git-commit --fixup "$fixupCommit" "${gitCommitArgs[@]:0:$((${#gitCommitArgs[@]}-1))}" "${files[@]}"
+if [ "$isRebase" ]; then
+    # Need to resolve the revision first; after commiting the fixup, an unanchored
+    # passed :/<pattern> will find the fixup commit now. Also, we need the commit ID
+    # in order to reference the commit before it for rebase.
+    fixupRev=$(git-commitid "$fixupCommit") || exit $?
+
+    git-commit --fixup "$fixupRev" "${gitCommitArgs[@]:0:$((${#gitCommitArgs[@]}-1))}" "${files[@]}" || exit $?
+    exec git-rbni "${fixupRev}^"
+else
+    # --fixup will do good error handling for us ("fatal: could not lookup commit
+    # :/doesNotExist), just pass it along.
+    exec git-commit --fixup "$fixupCommit" "${gitCommitArgs[@]:0:$((${#gitCommitArgs[@]}-1))}" "${files[@]}"
+fi

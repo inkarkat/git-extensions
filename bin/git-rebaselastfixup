@@ -1,0 +1,41 @@
+#!/bin/bash
+set -o pipefail
+shopt -qs extglob
+
+printUsage()
+{
+    cat <<HELPTEXT
+Rebase the last [<number>, useful when there are forgotten commits that cannot
+be rewritten any more] fixup / squash commit(s) to, well, incorporate the fixes
+/ squash the commits into the current branch.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '-<number>|-n <number>|--max-count=<number> [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+}
+
+typeset -a gitArgs=()
+number=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--max-count)	shift; number="${1:?}"; shift;;
+	--max-count=*)	number="${1#--max-count=}"; shift;;
+	-n)		shift; number="${1:?}"; shift;;
+	-+([0-9]))	number="${1#-}"; shift;;
+	--)		break;;
+	*)		gitArgs+=("$1"); shift;;
+    esac
+done
+
+lastCommit="$(
+    git log --pretty='tformat:%H %s' "${gitArgs[@]}" "$@" | \
+	sed -n -e 's/^\([[:xdigit:]]\+\) \(fixup\|squash\):.*$/\1/p' | \
+	eval "${number:+sed -n -e "1,${number}p" | }" 'sed -n -e \$p'
+)"
+if [ -z "$lastCommit" ]; then
+    echo 'No fixup / squash commits found.'
+    exit 1
+fi
+
+exec git-rbni "${lastCommit}^"

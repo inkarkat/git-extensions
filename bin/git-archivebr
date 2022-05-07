@@ -4,9 +4,10 @@
 printUsage()
 {
     cat <<HELPTEXT
-Tag <branch>, then delete it from the local repository as well as origin.
-Use this to remove old branches that have been incorporated into master, or pass
--f to force archiving.
+Tag <branch>(es), then delete it from the local repository (as well as origin if
+it exists).
+Use this to remove old branches that have been incorporated into master. If not
+incorporated (e.g. an abandoned experiment), pass -f to force archiving.
 HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] <branch> [...] [-?|-h|--help]'
 }
@@ -32,7 +33,7 @@ do
 done
 [ $status -eq 0 ] || exit $status
 
-git push --tags origin || exit $?
+! git existsremote origin || git push --tags origin || exit $?
 
 # Note: Process all passed branches in one fell swoop; this avoid re-querying
 # (on push) the remote repository credentials for each branch. When one branch
@@ -40,5 +41,5 @@ git push --tags origin || exit $?
 # processed: just as we'd like.
 status=0
 git branch $branchDeleteOption "$@" || status=$?
-git push origin --delete "$@" || status=$?
+! git existsremote origin || git push origin --delete "$@" || status=$?
 exit $status

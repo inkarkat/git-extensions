@@ -1,0 +1,72 @@
+#!/bin/bash
+set -o pipefail
+
+printUsage()
+{
+    cat <<HELPTEXT
+List all / only those tags of the passed (annotated or lightweight) type in ${remote:-REMOTE}.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} all|annotated|lightweight [-l|--list <pattern>] [-?|-h|--help]"
+}
+case "$1" in
+    --help|-h|-\?)  shift; printUsage "$0"; exit 0;;
+esac
+remote="${1:?}"; shift
+case "$1" in
+    --help|-h|-\?)  shift; printUsage "$0"; exit 0;;
+    all)	    tagType=all;;
+    annotated)	    tagType=tag;;
+    lightweight)    tagType=commit;;
+    *)		    printf >&2 'ERROR: Invalid tag type %s; must be either all, annotated, or lightweight.\n' "$1"; exit 2;;
+esac; shift
+case "$1" in
+    --help|-h|-\?)  shift; printUsage "$0"; exit 0;;
+esac
+
+filter=
+pattern=
+case "$1" in
+    --list|-l)	    shift; filter='matcher'; pattern="$1"; shift;;
+esac
+
+matcher()
+{
+    while IFS=$'\n' read -r line
+    do
+	case "$line" in
+	    $pattern) printf '%s\n' "$line";;
+	esac
+    done
+}
+tagtype()
+{
+    git ls-remote --tags "$remote" | \
+	awk -v tagType="$tagType" '
+$2 ~ /^refs\/tags\// {
+    tag = substr($2, 11)
+    if (tag ~ /\^\{\}$/) {
+	tag = substr(tag, 1, length(tag) - 3)
+
+	if (previousTag != "" && previousTag != tag) {
+	    print previousTag
+	}
+	if (tagType != "commit") {
+	    print tag
+	}
+	previousTag = ""
+    } else if (tagType != "tag") {
+	if (previousTag != "" && previousTag != tag) {
+	    print previousTag
+	}
+	previousTag = tag   # Do not print yet; an annotated dereferenced tag (that just has "^{}" appended) may follow.
+    }
+}
+END {
+    if (previousTag != "") {
+	print previousTag
+    }
+}
+'
+}
+eval 'tagtype' "${filter:+|} $filter"

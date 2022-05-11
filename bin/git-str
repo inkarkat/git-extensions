@@ -1,0 +1,31 @@
+#!/bin/bash
+set -o pipefail
+
+printUsage()
+{
+    cat <<HELPTEXT
+Concise recursive status that includes one-line summaries of commits of submodules.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<status-options>...] [--] [<pathspec>...] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+typeset -a colorConfig=()
+combinedStatus()
+{
+    git "${colorConfig[@]}" status -sb "$@" && \
+	echo && \
+	git submodule summary "$@"
+}
+
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+if [ -t 1 ]; then
+    isColorOffArgument "$@" || colorConfig=(-c color.status=always)
+else
+    pager=()
+fi
+
+eval 'combinedStatus "$@"' "${pager:+|}" '"${pager[@]}"'

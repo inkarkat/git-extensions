@@ -3,7 +3,7 @@
 printUsage()
 {
     cat <<HELPTEXT
-Show diff of repository and any submodules, too.
+Show diff only of submodules (excluding changes in the current main repo).
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[DIFF-ARGS ...] [-?|-h|--help]'
@@ -13,4 +13,4 @@ case "$1" in
 esac
 
 quotedDiffArgs=; if [ $# -gt 0 ]; then printf -v quotedDiffArgs '%q ' "$@"; quotedDiffArgs="${quotedDiffArgs% }"; fi
-git diff "$@" && git submodule foreach "git diff $quotedDiffArgs"
+exec git submodule foreach --recursive --quiet "git diff $quotedDiffArgs"

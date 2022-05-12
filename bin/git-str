@@ -1,10 +1,16 @@
 #!/bin/bash
 set -o pipefail
 
+: ${GIT_STR_COLOR_REMOVE=[31m}
+: ${GIT_STR_COLOR_ADD=[32m}
+: ${GIT_STR_COLOR_RESET=[0m}
+
 printUsage()
 {
     cat <<HELPTEXT
-Concise recursive status that includes one-line summaries of commits of submodules.
+Concise recursive status that includes one-line summaries of each modified submodule.
+Use "git diff --submodule=log" or even "git diff --submodule=diff" for more
+information about each submodule modification.
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[<status-options>...] [--] [<pathspec>...] [-?|-h|--help]'
@@ -16,9 +22,15 @@ esac
 typeset -a colorConfig=()
 combinedStatus()
 {
+    [ ${#colorConfig[@]} -eq 0 ] && unset "${!GIT_STR_COLOR_@}"
+
     git "${colorConfig[@]}" status -sb "$@" && \
-	echo && \
-	git submodule summary "$@"
+	git diff --submodule=log "$@" | \
+	    sed -n \
+	    -e "/^Submodule /{ s/^Submodule \\|:\$//g; s/^.* (rewind)\$/${GIT_STR_COLOR_REMOVE}&${GIT_STR_COLOR_RESET}/; / (rewind)/!s/^.*\$/${GIT_STR_COLOR_ADD}&${GIT_STR_COLOR_RESET}/; s/\$/\\t/; H }" \
+		-e "/^  < /{ g; s/\$/${GIT_STR_COLOR_REMOVE}-${GIT_STR_COLOR_RESET}/; h }" \
+		-e "/^  > /{ g; s/\$/${GIT_STR_COLOR_ADD}+${GIT_STR_COLOR_RESET}/; h }" \
+		-e '${ g; s/^\n//; /./p }'
 }
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)

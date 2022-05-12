@@ -16,9 +16,11 @@ esac
 typeset -a colorConfig=()
 combinedStatus()
 {
+    typeset -a sedColorizer=(sed -e 's#^  < .*$#[31m&[0m#' -e 's#^  > .*$#[32m&[0m#'); [ ${#colorConfig[@]} -eq 0 ] && sedColorizer=()
+
     git "${colorConfig[@]}" status -sb "$@" && \
 	echo && \
-	git submodule summary "$@"
+	eval 'git submodule summary "$@"' ${sedColorizer[*]:+|} '"${sedColorizer[@]}"'
 }
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)

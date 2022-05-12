@@ -32,6 +32,7 @@ done
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 
+# Deprecated: This is not issued any longer in Git 2.25.1
 GIT_ORPHANED_REPOSITORY_MESSAGE_PREFIX='Would skip repository '
 lsprivate()
 {
@@ -70,7 +71,10 @@ lsprivate()
 	    printf '%s\n' "$filespec"
 	fi
 	status=0
-    done < <(LC_ALL=C git clean --dry-run -d "${gitCleanArgs[@]}" "$@" | sed -e 's/^Would \(not \)\?remove //')
+    done < <(
+	LC_ALL=C git clean --dry-run -d "${gitCleanArgs[@]}" "$@" | sed -e 's/^Would \(not \)\?remove //'
+	[ "$isOrphanedSubmodules" ] && findDirOf "$@" -name .git | sed -e '/^\.$/d' -e 's#^./##'
+    )
 
     return $status
 }

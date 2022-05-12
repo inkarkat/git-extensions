@@ -59,6 +59,8 @@ if [ "$isOrphanedSubmodules" ]; then
     # seem to be a force option for that; we have to manually remove those
     # first. To get the right scope (<path>) for it, let's do a dry-run to find
     # those directories (similar to what git-lsprivate does).
+
+    # Deprecated: This is not issued any longer in Git 2.25.1
     GIT_ORPHANED_REPOSITORY_MESSAGE_PREFIX='Would skip repository '
     while read -r filespec
     do
@@ -71,6 +73,12 @@ if [ "$isOrphanedSubmodules" ]; then
 	    fi
 	fi
     done < <(LC_ALL=C git clean --dry-run -d "${gitCleanArgs[@]}" "$@")
+
+    while read -r filespec
+    do
+	printf 'Removing %s\n' "$filespec"
+	rm --force --recursive "$filespec"
+    done < <(findDirOf "$@" -name .git | sed -e '/^\.$/d' -e 's#^./##')
 fi
 
 exec git clean "${gitCleanArgs[@]}" "$@"

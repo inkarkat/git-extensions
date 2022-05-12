@@ -16,6 +16,7 @@ maxDepth=1
 isOnlyFiles=
 classifyDirectories=/
 submodule=name
+prefix=
 typeset -a gitLogArgs=()
 while [ $# -ne 0 ]
 do
@@ -31,6 +32,7 @@ do
 	--relative-date)	isNeedLog=t; gitLogArgs+=("$1"); shift;;
 	--no-classify)		shift; classifyDirectories=;;
 	--submodule)	shift; submodule="${1:?}"; shift;;
+	--prefix)	shift; prefix="${prefix}$1"; shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -69,7 +71,7 @@ do
 	ignore)
 	    continue;;
 	recurse)
-	    (cd "$filespec" && git-ls "${allSelfOptions[@]}" | prefix "$filespec/");;
+	    (cd "$filespec" && git-ls "${allSelfOptions[@]}" --prefix "${filespec}/");;
     esac
 
 
@@ -83,16 +85,16 @@ do
 	    [ "$isOnlyFiles" ] && continue
 	    filespecSuffix="$classifyDirectories"
 	fi
-	git log --pretty=tformat:"${formatPrefix}${filespec//%/%%}${filespecSuffix}${formatSuffix}" --max-count 1 "${gitLogArgs[@]}" -- "$filespec"
+	git log --pretty=tformat:"${formatPrefix}${prefix//%//%%}${filespec//%/%%}${filespecSuffix}${formatSuffix}" --max-count 1 "${gitLogArgs[@]}" -- "$filespec"
     else
 	if [ -d "$filespec" ]; then
 	    [ "$isOnlyFiles" ] && continue
 	    # Print directory (name) if it contains any tracked files.
 	    if git ls-files --error-unmatch -- "$filespec" >/dev/null 2>&1; then
-		printf '%s%s\n' "${filespec%/}" "$classifyDirectories"
+		printf '%s%s%s\n' "$prefix" "${filespec%/}" "$classifyDirectories"
 	    fi
 	else
-	    git ls-files --error-unmatch -- "$filespec" 2>/dev/null
+	    eval 'git ls-files --error-unmatch -- "$filespec" 2>/dev/null' "${prefix:+| prefix "$prefix"}"
 	fi
     fi
 done

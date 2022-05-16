@@ -42,8 +42,14 @@ submoduleDiff()
 
 tempFilePager()
 {
-    ls -l "$tempDir"/*
-    "${PAGER:-less}" --RAW-CONTROL-CHARS -- "$tempDir"/*
+    typeset -a diffFilespecs=()
+    local filespec; for filespec in "$tempDir"/*
+    do
+	[ -s "$filespec" ] && diffFilespecs+=("$filespec")
+    done
+
+    [ ${#diffFilespecs[@]} -eq 0 ] && exit 1
+    "${PAGER:-less}" --RAW-CONTROL-CHARS -- "${diffFilespecs[@]}"
 }
 
 if [ -t 1 ]; then

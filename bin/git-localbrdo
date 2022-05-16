@@ -8,7 +8,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [--no-pager] [--no-header] [--separate-errors] [--no-git-color] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [-y|--yes] [--continue|--abort|--stashed] [--include-current] [--include-master] [--include-base] [--include-all] [--branches "<branch1> ..."] [--detach] [N] [-c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [--no-pager] [--no-header] [--separate-errors] [--no-git-color] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [--interrupt-on-failure|--interrupt-on EXIT_STATUS] [-y|--yes] [--continue|--abort|--stashed] [--include-current] [--include-master] [--include-base] [--include-all] [--branches "<branch1> ..."] [--detach] [N] [-c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -51,7 +51,12 @@ current Git branch before the command output.
 			yourself.)
     --abort-on-failure	Abort iteration when COMMAND fails.
     --abort-on|-X EXIT_STATUS
-			Abort iteration when COMMAND exits with EXIT_STATUS.
+    --interrupt-on-failure
+			Halt iteration when COMMAND fails. The iteration can
+			then be manually restarted with --continue or aborted
+			with --abort.
+    --interrupt-on EXIT_STATUS
+			Halt iteration when COMMAND exits with EXIT_STATUS.
     --command|-c CMD	The command line to be executed. When this is a simple
 			command, it can also be passed as such. If omitted, will
 			just return to the shell for each branch.
@@ -72,6 +77,8 @@ HELPTEXT
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 abortStatus=
 abortComparison=-eq
+interruptStatus=
+interruptComparison=-eq
 isQuiet=
 isHeader=; type -t withHeader >/dev/null && isHeader=t
 errorRedir='2>&1'
@@ -93,6 +100,9 @@ do
 	--help|-h|-\?)	    shift; printLongUsage "$0"; exit 0;;
 	--abort-on-failure) shift; abortComparison=-ne; abortStatus=0;;
 	--abort-on|-X)	    shift; abortStatus="$1"; shift;;
+	--interrupt-on)	    shift; interruptStatus="$1"; shift;;
+	--interrupt-on-failure)
+			    shift; interruptComparison=-ne; interruptStatus=0;;
 	--quiet|-q)	    shift; isQuiet=t;;
 	--no-pager)	    shift; pager=();;
 	--no-header)	    shift; isHeader=;;
@@ -204,12 +214,15 @@ abortIfDesired()
     fi
 }
 
-interrupt()
+interruptIfDesired()
 {
     local status="${1:?}"; shift
-    printf >&2 'Note: Interrupting iteration because the command failed (with exit status %d). Please check and then continue with --continue.\n' "$status"
-    echo >&2 'You can suppress checking of exit status by appending "|| :" to the COMMANDLINE.'
-    exit $status
+    [ -n "$interruptStatus" ] || return
+    if [ "$status" $interruptComparison $interruptStatus ];then
+	printf >&2 'Note: Interrupting iteration because the command failed (with exit status %d). Please check and then continue with --continue.\n' "$status"
+	echo >&2 'You can suppress checking of exit status by appending "|| :" to the COMMANDLINE.'
+	exit $status
+    fi
 }
 
 restoreOriginalBranch()
@@ -303,7 +316,7 @@ localbrdo()
 	    else
 		status=$?
 		abortIfDesired $status
-		interrupt $status
+		interruptIfDesired $status
 	    fi
 	fi
     done

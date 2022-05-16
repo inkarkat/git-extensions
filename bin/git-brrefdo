@@ -10,7 +10,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$GIT_BRREFDO_COMMANDNAME" "[-q|--quiet] [--no-pager] [--no-header] [--separate-errors] [--no-git-color] [-y|--yes]${GIT_BRREFDO_ADDITIONAL_ARGS:+ }${GIT_BRREFDO_ADDITIONAL_ARGS} [--branches \"<branch1> ...\"] [N] -c|--command \"COMMANDLINE\" [-c ...] | [--] SIMPLECOMMAND [...] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$GIT_BRREFDO_COMMANDNAME" "[-q|--quiet] [--no-pager] [--no-header] [--separate-errors] [--no-git-color] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [-y|--yes]${GIT_BRREFDO_ADDITIONAL_ARGS:+ }${GIT_BRREFDO_ADDITIONAL_ARGS} [--branches \"<branch1> ...\"] [N] -c|--command \"COMMANDLINE\" [-c ...] | [--] SIMPLECOMMAND [...] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -46,6 +46,9 @@ current Git branch before the command output.
     --no-git-color	Do not pass a --color=... to "git SIMPLECOMMAND". (For
 			COMMANDLINE you have to insert "\${gitColorArg[@]}"
 			yourself.)
+    --abort-on-failure	Abort iteration when COMMAND fails.
+    --abort-on|-X EXIT_STATUS
+			Abort iteration when COMMAND exits with EXIT_STATUS.
     --command|-c CMD	The command line to be executed. When this is a simple
 			command, it can also be passed as such. The string {} is
 			replaced with the current branch name.
@@ -58,6 +61,8 @@ HELPTEXT
 }
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+abortStatus=
+abortComparison=-eq
 isQuiet=
 isHeader=; type -t withHeader >/dev/null && isHeader=t
 errorRedir='2>&1'
@@ -73,6 +78,8 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	    shift; printLongUsage "$0"; exit 0;;
+	--abort-on-failure) shift; abortComparison=-ne; abortStatus=0;;
+	--abort-on|-X)	    shift; abortStatus="$1"; shift;;
 	--quiet|-q)	    shift; isQuiet=t;;
 	--no-pager)	    shift; pager=();;
 	--no-header)	    shift; isHeader=;;
@@ -167,10 +174,17 @@ ${branches[*]}"
     [ "$choice" = "y" ] || exit 1
 fi
 
+abortIfDesired()
+{
+    local status="${1:?}"; shift
+    [ -n "$abortStatus" ] || return
+    [ "$status" $abortComparison $abortStatus ] && exit $status
+}
+
 brrefdo()
 {
-    local status=0
     : ${GIT_BRREFDO_HEADER_ID:="brrefdo-$$-$RANDOM"}
+    local status=0
     for branch in "${branches[@]}"
     do
 	typeset -a interpolatedCommands=("${commands[@]//\{\}/$branch}")
@@ -179,7 +193,12 @@ brrefdo()
 	else
 	    typeset -a c=('"${interpolatedCommands[@]}"')
 	fi
-	(eval "${c[@]}" "${isHeader:+$errorRedir | withHeader "${colorArg[@]}" --id '$GIT_BRREFDO_HEADER_ID' -- '$branch'}") || status=$?
+	if (eval "${c[@]}" "${isHeader:+$errorRedir | withHeader "${colorArg[@]}" --id '$GIT_BRREFDO_HEADER_ID' -- '$branch'}"); then
+	    isSuccess=t
+	else
+	    status=$?
+	    abortIfDesired $status
+	fi
     done
     return $status
 }

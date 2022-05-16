@@ -8,7 +8,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [--no-pager] [--no-header] [--separate-errors] [--no-git-color] [-y|--yes] [--continue|--abort|--stashed] [--include-current] [--include-master] [--include-base] [--include-all] [--branches "<branch1> ..."] [--detach] [N] [-c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [--no-pager] [--no-header] [--separate-errors] [--no-git-color] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [-y|--yes] [--continue|--abort|--stashed] [--include-current] [--include-master] [--include-base] [--include-all] [--branches "<branch1> ..."] [--detach] [N] [-c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -49,6 +49,9 @@ current Git branch before the command output.
     --no-git-color	Do not pass a --color=... to "git SIMPLECOMMAND". (For
 			COMMANDLINE you have to insert "\${gitColorArg[@]}"
 			yourself.)
+    --abort-on-failure	Abort iteration when COMMAND fails.
+    --abort-on|-X EXIT_STATUS
+			Abort iteration when COMMAND exits with EXIT_STATUS.
     --command|-c CMD	The command line to be executed. When this is a simple
 			command, it can also be passed as such. If omitted, will
 			just return to the shell for each branch.
@@ -67,6 +70,8 @@ HELPTEXT
 }
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+abortStatus=
+abortComparison=-eq
 isQuiet=
 isHeader=; type -t withHeader >/dev/null && isHeader=t
 errorRedir='2>&1'
@@ -86,6 +91,8 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	    shift; printLongUsage "$0"; exit 0;;
+	--abort-on-failure) shift; abortComparison=-ne; abortStatus=0;;
+	--abort-on|-X)	    shift; abortStatus="$1"; shift;;
 	--quiet|-q)	    shift; isQuiet=t;;
 	--no-pager)	    shift; pager=();;
 	--no-header)	    shift; isHeader=;;
@@ -187,9 +194,19 @@ dirtyCheck()
     fi
 }
 
+abortIfDesired()
+{
+    local status="${1:?}"; shift
+    [ -n "$abortStatus" ] || return
+    if [ "$status" $abortComparison $abortStatus ];then
+	restoreOriginalBranch
+	exit $status
+    fi
+}
+
 interrupt()
 {
-    local status=${1:?}
+    local status="${1:?}"; shift
     printf >&2 'Note: Interrupting iteration because the command failed (with exit status %d). Please check and then continue with --continue.\n' "$status"
     echo >&2 'You can suppress checking of exit status by appending "|| :" to the COMMANDLINE.'
     exit $status
@@ -259,8 +276,10 @@ esac
 localbrdo()
 {
     : ${GIT_LOCALBRDO_HEADER_ID:="localbrdo-$$-$RANDOM"}
-    while true
+    local status=0
+    while :
     do
+	local status=0
 	branch=$(getNextBranch)
 	if [ ! "$branch" ]; then
 	    [ "$isQuiet" ] || echo >&2 "All local branches have been iterated over."
@@ -279,11 +298,15 @@ localbrdo()
 		typeset -a c=('"${commands[@]}"')
 	    fi
 	    if (eval "${c[@]}" "${isHeader:+$errorRedir | withHeader "${colorArg[@]}" --id '$GIT_LOCALBRDO_HEADER_ID' -- '$branch'}"); then
+		isSuccess=t
 		dirtyCheck
 	    else
-		interrupt "$?"
+		status=$?
+		abortIfDesired $status
+		interrupt $status
 	    fi
 	fi
     done
+    return $status
 }
 eval "localbrdo ${pager:+$errorRedir |}" '"${pager[@]}"'

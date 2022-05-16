@@ -10,12 +10,21 @@ HELPTEXT
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --diffmassage)	shift
+			literalSubmodulePath="${displaypath:?}"
+			literalSubmodulePath="${literalSubmodulePath//\\/\\\\}"
+			literalSubmodulePath="${literalSubmodulePath//&/\\&}"
+			sed -e 's#^\(\(\x1b\[[0-9:;]*[mK]\)*\)\(diff --git i/\)\(.*\)\( w/\)\(.*\)#'"\\1\\3${literalSubmodulePath//#/\\#}/\\4\\5${literalSubmodulePath//#/\\#}/\\6#" \
+			    -e 's#^\(\(\x1b\[[0-9:;]*[mK]\)*\)\(--- i/\|+++ w/\)\(.*\)#'"\\1\\3${literalSubmodulePath//#/\\#}/\\4#"
+			exit $?
+			;;
 esac
 
 submoduleDiff()
 {
     local quotedDiffArgs=; if [ $# -gt 0 ]; then printf -v quotedDiffArgs '%q ' "$@"; quotedDiffArgs="${quotedDiffArgs% }"; fi
-    git submodule foreach --recursive --quiet "git diff $quotedDiffArgs"
+    local quotedScriptFilespec; printf -v quotedScriptFilespec %q "${BASH_SOURCE[0]}"
+    git submodule foreach --recursive --quiet "git diff $quotedDiffArgs | $quotedScriptFilespec --diffmassage"
 }
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)

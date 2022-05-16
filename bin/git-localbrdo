@@ -209,6 +209,7 @@ abortIfDesired()
     local status="${1:?}"; shift
     [ -n "$abortStatus" ] || return
     if [ "$status" $abortComparison $abortStatus ];then
+	[ "$isQuiet" ] || printf >&2 'Note: Aborting iteration because the command failed (with exit status %d).\n' "$status"
 	restoreOriginalBranch
 	exit $status
     fi
@@ -219,8 +220,7 @@ interruptIfDesired()
     local status="${1:?}"; shift
     [ -n "$interruptStatus" ] || return
     if [ "$status" $interruptComparison $interruptStatus ];then
-	printf >&2 'Note: Interrupting iteration because the command failed (with exit status %d). Please check and then continue with --continue.\n' "$status"
-	echo >&2 'You can suppress checking of exit status by appending "|| :" to the COMMANDLINE.'
+	[ "$isQuiet" ] || printf >&2 'Note: Interrupting iteration because the command failed (with exit status %d). Please check and then continue with --continue.\n' "$status"
 	exit $status
     fi
 }

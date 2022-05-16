@@ -8,7 +8,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [--no-pager] [--no-header] [--separate-errors] [--no-git-color] [--single-success] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [--interrupt-on-failure|--interrupt-on EXIT_STATUS] [-y|--yes] [--continue|--abort|--stashed] [--include-current] [--include-master] [--include-base] [--include-all] [--branches "<branch1> ..."] [--detach] [N] [-c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [--no-pager] [--no-header] [--separate-errors] [--no-git-color] [--single-success] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [--interrupt-on-failure|--interrupt-on EXIT_STATUS] [-y|--yes] [--continue|--abort|--stashed] [--include-current] [--include-master] [--include-base] [--include-all] [--branches "<branch1> ..."] [--detach] [-B N|--max-branch N] [-c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -59,6 +59,7 @@ current Git branch before the command output.
 			Halt iteration when COMMAND exits with EXIT_STATUS.
     --single-success	Exit status is 0 if at least command in one of the
 			local branches succeeded.
+    --max-branch|-B N	Only consider the last committed N local branches.
     --command|-c CMD	The command line to be executed. When this is a simple
 			command, it can also be passed as such. If omitted, will
 			just return to the shell for each branch.
@@ -124,7 +125,7 @@ do
 	--branches)	    shift; inputBranches=($1); shift;;	# Internal hook to pass in the branches.
 	--continue|--abort) iterationAction=${1#--}; shift;;
 	--detach)	    gitCheckoutArgs+=("$1"); shift;;
-	+([0-9]))	    branchNum=$1; shift;;
+	--max-branch|-B)    shift; branchNum="$1"; shift;;
 	--command|-c)	    shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
 	--)		    shift; break;;
 	-*)		    { echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;

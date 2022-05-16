@@ -119,14 +119,43 @@ if [ -n "$pager" -o -n "$isHeader" ] && isNeedColorArgumentWhenPiping "${colorAr
     [ "$isGitColor" ] && gitColorArg=(--color=always)	# Force for Git
 fi
 
-if [ $# -ne 0 ]; then
+typeset -a gitCommand=(git-wrapper)
+if [ $# -gt 0 ]; then
+    if [ ${#gitColorArg[@]} -gt 0 ]; then
+	# Simply appending gitColorArg doesn't work; many Git commands have a
+	# special <path> or <commit> part at the end. Place it just behind the
+	# Git subcommand by iterating arguments in the same way as the various
+	# git-*-command metaprograms, and moving anything that is in front from
+	# $@ to gitCommand.
+	case "$1" in
+	    [^-]*-command)  gitCommand+=("$1"); shift
+			    while [ $# -ne 0 ]
+			    do
+				case "$1" in
+				    --)		break;;
+				    -*)		gitCommand+=("$1"); shift;;
+				    *)		gitCommand+=("$1"); shift; break;;
+				esac
+			    done
+			    ;;
+	    *)		    while [ $# -ne 0 ]
+			    do
+				case "$1" in
+				    -c) gitCommand+=("$1" "$2"); shift; shift;;
+				    *)	gitCommand+=("$1"); shift; break;;
+				esac
+			    done
+	esac
+	gitCommand+=("${gitColorArg[@]}")
+    fi
+
     if [ "$isNeedEval" ]; then
 	# Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
 	# undo the effects of eval.
 	printf -v quotedSimpleCommand '%q ' "$@"
 	commands+=(${commands:+;} "${quotedSimpleCommand% }")
     else
-	commands=("$@")
+	commands=("${gitCommand[@]}" "$@")
     fi
 fi
 [ ${#commands[@]} -eq 0 ] && isYes=t	# No need to confirm when no command-line is passed; user can abort via --abort interactively.

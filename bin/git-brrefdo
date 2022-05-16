@@ -61,6 +61,7 @@ typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 isQuiet=
 isHeader=; type -t withHeader >/dev/null && isHeader=t
 errorRedir='2>&1'
+isGitColor=t
 typeset -a colorArg=()
 isNeedEval=
 typeset -a commands=()
@@ -76,6 +77,7 @@ do
 	--no-pager)	    shift; pager=();;
 	--no-header)	    shift; isHeader=;;
 	--separate-errors)  shift; errorRedir='';;
+	--no-git-color)	    shift; isGitColor=;;
 	--no-color|--color=*)	colorArg=("$1"); shift;;
 	--color)		colorArg=("$1" "$2"); shift; shift;;
 	--yes|-y)	    shift; isYes=t;;
@@ -98,8 +100,10 @@ done
 # With piping into withHeader / pager, we need to explicitly enable color for
 # Git, unless this command's output itself is redirected. Also don't do this if
 # the user explicitly turned off color.
+gitColorArg=()
 if [ -n "$pager" -o -n "$isHeader" ] && isNeedColorArgumentWhenPiping "${colorArg[@]}"; then
     colorArg=(--color=always)	# Force for withHeader
+    [ "$isGitColor" ] && gitColorArg=(--color=always)	# Force for Git
 fi
 
 if [ $# -ne 0 ]; then

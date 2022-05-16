@@ -30,6 +30,7 @@ HELPTEXT
 printf 'Usage: %q %s\n' "$(basename "$1")" '-r|--revision REVISION [-e|--end-revision END-REVISION|--no-range] [--keep-last] [+1|--one-more|--one-more-command GIT-COMMAND2|^[1|2] [--one-more-with-padding] [--one-more-only-to-terminal] [GIT-COMMAND ...] [-?|-h|--help]'
 }
 
+typeset -a colorArg=()
 isKeepLastArgument=
 isShowOneMore=
 showOneMoreCommand=
@@ -43,6 +44,8 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)	colorArg=("$1"); shift;;
+	--color)		colorArg=("$1" "$2"); shift; shift;;
 	--revision|-r)	shift; revision="$1"; shift;;
 	--end-revision|-e)	shift; endRevision="$1"; shift;;
 	--keep-last)	shift; isKeepLastArgument=t;;
@@ -171,10 +174,10 @@ revRangeWithOneMore()
 if [ "$isShowOneMore" ] && [ ! "$isOneMoreOnlyToTerminal" -o -t 1 ]; then
     # Because of the piping into the pager, we need to explicitly enable color.
     # Don't do this if the user explicitly turned it off, though.
-    typeset -a colorArg=(); isNeedColorArgumentWhenPiping "${preRangeArgs[@]}" && colorArg=(--color=always) || colorArg=()
+    isNeedColorArgumentWhenPiping "${colorArg[@]}" && colorArg=(--color=always)
 
     typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
     eval 'revRangeWithOneMore "$@"' "${pager:+|}" '"${pager[@]}"'
 else
-    exec git-wrapper "${preRangeArgs[@]}" "${revision}${revisionModifier}${range}${endRevision}" "${postRangeArgs[@]}"
+    exec git-wrapper "${preRangeArgs[@]}" "${colorArg[@]}" "${revision}${revisionModifier}${range}${endRevision}" "${postRangeArgs[@]}"
 fi

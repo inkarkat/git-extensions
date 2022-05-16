@@ -6,10 +6,12 @@ printUsage()
 Show diff only of submodules (excluding changes in the current main repo).
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[DIFF-ARGS ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [DIFF-ARGS ...] [-?|-h|--help]'
 }
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --no-pager)		shift; pager=();;
     --diffmassage)	shift
 			literalSubmodulePath="${displaypath:?}"
 			literalSubmodulePath="${literalSubmodulePath//\\/\\\\}"
@@ -27,7 +29,6 @@ submoduleDiff()
     git submodule foreach --recursive --quiet "git ${GIT_SUBDIFF_DIFFCOMMAND:-diff} $quotedDiffArgs | $quotedScriptFilespec --diffmassage"
 }
 
-typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
 if [ -t 1 ]; then
     isColorOffArgument "$@" || set -- '--color=always' "$@"
 else

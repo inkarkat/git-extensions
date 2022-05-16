@@ -10,7 +10,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$GIT_BRREFDO_COMMANDNAME" "[-q|--quiet] [--no-pager] [--no-header] [--separate-errors] [--no-git-color] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [-y|--yes]${GIT_BRREFDO_ADDITIONAL_ARGS:+ }${GIT_BRREFDO_ADDITIONAL_ARGS} [--branches \"<branch1> ...\"] [N] -c|--command \"COMMANDLINE\" [-c ...] | [--] SIMPLECOMMAND [...] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$GIT_BRREFDO_COMMANDNAME" "[-q|--quiet] [--no-pager] [--no-header] [--separate-errors] [--no-git-color] [--single-success] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [-y|--yes]${GIT_BRREFDO_ADDITIONAL_ARGS:+ }${GIT_BRREFDO_ADDITIONAL_ARGS} [--branches \"<branch1> ...\"] [N] -c|--command \"COMMANDLINE\" [-c ...] | [--] SIMPLECOMMAND [...] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -49,6 +49,8 @@ current Git branch before the command output.
     --abort-on-failure	Abort iteration when COMMAND fails.
     --abort-on|-X EXIT_STATUS
 			Abort iteration when COMMAND exits with EXIT_STATUS.
+    --single-success	Exit status is 0 if at least command in one of the
+			${GIT_BRREFDO_WHAT} succeeded.
     --command|-c CMD	The command line to be executed. When this is a simple
 			command, it can also be passed as such. The string {} is
 			replaced with the current branch name.
@@ -57,12 +59,17 @@ Pass --no-git-color if "git SIMPLECOMMAND" does not support the --color=...
 arguments. (For COMMANDLINE you have to insert "\${gitColorArg[@]}" yourself.)
 You can still pass --color=always if you pipe this command's output yet still
 want coloring of headers.
+EXIT STATUS
+Returns the last non-successful exit status. With --single-success,
+non-successful executions are ignored unless all of them fail. In other words,
+exit status is 0 if at least one command succeeded.
 HELPTEXT
 }
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 abortStatus=
 abortComparison=-eq
+isSingleSuccess=
 isQuiet=
 isHeader=; type -t withHeader >/dev/null && isHeader=t
 errorRedir='2>&1'
@@ -80,6 +87,7 @@ do
 	--help|-h|-\?)	    shift; printLongUsage "$0"; exit 0;;
 	--abort-on-failure) shift; abortComparison=-ne; abortStatus=0;;
 	--abort-on|-X)	    shift; abortStatus="$1"; shift;;
+	--single-success)   shift; isSingleSuccess=t;;
 	--quiet|-q)	    shift; isQuiet=t;;
 	--no-pager)	    shift; pager=();;
 	--no-header)	    shift; isHeader=;;
@@ -200,6 +208,10 @@ brrefdo()
 	    abortIfDesired $status
 	fi
     done
-    return $status
+    if [ "$isSingleSuccess" ]; then
+	[ "$isSuccess" ]
+    else
+	return $status
+    fi
 }
 eval "brrefdo ${pager:+$errorRedir |}" '"${pager[@]}"'

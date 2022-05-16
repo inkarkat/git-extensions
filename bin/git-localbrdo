@@ -8,7 +8,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [--no-pager] [--no-header] [--separate-errors] [--no-git-color] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [--interrupt-on-failure|--interrupt-on EXIT_STATUS] [-y|--yes] [--continue|--abort|--stashed] [--include-current] [--include-master] [--include-base] [--include-all] [--branches "<branch1> ..."] [--detach] [N] [-c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [--no-pager] [--no-header] [--separate-errors] [--no-git-color] [--single-success] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [--interrupt-on-failure|--interrupt-on EXIT_STATUS] [-y|--yes] [--continue|--abort|--stashed] [--include-current] [--include-master] [--include-base] [--include-all] [--branches "<branch1> ..."] [--detach] [N] [-c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -57,6 +57,8 @@ current Git branch before the command output.
 			with --abort.
     --interrupt-on EXIT_STATUS
 			Halt iteration when COMMAND exits with EXIT_STATUS.
+    --single-success	Exit status is 0 if at least command in one of the
+			local branches succeeded.
     --command|-c CMD	The command line to be executed. When this is a simple
 			command, it can also be passed as such. If omitted, will
 			just return to the shell for each branch.
@@ -71,6 +73,10 @@ Pass --no-git-color if "git SIMPLECOMMAND" does not support the --color=...
 arguments. (For COMMANDLINE you have to insert "\${gitColorArg[@]}" yourself.)
 You can still pass --color=always if you pipe this command's output yet still
 want coloring of headers.
+EXIT STATUS
+Returns the last non-successful exit status. With --single-success,
+non-successful executions are ignored unless all of them fail. In other words,
+exit status is 0 if at least one command succeeded.
 HELPTEXT
 }
 
@@ -79,6 +85,7 @@ abortStatus=
 abortComparison=-eq
 interruptStatus=
 interruptComparison=-eq
+isSingleSuccess=
 isQuiet=
 isHeader=; type -t withHeader >/dev/null && isHeader=t
 errorRedir='2>&1'
@@ -103,6 +110,7 @@ do
 	--interrupt-on)	    shift; interruptStatus="$1"; shift;;
 	--interrupt-on-failure)
 			    shift; interruptComparison=-ne; interruptStatus=0;;
+	--single-success)   shift; isSingleSuccess=t;;
 	--quiet|-q)	    shift; isQuiet=t;;
 	--no-pager)	    shift; pager=();;
 	--no-header)	    shift; isHeader=;;
@@ -320,6 +328,10 @@ localbrdo()
 	    fi
 	fi
     done
-    return $status
+    if [ "$isSingleSuccess" ]; then
+	[ "$isSuccess" ]
+    else
+	return $status
+    fi
 }
 eval "localbrdo ${pager:+$errorRedir |}" '"${pager[@]}"'

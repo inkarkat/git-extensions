@@ -10,7 +10,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$GIT_BRREFDO_COMMANDNAME" "[-q|--quiet] [--no-pager] [--no-header] [--separate-errors] [-y|--yes]${GIT_BRREFDO_ADDITIONAL_ARGS:+ }${GIT_BRREFDO_ADDITIONAL_ARGS} [--branches \"<branch1> ...\"] [N] -c|--command \"COMMANDLINE\" [-c ...] | [--] SIMPLECOMMAND [...] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$GIT_BRREFDO_COMMANDNAME" "[-q|--quiet] [--no-pager] [--no-header] [--separate-errors] [--no-git-color] [--single-success] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [-y|--yes]${GIT_BRREFDO_ADDITIONAL_ARGS:+ }${GIT_BRREFDO_ADDITIONAL_ARGS} [--branches \"<branch1> ...\"] [N] -c|--command \"COMMANDLINE\" [-c ...] | [--] SIMPLECOMMAND [...] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -25,7 +25,8 @@ printLongUsage()
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
 Iterate over all / the last N ${GIT_BRREFDO_WHAT}${GIT_BRREFDO_WHAT_DETAILS:+ }${GIT_BRREFDO_WHAT_DETAILS} one by one
-and execute COMMAND for each branch, replacing {} with its name.
+and execute "git SIMPLECOMMAND" and/or COMMANDLINE for each branch, replacing {}
+with its name.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
@@ -34,22 +35,45 @@ COMMAND execution puts a header line (unless --no-header) that contains the
 current Git branch before the command output.
     --no-pager		Do not page the output (so contents will scroll out of
 			view if there's too much output).
+    --no-header		Do not output the header line before command output (and
+			no separating empty line after it).
     --separate-errors	Do not combine command output and command errors into
 			one (paged) stream. Commands that just cause error
 			output won't have a header then. Error output will
 			remain on its separate file descriptor and will not be
 			paged. Useful if you want to suppress errors or handle
 			them separately.
+    --no-git-color	Do not pass a --color=... to "git SIMPLECOMMAND". (For
+			COMMANDLINE you have to insert "\${gitColorArg[@]}"
+			yourself.)
+    --abort-on-failure	Abort iteration when COMMAND fails.
+    --abort-on|-X EXIT_STATUS
+			Abort iteration when COMMAND exits with EXIT_STATUS.
+    --single-success	Exit status is 0 if at least command in one of the
+			${GIT_BRREFDO_WHAT} succeeded.
     --command|-c CMD	The command line to be executed. When this is a simple
 			command, it can also be passed as such. The string {} is
 			replaced with the current branch name.
+Note: For paging and headers, this command has to control Git's color output.
+Pass --no-git-color if "git SIMPLECOMMAND" does not support the --color=...
+arguments. (For COMMANDLINE you have to insert "\${gitColorArg[@]}" yourself.)
+You can still pass --color=always if you pipe this command's output yet still
+want coloring of headers.
+EXIT STATUS
+Returns the last non-successful exit status. With --single-success,
+non-successful executions are ignored unless all of them fail. In other words,
+exit status is 0 if at least one command succeeded.
 HELPTEXT
 }
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+abortStatus=
+abortComparison=-eq
+isSingleSuccess=
 isQuiet=
 isHeader=; type -t withHeader >/dev/null && isHeader=t
 errorRedir='2>&1'
+isGitColor=t
 typeset -a colorArg=()
 isNeedEval=
 typeset -a commands=()
@@ -61,10 +85,14 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	    shift; printLongUsage "$0"; exit 0;;
+	--abort-on-failure) shift; abortComparison=-ne; abortStatus=0;;
+	--abort-on|-X)	    shift; abortStatus="$1"; shift;;
+	--single-success)   shift; isSingleSuccess=t;;
 	--quiet|-q)	    shift; isQuiet=t;;
 	--no-pager)	    shift; pager=();;
 	--no-header)	    shift; isHeader=;;
 	--separate-errors)  shift; errorRedir='';;
+	--no-git-color)	    shift; isGitColor=;;
 	--no-color|--color=*)	colorArg=("$1"); shift;;
 	--color)		colorArg=("$1" "$2"); shift; shift;;
 	--yes|-y)	    shift; isYes=t;;
@@ -87,18 +115,49 @@ done
 # With piping into withHeader / pager, we need to explicitly enable color for
 # Git, unless this command's output itself is redirected. Also don't do this if
 # the user explicitly turned off color.
+gitColorArg=()
 if [ -n "$pager" -o -n "$isHeader" ] && isNeedColorArgumentWhenPiping "${colorArg[@]}"; then
     colorArg=(--color=always)	# Force for withHeader
+    [ "$isGitColor" ] && gitColorArg=(--color=always)	# Force for Git
 fi
 
-if [ $# -ne 0 ]; then
+typeset -a gitCommand=(git-wrapper)
+if [ $# -gt 0 ]; then
+    if [ ${#gitColorArg[@]} -gt 0 ]; then
+	# Simply appending gitColorArg doesn't work; many Git commands have a
+	# special <path> or <commit> part at the end. Place it just behind the
+	# Git subcommand by iterating arguments in the same way as the various
+	# git-*-command metaprograms, and moving anything that is in front from
+	# $@ to gitCommand.
+	case "$1" in
+	    [^-]*-command)  gitCommand+=("$1"); shift
+			    while [ $# -ne 0 ]
+			    do
+				case "$1" in
+				    --)		break;;
+				    -*)		gitCommand+=("$1"); shift;;
+				    *)		gitCommand+=("$1"); shift; break;;
+				esac
+			    done
+			    ;;
+	    *)		    while [ $# -ne 0 ]
+			    do
+				case "$1" in
+				    -c) gitCommand+=("$1" "$2"); shift; shift;;
+				    *)	gitCommand+=("$1"); shift; break;;
+				esac
+			    done
+	esac
+	gitCommand+=("${gitColorArg[@]}")
+    fi
+
     if [ "$isNeedEval" ]; then
 	# Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
 	# undo the effects of eval.
 	printf -v quotedSimpleCommand '%q ' "$@"
 	commands+=(${commands:+;} "${quotedSimpleCommand//\\\{\\\}/\{\}}")	# %q escapes {}, we don't want that to have it interpolated later.
     else
-	commands=("$@")
+	commands=("${gitCommand[@]}" "$@")
     fi
 fi
 if [ ${#commands[@]} -eq 0 ]; then
@@ -123,10 +182,17 @@ ${branches[*]}"
     [ "$choice" = "y" ] || exit 1
 fi
 
+abortIfDesired()
+{
+    local status="${1:?}"; shift
+    [ -n "$abortStatus" ] || return
+    [ "$status" $abortComparison $abortStatus ] && exit $status
+}
+
 brrefdo()
 {
-    local status=0
     : ${GIT_BRREFDO_HEADER_ID:="brrefdo-$$-$RANDOM"}
+    local status=0
     for branch in "${branches[@]}"
     do
 	typeset -a interpolatedCommands=("${commands[@]//\{\}/$branch}")
@@ -135,8 +201,17 @@ brrefdo()
 	else
 	    typeset -a c=('"${interpolatedCommands[@]}"')
 	fi
-	(eval "${c[@]}" "${isHeader:+$errorRedir | withHeader "${colorArg[@]}" --id '$GIT_BRREFDO_HEADER_ID' -- '$branch'}") || status=$?
+	if (eval "${c[@]}" "${isHeader:+$errorRedir | withHeader "${colorArg[@]}" --id '$GIT_BRREFDO_HEADER_ID' -- '$branch'}"); then
+	    isSuccess=t
+	else
+	    status=$?
+	    abortIfDesired $status
+	fi
     done
-    return $status
+    if [ "$isSingleSuccess" ]; then
+	[ "$isSuccess" ]
+    else
+	return $status
+    fi
 }
 eval "brrefdo ${pager:+$errorRedir |}" '"${pager[@]}"'

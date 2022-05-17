@@ -8,9 +8,10 @@ Undo the last commit / N commits / commits up to <commit> of the current branch,
 and archive it by tagging it (also in origin if it exists).
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [-y|--yes] [-t|--name <tagname>] [-n|--count N|<commit>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [-q|--quiet] [-y|--yes] [-t|--name <tagname>] [-n|--count N|<commit>] [-?|-h|--help]'
 }
 tagName=
+isForce=
 isQuiet=
 isYes=
 commit=HEAD
@@ -19,6 +20,7 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	    shift; printUsage "$0"; exit 0;;
+	--force|-f)	    shift; isForce=t;;
 	--quiet|-q)	    shift; isQuiet=t;;
 	--yes|-y)	    shift; isYes=t;;
 	--name|-t)	    shift; tagName="$1"; shift;;
@@ -67,8 +69,12 @@ fi
 [ -n "$tagName" ] || exit 1
 fullTagName="archive/$tagName"
 if git-existstag "$fullTagName"; then
-    printf >&2 "ERROR: Tag '%s' already exists.\\n" "$fullTagName"
-    exit 1
+    if [ "$isForce" ]; then
+	printf >&2 "Note: Tag '%s' already exists; overwriting because of --force.\\n" "$fullTagName"
+    else
+	printf >&2 "ERROR: Tag '%s' already exists.\\n" "$fullTagName"
+	exit 1
+    fi
 fi
 
 commitNumPlural=s; [ $commitNum -eq 1 ] && commitNumPlural=
@@ -79,6 +85,6 @@ else
     [ "$choice" = "y" ] || exit 1
 fi
 
-git tag "$fullTagName" "$tagCommit" || exit $?
+git tag ${isForce:+--force} "$fullTagName" "$tagCommit" || exit $?
 git update-ref -m "archivecommit: move $commitNum commit${commitNumPlural} to $fullTagName" "refs/heads/$currentBranchName" "${commit}^" || exit $?
-! git existsremote origin || git push --tags origin || exit $?
+! git existsremote origin || git push ${isForce:+--force} --tags origin || exit $?

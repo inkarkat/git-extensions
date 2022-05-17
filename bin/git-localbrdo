@@ -4,11 +4,14 @@ shopt -qs extglob
 
 readonly scriptFilespec="${BASH_SOURCE[0]}"
 
+hasProgressNotification=; type -t progressNotification >/dev/null && hasProgressNotification=t
+hasProgressNotificationToAddendum=; type -t progressNotificationToAddendum >/dev/null && hasProgressNotificationToAddendum=t
+
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [--no-pager] [--no-header] [--separate-errors] [--no-git-color] [--single-success] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [--interrupt-on-failure|--interrupt-on EXIT_STATUS] [-y|--yes] [--continue|--abort|--stashed] [--include-current] [--include-master] [--include-base] [--include-all] [--branches "<branch1> ..."] [--detach] [-B N|--max-branch N] [-c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...]] [-?|-h|--help]'
+    printf 'Usage: %q %s%s%s\n' "$(basename "$1")" '[-q|--quiet] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress overlay|title|command|notify${hasProgressNotificationToAddendum:+|addendum}]}" '[--separate-errors] [--no-git-color] [--single-success] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [--interrupt-on-failure|--interrupt-on EXIT_STATUS] [-y|--yes] [--continue|--abort|--stashed] [--include-current] [--include-master] [--include-base] [--include-all] [--branches "<branch1> ..."] [--detach] [-B N|--max-branch N] [-c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -39,7 +42,22 @@ current Git branch before the command output.
     --no-pager		Do not page the output (so contents will scroll out of
 			view if there's too much output).
     --no-header		Do not output the header line before command output (and
-			no separating empty line after it).
+			no separating empty line after it).${hasProgressNotification:+
+    --progress overlay|title|command|notify${hasProgressNotificationToAddendum:+|addendum}
+			Report the current WORKING-COPY name (and count +
+			percentage) in one of the following ways:
+			overlay:    in the form of overlaid text, written via
+				    ANSI escape sequences in the first line of
+				    the terminal
+			title:	    in the terminal's window title via ANSI
+				    escape sequences
+			command:    by invoking
+					PROGRESSNOTIFICATION_COMMANDLINE${PROGRESSNOTIFICATION_REPORT_MARKER:+
+				    while replacing $PROGRESSNOTIFICATION_REPORT_MARKER with the report}
+			notify:	    via notify-send to the system's notification
+				    system}${hasProgressNotificationToAddendum:+
+			addendum:   via the addendum of the terminal"'"s window
+				    title}
     --separate-errors	Do not combine command output and command errors into
 			one (paged) stream. Commands that just cause error
 			output won't have a header then. Error output will
@@ -91,6 +109,7 @@ abortStatus=
 abortComparison=-eq
 interruptStatus=
 interruptComparison=-eq
+progressSink=
 isSingleSuccess=
 isQuiet=
 isHeader=; type -t withHeader >/dev/null && isHeader=t
@@ -120,6 +139,7 @@ do
 	--quiet|-q)	    shift; isQuiet=t;;
 	--no-pager)	    shift; pager=();;
 	--no-header)	    shift; isHeader=;;
+	--progress)	    shift; progressSink="$1"; shift;;
 	--separate-errors)  shift; errorRedir='';;
 	--no-git-color)	    shift; isGitColor=;;
 	--no-color|--color=*)	colorArg=("$1"); shift;;
@@ -270,6 +290,7 @@ case "$iterationAction" in
 	    # needs eval to execute.
 	    isNeedEval=t
 	fi
+	readarray -t localBranches < "$branchStore"
 	;;
     '')
 	readarray -t localBranches < <(git-localbr "${gitLocalbrArgs[@]}" -- "${inputBranches[@]}" | tail -n "$branchNum")
@@ -300,6 +321,23 @@ ${localBranches[*]}"
 	;;
 esac
 
+if [ ${#commands[@]} -gt 0 ] && [ "$hasProgressNotification" ] && [ -n "$progressSink" ]; then
+    if [ "$progressSink" = addendum ]; then
+	[ "$hasProgressNotificationToAddendum" ] && \
+	    exec 3> >(progressNotificationToAddendum --prepend-count 'local branch' --count-to "${#localBranches[@]}" 2>/dev/null)  # Silence "Cannot notify via titleupdate; TERMID not defined."
+    else
+	exec 3> >(progressNotification --to "$progressSink" --prepend-count 'local branch' --count-to "${#localBranches[@]}" 2>/dev/null)
+    fi
+
+    reportProgress()
+    {
+	trap 'reportProgress() { :; }; trap PIPE' PIPE
+	printf '%s\n' "$*" >&3 2>/dev/null  # Silence "printf: write error: Broken pipe"
+    }
+else
+    reportProgress() { :; }
+fi
+
 localbrdo()
 {
     : ${GIT_LOCALBRDO_HEADER_ID:="localbrdo-$$-$RANDOM"}
@@ -324,6 +362,7 @@ localbrdo()
 	    else
 		typeset -a c=('"${commands[@]}"')
 	    fi
+	    reportProgress "$branch"
 	    if (eval "${c[@]}" "${isHeader:+$errorRedir | withHeader "${colorArg[@]}" --id '$GIT_LOCALBRDO_HEADER_ID' -- '$branch'}"); then
 		isSuccess=t
 		dirtyCheck

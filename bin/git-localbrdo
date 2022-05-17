@@ -31,8 +31,8 @@ SIMPLECOMMAND" and/or COMMANDLINE on each branch.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
+    echo
     cat <<HELPTEXT
-
 If no COMMAND is given, just performs the checkout and returns to the shell; the
 next iteration is then triggered by re-executing with --continue, which can also
 be used to continue with COMMAND execution in case an unclean exit or a
@@ -153,10 +153,11 @@ do
 	--yes|-y)	    shift; isYes=t;;
 	--include-*)	    gitLocalbrArgs+=("$1"); shift;;
 	--branches)	    shift; inputBranches=($1); shift;;	# Internal hook to pass in the branches.
-	--continue|--abort) iterationAction=${1#--}; shift;;
+	--continue|--abort) iterationAction="${1#--}"; shift;;
 	--detach)	    gitCheckoutArgs+=("$1"); shift;;
 	--max-branch|-B)    shift; branchNum="$1"; shift;;
-	--predicate-command)	shift; predicateCommands+=(${predicateCommands:+&&} "$1"); shift;;
+	--predicate-command)
+			    shift; predicateCommands+=(${predicateCommands:+&&} "$1"); shift;;
 	--command|-c)	    shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
 	--)		    shift; break;;
 	-*)		    { echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
@@ -217,7 +218,7 @@ if [ $# -gt 0 ]; then
 fi
 [ ${#commands[@]} -eq 0 ] && isYes=t	# No need to confirm when no command-line is passed; user can abort via --abort interactively.
 
-gitDir=$(git rev-parse --git-dir 2>/dev/null) || exit $?
+gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit $?
 origBranchStore="${gitDir}/localbrOrig"
 branchStore="${gitDir}/localbr" || exit $?
 commandLineStore="${gitDir}/localbrCommandLine"
@@ -363,9 +364,9 @@ localbrdo()
     while :
     do
 	local status=0
-	branch=$(getNextBranch)
-	if [ ! "$branch" ]; then
-	    [ "$isQuiet" ] || echo >&2 "All local branches have been iterated over."
+	branch="$(getNextBranch)"
+	if [ -z "$branch" ]; then
+	    [ "$isQuiet" ] || echo >&2 'All local branches have been iterated over.'
 
 	    restoreOriginalBranch; exit
 	fi

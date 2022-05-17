@@ -11,7 +11,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s%s%s\n' "$(basename "$1")" '[-q|--quiet] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress overlay|title|command|notify${hasProgressNotificationToAddendum:+|addendum}]}" '[--separate-errors] [--no-git-color] [--single-success] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [--interrupt-on-failure|--interrupt-on EXIT_STATUS] [-y|--yes] [--continue|--abort|--stashed] [--include-current] [--include-master] [--include-base] [--include-all] [--branches "<branch1> ..."] [--detach] [-B N|--max-branch N] [-c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...]] [-?|-h|--help]'
+    printf 'Usage: %q %s%s%s\n' "$(basename "$1")" '[-q|--quiet] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress overlay|title|command|notify${hasProgressNotificationToAddendum:+|addendum}]}" '[--separate-errors] [--no-git-color] [--single-success] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [--interrupt-on-failure|--interrupt-on EXIT_STATUS] [-y|--yes] [--continue|--abort|--stashed] [--include-current] [--include-master] [--include-base] [--include-all] [--branches "<branch1> ..."] [--detach] [-B N|--max-branch N] [--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -79,6 +79,10 @@ current Git branch before the command output.
     --single-success	Exit status is 0 if at least command in one of the
 			local branches succeeded.
     --max-branch|-B N	Only consider the last committed N local branches.
+    --predicate-command CMD
+			Skip local branches where CMD fails. The string {}
+			is replaced with the current branch name; the working
+			copy isn't switched yet.
     --command|-c CMD	Execute the passed command line. When this is a simple
 			Git command, it can also be passed as such:
 			    $(basename "$1") [...] [--] SIMPLECOMMAND
@@ -118,6 +122,7 @@ isGitColor=t
 typeset -a colorArg=()
 typeset -a args=("$@")
 isNeedEval=
+typeset -a predicateCommands=()
 typeset -a commands=()
 isStashed=
 isYes=
@@ -151,6 +156,7 @@ do
 	--continue|--abort) iterationAction=${1#--}; shift;;
 	--detach)	    gitCheckoutArgs+=("$1"); shift;;
 	--max-branch|-B)    shift; branchNum="$1"; shift;;
+	--predicate-command)	shift; predicateCommands+=(${predicateCommands:+&&} "$1"); shift;;
 	--command|-c)	    shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
 	--)		    shift; break;;
 	-*)		    { echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
@@ -297,6 +303,18 @@ case "$iterationAction" in
 	if [ ${#localBranches[@]} -eq 0 ]; then
 	    echo >&2 'No local branches found!'
 	    exit 1
+	fi
+	if [ ${#predicateCommands[@]} -gt 0 ]; then
+	    typeset -a filteredLocalBranches=()
+	    for branch in "${localBranches[@]}"
+	    do
+		eval "${predicateCommands[@]//\{\}/$branch}" && filteredLocalBranches+=("$branch")
+	    done
+	    if [ ${#filteredLocalBranches[@]} -eq 0 ]; then
+		echo >&2 'No local branches to consider.'
+		exit 1
+	    fi
+	    localBranches=("${filteredLocalBranches[@]}")
 	fi
 
 	IFS=$'\n'

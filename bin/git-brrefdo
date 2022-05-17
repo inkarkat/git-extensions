@@ -13,7 +13,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$GIT_BRREFDO_COMMANDNAME" "[-q|--quiet] [--no-pager] [--no-header] ${hasProgressNotification:+ [--progress overlay|title|command|notify${hasProgressNotificationToAddendum:+|addendum}]} [--separate-errors] [--no-git-color] [--single-success] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [-y|--yes]${GIT_BRREFDO_ADDITIONAL_ARGS:+ }${GIT_BRREFDO_ADDITIONAL_ARGS} [--branches \"<branch1> ...\"] [-B N|--max-branch N] [--predicate-command \"COMMANDLINE\" [...]] -c|--command \"COMMANDLINE\" [-c ...] | [--] SIMPLECOMMAND [...] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$GIT_BRREFDO_COMMANDNAME" "[--no-pager] [--no-header] ${hasProgressNotification:+ [--progress overlay|title|command|notify${hasProgressNotificationToAddendum:+|addendum}]} [--separate-errors] [--no-git-color] [--single-success] [--abort-on-failure|-X|--abort-on EXIT_STATUS]${GIT_BRREFDO_ADDITIONAL_ARGS:+ }${GIT_BRREFDO_ADDITIONAL_ARGS} [--branches \"<branch1> ...\"] [-B N|--max-branch N] [--predicate-command \"COMMANDLINE\" [...]] [-c|--command \"COMMANDLINE\" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -95,7 +95,6 @@ typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 abortStatus=
 abortComparison=-eq
 isSingleSuccess=
-isQuiet=
 isHeader=; type -t withHeader >/dev/null && isHeader=t
 progressSink=
 errorRedir='2>&1'
@@ -104,7 +103,6 @@ typeset -a colorArg=()
 isNeedEval=
 typeset -a predicateCommands=()
 typeset -a commands=()
-isYes=
 branchNum=
 typeset -a inputBranches=()
 typeset -a gitBrArgs=()
@@ -115,7 +113,6 @@ do
 	--abort-on-failure) shift; abortComparison=-ne; abortStatus=0;;
 	--abort-on|-X)	    shift; abortStatus="$1"; shift;;
 	--single-success)   shift; isSingleSuccess=t;;
-	--quiet|-q)	    shift; isQuiet=t;;
 	--no-pager)	    shift; pager=();;
 	--no-header)	    shift; isHeader=;;
 	--progress)	    shift; progressSink="$1"; shift;;
@@ -123,7 +120,6 @@ do
 	--no-git-color)	    shift; isGitColor=;;
 	--no-color|--color=*)	colorArg=("$1"); shift;;
 	--color)		colorArg=("$1" "$2"); shift; shift;;
-	--yes|-y)	    shift; isYes=t;;
 	-+([${GIT_BRREFDO_SHORT_OPTIONS:-[]}]))
 			    gitBrArgs+=("$1"); shift;;
 	--@(${GIT_BRREFDO_LONG_OPTIONS:-[]}))
@@ -190,10 +186,6 @@ if [ $# -gt 0 ]; then
 	commands=("${gitCommand[@]}" "$@")
     fi
 fi
-if [ ${#commands[@]} -eq 0 ]; then
-    echo >&2 'ERROR: No COMMAND(s) specified; need to pass -c|--command "COMMANDLINE", or SIMPLECOMMAND.'
-    exit 2
-fi
 
 readarray -t branches < <(eval '$GIT_BRREFDO_BRANCH_COMMAND "${gitBrArgs[@]}" ${inputBranches:+--} "${inputBranches[@]}"' ${branchNum:+ | tail -n "$branchNum"})
 if [ ${#branches[@]} -eq 0 ]; then
@@ -201,15 +193,9 @@ if [ ${#branches[@]} -eq 0 ]; then
     exit 1
 fi
 
-IFS=$'\n'
-if [ "$isYes" ]; then
-    [ "$isQuiet" ] || echo >&2 "Iterating over these ${GIT_BRREFDO_WHAT}:
-${branches[*]}"
-else
-    echo >/dev/tty "Iterating over these ${GIT_BRREFDO_WHAT}:
-${branches[*]}"
-    </dev/tty read -r -N 1 -p "Really iterate over these branches? (y/n) " choice; echo >/dev/tty
-    [ "$choice" = "y" ] || exit 1
+if [ ${#commands[@]} -eq 0 ]; then
+    printf '%s\n' "${branches[@]}"
+    exit 0
 fi
 
 if [ "$hasProgressNotification" ] && [ -n "$progressSink" ]; then

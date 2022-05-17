@@ -21,19 +21,19 @@ case "$1" in
 esac
 
 branchDeleteOption=-d
-tagForceOption=
+isForce=
 case $1 in
-    -f|--force)	shift; branchDeleteOption=-D; tagForceOption=-f;;
+    -f|--force)	shift; branchDeleteOption=-D; isForce=t;;
 esac
 
 status=0
 for branch
 do
-    git tag $tagForceOption "archive/$branch" "$branch" || status=1
+    git tag ${isForce:+--force} "archive/$branch" "$branch" || status=1
 done
 [ $status -eq 0 ] || exit $status
 
-! git existsremote origin || git push --tags origin || exit $?
+! git existsremote origin || git push ${isForce:+--force} --tags origin || exit $?
 
 # Note: Process all passed branches in one fell swoop; this avoid re-querying
 # (on push) the remote repository credentials for each branch. When one branch

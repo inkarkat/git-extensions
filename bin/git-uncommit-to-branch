@@ -4,17 +4,19 @@ set -o pipefail
 printUsage()
 {
     cat <<HELPTEXT
-Undo the last commit / N commits / commits up to <commit> of the current branch,
-and check it out in a newly created <branch> instead.
+Undo the last commit / N commits / commits up to and including (unless
+--exclude-commit) <commit> of the current branch, and check it out in a newly
+created <branch> instead.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [-y|--yes] [-b|--branch <branch>] [-n|--count N|<commit>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [-y|--yes] [-b|--branch <branch>] [-n N|--count N|[--exclude-commit] <commit>] [-?|-h|--help]'
 }
 branchName=
 isQuiet=
 isYes=
 commit=HEAD
 commitNum=1
+commitOffset=1
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -31,6 +33,7 @@ do
 			    commitNum=$1
 			    shift
 			    ;;
+	--exclude-commit)   shift; commitOffset=0;;
 	-*)		    { echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		    break;;
     esac
@@ -41,9 +44,9 @@ if [ $# -gt 0 ]; then
     # Check reachability.
     if git rev-list --quiet --first-parent "${commit}.." -- 2>/dev/null; then
 	commitNum=$(git rev-list "${commit}.." -- | wc -l)
-	let commitNum+=1
+	let commitNum+=commitOffset
     elif commitNum=$(git rev-list "${commit}.." -- 2>/dev/null | wc -l); then
-	let commitNum+=1
+	let commitNum+=commitOffset
 	# The commit has been merged from a branch; this is dubious.
 	if [ ! "$isYes" ]; then
 	    </dev/tty read -r -N 1 -p "The target commit is on a side branch that was merged into the current branch; really move to that? (y/n) " choice; echo >/dev/tty
@@ -79,4 +82,4 @@ else
 fi
 
 git checkout -b "$branchName" "$branchCommit" || exit $?
-exec git update-ref -m "uncommit-to-branch: move $commitNum commit${commitNumPlural} onto $branchName" "refs/heads/$currentBranchName" "${commit}^"
+exec git update-ref -m "uncommit-to-branch: move $commitNum commit${commitNumPlural} onto $branchName" "refs/heads/$currentBranchName" "${commit}~${commitOffset}"

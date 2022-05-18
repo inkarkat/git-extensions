@@ -11,7 +11,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s%s%s\n' "$(basename "$1")" '[-q|--quiet] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress overlay|title|command|notify${hasProgressNotificationToAddendum:+|addendum}]}" '[--separate-errors] [--no-git-color] [--single-success] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [--interrupt-on-failure|--interrupt-on EXIT_STATUS] [-y|--yes] [--continue|--abort|--stashed] [--include-current] [--include-master] [--include-base] [--include-all] [--branches "<branch1> ..."] [--detach] [-B N|--max-branch N] [--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...]] [-?|-h|--help]'
+    printf 'Usage: %q %s%s%s\n' "$(basename "$1")" '[-q|--quiet] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress overlay|title|command|notify${hasProgressNotificationToAddendum:+|addendum}]}" '[--separate-errors] [--no-git-color] [--single-success] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [--interrupt-on-failure|--interrupt-on EXIT_STATUS] [--continue|--abort|--stashed] [--include-current] [--include-master] [--include-base] [--include-all] [--branches "<branch1> ..."] [--detach] [-B N|--max-branch N] [--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -108,6 +108,7 @@ exit status is 0 if at least one command succeeded.
 HELPTEXT
 }
 
+typeset -a args=("$@")
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 abortStatus=
 abortComparison=-eq
@@ -120,12 +121,10 @@ isHeader=; type -t withHeader >/dev/null && isHeader=t
 errorRedir='2>&1'
 isGitColor=t
 typeset -a colorArg=()
-typeset -a args=("$@")
 isNeedEval=
 typeset -a predicateCommands=()
 typeset -a commands=()
 isStashed=
-isYes=
 branchNum=9999
 typeset -a inputBranches=()
 iterationAction=
@@ -150,7 +149,6 @@ do
 	--no-color|--color=*)	colorArg=("$1"); shift;;
 	--color)		colorArg=("$1" "$2"); shift; shift;;
 	--stashed)	    shift; isStashed=t;;
-	--yes|-y)	    shift; isYes=t;;
 	--include-*)	    gitLocalbrArgs+=("$1"); shift;;
 	--branches)	    shift; inputBranches=($1); shift;;	# Internal hook to pass in the branches.
 	--continue|--abort) iterationAction="${1#--}"; shift;;
@@ -164,9 +162,6 @@ do
 	*)		    break;;
     esac
 done
-if [ ! "$isStashed" -a ! "$iterationAction" ]; then
-    exec git-autostash "$scriptFilespec" --stashed "${args[@]}"
-fi
 
 # With piping into withHeader / pager, we need to explicitly enable color for
 # Git, unless this command's output itself is redirected. Also don't do this if
@@ -216,30 +211,57 @@ if [ $# -gt 0 ]; then
 	commands=("${gitCommand[@]}" "$@")
     fi
 fi
-[ ${#commands[@]} -eq 0 ] && isYes=t	# No need to confirm when no command-line is passed; user can abort via --abort interactively.
 
-gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit $?
-origBranchStore="${gitDir}/localbrOrig"
-branchStore="${gitDir}/localbr" || exit $?
-commandLineStore="${gitDir}/localbrCommandLine"
-
-if [ ${#commands[@]} -gt 0 ]; then
-    storeQuoting=%q; [ "$isNeedEval" ] && storeQuoting=%s   # Already quoted for eval, but a SIMPLECOMMAND needs quoting because after recalling it from $commandLineStore, it's in one single argument and needs eval() to execute.
-    printf "$storeQuoting " "${commands[@]}" > "$commandLineStore" || exit $?
+if [ ! "$isStashed" -a -z "$iterationAction" -a ${#commands[@]} -gt 0 ]; then
+    exec git-autostash "$scriptFilespec" --stashed "${args[@]}"
 fi
 
-getNextBranch()
+gitDir="$(git rev-parse --git-dir)" || exit 3
+readonly contextStoreFilespec="${gitDir}/localbr"
+usedContextStore=
+useContextStore()
 {
-    [ -f "$branchStore" ] || return
-    head -n 1 "$branchStore"
-    sed -i '1d' "$branchStore"
-    [ -s "$branchStore" ] || rm "$branchStore"
+    usedContextStore="$contextStoreFilespec"
+}
+readContext()
+{
+    useContextStore
+    source "${usedContextStore:?}" || exit 3
+
+    if [ ${#commands[@]} -eq 0 ]; then
+	# Recall command-line from original / previous call, unless it is
+	# overridden by updated arguments provided to this invocation.
+	commands=("${originalCommands[@]}")
+	isNeedEval="$originalIsNeedEval"
+    fi
+
+    if [ -z "$originalBranch" ]; then
+	echo >&2 'FATAL: Could not restore the previous iteration context.'
+	exit 3
+    fi
+}
+
+persistContext()
+{
+    useContextStore
+
+    typeset -a originalCommands=("${commands[@]}")  # Persist under a different name so that the user can override the original commands.
+    local originalIsNeedEval="$isNeedEval"
+
+    typeset -p localBranches originalCommands originalIsNeedEval originalBranch \
+	pager abortStatus abortComparison interruptStatus interruptComparison progressSink \
+	isSingleSuccess isQuiet isHeader errorRedir \
+	colorArg isStashed gitCheckoutArgs \
+	GIT_LOCALBRDO_HEADER_ID \
+	| sed -e 's#^declare #&-g #' > "${usedContextStore:?}"	# The sourcing is done inside a function, so "declare -g" must be used to define the variables with global scope.
 }
 
 dirtyCheck()
 {
     if git-dirty; then
-	echo >&2 "ERROR: working copy is still dirty; please clean up and then retry with --continue."
+	persistContext
+
+	echo >&2 'ERROR: Working copy is still dirty; please clean up and then retry with --continue.'
 	git status
 	exit 1
     fi
@@ -248,6 +270,7 @@ dirtyCheck()
 abortIfDesired()
 {
     local status="${1:?}"; shift
+
     [ -n "$abortStatus" ] || return
     if [ "$status" $abortComparison $abortStatus ];then
 	[ "$isQuiet" ] || printf >&2 'Note: Aborting iteration because the command failed (with exit status %d).\n' "$status"
@@ -259,8 +282,11 @@ abortIfDesired()
 interruptIfDesired()
 {
     local status="${1:?}"; shift
+
     [ -n "$interruptStatus" ] || return
     if [ "$status" $interruptComparison $interruptStatus ];then
+	persistContext
+
 	[ "$isQuiet" ] || printf >&2 'Note: Interrupting iteration because the command failed (with exit status %d). Please check and then continue with --continue.\n' "$status"
 	exit $status
     fi
@@ -268,38 +294,34 @@ interruptIfDesired()
 
 restoreOriginalBranch()
 {
-    local status=0
-    if [ -f "$origBranchStore" ]; then
-	origBranch="$(<"$origBranchStore")"
-	rm -- "$origBranchStore"
-	if git checkout --quiet "$origBranch"; then
-	    [ ${#commands[@]} -eq 0 ] && echo >&2
-	    [ "$isQuiet" ] || printf >&2 "Restored branch '%s'\\n" "$origBranch"
-	else
-	    status=$?
-	fi
-    fi
+    git checkout --quiet "$originalBranch" || return $?
+    [ "$isQuiet" ] || printf >&2 "Restored branch '%s'\\n" "$originalBranch"
 
-    [ -e "$commandLineStore" ] && rm -- "$commandLineStore"
-    return $status
+    [ -z "$usedContextStore" ] || \
+	rm -- "$usedContextStore"	# Cleanup if the context had been persisted.
 }
 
 case "$iterationAction" in
-    abort)	restoreOriginalBranch; exit;;
+    abort)
+	readContext
+	restoreOriginalBranch
+	exit $?
+	;;
     continue)
-	dirtyCheck
-
-	if [ ${#commands[@]} -eq 0 -a -e "$commandLineStore" ]; then
-	    # Recall command-line from original / previous call, unless it is
-	    # overridden by updated arguments provided to this invocation.
-	    commands=$(<"$commandLineStore")
-	    # The command-line is read as one (escaped) argument, and therefore
-	    # needs eval to execute.
-	    isNeedEval=t
+	if [ ! -e "$contextStoreFilespec" ]; then
+	    echo >&2 'ERROR: Could not find any iteration that is in progress.'
+	    exit 1
 	fi
-	readarray -t localBranches < "$branchStore"
+
+	readContext
+	dirtyCheck
 	;;
     '')
+	if [ -e "$contextStoreFilespec" ]; then
+	    printf >&2 'ERROR: It looks like another iteration is in progress; you can continue that one by adding --continue. Alternatively, please clean up first by passing --abort, or run $ rm -- %q\n' "$contextStoreFilespec"
+	    exit 1
+	fi
+
 	readarray -t localBranches < <(git-localbr "${gitLocalbrArgs[@]}" -- "${inputBranches[@]}" | tail -n "$branchNum")
 	if [ ${#localBranches[@]} -eq 0 ]; then
 	    echo >&2 'No local branches found!'
@@ -317,30 +339,19 @@ case "$iterationAction" in
 	    fi
 	    localBranches=("${filteredLocalBranches[@]}")
 	fi
-
-	IFS=$'\n'
-	if [ "$isYes" ]; then
-	    [ "$isQuiet" ] || echo >&2 "Iterating over these branch(es):
-${localBranches[*]}"
-	else
-	    echo >/dev/tty "Iterating over these branch(es):
-${localBranches[*]}"
-	    </dev/tty read -r -N 1 -p "Really iterate over these branches? (y/n) " choice; echo >/dev/tty
-	    [ "$choice" = "y" ] || exit 1
+	if [ ${#commands[@]} -eq 0 ]; then
+	    printf '%s\n' "${localBranches[@]}"
+	    exit 0
 	fi
 
-	printf '%s\n' "${localBranches[*]}" > "$branchStore" || exit $?
-	git-orig-ref > "$origBranchStore"
-	if [ ${#commands[@]} -eq 0 -a -e "$commandLineStore" ]; then
-	    rm -- "$commandLineStore" || exit $?
-	fi
+	originalBranch="$(git-orig-ref)" || exit 3
 	;;
     *)	printf >&2 'Assert: Unhandled iterationAction %q\n' "$iterationAction"
 	exit 3
 	;;
 esac
 
-if [ ${#commands[@]} -gt 0 ] && [ "$hasProgressNotification" ] && [ -n "$progressSink" ]; then
+if [ "$hasProgressNotification" ] && [ -n "$progressSink" ]; then
     if [ "$progressSink" = addendum ]; then
 	[ "$hasProgressNotificationToAddendum" ] && \
 	    exec 3> >(progressNotificationToAddendum --prepend-count 'local branch' --count-to "${#localBranches[@]}" 2>/dev/null)  # Silence "Cannot notify via titleupdate; TERMID not defined."
@@ -361,37 +372,31 @@ localbrdo()
 {
     : ${GIT_LOCALBRDO_HEADER_ID:="localbrdo-$$-$RANDOM"}
     local status=0
-    while :
+    while [ ${#localBranches[@]} -gt 0 ]
     do
-	local status=0
-	branch="$(getNextBranch)"
-	if [ -z "$branch" ]; then
-	    [ "$isQuiet" ] || echo >&2 'All local branches have been iterated over.'
-
-	    restoreOriginalBranch; exit
-	fi
+	local status=0 branch="${localBranches[0]}"
+	localBranches=("${localBranches[@]:1}")
 
 	git checkout --quiet "${gitCheckoutArgs[@]}" "${branch}" || exit $?	# Suppress Git's checkout information with --quiet. We're probably not interested in stuff like "Your branch is up-to-date with ...", and we emulate the switch message itself:
-	if [ ${#commands[@]} -eq 0 ]; then
-	    [ "$isQuiet" ] || printf >&2 "\\nSwitched to branch '%s'\\n" "$branch"
-	    exit 0
+	if [ "$isNeedEval" ]; then
+	    typeset -a c=("${commands[@]}")
 	else
-	    if [ "$isNeedEval" ]; then
-		typeset -a c=("${commands[@]}")
-	    else
-		typeset -a c=('"${commands[@]}"')
-	    fi
-	    reportProgress "$branch"
-	    if (eval "${c[@]}" "${isHeader:+$errorRedir | withHeader "${colorArg[@]}" --id '$GIT_LOCALBRDO_HEADER_ID' -- '$branch'}"); then
-		isSuccess=t
-		dirtyCheck
-	    else
-		status=$?
-		abortIfDesired $status
-		interruptIfDesired $status
-	    fi
+	    typeset -a c=('"${commands[@]}"')
+	fi
+	reportProgress "$branch"
+	if (eval "${c[@]}" "${isHeader:+$errorRedir | withHeader "${colorArg[@]}" --id '$GIT_LOCALBRDO_HEADER_ID' -- '$branch'}"); then
+	    isSuccess=t
+	    dirtyCheck
+	else
+	    status=$?
+	    abortIfDesired $status
+	    interruptIfDesired $status
 	fi
     done
+
+    [ "$isQuiet" ] || echo >&2 'All local branches have been iterated over.'
+    restoreOriginalBranch || status=$?
+
     if [ "$isSingleSuccess" ]; then
 	[ "$isSuccess" ]
     else

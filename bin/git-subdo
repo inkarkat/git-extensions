@@ -9,7 +9,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s%s%s\n' "$(basename "$1")" '[-R|--no-recurse] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress overlay|title|command|notify${hasProgressNotificationToAddendum:+|addendum}]}" ' [--separate-errors] [--no-git-color] [--single-success] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]'
+    printf 'Usage: %q %s%s%s\n' "$(basename "$1")" '[-R|--no-recurse] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress overlay|title|command|notify${hasProgressNotificationToAddendum:+|addendum}]}" ' [--separate-errors] [--no-git-color] [--single-success] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [-P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -67,7 +67,7 @@ the command output.
 			Abort iteration when COMMAND exits with EXIT_STATUS.
     --single-success	Exit status is 0 if at least command in one submodule
 			succeeded.
-    --predicate-command CMD
+    --predicate-command|-P CMD
 			Skip submodules where CMD (executed in the submodule
 			root) fails. The string {} is replaced with the relative
 			path to the submodule; all variables from "git submodule
@@ -108,7 +108,7 @@ do
 	--abort-on-failure)	shift; abortComparison=-ne; abortStatus=0;;
 	--abort-on|-X)		shift; abortStatus="$1"; shift;;
 	--single-success)	shift; isSingleSuccess=t;;
-	--predicate-command)	shift; predicateCommands+=(${predicateCommands:+&&} "$1"); shift;;
+	--predicate-command|-P)	shift; predicateCommands+=(${predicateCommands:+&&} "$1"); shift;;
 	--command|-c)		shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
 	--no-recurse|-R)	shift; submoduleRecurseArg=();;
 	--no-pager)		shift; pager=();;

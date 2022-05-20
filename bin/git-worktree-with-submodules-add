@@ -22,6 +22,13 @@ if [ -e "$targetDirspec" ]; then
     exit 1
 fi
 
+add()
+{
+    local moduleName="${1:?}"; shift
+    local moduleDirspec="${1:?}"; shift
+    git -C "modules/$moduleName" worktree add --detach "$moduleDirspec"
+}
+
 git worktree add --detach "$targetDirspec" || exit $?
 cd "$(git rev-parse --git-dir)" || exit $?
 IFS=$'\n'
@@ -30,7 +37,7 @@ for module in $(git config --blob HEAD:.gitmodules -l --name-only | awk -F . '/\
 do
     if [ -d "modules/$module" ]; then
 	modulePath="$(git config --blob HEAD:.gitmodules --get "submodule.${module}.path")" && \
-	    git -C "modules/$module" worktree add --detach "${targetDirspec}/${modulePath}" || \
+	    $action "$module" "${targetDirspec}/${modulePath}" || \
 	    status=$?
     fi
 done

@@ -6,10 +6,12 @@ printUsage()
 Short textual description.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '<path> [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-n|--dry-run] <path> [-?|-h|--help]'
 }
+action=add
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --dry-run|-n)	shift; action=print;;
 esac
 if [ $# -ne 1 ]; then
     printUsage "$0" >&2
@@ -24,12 +26,17 @@ fi
 
 add()
 {
-    local moduleName="${1:?}"; shift
-    local moduleDirspec="${1:?}"; shift
-    git -C "modules/$moduleName" worktree add --detach "$moduleDirspec"
+    local worktreeDirspec="${1:?}"; shift
+    git "$@" worktree add --detach "$worktreeDirspec"
+}
+print()
+{
+    local worktreeDirspec="${1:?}"; shift
+    moduleSubPath=; [ $# -gt 0 ] && moduleSubPath="${!#}"
+    printf "Would create %s in %s\\n" "${moduleSubPath:-worktree}" "$worktreeDirspec"
 }
 
-git worktree add --detach "$targetDirspec" || exit $?
+$action "$targetDirspec" || exit $?
 cd "$(git rev-parse --git-dir)" || exit $?
 IFS=$'\n'
 status=0
@@ -37,7 +44,7 @@ for module in $(git config --blob HEAD:.gitmodules -l --name-only | awk -F . '/\
 do
     if [ -d "modules/$module" ]; then
 	modulePath="$(git config --blob HEAD:.gitmodules --get "submodule.${module}.path")" && \
-	    $action "$module" "${targetDirspec}/${modulePath}" || \
+	    $action "${targetDirspec}/${modulePath}" -C "modules/$module" || \
 	    status=$?
     fi
 done

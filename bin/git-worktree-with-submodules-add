@@ -16,11 +16,15 @@ if [ $# -ne 1 ]; then
     exit 2
 fi
 
-tree="$(python -c "from __future__ import print_function; import os, os.path, sys; print(os.path.normpath(os.path.join(os.getenv(\"PWD\"), sys.argv[1])))" "$1")"
+targetDirspec="$(realpath --no-symlinks -- "${PWD}/${1:?}")" || exit 3
+if [ -e "$targetDirspec" ]; then
+    printf >&2 'ERROR: Worktree target already exists: %s\n' "$targetDirspec"
+    exit 1
+fi
 
-git worktree add --detach "$tree"
+git worktree add --detach "$targetDirspec"
 cd "$(git rev-parse --git-dir)"
 for mod in $(git config --blob HEAD:.gitmodules -l --name-only|gawk -F . "/\.path$/ {print \$2}")
 do
-    [ -d modules/$mod ] && git -C modules/$mod worktree add --detach "${tree}/$(git config --blob HEAD:.gitmodules --get submodule.${mod}.path)"
+    [ -d modules/$mod ] && git -C modules/$mod worktree add --detach "${targetDirspec}/$(git config --blob HEAD:.gitmodules --get submodule.${mod}.path)"
 done

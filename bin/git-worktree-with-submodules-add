@@ -22,9 +22,14 @@ if [ -e "$targetDirspec" ]; then
     exit 1
 fi
 
-git worktree add --detach "$targetDirspec"
-cd "$(git rev-parse --git-dir)"
-for mod in $(git config --blob HEAD:.gitmodules -l --name-only|gawk -F . "/\.path$/ {print \$2}")
+git worktree add --detach "$targetDirspec" || exit $?
+cd "$(git rev-parse --git-dir)" || exit $?
+status=0
+for module in $(git config --blob HEAD:.gitmodules -l --name-only | gawk -F . '/\.path$/ {print $2}')
 do
-    [ -d modules/$mod ] && git -C modules/$mod worktree add --detach "${targetDirspec}/$(git config --blob HEAD:.gitmodules --get submodule.${mod}.path)"
+    if [ -d "modules/$module" ]; then
+	git -C "modules/$module" worktree add --detach "${targetDirspec}/$(git config --blob HEAD:.gitmodules --get "submodule.${module}.path")" || \
+	    status=$?
+    fi
 done
+exit $status

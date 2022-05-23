@@ -49,7 +49,7 @@ if ! containsGlob '-+([0-9])' "$@" && ! contains '-n' "$@" && ! contains '--max-
     fi
 fi
 
-{ git lc "${limitRevisionsArgs[@]}" "$@" | csplit --elide-empty-files --prefix "${TMPDIR}/log" --digits 4 - '/^commit [0-9a-fA-F]\+$/' '{*}' >/dev/null; } || exit $?
+{ git ${GIT_LCL_COMMAND:-lc} "${limitRevisionsArgs[@]}" "$@" | csplit --elide-empty-files --prefix "${TMPDIR}/log" --digits 4 - '/^commit [0-9a-fA-F]\+\( (from [0-9a-fA-F]\+)\)\?$/' '{*}' >/dev/null; } || exit $?
 
 if ! isColorOffArgument "$@"; then
     pipethrough --piped -- colordiff --color=yes -- "${TMPDIR}"/log* 2>/dev/null

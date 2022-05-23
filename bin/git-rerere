@@ -7,8 +7,10 @@ Extension of rerere, with the following additional subcommands:
     list
 	Show all recorded conflict resolutions, from latest to earlier ones.
     delete
+	Show from latest to earlier recorded conflict resolution and query
+	whether to delete it.
+    wipe
 	Remove all recorded conflict resolutions.
-	With -i: Show from latest to earlier and query whether to delete it.
 
 HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[list|delete [-i]|clear|forget <path>|diff|status|gc] [-?|-h|--help]'
@@ -16,10 +18,8 @@ HELPTEXT
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
     list)		shift; action=list; choices='Next resolution, or quit? (n/q)';;
-    delete)		shift
-			[ "$1" = -i ] && action=interactive-delete || action=delete
-			choices='Delete, delete all, skip, or quit? (d/a/s/q)'
-			;;
+    delete)		shift; action=delete; choices='Delete, delete all, skip, or quit? (d/a/s/q)';;
+    wipe)		shift; action=wipe;;
     *)			exec git rerere "$@";;	# Pass through to original rerere command.
 esac
 
@@ -27,7 +27,7 @@ gitDir=$(git rev-parse --git-dir 2>/dev/null) || exit $?
 readonly rrCacheDir=${gitDir}/rr-cache
 [ -d "$rrCacheDir" ] || { echo 'Error: rerere cache dir not found'; exit 1; }
 
-if [ "$action" = delete ]; then
+if [ "$action" = wipe ]; then
     exec rm "${rrCacheDir}"/*/postimage
 fi
 
@@ -49,6 +49,6 @@ do
     case $choice in
 	[nNsS])	continue;;
 	[qQ])	exit 0;;
-	[dDaA])	[ "$action" = interactive-delete ] && rm "${filespec}";;
+	[dDaA])	[ "$action" = delete ] && rm "${filespec}";;
     esac
 done

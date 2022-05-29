@@ -6,13 +6,15 @@ printUsage()
 Show when (any) remote was last fetched.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--absolute|-a|--epoch| -n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-m|--message MESSAGE] [--absolute|-a|--epoch| -n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [-?|-h|--help]'
 }
+message=
 isAbsolute=
 isEpoch=
 typeset -a fileAgeArgs=()
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --message|-m)	shift; message="$1"; shift;;
     --epoch)		shift; isEpoch=t;;
     --absolute|-a)	shift; isAbsolute=t;;
     -*)			if [ $# -eq 2 ]; then
@@ -26,15 +28,22 @@ if [ $# -ne 0 ]; then
     exit 2
 fi
 
+printMessage()
+{
+    [ -z "$message" ] || printf '%s ' "$message"
+}
+
 gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit $?
 fetchFilespec="${gitDir}/FETCH_HEAD"
 
 if [ ${#fileAgeArgs[@]} -gt 0 ]; then
     exec fileAge "${fileAgeArgs[@]}" "$fetchFilespec"
 elif [ ! "$isAbsolute" ]  && [ ! "$isEpoch" ] && type -t reldate >/dev/null; then
+    printMessage
     exec reldate "$fetchFilespec"
 else
     epoch=$(stat -c %Y "$fetchFilespec") || exit $?
+    printMessage
     if [ "$isEpoch" ]; then
 	printf '%s\n' "$epoch"
     else

@@ -38,7 +38,13 @@ do
 	*)		    break;;
     esac
 done
-if [ $# -gt 0 ]; then
+if [ $# -eq 0 ]; then
+    if [ ! "$isYes" ] && git-ismerge "$commit"; then
+	# The commit has been merged from a branch; this is dubious.
+	</dev/tty read -r -N 1 -p "The last commit is a merge, you should use \"git unmerge\" to undo the merge and checkout the original branch again; really move to that? (y/n) " choice; echo >/dev/tty
+	[ "$choice" = "y" ] || exit 1
+    fi
+else
     commit="$1"; shift
 
     # Check reachability.

@@ -23,6 +23,12 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" "[--gui|--terminal|--none] [-q|--quiet] ${remote:-REMOTE} [PULL/REBASE-ARGS ...] [-?|-h|--help]"
 }
 
+getDetachedBranch()
+{
+    git-nbr 2>/dev/null || \
+	git-mbr 2>/dev/null
+}
+
 getRemoteBranch()
 {
     if [ $# -gt 0 ] && git-existsbr "${!#}"; then
@@ -76,6 +82,14 @@ else
 	    [ "${logDeltaArgs[*]}" = '--none' ] || echo >&2 "Warning: Could not determine corresponding ${remote:-REMOTE} branch, no logging possible."
 	    logDeltaArgs=(--none)
 	fi
+    elif git-isdetached; then
+	# On a detached checkout, fall back to the base / master branch.
+	if branch="$(getDetachedBranch)"; then
+	    logDeltaArgs+=(--branch "${remote}/${branch}")
+	else
+	    [ "${logDeltaArgs[*]}" = '--none' ] || echo >&2 "Warning: Detached working copy, and could not determine base / master ${remote:-REMOTE} branch, no logging possible."
+	    logDeltaArgs=(--none)
+	fi
     fi
 
     exec git-logdelta "${colorArg[@]}" "${logDeltaArgs[@]}" -- "$scriptFilespec" "${remote:?}" --launch "$@"
@@ -112,6 +126,10 @@ if [ "$GIT_UP_NO_UPDATE" ]; then
 elif [ "$GIT_UP_REBASE" ]; then
     remoteBranch="$(getRemoteBranch "$@")" || exit $?
     git "${gitAutoStashGitArg[@]}" rebase "${gitAutoStashPullOrRebaseArg[@]}" "${gitRebaseMergesArg[@]}" "${@:1:$(($#-1))}" "$remoteBranch" || exit $?
+elif git-isdetached; then
+    # Checkout (and keep detached) latest base / master branch.
+    branch="$(getDetachedBranch)" && git-existsbr "${remote}/${branch}" || exit $?
+    git checkout --detach "${remote}/${branch}"
 else
     git "${gitAutoStashGitArg[@]}" pull "${gitAutoStashPullOrRebaseArg[@]}" "${gitPullRebaseMergesArg[@]}" "$remote" "$@" || exit $?
 fi

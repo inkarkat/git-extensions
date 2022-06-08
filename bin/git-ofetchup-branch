@@ -1,0 +1,31 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Variant of ofetchup-hushed that fetches all changes in my GitHub clone and
+always pulls the passed branch (using a separate worktree if the branch isn't
+the current one, suppressing standard fetch / rebase information and messages
+when there are no changes in origin). Useful when updating many repositories
+e.g. with git-wcdo.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '<branch> [FETCHUP-ARGS ...] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+
+branch="${1:?}"; shift
+{
+    if [ "$(git-brname --raw)" = "$branch" ]; then
+	git-ofetchup "$@"
+    else
+	git ofetch || exit $?
+
+	worktreeName="$(git-root)"
+	worktreeName="${worktreeName%.*}.rebasewc"
+	GIT_UP_REBASE=t git-autoworktree --name "$worktreeName" --branch "$branch" --leave-detached git oup "$@"
+    fi
+} 2>&1 | git-hushup --fetch origin

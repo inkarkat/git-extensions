@@ -1,0 +1,19 @@
+#!/bin/bash
+set -o pipefail
+
+printUsage()
+{
+    cat <<HELPTEXT
+Only fetch changes in my GitHub clone (no update of local branches) and show a
+log of the changes, suppressing standard fetch information and messages when
+there are no changes in origin. Useful when updating many repositories e.g. with
+git-wcdo.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--gui|--terminal|--none] [--color=(always|auto|never)|--no-color] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+git-fetchonly --quiet "$@" origin 2>&1 | git-hushup --fetch origin

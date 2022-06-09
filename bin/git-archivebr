@@ -9,7 +9,7 @@ it exists).
 Use this to remove old branches that have been incorporated into master. If not
 incorporated (e.g. an abandoned experiment), pass -f to force archiving.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] <branch> [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [<remote>/]<branch> [...] [-?|-h|--help]'
 }
 
 if [ $# -eq 0 ]; then
@@ -27,9 +27,24 @@ case $1 in
 esac
 
 status=0
+typeset -a localBranches=()
+typeset -a originBranches=()
 for branch
 do
-    git tag ${isForce:+--force} "archive/$branch" "$branch" || status=1
+    commit="$branch"
+
+    # When archiving a remote branch, don't include the remote itself in the
+    # archived branch name.
+    [[ "$branch" =~ ^([^/]+)/(.+)$ ]] && \
+	git existsremote "${BASH_REMATCH[1]}" && \
+	branch="${BASH_REMATCH[2]}"
+
+    if git tag ${isForce:+--force} "archive/$branch" "$commit"; then
+	[ "$branch" = "$commit" ] && localBranches+=("$branch")
+	git existsbr "origin/$branch" && originBranches+=("$branch")
+    else
+	status=1
+    fi
 done
 [ $status -eq 0 ] || exit $status
 
@@ -40,6 +55,6 @@ done
 # is invalid, an error is returned, but following (valid) branches are still
 # processed: just as we'd like.
 status=0
-git branch $branchDeleteOption "$@" || status=$?
-! git existsremote origin || git push origin --delete "$@" || status=$?
+[ ${#localBranches[@]} -eq 0 ] || git branch $branchDeleteOption "${localBranches[@]}" || status=$?
+[ ${#originBranches[@]} -eq 0 ] || ! git existsremote origin || git push origin --delete "${originBranches[@]}" || status=$?
 exit $status

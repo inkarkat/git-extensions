@@ -16,6 +16,7 @@ printUsage()
 {
     cat <<HELPTEXT
 Remove old local branches that do not exist in ${remote:-REMOTE} any more.
+Leaves local branches that have never been published to ${remote:-REMOTE} intact.
 With --test, only print which local branches would be deleted.
 Note: To do this automatically on each fetch / pull:
     git config --global fetch.prune true
@@ -28,14 +29,14 @@ esac
 
 remote="${1:?}"; shift
 
-isTest=
+action=deleteLocalBranch
 branchDeleteOption=-d
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)		shift; printUsage "$0"; exit 0;;
 	-f|--force)		shift; branchDeleteOption=-D;;
-	-t|--test)		shift; isTest=t;;
+	-t|--test)		shift; action=dryRun;;
 	--)			shift; break;;
 	-*)			{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)			break;;
@@ -45,6 +46,17 @@ if [ $# -ne 0 ]; then
     printUsage "$0" >&2
     exit 2
 fi
+
+deleteLocalBranch()
+{
+    local localBranch="${1:?}"; shift
+    git branch $branchDeleteOption "$localBranch"
+}
+dryRun()
+{
+    local localBranch="${1:?}"; shift
+    echo "Prune $localBranch"
+}
 
 readarray -t remoteBranches < <(git branch -r | grep "^  ${remote}/" | awk '{print $1}')
 readarray -t localBranches < <(git branch | awk '{print $NF}')
@@ -56,11 +68,7 @@ do
     if [ "$trackedRemote" = "$remote" ]; then
 	trackedBranch="$(git config "branch.${localBranch}.merge")"
 	if ! contains "${remote}/${trackedBranch##refs/heads/}" "${remoteBranches[@]}"; then
-	    if [ "$isTest" ]; then
-		echo "Prune $localBranch"
-	    else
-		git branch $branchDeleteOption "$localBranch" || status=$?
-	    fi
+	    $action "$localBranch" || status=$?
 	fi
     fi
 done

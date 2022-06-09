@@ -16,11 +16,21 @@ printUsage()
 {
     cat <<HELPTEXT
 Remove old local branches that do not exist in ${remote:-REMOTE} any more.
+Leaves local branches that have never been published to ${remote:-REMOTE} intact.
 With --test, only print which local branches would be deleted.
 Note: To do this automatically on each fetch / pull:
     git config --global fetch.prune true
 HELPTEXT
+    echo
     printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [-t|--test|-f|--force] [-?|-h|--help]"
+    echo
+    cat <<HELPTEXT
+Remove old branches in ${remote:-REMOTE} that have no corresponding local branch any
+longer.
+With --test, only print which ${remote:-REMOTE} branches would be deleted.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} -R|--reverse [-t|--test|-f|--force]"
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
@@ -28,17 +38,19 @@ esac
 
 remote="${1:?}"; shift
 
-isTest=
+action=
 branchDeleteOption=-d
+isReverse=
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)		shift; printUsage "$0"; exit 0;;
-	-f|--force)		shift; branchDeleteOption=-D;;
-	-t|--test)		shift; isTest=t;;
-	--)			shift; break;;
-	-*)			{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
-	*)			break;;
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--reverse|-R)	shift; isReverse=t;;
+	--force|-f)	shift; branchDeleteOption=-D;;
+	--test|-t)	shift; action=dryRun;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
     esac
 done
 if [ $# -ne 0 ]; then
@@ -46,22 +58,46 @@ if [ $# -ne 0 ]; then
     exit 2
 fi
 
-readarray -t remoteBranches < <(git branch -r | grep "^  ${remote}/" | awk '{print $1}')
+deleteLocalBranch()
+{
+    local localBranch="${1:?}"; shift
+    git branch $branchDeleteOption "$localBranch"
+}
+deleteRemoteBranches()
+{
+    git push "$remote" --delete "${@#${remote}/}"
+}
+dryRun()
+{
+    printf 'Prune %s\n' "$@"
+}
+
+readarray -t remoteBranches < <(git-rbr "$remote")
 readarray -t localBranches < <(git branch | awk '{print $NF}')
 
-status=0
-for localBranch in "${localBranches[@]}"
-do
-    trackedRemote="$(git config "branch.${localBranch}.remote" 2>/dev/null)"
-    if [ "$trackedRemote" = "$remote" ]; then
-	trackedBranch="$(git config "branch.${localBranch}.merge")"
-	if ! contains "${remote}/${trackedBranch##refs/heads/}" "${remoteBranches[@]}"; then
-	    if [ "$isTest" ]; then
-		echo "Prune $localBranch"
-	    else
-		git branch $branchDeleteOption "$localBranch" || status=$?
+if [ "$isReverse" ]; then
+    typeset -a oldRemoteBranches=()
+    for remoteBranch in "${remoteBranches[@]}"
+    do
+	contains "${remoteBranch#${remote}/}" "${localBranches[@]}" || \
+	    oldRemoteBranches+=("$remoteBranch")
+    done
+    if [ ${#oldRemoteBranches[@]} -eq 0 ]; then
+	exit 99
+    else
+	${action:-deleteRemoteBranches} "${oldRemoteBranches[@]}"
+    fi
+else
+    status=
+    for localBranch in "${localBranches[@]}"
+    do
+	trackedRemote="$(git config "branch.${localBranch}.remote" 2>/dev/null)"
+	if [ "$trackedRemote" = "$remote" ]; then
+	    trackedBranch="$(git config "branch.${localBranch}.merge")"
+	    if ! contains "${remote}/${trackedBranch##refs/heads/}" "${remoteBranches[@]}"; then
+		${action:-deleteLocalBranch} "$localBranch" && : ${status:=0} || status=$?
 	    fi
 	fi
-    fi
-done
-exit $status
+    done
+    exit ${status:-99}
+fi

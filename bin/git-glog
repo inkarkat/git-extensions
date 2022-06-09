@@ -3,13 +3,31 @@
 printUsage()
 {
     cat <<HELPTEXT
-Show commit logs in a GUI.
+Show commit logs in a GUI, with a fallback to the terminal, or suppressing all
+output if there's neither GUI nor connected terminal.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<revision range>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--color=(always|auto|never)|--no-color] [<revision range>] [-?|-h|--help]'
 }
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-esac
+typeset -a colorArg=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			colorArg=("$1"); shift;;
+	--color)	colorArg=("$1" "$2"); shift; shift;;
+	--)		shift; break;;
+	-)		break;; # For supporting special - FILE without prior --
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 
-RABBITVCS_REVISION_RANGE="${1:?}" exec rabbitvcs log >/dev/null 2>&1
+if [ -n "$DISPLAY" ] && type -t gitk >/dev/null; then
+    exec gitk "$@" &	# gitk is a blocking GUI.
+elif [ -n "$DISPLAY" ] && type -t rabbitvcs >/dev/null; then
+    RABBITVCS_REVISION_RANGE="$1" exec rabbitvcs log >/dev/null 2>&1	# rabbitvcs forks and immediately returns.
+elif [ -t 1 ]; then
+    git-onelinelog "${colorArg[@]}" "$@"
+fi

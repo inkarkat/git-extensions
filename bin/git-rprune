@@ -75,7 +75,6 @@ dryRun()
 readarray -t remoteBranches < <(git-rbr "$remote")
 readarray -t localBranches < <(git branch | awk '{print $NF}')
 
-status=0
 if [ "$isReverse" ]; then
     typeset -a oldRemoteBranches=()
     for remoteBranch in "${remoteBranches[@]}"
@@ -83,16 +82,22 @@ if [ "$isReverse" ]; then
 	contains "${remoteBranch#${remote}/}" "${localBranches[@]}" || \
 	    oldRemoteBranches+=("$remoteBranch")
     done
-    [ ${#oldRemoteBranches[@]} -eq 0 ] || ${action:-deleteRemoteBranches} "${oldRemoteBranches[@]}" || status=$?
+    if [ ${#oldRemoteBranches[@]} -eq 0 ]; then
+	exit 99
+    else
+	${action:-deleteRemoteBranches} "${oldRemoteBranches[@]}"
+    fi
 else
+    status=
     for localBranch in "${localBranches[@]}"
     do
 	trackedRemote="$(git config "branch.${localBranch}.remote" 2>/dev/null)"
 	if [ "$trackedRemote" = "$remote" ]; then
 	    trackedBranch="$(git config "branch.${localBranch}.merge")"
-	    contains "${remote}/${trackedBranch##refs/heads/}" "${remoteBranches[@]}" || \
-		${action:-deleteLocalBranch} "$localBranch" || status=$?
+	    if ! contains "${remote}/${trackedBranch##refs/heads/}" "${remoteBranches[@]}"; then
+		${action:-deleteLocalBranch} "$localBranch" && : ${status:=0} || status=$?
+	    fi
 	fi
     done
+    exit ${status:-99}
 fi
-exit $status

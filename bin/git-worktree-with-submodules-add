@@ -30,17 +30,28 @@ fi
 
 add()
 {
+    local module="${1?}"; shift
     local worktreeDirspec="${1:?}"; shift
-    git "$@" worktree add --detach "$worktreeDirspec"
+    git "$@" worktree add --detach "$worktreeDirspec" || return $?
+
+
+    if [ -n "$module" ]; then
+	local literalModulePattern="$(printf %s "$module" | sed -e 's/[][\$*.^/]/\\&/g')"
+	local literalModule="$module"
+	literalModule="${literalModule//\\/\\\\}"
+	literalModule="${literalModule//&/\\&}"
+	sed -i "/^gitdir: .*\/modules\/${literalModulePattern}\$/s#\$#/worktrees/${literalModule//#/\\#}#" "${worktreeDirspec}/.git" || return $?
+    fi
 }
 print()
 {
+    local module="${1:?}"; shift
     local worktreeDirspec="${1:?}"; shift
     moduleSubPath=; [ $# -gt 0 ] && moduleSubPath="${!#}"
     printf "Would create %s in %s\\n" "${moduleSubPath:-worktree}" "$worktreeDirspec"
 }
 
-$action "$targetDirspec" || exit $?
+$action '' "$targetDirspec" || exit $?
 cd "$(git rev-parse --git-dir)" || exit $?
 IFS=$'\n'
 status=0
@@ -48,7 +59,7 @@ for module in $(git config --blob HEAD:.gitmodules -l --name-only | awk -F . '/\
 do
     if [ -d "modules/$module" ]; then
 	modulePath="$(git config --blob HEAD:.gitmodules --get "submodule.${module}.path")" && \
-	    $action "${targetDirspec}/${modulePath}" -C "modules/$module" || \
+	    $action "$module" "${targetDirspec}/${modulePath}" -C "modules/$module" || \
 	    status=$?
     fi
 done

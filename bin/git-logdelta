@@ -38,6 +38,7 @@ log=graphical
 typeset -a colorArg=()
 isQuiet=
 isNeedEval=
+submoduleCommitProvider=
 typeset -a commands=()
 while [ $# -ne 0 ]
 do
@@ -49,6 +50,15 @@ do
 	--no-color|--color=*)
 			colorArg=("$1"); shift;;
 	--color)	colorArg=("$1" "$2"); shift; shift;;
+	--submodule)	shift
+			case "$1" in
+			    ignore)	submoduleCommitProvider='';;
+			    yes)	submoduleCommitProvider='subhashesNonRecursive';;
+			    recurse)	submoduleCommitProvider='git subhashes';;
+			    *)		printUsage "$0" >&2; exit 2;;
+			esac
+			shift
+			;;
 	--quiet|-q)	shift; isQuiet=t;;
 	--branch|-b)	shift; branch="$1"; shift;;
 	--command|-c)	shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
@@ -74,6 +84,11 @@ if [ ${#commands[@]} -eq 0 ]; then
     exit 2
 fi >&2
 
+subhashesNonRecursive()
+{
+    git submodule foreach --quiet 'echo $sha1 $displaypath'
+}
+
 logChanges()
 {
     case "$log" in
@@ -84,17 +99,59 @@ logChanges()
     esac
 }
 
+logMessage()
+{
+    case "$log" in
+	'') ;;
+	terminal)   printf '%s\n' "${1:?}";;
+	graphical)  userNotify --title "$(git-wcname)" --gui --no-markup -- "${1:?}" &;;
+	*)          printf >&2 'ASSERT: Invalid log: %q\n' "$log"; exit 3;;
+    esac
+}
+
 originalRevision="$(git rev-parse "${branch:-HEAD}" 2>/dev/null)"
+typeset -A originalSubmoduleRevisions=()
+[ -z "$submoduleCommitProvider" ] || [ -z "$log" ] || \
+    while IFS=$' \t' read -r revision submoduleName
+    do
+	originalSubmoduleRevisions["$submoduleName"]="$revision"
+    done < <($submoduleCommitProvider)
+
     if [ "$isNeedEval" ]; then
 	eval "${commands[@]}"
     else
 	"${commands[@]}"
     fi; status=$?
+
 if [ -z "$originalRevision" ]; then
     [ -z "$log" ] || echo >&2 "Warning: Could not determine original revision${branch:+ on $branch}, no logging possible."
 elif [ "$(git rev-parse "${branch:-HEAD}" 2>/dev/null)" = "$originalRevision" ]; then
     [ -z "$log" ] || [ "$isQuiet" ] || echo "No changes${branch:+ on $branch}."
 else
     logChanges "${originalRevision}..${branch}"
+
+    if [ -n "$submoduleCommitProvider" ] && [ -n "$log" ]; then
+	typeset -A currentSubmoduleRevisions=()
+	while IFS=$' \t' read -r revision submoduleName
+	do
+	    currentSubmoduleRevisions["$submoduleName"]="$revision"
+	done < <($submoduleCommitProvider)
+
+	for submoduleName in "${!currentSubmoduleRevisions[@]}"
+	do
+	    originalRevision="${originalSubmoduleRevisions["$submoduleName"]}"
+	    if [ -n "$originalRevision" ]; then
+		# Need to enter the submodule to be able to show the log.
+		(cd "$submoduleName" && logChanges "${originalRevision}..${currentSubmoduleRevisions["$submoduleName"]}")
+	    else
+		logMessage "$submoduleName got added"
+	    fi
+	    unset "originalSubmoduleRevisions[$submoduleName]"
+	done
+	for submoduleName in "${!originalSubmoduleRevisions[@]}"
+	do
+	    logMessage "$submoduleName got removed"
+	done
+    fi
 fi
 exit $status

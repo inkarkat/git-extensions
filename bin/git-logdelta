@@ -1,12 +1,36 @@
 #!/bin/bash
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--gui|--terminal|--none] [--color=(always|auto|never)|--no-color] [--submodule ignore|yes|recurse] [-q|--quiet] [-b|--branch BRANCH] -c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 Show a log of the changes done by COMMAND to HEAD / BRANCH.
-HELPTEXT
+HELPDESCRIPTION
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--gui|--terminal|--none] [--color=(always|auto|never)|--no-color] [-q|--quiet] [-b|--branch BRANCH] -c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...] [-?|-h|--help]'
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --branch|-b BRANCH	Use BRANCH instead of HEAD for logging.
+    --submodule ignore	Just do the normal logging of changes to submodules.
+    --submodule yes	Log the changes in each submodule, too.
+    --submodule recurse	Log the changes in each submodule and for nested
+			submodules, too.
+    --quiet|-q		Don't mention when there are no changes.
+HELPTEXT
 }
 
 branch=
@@ -18,7 +42,7 @@ typeset -a commands=()
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--gui)		shift; log=graphical;;
 	--terminal)	shift; log=terminal;;
 	--none)		shift; log='';;

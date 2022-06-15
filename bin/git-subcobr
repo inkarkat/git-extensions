@@ -85,7 +85,9 @@ update()
     local branch="${1:?}"; shift
     local remote; remote="$(git-trackedremote "$branch")" || return $?
     local remoteRef; remoteRef="$(git-commitid "${remote}/${branch}")" || return $?
-    local originalRevision; originalRevision="$(git rev-parse "$branch" 2>/dev/null)"
+
+    local logRecursionArg='--submodule recurse'; [ "$isRecursive" ] && logRecursionArg=	# When we recursively check out, we'll show the logs of nested submodules. But if not, let logdelta do the recursion to see what changed in submodules, too.
+    local record; [ "$logArg" = --none ] || record="$(git-logdelta $logArg $logRecursionArg --record)"
 
     if [ "$(git-brname --real-branch-only 2>/dev/null)" = "$branch" ]; then
 	# Already on that branch, reset it.
@@ -97,10 +99,7 @@ update()
 	git checkout $forceArg "$branch" || return $?
     fi
 
-    [ "$logArg" = --none ] && return
-
-    local logRecursionArg='--submodule recurse'; [ "$isRecursive" ] && logRecursionArg=	# When we recursively check out, we'll show the logs of nested submodules. But if not, let logdelta do the recursion to see what changed in submodules, too.
-    git-logdelta $logArg $logRecursionArg --from "$originalRevision"
+    [ -z "$record" ] || git-logdelta $logArg $logRecursionArg --from-record "$record"
 }
 
 typeset -A submoduleBranches=()

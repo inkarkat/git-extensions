@@ -133,6 +133,12 @@ if [ ${#submoduleBranches[@]} -eq 0 ]; then
     exit $noOpStatus
 fi
 
+typeset -A uninitializedSubmodules=()
+while IFS=$'\n' read -r submodule
+do
+    uninitializedSubmodules["$submodule"]=t
+done < <(git-submodule-uninitialized --print)	# Don't recurse, as we're matching against the direct submodules from .gitmodules; further recursions will check their own nested submodules.
+
 status=
 readarray -t submoduleList < <(printf '%s\n' "${!submoduleBranches[@]}" | sort)
 for submodule in "${submoduleList[@]}"
@@ -141,6 +147,12 @@ do
 
     case "$action" in
 	status)
+	    if [ "${uninitializedSubmodules["$submodule"]}" ]; then
+		printf "%-${submoduleWidth}s hasn't been initialized yet\\n" "${prefix}${submodule}"
+		status=1
+		continue
+	    fi
+
 	    subhash="$(git-subhash --short "$submodule" 2>/dev/null)"
 	    (
 		cd "$submodule" || exit 3
@@ -159,9 +171,15 @@ do
 		    fi
 		fi
 	    ) && : ${status:=0} || status=$?
+
 	    continue
 	    ;;
 	query)
+	    if [ "${uninitializedSubmodules["$submodule"]}" ]; then
+		printf "%s hasn't been initialized yet\\n" "${prefix}${submodule}"
+		exit 1
+	    fi
+
 	    choice="$(userchoiceFromList --no-cancel --question "${prefix}${submodule}" \
 		'check out' 'reset to superproject' 'leave as-is')"
 	    case "$choice" in
@@ -180,6 +198,10 @@ do
 	    esac
 	    ;;
 	all)
+	    if [ "${uninitializedSubmodules["$submodule"]}" ]; then
+		printf "%s hasn't been initialized yet\\n" "${prefix}${submodule}"
+		exit 1
+	    fi
 	    ;;
 	*)  printf >&2 'ASSERT: Invalid action: %s\n' "$action"; exit 3;;
     esac

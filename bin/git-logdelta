@@ -1,12 +1,36 @@
 #!/bin/bash
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--gui|--terminal|--none] [--color=(always|auto|never)|--no-color] [--submodule ignore|yes|recurse] [-q|--quiet] [-b|--branch BRANCH] -c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 Show a log of the changes done by COMMAND to HEAD / BRANCH.
-HELPTEXT
+HELPDESCRIPTION
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--gui|--terminal|--none] [--color=(always|auto|never)|--no-color] [-q|--quiet] [-b|--branch BRANCH] -c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...] [-?|-h|--help]'
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --branch|-b BRANCH	Use BRANCH instead of HEAD for logging.
+    --submodule ignore	Just do the normal logging of changes to submodules.
+    --submodule yes	Log the changes in each submodule, too.
+    --submodule recurse	Log the changes in each submodule and for nested
+			submodules, too.
+    --quiet|-q		Don't mention when there are no changes.
+HELPTEXT
 }
 
 branch=
@@ -14,17 +38,27 @@ log=graphical
 typeset -a colorArg=()
 isQuiet=
 isNeedEval=
+submoduleCommitProvider=
 typeset -a commands=()
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--gui)		shift; log=graphical;;
 	--terminal)	shift; log=terminal;;
 	--none)		shift; log='';;
 	--no-color|--color=*)
 			colorArg=("$1"); shift;;
 	--color)	colorArg=("$1" "$2"); shift; shift;;
+	--submodule)	shift
+			case "$1" in
+			    ignore)	submoduleCommitProvider='';;
+			    yes)	submoduleCommitProvider='subhashesNonRecursive';;
+			    recurse)	submoduleCommitProvider='git subhashes';;
+			    *)		printUsage "$0" >&2; exit 2;;
+			esac
+			shift
+			;;
 	--quiet|-q)	shift; isQuiet=t;;
 	--branch|-b)	shift; branch="$1"; shift;;
 	--command|-c)	shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
@@ -50,6 +84,11 @@ if [ ${#commands[@]} -eq 0 ]; then
     exit 2
 fi >&2
 
+subhashesNonRecursive()
+{
+    git submodule foreach --quiet 'echo $sha1 $displaypath'
+}
+
 logChanges()
 {
     case "$log" in
@@ -60,17 +99,61 @@ logChanges()
     esac
 }
 
+logMessage()
+{
+    case "$log" in
+	'') ;;
+	terminal)   printf '%s\n' "${1:?}";;
+	graphical)  userNotify --title "$(git-wcname)" --gui --no-markup -- "${1:?}" &;;
+	*)          printf >&2 'ASSERT: Invalid log: %q\n' "$log"; exit 3;;
+    esac
+}
+
 originalRevision="$(git rev-parse "${branch:-HEAD}" 2>/dev/null)"
+typeset -A originalSubmoduleRevisions=()
+[ -z "$submoduleCommitProvider" ] || [ -z "$log" ] || \
+    while IFS=$' \t' read -r revision submoduleName
+    do
+	originalSubmoduleRevisions["$submoduleName"]="$revision"
+    done < <($submoduleCommitProvider)
+
     if [ "$isNeedEval" ]; then
 	eval "${commands[@]}"
     else
 	"${commands[@]}"
     fi; status=$?
+
 if [ -z "$originalRevision" ]; then
     [ -z "$log" ] || echo >&2 "Warning: Could not determine original revision${branch:+ on $branch}, no logging possible."
 elif [ "$(git rev-parse "${branch:-HEAD}" 2>/dev/null)" = "$originalRevision" ]; then
     [ -z "$log" ] || [ "$isQuiet" ] || echo "No changes${branch:+ on $branch}."
 else
     logChanges "${originalRevision}..${branch}"
+
+    if [ -n "$submoduleCommitProvider" ] && [ -n "$log" ]; then
+	typeset -A currentSubmoduleRevisions=()
+	while IFS=$' \t' read -r revision submoduleName
+	do
+	    currentSubmoduleRevisions["$submoduleName"]="$revision"
+	done < <($submoduleCommitProvider)
+
+	for submoduleName in "${!currentSubmoduleRevisions[@]}"
+	do
+	    originalRevision="${originalSubmoduleRevisions["$submoduleName"]}"
+	    if [ -n "$originalRevision" ]; then
+		# Need to enter the submodule to be able to show the log.
+		[ "$originalRevision" = "${currentSubmoduleRevisions["$submoduleName"]}" ] || \
+		    (cd "$submoduleName" && logChanges "${originalRevision}..${currentSubmoduleRevisions["$submoduleName"]}")
+		    # Don't mention "No changes" in unchanged submodules; the superproject has the main focus.
+	    else
+		logMessage "$submoduleName got added"
+	    fi
+	    unset "originalSubmoduleRevisions[$submoduleName]"
+	done
+	for submoduleName in "${!originalSubmoduleRevisions[@]}"
+	do
+	    logMessage "$submoduleName got removed"
+	done
+    fi
 fi
 exit $status

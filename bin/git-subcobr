@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--query] [--recursive] [--local|--remote|--update [--gui|--terminal|--none]] [-f|--force] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--query] [--recursive] [--local|--remote|--update [--gui|--terminal|--none]] [-f|--force] [--] [SUBMODULE ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -19,8 +19,8 @@ printLongUsage()
     # This is the long "man page" when launched with the help argument.
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
-For each configured submodule, check out the branch specified in the .gitmodules
-file (or master).
+For each configured submodule / passed SUBMODULE(s), check out the branch
+specified in the .gitmodules file (or master).
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
@@ -59,14 +59,16 @@ do
 	--@(gui|terminal|none))
 			logArg="$1"; shift;;
 	--force|-f)	forceArg="$1"; shift;;
+	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
     esac
 done
-if [ $# -ne 0 ]; then
-    printUsage "$0" >&2
-    exit 2
-fi
+typeset -A selectedSubmodules=()
+for submodule
+do
+    selectedSubmodules["${submodule%/}"]=t
+done
 
 checkoutLocal()
 {
@@ -107,9 +109,11 @@ if [ ${#submoduleBranches[@]} -eq 0 ]; then
     exit 99
 fi
 
-status=0
+status=
 for submodule in "${!submoduleBranches[@]}"
 do
+    [ ${#selectedSubmodules[@]} -eq 0 ] || [ "${selectedSubmodules["$submodule"]}" ] || continue
+
     if [ "$isQuery" ]; then
 	choice="$(userchoiceFromList --no-cancel --question "${prefix}${submodule}" \
 	    'check out' 'reset to superproject' 'leave as-is')"
@@ -118,9 +122,11 @@ do
 		# This is the default action.
 		;;
 	    'reset to superproject')
-		git checkout $forceArg HEAD -- "$submodule" || status=$?;;
+		git checkout $forceArg HEAD -- "$submodule" && : ${status:=0} || status=$?;;
 	    'leave as-is')
-		continue;;
+		: ${status:=0}
+		continue
+		;;
 	    *)	printf >&2 'ASSERT: Invalid choice: %s\n' "$choice"; exit 3;;
 	esac
     fi
@@ -129,6 +135,6 @@ do
 	cd "$submodule"
 	$action "${submoduleBranches["$submodule"]}"
 	[ ! "$isRecursive" ] || : # TODO: recursion
-    ) || status=$?
+    ) && : ${status:=0} || status=$?
 done
-exit $status
+exit ${status:-99}

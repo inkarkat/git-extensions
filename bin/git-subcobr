@@ -142,8 +142,8 @@ do
     case "$action" in
 	status)
 	    subhash="$(git-subhash --short "$submodule" 2>/dev/null)"
-	    ( set -e
-		cd "$submodule"
+	    (
+		cd "$submodule" || exit 3
 
 		currentBranchName="$(git-brname --real-branch-only 2>/dev/null)"
 		if [ "$currentBranchName" = "${submoduleBranches["$submodule"]}" ]; then
@@ -151,7 +151,7 @@ do
 		elif [ -n "$currentBranchName" ]; then
 		    printf "%-${submoduleWidth}s on %s; would switch to %s\\n" "${prefix}${submodule}" "$currentBranchName" "${submoduleBranches["$submodule"]}"
 		else
-		    currentRev="$(git rev-parse --short HEAD)"
+		    currentRev="$(git rev-parse --short HEAD)" || exit $?
 		    if [ "$subhash" = "$currentRev" ]; then
 			printf "%-${submoduleWidth}s detached checkout of %s; would switch to %s\\n" "${prefix}${submodule}" "$currentRev" "${submoduleBranches["$submodule"]}"
 		    else
@@ -184,10 +184,10 @@ do
 	*)  printf >&2 'ASSERT: Invalid action: %s\n' "$action"; exit 3;;
     esac
 
-    ( set -e
-	cd "$submodule"
+    (
+	cd "$submodule" || exit 3
 
-	$checkoutAction "${submoduleBranches["$submodule"]}"
+	$checkoutAction "${submoduleBranches["$submodule"]}" || exit $?
 
 	if [ "$isRecursive" ]; then
 	    typeset -a selectedNestedSubmodules=()

@@ -48,6 +48,7 @@ action=update
 logArg=
 forceArg=
 prefix=
+noOpStatus=99
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -61,7 +62,7 @@ do
 			recursiveArgs+=("$1")
 			logArg="$1"; shift;;
 	--force|-f)	recursiveArgs+=("$1"); forceArg="$1"; shift;;
-	--prefix)	recursiveArgs+=("$1" "$2"); shift; prefix+="$1"; shift;;
+	--prefix)	recursiveArgs+=("$1" "$2"); shift; prefix+="$1"; noOpStatus=0; shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -119,7 +120,7 @@ do
 done < <(git config --blob HEAD:.gitmodules -l | awk -F [=.] '$3 == "path" { path[$2] = $4 } $3 == "branch" { branch[$2] = $4 } END { for (submodule in branch) { print path[submodule] "\t" branch[submodule] } }')
 if [ ${#submoduleBranches[@]} -eq 0 ]; then
     echo >&2 'No submodules'
-    exit 99
+    exit $noOpStatus
 fi
 
 status=
@@ -159,4 +160,4 @@ do
 	fi
     ) && : ${status:=0} || status=$?
 done
-exit ${status:-99}
+exit ${status:-$noOpStatus}

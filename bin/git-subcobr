@@ -176,8 +176,18 @@ do
 	    ;;
 	query)
 	    if [ "${uninitializedSubmodules["$submodule"]}" ]; then
-		printf "%s hasn't been initialized yet\\n" "${prefix}${submodule}"
-		exit 1
+		choice="$(userchoiceFromList --no-cancel --question "${prefix}${submodule} hasn't been initialized yet" \
+		    'initialize now' 'skip' 'abort')"
+		case "$choice" in
+		    'initialize now')
+			git submodule update --init --recursive -- "$submodule" || { status=$?; continue; }
+			;;
+		    'skip')
+			continue;;
+		    'abort')
+			exit 1;;
+		    *)	printf >&2 'ASSERT: Invalid choice: %s\n' "$choice"; exit 3;;
+		esac
 	    fi
 
 	    choice="$(userchoiceFromList --no-cancel --question "${prefix}${submodule}" \

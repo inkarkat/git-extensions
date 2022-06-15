@@ -82,8 +82,16 @@ update()
     local remote; remote="$(git-trackedremote "$branch")" || return $?
     local remoteRef; remoteRef="$(git-commitid "${remote}/${branch}")" || return $?
     local originalRevision; originalRevision="$(git rev-parse "$branch" 2>/dev/null)"
-    git update-ref -m "subcobr: move $branch to ${remote}/${branch}" "refs/heads/$branch" "$remoteRef" || :	# Still checkout the local branch even if the forwarding did not work.
-    git checkout $forceArg "$branch" || exit $?
+
+    if [ "$(git-brname --real-branch-only 2>/dev/null)" = "$branch" ]; then
+	# Already on that branch, reset it.
+	git reset ${forceArg:+--hard} "$remoteRef" || return $?
+    else
+	# Move the branch to the revision of the tracked branch, then check it
+	# out.
+	git update-ref -m "subcobr: move $branch to ${remote}/${branch}" "refs/heads/$branch" "$remoteRef" || :	# Still checkout the local branch even if the forwarding did not work.
+	git checkout $forceArg "$branch" || return $?
+    fi
 
     [ "$logArg" = --none ] && return
     git-logdelta $logArg --from "$originalRevision"

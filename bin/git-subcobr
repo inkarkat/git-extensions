@@ -41,24 +41,27 @@ HELPDESCRIPTION
 HELPTEXT
 }
 
-typeset -a allargs=("$@")
+typeset -a recursiveArgs=()
 isQuery=
 isRecursive=
 action=update
 logArg=
 forceArg=
+prefix=
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
-	--query)	shift; isQuery=t;;
-	--recursive)	shift; isRecursive=t;;
-	--local)	shift; action=checkoutLocal;;
-	--remote)	shift; action=update; logArg=--none;;
-	--update)	shift; action=update;;
+	--query)	recursiveArgs+=("$1"); shift; isQuery=t;;
+	--recursive)	recursiveArgs+=("$1"); shift; isRecursive=t;;
+	--local)	recursiveArgs+=("$1"); shift; action=checkoutLocal;;
+	--remote)	recursiveArgs+=("$1"); shift; action=update; logArg=--none;;
+	--update)	recursiveArgs+=("$1"); shift; action=update;;
 	--@(gui|terminal|none))
+			recursiveArgs+=("$1")
 			logArg="$1"; shift;;
-	--force|-f)	forceArg="$1"; shift;;
+	--force|-f)	recursiveArgs+=("$1"); forceArg="$1"; shift;;
+	--prefix)	recursiveArgs+=("$1" "$2"); shift; prefix+="$1"; shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -94,7 +97,9 @@ update()
     fi
 
     [ "$logArg" = --none ] && return
-    git-logdelta $logArg --from "$originalRevision"
+
+    local logRecursionArg='--submodule recurse'; [ "$isRecursive" ] && logRecursionArg=	# When we recursively check out, we'll show the logs of nested submodules. But if not, let logdelta do the recursion to see what changed in submodules, too.
+    git-logdelta $logArg $logRecursionArg --from "$originalRevision"
 }
 
 typeset -A submoduleBranches=()
@@ -142,7 +147,16 @@ do
     ( set -e
 	cd "$submodule"
 	$action "${submoduleBranches["$submodule"]}"
-	[ ! "$isRecursive" ] || : # TODO: recursion
+
+	if [ "$isRecursive" ]; then
+	    typeset -a selectedNestedSubmodules=()
+	    for s in "${!selectedSubmodules[@]}"
+	    do
+		[[ "$s" =~ ^"$submodule"/(.*)$ ]] && \
+		    selectedNestedSubmodules+=("${BASH_REMATCH[1]}")
+	    done
+	    "${BASH_SOURCE[0]}" "${recursiveArgs[@]}" --prefix "${submodule}/" -- "${selectedNestedSubmodules[@]}"
+	fi
     ) && : ${status:=0} || status=$?
 done
 exit ${status:-99}

@@ -14,7 +14,7 @@ Test whether there are uninitialized submodules.
 With -p|--print, also prints the names of those submodules.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-p|--print] [--recursive] [-?|-h|--help]'
+    printf 'Usage: [GIT_SUBMODULEUNINITIALIZED_MESSAGE=TEXT] %q %s\n' "$(basename "$1")" '[-p|--print] [--recursive] [-?|-h|--help]'
 }
 typeset -a submoduleArgs=()
 while [ $# -ne 0 ]
@@ -35,4 +35,5 @@ fi
 
 uninitializedSubmodules="$(git submodule status "${submoduleArgs[@]}" | sed -n -e 's/^-[[:xdigit:]]\+[[:space:]]\+\(.*\)$/\1/p')" || exit 3
 [ -n "$uninitializedSubmodules" ] || exit 1
+[ -z "$GIT_SUBMODULEUNINITIALIZED_MESSAGE" ] || printf '%s\n' "$GIT_SUBMODULEUNINITIALIZED_MESSAGE"
 [ ! "$isPrint" ] || printf '%s\n' "$uninitializedSubmodules"

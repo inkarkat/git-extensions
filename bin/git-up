@@ -39,7 +39,8 @@ getRemoteBranch()
 }
 
 remote=
-typeset -a logDeltaArgs=(--submodule recurse)
+submoduleHandling=recurse
+typeset -a logDeltaArgs=(--submodule "$submoduleHandling")
 typeset -a colorArg=()
 while [ $# -ne 0 ]
 do
@@ -49,7 +50,10 @@ do
 			logDeltaArgs+=("$1"); shift;;
 	-[q])
 			logDeltaArgs+=("$1"); shift;;
-	--submodule)	logDeltaArgs+=("$1" "$2"); shift; shift;;
+	--submodule)	logDeltaArgs+=("$1" "$2")
+			submoduleHandling="$2"
+			shift; shift
+			;;
 	--no-color|--color=*)
 			colorArg=("$1"); shift;;
 	--color)	colorArg=("$1" "$2"); shift; shift;;
@@ -123,7 +127,7 @@ fi
 # keep the merges intact; the decision to flatten them or not should only come
 # when reintegrating the branch (namely, whether to rebase or merge).
 if [ "$GIT_UP_NO_UPDATE" ]; then
-    :
+    exit
 elif [ "$GIT_UP_REBASE" ]; then
     remoteBranch="$(getRemoteBranch "$@")" || exit $?
     git "${gitAutoStashGitArg[@]}" rebase "${gitAutoStashPullOrRebaseArg[@]}" "${gitRebaseMergesArg[@]}" "${@:1:$(($#-1))}" "$remoteBranch" || exit $?
@@ -134,3 +138,5 @@ elif git-isdetached; then
 else
     git "${gitAutoStashGitArg[@]}" pull "${gitAutoStashPullOrRebaseArg[@]}" "${gitPullRebaseMergesArg[@]}" "$remote" "$@" || exit $?
 fi
+
+[ "$submoduleHandling" = ignore ] || ! GIT_SUBMODULEUNINITIALIZED_MESSAGE='Warning: Uninitialized submodule(s) found:' git-submodule-uninitialized --print --recursive

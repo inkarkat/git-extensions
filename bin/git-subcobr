@@ -110,6 +110,7 @@ update()
     [ -z "$record" ] || git-logdelta $logArg $logRecursionArg --from-record "$record"
 }
 
+let submoduleWidth=0
 typeset -A submoduleBranches=()
 while IFS=$'\t' read -r submodule branch
 do
@@ -124,6 +125,8 @@ do
     esac
 
     submoduleBranches["$submodule"]="$branch"
+
+    [ $submoduleWidth -lt ${#submodule} ] && submoduleWidth=${#submodule}
 done < <(git config --blob HEAD:.gitmodules -l 2>/dev/null | awk -F [=.] '$3 == "path" { path[$2] = $4 } $3 == "branch" { branch[$2] = $4 } END { for (submodule in branch) { print path[submodule] "\t" branch[submodule] } }')
 if [ ${#submoduleBranches[@]} -eq 0 ]; then
     echo >&2 'No submodules'
@@ -141,21 +144,21 @@ do
 	    subhash="$(git rev-parse --short "HEAD:${submodule}" 2>/dev/null)"
 	    ( set -e
 		if ! cd "$submodule" 2>/dev/null; then
-		    printf '%s\tnot initialized\n' "${prefix}${submodule}"
+		    printf "%-${submoduleWidth}s not initialized\\n" "${prefix}${submodule}"
 		    exit 1
 		fi
 
 		currentBranchName="$(git-brname --real-branch-only 2>/dev/null)"
 		if [ "$currentBranchName" = "${submoduleBranches["$submodule"]}" ]; then
-		    printf '%s\talready on %s\n' "${prefix}${submodule}" "$currentBranchName"
+		    printf "%-${submoduleWidth}s already on %s\\n" "${prefix}${submodule}" "$currentBranchName"
 		elif [ -n "$currentBranchName" ]; then
-		    printf '%s\ton %s; would switch to %s\n' "${prefix}${submodule}" "$currentBranchName" "${submoduleBranches["$submodule"]}"
+		    printf "%-${submoduleWidth}s on %s; would switch to %s\\n" "${prefix}${submodule}" "$currentBranchName" "${submoduleBranches["$submodule"]}"
 		else
 		    currentRev="$(git rev-parse --short HEAD)"
 		    if [ "$subhash" = "$currentRev" ]; then
-			printf '%s\tdetached checkout of %s\n' "${prefix}${submodule}" "$currentRev"
+			printf "%-${submoduleWidth}s detached checkout of %s\\n" "${prefix}${submodule}" "$currentRev"
 		    else
-			printf "%s\tdetached checkout of %s != %s\\n" "${prefix}${submodule}" "$currentRev" "$subhash"
+			printf "%-${submoduleWidth}s detached checkout of %s != %s\\n" "${prefix}${submodule}" "$currentRev" "$subhash"
 		    fi
 		fi
 	    ) && : ${status:=0} || status=$?

@@ -5,6 +5,9 @@ printShortUsage()
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--gui|--terminal|--none] [--color=(always|auto|never)|--no-color] [--submodule ignore|yes|recurse] [-q|--quiet] [-b|--branch BRANCH] -c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...] [-?|-h|--help]'
+    echo
+    printf 'Usage: record=$(%q %s); COMMAND(s); %q %s\n' "$(basename "$1")" '[--gui|--terminal|--none] [--submodule ignore|yes|recurse] [-b|--branch BRANCH] --record' \
+	"$(basename "$1")" '[--gui|--terminal|--none] [--color=(always|auto|never)|--no-color] [--submodule ignore|yes|recurse] [-q|--quiet] [-b|--branch BRANCH] --from-record "$record"'
 }
 printUsage()
 {
@@ -30,6 +33,10 @@ HELPDESCRIPTION
     --submodule recurse	Log the changes in each submodule and for nested
 			submodules, too.
     --quiet|-q		Don't mention when there are no changes.
+    --record		Just record the current state of the working copy (and
+			submodules).
+    --from-record RECORD
+			Show a log based on the previously recorded RECORD.
 HELPTEXT
 }
 
@@ -40,6 +47,8 @@ isQuiet=
 isNeedEval=
 submoduleCommitProvider=
 typeset -a commands=()
+isRecord=
+record=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -62,6 +71,8 @@ do
 	--quiet|-q)	shift; isQuiet=t;;
 	--branch|-b)	shift; branch="$1"; shift;;
 	--command|-c)	shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
+	--record)	shift; isRecord=t;;
+	--from-record)	shift; record="${1:?}"; shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -77,8 +88,13 @@ if [ $# -ne 0 ]; then
 	commands=("$@")
     fi
 fi
-if [ ${#commands[@]} -eq 0 ]; then
-    echo 'ERROR: No COMMAND(s) specified; need to pass -c|--command "COMMANDLINE", or SIMPLECOMMAND.'
+if [ ! "$isRecord" ] && [ -z "$record" -a ${#commands[@]} -eq 0 ]; then
+    echo 'ERROR: No COMMAND(s) specified; need to pass -c|--command "COMMANDLINE", or SIMPLECOMMAND (or use --record and then --from-record RECORD).'
+    echo
+    printUsage "$0"
+    exit 2
+elif [ "$isRecord" ] && [ -n "$record" ]; then
+    echo 'ERROR: Cannot use --record and --from-record at the same time. First --record and then pass the result to a second invocation via --from-record.'
     echo
     printUsage "$0"
     exit 2
@@ -109,19 +125,37 @@ logMessage()
     esac
 }
 
-originalRevision="$(git rev-parse "${branch:-HEAD}" 2>/dev/null)"
+if [ -n "$record" ]; then
+    originalRevision="${record%%$'\n'*}"
+    record="${record#"$originalRevision"}"; record="${record#$'\n'}"
+else
+    originalRevision="$(git rev-parse "${branch:-HEAD}" 2>/dev/null)"
+    [ "$isRecord" ] && printf '%s\n' "$originalRevision"
+fi
 typeset -A originalSubmoduleRevisions=()
 [ -z "$submoduleCommitProvider" ] || [ -z "$log" ] || \
-    while IFS=$' \t' read -r revision submoduleName
-    do
-	originalSubmoduleRevisions["$submoduleName"]="$revision"
-    done < <($submoduleCommitProvider)
-
-    if [ "$isNeedEval" ]; then
-	eval "${commands[@]}"
+    if [ "$isRecord" ]; then
+	$submoduleCommitProvider
     else
-	"${commands[@]}"
-    fi; status=$?
+	while IFS=$' \t' read -r revision submoduleName
+	do
+	    originalSubmoduleRevisions["$submoduleName"]="$revision"
+	done < <(
+	    if [ -n "$record" ]; then
+		printf '%s\n' "$record"
+	    else
+		$submoduleCommitProvider
+	    fi
+	)
+    fi
+
+if [ "$isRecord" ]; then
+    exit
+elif [ "$isNeedEval" ]; then
+    eval "${commands[@]}"
+else
+    "${commands[@]}"
+fi; status=$?
 
 if [ -z "$originalRevision" ]; then
     [ -z "$log" ] || echo >&2 "Warning: Could not determine original revision${branch:+ on $branch}, no logging possible."

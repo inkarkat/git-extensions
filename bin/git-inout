@@ -37,12 +37,15 @@ else
     remoteBranch=$(git tracks) || exit $?
 fi
 
-typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+typeset -a gitColorArg=()
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+if [ -t 1 ]; then
+    isNeedColorArgumentWhenPiping "$@" && gitColorArg=(--color=always)
+else
+    pager=()
+fi
 ensureValidRef "$localBranch"
 ensureValidRef "$remoteBranch"
-
-gitColorArg=()
-[ -n "$pager" ] && isNeedColorArgumentWhenPiping "$@" && gitColorArg=(--color=always)
 
 inout()
 {

@@ -23,19 +23,23 @@ ensureValidRef()
     fi
 }
 
-if [ $# -eq 2 ]; then
-    localBranch=$1
-    remoteBranch=$2
-elif [ $# -eq 1 ]; then
-    localBranch=$(git-brname --real-branch-only) || exit $?
-    case "$1" in
-	*/*)	remoteBranch=$1;;
-	*)	remoteBranch=$(git-remotebr "$1") || exit $?;;
-    esac
-else
-    localBranch=$(git-brname --real-branch-only) || exit $?
-    remoteBranch=$(git tracks) || exit $?
-fi
+case $# in
+    2)	localBranch="$1"
+	remoteBranch="$2"
+	;;
+    1)	localBranch="$(git-brname --real-branch-only)" || exit $?
+	case "$1" in
+	    */*)    remoteBranch="$1";;
+	    *)	    remoteBranch="$(git-remotebr "$1")" || exit $?;;
+	esac
+	;;
+    0)	localBranch="$(git-brname --real-branch-only)" || exit $?
+	remoteBranch="$(git tracks)" || exit $?
+	;;
+    *)	printUsage >&2 "$0"
+	exit 2
+	;;
+esac
 
 typeset -a gitColorArg=()
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)

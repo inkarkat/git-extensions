@@ -1,5 +1,6 @@
 #!/bin/bash
 set -o pipefail
+shopt -qs extglob
 
 printUsage()
 {
@@ -8,17 +9,42 @@ Execute GIT-COMMAND for the commit interactively chosen from the (recent | N)
 commits [that cover FILE ...] from the reflog.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--accept-single] [--single-only] [-c ...] GIT-COMMAND --since <date>|--max-count|-n|<range> [<git-command-args> ...] [--] [FILE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--commits-only] [--accept-single] [--single-only] [-c ...] GIT-COMMAND --since <date>|--max-count|-n|<range> [<git-command-args> ...] [--] [FILE ...] [-?|-h|--help]'
 }
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --source)		shift
-			git reflog show "$@" | uniqueStable --skip ' .*$'
+format='%d %gs'
+myArgs=
+typeset -a gitArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--commits-only)	myArgs+=" $1"; shift; format='%gs';;
+	--source)	shift
+			typeset -a reflogArgs=()
+			number=
+			typeset -a filter=()
+			while [ $# -ne 0 ]
+			do
+			    case "$1" in
+				--commits-only)	shift; filter=(awk '$2 ~ /^commit:?$/');;
+				--max-count)	shift; number="${1:?}"; shift;;
+				--max-count=*)	number="${1#--max-count=}"; shift;;
+				-n)		shift; number="${1:?}"; shift;;
+				-+([0-9]))	number="${1#-}"; shift;;
+				--)		break;;
+				*)		reflogArgs+=("$1"); shift;;
+			    esac
+			done
+			eval 'git reflog show "${reflogArgs[@]}"' "${filter:+|}" '"${filter[@]}"' | \
+			    eval 'uniqueStable --skip " .*\$"' "${number:+| head -n $number}"
 			exit $?
 			;;
-esac
+	--)		break;;
+	*)		gitArgs+=("$1"); shift;;
+    esac
+done
 
 readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
 
-GIT_SELECTEDCOMMIT_COMMAND="${scriptName#git-} --source" GIT_SELECTEDCOMMIT_COMMAND_FORMAT='%d %gs' \
-    exec git-selectedcommit-command "$@"
+GIT_SELECTEDCOMMIT_COMMAND="${scriptName#git-} --source${myArgs}" GIT_SELECTEDCOMMIT_COMMAND_FORMAT="$format" \
+    exec git-selectedcommit-command "${gitArgs[@]}"

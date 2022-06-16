@@ -4,12 +4,12 @@ set -o pipefail
 printUsage()
 {
     cat <<HELPTEXT
-Show incoming and outgoing commit logs between current / passed branch and its
-remote tracked branch / passed branch / corresponding remote branch of passed
-remote.
+Show incoming and outgoing commit logs between current / passed <branch> and its
+remote tracked branch / passed <other-branch> / passed <commit> and
+<other-commit> / corresponding remote branch of passed <remote>.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<branch> [<other-branch>]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<remote>|(<branch>|<commit> [<other-branch>|<other-commit>])] [-?|-h|--help]'
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
@@ -17,42 +17,56 @@ esac
 
 ensureValidRef()
 {
-    if ! git-existsbr "$1"; then
-	printf >&2 'ERROR: Branch %s does not exist!\n' "$1"
+    local ref="${1:?}"; shift
+    if ! git rev-parse --verify --quiet "$ref" >/dev/null 2>&1; then
+	printf >&2 'ERROR: %s does not exist!\n' "$ref"
 	exit 1
     fi
 }
 
-if [ $# -eq 2 ]; then
-    localBranch=$1
-    remoteBranch=$2
-elif [ $# -eq 1 ]; then
-    localBranch=$(git-brname --real-branch-only) || exit $?
-    case "$1" in
-	*/*)	remoteBranch=$1;;
-	*)	remoteBranch=$(git-remotebr "$1") || exit $?;;
-    esac
+case $# in
+    2)	baseRev="$(git-desc "$1")" || exit $?; shift
+	otherRev="$(git-desc "$1")" || exit $?; shift
+	;;
+    1)	baseRev="$(git-brname --real-branch-only)" || exit $?
+	case "$1" in
+	    */*)    otherRev="$1";;
+	    *)	    if git-existsremote "$1"; then
+			otherRev="$(git-remotebr "$1")" || exit $?
+		    else
+			otherRev="$(git-desc "$1")" || exit $?
+		    fi
+		    ;;
+	esac
+	shift
+	;;
+    0)	baseRev="$(git-brname --real-branch-only)" || exit $?
+	otherRev="$(git tracks)" || exit $?
+	;;
+    *)	printUsage >&2 "$0"
+	exit 2
+	;;
+esac
+
+typeset -a gitColorArg=()
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+if [ -t 1 ]; then
+    isNeedColorArgumentWhenPiping "$@" && gitColorArg=(--color=always)
 else
-    localBranch=$(git-brname --real-branch-only) || exit $?
-    remoteBranch=$(git tracks) || exit $?
+    pager=()
 fi
-
-typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
-ensureValidRef "$localBranch"
-ensureValidRef "$remoteBranch"
-
-gitColorArg=()
-[ -n "$pager" ] && isNeedColorArgumentWhenPiping "$@" && gitColorArg=(--color=always)
+ensureValidRef "$baseRev"
+ensureValidRef "$otherRev"
 
 inout()
 {
     local status=1
     local padding=$'\n'
-    GIT_ONELINELOG_DIRECT_ARG=--no-pager git-onelinelog "${gitColorArg[@]}" "$localBranch..$remoteBranch" | \
-	outputAndPrintf "incoming ${remoteBranch} -> ${localBranch}:\\n" && status=0 || padding=''
+    GIT_ONELINELOG_DIRECT_ARG=--no-pager git-onelinelog "${gitColorArg[@]}" "$baseRev..$otherRev" | \
+	outputAndPrintf "incoming ${otherRev} -> ${baseRev}:\\n" && status=0 || padding=''
 
-    GIT_ONELINELOG_DIRECT_ARG=--no-pager git-onelinelog "${gitColorArg[@]}" "$remoteBranch..$localBranch" | \
-	outputAndPrintf "${padding}outgoing ${localBranch} -> ${remoteBranch}:\\n" && status=0
+    GIT_ONELINELOG_DIRECT_ARG=--no-pager git-onelinelog "${gitColorArg[@]}" "$otherRev..$baseRev" | \
+	outputAndPrintf "${padding}outgoing ${baseRev} -> ${otherRev}:\\n" && status=0
 
     return $status
 }

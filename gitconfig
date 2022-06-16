@@ -4096,10 +4096,10 @@
 	;; coo: Keep "ours", the original one we had (ORIG_HEAD), or the one we're rebasing onto, in case of merge conflicts.
 	;; cot: Keep "theirs", the version merged in (MERGE_HEAD), or the one from the branch we're rebasing, in case of merge conflicts.
 	;; reflog: Show recorded changes to the tip of a branch, mostly to restore unreachable old commits via head@{1}.
-	;; inout: Show incoming and outgoing commit logs between current / passed branch and its remote tracked branch / passed branch / corresponding remote branch of passed remote.
+	;; inout: Show incoming and outgoing commit logs between current / passed <branch> and its remote tracked branch / passed <other-branch> / passed <commit> and <other-commit> / corresponding remote branch of passed <remote>.
 	io = inout
-	mio = master-command inout HEAD
-	nio = base inout HEAD
+	mio = master-command inout
+	nio = base inout
 
 	cleanall = clean -d -x	; Remove all untracked files and directories, restoring a pristine working copy.
 	;; lsprivate: Show all non-ignored files not under version control.
@@ -4260,9 +4260,11 @@
 	olog = rev-remote-command origin log; Log of my GitHub clone.
 	ologv = rev-remote-command origin logv; Verbose log of my GitHub clone.
 	oio = inout origin
-	omio = master-command -2 MASTER origin/MASTER inout
-	onio = base-command -2 BASE origin/BASE inout
-	omrb = master-command -2 MASTER origin/MASTER remaster ; Remaster my commits on top of the latest master of my GitHub clone.
+	omio = master-command -1 origin/MASTER inout
+	omiom = master-command -2 MASTER origin/MASTER inout
+	onio = base-command -1 origin/BASE inout
+	onion = base-command -2 BASE origin/BASE inout
+	omrb = master-command -2 MASTER origin/MASTER rebase ; Remaster my commits on top of the latest master of my GitHub clone.
 	onrb = base-command -2 BASE origin/BASE rebase ; Rebase my commits on top of the latest base branch of my GitHub clone.
 	ofetch = fetch origin ; Get changes done to my GitHub clone through another Git repository, e.g. from another system. Use this, followed by git owipe, when origin has been reset (e.g. to an updated upstream).
 	ofetchonly = fetchonly origin; Only fetch in my GitHub clone changes (no update of local branches) and show a log of the changes.
@@ -4343,8 +4345,10 @@
 	umlc = master-command --keep-position rev-branch-remotebr-command upstream MASTER lc ; Show log and diff of changes introduced in upstream relative to master; useful to review upstream changes before pulling them in.
 	unlc = base-command --keep-position rev-branch-remotebr-command upstream BASE lc ; Show log and diff of changes introduced in upstream relative to base; useful to review upstream changes before pulling them in.
 	uio = inout upstream
-	umio = master-command -2 MASTER upstream/MASTER inout
-	unio = base-command -2 BASE upstream/BASE inout
+	umio = master-command -1 upstream/MASTER inout
+	umiom = master-command -2 MASTER upstream/MASTER inout
+	unio = base-command -1 upstream/BASE inout
+	union = base-command -2 BASE upstream/BASE inout
 	umrb = master-command -1 upstream/MASTER rebase ; Rebase my commits on top of the latest main upstream branch. "co mybranch" first, clone it via "git co -b mybranch-old; git opublish" if you want to keep the old one, or just use "umrb mybranch". You can also do this after the rebase, but before pushing: "git tco -b mybranch-old; git opublish; git co mybranch". Persist with "git opush -f"; undo with "git treset --hard".
 	unrb = base-command -1 upstream/BASE rebase ; Rebase my commits on top of the latest base upstream branch.
 	ufetch = fetch upstream	; Get upstream changes.

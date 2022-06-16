@@ -24,22 +24,22 @@ ensureValidRef()
 }
 
 case $# in
-    2)	localBranch="$1"
-	remoteBranch="$2"
+    2)	baseBranch="$1"
+	otherBranch="$2"
 	;;
-    1)	localBranch="$(git-brname --real-branch-only)" || exit $?
+    1)	baseBranch="$(git-brname --real-branch-only)" || exit $?
 	case "$1" in
-	    */*)    remoteBranch="$1";;
+	    */*)    otherBranch="$1";;
 	    *)	    if git-existsremote "$1"; then
-			remoteBranch="$(git-remotebr "$1")" || exit $?
+			otherBranch="$(git-remotebr "$1")" || exit $?
 		    else
-			remoteBranch="$1"
+			otherBranch="$1"
 		    fi
 		    ;;
 	esac
 	;;
-    0)	localBranch="$(git-brname --real-branch-only)" || exit $?
-	remoteBranch="$(git tracks)" || exit $?
+    0)	baseBranch="$(git-brname --real-branch-only)" || exit $?
+	otherBranch="$(git tracks)" || exit $?
 	;;
     *)	printUsage >&2 "$0"
 	exit 2
@@ -53,18 +53,18 @@ if [ -t 1 ]; then
 else
     pager=()
 fi
-ensureValidRef "$localBranch"
-ensureValidRef "$remoteBranch"
+ensureValidRef "$baseBranch"
+ensureValidRef "$otherBranch"
 
 inout()
 {
     local status=1
     local padding=$'\n'
-    GIT_ONELINELOG_DIRECT_ARG=--no-pager git-onelinelog "${gitColorArg[@]}" "$localBranch..$remoteBranch" | \
-	outputAndPrintf "incoming ${remoteBranch} -> ${localBranch}:\\n" && status=0 || padding=''
+    GIT_ONELINELOG_DIRECT_ARG=--no-pager git-onelinelog "${gitColorArg[@]}" "$baseBranch..$otherBranch" | \
+	outputAndPrintf "incoming ${otherBranch} -> ${baseBranch}:\\n" && status=0 || padding=''
 
-    GIT_ONELINELOG_DIRECT_ARG=--no-pager git-onelinelog "${gitColorArg[@]}" "$remoteBranch..$localBranch" | \
-	outputAndPrintf "${padding}outgoing ${localBranch} -> ${remoteBranch}:\\n" && status=0
+    GIT_ONELINELOG_DIRECT_ARG=--no-pager git-onelinelog "${gitColorArg[@]}" "$otherBranch..$baseBranch" | \
+	outputAndPrintf "${padding}outgoing ${baseBranch} -> ${otherBranch}:\\n" && status=0
 
     return $status
 }

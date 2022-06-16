@@ -6,8 +6,8 @@ printUsage()
 {
     cat <<HELPTEXT
 Rebase the last [<number>, useful when there are forgotten commits that cannot
-be rewritten any more] fixup / squash commit(s) to, well, incorporate the fixes
-/ squash the commits into the current branch.
+be rewritten any more] fixup / amend / squash commit(s) to, well, incorporate
+the fixes / rewordings / squash the commits into the current branch.
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '-<number>|-n <number>|--max-count=<number> [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
@@ -30,11 +30,11 @@ done
 
 lastCommit="$(
     git log --pretty='tformat:%H %s' "${gitArgs[@]}" "$@" | \
-	sed -n -e 's/^\([[:xdigit:]]\+\) \(fixup\|squash\)! .*$/\1/p' | \
+	sed -n -e 's/^\([[:xdigit:]]\+\) \(amend\|fixup\|squash\)! .*$/\1/p' | \
 	eval "${number:+sed -n -e "1,${number}p" | }" 'sed -n -e \$p'
 )"
 if [ -z "$lastCommit" ]; then
-    echo 'No fixup / squash commits found.'
+    echo 'No fixup / amend / squash commits found.'
     exit 1
 fi
 

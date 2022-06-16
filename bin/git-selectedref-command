@@ -13,7 +13,15 @@ HELPTEXT
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
     --source)		shift
-			git reflog show "$@" | uniqueStable --skip ' .*$'
+			typeset -a reflogArgs=()
+			while [ $# -ne 0 ]
+			do
+			    case "$1" in
+				--)		reflogArgs+=("$1"); shift; break;;
+				*)		reflogArgs+=("$1"); shift;;
+			    esac
+			done
+			git reflog show "${reflogArgs[@]}"  | uniqueStable --skip ' .*$'
 			exit $?
 			;;
 esac

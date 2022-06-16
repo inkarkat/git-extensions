@@ -30,7 +30,12 @@ case $# in
     1)	localBranch="$(git-brname --real-branch-only)" || exit $?
 	case "$1" in
 	    */*)    remoteBranch="$1";;
-	    *)	    remoteBranch="$(git-remotebr "$1")" || exit $?;;
+	    *)	    if git-existsremote "$1"; then
+			remoteBranch="$(git-remotebr "$1")" || exit $?
+		    else
+			remoteBranch="$1"
+		    fi
+		    ;;
 	esac
 	;;
     0)	localBranch="$(git-brname --real-branch-only)" || exit $?

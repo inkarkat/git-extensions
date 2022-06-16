@@ -4138,7 +4138,8 @@
 	reset-back = reset ORIG_HEAD	; Undo a previous git reset; allows you to go back into the future after moving the HEAD to the past.
 	track = branch --set-upstream-to	; Change the remote the current branch is tracking.
 	;; tracks: Show which remote branch is tracked by the current branch.
-	;
+	;; trackedremote: Show which remote is tracked by the current / passed branch.
+
 	;; pushall: Push all branches, tags, and notes (if exist).
 	;; up: Pull and rebase the current branch from passed <remote>. (By default, pull prefers merges over rebasing). Handles a dirty working copy by temporarily stashing it. Shows a log of pulled changes.
 	;; fetchonly: Only fetch changes (no update of local branches) in REMOTE, and show a log of the changes.
@@ -4434,6 +4435,7 @@
 	;; existsremoteurl: Check whether the passed remote name / URL offers a remote repository.
 
 	; Submodule handling; partially taken from http://git-scm.com/book/en/v2/Git-Tools-Submodules
+	;; submodule-uninitialized: Test whether there are uninitialized submodules.
 	sub-set-recursive-fetch = config --local fetch.recurseSubmodules true	; Configure this repository to always fetch all submodules, not just on-demand when the superproject updates a reference. This is useful for projects where the superproject is just collecting the actual development subprojects into a consistent whole.
 	;; hassubmodules: Test whether the current repository has any submodules.
 	;; issubmodule: Test whether the current working copy is a submodule of another repository.
@@ -4457,14 +4459,17 @@
 	sublcg7 = sublcg --max-count 7
 	;; sublclg: Logs together with diff between commits where log messages match the specified text or /regexp/.
 
-	sublist = submodule foreach --recursive --quiet 'echo $displaypath'	; Show a list of all submodules (relative to the current directory).
+	sublist = submodule foreach --recursive --quiet 'echo $displaypath'	; Show a list of all (initialized and at least once updated) submodules (relative to the current directory).
 	;; subhash: Show the commit ID recorded in the superproject for passed <submodule>.
 	subhashes = git submodule foreach --recursive --quiet 'echo $sha1 $displaypath'	; Show a list of commit IDs recorded in the superproject, for all submodules (relative to the current directory).
 	subst = submodule status --recursive	; Show the commit of each submodule that is currently checked out.
 	substi = submodule status --cached --recursive	; Show the commit of each submodule as recorded in the superproject.
 	subpush = push --recurse-submodules=on-demand	; Goes into each submodule and manually pushes to the remotes to make sure they're externally available.
-	subup = submodule update --remote --merge --recursive	; Update and merge our changes with upstream changes to the submodule.
-	subcobr = submodule foreach --quiet --recursive 'git switch \"$(git config -f \"$toplevel/.gitmodules\" \"submodule.$name.branch\" || echo master)\"'
+	subco = submodule update --init --rebase --recursive	; Update all registered submodules with the commit recorded in the superproject. If a submodule has a branch checked out, any changes there are rebased onto the commit recorded in the superproject. Do this to update all / passed submodules to the superproject state in a bulk operation. Alternatively, you can also "git checkout SUBMODULE" individual submodules.
+	subup = submodule update --init --remote --no-fetch --rebase --recursive	; Integrate changes from the remote subprojects of all registered submodules. If a submodule has a branch checked out, any changes there are rebased onto the commit recorded in the superproject. Do this to update all / passed submodules to the submodules's remote tracking branch / master in a bulk operation. Alternatively, you can also "git up" individual submodules and then commit the superproject.
+	subwipeup = submodule update --init --remote --no-fetch --checkout --recursive	; Apply changes from the remote subprojects of all registered submodules. Local changes to a submodule are discarded; the submodule will be detached from those commits. Do this to update all / passed submodules to the submodules's remote tracking branch / master in a bulk operation. Alternatively, you can also "git reset" individual submodules and then commit the superproject.
+	subfetchup = submodule update --init --remote --rebase --recursive	; Fetch and integrate changes from the remote subprojects of all registered submodules. If a submodule has a branch checked out, any changes there are rebased onto the commit recorded in the superproject. Do this to update all / passed submodules to the submodules's remote tracking branch / master in a bulk operation. Alternatively, you can also "git fetchup" individual submodules and then commit the superproject.
+	;; subcobr: For each configured submodule / passed SUBMODULE(s), check out the branch specified in the .gitmodules file (or master).
 
 
 	;; Git Flow

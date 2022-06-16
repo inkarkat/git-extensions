@@ -1,0 +1,236 @@
+#!/bin/bash
+shopt -qs extglob
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--status|--query|--all] [--recursive] [--local|--remote|--update [--gui|--terminal|--none]] [-f|--force] [--] [SUBMODULE ...] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+For each configured submodule / passed SUBMODULE(s), check out the branch
+specified in the .gitmodules file (or master).
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --status		Show the current status of all / the passed submodules
+			without doing any checkouts.
+    --query		Confirm for each submodule whether it should be checked
+			out, reset to what the superproject has recorded, or
+			left as-is.
+    --all		Check out all defined submodules without querying.
+			By default, the status will be shown unless at least one
+			SUBMODULE is passed.
+    --recursive		Also check out branches in nested submodules.
+    --local		Check out the local branch.
+    --remote		Update the local branch to the tracked remote (without
+			logging).
+    --update		Update the local branch to the tracked remote, and show
+			a log of the changes between the previous (detached)
+			checkout and the remote branch. This is the default.
+    --force|-f		Proceed even if the index or the working tree differs
+			from HEAD. This is used to throw away local changes.
+HELPTEXT
+}
+
+typeset -a recursiveArgs=()
+action=
+isRecursive=
+checkoutAction=update
+logArg=
+forceArg=
+prefix=
+noOpStatus=99
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--@(status|query|all))
+			recursiveArgs+=("$1"); action="${1#--}"; shift;;
+	--recursive)	recursiveArgs+=("$1"); shift; isRecursive=t;;
+	--local)	recursiveArgs+=("$1"); shift; checkoutAction=checkoutLocal;;
+	--remote)	recursiveArgs+=("$1"); shift; checkoutAction=update; logArg=--none;;
+	--update)	recursiveArgs+=("$1"); shift; checkoutAction=update;;
+	--@(gui|terminal|none))
+			recursiveArgs+=("$1")
+			logArg="$1"; shift;;
+	--force|-f)	recursiveArgs+=("$1"); forceArg="$1"; shift;;
+	--prefix)	recursiveArgs+=("$1" "$2"); shift; prefix+="$1"; noOpStatus=0; shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+typeset -A selectedSubmodules=()
+for submodule
+do
+    : ${action:=all}
+    selectedSubmodules["${submodule%/}"]=t
+done
+: ${action:=status}
+
+checkoutLocal()
+{
+    local branch="${1:?}"; shift
+    git checkout $forceArg "$branch"
+}
+
+update()
+{
+    local branch="${1:?}"; shift
+    local remote; remote="$(git-trackedremote "$branch")" || return $?
+    local remoteRef; remoteRef="$(git-commitid "${remote}/${branch}")" || return $?
+
+    local logRecursionArg='--submodule recurse'; [ "$isRecursive" ] && logRecursionArg=	# When we recursively check out, we'll show the logs of nested submodules. But if not, let logdelta do the recursion to see what changed in submodules, too.
+    local record; [ "$logArg" = --none ] || record="$(git-logdelta $logArg $logRecursionArg --record)"
+
+    if [ "$(git-brname --real-branch-only 2>/dev/null)" = "$branch" ]; then
+	# Already on that branch, reset it.
+	git reset ${forceArg:+--hard} "$remoteRef" || return $?
+    else
+	# Move the branch to the revision of the tracked branch, then check it
+	# out.
+	git update-ref -m "subcobr: move $branch to ${remote}/${branch}" "refs/heads/$branch" "$remoteRef" || :	# Still checkout the local branch even if the forwarding did not work.
+	git checkout $forceArg "$branch" || return $?
+    fi
+
+    [ -z "$record" ] || git-logdelta $logArg $logRecursionArg --from-record "$record"
+}
+
+let submoduleWidth=0
+typeset -A submoduleBranches=()
+while IFS=$'\t' read -r submodule branch
+do
+    case "$branch" in
+	# A special value of . is used to indicate that the name of the branch
+	# in the submodule should be the same name as the current branch in the
+	# current repository.
+	.)  branch="$(git-brname --real-branch-only)" || exit $?;;
+
+	# "git submodule update --remote" defaults to master.
+	'') branch='master';;
+    esac
+
+    submoduleBranches["$submodule"]="$branch"
+
+    [ $submoduleWidth -lt ${#submodule} ] && submoduleWidth=${#submodule}
+done < <(git config --blob HEAD:.gitmodules -l 2>/dev/null | awk -F [=.] '$3 == "path" { path[$2] = $4 } $3 == "branch" { branch[$2] = $4 } END { for (submodule in path) { print path[submodule] "\t" branch[submodule] } }')
+if [ ${#submoduleBranches[@]} -eq 0 ]; then
+    echo >&2 'No submodules'
+    exit $noOpStatus
+fi
+
+typeset -A uninitializedSubmodules=()
+while IFS=$'\n' read -r submodule
+do
+    uninitializedSubmodules["$submodule"]=t
+done < <(git-submodule-uninitialized --print)	# Don't recurse, as we're matching against the direct submodules from .gitmodules; further recursions will check their own nested submodules.
+
+status=
+readarray -t submoduleList < <(printf '%s\n' "${!submoduleBranches[@]}" | sort)
+for submodule in "${submoduleList[@]}"
+do
+    [ ${#selectedSubmodules[@]} -eq 0 ] || [ "${selectedSubmodules["$submodule"]}" ] || continue
+
+    case "$action" in
+	status)
+	    if [ "${uninitializedSubmodules["$submodule"]}" ]; then
+		printf "%-${submoduleWidth}s hasn't been initialized yet\\n" "${prefix}${submodule}"
+		status=1
+		continue
+	    fi
+
+	    subhash="$(git-subhash --short "$submodule" 2>/dev/null)"
+	    (
+		cd "$submodule" || exit 3
+
+		currentBranchName="$(git-brname --real-branch-only 2>/dev/null)"
+		if [ "$currentBranchName" = "${submoduleBranches["$submodule"]}" ]; then
+		    updateHint=; [ "$checkoutAction" = update ] && updateHint='; would update'
+		    printf "%-${submoduleWidth}s already on %s%s\\n" "${prefix}${submodule}" "$currentBranchName" "$updateHint"
+		elif [ -n "$currentBranchName" ]; then
+		    printf "%-${submoduleWidth}s on %s; would switch to %s\\n" "${prefix}${submodule}" "$currentBranchName" "${submoduleBranches["$submodule"]}"
+		else
+		    currentRev="$(git rev-parse --short HEAD)" || exit $?
+		    if [ "$subhash" = "$currentRev" ]; then
+			printf "%-${submoduleWidth}s detached checkout of %s; would switch to %s\\n" "${prefix}${submodule}" "$currentRev" "${submoduleBranches["$submodule"]}"
+		    else
+			printf "%-${submoduleWidth}s detached checkout of %s != %s; would switch to %s\\n" "${prefix}${submodule}" "$currentRev" "$subhash" "${submoduleBranches["$submodule"]}"
+		    fi
+		fi
+	    ) && : ${status:=0} || status=$?
+
+	    continue
+	    ;;
+	query)
+	    if [ "${uninitializedSubmodules["$submodule"]}" ]; then
+		choice="$(userchoiceFromList --no-cancel --question "${prefix}${submodule} hasn't been initialized yet" \
+		    'initialize now' 'skip' 'abort')"
+		case "$choice" in
+		    'initialize now')
+			git submodule update --init --recursive -- "$submodule" || { status=$?; continue; }
+			;;
+		    'skip')
+			continue;;
+		    'abort')
+			exit 1;;
+		    *)	printf >&2 'ASSERT: Invalid choice: %s\n' "$choice"; exit 3;;
+		esac
+	    fi
+
+	    choice="$(userchoiceFromList --no-cancel --question "${prefix}${submodule}" \
+		'check out' 'reset to superproject' 'leave as-is')"
+	    case "$choice" in
+		'check out')
+		    # This is the default action.
+		    ;;
+		'reset to superproject')
+		    git checkout $forceArg HEAD -- "$submodule" && : ${status:=0} || status=$?
+		    continue
+		    ;;
+		'leave as-is')
+		    : ${status:=0}
+		    continue
+		    ;;
+		*)	printf >&2 'ASSERT: Invalid choice: %s\n' "$choice"; exit 3;;
+	    esac
+	    ;;
+	all)
+	    if [ "${uninitializedSubmodules["$submodule"]}" ]; then
+		printf "%s hasn't been initialized yet\\n" "${prefix}${submodule}"
+		exit 1
+	    fi
+	    ;;
+	*)  printf >&2 'ASSERT: Invalid action: %s\n' "$action"; exit 3;;
+    esac
+
+    (
+	cd "$submodule" || exit 3
+
+	$checkoutAction "${submoduleBranches["$submodule"]}" || exit $?
+
+	if [ "$isRecursive" ]; then
+	    typeset -a selectedNestedSubmodules=()
+	    for s in "${!selectedSubmodules[@]}"
+	    do
+		[[ "$s" =~ ^"$submodule"/(.*)$ ]] && \
+		    selectedNestedSubmodules+=("${BASH_REMATCH[1]}")
+	    done
+	    "${BASH_SOURCE[0]}" "${recursiveArgs[@]}" --prefix "${submodule}/" -- "${selectedNestedSubmodules[@]}"
+	fi
+    ) && : ${status:=0} || status=$?
+done
+exit ${status:-$noOpStatus}

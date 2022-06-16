@@ -1,0 +1,39 @@
+#!/bin/bash
+
+# Note: There apparently is a state between being initialized and updated once;
+# "git submodule foreach" won't cover those, and "git submodule status
+# --recurse" complains:
+# > fatal: not a git repository: '.git'
+# > fatal: failed to recurse into submodule '...'
+# We could recognize these via the missing .git file, but let's ignore that for
+# now; if "git submodule update --init" is used, this can never happen, anyway.
+printUsage()
+{
+    cat <<HELPTEXT
+Test whether there are uninitialized submodules.
+With -p|--print, also prints the names of those submodules.
+HELPTEXT
+    echo
+    printf 'Usage: [GIT_SUBMODULEUNINITIALIZED_MESSAGE=TEXT] %q %s\n' "$(basename "$1")" '[-p|--print] [--recursive] [-?|-h|--help]'
+}
+typeset -a submoduleArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--print|-p)	shift; isPrint=t;;
+	--recursive)	submoduleArgs+=("$1"); shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+uninitializedSubmodules="$(git submodule status "${submoduleArgs[@]}" | sed -n -e 's/^-[[:xdigit:]]\+[[:space:]]\+\(.*\)$/\1/p')" || exit 3
+[ -n "$uninitializedSubmodules" ] || exit 1
+[ -z "$GIT_SUBMODULEUNINITIALIZED_MESSAGE" ] || printf '%s\n' "$GIT_SUBMODULEUNINITIALIZED_MESSAGE"
+[ ! "$isPrint" ] || printf '%s\n' "$uninitializedSubmodules"

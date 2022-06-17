@@ -1,0 +1,25 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Set my user's email address for the current repository.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'USER@HOST [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+if [ $# -ne 1 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+newEmail="${1:?}"; shift
+originalEmail="$(git config --get user.email)"
+
+[ "$newEmail" = "$originalEmail" ] && exit 99
+
+username="$(git config --get user.name)"
+git config --local user.email "$newEmail" && \
+    printf 'Email for %s changed from <%s> to <%s>.\n' "${username:-UNDEFINED}" "${originalEmail:-NOT SET}" "$newEmail"

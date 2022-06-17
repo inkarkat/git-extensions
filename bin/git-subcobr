@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--status|--query|--all] [--recursive] [--existing|--local|--remote|--update [--gui|--terminal|--none]] [-f|--force] [--] [SUBMODULE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--status|--query|--all] [--recursive] [--existing|--checkout|--remote|--update [--gui|--terminal|--none]] [-f|--force] [--] [SUBMODULE ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -38,7 +38,7 @@ HELPDESCRIPTION
     --existing		Check out an existing local branch; don't touch
 			submodules that don't have such a branch.
 			This is the default.
-    --local		Check out the local branch.
+    --checkout		Check out / create a new local branch.
     --remote		Update the local branch to the tracked remote (without
 			logging).
     --update		Update the local branch to the tracked remote, and show
@@ -66,7 +66,7 @@ do
 			recursiveArgs+=("$1"); action="${1#--}"; shift;;
 	--recursive)	recursiveArgs+=("$1"); shift; isRecursive=t;;
 	--existing)	recursiveArgs+=("$1"); shift; checkoutAction=checkoutExisting; checkoutWhat='check out existing';;
-	--local)	recursiveArgs+=("$1"); shift; checkoutAction=checkoutLocal; checkoutWhat='check out / create';;
+	--checkout)	recursiveArgs+=("$1"); shift; checkoutAction=checkoutCreate; checkoutWhat='check out / create';;
 	--remote)	recursiveArgs+=("$1"); shift; checkoutAction=update; checkoutWhat='update to tracked remote'; logArg=--none;;
 	--update)	recursiveArgs+=("$1"); shift; checkoutAction=update; checkoutWhat='update to tracked remote';;
 	--@(gui|terminal|none))
@@ -153,7 +153,7 @@ checkoutExisting()
     fi
 }
 
-checkoutLocal()
+checkoutCreate()
 {
     local branch="${1:?}"; shift
     if git-existsbr "$branch"; then

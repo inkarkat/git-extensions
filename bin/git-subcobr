@@ -90,6 +90,8 @@ done
 getSubmoduleStatus()
 {
     local submodule="${1:?}"; shift
+    local isPrependAdditionalInformation="$1"; shift
+
     local subhash="$(git-subhash --short "$submodule" 2>/dev/null)"
     (
 	cd "$submodule" || exit 3
@@ -97,13 +99,17 @@ getSubmoduleStatus()
 	currentBranchName="$(git-brname --real-branch-only 2>/dev/null)"
 	toBranchAction='check out to local branch'
 	if git-existsbr "${submoduleBranches["$submodule"]}"; then
+	    hasLocalBranch=t
 	    remote="$(git-trackedremote "${submoduleBranches["$submodule"]}" 2>/dev/null)" || remote='origin'
 	    toBranchAction='switch to'
 	else
+	    hasLocalBranch=
 	    remote='origin'
 	fi
 	hasRemoteBranch=; git-existsbr "${remote}/${submoduleBranches["$submodule"]}" && hasRemoteBranch=t
 	[ "$hasRemoteBranch" ] || toBranchAction='create new local branch'
+
+	[ "$isPrependAdditionalInformation" ] && printf '%s\n' "$hasLocalBranch" "$hasRemoteBranch"
 
 	if [ "$currentBranchName" = "${submoduleBranches["$submodule"]}" ]; then
 	    updateHint=; [ "$checkoutAction" = update ] && [ "$hasRemoteBranch" ] && updateHint='; would update'
@@ -248,7 +254,11 @@ do
 		esac
 	    fi
 
-	    submoduleStatus="$(submoduleWidth=0 getSubmoduleStatus "$submodule")"
+	    {
+		IFS=$'\n' read -r hasLocalBranch
+		IFS=$'\n' read -r hasRemoteBranch
+		IFS=$'\n' read -r submoduleStatus
+	    } < <(submoduleWidth=0 getSubmoduleStatus "$submodule" t)
 	    choice="$(userchoiceFromList --no-cancel --question "$submoduleStatus" \
 		"$checkoutWhat" 'reset to superproject' 'leave as-is')"
 	    case "$choice" in

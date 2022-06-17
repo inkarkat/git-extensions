@@ -1,0 +1,58 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Execute GIT-COMMAND with HEAD argument(s) replaced by / appending the commit
+previous to the last / N'th commit (i.e. HEAD^ or HEAD~N).
+
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND [...] [-n N|--count N] [...] [-?|-i|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--keep-position GIT-COMMAND [... BRANCH ...] [-n N|--count N] [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '-N BRANCH GIT-COMMAND [...] [-n N|--count N] [...] [-?|-h|--help]'
+}
+
+commit='HEAD^'
+typeset -a args=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--count|-n)	shift
+			if ! [[ "$1" =~ ^[0-9]+$ ]]; then
+			    printUsage "$0" >&2
+			    exit 2
+			fi
+			commit="HEAD~$1"
+			shift
+			;;
+	--)		args+=("$1"); shift; break;;
+	*)		args+=("$1"); shift;;
+    esac
+done
+set -- "${args[@]}" "$@"
+
+if [ $# -eq 0 ]; then
+    echo >&2 'ERROR: No GIT-COMMAND passed.'
+    exit 2
+fi
+
+case "$1" in
+    -[1-9])
+	typeset headArgNum=${1#-}
+	typeset -a headArgs=("${@:2:${headArgNum}}")
+	set -- "${@:$((2 + headArgNum))}"
+
+	headArgs=("${headArgs[@]//HEAD/${commit}}")
+
+	exec git-wrapper "$@" "${headArgs[@]}"
+	;;
+    --keep-position)
+	shift
+	exec git-wrapper "${@//HEAD/${commit}}"
+	;;
+    *)
+	exec git-wrapper "$@" "$commit"
+	;;
+esac

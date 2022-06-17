@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--status|--query|--all] [--recursive] [--existing|--checkout|--remote|--update [--gui|--terminal|--none]] [-f|--force] [--] [SUBMODULE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--status|--query|--all] [--recursive] [--existing-local|--checkout|--remote|--update [--gui|--terminal|--none]] [-f|--force] [--] [SUBMODULE ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -35,7 +35,7 @@ HELPDESCRIPTION
 			By default, the status will be shown unless at least one
 			SUBMODULE is passed.
     --recursive		Also check out branches in nested submodules.
-    --existing		Check out an existing local branch; don't touch
+    --existing-local	Check out an existing local branch; don't touch
 			submodules that don't have such a branch.
 			This is the default.
     --checkout		Check out / create a new local branch.
@@ -52,7 +52,7 @@ HELPTEXT
 typeset -a recursiveArgs=()
 action=
 isRecursive=
-checkoutAction=checkoutExisting
+checkoutAction=checkoutExistingLocal
 checkoutWhat='update to tracked remote'
 logArg=
 forceArg=
@@ -65,7 +65,8 @@ do
 	--@(status|query|all))
 			recursiveArgs+=("$1"); action="${1#--}"; shift;;
 	--recursive)	recursiveArgs+=("$1"); shift; isRecursive=t;;
-	--existing)	recursiveArgs+=("$1"); shift; checkoutAction=checkoutExisting; checkoutWhat='check out existing';;
+	--existing-local)
+			recursiveArgs+=("$1"); shift; checkoutAction=checkoutExistingLocal; checkoutWhat='check out existing';;
 	--checkout)	recursiveArgs+=("$1"); shift; checkoutAction=checkoutCreate; checkoutWhat='check out / create';;
 	--remote)	recursiveArgs+=("$1"); shift; checkoutAction=update; checkoutWhat='update to tracked remote'; logArg=--none;;
 	--update)	recursiveArgs+=("$1"); shift; checkoutAction=update; checkoutWhat='update to tracked remote';;
@@ -143,7 +144,7 @@ checkoutNew()
     fi
 }
 
-checkoutExisting()
+checkoutExistingLocal()
 {
     local branch="${1:?}"; shift
     if git-existsbr "$branch"; then
@@ -260,7 +261,7 @@ do
 		IFS=$'\n' read -r submoduleStatus
 	    } < <(submoduleWidth=0 getSubmoduleStatus "$submodule" t)
 
-	    [ "$checkoutAction" = checkoutExisting ] && [ ! "$hasLocalBranch" ] && continue
+	    [ "$checkoutAction" = checkoutExistingLocal ] && [ ! "$hasLocalBranch" ] && continue
 
 	    choice="$(userchoiceFromList --no-cancel --question "$submoduleStatus" \
 		"$checkoutWhat" 'reset to superproject' 'leave as-is')"

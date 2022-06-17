@@ -83,6 +83,40 @@ do
 done
 : ${action:=status}
 
+getSubmoduleStatus()
+{
+    local submodule="${1:?}"; shift
+    local subhash="$(git-subhash --short "$submodule" 2>/dev/null)"
+    (
+	cd "$submodule" || exit 3
+
+	currentBranchName="$(git-brname --real-branch-only 2>/dev/null)"
+	toBranchAction='check out to local branch'
+	if git-existsbr "${submoduleBranches["$submodule"]}"; then
+	    remote="$(git-trackedremote "${submoduleBranches["$submodule"]}" 2>/dev/null)" || remote='origin'
+	    toBranchAction='switch to'
+	else
+	    remote='origin'
+	fi
+	hasRemoteBranch=; git-existsbr "${remote}/${submoduleBranches["$submodule"]}" && hasRemoteBranch=t
+	[ "$hasRemoteBranch" ] || toBranchAction='create new local branch'
+
+	if [ "$currentBranchName" = "${submoduleBranches["$submodule"]}" ]; then
+	    updateHint=; [ "$checkoutAction" = update ] && [ "$hasRemoteBranch" ] && updateHint='; would update'
+	    printf "%-${submoduleWidth}s already on %s%s\\n" "${prefix}${submodule}" "$currentBranchName" "$updateHint"
+	elif [ -n "$currentBranchName" ]; then
+	    printf "%-${submoduleWidth}s on %s; would %s %s\\n" "${prefix}${submodule}" "$currentBranchName" "$toBranchAction" "${submoduleBranches["$submodule"]}"
+	else
+	    currentRev="$(git rev-parse --short HEAD)" || exit $?
+	    if [ "$subhash" = "$currentRev" ]; then
+		printf "%-${submoduleWidth}s detached checkout of %s; would %s %s\\n" "${prefix}${submodule}" "$currentRev" "$toBranchAction" "${submoduleBranches["$submodule"]}"
+	    else
+		printf "%-${submoduleWidth}s detached checkout of %s != %s; would %s %s\\n" "${prefix}${submodule}" "$currentRev" "$subhash" "$toBranchAction" "${submoduleBranches["$submodule"]}"
+	    fi
+	fi
+    )
+}
+
 checkoutNew()
 {
     local branch="${1:?}"; shift
@@ -180,35 +214,7 @@ do
 		continue
 	    fi
 
-	    subhash="$(git-subhash --short "$submodule" 2>/dev/null)"
-	    (
-		cd "$submodule" || exit 3
-
-		currentBranchName="$(git-brname --real-branch-only 2>/dev/null)"
-		toBranchAction='check out to local branch'
-		if git-existsbr "${submoduleBranches["$submodule"]}"; then
-		    remote="$(git-trackedremote "${submoduleBranches["$submodule"]}" 2>/dev/null)" || remote='origin'
-		    toBranchAction='switch to'
-		else
-		    remote='origin'
-		fi
-		hasRemoteBranch=; git-existsbr "${remote}/${submoduleBranches["$submodule"]}" && hasRemoteBranch=t
-		[ "$hasRemoteBranch" ] || toBranchAction='create new local branch'
-
-		if [ "$currentBranchName" = "${submoduleBranches["$submodule"]}" ]; then
-		    updateHint=; [ "$checkoutAction" = update ] && [ "$hasRemoteBranch" ] && updateHint='; would update'
-		    printf "%-${submoduleWidth}s already on %s%s\\n" "${prefix}${submodule}" "$currentBranchName" "$updateHint"
-		elif [ -n "$currentBranchName" ]; then
-		    printf "%-${submoduleWidth}s on %s; would %s %s\\n" "${prefix}${submodule}" "$currentBranchName" "$toBranchAction" "${submoduleBranches["$submodule"]}"
-		else
-		    currentRev="$(git rev-parse --short HEAD)" || exit $?
-		    if [ "$subhash" = "$currentRev" ]; then
-			printf "%-${submoduleWidth}s detached checkout of %s; would %s %s\\n" "${prefix}${submodule}" "$currentRev" "$toBranchAction" "${submoduleBranches["$submodule"]}"
-		    else
-			printf "%-${submoduleWidth}s detached checkout of %s != %s; would %s %s\\n" "${prefix}${submodule}" "$currentRev" "$subhash" "$toBranchAction" "${submoduleBranches["$submodule"]}"
-		    fi
-		fi
-	    ) && : ${status:=0} || status=$?
+	    getSubmoduleStatus "$submodule" && : ${status:=0} || status=$?
 
 	    continue
 	    ;;

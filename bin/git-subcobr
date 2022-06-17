@@ -83,10 +83,30 @@ do
 done
 : ${action:=status}
 
+checkoutNew()
+{
+    local branch="${1:?}"; shift
+
+    # > The remote used is branch’s remote (branch.<name>.remote), defaulting to
+    # > origin.
+    # As we don't have a local branch yet, that's origin for sure.
+    local remoteBranch="origin/$branch"
+
+    if git-existsbr "$remoteBranch"; then
+	git checkout $forceArg --track -b "$branch" "$remoteBranch"
+    else
+	git checkout $forceArg -b "$branch"
+    fi
+}
+
 checkoutLocal()
 {
     local branch="${1:?}"; shift
-    git checkout $forceArg "$branch"
+    if git-existsbr "$branch"; then
+	git checkout $forceArg "$branch"
+    else
+	checkoutNew "$branch"
+    fi
 }
 
 update()
@@ -101,11 +121,14 @@ update()
     if [ "$(git-brname --real-branch-only 2>/dev/null)" = "$branch" ]; then
 	# Already on that branch, reset it.
 	git reset ${forceArg:+--hard} "$remoteRef" || return $?
-    else
+    elif git-existsbr "$branch"; then
 	# Move the branch to the revision of the tracked branch, then check it
 	# out.
 	git update-ref -m "subcobr: move $branch to ${remote}/${branch}" "refs/heads/$branch" "$remoteRef" || :	# Still checkout the local branch even if the forwarding did not work.
 	git checkout $forceArg "$branch" || return $?
+    else
+	checkoutNew "$branch"
+	return	# No changes to log here.
     fi
 
     [ -z "$record" ] || git-logdelta $logArg $logRecursionArg --from-record "$record"

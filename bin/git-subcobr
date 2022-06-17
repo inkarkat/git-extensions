@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--status|--query|--all] [--recursive] [--existing-local|--checkout|--remote|--update [--gui|--terminal|--none]] [-f|--force] [--] [SUBMODULE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--status|--query|--all] [--recursive] [--existing-local|--existing-remote|--checkout|--remote|--update [--gui|--terminal|--none]] [-f|--force] [--] [SUBMODULE ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -38,6 +38,8 @@ HELPDESCRIPTION
     --existing-local	Check out an existing local branch; don't touch
 			submodules that don't have such a branch.
 			This is the default.
+    --existing-remote	Check out an existing remote branch; don't touch
+			submodules that don't have such a remote branch.
     --checkout		Check out / create a new local branch.
     --remote		Update the local branch to the tracked remote (without
 			logging).
@@ -66,7 +68,9 @@ do
 			recursiveArgs+=("$1"); action="${1#--}"; shift;;
 	--recursive)	recursiveArgs+=("$1"); shift; isRecursive=t;;
 	--existing-local)
-			recursiveArgs+=("$1"); shift; checkoutAction=checkoutExistingLocal; checkoutWhat='check out existing';;
+			recursiveArgs+=("$1"); shift; checkoutAction=checkoutExistingLocal; checkoutWhat='check out existing local';;
+	--existing-remote)
+			recursiveArgs+=("$1"); shift; checkoutAction=checkoutExistingRemote; checkoutWhat='check out existing remote';;
 	--checkout)	recursiveArgs+=("$1"); shift; checkoutAction=checkoutCreate; checkoutWhat='check out / create';;
 	--remote)	recursiveArgs+=("$1"); shift; checkoutAction=update; checkoutWhat='update to tracked remote'; logArg=--none;;
 	--update)	recursiveArgs+=("$1"); shift; checkoutAction=update; checkoutWhat='update to tracked remote';;
@@ -135,6 +139,9 @@ isSkipped()
     if [ "$checkoutAction" = checkoutExistingLocal ] && [ ! "$hasLocalBranch" ]; then
 	printf "%-${submoduleWidth}s Skipping because no local branch %s exists.\\n" "${prefix}${submodule}" "${submoduleBranches["$submodule"]}"
 	return 0
+    elif [ "$checkoutAction" = checkoutExistingRemote ] && [ ! "$hasRemoteBranch" ]; then
+	printf "%-${submoduleWidth}s Skipping because no remote branch for %s exists.\\n" "${prefix}${submodule}" "${submoduleBranches["$submodule"]}"
+	return 0
     fi
     return 1
 }
@@ -162,6 +169,22 @@ checkoutExistingLocal()
 	git checkout $forceArg "$branch"
     else
 	printf >&2 '%s: Skipping because no local branch %s exists.\n' "${prefix}${submodule}" "$branch"
+    fi
+}
+
+checkoutExistingRemote()
+{
+    local branch="${1:?}"; shift
+    if git-existsbr "$branch"; then
+	git checkout $forceArg "$branch"
+    else
+	local remoteBranch="origin/$branch"
+
+	if git-existsbr "$remoteBranch"; then
+	    git checkout $forceArg --track -b "$branch" "$remoteBranch"
+	else
+	    printf >&2 '%s: Skipping because no remote branch %s exists.\n' "${prefix}${submodule}" "$remoteBranch"
+	fi
     fi
 }
 

@@ -128,6 +128,15 @@ getSubmoduleStatus()
     )
 }
 
+isSkipped()
+{
+    if [ "$checkoutAction" = checkoutExistingLocal ] && [ ! "$hasLocalBranch" ]; then
+	printf "%-${submoduleWidth}s Skipping because no local branch %s exists.\\n" "${prefix}${submodule}" "${submoduleBranches["$submodule"]}"
+	return 0
+    fi
+    return 1
+}
+
 checkoutNew()
 {
     local branch="${1:?}"; shift
@@ -261,7 +270,7 @@ do
 		IFS=$'\n' read -r submoduleStatus
 	    } < <(submoduleWidth=0 getSubmoduleStatus "$submodule" t)
 
-	    [ "$checkoutAction" = checkoutExistingLocal ] && [ ! "$hasLocalBranch" ] && continue
+	    isSkipped && continue
 
 	    choice="$(userchoiceFromList --no-cancel --question "$submoduleStatus" \
 		"$checkoutWhat" 'reset to superproject' 'leave as-is')"

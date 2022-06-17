@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--status|--query|--all] [--recursive] [--local|--remote|--update [--gui|--terminal|--none]] [-f|--force] [--] [SUBMODULE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--status|--query|--all] [--recursive] [--existing-local|--existing-remote|--checkout|--remote|--update [--gui|--terminal|--none]] [-f|--force] [--] [SUBMODULE ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -35,12 +35,17 @@ HELPDESCRIPTION
 			By default, the status will be shown unless at least one
 			SUBMODULE is passed.
     --recursive		Also check out branches in nested submodules.
-    --local		Check out the local branch.
+    --existing-local	Check out an existing local branch; don't touch
+			submodules that don't have such a branch.
+			This is the default.
+    --existing-remote	Check out an existing remote branch; don't touch
+			submodules that don't have such a remote branch.
+    --checkout		Check out / create a new local branch.
     --remote		Update the local branch to the tracked remote (without
 			logging).
     --update		Update the local branch to the tracked remote, and show
 			a log of the changes between the previous (detached)
-			checkout and the remote branch. This is the default.
+			checkout and the remote branch.
     --force|-f		Proceed even if the index or the working tree differs
 			from HEAD. This is used to throw away local changes.
 HELPTEXT
@@ -49,7 +54,8 @@ HELPTEXT
 typeset -a recursiveArgs=()
 action=
 isRecursive=
-checkoutAction=update
+checkoutAction=checkoutExistingLocal
+checkoutWhat='update to tracked remote'
 logArg=
 forceArg=
 prefix=
@@ -61,9 +67,13 @@ do
 	--@(status|query|all))
 			recursiveArgs+=("$1"); action="${1#--}"; shift;;
 	--recursive)	recursiveArgs+=("$1"); shift; isRecursive=t;;
-	--local)	recursiveArgs+=("$1"); shift; checkoutAction=checkoutLocal;;
-	--remote)	recursiveArgs+=("$1"); shift; checkoutAction=update; logArg=--none;;
-	--update)	recursiveArgs+=("$1"); shift; checkoutAction=update;;
+	--existing-local)
+			recursiveArgs+=("$1"); shift; checkoutAction=checkoutExistingLocal; checkoutWhat='check out existing local';;
+	--existing-remote)
+			recursiveArgs+=("$1"); shift; checkoutAction=checkoutExistingRemote; checkoutWhat='check out existing remote';;
+	--checkout)	recursiveArgs+=("$1"); shift; checkoutAction=checkoutCreate; checkoutWhat='check out / create';;
+	--remote)	recursiveArgs+=("$1"); shift; checkoutAction=update; checkoutWhat='update to tracked remote'; logArg=--none;;
+	--update)	recursiveArgs+=("$1"); shift; checkoutAction=update; checkoutWhat='update to tracked remote';;
 	--@(gui|terminal|none))
 			recursiveArgs+=("$1")
 			logArg="$1"; shift;;
@@ -82,10 +92,110 @@ do
 done
 : ${action:=status}
 
-checkoutLocal()
+getSubmoduleStatus()
+{
+    local submodule="${1:?}"; shift
+    local isPrependAdditionalInformation="$1"; shift
+
+    local subhash="$(git-subhash --short "$submodule" 2>/dev/null)"
+    (
+	cd "$submodule" || exit 3
+
+	currentBranchName="$(git-brname --real-branch-only 2>/dev/null)"
+	toBranchAction='check out to local branch'
+	if git-existsbr "${submoduleBranches["$submodule"]}"; then
+	    hasLocalBranch=t
+	    remote="$(git-trackedremote "${submoduleBranches["$submodule"]}" 2>/dev/null)" || remote='origin'
+	    toBranchAction='switch to'
+	else
+	    hasLocalBranch=
+	    remote='origin'
+	fi
+	hasRemoteBranch=; git-existsbr "${remote}/${submoduleBranches["$submodule"]}" && hasRemoteBranch=t
+	[ "$hasRemoteBranch" ] || toBranchAction='create new local branch'
+
+	[ "$isPrependAdditionalInformation" ] && printf '%s\n' "$hasLocalBranch" "$hasRemoteBranch"
+
+	isSkipped && return
+
+	if [ "$currentBranchName" = "${submoduleBranches["$submodule"]}" ]; then
+	    updateHint=; [ "$checkoutAction" = update ] && [ "$hasRemoteBranch" ] && updateHint='; would update'
+	    printf "%-${submoduleWidth}s already on %s%s\\n" "${prefix}${submodule}" "$currentBranchName" "$updateHint"
+	elif [ -n "$currentBranchName" ]; then
+	    printf "%-${submoduleWidth}s on %s; would %s %s\\n" "${prefix}${submodule}" "$currentBranchName" "$toBranchAction" "${submoduleBranches["$submodule"]}"
+	else
+	    currentRev="$(git rev-parse --short HEAD)" || exit $?
+	    if [ "$subhash" = "$currentRev" ]; then
+		printf "%-${submoduleWidth}s detached checkout of %s; would %s %s\\n" "${prefix}${submodule}" "$currentRev" "$toBranchAction" "${submoduleBranches["$submodule"]}"
+	    else
+		printf "%-${submoduleWidth}s detached checkout of %s != %s; would %s %s\\n" "${prefix}${submodule}" "$currentRev" "$subhash" "$toBranchAction" "${submoduleBranches["$submodule"]}"
+	    fi
+	fi
+    )
+}
+
+isSkipped()
+{
+    if [ "$checkoutAction" = checkoutExistingLocal ] && [ ! "$hasLocalBranch" ]; then
+	printf "%-${submoduleWidth}s skipping because no local branch %s exists\\n" "${prefix}${submodule}" "${submoduleBranches["$submodule"]}"
+	return 0
+    elif [ "$checkoutAction" = checkoutExistingRemote ] && [ ! "$hasRemoteBranch" ]; then
+	printf "%-${submoduleWidth}s skipping because no remote branch for %s exists\\n" "${prefix}${submodule}" "${submoduleBranches["$submodule"]}"
+	return 0
+    fi
+    return 1
+}
+
+checkoutNew()
 {
     local branch="${1:?}"; shift
-    git checkout $forceArg "$branch"
+
+    # > The remote used is branch’s remote (branch.<name>.remote), defaulting to
+    # > origin.
+    # As we don't have a local branch yet, that's origin for sure.
+    local remoteBranch="origin/$branch"
+
+    if git-existsbr "$remoteBranch"; then
+	git checkout $forceArg --track -b "$branch" "$remoteBranch"
+    else
+	git checkout $forceArg -b "$branch"
+    fi
+}
+
+checkoutExistingLocal()
+{
+    local branch="${1:?}"; shift
+    if git-existsbr "$branch"; then
+	git checkout $forceArg "$branch"
+    else
+	printf >&2 '%s: skipping because no local branch %s exists\n' "${prefix}${submodule}" "$branch"
+    fi
+}
+
+checkoutExistingRemote()
+{
+    local branch="${1:?}"; shift
+    if git-existsbr "$branch"; then
+	git checkout $forceArg "$branch"
+    else
+	local remoteBranch="origin/$branch"
+
+	if git-existsbr "$remoteBranch"; then
+	    git checkout $forceArg --track -b "$branch" "$remoteBranch"
+	else
+	    printf >&2 '%s: skipping because no remote branch %s exists\n' "${prefix}${submodule}" "$remoteBranch"
+	fi
+    fi
+}
+
+checkoutCreate()
+{
+    local branch="${1:?}"; shift
+    if git-existsbr "$branch"; then
+	git checkout $forceArg "$branch"
+    else
+	checkoutNew "$branch"
+    fi
 }
 
 update()
@@ -100,16 +210,20 @@ update()
     if [ "$(git-brname --real-branch-only 2>/dev/null)" = "$branch" ]; then
 	# Already on that branch, reset it.
 	git reset ${forceArg:+--hard} "$remoteRef" || return $?
-    else
+    elif git-existsbr "$branch"; then
 	# Move the branch to the revision of the tracked branch, then check it
 	# out.
 	git update-ref -m "subcobr: move $branch to ${remote}/${branch}" "refs/heads/$branch" "$remoteRef" || :	# Still checkout the local branch even if the forwarding did not work.
 	git checkout $forceArg "$branch" || return $?
+    else
+	checkoutNew "$branch"
+	return	# No changes to log here.
     fi
 
     [ -z "$record" ] || git-logdelta $logArg $logRecursionArg --from-record "$record"
 }
 
+unset currentBranchName
 let submoduleWidth=0
 typeset -A submoduleBranches=()
 while IFS=$'\t' read -r submodule branch
@@ -118,7 +232,9 @@ do
 	# A special value of . is used to indicate that the name of the branch
 	# in the submodule should be the same name as the current branch in the
 	# current repository.
-	.)  branch="$(git-brname --real-branch-only)" || exit $?;;
+	.)  [ -n "${currentBranchName+t}" ] || currentBranchName="$(git-brname --real-branch-only 2>/dev/null)"
+	    branch="${currentBranchName:-master}"
+	    ;;
 
 	# "git submodule update --remote" defaults to master.
 	'') branch='master';;
@@ -127,7 +243,7 @@ do
     submoduleBranches["$submodule"]="$branch"
 
     [ $submoduleWidth -lt ${#submodule} ] && submoduleWidth=${#submodule}
-done < <(git config --blob HEAD:.gitmodules -l 2>/dev/null | awk -F [=.] '$3 == "path" { path[$2] = $4 } $3 == "branch" { branch[$2] = $4 } END { for (submodule in path) { print path[submodule] "\t" branch[submodule] } }')
+done < <(git config --file .gitmodules -l 2>/dev/null | awk -F = '{ key = $1; $1 = ""; sub(OFS, ""); submodule = gensub(/^submodule\.|\.[^.]+$/, "", "g", key) } key ~ /.path$/ { path[submodule] = $0; } key ~ /.branch$/ { branch[submodule] = $0; } END { for (submodule in path) { print path[submodule] "\t" branch[submodule] } }')
 if [ ${#submoduleBranches[@]} -eq 0 ]; then
     echo >&2 'No submodules'
     exit $noOpStatus
@@ -153,25 +269,7 @@ do
 		continue
 	    fi
 
-	    subhash="$(git-subhash --short "$submodule" 2>/dev/null)"
-	    (
-		cd "$submodule" || exit 3
-
-		currentBranchName="$(git-brname --real-branch-only 2>/dev/null)"
-		if [ "$currentBranchName" = "${submoduleBranches["$submodule"]}" ]; then
-		    updateHint=; [ "$checkoutAction" = update ] && updateHint='; would update'
-		    printf "%-${submoduleWidth}s already on %s%s\\n" "${prefix}${submodule}" "$currentBranchName" "$updateHint"
-		elif [ -n "$currentBranchName" ]; then
-		    printf "%-${submoduleWidth}s on %s; would switch to %s\\n" "${prefix}${submodule}" "$currentBranchName" "${submoduleBranches["$submodule"]}"
-		else
-		    currentRev="$(git rev-parse --short HEAD)" || exit $?
-		    if [ "$subhash" = "$currentRev" ]; then
-			printf "%-${submoduleWidth}s detached checkout of %s; would switch to %s\\n" "${prefix}${submodule}" "$currentRev" "${submoduleBranches["$submodule"]}"
-		    else
-			printf "%-${submoduleWidth}s detached checkout of %s != %s; would switch to %s\\n" "${prefix}${submodule}" "$currentRev" "$subhash" "${submoduleBranches["$submodule"]}"
-		    fi
-		fi
-	    ) && : ${status:=0} || status=$?
+	    getSubmoduleStatus "$submodule" && : ${status:=0} || status=$?
 
 	    continue
 	    ;;
@@ -191,10 +289,18 @@ do
 		esac
 	    fi
 
-	    choice="$(userchoiceFromList --no-cancel --question "${prefix}${submodule}" \
-		'check out' 'reset to superproject' 'leave as-is')"
+	    {
+		IFS=$'\n' read -r hasLocalBranch
+		IFS=$'\n' read -r hasRemoteBranch
+		IFS=$'\n' read -r submoduleStatus
+	    } < <(submoduleWidth=0 getSubmoduleStatus "$submodule" t)
+
+	    isSkipped && continue
+
+	    choice="$(userchoiceFromList --no-cancel --question "$submoduleStatus" \
+		"$checkoutWhat" 'reset to superproject' 'leave as-is')"
 	    case "$choice" in
-		'check out')
+		"$checkoutWhat")
 		    # This is the default action.
 		    ;;
 		'reset to superproject')
@@ -205,7 +311,7 @@ do
 		    : ${status:=0}
 		    continue
 		    ;;
-		*)	printf >&2 'ASSERT: Invalid choice: %s\n' "$choice"; exit 3;;
+		*)  printf >&2 'ASSERT: Invalid choice: %s\n' "$choice"; exit 3;;
 	    esac
 	    ;;
 	all)

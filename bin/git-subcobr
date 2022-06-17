@@ -110,6 +110,7 @@ update()
     [ -z "$record" ] || git-logdelta $logArg $logRecursionArg --from-record "$record"
 }
 
+currentBranchName=
 let submoduleWidth=0
 typeset -A submoduleBranches=()
 while IFS=$'\t' read -r submodule branch
@@ -118,7 +119,9 @@ do
 	# A special value of . is used to indicate that the name of the branch
 	# in the submodule should be the same name as the current branch in the
 	# current repository.
-	.)  branch="$(git-brname --real-branch-only)" || exit $?;;
+	.)  [ -n "$currentBranchName" ] || currentBranchName="$(git-brname --real-branch-only)" || exit $?
+	    branch="$currentBranchName"
+	    ;;
 
 	# "git submodule update --remote" defaults to master.
 	'') branch='master';;

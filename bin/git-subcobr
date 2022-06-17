@@ -162,17 +162,18 @@ do
 		cd "$submodule" || exit 3
 
 		currentBranchName="$(git-brname --real-branch-only 2>/dev/null)"
+		toBranchAction='check out to local branch'; git-existsbr "${submoduleBranches["$submodule"]}" && toBranchAction='switch to'
 		if [ "$currentBranchName" = "${submoduleBranches["$submodule"]}" ]; then
 		    updateHint=; [ "$checkoutAction" = update ] && updateHint='; would update'
 		    printf "%-${submoduleWidth}s already on %s%s\\n" "${prefix}${submodule}" "$currentBranchName" "$updateHint"
 		elif [ -n "$currentBranchName" ]; then
-		    printf "%-${submoduleWidth}s on %s; would switch to %s\\n" "${prefix}${submodule}" "$currentBranchName" "${submoduleBranches["$submodule"]}"
+		    printf "%-${submoduleWidth}s on %s; would %s %s\\n" "${prefix}${submodule}" "$currentBranchName" "$toBranchAction" "${submoduleBranches["$submodule"]}"
 		else
 		    currentRev="$(git rev-parse --short HEAD)" || exit $?
 		    if [ "$subhash" = "$currentRev" ]; then
-			printf "%-${submoduleWidth}s detached checkout of %s; would switch to %s\\n" "${prefix}${submodule}" "$currentRev" "${submoduleBranches["$submodule"]}"
+			printf "%-${submoduleWidth}s detached checkout of %s; would %s %s\\n" "${prefix}${submodule}" "$currentRev" "$toBranchAction" "${submoduleBranches["$submodule"]}"
 		    else
-			printf "%-${submoduleWidth}s detached checkout of %s != %s; would switch to %s\\n" "${prefix}${submodule}" "$currentRev" "$subhash" "${submoduleBranches["$submodule"]}"
+			printf "%-${submoduleWidth}s detached checkout of %s != %s; would %s %s\\n" "${prefix}${submodule}" "$currentRev" "$subhash" "$toBranchAction" "${submoduleBranches["$submodule"]}"
 		    fi
 		fi
 	    ) && : ${status:=0} || status=$?
@@ -209,7 +210,7 @@ do
 		    : ${status:=0}
 		    continue
 		    ;;
-		*)	printf >&2 'ASSERT: Invalid choice: %s\n' "$choice"; exit 3;;
+		*)  printf >&2 'ASSERT: Invalid choice: %s\n' "$choice"; exit 3;;
 	    esac
 	    ;;
 	all)

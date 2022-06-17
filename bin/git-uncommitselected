@@ -1,0 +1,19 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Interactively select (from files changed in the last commit) files (or directly
+pass N, M, ... selections) to remove from the last commit by number. Those
+changes will then be in the working copy; the index won't be touched.
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[N [M ...]] [--] [FILE ...] [-?|-h|--help]'
+}
+uncommitCommand='uncommit'
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --patch)		uncommitCommand='uncommithunk'; shift;;
+esac
+
+export GIT_SELECTED_COMMAND_DEFAULT_FILES='git-showfiles'
+exec git-selected-command "$uncommitCommand" "$@"

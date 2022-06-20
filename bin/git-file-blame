@@ -1,4 +1,5 @@
 #!/bin/bash
+set -o pipefail
 
 additionalSort=
 additionalSorter=
@@ -17,7 +18,9 @@ esac
 
 fileBlame()
 {
-    git ls-files "$@" | xargs -n 1 -I {} git log -1 --pretty=tformat:"${additionalSort}${additionalSort:+ }%h %aN (%ar)	{}" -- {} | column -s $'\t' -t
+    git ls-files "$@" | \
+	xargs --no-run-if-empty --delimiter '\n' -n 1 -I {} git log -1 --pretty=tformat:"${additionalSort}${additionalSort:+ }%h %aN (%ar)	{}" -- {} | \
+	column -s $'\t' -t
 }
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()

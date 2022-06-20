@@ -1,4 +1,5 @@
 #!/bin/bash
+set -o pipefail
 
 printUsage()
 {
@@ -24,4 +25,9 @@ do
     else
 	printf '%s\0' "$filespec"
     fi
-done | xargs -0 -n1 git blame --line-porcelain -- | sed -ne 's/^author //p' | sort | uniq -c | sort -nr
+done | \
+    xargs --no-run-if-empty --null -n 1 git blame --line-porcelain -- | \
+    sed -ne 's/^author //p' | \
+    sort | \
+    uniq -c | \
+    sort -nr

@@ -1,0 +1,35 @@
+#!/bin/bash
+set -o pipefail
+
+printUsage()
+{
+    cat <<HELPTEXT
+List tags by age (ascending, starting with recent tags). By default, uses the
+tag creation date; with -r|--resolve, uses the date of the tagged commit.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--resolve] [<pattern> ...] [-?|-h|--help]'
+}
+
+action=ageByCreation
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --resolve|-r)	shift; action=ageByCommit;;
+esac
+
+ageByCommit()
+{
+    git tag --list --format='%(refname)' "$@" | \
+	xargs --no-run-if-empty -d '\n' -n 1 git log --max-count 1 --pretty=tformat:'%ci	(%cr)	%D: %s' | \
+	sort -r -n | \
+	sed -e 's/\(\t\|, \)tag: /\1/g' | \
+	column -s $'\t' -t
+    }
+
+ageByCreation()
+{
+    git tag --list --sort=-creatordate --format='%(creatordate:iso)	(%(creatordate:relative))	%(refname:short)' "$@" | \
+	column -s $'\t' -t
+}
+
+$action "$@"

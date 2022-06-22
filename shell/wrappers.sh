@@ -24,7 +24,7 @@ git()
 	case "$1" in
 	    [!-]*[A-Z]*)
 		# Translate "X" to "-x" to enable aliases with uppercase letters.
-		translatedAlias="$(echo "$1" | sed -e 's/[[:upper:]]/-\l\0/g')"
+		typeset translatedAlias="$(echo "$1" | sed -e 's/[[:upper:]]/-\l\0/g')"
 		shift
 		"$gitCommand" "$translatedAlias" "$@"
 		;;

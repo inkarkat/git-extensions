@@ -20,13 +20,17 @@ git()
     elif type ${BASH_VERSION:+-t} "$gitAlias" >/dev/null 2>&1; then
 	shift
 	$gitAlias "$@"
-    elif [ "$1" = "${1#-}" ] && expr "$1" : '.*[[:upper:]]' >/dev/null; then
-	# Translate "X" to "-x" to enable aliases with uppercase letters.
-	translatedAlias=$(echo "$1" | sed -e 's/[[:upper:]]/-\l\0/g')
-	shift
-	"$gitCommand" "$translatedAlias" "$@"
     else
-	"$gitCommand" "$@"
+	case "$1" in
+	    [!-]*[A-Z]*)
+		# Translate "X" to "-x" to enable aliases with uppercase letters.
+		typeset translatedAlias="$(echo "$1" | sed -e 's/[[:upper:]]/-\l\0/g')"
+		shift
+		"$gitCommand" "$translatedAlias" "$@"
+		;;
+	    *)
+		"$gitCommand" "$@";;
+	esac
     fi
 }
 

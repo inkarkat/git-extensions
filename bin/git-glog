@@ -10,6 +10,7 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--color=(always|auto|never)|--no-color] [<revision range>] [-?|-h|--help]'
 }
 typeset -a colorArg=()
+typeset -a gitLogArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -17,12 +18,11 @@ do
 	--no-color|--color=*)
 			colorArg=("$1"); shift;;
 	--color)	colorArg=("$1" "$2"); shift; shift;;
-	--)		shift; break;;
-	-)		break;; # For supporting special - FILE without prior --
-	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
-	*)		break;;
+	--)		gitLogArgs+=("$1"); shift; break;;
+	*)		gitLogArgs+=("$1"); shift;;
     esac
 done
+set -- "${gitLogArgs[@]}" "$@"
 
 if [ -n "$DISPLAY" ] && type -t gitk >/dev/null; then
     exec gitk "$@" &	# gitk is a blocking GUI.

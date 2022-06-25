@@ -8,10 +8,12 @@ printUsage()
 	-e '1s#^.*$#Execute "git SIMPLECOMMAND" and/or COMMANDLINE on all repositories that are checked out (directly, not in subdirs) in any DIRSPEC.#' \
 	-e '2b removeFirstParagraphLoop' \
 	-e "${splitPattern},\$d" \
-	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ ]\+ \)*git-wcdo /\1\2'"$(basename "$1")"' [--worktrees] [--skip-symlinks] / }' \
+	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ ]\+ \)*git-wcdo /\1\2'"$(basename "$1")"' [-q|--quiet] [--worktrees] [--skip-symlinks] / }' \
 	-e b -e :removeFirstParagraphLoop -e '{ /\(^\|\n\)$/{ s/^\(.*\n\)\?//; b; }; N; b removeFirstParagraphLoop }' \
 
     cat <<HELPTEXT
+    --quiet|-q		    Do not complain when no working copies are found or
+			    a passed DIRSPEC is not a directory.
     --worktrees		    Also include additional working copies checked out
 			    from the same repository (via git worktree).
     --skip-symlinks	    Do not consider passed DIRSPEC(s) that are symbolic
@@ -22,6 +24,7 @@ HELPTEXT
     git-wcdo --help 2>&1 | sed -e "${splitPattern}p" -e "1,${splitPattern}d"
 }
 
+isQuiet=
 isForeign=
 isSkipSymlinks=
 compareOp=-d
@@ -41,6 +44,7 @@ do
 	--@(abort-on|color|command|progress|predicate-command${GIT_WCDO_COMMAND_LONG_PARAMS:+|}${GIT_WCDO_COMMAND_LONG_PARAMS}))
 			wcdoArgs+=("$1" "$2"); shift; shift;;
 
+	--quiet|-q)	shift; isQuiet=t;;
 	--skip-symlinks)
 			shift; isSkipSymlinks=t;;
 	--foreign-command)
@@ -62,7 +66,7 @@ typeset -a wcs=()
 for baseDir in "${dirspecs[@]}"
 do
     if [ ! -d "$baseDir" ]; then
-	printf >&2 'ERROR: Not a directory: %s\n' "$baseDir"
+	[ "$isQuiet" ] || printf >&2 'ERROR: Not a directory: %s\n' "$baseDir"
 	continue
     fi
 
@@ -78,7 +82,7 @@ do
     done
 done
 if [ ${#wcs[@]} -eq 0 ]; then
-    echo >&2 "ERROR: No working copies found."
+    [ "$isQuiet" ] || echo >&2 "ERROR: No working copies found."
     exit 1
 fi
 

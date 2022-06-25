@@ -11,13 +11,14 @@ WC.SUFFIX is preferred if it exists, but it falls back to using the plain WC.
 (If you want to only execute in WC.SUFFIX, you can directly pass the SUFFIX in
 the WORKING-COPY arguments to git-wcdo.)
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--suffix SUFFIX|--worktrees] [--ignore-nonexisting] [--no-pager] [--no-header|--branch-name] [--no-git-color] [--single-success] [--skip-files] [-s|--skip-foreign|--foreign-command "COMMANDLINE" [...]] [-P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] WORKING-COPY [...] [-- SIMPLECOMMAND ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--suffix SUFFIX|--worktrees] [-q|--quiet|--ignore-nonexisting] [--no-pager] [--no-header|--branch-name] [--no-git-color] [--single-success] [--skip-files] [-s|--skip-foreign|--foreign-command "COMMANDLINE" [...]] [-P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] WORKING-COPY [...] [-- SIMPLECOMMAND ...] [-?|-h|--help]'
 }
 
 typeset -a wcs=()
 typeset -a wcdoArgs=()
 suffix=
 isWorktrees=
+isQuiet=
 isIgnoreNonexisting=
 while [ $# -ne 0 ]
 do
@@ -33,8 +34,10 @@ do
 	--@(abort-on|color|command|progress|foreign-command|predicate-command${GIT_WCDO_COMMAND_LONG_PARAMS:+|}${GIT_WCDO_COMMAND_LONG_PARAMS}))
 			wcdoArgs+=("$1" "$2"); shift; shift;;
 
+	--quiet|-q)	shift; isQuiet=t;;
 	--worktrees)	shift; isWorktrees=t;;
 	--suffix)	shift; suffix="$1"; shift;;
+	--quiet|-q)	shift; isQuiet=t;;
 	--ignore-nonexisting)
 			shift; isIgnoreNonexisting=t;;
 	--)		shift; break;;
@@ -58,9 +61,11 @@ if [ "$isWorktrees" ]; then
     wcs=("${collectDirnames[@]}")
 fi
 if [ ${#wcs[@]} -eq 0 ]; then
-    echo "ERROR: No WORKING-COPYs."
-    echo
-    printUsage "$0"
+    if [ ! "$isQuiet" ]; then
+	echo "ERROR: No WORKING-COPYs."
+	echo
+	printUsage "$0"
+    fi
     exit 2
 fi >&2
 
@@ -69,7 +74,7 @@ for dir in "${wcs[@]}"
 do
     [ "$suffix" -a -d "${dir}${suffix}" ] && dir+="$suffix"
     if ! [ -d "$dir" ]; then
-	[ "$isIgnoreNonexisting" ] || printf >&2 'Warning: No working copy %s found, skipping.\n' "$dir"
+	[ "$isIgnoreNonexisting" ] || [ "$isQuiet" ] || printf >&2 'Warning: No working copy %s found, skipping.\n' "$dir"
 	continue
     fi
 

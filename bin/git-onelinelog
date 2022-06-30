@@ -41,6 +41,7 @@ if isColorOffArgument "$@"; then
     FORMAT=${FORMAT//%C+([a-z])/}
 fi
 
+isTerminatorSemantics=t; contains '--name-status' "$@" && isTerminatorSemantics=
 typeset -a removeArgs=()
 reversePipeline=
 if contains '--graph' "$@"; then
@@ -82,4 +83,4 @@ if [ ${#removeArgs[@]} -gt 0 ]; then
     set -- "${argsCopy[@]}"
 fi
 
-eval 'git $GIT_ONELINELOG_DIRECT_ARG log --abbrev-commit --decorate --pretty="tformat:${GIT_ONELINELOG_PREFORMAT:-}${FORMAT//${GIT_ONELINELOG_NOFORMAT:-}/}${GIT_ONELINELOG_POSTFORMAT:-}" "$@"' "${reversePipeline:+|}$reversePipeline"
+eval 'git $GIT_ONELINELOG_DIRECT_ARG log --abbrev-commit --decorate --pretty="${isTerminatorSemantics:+t}format:${GIT_ONELINELOG_PREFORMAT:-}${FORMAT//${GIT_ONELINELOG_NOFORMAT:-}/}${GIT_ONELINELOG_POSTFORMAT:-}" "$@"' "${reversePipeline:+|}$reversePipeline"

@@ -3,25 +3,28 @@
 printUsage()
 {
     cat <<HELPTEXT
-Print the tracked branch (submodule.<name>.branch) from .gitmodules
+Print the tracked branch (submodule.<name>.branch) from .gitmodules [for
+SUBMODULE(s)].
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[SUBMODULE ...] [-?|-h|--help]'
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
-if [ $# -ne 0 ]; then
-    printUsage "$0" >&2
-    exit 2
-fi
 
 currentBranchName="$(git-brname --real-branch-only 2>/dev/null)"
 
+IFS=$'\n'
 git config --file .gitmodules -l 2>/dev/null | \
     awk -F = \
 	-v "currentBranchName=${currentBranchName//\\/\\\\}" \
+	-v "selectedSubmoduleList=${*//\\/\\\\}" \
 '
+BEGIN {
+    selectedSubmoduleNum = split(selectedSubmoduleList, tmp, "\n")
+    for (k in tmp) selectedSubmodules[tmp[k]] = 1
+}
 {
     key = $1
     $1 = ""; sub(OFS, "")
@@ -35,6 +38,7 @@ key ~ /.branch$/ {
 }
 END {
     for (submodule in path) {
-	print path[submodule] "\t" (branch[submodule] == "" ? "master" : branch[submodule]) # "git submodule update --remote" defaults to master.
+	if (selectedSubmoduleNum == 0 || submodule in selectedSubmodules)
+	    print (selectedSubmoduleNum == 1 ? "" : path[submodule] "\t") (branch[submodule] == "" ? "master" : branch[submodule]) # "git submodule update --remote" defaults to master.
     }
 }'

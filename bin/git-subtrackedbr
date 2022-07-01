@@ -17,7 +17,6 @@ if [ $# -ne 0 ]; then
 fi
 
 currentBranchName="$(git-brname --real-branch-only 2>/dev/null)"
-currentBranchName="${currentBranchName:-master}"
 
 git config --file .gitmodules -l 2>/dev/null | \
     awk -F = \
@@ -36,6 +35,6 @@ key ~ /.branch$/ {
 }
 END {
     for (submodule in path) {
-	print path[submodule] "\t" branch[submodule]
+	print path[submodule] "\t" (branch[submodule] == "" ? "master" : branch[submodule]) # "git submodule update --remote" defaults to master.
     }
 }'

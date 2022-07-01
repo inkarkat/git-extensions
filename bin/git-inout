@@ -5,16 +5,36 @@ set -o pipefail
 : ${GIT_INOUT_COLOR_OUT=[1m}
 : ${GIT_INOUT_COLOR_RESET=[0m}
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--stat] [<remote>|(<branch>|<commit> [<other-branch>|<other-commit>])] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
-Show incoming and outgoing commit logs (or just a one-line summary of
-chronological changes with --stat) between current / passed <branch> and its
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Show incoming and outgoing commit logs between current / passed <branch> and its
 remote tracked branch / passed <other-branch> / passed <commit> and
 <other-commit> / corresponding remote branch of passed <remote>.
-HELPTEXT
+HELPDESCRIPTION
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--stat] [<remote>|(<branch>|<commit> [<other-branch>|<other-commit>])] [-?|-h|--help]'
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --stat		Just print a one-line summary of chronological changes;
+			from oldest commit to newest, every commit is
+			represented by either ${GIT_INOUT_COLOR_IN}i${GIT_INOUT_COLOR_RESET} or ${GIT_INOUT_COLOR_OUT}o${GIT_INOUT_COLOR_RESET}.
+HELPTEXT
 }
 
 typeset -a colorArg=()
@@ -28,7 +48,7 @@ action=inout
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--stat)		shift; action=inoutStat;;
 	--color=auto)	shift;;
 	--no-color|--color=*)

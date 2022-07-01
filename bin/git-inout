@@ -4,18 +4,21 @@ set -o pipefail
 printUsage()
 {
     cat <<HELPTEXT
-Show incoming and outgoing commit logs between current / passed <branch> and its
-remote tracked branch / passed <other-branch> / passed <commit> and
-<other-commit> / corresponding remote branch of passed <remote>.
+Show incoming and outgoing commit logs (or just a one-line summary with --stat)
+between current / passed <branch> and its remote tracked branch / passed
+<other-branch> / passed <commit> and <other-commit> / corresponding remote
+branch of passed <remote>.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<remote>|(<branch>|<commit> [<other-branch>|<other-commit>])] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--stat] [<remote>|(<branch>|<commit> [<other-branch>|<other-commit>])] [-?|-h|--help]'
 }
+action=inout
 typeset -a colorArg=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--stat)		shift; action=inoutStat;;
 	--color=auto)	colorArg=("$1"); [ -t 1 ] && colorArg=(--color=always); shift;;
 	--no-color|--color=*)
 			colorArg=("$1"); shift;;
@@ -75,4 +78,22 @@ inout()
 
     return $status
 }
-eval 'inout "$@"' "${pager:+|}" '"${pager[@]}"'
+
+inoutStat()
+{
+    local incoming outgoing
+    incoming="$(git log --pretty=tformat:i "$baseRev..$otherRev")"
+    outgoing="$(git log --pretty=tformat:o "$otherRev..$baseRev")"
+
+    if [ -n "$incoming" -a -z "$outgoing" ]; then
+	echo "incoming ${otherRev} -> ${baseRev}: ${incoming//$'\n'/}"
+    elif [ -z "$incoming" -a -n "$outgoing" ]; then
+	echo "outgoing ${baseRev} -> ${otherRev}: ${outgoing//$'\n'/}"
+    elif [ -n "$incoming" -a -n "$outgoing" ]; then
+	echo "in/out  ${baseRev} <-> ${otherRev}: ${incoming//$'\n'/}${outgoing//$'\n'/}"
+    else
+	return 1
+    fi
+}
+
+eval '$action "$@"' "${pager:+|}" '"${pager[@]}"'

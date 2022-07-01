@@ -1,0 +1,36 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Print the tracked branch (submodule.<name>.branch) from .gitmodules
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+git config --file .gitmodules -l 2>/dev/null | \
+    awk -F = '
+{
+    key = $1
+    $1 = ""; sub(OFS, "")
+    submodule = gensub(/^submodule\.|\.[^.]+$/, "", "g", key)
+}
+key ~ /.path$/ {
+    path[submodule] = $0
+}
+key ~ /.branch$/ {
+    branch[submodule] = $0
+}
+END {
+    for (submodule in path) {
+	print path[submodule] "\t" branch[submodule]
+    }
+}'

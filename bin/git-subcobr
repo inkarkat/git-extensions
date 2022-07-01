@@ -228,22 +228,10 @@ let submoduleWidth=0
 typeset -A submoduleBranches=()
 while IFS=$'\t' read -r submodule branch
 do
-    case "$branch" in
-	# A special value of . is used to indicate that the name of the branch
-	# in the submodule should be the same name as the current branch in the
-	# current repository.
-	.)  [ -n "${currentBranchName+t}" ] || currentBranchName="$(git-brname --real-branch-only 2>/dev/null)"
-	    branch="${currentBranchName:-master}"
-	    ;;
-
-	# "git submodule update --remote" defaults to master.
-	'') branch='master';;
-    esac
-
     submoduleBranches["$submodule"]="$branch"
 
     [ $submoduleWidth -lt ${#submodule} ] && submoduleWidth=${#submodule}
-done < <(git config --file .gitmodules -l 2>/dev/null | awk -F = '{ key = $1; $1 = ""; sub(OFS, ""); submodule = gensub(/^submodule\.|\.[^.]+$/, "", "g", key) } key ~ /.path$/ { path[submodule] = $0; } key ~ /.branch$/ { branch[submodule] = $0; } END { for (submodule in path) { print path[submodule] "\t" branch[submodule] } }')
+done < <(git-subtrackedbr)
 if [ ${#submoduleBranches[@]} -eq 0 ]; then
     echo >&2 'No submodules'
     exit $noOpStatus

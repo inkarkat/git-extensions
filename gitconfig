@@ -4200,9 +4200,11 @@
 	;; cot: Keep "theirs", the version merged in (MERGE_HEAD), or the one from the branch we're rebasing, in case of merge conflicts.
 	;; reflog: Show recorded changes to the tip of a branch, mostly to restore unreachable old commits via head@{1}.
 	;; inout: Show incoming and outgoing commit logs between current / passed <branch> and its remote tracked branch / passed <other-branch> / passed <commit> and <other-commit> / corresponding remote branch of passed <remote>.
-	io = inout
-	mio = master-command inout
-	nio = base inout
+	io = inout --stat	; Show a one-line chronological summary of incoming and outgoing changes from oldest commit to newest between current / passed <branch> and its remote tracked branch / passed <other-branch> / passed <commit> and <other-commit> / corresponding remote branch of passed <remote>.
+	minout = master-command inout
+	mio = master-command io
+	ninout = base-command inout
+	nio = base-command io
 
 	cleanall = clean -d -x	; Remove all untracked files and directories, restoring a pristine working copy.
 	;; lsprivate: Show all non-ignored files not under version control.
@@ -4372,11 +4374,16 @@
 	olog = rev-remote-command origin log; Log of my GitHub clone.
 	ologv = rev-remote-command origin logv; Verbose log of my GitHub clone.
 	ologfiles = rev-remote-command origin logfiles; One-line author, date, tags and commit summary, plus the list of changed files of my GitHub clone.
-	oio = inout origin
-	omio = master-command -1 origin/MASTER inout
-	omiom = master-command -2 MASTER origin/MASTER inout
-	onio = base-command -1 origin/BASE inout
-	onion = base-command -2 BASE origin/BASE inout
+	oinout = inout origin
+	oio = io origin
+	ominout = master-command -1 origin/MASTER inout
+	omio = master-command -1 origin/MASTER io
+	ominoutm = master-command -2 MASTER origin/MASTER inout
+	omiom = master-command -2 MASTER origin/MASTER io
+	oninout = base-command -1 origin/BASE inout
+	onio = base-command -1 origin/BASE io
+	oninoutn = base-command -2 BASE origin/BASE inout
+	onion = base-command -2 BASE origin/BASE io
 	omrb = master-command -2 MASTER origin/MASTER rebase ; Remaster my commits on top of the latest master of my GitHub clone.
 	onrb = base-command -2 BASE origin/BASE rebase ; Rebase my commits on top of the latest base branch of my GitHub clone.
 	ofetch = fetch origin ; Get changes done to my GitHub clone through another Git repository, e.g. from another system. Use this, followed by git owipe, when origin has been reset (e.g. to an updated upstream).
@@ -4460,11 +4467,16 @@
 	unlg = base-command --keep-position rev-branch-remotebr-command upstream BASE lg ; Show one-line log of changes introduced in upstream relative to base; useful to review upstream changes before pulling them in.
 	umlc = master-command --keep-position rev-branch-remotebr-command upstream MASTER lc ; Show log and diff of changes introduced in upstream relative to master; useful to review upstream changes before pulling them in.
 	unlc = base-command --keep-position rev-branch-remotebr-command upstream BASE lc ; Show log and diff of changes introduced in upstream relative to base; useful to review upstream changes before pulling them in.
-	uio = inout upstream
-	umio = master-command -1 upstream/MASTER inout
-	umiom = master-command -2 MASTER upstream/MASTER inout
-	unio = base-command -1 upstream/BASE inout
-	union = base-command -2 BASE upstream/BASE inout
+	uinout = inout upstream
+	uio = io upstream
+	uminout = master-command -1 upstream/MASTER inout
+	umio = master-command -1 upstream/MASTER io
+	uminoutm = master-command -2 MASTER upstream/MASTER inout
+	umiom = master-command -2 MASTER upstream/MASTER io
+	uninout = base-command -1 upstream/BASE inout
+	unio = base-command -1 upstream/BASE io
+	uninoutn = base-command -2 BASE upstream/BASE inout
+	union = base-command -2 BASE upstream/BASE io
 	umrb = master-command -1 upstream/MASTER rebase ; Rebase my commits on top of the latest main upstream branch. "co mybranch" first, clone it via "git co -b mybranch-old; git opublish" if you want to keep the old one, or just use "umrb mybranch". You can also do this after the rebase, but before pushing: "git tco -b mybranch-old; git opublish; git co mybranch". Persist with "git opush -f"; undo with "git treset --hard".
 	unrb = base-command -1 upstream/BASE rebase ; Rebase my commits on top of the latest base upstream branch.
 	ufetch = fetch upstream	; Get upstream changes.
@@ -4583,11 +4595,16 @@
 	sublcg7 = sublcg --max-count 7
 	;; sublclg: Logs together with diff between commits where log messages match the specified text or /regexp/.
 
-	subio = subdo inout
-	;; subbrio: For each submodule, show incoming and outgoing commit logs between the current revision and the local tracking branch (as per .gitmodules submodule.<name>.branch configuration; if such branch exists).
-	;; subtio: For each submodule, show incoming and outgoing commit logs between the current revision and the tracked remote branch (as per .gitmodules submodule.<name>.branch configuration).
-	submio = subdo master-command inout
-	subnio = subdo base-command inout
+	subinout = subdo inout
+	subio = subdo io
+	;; subbrinout: For each submodule, show incoming and outgoing commit logs between the current revision and the local tracking branch (as per .gitmodules submodule.<name>.branch configuration; if such branch exists).
+	subbrio = subbrinout --stat
+	;; subtinout: For each submodule, show incoming and outgoing commit logs between the current revision and the tracked remote branch (as per .gitmodules submodule.<name>.branch configuration).
+	subtio = subtinout --stat
+	subminout = subdo master-command inout
+	submio = subdo master-command io
+	subninout = subdo base-command inout
+	subnio = subdo base-command io
 
 	sublist = submodule foreach --quiet 'echo $displaypath'	; Show a list of all (initialized and at least once updated) submodules (relative to the current directory).
 	sublistr = submodule foreach --recursive --quiet 'echo $displaypath'	; Show a list of all (initialized and at least once updated) submodules (relative to the current directory), also nested within submodules.

@@ -8,10 +8,10 @@ set -o pipefail
 printUsage()
 {
     cat <<HELPTEXT
-Show incoming and outgoing commit logs (or just a one-line summary with --stat)
-between current / passed <branch> and its remote tracked branch / passed
-<other-branch> / passed <commit> and <other-commit> / corresponding remote
-branch of passed <remote>.
+Show incoming and outgoing commit logs (or just a one-line summary of
+chronological changes with --stat) between current / passed <branch> and its
+remote tracked branch / passed <other-branch> / passed <commit> and
+<other-commit> / corresponding remote branch of passed <remote>.
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--stat] [<remote>|(<branch>|<commit> [<other-branch>|<other-commit>])] [-?|-h|--help]'
@@ -92,16 +92,18 @@ inout()
 
 inoutStat()
 {
-    local incoming outgoing
-    incoming="$(git log --pretty=tformat:i "$baseRev..$otherRev")"
-    outgoing="$(git log --pretty=tformat:o "$otherRev..$baseRev")"
+    typeset -a incoming outgoing symbols
+    readarray -t incoming < <(git log --pretty=$'tformat:%ct\t'"${GIT_INOUT_COLOR_IN}i${GIT_INOUT_COLOR_RESET}" "$baseRev..$otherRev")
+    readarray -t outgoing < <(git log --pretty=$'tformat:%ct\t'"${GIT_INOUT_COLOR_OUT}o${GIT_INOUT_COLOR_RESET}" "$otherRev..$baseRev")
+    readarray -t symbols < <(printf '%s\n' "${incoming[@]}" "${outgoing[@]}" | sort -n | cut -f2-)
+    local symbolString; printf -v symbolString %s "${symbols[@]}"
 
-    if [ -n "$incoming" -a -z "$outgoing" ]; then
-	echo "incoming ${otherRev} -> ${baseRev}: ${GIT_INOUT_COLOR_IN}${incoming//$'\n'/}${GIT_INOUT_COLOR_RESET}"
-    elif [ -z "$incoming" -a -n "$outgoing" ]; then
-	echo "outgoing ${baseRev} -> ${otherRev}: ${GIT_INOUT_COLOR_OUT}${outgoing//$'\n'/}${GIT_INOUT_COLOR_RESET}"
-    elif [ -n "$incoming" -a -n "$outgoing" ]; then
-	echo "in/out  ${baseRev} <-> ${otherRev}: ${GIT_INOUT_COLOR_IN}${incoming//$'\n'/}${GIT_INOUT_COLOR_RESET}${GIT_INOUT_COLOR_OUT}${outgoing//$'\n'/}${GIT_INOUT_COLOR_RESET}"
+    if [ ${#incoming[@]} -gt 0 -a ${#outgoing[@]} -eq 0 ]; then
+	echo "incoming ${otherRev} -> ${baseRev}: $symbolString"
+    elif [ ${#incoming[@]} -eq 0 -a ${#outgoing[@]} -gt 0 ]; then
+	echo "outgoing ${baseRev} -> ${otherRev}: $symbolString"
+    elif [ ${#incoming[@]} -gt 0 -a ${#outgoing[@]} -gt 0 ]; then
+	echo "in/out  ${baseRev} <-> ${otherRev}: $symbolString"
     else
 	return 1
     fi

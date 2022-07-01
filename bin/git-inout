@@ -12,13 +12,19 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[<remote>|(<branch>|<commit> [<other-branch>|<other-commit>])] [-?|-h|--help]'
 }
 typeset -a colorArg=()
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --color=auto)	colorArg=("$1"); [ -t 1 ] && colorArg=(--color=always); shift;;
-    --no-color|--color=*)
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--color=auto)	colorArg=("$1"); [ -t 1 ] && colorArg=(--color=always); shift;;
+	--no-color|--color=*)
 			colorArg=("$1"); shift;;
-    --color)		colorArg=("$1" "$2"); if [ "$2" = auto -a -t 1 ]; then colorArg=("$1" always); fi; shift; shift;;
-esac
+	--color)	colorArg=("$1" "$2"); if [ "$2" = auto -a -t 1 ]; then colorArg=("$1" always); fi; shift; shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 
 ensureValidRef()
 {

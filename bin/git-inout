@@ -1,6 +1,10 @@
 #!/bin/bash
 set -o pipefail
 
+: ${GIT_INOUT_COLOR_IN=[3m}
+: ${GIT_INOUT_COLOR_OUT=[1m}
+: ${GIT_INOUT_COLOR_RESET=[0m}
+
 printUsage()
 {
     cat <<HELPTEXT
@@ -35,6 +39,7 @@ do
 	*)		break;;
     esac
 done
+[ "${colorArg[*]}" = '--color=always' ] || unset "${!GIT_INOUT_COLOR_@}"
 
 ensureValidRef()
 {
@@ -92,11 +97,11 @@ inoutStat()
     outgoing="$(git log --pretty=tformat:o "$otherRev..$baseRev")"
 
     if [ -n "$incoming" -a -z "$outgoing" ]; then
-	echo "incoming ${otherRev} -> ${baseRev}: ${incoming//$'\n'/}"
+	echo "incoming ${otherRev} -> ${baseRev}: ${GIT_INOUT_COLOR_IN}${incoming//$'\n'/}${GIT_INOUT_COLOR_RESET}"
     elif [ -z "$incoming" -a -n "$outgoing" ]; then
-	echo "outgoing ${baseRev} -> ${otherRev}: ${outgoing//$'\n'/}"
+	echo "outgoing ${baseRev} -> ${otherRev}: ${GIT_INOUT_COLOR_OUT}${outgoing//$'\n'/}${GIT_INOUT_COLOR_RESET}"
     elif [ -n "$incoming" -a -n "$outgoing" ]; then
-	echo "in/out  ${baseRev} <-> ${otherRev}: ${incoming//$'\n'/}${outgoing//$'\n'/}"
+	echo "in/out  ${baseRev} <-> ${otherRev}: ${GIT_INOUT_COLOR_IN}${incoming//$'\n'/}${GIT_INOUT_COLOR_RESET}${GIT_INOUT_COLOR_OUT}${outgoing//$'\n'/}${GIT_INOUT_COLOR_RESET}"
     else
 	return 1
     fi

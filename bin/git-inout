@@ -11,8 +11,13 @@ HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[<remote>|(<branch>|<commit> [<other-branch>|<other-commit>])] [-?|-h|--help]'
 }
+typeset -a colorArg=()
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --color=auto)	colorArg=("$1"); [ -t 1 ] && colorArg=(--color=always); shift;;
+    --no-color|--color=*)
+			colorArg=("$1"); shift;;
+    --color)		colorArg=("$1" "$2"); if [ "$2" = auto -a -t 1 ]; then colorArg=("$1" always); fi; shift; shift;;
 esac
 
 ensureValidRef()
@@ -48,13 +53,7 @@ case $# in
 	;;
 esac
 
-typeset -a gitColorArg=()
-typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
-if [ -t 1 ]; then
-    isNeedColorArgumentWhenPiping "$@" && gitColorArg=(--color=always)
-else
-    pager=()
-fi
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 ensureValidRef "$baseRev"
 ensureValidRef "$otherRev"
 
@@ -62,10 +61,10 @@ inout()
 {
     local status=1
     local padding=$'\n'
-    GIT_ONELINELOG_DIRECT_ARG=--no-pager git-onelinelog "${gitColorArg[@]}" "$baseRev..$otherRev" | \
+    GIT_ONELINELOG_DIRECT_ARG=--no-pager git-onelinelog "${colorArg[@]}" "$baseRev..$otherRev" | \
 	outputAndPrintf "incoming ${otherRev} -> ${baseRev}:\\n" && status=0 || padding=''
 
-    GIT_ONELINELOG_DIRECT_ARG=--no-pager git-onelinelog "${gitColorArg[@]}" "$otherRev..$baseRev" | \
+    GIT_ONELINELOG_DIRECT_ARG=--no-pager git-onelinelog "${colorArg[@]}" "$otherRev..$baseRev" | \
 	outputAndPrintf "${padding}outgoing ${baseRev} -> ${otherRev}:\\n" && status=0
 
     return $status

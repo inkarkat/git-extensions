@@ -3,24 +3,30 @@
 printUsage()
 {
     cat <<HELPTEXT
-Checkout passed <remote-branch>, tracking it if it doesn't yet exist locally, or
-ensuring that an existing tracked branch doesn't contradict the request.
+Checkout passed <remote-branch>, resetting an existing local branch to the
+remote, tracking it if it doesn't yet exist locally, and ensuring that an
+existing tracked branch doesn't contradict the request.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '<remote-branch> [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<checkout-args> ...] <remote-branch> [-?|-h|--help]'
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
-
-remoteBranch=; [ $# -gt 0 ] && remoteBranch=${!#}
+if [ $# -eq 0 ]; then
+    echo 'ERROR: No <remote-branch> passed!'
+    echo
+    printUsage "$0"
+    exit 2
+fi >&2
+remoteBranch="${!#}"; shift
+set -- "${@:1:$(($#-1))}"
 remote="${remoteBranch%%/*}"
 branch="${remoteBranch#*/}"
-
 if [ -z "$remote" -o -z "$branch" ]; then
-    echo >&2 'ERROR: No <remote-branch> passed!'
+    printf 'ERROR: Not a <remote-branch>: %s\n' "$remoteBranch"
     exit 2
-fi
+fi >&2
 
 if git-existsbr "$branch"; then
     trackedRemoteBranch="$(git-tracks "$branch" 2>/dev/null)"
@@ -32,13 +38,13 @@ if git-existsbr "$branch"; then
 	trackedRemote="${trackedRemoteBranch%%/*}"
 	trackedBranch="${trackedRemoteBranch#*/}"
 	if [ "$trackedBranch" != "$branch" ]; then
-	    printf >&2 'ERROR: An existing local branch %s is already tracking a differently named remote branch %s; will not switch to %s.\n' "$trackedRemoteBranch" "$remoteBranch"
+	    printf >&2 'ERROR: An existing local branch %s is already tracking a differently named remote branch %s; will not switch to %s.\n' "$branch" "$trackedRemoteBranch" "$remoteBranch"
 	    exit 1
 	elif [ "$trackedRemote" != "$remote" ]; then
 	    printf >&2 'Note: The local branch is already tracking the corresponding branch in %s.\n' "$trackedRemote"
 	fi
     fi
-    git checkout "${@:1:$(($#-1))}" "$branch"
+    git checkout "$@" -B "$branch" "$remoteBranch"
 else
-    git checkout --track "$@"
+    git checkout "$@" --track -b "$branch" "$remoteBranch"
 fi

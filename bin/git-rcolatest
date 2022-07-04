@@ -9,10 +9,13 @@ Checkout local branch from latest (by sort order) passed ${remote:-REMOTE}
 [matching pattern].
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [<branch-glob>] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [--gui|--terminal|--none] [<branch-glob>] [-?|-h|--help]"
 }
+logArg=
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --@(gui|terminal|none))
+			logArg="$1"; shift;;
 esac
 
 
@@ -27,4 +30,4 @@ if [ -z "$remoteBranch" ]; then
     printf >&2 'ERROR: No branch matching %s/%s found.\n' "$@"
     exit 1
 fi
-exec git-cobr "${remoteBranch##+( )}"
+exec git-cobr $logArg "${remoteBranch##+( )}"

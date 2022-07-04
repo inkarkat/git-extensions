@@ -1,4 +1,5 @@
 #!/bin/bash
+shopt -qs extglob
 
 printUsage()
 {
@@ -6,11 +7,13 @@ printUsage()
 Checkout passed <branch> in ${remote:-REMOTE}; fetching if needed and ensuring
 that an existing tracked branch doesn't contradict the request.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [<checkout-args> ...] <branch> [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [--gui|--terminal|--none] [<checkout-args> ...] <branch> [-?|-h|--help]"
 }
-
+logArg=
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --@(gui|terminal|none))
+			logArg="$1"; shift;;
 esac
 if [ $# -eq 0 ]; then
     echo >&2 "ERROR: Must pass remote and branch name"
@@ -38,4 +41,4 @@ if ! git-existsbr "$remoteBranch"; then
     git fetch "$remote" "$branch" || exit $?
 fi
 
-exec git-cobr "$@" "$remoteBranch"
+exec git-cobr $logArg "$@" "$remoteBranch"

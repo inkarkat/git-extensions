@@ -16,7 +16,7 @@ if [ $# -eq 0 ]; then
     echo >&2 "ERROR: Must pass remote and branch name"
     exit 2
 fi
-remote="$1"; shift
+remote="${1:?}"; shift
 
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
@@ -28,7 +28,8 @@ elif [[ "$1" = -[bB] ]]; then
     echo "ERROR: Don't pass -b|-B; a branch will be created, anyway."
     exit 2
 fi >&2
-branch=${!#}
+branch="${!#}"
+set -- "${@:1:$(($#-1))}"
 remoteBranch="${remote}/${branch:?}"
 
 if ! git-existsbr "$remoteBranch"; then
@@ -37,4 +38,4 @@ if ! git-existsbr "$remoteBranch"; then
     git fetch "$remote" "$branch" || exit $?
 fi
 
-exec git-cobr "${@:1:$(($#-1))}" "$remoteBranch"
+exec git-cobr "$@" "$remoteBranch"

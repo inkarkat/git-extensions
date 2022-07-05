@@ -78,7 +78,12 @@ if [ -n "${gitCommand[0]}" ]; then
 	exit 0
     fi
 fi
-containedName="$(git name-rev --name-only --exclude 'refs/tags/*' "${gitExcludeArgs[@]}" "$revision")"
+
+# Try local branches first.
+containedName="$(git name-rev --name-only --exclude 'refs/tags/*' --exclude 'refs/remotes/*' "${gitExcludeArgs[@]}" "$revision")"
+# Fall back to considering remote branches, too.
+[ -n "$containedName" ] || \
+    containedName="$(git name-rev --name-only --exclude 'refs/tags/*' "${gitExcludeArgs[@]}" "$revision")"
 [ -n "$containedName" ] || exit 1
 
 containedName="${containedName#remotes/}"

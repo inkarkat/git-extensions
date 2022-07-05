@@ -9,7 +9,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--stat] [<remote>|(<branch>|<commit> [<other-branch>|<other-commit>])] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--stat|--ahead-behind] [<remote>|(<branch>|<commit> [<other-branch>|<other-commit>])] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -34,6 +34,8 @@ HELPDESCRIPTION
     --stat		Just print a one-line summary of chronological changes;
 			from oldest commit to newest, every commit is
 			represented by either ${GIT_INOUT_COLOR_IN}i${GIT_INOUT_COLOR_RESET} or ${GIT_INOUT_COLOR_OUT}o${GIT_INOUT_COLOR_RESET}.
+    --ahead-behind	Just print a one-line summary like "git status":
+			BASE...BRANCH [ahead 2, behind 1]
 HELPTEXT
 }
 
@@ -50,6 +52,7 @@ do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--stat)		shift; action=inoutStat;;
+	--ahead-behind)	shift; action=aheadBehind;;
 	--color=auto)	shift;;
 	--no-color|--color=*)
 			colorArg=("$1"); shift;;
@@ -124,6 +127,21 @@ inoutStat()
 	echo "outgoing ${baseRev} -> ${otherRev}: $symbolString"
     elif [ ${#incoming[@]} -gt 0 -a ${#outgoing[@]} -gt 0 ]; then
 	echo "in/out  ${baseRev} <-> ${otherRev}: $symbolString"
+    else
+	return 1
+    fi
+}
+
+aheadBehind()
+{
+    local behind; behind=$(git log --pretty=$'tformat:x' "$baseRev..$otherRev" | wc -l)
+    local ahead ;  ahead=$(git log --pretty=$'tformat:x' "$otherRev..$baseRev" | wc -l)
+    local indicator
+    [ $ahead -gt 0 ]  && printf -v indicator 'ahead %d' $ahead
+    [ $behind -gt 0 ] && printf -v indicator '%sbehind %d' "${indicator}${indicator:+, }" $behind
+
+    if [ -n "$indicator" ]; then
+	echo "${baseRev}...${otherRev} [${indicator}]"
     else
 	return 1
     fi

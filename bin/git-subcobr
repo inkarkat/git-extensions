@@ -122,22 +122,26 @@ getSubmoduleStatus()
 	    toBranchAction='create new local branch'
 	fi
 
-	updateHint=
+	actionHint=
 	case "$checkoutAction" in
+	    checkoutExistingRemote)
+		[ "$hasLocalBranch" ] && [ "$hasRemoteBranch" ] && ! git-equals "${submoduleBranches["$submodule"]}" "origin/${submoduleBranches["$submodule"]}" && \
+		    actionHint=" and reset to origin/${submoduleBranches["$submodule"]}";;
 	    update)
-		[ "$hasRemoteBranch" ] && updateHint='; would update';;
+		[ "$hasRemoteBranch" ] && \
+		    actionHint=' and update';;
 	esac
 	currentBranchName="$(git-brname --real-branch-only 2>/dev/null)"
 	if [ "$currentBranchName" = "${submoduleBranches["$submodule"]}" ]; then
-	    printf "%-${submoduleWidth}s already on %s%s\\n" "${prefix}${submodule}" "$currentBranchName" "$updateHint"
+	    printf "%-${submoduleWidth}s already on %s%s\\n" "${prefix}${submodule}" "$currentBranchName" "$actionHint"
 	elif [ -n "$currentBranchName" ]; then
-	    printf "%-${submoduleWidth}s on %s; would %s %s\\n" "${prefix}${submodule}" "$currentBranchName" "$toBranchAction" "${submoduleBranches["$submodule"]}"
+	    printf "%-${submoduleWidth}s on %s; would %s %s%s\\n" "${prefix}${submodule}" "$currentBranchName" "$toBranchAction" "${submoduleBranches["$submodule"]}" "$actionHint"
 	else
 	    currentRev="$(git rev-parse --short HEAD)" || exit $?
 	    if [ "$subhash" = "$currentRev" ]; then
-		printf "%-${submoduleWidth}s detached checkout of %s (%s); would %s %s\\n" "${prefix}${submodule}" "${submoduleBranches["$submodule"]}" "$currentRev" "$toBranchAction" "${submoduleBranches["$submodule"]}"
+		printf "%-${submoduleWidth}s detached checkout of %s (%s); would %s %s%s\\n" "${prefix}${submodule}" "${submoduleBranches["$submodule"]}" "$currentRev" "$toBranchAction" "${submoduleBranches["$submodule"]}" "$actionHint"
 	    else
-		printf "%-${submoduleWidth}s detached checkout of %s; would %s %s (%s)\\n" "${prefix}${submodule}" "$currentRev" "$toBranchAction" "${submoduleBranches["$submodule"]}" "$subhash"
+		printf "%-${submoduleWidth}s detached checkout of %s; would %s %s (%s)%s\\n" "${prefix}${submodule}" "$currentRev" "$toBranchAction" "${submoduleBranches["$submodule"]}" "$subhash" "$actionHint"
 	    fi
 	fi
     )

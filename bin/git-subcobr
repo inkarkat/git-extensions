@@ -180,16 +180,11 @@ checkoutExistingLocal()
 checkoutExistingRemote()
 {
     local branch="${1:?}"; shift
-    if git-existsbr "$branch"; then
-	git checkout $forceArg "$branch"
+    local remoteBranch="origin/$branch"
+    if git-existsbr "$remoteBranch"; then
+	git checkout $forceArg --track -B "$branch" "$remoteBranch"
     else
-	local remoteBranch="origin/$branch"
-
-	if git-existsbr "$remoteBranch"; then
-	    git checkout $forceArg --track -b "$branch" "$remoteBranch"
-	else
-	    printf >&2 '%s: skipping because no remote branch %s exists\n' "${prefix}${submodule}" "$remoteBranch"
-	fi
+	printf >&2 '%s: skipping because no remote branch %s exists\n' "${prefix}${submodule}" "$remoteBranch"
     fi
 }
 

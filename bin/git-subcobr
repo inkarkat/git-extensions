@@ -101,23 +101,28 @@ getSubmoduleStatus()
     (
 	cd "$submodule" || exit 3
 
-	currentBranchName="$(git-brname --real-branch-only 2>/dev/null)"
-	toBranchAction='check out to local branch'
 	if git-existsbr "${submoduleBranches["$submodule"]}"; then
 	    hasLocalBranch=t
 	    remote="$(git-trackedremote "${submoduleBranches["$submodule"]}" 2>/dev/null)" || remote='origin'
-	    toBranchAction='switch to'
 	else
 	    hasLocalBranch=
 	    remote='origin'
 	fi
-	hasRemoteBranch=; git-existsbr "${remote}/${submoduleBranches["$submodule"]}" && hasRemoteBranch=t
-	[ "$hasRemoteBranch" ] || toBranchAction='create new local branch'
+	hasRemoteBranch=; git-existsbr "${remote:?}/${submoduleBranches["$submodule"]}" && hasRemoteBranch=t
 
 	[ "$isPrependAdditionalInformation" ] && printf '%s\n' "$hasLocalBranch" "$hasRemoteBranch"
 
 	isSkipped && return
 
+	if [ "$hasLocalBranch" ]; then
+	    toBranchAction='switch to'
+	elif [ "$hasRemoteBranch" ]; then
+	    toBranchAction='check out to local branch'
+	else
+	    toBranchAction='create new local branch'
+	fi
+
+	currentBranchName="$(git-brname --real-branch-only 2>/dev/null)"
 	if [ "$currentBranchName" = "${submoduleBranches["$submodule"]}" ]; then
 	    updateHint=; [ "$checkoutAction" = update ] && [ "$hasRemoteBranch" ] && updateHint='; would update'
 	    printf "%-${submoduleWidth}s already on %s%s\\n" "${prefix}${submodule}" "$currentBranchName" "$updateHint"

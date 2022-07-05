@@ -122,9 +122,13 @@ getSubmoduleStatus()
 	    toBranchAction='create new local branch'
 	fi
 
+	updateHint=
+	case "$checkoutAction" in
+	    update)
+		[ "$hasRemoteBranch" ] && updateHint='; would update';;
+	esac
 	currentBranchName="$(git-brname --real-branch-only 2>/dev/null)"
 	if [ "$currentBranchName" = "${submoduleBranches["$submodule"]}" ]; then
-	    updateHint=; [ "$checkoutAction" = update ] && [ "$hasRemoteBranch" ] && updateHint='; would update'
 	    printf "%-${submoduleWidth}s already on %s%s\\n" "${prefix}${submodule}" "$currentBranchName" "$updateHint"
 	elif [ -n "$currentBranchName" ]; then
 	    printf "%-${submoduleWidth}s on %s; would %s %s\\n" "${prefix}${submodule}" "$currentBranchName" "$toBranchAction" "${submoduleBranches["$submodule"]}"

@@ -126,7 +126,6 @@ getSubmoduleStatus()
 	case "$checkoutAction" in
 	    checkoutExistingRemote)
 		if [ "$hasLocalBranch" ] && [ "$hasRemoteBranch" ]; then
-		    local remoteAheadBehindMessage
 		    if remoteAheadBehindMessage="$(git-inout --ahead-behind "${submoduleBranches["$submodule"]}" "origin/${submoduleBranches["$submodule"]}")"; then
 			actionHint=" and reset: $remoteAheadBehindMessage"
 		    else
@@ -145,10 +144,11 @@ getSubmoduleStatus()
 	    printf "%-${submoduleWidth}s on %s; would %s %s%s\\n" "${prefix}${submodule}" "$currentBranchName" "$toBranchAction" "${submoduleBranches["$submodule"]}" "$actionHint"
 	else
 	    currentRev="$(git rev-parse --short HEAD)" || exit $?
+	    currentRevDescription="$(git-desc)"
 	    if [ "$subhash" = "$currentRev" ]; then
-		printf "%-${submoduleWidth}s detached checkout of %s (%s); would %s %s%s\\n" "${prefix}${submodule}" "${submoduleBranches["$submodule"]}" "$currentRev" "$toBranchAction" "${submoduleBranches["$submodule"]}" "$actionHint"
+		printf "%-${submoduleWidth}s detached checkout of %s (%s); would %s %s%s\\n" "${prefix}${submodule}" "$currentRevDescription" "$currentRev" "$toBranchAction" "${submoduleBranches["$submodule"]}" "$actionHint"
 	    else
-		printf "%-${submoduleWidth}s detached modified checkout of %s (%s) != %s (%s); would %s %s%s\\n" "${prefix}${submodule}" "$(git-desc "$currentRev")" "$currentRev" "$(git-desc "$subhash")" "$subhash" "$toBranchAction" "${submoduleBranches["$submodule"]}" "$actionHint"
+		printf "%-${submoduleWidth}s detached modified checkout of %s (%s) != %s (%s); would %s %s%s\\n" "${prefix}${submodule}" "$currentRevDescription" "$currentRev" "$(git-desc "$subhash")" "$subhash" "$toBranchAction" "${submoduleBranches["$submodule"]}" "$actionHint"
 	    fi
 	fi
     )

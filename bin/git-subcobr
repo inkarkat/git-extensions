@@ -125,8 +125,15 @@ getSubmoduleStatus()
 	actionHint=
 	case "$checkoutAction" in
 	    checkoutExistingRemote)
-		[ "$hasLocalBranch" ] && [ "$hasRemoteBranch" ] && ! git-equals "${submoduleBranches["$submodule"]}" "origin/${submoduleBranches["$submodule"]}" && \
-		    actionHint=" and reset to origin/${submoduleBranches["$submodule"]}";;
+		if [ "$hasLocalBranch" ] && [ "$hasRemoteBranch" ]; then
+		    local remoteAheadBehindMessage
+		    if remoteAheadBehindMessage="$(git-inout --ahead-behind "${submoduleBranches["$submodule"]}" "origin/${submoduleBranches["$submodule"]}")"; then
+			actionHint=" and reset: $remoteAheadBehindMessage"
+		    else
+			actionHint=" (which is even with origin/${submoduleBranches["$submodule"]})"
+		    fi
+		fi
+		;;
 	    update)
 		[ "$hasRemoteBranch" ] && \
 		    actionHint=' and update';;

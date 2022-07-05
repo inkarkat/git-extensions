@@ -211,10 +211,8 @@ update()
 	# Already on that branch, reset it.
 	git reset ${forceArg:+--hard} "$remoteRef" || return $?
     elif git-existsbr "$branch"; then
-	# Move the branch to the revision of the tracked branch, then check it
-	# out.
-	git update-ref -m "subcobr: move $branch to ${remote}/${branch}" "refs/heads/$branch" "$remoteRef" || :	# Still checkout the local branch even if the forwarding did not work.
-	git checkout $forceArg "$branch" || return $?
+	# Reset and check out the branch to the revision of the tracked branch.
+	git checkout $forceArg -B "$branch" "${remote}/${branch}" || return $?
     else
 	checkoutNew "$branch"
 	return	# No changes to log here.

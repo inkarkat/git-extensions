@@ -1,5 +1,6 @@
 #!/bin/bash
 set -o pipefail
+shopt -qs extglob
 
 : ${GITCONTAINEDCOMMAND_FALLBACK_PREFIX=(}
 : ${GITCONTAINEDCOMMAND_FALLBACK_SUFFIX=)}
@@ -11,13 +12,20 @@ printUsage()
     local gitCommandArg=GIT-COMMAND
     if [ ${#gitCommand[@]} -gt 0 ]; then
 	gitCommandArg="${gitCommand[-1]}"
-	[ "$gitCommandArg" = describe ] || excludeArg=''
+	[ "$gitCommandArg" = describe -o -z "$gitCommandArg" ] || excludeArg=''
     fi
 
     if [ "$gitCommandArg" = describe ]; then
 	cat <<HELPTEXT
 Show first tag [that matches GLOB(s)] that the passed <commit> is based on.
 (Or fall back to a branch name or the commit SHA.) With $gitCommandArg,
+GREP-ARGS would completely filter those tags and show the fallback instead, so
+prefer --exclude here.
+HELPTEXT
+    elif [ -z "$gitCommandArg" ]; then
+	cat <<HELPTEXT
+Show first branch name [that matches GLOB(s)] that the passed <commit> is based
+on. (Or fall back to a branch name or the commit SHA.)
 GREP-ARGS would completely filter those tags and show the fallback instead, so
 prefer --exclude here.
 HELPTEXT
@@ -43,10 +51,11 @@ do
 	*)  gitCommand+=("$1"); shift; break;;
     esac
 done
+typeset -a gitExcludeArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--exclude)  gitCommand+=("$1" "$2"); shift; shift;;
+	--exclude)  gitCommand+=("$1" "$2"); gitExcludeArgs+=("$1" "$2"); shift; shift;;
 	*)	    break;;
     esac
 done
@@ -62,11 +71,22 @@ fi >&2
 
 revision="${!#}"
 typeset -a grepArgs=("${@:1:$(($#-1))}")
-readarray -t containedTags < <(eval 'git "${gitCommand[@]}" --contains "$revision" 2>/dev/null' "${grepArgs:+| grep}" '"${grepArgs[@]}"')
-if [ ${#containedTags[@]} -gt 0 ]; then
-    printf '%s\n' "${containedTags[0]}"
-    exit 0
+if [ -n "${gitCommand[0]}" ]; then
+    readarray -t containedTags < <(eval 'git "${gitCommand[@]}" --contains "$revision" 2>/dev/null' "${grepArgs:+| grep}" '"${grepArgs[@]}"')
+    if [ ${#containedTags[@]} -gt 0 ]; then
+	printf '%s\n' "${containedTags[0]}"
+	exit 0
+    fi
 fi
-containedName="$(git name-rev --name-only --exclude 'refs/tags/*' "$revision")"
+containedName="$(git name-rev --name-only --exclude 'refs/tags/*' "${gitExcludeArgs[@]}" "$revision")"
 [ -n "$containedName" ] || exit 1
+
+containedName="${containedName#remotes/}"
+
+# If we're only considering branches and we've found such, it's not a fallback.
+if [ -z "${gitCommand[0]}" ] && git-existsbr "${containedName%~+([0-9])}"; then
+    GITCONTAINEDCOMMAND_FALLBACK_PREFIX=''
+    GITCONTAINEDCOMMAND_FALLBACK_SUFFIX=''
+fi
+
 printf '%s%s%s\n' "$GITCONTAINEDCOMMAND_FALLBACK_PREFIX" "$containedName" "$GITCONTAINEDCOMMAND_FALLBACK_SUFFIX"

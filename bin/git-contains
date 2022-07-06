@@ -1,0 +1,38 @@
+#!/bin/bash
+set -o pipefail
+
+printUsage()
+{
+    cat <<HELPTEXT
+List branch(es) and tag(s) that are reachable from the passed <commit> / HEAD.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<commit>] [-?|-h|--help]'
+    echo
+    cat <<HELPTEXT
+Test whether BRANCHNAME|TAG is reachable from the passed <commit>.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" "BRANCHNAME|TAG <commit>|''"
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+listContainedDecorations()
+{
+    git log --pretty='tformat:%D' "$@" | \
+	sed -e '/^$/d' \
+	    -e 's/, /\n/g' \
+	    -e 's/^\(HEAD -> \|tag: \)//'
+}
+case $# in
+    0|1)
+	listContainedDecorations "$@";;
+    2)
+	listContainedDecorations "${2:-HEAD}" | grep --quiet --fixed-strings --line-regexp "${1:?}";;
+    *)
+	printUsage "$0" >&2
+	exit 2
+	;;
+esac

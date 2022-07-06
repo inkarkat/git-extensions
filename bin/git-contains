@@ -1,19 +1,21 @@
 #!/bin/bash
 set -o pipefail
 
+: ${GIT_CONTAINS_CONSIDER_TAGS=t}
+
 printUsage()
 {
     cat <<HELPTEXT
-List branch(es) and tag(s) that are reachable from the passed <commit> / HEAD.
+List branch(es)${GIT_CONTAINS_CONSIDER_TAGS:+ and tag(s)} that are reachable from the passed <commit> / HEAD.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<commit>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")${GIT_CONTAINS_COMMANDSUFFIX}" '[<commit>] [-?|-h|--help]'
     echo
     cat <<HELPTEXT
-Test whether BRANCHNAME|TAG is reachable from the passed <commit>.
+Test whether BRANCHNAME${GIT_CONTAINS_CONSIDER_TAGS:+|TAG} is reachable from the passed <commit>.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" "BRANCHNAME|TAG <commit>|''"
+    printf 'Usage: %q %s\n' "$(basename "$1")${GIT_CONTAINS_COMMANDSUFFIX}" "BRANCHNAME${GIT_CONTAINS_CONSIDER_TAGS:+|TAG} <commit>|''"
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
@@ -21,10 +23,14 @@ esac
 
 listContainedDecorations()
 {
-    git log --pretty='tformat:%D' "$@" | \
+    typeset -a tagsFilter=(-e '/^tag: /d')
+    [ "$GIT_CONTAINS_CONSIDER_TAGS" ] && tagsFilter=(-e 's/^tag: //')
+
+    git log --pretty='tformat:%D' "$@" -- | \
 	sed -e '/^$/d' \
 	    -e 's/, /\n/g' \
-	    -e 's/^\(HEAD -> \|tag: \)//'
+	    -e 's/^HEAD -> //' \
+	    "${tagsFilter[@]}"
 }
 case $# in
     0|1)

@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--status|--query|--all] [--recursive] [--existing-local|--existing-remote|--checkout|--remote|--update [--gui|--terminal|--none]] [-f|--force] [--] [SUBMODULE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--status|--query|--all] [--recursive] [--start-point REV|--existing-local|--existing-remote|--checkout|--remote|--update [--gui|--terminal|--none]] [-f|--force] [--] [SUBMODULE ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -35,6 +35,8 @@ HELPDESCRIPTION
 			By default, the status will be shown unless at least one
 			SUBMODULE is passed.
     --recursive		Also check out branches in nested submodules.
+    --start-point REV	Check out / create a new local branch and reset it to /
+			start it at REV.
     --existing-local	Check out an existing local branch; don't touch
 			submodules that don't have such a branch.
 			This is the default.
@@ -54,6 +56,7 @@ HELPTEXT
 typeset -a recursiveArgs=()
 action=
 isRecursive=
+startPoint=
 checkoutAction=checkoutExistingLocal
 checkoutWhat='update to tracked remote'
 logArg=
@@ -67,6 +70,7 @@ do
 	--@(status|query|all))
 			recursiveArgs+=("$1"); action="${1#--}"; shift;;
 	--recursive)	recursiveArgs+=("$1"); shift; isRecursive=t;;
+	--start-point)	shift; startPoint="${1:?}"; shift; checkoutAction=checkoutStartPoint;;
 	--existing-local)
 			recursiveArgs+=("$1"); shift; checkoutAction=checkoutExistingLocal; checkoutWhat='check out existing local';;
 	--existing-remote)
@@ -124,6 +128,15 @@ getSubmoduleStatus()
 
 	actionHint=
 	case "$checkoutAction" in
+	    checkoutStartPoint)
+		if startPointAheadBehindMessage="$(git-inout --ahead-behind "${submoduleBranches["$submodule"]}" "$startPoint" 2>/dev/null)"; then
+		    actionHint=" and reset: $startPointAheadBehindMessage"
+		elif [ "${submoduleBranches["$submodule"]}" != "$startPoint" ] && git-equals "${submoduleBranches["$submodule"]}" "$startPoint" 2>/dev/null; then
+		    actionHint=" (which is even with ${startPoint})"
+		elif [ "$toBranchAction" = 'check out to a new local branch' ]; then
+		    toBranchAction="check out $startPoint to a new local branch"
+		fi
+		;;
 	    checkoutExistingRemote)
 		if [ "$hasLocalBranch" ] && [ "$hasRemoteBranch" ]; then
 		    if remoteAheadBehindMessage="$(git-inout --ahead-behind "${submoduleBranches["$submodule"]}" "origin/${submoduleBranches["$submodule"]}")"; then
@@ -156,7 +169,10 @@ getSubmoduleStatus()
 
 isSkipped()
 {
-    if [ "$checkoutAction" = checkoutExistingLocal ] && [ ! "$hasLocalBranch" ]; then
+    if [ "$checkoutAction" = checkoutStartPoint ] && ! git rev-parse --verify --quiet "${startPoint:?}" >/dev/null 2>&1; then
+	printf "%-${submoduleWidth}s skipping the start point %s does not exist\\n" "${prefix}${submodule}" "$startPoint"
+	return 0
+    elif [ "$checkoutAction" = checkoutExistingLocal ] && [ ! "$hasLocalBranch" ]; then
 	printf "%-${submoduleWidth}s skipping because no local branch %s exists\\n" "${prefix}${submodule}" "${submoduleBranches["$submodule"]}"
 	return 0
     elif [ "$checkoutAction" = checkoutExistingRemote ] && [ ! "$hasRemoteBranch" ]; then
@@ -179,6 +195,16 @@ checkoutNew()
 	git checkout $forceArg --track -b "$branch" "$remoteBranch"
     else
 	git checkout $forceArg -b "$branch"
+    fi
+}
+
+checkoutStartPoint()
+{
+    local branch="${1:?}"; shift
+    if git rev-parse --verify --quiet "${startPoint:?}" 2>/dev/null; then
+	git checkout $forceArg --track -B "$branch" "$startPoint"
+    else
+	printf >&2 '%s: skipping because the start point %s does not exist\n' "${prefix}${submodule}" "$startPoint"
     fi
 }
 

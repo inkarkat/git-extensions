@@ -129,7 +129,7 @@ getSubmoduleStatus()
 	actionHint=
 	case "$checkoutAction" in
 	    checkoutStartPoint)
-		if startPointAheadBehindMessage="$(git-inout --ahead-behind "${submoduleBranches["$submodule"]}" "$startPoint")"; then
+		if startPointAheadBehindMessage="$(git-inout --ahead-behind "${submoduleBranches["$submodule"]}" "$startPoint" 2>/dev/null)"; then
 		    actionHint=" and reset: $startPointAheadBehindMessage"
 		else
 		    actionHint=" (which is even with ${startPoint})"
@@ -167,7 +167,7 @@ getSubmoduleStatus()
 
 isSkipped()
 {
-    if [ "$checkoutAction" = checkoutStartPoint ] && ! git rev-parse --verify --quiet "${startPoint:?}" 2>/dev/null; then
+    if [ "$checkoutAction" = checkoutStartPoint ] && ! git rev-parse --verify --quiet "${startPoint:?}" >/dev/null 2>&1; then
 	printf "%-${submoduleWidth}s skipping the start point %s does not exist\\n" "${prefix}${submodule}" "$startPoint"
 	return 0
     elif [ "$checkoutAction" = checkoutExistingLocal ] && [ ! "$hasLocalBranch" ]; then

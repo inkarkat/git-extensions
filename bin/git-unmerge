@@ -50,8 +50,13 @@ if [ -z "$branchName" ] && [ ! "$isYes" ]; then
 fi
 [ -n "$branchName" ] || exit 1
 if git-existsbr "$branchName"; then
-    printf >&2 "ERROR: Branch '%s' already exists.\\n" "$branchName"
-    exit 1
+    if git-equals "$branchName" "$branchCommit"; then
+	printf "Note: Branch '%s' already exists, and its current state got merged; will reuse it.\\n" "$branchName"
+	action=checkoutExistingBranch
+    else
+	printf >&2 "ERROR: Branch '%s' already exists (and does not correspond to the merged state).\\n" "$branchName"
+	exit 1
+    fi
 fi
 
 if [ "$isYes" ]; then
@@ -64,6 +69,10 @@ fi
 checkoutNewBranch()
 {
     git checkout "${gitCheckoutArgs[@]}" -b "$branchName" "$branchCommit"
+}
+checkoutExistingBranch()
+{
+    git checkout "${gitCheckoutArgs[@]}" "$branchName"
 }
 
 $action || exit $?

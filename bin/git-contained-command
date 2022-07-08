@@ -27,8 +27,8 @@ HELPTEXT
     elif [ -z "$gitCommandArg" ]; then
 	cat <<HELPTEXT
 Show relation to the first branch [that matches GLOB(s)] that comes after the
-passed revision, and thus contains it (or print (undefined)). GREP-ARGS would
-completely filter those tags, so prefer --exclude here.
+passed revision, and thus contains it. GREP-ARGS would completely filter those
+tags, so prefer --exclude here.
 HELPTEXT
     else
 	cat <<HELPTEXT
@@ -84,6 +84,10 @@ printResult()
     local result="${1:?}"; shift
     local suffix="${1?}"; shift
 
+    if [ "$result" = 'undefined' ]; then
+	return 1
+    fi
+
     [ "$isIncludeRelation" ] || result="${result%~+([0-9])}"
 
     printf '%s%s%s\n' "$prefix" "$result" "$suffix"
@@ -95,7 +99,7 @@ if [ -n "${gitCommand[0]}" ]; then
     readarray -t containedTags < <(eval 'git "${gitCommand[@]}" --contains "$revision" 2>/dev/null' "${grepArgs:+| grep}" '"${grepArgs[@]}"')
     if [ ${#containedTags[@]} -gt 0 ]; then
 	printResult '' "${containedTags[0]}" ''
-	exit 0
+	exit $?
     fi
 fi
 

@@ -72,12 +72,21 @@ if [ $# -eq 0 ]; then
     exit 2
 fi >&2
 
+printResult()
+{
+    local prefix="${1?}"; shift
+    local result="${1:?}"; shift
+    local suffix="${1?}"; shift
+
+    printf '%s%s%s\n' "$prefix" "$result" "$suffix"
+}
+
 revision="${!#}"
 typeset -a grepArgs=("${@:1:$(($#-1))}")
 if [ -n "${gitCommand[0]}" ]; then
     readarray -t containedTags < <(eval 'git "${gitCommand[@]}" --contains "$revision" 2>/dev/null' "${grepArgs:+| grep}" '"${grepArgs[@]}"')
     if [ ${#containedTags[@]} -gt 0 ]; then
-	printf '%s\n' "${containedTags[0]}"
+	printResult '' "${containedTags[0]}" ''
 	exit 0
     fi
 fi
@@ -97,4 +106,4 @@ if [ -z "${gitCommand[0]}" ] && git-existsbr "${containedName%~+([0-9])}"; then
     GITCONTAINEDCOMMAND_FALLBACK_SUFFIX=''
 fi
 
-printf '%s%s%s\n' "$GITCONTAINEDCOMMAND_FALLBACK_PREFIX" "$containedName" "$GITCONTAINEDCOMMAND_FALLBACK_SUFFIX"
+printResult "$GITCONTAINEDCOMMAND_FALLBACK_PREFIX" "$containedName" "$GITCONTAINEDCOMMAND_FALLBACK_SUFFIX"

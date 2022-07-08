@@ -38,7 +38,10 @@ i.e. in which versions this was shipped. (Or fall back to a branch name or the
 commit SHA.)
 HELPTEXT
     fi
-    printf 'Usage: %q %s%s%s\n' "$(basename "$1")" "${gitCommandArg}${gitCommandArg:+ }" "${excludeArg}${excludeArg:+ }" '[GREP-ARGS ...] <commit> [-?|-h|--help]'
+    printf 'Usage: %q %s%s%s\n' "$(basename "$1")" "${gitCommandArg}${gitCommandArg:+ }" "${excludeArg}${excludeArg:+ }" '[--include-relation] [GREP-ARGS ...] <commit> [-?|-h|--help]'
+    cat <<HELPTEXT
+    --include-relation	Keep ancestor information (~3) appended if available.
+HELPTEXT
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
@@ -55,11 +58,14 @@ do
     esac
 done
 typeset -a gitExcludeArgs=()
+isIncludeRelation=
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--exclude)  gitCommand+=("$1" "$2"); gitExcludeArgs+=("$1" "$2"); shift; shift;;
-	*)	    break;;
+	--exclude)	gitCommand+=("$1" "$2"); gitExcludeArgs+=("$1" "$2"); shift; shift;;
+	--include-relation)
+			shift; isIncludeRelation=t;;
+	*)		break;;
     esac
 done
 case "$1" in
@@ -77,6 +83,8 @@ printResult()
     local prefix="${1?}"; shift
     local result="${1:?}"; shift
     local suffix="${1?}"; shift
+
+    [ "$isIncludeRelation" ] || result="${result%~+([0-9])}"
 
     printf '%s%s%s\n' "$prefix" "$result" "$suffix"
 }

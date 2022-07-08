@@ -351,28 +351,31 @@ alias vimgitconflicts='commandOnSelected --command '"${_aliases_vim}"' --generat
 
 
 # sgitlsprivate [-X|--orphaned-submodules] [-x] [<path>] [-- SELECTIONs ...]
-#			Print selected filespecs that are under source control
-#			in the current directory and below.
+#			Print selected unversioned filespecs that are not under
+#			source control in the current directory and below.
 alias sgitlsprivate='commandOnSelected --generator "git-lsprivate --long --ignore-empty-directories" --entries'
 
 # ygitlsprivate [-X|--orphaned-submodules] [-x] [<path>] [-- SELECTIONs ...]
-#			Yank selected filespecs that are under source control
-#			in the current directory and below.
+#			Yank selected unversioned filespecs that are not under
+#			source control in the current directory and below.
 alias ygitlsprivate='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git-lsprivate --long --ignore-empty-directories" --entries'
 
 # lgitlsprivate [-X|--orphaned-submodules] [-x] [<path>] [-- SELECTIONs ...]
-#			View selected files that are under source control in the
-#			current directory and below with the pager.
+#			View selected unversioned files that are not under
+#			source control in the current directory and below with
+#			the pager.
 alias lgitlsprivate='commandOnSelected --command "${PAGER:-less}" --generator "git-lsprivate --long --ignore-empty-directories" --entries'
 
 # vgitlsprivate [-X|--orphaned-submodules] [-x] [<path>] [-- SELECTIONs ...]
-#			Edit selected files that are under source control in the
-#			current directory and below in GVIM.
+#			Edit selected unversioned files that are not under
+#			source control in the current directory and below in
+#			GVIM.
 alias vgitlsprivate='commandOnSelected --command SendToGVIM --generator "git-lsprivate --long --ignore-empty-directories" --entries'
 
 # vimgitlsprivate [-X|--orphaned-submodules] [-x] [<path>] [-- SELECTIONs ...]
-#			Edit selected files that are under source control in the
-#			current directory and below in Vim.
+#			Edit selected unversioned files that are not under
+#			source control in the current directory and below in
+#			Vim.
 alias vimgitlsprivate='commandOnSelected --command '"${_aliases_vim}"'
 --generator "git-lsprivate --long --ignore-empty-directories" --entries'
 

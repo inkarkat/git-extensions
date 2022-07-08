@@ -27,8 +27,8 @@ HELPTEXT
     elif [ -z "$gitCommandArg" ]; then
 	cat <<HELPTEXT
 Show relation to the first branch [that matches GLOB(s)] that comes after the
-passed revision, and thus contains it (or print (undefined)). GREP-ARGS would
-completely filter those tags, so prefer --exclude here.
+passed revision, and thus contains it. GREP-ARGS would completely filter those
+tags, so prefer --exclude here.
 HELPTEXT
     else
 	cat <<HELPTEXT
@@ -38,7 +38,10 @@ i.e. in which versions this was shipped. (Or fall back to a branch name or the
 commit SHA.)
 HELPTEXT
     fi
-    printf 'Usage: %q %s%s%s\n' "$(basename "$1")" "${gitCommandArg}${gitCommandArg:+ }" "${excludeArg}${excludeArg:+ }" '[GREP-ARGS ...] <commit> [-?|-h|--help]'
+    printf 'Usage: %q %s%s%s\n' "$(basename "$1")" "${gitCommandArg}${gitCommandArg:+ }" "${excludeArg}${excludeArg:+ }" '[--include-relation] [GREP-ARGS ...] <commit> [-?|-h|--help]'
+    cat <<HELPTEXT
+    --include-relation	Keep ancestor information (~3) appended if available.
+HELPTEXT
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
@@ -55,11 +58,14 @@ do
     esac
 done
 typeset -a gitExcludeArgs=()
+isIncludeRelation=
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--exclude)  gitCommand+=("$1" "$2"); gitExcludeArgs+=("$1" "$2"); shift; shift;;
-	*)	    break;;
+	--exclude)	gitCommand+=("$1" "$2"); gitExcludeArgs+=("$1" "$2"); shift; shift;;
+	--include-relation)
+			shift; isIncludeRelation=t;;
+	*)		break;;
     esac
 done
 case "$1" in
@@ -72,13 +78,28 @@ if [ $# -eq 0 ]; then
     exit 2
 fi >&2
 
+printResult()
+{
+    local prefix="${1?}"; shift
+    local result="${1:?}"; shift
+    local suffix="${1?}"; shift
+
+    if [ "$result" = 'undefined' ]; then
+	return 1
+    fi
+
+    [ "$isIncludeRelation" ] || result="${result%~+([0-9])}"
+
+    printf '%s%s%s\n' "$prefix" "$result" "$suffix"
+}
+
 revision="${!#}"
 typeset -a grepArgs=("${@:1:$(($#-1))}")
 if [ -n "${gitCommand[0]}" ]; then
     readarray -t containedTags < <(eval 'git "${gitCommand[@]}" --contains "$revision" 2>/dev/null' "${grepArgs:+| grep}" '"${grepArgs[@]}"')
     if [ ${#containedTags[@]} -gt 0 ]; then
-	printf '%s\n' "${containedTags[0]}"
-	exit 0
+	printResult '' "${containedTags[0]}" ''
+	exit $?
     fi
 fi
 
@@ -97,4 +118,4 @@ if [ -z "${gitCommand[0]}" ] && git-existsbr "${containedName%~+([0-9])}"; then
     GITCONTAINEDCOMMAND_FALLBACK_SUFFIX=''
 fi
 
-printf '%s%s%s\n' "$GITCONTAINEDCOMMAND_FALLBACK_PREFIX" "$containedName" "$GITCONTAINEDCOMMAND_FALLBACK_SUFFIX"
+printResult "$GITCONTAINEDCOMMAND_FALLBACK_PREFIX" "$containedName" "$GITCONTAINEDCOMMAND_FALLBACK_SUFFIX"

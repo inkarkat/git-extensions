@@ -211,11 +211,14 @@
 	;; archivedurl: List URLs to passed <remote> of all / <branch> archived branches.
 	archivedourl = archivedurl origin
 	archiveduurl = archivedurl upstream
+
 	; How to create an unrelated branch that doesn't hold the previous commit history (e.g. as for the gh-pages)
 	; 1. git checkout --orphan gh-pages
 	; 2. git rm -rf .
-	co = checkout
 	detach = checkout --detach	; Unassociate from the current branch without changing the current commit. Useful e.g. for separate worktrees, because they all must be on distinct branches.
+	;; reattach: Find a branch name that the detached commit is based on and check that out, looking first to the commit itself, then the first branch that comes after the detached commit, and thus contains it, then falling back to branch(es) that are reachable from the detached commit.
+
+	co = checkout
 	checkoutselected = selected-command --filter '' checkout	; Interactively select (from modified files or passed list of files) files (or directly pass N, M, ... selections) to checkout by number.
 	cos = checkoutselected
 	;; cobr: Checkout passed <remote-branch>, resetting an existing local branch to the remote, tracking it if it doesn't yet exist locally, and ensuring that an existing tracked branch doesn't contradict the request.
@@ -4206,12 +4209,12 @@
 	;; describe: Show the most recent tag that is reachable from a commit, in the format <annotated tag>-g<commits on top>-<commit-hash>.
 	;; desc: Show current / passed revision relative to the most recent ref that is reachable from a commit, in the format <tag|ref>[-<commits on top>-g<commit-hash>][-dirty].
 	;; describe-version: Show (only the) most recent annotated tag (used for official versions etc.) that the current / passed revision is based on.
-	contained-branch = contained-command '' ; Show relation to the first branch [that matches GLOB(s)] that comes after the passed revision, and thus contains it (or print (undefined)).
+	containedbranch = contained-command '' ; Show relation to the first branch [that matches GLOB(s)] that comes after the passed revision, and thus contains it.
 	annotate-contained-branch = annotate-contained-command branch
-	contained-version = contained-command annotated ; Show (only the) first annotated tag (used for official versions etc.) [that matches GREP-ARGS] that comes after the passed revision, and thus contains it; i.e. in which versions this was shipped. (Or fall back to a branch name or the commit SHA.)
+	containedversion = contained-command annotated ; Show (only the) first annotated tag (used for official versions etc.) [that matches GREP-ARGS] that comes after the passed revision, and thus contains it; i.e. in which versions this was shipped. (Or fall back to a branch name or the commit SHA.)
 	annotate-contained-version = annotate-contained-command version
 	;; describe-tag: Show relation to the most recent, also lightweight (used for archiving) tag name for the current / passed revision.
-	contained-tag = contained-command describe ; Show relation to the first tag (also lightweight, used for archiving) [that matches GLOB(s)] that comes after the passed revision, and thus contains it; i.e. in which versions this was shipped. (Or fall back to a branch name or the commit SHA.)
+	containedtag = contained-command describe ; Show relation to the first tag (also lightweight, used for archiving) [that matches GLOB(s)] that comes after the passed revision, and thus contains it; i.e. in which versions this was shipped. (Or fall back to a branch name or the commit SHA.)
 	annotate-contained-tag = annotate-contained-command tag
 	;; timestamp: Print current build identifier containing the host, relation to previous tag, and build time.
 	;; contains: List branch(es) and tag(s) that are reachable from the passed <commit> / HEAD. / Test whether BRANCHNAME|TAG is reachable from the passed <commit>.

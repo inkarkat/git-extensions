@@ -1,0 +1,66 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Find a branch name that the detached commit is based on and check that out,
+looking first to the commit itself, then the first branch that comes after the
+detached commit, and thus contains it, then falling back to branch(es) that are
+reachable from the detached commit.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [-y|--yes] [-?|-h|--help]'
+}
+isQuiet=
+isYes=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--quiet|-q)	shift; isQuiet=t;;
+	--yes|-y)	shift; isYes=t;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+if ! git-isdetached; then
+    printf >&2 "Not in a detached working copy; current branch is '%s'.\\n" "$(git-brname --real-branch-only)"
+    exit 1
+fi
+
+branchName="$(git containedbranch HEAD 2>/dev/null)"
+if [ -n "$branchName" ]; then
+    if [ "$isYes" ] || git-equals "$branchName" HEAD; then
+	: # Directly on the detached branch, go for it!
+    else
+	</dev/tty read -r -N 1 -p "'${branchName}' contains the current revision; forward to and check out that? (y/n) " choice; echo >/dev/tty
+	[ "$choice" = "y" ] || branchName=''
+    fi
+fi
+if [ -z "$branchName" ]; then
+    readarray -t containedBranches < <(comm -12 <(git-containsbranch | sort) <(git-localbr --include-all | sort))
+    if [ ${#containedBranches[@]} -eq 0 ]; then
+	echo >&2 'ERROR: No branch that is related to the detached working copy found.'
+	exit 1
+    elif [ ${#containedBranches[@]} -eq 1 ]; then
+	branchName="${containedBranches[0]}"
+	if [ ! "$isYes" ]; then
+	    </dev/tty read -r -N 1 -p "'${branchName}' is contained in the current revision; go back and check out that? (y/n) " choice; echo >/dev/tty
+	    [ "$choice" = "y" ] || exit 4
+	fi
+    else
+	if [ "$isYes" ]; then
+	    echo >&2 'ERROR: Multiple contained candidate branches found.'
+	    exit 1
+	elif ! branchName="$(userchoiceFromList --question 'Choose a contained branch to go back to:' -- "${containedBranches[@]}")"; then
+	    exit 4
+	fi
+    fi
+fi
+
+exec git checkout -B "${branchName:?}"

@@ -705,6 +705,7 @@
 	showst = showfiles --status	; Show the files and their modification status in passed commit or commit range.
 
 	; Commit logs Note: Git 1.6.0 only supports %Cred, %Cgreen, %Cblue for highlighting; only newer Git versions also support %C(more-colors).
+	logf = log --first-parent	; Logs from the "main branch" perspective, skipping commits that come from merged branches.
 	;; logv: Verbose log that includes filenames (like "svn log -v"), and additional committer vs. author information. Still shows all files of the commit even when filtering commits for certain paths (whereas "git log --name-status" also filters the file list itself).
 	logv1 = logv --max-count 1
 	logv7 = logv --max-count 7
@@ -714,9 +715,13 @@
 	l = log --pretty=tformat:%s	; One-line list of commit summaries.
 	l1 = l --max-count 1
 	l7 = l --max-count 7
+	lf = l --first-parent
+	lf7 = lf --max-count 7
 	lo = log --pretty=format:%B	; Raw, unwrapped subject and body.
 	lo1 = show --no-patch --pretty=format:%B	; Raw, unwrapped subject and body, only for the passed commits. Good for reusing for a new commit message.
-	lo7 = log --max-count 7 --pretty=format:%B	; Raw, unwrapped subject and body, only for the passed commits. Good for reusing for a new commit message.
+	lo7 = lo --max-count 7 ; Raw, unwrapped subject and body, only for the passed commits. Good for reusing for a new commit message.
+	lof = lo --first-parent
+	lof7 = lof --max-count 7
 	lmine = mine-command l ; git l, filtered for my personal commits.
 	lteam = team-command l ; git l, filtered for my team's commits.
 	llastby = dashdash-default-command : others-command byuserrange-command l --auto-revision :	; git l of the last consecutive commit(s) done by the passed or queried user(s)
@@ -731,6 +736,9 @@
 	lg = onelinelog --graph	; One-line topology, author, date, tags and commit summary.
 	lg1 = lg --max-count 1
 	lg7 = lg --max-count 7
+	lgf = lg --first-parent	; One-line author, date, tags and commit summary from the "main branch" perspective.
+	lgf7 = lgf --max-count 7
+	;; lgv: One-line author, date, tags and commit summary, followed by modified filenames like "svn log -v".
 	lgrel = relativeonelinelog --graph	; One-line topology, author, dates relative to the previous commit, tags and commit summary.
 	lgrel7 = lgrel --max-count 7
 
@@ -751,10 +759,11 @@
 	;; lguntiltag: One-line author, date, tags and commit summary until TAGNAME (or nothing and fail if the tag is not reachable from HEAD / the passed <commit>).
 	;; lgtaggeduntiltag: One-line author, date, tags and commit summary for commits that are tagged until TAGNAME (or nothing and fail if the tag is not reachable from HEAD / the passed <commit>).
 
-	;; lgv: One-line author, date, tags and commit summary, followed by modified filenames like "svn log -v".
 	lh = log --pretty=tformat:%H	; One-line list of full commit hashes; useful with --grep.
 	lh1 = lh --max-count 1	; Same as rev-parse HEAD.
 	lh7 = lh --max-count 7	; Same as rev-parse HEAD.
+	lhf = lh --first-parent
+	lhf7 = lhf --max-count 7
 	lhmine = mine-command lh ; git lh, filtered for my personal commits.
 	lhteam = team-command lh ; git lh, filtered for my team's commits.
 	lhlastby = dashdash-default-command : others-command byuserrange-command lh --auto-revision :	; git lh of the last consecutive commit(s) done by the passed or queried user(s)
@@ -770,9 +779,13 @@
 	lourl = lurl origin	; My GitHub clone URLs of all found commits.
 	lourl1 = lourl --max-count 1
 	lourl7 = lourl --max-count 7
+	lourlf = lourl --first-parent
+	lourlf7 = lourlf --max-count 7
 	luurl = lurl upstream	; Upstream URLs of all found commits.
 	luurl1 = luurl --max-count 1
 	luurl7 = luurl --max-count 7
+	luurlf = luurl --first-parent
+	luurlf7 = luurlf --max-count 7
 	lourlv = lurl origin --name-status	; My GitHub clone URLs and changed files of all found commits.
 	lourlv1 = lourlv --max-count 1
 	lourlv7 = lourlv --max-count 7
@@ -783,9 +796,13 @@
 	treeourl = treeurl origin	; My GitHub clone URLs of the trees of all found commits.
 	treeourl1 = treeourl --max-count 1
 	treeourl7 = treeourl --max-count 7
+	treeourlf = treeourl --first-parent
+	treeourlf7 = treeourlf --max-count 7
 	treeuurl = treeurl upstream	; Upstream URLs of the trees of all found commits.
 	treeuurl1 = treeuurl --max-count 1
 	treeuurl7 = treeuurl --max-count 7
+	treeuurlf = treeuurl --first-parent
+	treeuurlf7 = treeuurlf --max-count 7
 	treeourlv = treeurl origin --name-status	; My GitHub clone URLs of the trees of all found commits and changed files.
 	treeourlv1 = treeourlv --max-count 1
 	treeourlv7 = treeourlv --max-count 7
@@ -983,6 +1000,7 @@
 	tdshowselected = today-command showselected
 	tdshowlselected = today-command showlselected
 	tdlog = today-command log
+	tdlogf = today-command logf
 	tdlogv = today-command logv
 	tdlogfiles = today-command logfiles
 	tdglog = today-command glog
@@ -993,6 +1011,7 @@
 	tdlteam = today-command lteam
 	tdlby = dashdash-default-command : today-command others-command l :
 	tdlg = today-command lg
+	tdlgf = today-command lgf
 	tdlgv = today-command lgv
 	tdlgrel = today-command lgrel
 	tdlh = today-command lh --reverse
@@ -1116,6 +1135,7 @@
 	weekshowselected = week-command showselected
 	weekshowlselected = week-command showlselected
 	weeklog = week-command log
+	weeklogf = week-command logf
 	weeklogv = week-command logv
 	weeklogfiles = week-command logfiles
 	weekglog = week-command glog
@@ -1126,6 +1146,7 @@
 	weeklteam = week-command lteam
 	weeklby = dashdash-default-command : week-command others-command l :
 	weeklg = week-command lg
+	weeklgf = week-command lgf
 	weeklgv = week-command lgv
 	weeklgrel = week-command lgrel
 	weeklh = week-command lh --reverse
@@ -1249,6 +1270,7 @@
 	monthshowselected = month-command showselected
 	monthshowlselected = month-command showlselected
 	monthlog = month-command log
+	monthlogf = month-command logf
 	monthlogv = month-command logv
 	monthlogfiles = month-command logfiles
 	monthglog = month-command glog
@@ -1259,6 +1281,7 @@
 	monthlteam = month-command lteam
 	monthlby = dashdash-default-command : month-command others-command l :
 	monthlg = month-command lg
+	monthlgf = month-command lgf
 	monthlgv = month-command lgv
 	monthlgrel = month-command lgrel
 	monthlh = month-command lh --reverse
@@ -1382,6 +1405,7 @@
 	yearshowselected = year-command showselected
 	yearshowlselected = year-command showlselected
 	yearlog = year-command log
+	yearlogf = year-command logf
 	yearlogv = year-command logv
 	yearlogfiles = year-command logfiles
 	yearglog = year-command glog
@@ -1392,6 +1416,7 @@
 	yearlteam = year-command lteam
 	yearlby = dashdash-default-command : year-command others-command l :
 	yearlg = year-command lg
+	yearlgf = year-command lgf
 	yearlgv = year-command lgv
 	yearlgrel = year-command lgrel
 	yearlh = year-command lh --reverse
@@ -1515,6 +1540,7 @@
 	byshowselected = byuserrange-command --with-log-args showselected
 	byshowlselected = byuserrange-command --with-log-args showlselected
 	bylog = byuserrange-command --with-log-args log
+	bylogf = byuserrange-command --with-log-args logf
 	bylogv = byuserrange-command --with-log-args logv
 	bylogfiles = byuserrange-command --with-log-args logfiles
 	byglog = byuserrange-command --with-log-args glog
@@ -1525,6 +1551,7 @@
 	bylteam = byuserrange-command --with-log-args lteam
 	bylby = dashdash-default-command : byuserrange-command --with-log-args others-command l :
 	bylg = byuserrange-command --with-log-args lg
+	bylgf = byuserrange-command --with-log-args lgf
 	bylgv = byuserrange-command --with-log-args lgv
 	bylgrel = byuserrange-command --with-log-args lgrel
 	bylh = byuserrange-command --with-log-args lh --reverse
@@ -1648,6 +1675,7 @@
 	msgshowselected = bylogmessagerange-command --with-log-args showselected
 	msgshowlselected = bylogmessagerange-command --with-log-args showlselected
 	msglog = bylogmessagerange-command --with-log-args log
+	msglogf = bylogmessagerange-command --with-log-args logf
 	msglogv = bylogmessagerange-command --with-log-args logv
 	msglogfiles = bylogmessagerange-command --with-log-args logfiles
 	msgglog = bylogmessagerange-command --with-log-args glog
@@ -1658,6 +1686,7 @@
 	msglteam = bylogmessagerange-command --with-log-args lteam
 	msglby = dashdash-default-command : bylogmessagerange-command --with-log-args others-command l :
 	msglg = bylogmessagerange-command --with-log-args lg
+	msglgf = bylogmessagerange-command --with-log-args lgf
 	msglgv = bylogmessagerange-command --with-log-args lgv
 	msglgrel = bylogmessagerange-command --with-log-args lgrel
 	msglh = bylogmessagerange-command --with-log-args lh --reverse
@@ -1781,6 +1810,7 @@
 	lastmsgshowselected = bylogmessagerange-command --with-log-args --auto-revision showselected
 	lastmsgshowlselected = bylogmessagerange-command --with-log-args --auto-revision showlselected
 	lastmsglog = bylogmessagerange-command --with-log-args --auto-revision log	# Same as loglastmsg.
+	lastmsglogf = bylogmessagerange-command --with-log-args --auto-revision logf	# Same as logvlastmsgf
 	lastmsglogv = bylogmessagerange-command --with-log-args --auto-revision logv	# Same as logvlastmsg.
 	lastmsglogfiles = bylogmessagerange-command --with-log-args --auto-revision logfiles	# Same as logvlastmsg.
 	lastmsgglog = bylogmessagerange-command --with-log-args --auto-revision glog
@@ -1791,6 +1821,7 @@
 	lastmsglteam = bylogmessagerange-command --with-log-args --auto-revision lteam
 	lastmsglby = dashdash-default-command : bylogmessagerange-command --with-log-args --auto-revision others-command l :
 	lastmsglg = bylogmessagerange-command --with-log-args --auto-revision lg	# Same as lglastmsg.
+	lastmsglgf = bylogmessagerange-command --with-log-args --auto-revision lgf
 	lastmsglgv = bylogmessagerange-command --with-log-args --auto-revision lgv
 	lastmsglh = bylogmessagerange-command --with-log-args --auto-revision lh --reverse	# Same as lhlastmsg.
 	lastmsglhmine = bylogmessagerange-command --with-log-args --auto-revision lhmine --reverse
@@ -1918,6 +1949,7 @@
 	brshowselected = rev-range-this-branch --any --one-more-command log --one-more-with-padding showselected
 	brshowlselected = rev-range-this-branch --any --one-more-command log --one-more-with-padding showlselected
 	brlog = rev-range-this-branch --any --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal log
+	brlogf = rev-range-this-branch --any --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logf
 	brlogv = rev-range-this-branch --any --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logv
 	brlogfiles = rev-range-this-branch --any --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logfiles
 	brglog = rev-range-this-branch --any glog
@@ -1930,6 +1962,7 @@
 	brlg = rev-range-this-branch --any --one-more-command greyonelinelog --one-more-only-to-terminal lg
 	brlgn = rev-range-this-branch --any lg
 	brlgrel = rev-range-this-branch --any --one-more-command greyonelinelog --one-more-only-to-terminal lgrel
+	brlgf = rev-range-this-branch --any --one-more lgf
 	brlgv = rev-range-this-branch --any --one-more lgv
 	brlh = rev-range-this-branch --any lh --reverse
 	brlhmine = rev-range-this-branch --any lhmine --reverse
@@ -2052,6 +2085,7 @@
 	b2rshowselected = rev-range-this-branch --any --branch-number 2 --one-more-command log --one-more-with-padding showselected
 	b2rshowlselected = rev-range-this-branch --any --branch-number 2 --one-more-command log --one-more-with-padding showlselected
 	b2rlog = rev-range-this-branch --any --branch-number 2 --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal log
+	b2rlogf = rev-range-this-branch --any --branch-number 2 --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logf
 	b2rlogv = rev-range-this-branch --any --branch-number 2 --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logv
 	b2rlogfiles = rev-range-this-branch --any --branch-number 2 --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logfiles
 	b2rglog = rev-range-this-branch --any --branch-number 2 glog
@@ -2064,6 +2098,7 @@
 	b2rlg = rev-range-this-branch --any --branch-number 2 --one-more-command greyonelinelog --one-more-only-to-terminal lg
 	b2rlgn = rev-range-this-branch --any --branch-number 2 lg
 	b2rlgrel = rev-range-this-branch --any --branch-number 2 --one-more-command greyonelinelog --one-more-only-to-terminal lgrel
+	b2rlgf = rev-range-this-branch --any --branch-number 2 --one-more lgf
 	b2rlgv = rev-range-this-branch --any --branch-number 2 --one-more lgv
 	b2rlh = rev-range-this-branch --any --branch-number 2 lh --reverse
 	b2rlhmine = rev-range-this-branch --any --branch-number 2 lhmine --reverse
@@ -2186,6 +2221,7 @@
 	b3rshowselected = rev-range-this-branch --any --branch-number 3 --one-more-command log --one-more-with-padding showselected
 	b3rshowlselected = rev-range-this-branch --any --branch-number 3 --one-more-command log --one-more-with-padding showlselected
 	b3rlog = rev-range-this-branch --any --branch-number 3 --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal log
+	b3rlogf = rev-range-this-branch --any --branch-number 3 --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logf
 	b3rlogv = rev-range-this-branch --any --branch-number 3 --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logv
 	b3rlogfiles = rev-range-this-branch --any --branch-number 3 --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logfiles
 	b3rglog = rev-range-this-branch --any --branch-number 3 glog
@@ -2198,6 +2234,7 @@
 	b3rlg = rev-range-this-branch --any --branch-number 3 --one-more-command greyonelinelog --one-more-only-to-terminal lg
 	b3rlgn = rev-range-this-branch --any --branch-number 3 lg
 	b3rlgrel = rev-range-this-branch --any --branch-number 3 --one-more-command greyonelinelog --one-more-only-to-terminal lgrel
+	b3rlgf = rev-range-this-branch --any --branch-number 3 --one-more lgf
 	b3rlgv = rev-range-this-branch --any --branch-number 3 --one-more lgv
 	b3rlh = rev-range-this-branch --any --branch-number 3 lh --reverse
 	b3rlhmine = rev-range-this-branch --any --branch-number 3 lhmine --reverse
@@ -2320,6 +2357,7 @@
 	bmshowselected = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --end-revision HEAD --one-more-command log --one-more-with-padding showselected
 	bmshowlselected = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --end-revision HEAD --one-more-command log --one-more-with-padding showlselected
 	bmlog = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --end-revision HEAD --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal log
+	bmlogf = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --end-revision HEAD --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logf
 	bmlogv = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --end-revision HEAD --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logv
 	bmlogfiles = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --end-revision HEAD --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logfiles
 	bmglog = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --end-revision HEAD glog
@@ -2332,6 +2370,7 @@
 	bmlg = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --end-revision HEAD --one-more-command greyonelinelog --one-more-only-to-terminal lg
 	bmlgn = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --end-revision HEAD lg
 	bmlgrel = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --end-revision HEAD --one-more-command greyonelinelog --one-more-only-to-terminal lgrel
+	bmlgf = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --end-revision HEAD --one-more lgf
 	bmlgv = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --end-revision HEAD --one-more lgv
 	bmlh = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --end-revision HEAD lh --reverse
 	bmlhmine = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --end-revision HEAD lhmine --reverse
@@ -2454,6 +2493,7 @@
 	mbshowselected = branch-command --keep-position master-command --keep-position rev-range --revision HEAD --end-revision MASTER --one-more-command log --one-more-with-padding showselected
 	mbshowlselected = branch-command --keep-position master-command --keep-position rev-range --revision HEAD --end-revision MASTER --one-more-command log --one-more-with-padding showlselected
 	mblog = branch-command --keep-position master-command --keep-position rev-range --revision HEAD --end-revision MASTER --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal log
+	mblogf = branch-command --keep-position master-command --keep-position rev-range --revision HEAD --end-revision MASTER --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logf
 	mblogv = branch-command --keep-position master-command --keep-position rev-range --revision HEAD --end-revision MASTER --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logv
 	mblogfiles = branch-command --keep-position master-command --keep-position rev-range --revision HEAD --end-revision MASTER --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logfiles
 	mbglog = branch-command --keep-position master-command --keep-position rev-range --revision HEAD --end-revision MASTER glog
@@ -2466,6 +2506,7 @@
 	mblg = branch-command --keep-position master-command --keep-position rev-range --revision HEAD --end-revision MASTER --one-more-command greyonelinelog --one-more-only-to-terminal lg
 	mblgn = branch-command --keep-position master-command --keep-position rev-range --revision HEAD --end-revision MASTER lg
 	mblgrel = branch-command --keep-position master-command --keep-position rev-range --revision HEAD --end-revision MASTER --one-more-command greyonelinelog --one-more-only-to-terminal lgrel
+	mblgf = branch-command --keep-position master-command --keep-position rev-range --revision HEAD --end-revision MASTER --one-more lgf
 	mblgv = branch-command --keep-position master-command --keep-position rev-range --revision HEAD --end-revision MASTER --one-more lgv
 	mblh = branch-command --keep-position master-command --keep-position rev-range --revision HEAD --end-revision MASTER lh --reverse
 	mblhmine = branch-command --keep-position master-command --keep-position rev-range --revision HEAD --end-revision MASTER lhmine --reverse
@@ -2588,6 +2629,7 @@
 	bnshowselected = branch-command --keep-position base-command --keep-position rev-range --revision BASE --end-revision HEAD --one-more-command log --one-more-with-padding showselected
 	bnshowlselected = branch-command --keep-position base-command --keep-position rev-range --revision BASE --end-revision HEAD --one-more-command log --one-more-with-padding showlselected
 	bnlog = branch-command --keep-position base-command --keep-position rev-range --revision BASE --end-revision HEAD --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal log
+	bnlogf = branch-command --keep-position base-command --keep-position rev-range --revision BASE --end-revision HEAD --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logf
 	bnlogv = branch-command --keep-position base-command --keep-position rev-range --revision BASE --end-revision HEAD --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logv
 	bnlogfiles = branch-command --keep-position base-command --keep-position rev-range --revision BASE --end-revision HEAD --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logfiles
 	bnglog = branch-command --keep-position base-command --keep-position rev-range --revision BASE --end-revision HEAD glog
@@ -2600,6 +2642,7 @@
 	bnlg = branch-command --keep-position base-command --keep-position rev-range --revision BASE --end-revision HEAD --one-more-command greyonelinelog --one-more-only-to-terminal lg
 	bnlgn = branch-command --keep-position base-command --keep-position rev-range --revision BASE --end-revision HEAD lg
 	bnlgrel = branch-command --keep-position base-command --keep-position rev-range --revision BASE --end-revision HEAD --one-more-command greyonelinelog --one-more-only-to-terminal lgrel
+	bnlgf = branch-command --keep-position base-command --keep-position rev-range --revision BASE --end-revision HEAD --one-more lgf
 	bnlgv = branch-command --keep-position base-command --keep-position rev-range --revision BASE --end-revision HEAD --one-more lgv
 	bnlh = branch-command --keep-position base-command --keep-position rev-range --revision BASE --end-revision HEAD lh --reverse
 	bnlhmine = branch-command --keep-position base-command --keep-position rev-range --revision BASE --end-revision HEAD lhmine --reverse
@@ -2722,6 +2765,7 @@
 	nbshowselected = branch-command --keep-position base-command --keep-position rev-range --revision HEAD --end-revision BASE --one-more-command log --one-more-with-padding showselected
 	nbshowlselected = branch-command --keep-position base-command --keep-position rev-range --revision HEAD --end-revision BASE --one-more-command log --one-more-with-padding showlselected
 	nblog = branch-command --keep-position base-command --keep-position rev-range --revision HEAD --end-revision BASE --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal log
+	nblogf = branch-command --keep-position base-command --keep-position rev-range --revision HEAD --end-revision BASE --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logf
 	nblogv = branch-command --keep-position base-command --keep-position rev-range --revision HEAD --end-revision BASE --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logv
 	nblogfiles = branch-command --keep-position base-command --keep-position rev-range --revision HEAD --end-revision BASE --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logfiles
 	nbglog = branch-command --keep-position base-command --keep-position rev-range --revision HEAD --end-revision BASE glog
@@ -2734,6 +2778,7 @@
 	nblg = branch-command --keep-position base-command --keep-position rev-range --revision HEAD --end-revision BASE --one-more-command greyonelinelog --one-more-only-to-terminal lg
 	nblgn = branch-command --keep-position base-command --keep-position rev-range --revision HEAD --end-revision BASE lg
 	nblgrel = branch-command --keep-position base-command --keep-position rev-range --revision HEAD --end-revision BASE --one-more-command greyonelinelog --one-more-only-to-terminal lgrel
+	nblgf = branch-command --keep-position base-command --keep-position rev-range --revision HEAD --end-revision BASE --one-more lgf
 	nblgv = branch-command --keep-position base-command --keep-position rev-range --revision HEAD --end-revision BASE --one-more lgv
 	nblh = branch-command --keep-position base-command --keep-position rev-range --revision HEAD --end-revision BASE lh --reverse
 	nblhmine = branch-command --keep-position base-command --keep-position rev-range --revision HEAD --end-revision BASE lhmine --reverse
@@ -2856,6 +2901,7 @@
 	blshowselected = branch-command --keep-position rev-range --revision @{-1} --end-revision HEAD --one-more-command log --one-more-with-padding showselected
 	blshowlselected = branch-command --keep-position rev-range --revision @{-1} --end-revision HEAD --one-more-command log --one-more-with-padding showlselected
 	bllog = branch-command --keep-position rev-range --revision @{-1} --end-revision HEAD --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal log
+	bllogf = branch-command --keep-position rev-range --revision @{-1} --end-revision HEAD --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logf
 	bllogv = branch-command --keep-position rev-range --revision @{-1} --end-revision HEAD --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logv
 	bllogfiles = branch-command --keep-position rev-range --revision @{-1} --end-revision HEAD --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logfiles
 	blglog = branch-command --keep-position rev-range --revision @{-1} --end-revision HEAD glog
@@ -2868,6 +2914,7 @@
 	bllg = branch-command --keep-position rev-range --revision @{-1} --end-revision HEAD --one-more-command greyonelinelog --one-more-only-to-terminal lg
 	bllgn = branch-command --keep-position rev-range --revision @{-1} --end-revision HEAD lg
 	bllgrel = branch-command --keep-position rev-range --revision @{-1} --end-revision HEAD --one-more-command greyonelinelog --one-more-only-to-terminal lgrel
+	bllgf = branch-command --keep-position rev-range --revision @{-1} --end-revision HEAD --one-more lgf
 	bllgv = branch-command --keep-position rev-range --revision @{-1} --end-revision HEAD --one-more lgv
 	bllh = branch-command --keep-position rev-range --revision @{-1} --end-revision HEAD lh --reverse
 	bllhmine = branch-command --keep-position rev-range --revision @{-1} --end-revision HEAD lhmine --reverse
@@ -2990,6 +3037,7 @@
 	b2lshowselected = branch-command --keep-position rev-range --revision @{-2} --end-revision HEAD --one-more-command log --one-more-with-padding showselected
 	b2lshowlselected = branch-command --keep-position rev-range --revision @{-2} --end-revision HEAD --one-more-command log --one-more-with-padding showlselected
 	b2llog = branch-command --keep-position rev-range --revision @{-2} --end-revision HEAD --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal log
+	b2llogf = branch-command --keep-position rev-range --revision @{-2} --end-revision HEAD --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logf
 	b2llogv = branch-command --keep-position rev-range --revision @{-2} --end-revision HEAD --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logv
 	b2llogfiles = branch-command --keep-position rev-range --revision @{-2} --end-revision HEAD --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logfiles
 	b2lglog = branch-command --keep-position rev-range --revision @{-2} --end-revision HEAD glog
@@ -3002,6 +3050,7 @@
 	b2llg = branch-command --keep-position rev-range --revision @{-2} --end-revision HEAD --one-more-command greyonelinelog --one-more-only-to-terminal lg
 	b2llgn = branch-command --keep-position rev-range --revision @{-2} --end-revision HEAD lg
 	b2llgrel = branch-command --keep-position rev-range --revision @{-2} --end-revision HEAD --one-more-command greyonelinelog --one-more-only-to-terminal lgrel
+	b2llgf = branch-command --keep-position rev-range --revision @{-2} --end-revision HEAD --one-more lgf
 	b2llgv = branch-command --keep-position rev-range --revision @{-2} --end-revision HEAD --one-more lgv
 	b2llh = branch-command --keep-position rev-range --revision @{-2} --end-revision HEAD lh --reverse
 	b2llhmine = branch-command --keep-position rev-range --revision @{-2} --end-revision HEAD lhmine --reverse
@@ -3124,6 +3173,7 @@
 	bpshowselected = branch-command --keep-position rev-range --revision @{1} --end-revision HEAD --one-more-command log --one-more-with-padding showselected
 	bpshowlselected = branch-command --keep-position rev-range --revision @{1} --end-revision HEAD --one-more-command log --one-more-with-padding showlselected
 	bplog = branch-command --keep-position rev-range --revision @{1} --end-revision HEAD --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal log
+	bplogf = branch-command --keep-position rev-range --revision @{1} --end-revision HEAD --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logf
 	bplogv = branch-command --keep-position rev-range --revision @{1} --end-revision HEAD --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logv
 	bplogfiles = branch-command --keep-position rev-range --revision @{1} --end-revision HEAD --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logfiles
 	bpglog = branch-command --keep-position rev-range --revision @{1} --end-revision HEAD glog
@@ -3136,6 +3186,7 @@
 	bplg = branch-command --keep-position rev-range --revision @{1} --end-revision HEAD --one-more-command greyonelinelog --one-more-only-to-terminal lg
 	bplgn = branch-command --keep-position rev-range --revision @{1} --end-revision HEAD lg
 	bplgrel = branch-command --keep-position rev-range --revision @{1} --end-revision HEAD --one-more-command greyonelinelog --one-more-only-to-terminal lgrel
+	bplgf = branch-command --keep-position rev-range --revision @{1} --end-revision HEAD --one-more lgf
 	bplgv = branch-command --keep-position rev-range --revision @{1} --end-revision HEAD --one-more lgv
 	bplh = branch-command --keep-position rev-range --revision @{1} --end-revision HEAD lh --reverse
 	bplhmine = branch-command --keep-position rev-range --revision @{1} --end-revision HEAD lhmine --reverse
@@ -3258,6 +3309,7 @@
 	b2pshowselected = branch-command --keep-position rev-range --revision @{2} --end-revision HEAD --one-more-command log --one-more-with-padding showselected
 	b2pshowlselected = branch-command --keep-position rev-range --revision @{2} --end-revision HEAD --one-more-command log --one-more-with-padding showlselected
 	b2plog = branch-command --keep-position rev-range --revision @{2} --end-revision HEAD --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal log
+	b2plogf = branch-command --keep-position rev-range --revision @{2} --end-revision HEAD --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logf
 	b2plogv = branch-command --keep-position rev-range --revision @{2} --end-revision HEAD --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logv
 	b2plogfiles = branch-command --keep-position rev-range --revision @{2} --end-revision HEAD --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logfiles
 	b2pglog = branch-command --keep-position rev-range --revision @{2} --end-revision HEAD glog
@@ -3270,6 +3322,7 @@
 	b2plg = branch-command --keep-position rev-range --revision @{2} --end-revision HEAD --one-more-command greyonelinelog --one-more-only-to-terminal lg
 	b2plgn = branch-command --keep-position rev-range --revision @{2} --end-revision HEAD lg
 	b2plgrel = branch-command --keep-position rev-range --revision @{2} --end-revision HEAD --one-more-command greyonelinelog --one-more-only-to-terminal lgrel
+	b2plgf = branch-command --keep-position rev-range --revision @{2} --end-revision HEAD --one-more lgf
 	b2plgv = branch-command --keep-position rev-range --revision @{2} --end-revision HEAD --one-more lgv
 	b2plh = branch-command --keep-position rev-range --revision @{2} --end-revision HEAD lh --reverse
 	b2plhmine = branch-command --keep-position rev-range --revision @{2} --end-revision HEAD lhmine --reverse
@@ -3392,6 +3445,7 @@
 	outshowselected = rev-range-outgoing '' --one-more-command log --one-more-with-padding showselected
 	outshowlselected = rev-range-outgoing '' --one-more-command log --one-more-with-padding showlselected
 	outlog = rev-range-outgoing '' --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal log
+	outlogf = rev-range-outgoing '' --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logf
 	outlogv = rev-range-outgoing '' --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logv
 	outlogfiles = rev-range-outgoing '' --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logfiles
 	outglog = rev-range-outgoing '' glog
@@ -3404,6 +3458,7 @@
 	outlg = rev-range-outgoing '' --one-more-command greyonelinelog --one-more-only-to-terminal lg
 	outlgn = rev-range-outgoing '' lg
 	outlgrel = rev-range-outgoing '' --one-more-command greyonelinelog --one-more-only-to-terminal lgrel
+	outlgf = rev-range-outgoing '' --one-more lgf
 	outlgv = rev-range-outgoing '' --one-more lgv
 	outlh = rev-range-outgoing '' lh --reverse
 	outlhmine = rev-range-outgoing '' lhmine --reverse
@@ -3525,6 +3580,7 @@
 	inshowselected = rev-range-incoming '' --one-more-command log --one-more-with-padding showselected
 	inshowlselected = rev-range-incoming '' --one-more-command log --one-more-with-padding showlselected
 	inlog = rev-range-incoming '' --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal log
+	inlogf = rev-range-incoming '' --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logf
 	inlogv = rev-range-incoming '' --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logv
 	inlogfiles = rev-range-incoming '' --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logfiles
 	inglog = rev-range-incoming '' glog
@@ -3537,6 +3593,7 @@
 	inlg = rev-range-incoming '' --one-more-command greyonelinelog --one-more-only-to-terminal lg
 	inlgn = rev-range-incoming '' lg
 	inlgrel = rev-range-incoming '' --one-more-command greyonelinelog --one-more-only-to-terminal lgrel
+	inlgf = rev-range-incoming '' --one-more lgf
 	inlgv = rev-range-incoming '' --one-more lgv
 	inlh = rev-range-incoming '' lh --reverse
 	inlhmine = rev-range-incoming '' lhmine --reverse
@@ -3640,6 +3697,7 @@
 	ooutshowselected = rev-range-outgoing origin --one-more-command log --one-more-with-padding showselected
 	ooutshowlselected = rev-range-outgoing origin --one-more-command log --one-more-with-padding showlselected
 	ooutlog = rev-range-outgoing origin --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal log
+	ooutlogf = rev-range-outgoing origin --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logf
 	ooutlogv = rev-range-outgoing origin --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logv
 	ooutlogfiles = rev-range-outgoing origin --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logfiles
 	ooutglog = rev-range-outgoing origin glog
@@ -3652,6 +3710,7 @@
 	ooutlg = rev-range-outgoing origin --one-more-command greyonelinelog --one-more-only-to-terminal lg
 	ooutlgn = rev-range-outgoing origin lg
 	ooutlgrel = rev-range-outgoing origin --one-more-command greyonelinelog --one-more-only-to-terminal lgrel
+	ooutlgf = rev-range-outgoing origin --one-more lgf
 	ooutlgv = rev-range-outgoing origin --one-more lgv
 	ooutlh = rev-range-outgoing origin lh --reverse
 	ooutlhmine = rev-range-outgoing origin lhmine --reverse
@@ -3773,6 +3832,7 @@
 	oinshowselected = rev-range-incoming origin --one-more-command log --one-more-with-padding showselected
 	oinshowlselected = rev-range-incoming origin --one-more-command log --one-more-with-padding showlselected
 	oinlog = rev-range-incoming origin --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal log
+	oinlogf = rev-range-incoming origin --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logf
 	oinlogv = rev-range-incoming origin --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logv
 	oinlogfiles = rev-range-incoming origin --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logfiles
 	oinglog = rev-range-incoming origin glog
@@ -3785,6 +3845,7 @@
 	oinlg = rev-range-incoming origin --one-more-command greyonelinelog --one-more-only-to-terminal lg
 	oinlgn = rev-range-incoming origin lg
 	oinlgrel = rev-range-incoming origin --one-more-command greyonelinelog --one-more-only-to-terminal lgrel
+	oinlgf = rev-range-incoming origin --one-more lgf
 	oinlgv = rev-range-incoming origin --one-more lgv
 	oinlh = rev-range-incoming origin lh --reverse
 	oinlhmine = rev-range-incoming origin lhmine --reverse
@@ -3888,6 +3949,7 @@
 	uoutshowselected = rev-range-outgoing upstream --one-more-command log --one-more-with-padding showselected
 	uoutshowlselected = rev-range-outgoing upstream --one-more-command log --one-more-with-padding showlselected
 	uoutlog = rev-range-outgoing upstream --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal log
+	uoutlogf = rev-range-outgoing upstream --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logf
 	uoutlogv = rev-range-outgoing upstream --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logv
 	uoutlogfiles = rev-range-outgoing upstream --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logfiles
 	uoutglog = rev-range-outgoing upstream glog
@@ -3900,6 +3962,7 @@
 	uoutlg = rev-range-outgoing upstream --one-more-command greyonelinelog --one-more-only-to-terminal lg
 	uoutlgn = rev-range-outgoing upstream lg
 	uoutlgrel = rev-range-outgoing upstream --one-more-command greyonelinelog --one-more-only-to-terminal lgrel
+	uoutlgf = rev-range-outgoing upstream --one-more lgf
 	uoutlgv = rev-range-outgoing upstream --one-more lgv
 	uoutlh = rev-range-outgoing upstream lh --reverse
 	uoutlhmine = rev-range-outgoing upstream lhmine --reverse
@@ -4021,6 +4084,7 @@
 	uinshowselected = rev-range-incoming upstream --one-more-command log --one-more-with-padding showselected
 	uinshowlselected = rev-range-incoming upstream --one-more-command log --one-more-with-padding showlselected
 	uinlog = rev-range-incoming upstream --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal log
+	uinlogf = rev-range-incoming upstream --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logf
 	uinlogv = rev-range-incoming upstream --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logv
 	uinlogfiles = rev-range-incoming upstream --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal logfiles
 	uinglog = rev-range-incoming upstream glog
@@ -4033,6 +4097,7 @@
 	uinlg = rev-range-incoming upstream --one-more-command greyonelinelog --one-more-only-to-terminal lg
 	uinlgn = rev-range-incoming upstream lg
 	uinlgrel = rev-range-incoming upstream --one-more-command greyonelinelog --one-more-only-to-terminal lgrel
+	uinlgf = rev-range-incoming upstream --one-more lgf
 	uinlgv = rev-range-incoming upstream --one-more lgv
 	uinlh = rev-range-incoming upstream lh --reverse
 	uinlhmine = rev-range-incoming upstream lhmine --reverse
@@ -4136,6 +4201,7 @@
 	localbrshowselected = localbrrefdo-wrapper rev-range-this-branch --branch {} --any showselected
 	localbrshowlselected = localbrrefdo-wrapper rev-range-this-branch --branch {} --any showlselected
 	localbrlog = localbrrefdo-wrapper rev-range-this-branch --branch {} --any log
+	localbrlogf = localbrrefdo-wrapper rev-range-this-branch --branch {} --any logf
 	localbrlogv = localbrrefdo-wrapper rev-range-this-branch --branch {} --any logv
 	localbrlogfiles = localbrrefdo-wrapper rev-range-this-branch --branch {} --any logfiles
 	localbrglog = localbrrefdo-wrapper --no-git-color rev-range-this-branch --branch {} --any glog
@@ -4148,6 +4214,7 @@
 	localbrlg = localbrrefdo-wrapper rev-range-this-branch --branch {} --any lg
 	localbrlgn = localbrrefdo-wrapper rev-range-this-branch --branch {} --any lg
 	localbrlgrel = localbrrefdo-wrapper rev-range-this-branch --branch {} --any lgrel
+	localbrlgf = localbrrefdo-wrapper rev-range-this-branch --branch {} --any lgf
 	localbrlgv = localbrrefdo-wrapper rev-range-this-branch --branch {} --any lgv
 	localbrlh = localbrrefdo-wrapper --no-git-color rev-range-this-branch --branch {} --any lh --reverse
 	localbrlhmine = localbrrefdo-wrapper --no-git-color rev-range-this-branch --branch {} --any lhmine --reverse
@@ -4416,11 +4483,12 @@
 	odt = rev-remote-command origin difftool ; Show differences to my GitHub clone.
 	odr = rev-remote-command origin dr
 	odrl = rev-remote-command origin drl
-	ol = rev-remote-command origin l; l of origin
-	olc = rev-remote-command origin lc; lc of origin
-	olg = rev-remote-command origin lg; lg of origin
-	olog = rev-remote-command origin log; Log of my GitHub clone.
-	ologv = rev-remote-command origin logv; Verbose log of my GitHub clone.
+	ol = rev-remote-command origin l	; l of my GitHub clone.
+	olc = rev-remote-command origin lc	; lc of my GitHub clone.
+	olg = rev-remote-command origin lg	; lg of my GitHub clone.
+	olog = rev-remote-command origin log	; Log of my GitHub clone.
+	ologf = rev-remote-command origin logf	; Logs from the "main branch" perspective of my GitHub clone.
+	ologv = rev-remote-command origin logv	; Verbose log of my GitHub clone.
 	ologfiles = rev-remote-command origin logfiles; One-line author, date, tags and commit summary, plus the list of changed files of my GitHub clone.
 	oinout = inout origin
 	oio = io origin
@@ -4510,6 +4578,7 @@
 	ulc = rev-remote-command upstream lc ;: lc of upstream
 	ulg = rev-remote-command upstream lg ;: lg of upstream
 	ulog = rev-remote-command upstream log ; Log of upstream.
+	ulogf = rev-remote-command upstream logf ; Verbose log of upstream.
 	ulogv = rev-remote-command upstream logv ; Verbose log of upstream.
 	ulogfiles = rev-remote-command upstream logfiles ; One-line author, date, tags and commit summary, plus the list of changed files of upstream.
 	umlog = master-command --keep-position rev-branch-remotebr-command upstream MASTER log ; Show log of changes introduced in upstream relative to master; useful to review upstream changes before pulling them in.

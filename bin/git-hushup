@@ -21,10 +21,9 @@ massageOutput()
     local masterBranch="$(git-mbr)"
     sed --unbuffered \
 	-e "/^ \\* branch \+${masterBranch} \+-> FETCH_HEAD\$/d" \
-	-e '/^Fetching submodule /d' \
 	-e '/^Already up to date\.$/d' \
 	-e 's#^\( .\+\)\([^ ]\+\) \+-> \+\('"$remote"'/\)\?\2$#\1\2#' \
-	-e "/\\(^\\|\\n\\|\\r\\|\\[K\\)Successfully rebased and updated refs\\/heads\\/${masterBranch}\\.\$/d" \
+	-e "/\\(^\\|\\n\\|\\r\\|\\[K\\)Successfully rebased and updated \\(detached HEAD\\|refs\\/heads\\/${masterBranch}\\)\\.\$/d" \
 	-e '/Auto packing the repository in background for optimum performance\.$/d' \
 	-e '/See "git help gc" for manual housekeeping\.$/d' \
 
@@ -63,10 +62,17 @@ function join(array, start, end, sep,    result, i)
 	result = result sep array[i]
     return result
 }
+function output(text)
+{
+    if (submodule == "")
+	print text
+    else
+	printf("   %-14s %s\n", submodule, text)
+}
 function printJoinedReferences(      what)
 {
     for (what in n) {
-	print sprintf("%-21s", prefix[what] "[" n[what] " " what (n[what] == 1 ? "" : (what ~ /ch$/ ? "e" : "") "s") "]") join(news[what], 1, n[what], ", ")
+	output(sprintf("%-21s", prefix[what] "[" n[what] " " what (n[what] == 1 ? "" : (what ~ /ch$/ ? "e" : "") "s") "]") join(news[what], 1, n[what], ", "))
     }
 
     delete prefix
@@ -76,6 +82,11 @@ function printJoinedReferences(      what)
 BEGIN {
     PROCINFO["sorted_in"] = "@ind_str_asc"
     deletedWhat = "deleted ref"
+}
+$1 == "Fetching" && $2 == "submodule" {
+    printJoinedReferences()
+    $1 = ""; $2 = ""; sub(OFS, ""); sub(OFS, ""); submodule = $0
+    next
 }
 $2 == "*" && $3 == "[new" && NF == 5 {
     $4 = substr($4, 1, length($4) - 1)
@@ -90,8 +101,13 @@ $2 ~ /^[x-]$/ && $3 == "[deleted]" && $4 == "(none)" && NF == 5 {
     news[deletedWhat][++n[deletedWhat]] = ref
     next
 }
-/^(From|To) / { printJoinedReferences() }
-{ print }
+$1 == "From" {
+    printJoinedReferences()
+    if (submodule != "") next
+}
+$1 == "To" { printJoinedReferences() }
+$1 == "Updating" { submodule = "" }
+{ output($0) }
 END { printJoinedReferences() }
 '
 }

@@ -21,7 +21,6 @@ massageOutput()
     local masterBranch="$(git-mbr)"
     sed --unbuffered \
 	-e "/^ \\* branch \+${masterBranch} \+-> FETCH_HEAD\$/d" \
-	-e '/^Fetching submodule /d' \
 	-e '/^Already up to date\.$/d' \
 	-e 's#^\( .\+\)\([^ ]\+\) \+-> \+\('"$remote"'/\)\?\2$#\1\2#' \
 	-e "/\\(^\\|\\n\\|\\r\\|\\[K\\)Successfully rebased and updated \\(detached HEAD\\|refs\\/heads\\/${masterBranch}\\)\\.\$/d" \
@@ -76,6 +75,10 @@ function printJoinedReferences(      what)
 BEGIN {
     PROCINFO["sorted_in"] = "@ind_str_asc"
     deletedWhat = "deleted ref"
+}
+$1 == "Fetching" && $2 == "submodule" {
+    $1 = ""; $2 = ""; sub(OFS, ""); sub(OFS, ""); submodule = $0
+    next
 }
 $2 == "*" && $3 == "[new" && NF == 5 {
     $4 = substr($4, 1, length($4) - 1)

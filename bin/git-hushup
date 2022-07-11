@@ -62,10 +62,17 @@ function join(array, start, end, sep,    result, i)
 	result = result sep array[i]
     return result
 }
+function output(text)
+{
+    if (submodule == "")
+	print text
+    else
+	printf("   %-14s %s\n", submodule, text)
+}
 function printJoinedReferences(      what)
 {
     for (what in n) {
-	print sprintf("%-21s", prefix[what] "[" n[what] " " what (n[what] == 1 ? "" : (what ~ /ch$/ ? "e" : "") "s") "]") join(news[what], 1, n[what], ", ")
+	output(sprintf("%-21s", prefix[what] "[" n[what] " " what (n[what] == 1 ? "" : (what ~ /ch$/ ? "e" : "") "s") "]") join(news[what], 1, n[what], ", "))
     }
 
     delete prefix
@@ -77,6 +84,7 @@ BEGIN {
     deletedWhat = "deleted ref"
 }
 $1 == "Fetching" && $2 == "submodule" {
+    printJoinedReferences()
     $1 = ""; $2 = ""; sub(OFS, ""); sub(OFS, ""); submodule = $0
     next
 }
@@ -93,8 +101,13 @@ $2 ~ /^[x-]$/ && $3 == "[deleted]" && $4 == "(none)" && NF == 5 {
     news[deletedWhat][++n[deletedWhat]] = ref
     next
 }
-/^(From|To) / { printJoinedReferences() }
-{ print }
+$1 == "From" {
+    printJoinedReferences()
+    if (submodule != "") next
+}
+$1 == "To" { printJoinedReferences() }
+$1 == "Updating" { submodule = "" }
+{ output($0) }
 END { printJoinedReferences() }
 '
 }

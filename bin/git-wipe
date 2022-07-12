@@ -1,4 +1,5 @@
 #!/bin/bash
+shopt -qs extglob
 
 printUsage()
 {
@@ -7,19 +8,22 @@ Reset HEAD, working copy and index [to <branch>] [for <paths> ... only]. Ensures
 that the current branch isn't dirty.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [<branch>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [--gui|--terminal|--none] [<branch>] [-?|-h|--help]'
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [CHECKOUT-ARGS ...] [<branch>] [--] <paths> ...'
 }
 
 isForce=
 typeset -a gitArgs=()
+logArg=
 typeset -a paths=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--force|-f)	shift; isForce=t;;
+	--@(gui|terminal|none))
+			logArg="$1"; shift;;
 	--)		shift; paths=("$@"); break;;
 	*)		gitArgs+=("$1"); shift;;
     esac
@@ -79,4 +83,8 @@ if [ ${#paths[@]} -gt 0 ]; then
     exec git checkout "${gitArgs[@]}" -- "${paths[@]}"
 fi
 
-exec git reset --hard "${gitArgs[@]}"
+if [ ${#gitArgs[@]} -eq 0 -o "$logArg" = --none ]; then
+    exec git reset --hard "${gitArgs[@]}"
+else
+    exec git-logdelta $logArg -- git reset --hard "${gitArgs[@]}"
+fi

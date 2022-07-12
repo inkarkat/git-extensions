@@ -24,8 +24,33 @@ do
 done
 set -- "${gitLogArgs[@]}" "$@"
 
+# Both gitk and rabbitvcs just show an empty log window with no data if an empty
+# range is passed... that's not helpful. Instead, detect reverts of commits
+# (A..B empty, B..A has commits) and mention those in a separate message popup.
+if [ -z "$(git log --max-count 1 --pretty=tformat:%H "$@")" ]; then
+    if [[ "$*" =~ ^(.*[^.])\.\.([^.].*)$ ]]; then
+	originalRange="$*"
+	set -- "${BASH_REMATCH[2]}..${BASH_REMATCH[1]}"
+
+	typeset -a allElements=()
+	while IFS=$'\t\n' read -r -a elements
+	do
+	    allElements+=("${elements[@]}")
+	done < <(git log --pretty=$'tformat:%h\t%aN\t%ar\t%s' "$@")
+
+	if [ ${#allElements[@]} -eq 0 ]; then
+	    exit 99
+	else
+	    zenity --list --title "$(git wcname): $originalRange" --text 'These commit(s) have been reverted:' --width 1600 --height 800 --column 'Commit' --column 'Author' --column 'Date' --column 'Title' "${allElements[@]}" &
+	    exit $?
+	fi
+    else
+	exit 99
+    fi
+fi
+
 if [ -n "$DISPLAY" ] && type -t gitk >/dev/null; then
-    exec gitk "$@" &	# gitk is a blocking GUI.
+    gitk "$@" &	# gitk is a blocking GUI.
 elif [ -n "$DISPLAY" ] && type -t rabbitvcs >/dev/null; then
     RABBITVCS_REVISION_RANGE="$1" exec rabbitvcs log >/dev/null 2>&1	# rabbitvcs forks and immediately returns.
 elif [ -t 1 ]; then

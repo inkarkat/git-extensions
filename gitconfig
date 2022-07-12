@@ -4360,7 +4360,7 @@
 	; 	- <branch> is optional and just a shortcut for doing "git switch <branch>" prior to rebasing; by default the current branch is used
 	; 	- <upstream> is the earlier commit up to which (from HEAD (/ <branch>)) the commits are replayed; this defaults to the tracked branch
 	; 	  The commits between <upstream> and HEAD that are NOT yet in <upstream> will be replayed on top of <upstream>
-	; 	--onto <newbase> will replay on top of <newbase> instead; this allows moving of commits to a different branch
+	; 	--onto <newbase> will replay on top of <newbase> instead; this allows moving of commits to a different branch (but note that it will still replay on top of <upstream>; <newbase> won't be touched, so you have to duplicate <upstream> first to a dummy branch, move <newbase>, and then clean up <upstream>)
 	rb = rebase
 	rbi = rebase -i
 	;; rbni: Interactive rebase without invoking the editor. Use for trivial rebases like squash/fixup commits.
@@ -4374,11 +4374,11 @@
 	rbe = rebase --edit-todo	; Edit the todo list during an interactive rebase.
 	rbu = reset @{1}	; Undo the last rebase commit. Effectively squashes this patch with the previous one.
 	;; git rebase HEAD <feature> && git rebase HEAD @{-2}: Rebase <feature> to current branch and merge back to current
-	;; git rebase master --onto <newbase> <=> git bmrbi --onto <newbase>:	Rebase the changes in the current branch (with regards to master) to appear as if they were committed onto <newbase>. Can be used to move a set of commits to another base commit.
+	;; git rebase master --onto <newbase> <=> git bmrbi --onto <newbase>:	Rebase the changes in the current branch (with regards to master) to appear as if they were committed onto <newbase>. Can be used to move a branch with a set of commits to another base commit.
 	;; git rebaselocalbr: Rebase all / the last committed N local branches (except for the current branch and master (and base branch if defined)) to the updated passed (or configured in branch.<name>.remote and branch.<name>.merge) upstream head.
 	;; git merge --squash: Create a single commit on top of the current branch whose effect is the same as merging the other branch. Shorter form of interactive rebasing where you choose squash for all following commits.
 	rblast = previouscommitnumber-command rebase	; Rebase the last / -n|--count N commit(s).
-	;; git rebase HEAD^ --onto <newbase> <=> git rblast -n 1 --onto <newbase>:	Rebase the last commit to appear as if they were committed onto <newbase>.
+	;; git rebase HEAD^ --onto <newbase> <=> git rblast -n 1 --onto <newbase>:	Rebase the last commit to appear as if they were committed onto <newbase> (but all on the current branch!)
 	rbilast = rblast -i
 	rbnilast = previouscommitnumber-command rbni
 

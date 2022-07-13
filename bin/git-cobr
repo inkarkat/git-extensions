@@ -9,14 +9,23 @@ remote, tracking it if it doesn't yet exist locally, and ensuring that an
 existing tracked branch doesn't contradict the request.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--gui|--terminal|--none] [<checkout-args> ...] <remote-branch> [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--gui|--terminal|--none] [--submodule ignore|yes|recurse] [<checkout-args> ...] <remote-branch> [-?|-h|--help]'
 }
 logArg=
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --@(gui|terminal|none))
+typeset -a logDeltaArgs=(--submodule recurse)
+typeset -a checkoutArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--@(gui|terminal|none))
 			logArg="$1"; shift;;
-esac
+	--submodule)	logDeltaArgs=("$1" "$2"); shift; shift;;
+	--)		checkoutArgs+=("$1"); shift; break;;
+	*)		checkoutArgs+=("$1"); shift;;
+    esac
+done
+set -- "${checkoutArgs[@]}" "$@"
 if [ $# -eq 0 ]; then
     echo 'ERROR: No <remote-branch> passed!'
     echo
@@ -50,16 +59,16 @@ if git-existsbr "$branch"; then
 	fi
     fi
 
-    [ "$logArg" = --none ] || record="$(git-logdelta $logArg --branch "$branch" --record)"
+    [ "$logArg" = --none ] || record="$(git-logdelta $logArg "${logDeltaArgs[@]}" --branch "$branch" --record)"
 
     git checkout "$@" -B "$branch" "$remoteBranch" || exit $?
 else
     if [ "$logArg" != --none ]; then
 	# Show the log of the entire branch as this is a new local checkout.
 	branchBase="$(git brbase --branch "$remoteBranch" 2>/dev/null)"
-	[ -n "$branchBase" ] && record="$(git-logdelta $logArg --branch "$branchBase" --record)"
+	[ -n "$branchBase" ] && record="$(git-logdelta $logArg "${logDeltaArgs[@]}" --branch "$branchBase" --record)"
     fi
 
     git checkout "$@" --track -b "$branch" "$remoteBranch" || exit $?
 fi
-[ -z "$record" ] || git-logdelta $logArg $logRecursionArg --from-record "$record"
+[ -z "$record" ] || git-logdelta $logArg "${logDeltaArgs[@]}" --from-record "$record"

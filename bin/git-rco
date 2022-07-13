@@ -7,14 +7,22 @@ printUsage()
 Checkout passed <branch> in ${remote:-REMOTE}; fetching if needed and ensuring
 that an existing tracked branch doesn't contradict the request.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [--gui|--terminal|--none] [<checkout-args> ...] <branch> [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [--gui|--terminal|--none] [--submodule ignore|yes|recurse] [<checkout-args> ...] <branch> [-?|-h|--help]"
 }
-logArg=
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --@(gui|terminal|none))
-			logArg="$1"; shift;;
-esac
+typeset -a logArgs=()
+typeset -a checkoutArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--@(gui|terminal|none))
+			logArgs+=("$1"); shift;;
+	--submodule)	logArgs+=("$1" "$2"); shift; shift;;
+	--)		checkoutArgs+=("$1"); shift; break;;
+	*)		checkoutArgs+=("$1"); shift;;
+    esac
+done
+set -- "${checkoutArgs[@]}" "$@"
 if [ $# -eq 0 ]; then
     echo >&2 "ERROR: Must pass remote and branch name"
     exit 2
@@ -41,4 +49,4 @@ if ! git-existsbr "$remoteBranch"; then
     git fetch "$remote" "$branch" || exit $?
 fi
 
-exec git-cobr $logArg "$@" "$remoteBranch"
+exec git-cobr "${logArgs[@]}" "$@" "$remoteBranch"

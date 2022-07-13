@@ -9,14 +9,14 @@ that an existing tracked branch doesn't contradict the request.
 HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [--gui|--terminal|--none] [<checkout-args> ...] <branch> [-?|-h|--help]"
 }
-logArg=
+typeset -a logArgs=()
 typeset -a checkoutArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--@(gui|terminal|none))
-			logArg="$1"; shift;;
+			logArgs+=("$1"); shift;;
 	--)		checkoutArgs+=("$1"); shift; break;;
 	*)		checkoutArgs+=("$1"); shift;;
     esac
@@ -48,4 +48,4 @@ if ! git-existsbr "$remoteBranch"; then
     git fetch "$remote" "$branch" || exit $?
 fi
 
-exec git-cobr $logArg "$@" "$remoteBranch"
+exec git-cobr "${logArgs[@]}" "$@" "$remoteBranch"

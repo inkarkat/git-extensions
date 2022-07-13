@@ -1,0 +1,98 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Execute GIT-COMMAND inside SUBMODULE, with a superproject's <ref> or
+<ref>..[.]<ref> replaced by the SUBMODULE's revisions. With this, you can use
+tags, branches, commit IDs from the superproject to reference SUBMODULE
+revisions.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND [...] <ref>|<ref>..<ref>|<ref>...<ref> [...] SUBMODULE [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND [...] SUBMODULE [...] <ref>|<ref>..<ref>|<ref>...<ref> [...] [-?|-h|--help]'
+}
+
+if [ $# -eq 0 ]; then
+    echo >&2 'ERROR: No GIT-COMMAND passed.'
+    exit 2
+fi
+gitCommand="$1"; shift
+
+
+typeset -A submodules=()
+while IFS=$'\n' read -r name
+do
+    submodules["$name"]=t
+done < <(git sublist)
+
+# First parse the SUBMODULE - we need it to look up the <ref>s.
+typeset -a args=()
+submodule=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--)		args+=("$1"); shift; break;;
+	-*)		args+=("$1"); shift;;
+	?*)		if [ "${submodules["$1"]}" ] && [ -z "$submodule" ]; then
+			    submodule="$1"
+			else
+			    args+=("$1")
+			fi
+			shift
+			;;
+	*)		args+=("$1"); shift;;
+    esac
+done
+if [ -z "$submodule" ]; then
+    echo 'ERROR: No SUBMODULE passed.'
+    echo
+    printUsage "$0"
+    exit 2
+fi >&2
+set -- "${args[@]}" "$@"
+
+
+# Parse and translate <ref>s into the corresponding subhashes in SUBMODULE.
+getSubHash()
+{
+    local potentialRev="${1:?}"; shift
+    [ -z "$potentialRev" ] && return 0
+    git-subhash "$potentialRev" "${submodule:?}"
+}
+
+didRefLookup=
+typeset -a args=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--)		args+=("$1"); shift; break;;
+	-*)		args+=("$1"); shift;;
+	?*)		if [[ "$1" =~ ^(|.*[^.])(\.\.\.?)(.*)$ ]]; then
+			    rev1="${BASH_REMATCH[1]}"; range="${BASH_REMATCH[2]}"; rev2="${BASH_REMATCH[3]}"
+			    if subRev1="$(getSubHash "$rev1")" && subRev2="$(getSubHash "$rev2")"; then
+				args+=("${subRev1}${range}${subRev2}")
+				didRefLookup=t
+			    else
+				args+=("$1")
+			    fi
+			elif subRev="$(getSubHash "$1")"; then
+			    args+=("$subRev")
+			    didRefLookup=t
+			else
+			    args+=("$1")
+			fi
+			shift
+			;;
+	*)		args+=("$1"); shift;;
+    esac
+done
+if [ ! "$didRefLookup" ]; then
+    echo 'ERROR: No <ref>|<ref>..<ref>|<ref>...<ref> passed.'
+    echo
+    printUsage "$0"
+    exit 2
+fi >&2
+
+cd "$submodule" && exec git-wrapper "$gitCommand" "${args[@]}" "$@"

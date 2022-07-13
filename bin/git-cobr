@@ -60,8 +60,13 @@ if git-existsbr "$branch"; then
     fi
 
     if git-equals "$branch" "$remoteBranch"; then
-	printf >&2 '%s is already checked out to %s.\n' "$remoteBranch" "$branch"
-	exit 99
+	if [ "$(git brname --real-branch-only 2>/dev/null)" = "$branch" ]; then
+	    printf >&2 '%s is up-to-date with %s and already checked out.\n' "$branch" "$remoteBranch"
+	    exit 99
+	else
+	    printf >&2 '%s is already up-to-date with %s.\n' "$branch" "$remoteBranch"
+	    exec git checkout "$@" "$branch"
+	fi
     fi
 
     [ "$logArg" = --none ] || record="$(git-logdelta $logArg "${logDeltaArgs[@]}" --branch "$branch" --record)"

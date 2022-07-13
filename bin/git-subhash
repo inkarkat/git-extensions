@@ -4,19 +4,22 @@
 printUsage()
 {
     cat <<HELPTEXT
-Show the commit ID recorded in the superproject for passed <submodule>.
+Show the commit ID recorded in the superproject [in <ref>] for passed <submodule>.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--short[=length]] <submodule> [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--short[=length]] [<ref>] <submodule> [-?|-h|--help]'
 }
 typeset -a revParseArgs=()
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
     --short|--short=*)	revParseArgs+=("$1"); shift
 esac
-if [ $# -ne 1 ]; then
+ref='HEAD'
+if [ $# -gt 2 ]; then
     printUsage "$0" >&2
     exit 2
+elif [ $# -eq 2 ]; then
+    ref="$1"; shift
 fi
 
-exec git rev-parse "${revParseArgs[@]}" "HEAD:${1:?}"
+exec git rev-parse "${revParseArgs[@]}" "${ref}:${1:?}"

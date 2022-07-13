@@ -16,12 +16,26 @@ if [ $# -lt 2 ]; then
 fi
 
 
-ref=$1; shift
+ref="$1"; shift
 commitId=$(git-commitid "$ref") || exit $?
+readarray -t submodules < <(git sublist)    # XXX: There's currently no way to obtain the submodules for a past <ref>; fortunately, the submodule configuration likely is quite stable.
 
 status=0
 for path
 do
+    for submodule in "${submodules[@]}"
+    do
+	if [[ "${path}/" =~ ^"${submodule}/"(.*)/$ ]]; then
+	    # Note: It would be more efficient to collect all passed <path>s
+	    # inside that submodule and do a single recursive call with all of
+	    # them, but this will likely be used mostly with single files,
+	    # anyway.
+	    submoduleRef="$(git-subhash "$ref" "$submodule")" || { status=$?; continue 2; }
+	    (cd "$submodule" && exec "${BASH_SOURCE[0]}" "$submoduleRef" "${BASH_REMATCH[1]}") || status=$?
+	    continue 2
+	fi
+    done
+
     git show "${commitId}:$path" || status=$?
 done
 exit $status

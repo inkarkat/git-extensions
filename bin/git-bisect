@@ -12,7 +12,8 @@ EXEC=exec
 if type -t titleupdate >/dev/null; then
     updateTitle()
     {
-	titleupdate --id git-bisect "$@"
+	local term="${1:?}"; shift
+	titleupdate --id "git-bisect-$term" "$@"
     }
 else
     updateTitle() { :; }
@@ -27,7 +28,7 @@ report()
     [ "$revs" ] || revs="$(git-desc 2>/dev/null)"
 
     type -t alert >/dev/null && alert --command-name "git bisect $term" --exit-status "$exitStatus" --success-sigil '' --failure-sigil '' "$@" "$revs"
-    updateTitle --panel "$term $revs"
+    updateTitle "$term" --panel "$term $revs"
 }
 
 isReportOnly=
@@ -62,8 +63,13 @@ case "$1" in
     skip)	report 0 "$1" "${*:2}" --success "$SKIP_SOUND";;
 
     reset|replay)
-		# The previously reported last term (in the title) is cleared / probably invalidated now.
-		updateTitle --clear
+		# The previously reported last terms (in the title) are cleared / probably invalidated now.
+		# As we haven't stored what terms were used, simply attempt to
+		# clear all.
+		for term in "$termOld" "$termNew" bad new good old
+		do
+		    [ -z "$term" ] || updateTitle "$term" --clear
+		done
 		;;
 
     run)	shift

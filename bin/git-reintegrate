@@ -163,7 +163,10 @@ printContinueCommand()
 if [ ! "$isContinue" ]; then
     if [ ! "$hasMergeResolutionArg" ]; then
 	if canFastForward; then
-	    </dev/tty read -r -N 1 -p "The branch$branchesPlural can be fast-forwarded instead of merged. Fast-forward? (y/n) " choice; echo >/dev/tty
+	    commitNum=$(git log --pretty=tformat:%H "HEAD..${branches[-1]}" | wc -l)
+	    commitNumPlural=s; [ $commitNum -eq 1 ] && commitNumPlural=
+	    branchNum=${#branches[@]}; [ $branchNum -eq 1 ] && branchNum=
+	    </dev/tty read -r -N 1 -p "The $commitNum commit$commitNumPlural on the ${branchNum}${branchNum:+ }branch$branchesPlural can be fast-forwarded instead of merged. Fast-forward? (y/n) " choice; echo >/dev/tty
 	    [ "$choice" = 'y' ] && fastForwardArgs=(--ff-only)
 	elif canRebase; then
 	    hubNote=; [ "$HUB" ] && [ -n "$pullRequestTitles" ] && hubNote='Note: GitHub cannot detect the rebase and will say that the PR has been closed. If you need proper indication, please quit now and directly rebase in GitHub itself instead.'
@@ -175,7 +178,7 @@ if [ ! "$isContinue" ]; then
 			printf 'git oldelete -f'
 			printf ' %q' "${branches[@]}"
 			printf '\n'
-		    fi >2
+		    fi >&2
 		    exit 1
 		    ;;
 	    esac

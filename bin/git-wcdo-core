@@ -1,0 +1,314 @@
+#!/bin/bash
+
+: ${PROGRESSNOTIFICATION_REPORT_MARKER='{}'}
+: ${GIT_WCDO_PROGRESS_WHAT=working copy}
+
+hasProgressNotification=; type -t progressNotification >/dev/null && hasProgressNotification=t
+hasProgressNotificationToAddendum=; type -t progressNotificationToAddendum >/dev/null && hasProgressNotificationToAddendum=t
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s%s%s\n' "$(basename "$1")" '[--no-pager] [--no-header|--branch-name]' "${hasProgressNotification:+ [--progress overlay|title|command|notify${hasProgressNotificationToAddendum:+|addendum}]}" ' [--separate-errors] [--no-git-color] [--single-success] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [--skip-files] [-s|--skip-foreign|--foreign-command "COMMANDLINE" [...]] [-P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] [--] WORKING-COPY [...] [-- SIMPLECOMMAND ...] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Execute "git SIMPLECOMMAND" and/or COMMANDLINE on each passed WORKING-COPY.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    cat <<HELPTEXT
+
+Puts a header line (unless --no-header) that contains the WORKING-COPY name
+(with --branch-name: also the current Git branch) before the command output.
+    --no-pager		Do not page the output (so contents will scroll out of
+			view if there's too much output).
+    --no-header		Do not output the header line before command output (and
+			no separating empty line after it).
+    --branch-name	Include the current Git branch in the header and
+			progress report.${hasProgressNotification:+
+    --progress overlay|title|command|notify${hasProgressNotificationToAddendum:+|addendum}
+			Report the current WORKING-COPY name (and count +
+			percentage) in one of the following ways:
+			overlay:    in the form of overlaid text, written via
+				    ANSI escape sequences in the first line of
+				    the terminal
+			title:	    in the terminal's window title via ANSI
+				    escape sequences
+			command:    by invoking
+					PROGRESSNOTIFICATION_COMMANDLINE${PROGRESSNOTIFICATION_REPORT_MARKER:+
+				    while replacing $PROGRESSNOTIFICATION_REPORT_MARKER with the report}
+			notify:	    via notify-send to the system's notification
+				    system}${hasProgressNotificationToAddendum:+
+			addendum:   via the addendum of the terminal"'"s window
+				    title}
+    --separate-errors	Do not combine command output and command errors into
+			one (paged) stream. Commands that just cause error
+			output won't have a header then. Error output will
+			remain on its separate file descriptor and will not be
+			paged. Useful if you want to suppress errors or handle
+			them separately.
+    --no-git-color	Do not pass a --color=... to "git SIMPLECOMMAND". (For
+			COMMANDLINE you have to insert "\${gitColorArg[@]}"
+			yourself.)
+    --abort-on-failure	Abort iteration when COMMAND fails.
+    --abort-on|-X EXIT_STATUS
+			Abort iteration when COMMAND exits with EXIT_STATUS.
+    --single-success	Exit status is 0 if at least command in one WORKING-COPY
+			succeeded.
+    --skip-files	Silently skip files that are passed as WORKING-COPY
+			(e.g. resulting from a file glob).
+    --skip-foreign|-s	Silently skip directories that are not a Git working
+			copy (instead of printing an error message).
+    --foreign-command CMD
+			Execute CMD in (accessible) directories that are not a
+			Git working copy (e.g. to initialize a Git repo).
+    --predicate-command|-P CMD
+			Skip working copies where CMD (executed in the working
+			copy root) fails. This is an alternative to
+				--command "if CMD; then COMMANDLINE; fi"
+			that lets you still use SIMPLECOMMAND.
+    --command|-c CMD	Execute the passed command line. When this is a simple
+			Git command, it can also be passed as such:
+			    $(basename "$1") [...] [--] SIMPLECOMMAND
+			CMD can refer to the current working copy's root dirspec
+			as \$ROOT and to the name of the working copy as \$NAME.
+Note: For paging and headers, this command has to control Git's color output.
+Pass --no-git-color if "git SIMPLECOMMAND" does not support the --color=...
+arguments. (For COMMANDLINE you have to insert "\${gitColorArg[@]}" yourself.)
+You can still pass --color=always if you pipe this command's output yet still
+want coloring of headers.
+
+EXIT STATUS
+Returns the last non-successful exit status. With --single-success,
+non-successful executions are ignored unless all of them fail. In other words,
+exit status is 0 if at least one command succeeded.
+HELPTEXT
+}
+
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+abortStatus=
+abortComparison=-eq
+isSingleSuccess=
+isSkipFiles=
+isSkipForeign=
+typeset -a foreignCommands=()
+typeset -a predicateCommands=()
+isNeedEval=
+typeset -a commands=()
+isHeader=; type -t withHeader >/dev/null && isHeader=t
+isBranchName=
+progressSink=
+errorRedir='2>&1'
+isGitColor=t
+typeset -a colorArg=()
+isDoneWorkingCopies=
+typeset -a wcArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)		shift; printLongUsage "$0"; exit 0;;
+	--abort-on-failure)	shift; abortComparison=-ne; abortStatus=0;;
+	--abort-on|-X)		shift; abortStatus="$1"; shift;;
+	--single-success)	shift; isSingleSuccess=t;;
+	--skip-files)		shift; isSkipFiles=t;;
+	--skip-foreign|-s)	shift; isSkipForeign=t;;
+	--foreign-command)	shift; foreignCommands+=(${foreignCommands:+;} "$1"); shift;;
+	--predicate-command|-P)	shift; predicateCommands+=(${predicateCommands:+&&} "$1"); shift;;
+	--command|-c)		shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
+	--no-pager)		shift; pager=();;
+	--no-header)		shift; isHeader=;;
+	--branch-name)		shift; isBranchName=t;;
+	--progress)		shift; progressSink="$1"; shift;;
+	--separate-errors)	shift; errorRedir='';;
+	--no-git-color)		shift; isGitColor=;;
+	--no-color|--color=*)	colorArg=("$1"); shift;;
+	--color)		colorArg=("$1" "$2"); shift; shift;;
+	--)			shift; [ "$isDoneWorkingCopies" ] && break || isDoneWorkingCopies=t;;
+	-*)			{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)			if [ "$isDoneWorkingCopies" ]; then
+				    break
+				else
+				    wcArgs+=("$1"); shift
+				fi
+				;;
+    esac
+done
+if [ ${#wcArgs[@]} -eq 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+typeset -a uncoloredSimpleCommand=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--no-color|--color=*)	colorArg=("$1"); shift;;
+	--color)		colorArg=("$1" "$2"); shift; shift;;
+	*)			uncoloredSimpleCommand+=("$1"); shift;;
+    esac
+done
+set -- "${uncoloredSimpleCommand[@]}"
+
+# If we're launched from within a Git operation (e.g. the external editor opened
+# by git commit), the environment variable GIT_DIR may have been set, and this
+# causes the Git commands here to not find the repository for FILEs.
+unset GIT_DIR
+
+# As we change directories, need to first convert all passed working copies to
+# absolute dirspecs.
+typeset -a wcDirspecs=()
+for arg in "${wcArgs[@]}"
+do
+    wcDirspecs+=("$(realpath --no-symlinks -- "$arg")")
+done
+
+# With piping into withHeader / pager, we need to explicitly enable color for
+# Git, unless this command's output itself is redirected. Also don't do this if
+# the user explicitly turned off color.
+gitColorArg=()
+if [ -n "$pager" -o -n "$isHeader" ] && isNeedColorArgumentWhenPiping "${colorArg[@]}"; then
+    colorArg=(--color=always)	# Force for withHeader
+    [ "$isGitColor" ] && gitColorArg=(--color=always)	# Force for Git
+fi
+
+typeset -a gitCommand=(git-wrapper)
+if [ $# -gt 0 ]; then
+    if [ ${#gitColorArg[@]} -gt 0 ]; then
+	# Simply appending gitColorArg doesn't work; many Git commands have a
+	# special <path> or <commit> part at the end. Place it just behind the
+	# Git subcommand by iterating arguments in the same way as the various
+	# git-*-command metaprograms, and moving anything that is in front from
+	# $@ to gitCommand.
+	case "$1" in
+	    [^-]*-command)  gitCommand+=("$1"); shift
+			    while [ $# -ne 0 ]
+			    do
+				case "$1" in
+				    --)		break;;
+				    -*)		gitCommand+=("$1"); shift;;
+				    *)		gitCommand+=("$1"); shift; break;;
+				esac
+			    done
+			    ;;
+	    *)		    while [ $# -ne 0 ]
+			    do
+				case "$1" in
+				    -c) gitCommand+=("$1" "$2"); shift; shift;;
+				    *)	gitCommand+=("$1"); shift; break;;
+				esac
+			    done
+	esac
+	gitCommand+=("${gitColorArg[@]}")
+    fi
+
+    if [ "$isNeedEval" ]; then
+	# Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
+	# undo the effects of eval.
+	printf -v quotedSimpleCommand '%q ' "$@"
+	commands+=(${commands:+;} "${quotedSimpleCommand% }")
+    else
+	commands=("${gitCommand[@]}" "$@")
+    fi
+fi
+if [ ${#commands[@]} -eq 0 ]; then
+    isHeader=
+    isNeedEval=t
+    commands=('echo "$ROOT"')
+fi
+
+if [ "$hasProgressNotification" ] && [ -n "$progressSink" ]; then
+    if [ "$progressSink" = addendum ]; then
+	[ "$hasProgressNotificationToAddendum" ] && \
+	    exec 3> >(progressNotificationToAddendum --prepend-count "$GIT_WCDO_PROGRESS_WHAT" --count-to "${#wcDirspecs[@]}" 2>/dev/null)  # Silence "Cannot notify via titleupdate; TERMID not defined."
+    else
+	exec 3> >(progressNotification --to "$progressSink" --prepend-count "$GIT_WCDO_PROGRESS_WHAT" --count-to "${#wcDirspecs[@]}" 2>/dev/null)
+    fi
+
+    reportProgress()
+    {
+	trap 'reportProgress() { :; }; trap PIPE' PIPE
+	printf '%s\n' "$*" >&3 2>/dev/null  # Silence "printf: write error: Broken pipe"
+    }
+else
+    reportProgress() { :; }
+fi
+
+abortIfDesired()
+{
+    local status="${1:?}"; shift
+    [ -n "$abortStatus" ] || return
+    [ "$status" $abortComparison $abortStatus ] && exit $status
+}
+
+set -o pipefail
+wcdo()
+{
+    : ${GIT_WCDO_HEADER_ID:="wcdo-$$-$RANDOM"}
+    isSuccess=
+    status=0
+    for dirspec in "${wcDirspecs[@]}"
+    do
+	if ! cd "$dirspec" 2>/dev/null; then
+	    [ -n "$isSkipFiles" -a ! -d "$dirspec" -a -e "$dirspec" ] && continue
+	    printf >&2 'ERROR: Cannot chdir to %s!\n' "$dirspec"
+	    status=1; continue
+	fi
+	if ! ROOT=$(git root 2>/dev/null); then
+	    if [ ${#foreignCommands[@]} -gt 0 ]; then
+		if [ "$isHeader" ] || [ -n "$progressSink" ]; then
+		    header="${dirspec##*/}"
+		    [ "$isBranchName" ] && header="${header%.*} outside Git"
+		fi
+		reportProgress "$header"
+		eval "${isHeader:+{}" "${foreignCommands[@]}" "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_WCDO_HEADER_ID' -- '$header'}" && \
+		    isSuccess=t
+		status=$?
+		abortIfDesired $status
+	    elif [ ! "$isSkipForeign" ]; then
+		printf >&2 'ERROR: %s is not inside a Git working copy!\n' "$dirspec"
+		status=1
+	    fi
+	    continue
+	fi
+	NAME="${ROOT##*/}"
+
+	if [ ${#predicateCommands[@]} -gt 0 ]; then
+	    eval "${predicateCommands[@]}" || continue
+	fi
+
+	if [ "$isHeader" ] || [ -n "$progressSink" ]; then
+	    header="${dirspec##*/}"
+	    [ "$isBranchName" ] && header="${header%.*} on $(git-brname 2>/dev/null || echo 'unknown branch')"
+	fi
+
+	if [ "$isNeedEval" ]; then
+	    typeset -a c=("${commands[@]}")
+	else
+	    typeset -a c=('"${commands[@]}"')
+	fi
+	reportProgress "$header"
+	eval "${isHeader:+{}" "${c[@]}" "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_WCDO_HEADER_ID' -- '$header'}" && \
+	    isSuccess=t
+	status=$?
+	abortIfDesired $status
+    done
+
+    if [ "$isSingleSuccess" ]; then
+	[ "$isSuccess" ]
+    else
+	return $status
+    fi
+}
+
+eval "wcdo ${pager:+$errorRedir |}" '"${pager[@]}"'

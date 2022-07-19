@@ -1,0 +1,294 @@
+#!/bin/bash source-this-script
+shopt -qs extglob
+
+: ${GIT_DOEXTENSIONS_WRAPPEE:?}
+: ${GIT_DOEXTENSIONS_DASHDASH_ARGS_BEFORE_SIMPLECOMMAND?}
+: ${GIT_DOEXTENSIONS_WHAT:=CONFIGURED SUBJECTS}
+
+: ${SHELL:=bash}
+printf -v quotedShell '%q' "$SHELL"
+
+# Because of the interactive shell, we must not interfere with terminal access,
+# so no header (the shell prompt will indicate the working directory, anyway),
+# and no paging.
+# A --color argument is not supported.
+# Enable the user to abort the iteration via a special exit status.
+typeset -ra shellWcdoArgs=(--no-pager --no-header --no-git-color --abort-on 126)
+
+printExtendedUsage()
+{
+    local splitPattern='/^Note:/'
+    "$GIT_DOEXTENSIONS_WRAPPEE" --help 2>&1 | sed \
+	-e "${splitPattern},\$d" \
+	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ ]\+ \)*'"${GIT_DOEXTENSIONS_WRAPPEE} /\\1\\2$(basename "$1")"' [--dirty|--wips [(+|-)CHECK [(+|-)...]]] /; }'
+    cat <<HELPTEXT
+Supports the following special commands:
+    repo-missing	    Show those $GIT_DOEXTENSIONS_WHAT that are not yet
+			    under Git source control.
+    *logs-distribution [LOGDISTRIBUTION-OPTIONS ...] [<log-options>] [<revision range>] [[--] <path>...]
+			    Print the distribution of the number of commits in
+			    $GIT_DOEXTENSIONS_WHAT that fall into the logged range.
+			    * stands for any logdistribution range variant (td,
+			    year, ...).
+    dirty-sh [COMMAND ...]  Open an interactive shell / execute COMMAND in those
+			    $GIT_DOEXTENSIONS_WHAT that have uncommitted changes.
+			    You can abort the iteration by exiting the shell
+			    with exit status 126.
+			    Also available as a standalone predicate --dirty (to
+			    combine with other COMMAND(s)).
+    wips-sh [(+|-)CHECK [(+|-)...]] [COMMAND ...]
+			    Open an interactive shell / execute COMMAND in those
+			    $GIT_DOEXTENSIONS_WHAT that have work in
+			    progress. You can abort the iteration by exiting the
+			    shell with exit status 126.
+			    Also available as a standalone predicate
+			    --wips [(+|-)CHECK [(+|-)...]] (to combine with
+			    other COMMAND(s)).
+    fetchdate [--absolute|-a|--epoch] [-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]]
+			    Show when (any) remote was last fetched if it
+			    matches the condition. Allows to identify repos in
+			    need of an update.
+    ufetch [--gui|--terminal|--none]
+			    Fetch all upstream changes, and show a log of
+			    changes.
+    uprogress [WIPS-ARGS ...]
+			    Test whether changes in upstream have been fetched
+			    that could be incorporated into the working copy.
+			    Ignores local customizations and private files that
+			    may happen when just following an upstream repo.
+HELPTEXT
+    [ "$GIT_DOEXTENSIONS_ADDITIONAL_EXTENSIONS" ] && printf '%s\n' "$GIT_DOEXTENSIONS_ADDITIONAL_EXTENSIONS"
+    "$GIT_DOEXTENSIONS_WRAPPEE" --help 2>&1 | sed -e "${splitPattern}p" -e "1,${splitPattern}d"
+}
+
+typeset -a wcdoArgs=()
+typeset -a wcdoCommandArgs=()
+typeset -a dashdashArgs=()
+typeset -a args=()
+typeset -a accumulationCommand=()
+parseCommand()
+{
+    while [ $# -ne 0 ]
+    do
+	case "$1" in
+	    --help|-h|-\?)  shift; printExtendedUsage "$0"; exit 0;;
+
+	    --command|-c)
+			    wcdoCommandArgs+=("$1" "$2"); shift; shift;;
+	    -+([qs]))
+			    wcdoArgs+=("$1"); shift;;
+	    --@(quiet|no-pager|no-header|branch-name|separate-errors|no-git-color|no-color|color=*|abort-on-failure|single-success|skip-files|skip-foreign))
+			    wcdoArgs+=("$1"); shift;;
+	    -[X])
+			    wcdoArgs+=("$1" "$2"); shift; shift;;
+	    --@(abort-on|color|progress|foreign-command|predicate-command))
+			    wcdoArgs+=("$1" "$2"); shift; shift;;
+
+	    --dirty)	    shift; wcdoArgs+=(--predicate-command 'git dirty');;
+	    --wips)	    shift
+			    typeset -a wipsArgs=()
+			    while [ $# -gt 0 ] && [[ "$1" =~ ^[+-][[:alpha:]]+$ ]]
+			    do
+				wipsArgs+=("$1"); shift
+			    done
+			    quotedWipsArgs=; [ ${#wipsArgs[@]} -gt 0 ] && printf -v quotedWipsArgs '%q ' "${wipsArgs[@]}"
+			    wipsQuietArg='--quiet'; if [ $# -eq 0 ]; then
+				# DWIM: When no COMMAND is given, don't print
+				# the default working copy root / submodule
+				# name, but instead keep the git-wips output.
+				wipsQuietArg=''
+				wcdoArgs+=(--no-git-color)
+				args=(exec true)
+			    fi
+			    wcdoArgs+=(--predicate-command "git wips ${wipsQuietArg}${wipsQuietArg:+ }${quotedWipsArgs}")
+			    ;;
+
+	    --)		    if [ "$GIT_DOEXTENSIONS_DASHDASH_ARGS_BEFORE_SIMPLECOMMAND" ]; then
+				dashdashArgs+=("$1"); shift
+			    else
+				wcdoArgs+=("$1"); shift
+			    fi
+			    break
+			    ;;
+	    *)		    if [ "$GIT_DOEXTENSIONS_DASHDASH_ARGS_BEFORE_SIMPLECOMMAND" ]; then
+				dashdashArgs+=("$1"); shift
+			    else
+				break
+			    fi
+			    ;;
+	esac
+    done
+
+    if [ ${#wcdoCommandArgs[@]} -eq 0 -a $# -eq 0 ]; then
+	:
+    elif [ "${1:0:1}" != '-' ]; then
+	commandSubAlias="${GIT_DOEXTENSIONS_WRAPPER:- does not exist}-$1-$2"
+	commandAlias="${GIT_DOEXTENSIONS_WRAPPER:- does not exist}-$1"
+	if type -t "$commandSubAlias" >/dev/null; then
+	    shift; shift	# The first two arguments are part of the alias.
+	    $commandSubAlias "$@"
+	    exit $?
+	elif type -t "$commandAlias" >/dev/null; then
+	    shift	# The first argument is part of the alias.
+	    $commandAlias "$@"
+	    exit $?
+	fi
+
+	case "$1" in
+	    repo-missing)
+		# Synthesized new command.
+		shift
+		wcdoArgs+=(--no-header --skip-files --foreign-command 'pwd' --command :)
+		args=("$@")
+		;;
+	    *logs-distribution)
+		# Synthesized new command; don't override "logdistribution" as the
+		# user may want to execute that separately on each repo, too.
+
+		# Translate e.g. tdlogs-distribution to "git tdlogdistribution".
+		# This way, all ranges supplied by my various br...log variants can
+		# be used.
+		logDistributionCommand="git ${1%logs-distribution}logdistribution"
+		shift
+
+		# Supply any arguments both to the git-logdistribution that gets
+		# iterated over (it will pick the log options and ignore the
+		# distribution ones), and to the git-logdistribution that
+		# accumulates and graphs the data (it will pick the distribution
+		# options and ignore the log options).
+		printf -v quotedLogDistributionArgs '%q ' --log-only "$@"; quotedLogDistributionArgs="${quotedLogDistributionArgs% }"
+		wcdoArgs+=(--no-header --skip-files --no-git-color --command "$logDistributionCommand $quotedLogDistributionArgs")
+		accumulationCommand=(git-logdistribution --stdin "$@")
+		;;
+	    dirty-sh)
+		# Synthesized new command.
+		shift
+		wcdoArgs+=(--predicate-command 'git dirty')
+		wcdoArgs+=("${shellWcdoArgs[@]}" --command)
+		if [ $# -eq 0 ]; then
+		    wcdoArgs+=("$quotedShell -i")
+		    echo "Note: To abort the iteration of $GIT_DOEXTENSIONS_WHAT, use \"exit 126\"."
+		else
+		    printf -v quotedSimpleCommand '%q ' "$@"
+		    wcdoArgs+=("${quotedSimpleCommand# }")
+		fi
+		;;
+	    wips-sh)
+		# Synthesized new command.
+		shift
+		wcdoArgs+=("${shellWcdoArgs[@]}" --command)
+		typeset -a wipsArgs=()
+		while [ $# -gt 0 ] && [[ "$1" =~ ^[+-][[:alpha:]]+$ ]]
+		do
+		    wipsArgs+=("$1"); shift
+		done
+		quotedWipsArgs=; [ ${#wipsArgs[@]} -gt 0 ] && printf -v quotedWipsArgs '%q ' "${wipsArgs[@]}"
+		if [ $# -eq 0 ]; then
+		    wcdoArgs+=("git wips ${quotedWipsArgs}&& $quotedShell -i")
+		    echo "Note: To abort the iteration of $GIT_DOEXTENSIONS_WHAT, use \"exit 126\"."
+		else
+		    wcdoArgs+=(--predicate-command "git wips --quiet ${quotedWipsArgs}")
+		    printf -v quotedSimpleCommand '%q ' "$@"
+		    wcdoArgs+=("${quotedSimpleCommand# }")
+		fi
+		;;
+	    fetchdate)
+		# Synthesized new command.
+		shift
+		typeset -a fetchDateFormatArgs=()
+		typeset -a fetchDateMessageArgs=(--message 'Last fetched')
+		typeset -a fetchDateAgeArgs=()
+		while [ $# -ne 0 ]
+		do
+		    case "$1" in
+			--absolute|-a|--epoch)	fetchDateFormatArgs+=("$1"); shift;;
+			--message|-m)		fetchDateMessageArgs+=("$1" "$2"); shift; shift;;
+			*)			fetchDateAgeArgs+=("$1"); shift;;
+		    esac
+		done
+		if [ ${#fetchDateAgeArgs[@]} -gt 0 ]; then
+		    printf -v quotedFetchDateAgeArgs '%q ' "${fetchDateAgeArgs[@]}"
+		    wcdoArgs+=(--predicate-command "git-fetchdate ${quotedFetchDateAgeArgs% }")
+		fi
+		wcdoArgs+=(--no-git-color)
+		args=(fetchdate "${fetchDateMessageArgs[@]}" "${fetchDateFormatArgs[@]}")
+		;;
+	    ufetch)
+		# Synthesized new command.
+		shift
+		wcdoArgs+=(--predicate-command 'git-existsremote upstream')
+		args=(ufetchonly-hushed "$@")
+		;;
+	    uprogress)
+		# Synthesized new command.
+		shift
+		wcdoArgs+=(--predicate-command 'git-existsremote upstream')
+		# DWIM: Omit some WIP checks:
+		#   -dirty:	    local customizations of checked-in files may be necessary
+		#   -private:   builds may create private files
+		#   -nonmaster: I may follow a stable branch
+		args=(wips -dirty -private -nonmaster "$@")
+		;;
+	    wips)
+		# Succeed if a single working copy has WIP.
+		wcdoArgs+=(--single-success)
+		args=("$@")
+		;;
+	    shell)
+		wcdoArgs+=("${shellWcdoArgs[@]}")
+		# Succeed if a single working copy has WIP.
+		wcdoArgs+=(--single-success)
+		echo "Note: To abort the iteration of $GIT_DOEXTENSIONS_WHAT, use \"exit 126\"."
+		args=("$@")
+		;;
+	    browse|ci-status|compare|delete|pull-request|fork|release|sync)
+		wcdoArgs+=(--single-success)
+		# These hub commands need a remote.
+		wcdoArgs+=(--predicate-command git-existsremote)
+		args=("$@")
+		;;
+	    cr|crrecent|crstats|issue|pr|prtitle|reviews)
+		wcdoArgs+=(--single-success)
+		# These hub commands need a remote.
+		if [ "$GIT_DOEXTENSIONS_EXCLUDE_FORKS" ]; then
+		    # This setting indicates that I only care about my own projects,
+		    # not my forks of other projects.
+		    wcdoArgs+=(--predicate-command 'git-existsremote origin && ! git-existsremote upstream')
+		else
+		    wcdoArgs+=(--predicate-command git-existsremote)
+		fi
+		args=("$@")
+		;;
+	    labels)
+		# This hub command needs a remote.
+		if [ "$GIT_DOEXTENSIONS_EXCLUDE_FORKS" ]; then
+		    # This setting indicates that I only care about my own projects,
+		    # not my forks of other projects.
+		    wcdoArgs+=(--predicate-command 'git-existsremote origin && ! git-existsremote upstream')
+		else
+		    wcdoArgs+=(--predicate-command git-existsremote)
+		fi
+		args=("$@")
+		;;
+	    create)
+		wcdoArgs+=(--single-success)
+		# This hub command (mostly) only applies to repos without a remote.
+		wcdoArgs+=(--predicate-command '! git-existsremote')
+		args=("$@")
+		;;
+	    *)
+		args=("$@");;
+	esac
+    else
+	args=("$@")
+    fi
+}
+
+executeCommand()
+{
+    if [ ${#accumulationCommand[@]} -eq 0 ]; then
+	exec "$GIT_DOEXTENSIONS_WRAPPEE" "${wcdoCommandArgs[@]}" "${wcdoArgs[@]}" "${dashdashArgs[@]}" "${args[@]}"
+    else
+	"$GIT_DOEXTENSIONS_WRAPPEE" "${wcdoCommandArgs[@]}" "${wcdoArgs[@]}" "${dashdashArgs[@]}" "${args[@]}" | "${accumulationCommand[@]}"
+    fi
+}

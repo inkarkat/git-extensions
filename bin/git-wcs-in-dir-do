@@ -3,25 +3,20 @@ shopt -qs extglob
 
 printUsage()
 {
-    local splitPattern='/^Note:/'
     git-wcdo --help 2>&1 | sed \
 	-e '1s#^.*$#Execute "git SIMPLECOMMAND" and/or COMMANDLINE on all repositories that are checked out (directly, not in subdirs) in any DIRSPEC.#' \
 	-e '2b removeFirstParagraphLoop' \
-	-e "${splitPattern},\$d" \
+	-e '/^ *--no-pager/i\
+    --quiet|-q		Do not complain when no working copies are found or a\
+			passed DIRSPEC is not a directory.\
+    --worktrees		Also include additional working copies checked out from\
+			the same repository (via git worktree).\
+    --skip-symlinks	Do not consider passed DIRSPEC(s) that are symbolic\
+			links to another directory. (This cannot be easily\
+			checked from inside the working copy with\
+			-P|--predicate-command.)' \
 	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ ]\+ \)*git-wcdo /\1\2'"$(basename "$1")"' [-q|--quiet] [--worktrees] [--skip-symlinks] /; s/ WORKING-COPY / DIRSPEC /; }' \
-	-e b -e :removeFirstParagraphLoop -e '{ /\(^\|\n\)$/{ s/^\(.*\n\)\?//; b; }; N; b removeFirstParagraphLoop }' \
-
-    cat <<HELPTEXT
-    --quiet|-q		    Do not complain when no working copies are found or
-			    a passed DIRSPEC is not a directory.
-    --worktrees		    Also include additional working copies checked out
-			    from the same repository (via git worktree).
-    --skip-symlinks	    Do not consider passed DIRSPEC(s) that are symbolic
-			    links to another directory. (This cannot be easily
-			    checked from inside the working copy with
-			    -P|--predicate-command.)
-HELPTEXT
-    git-wcdo --help 2>&1 | sed -e "${splitPattern}p" -e "1,${splitPattern}d"
+	-e b -e :removeFirstParagraphLoop -e '{ /\(^\|\n\)$/{ s/^\(.*\n\)\?//; b; }; N; b removeFirstParagraphLoop }'
 }
 
 isQuiet=

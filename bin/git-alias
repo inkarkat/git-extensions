@@ -18,23 +18,22 @@ printAliases()
     typeset -a aliasSearchSedArgs=()
 
     if [ -n "$aliasName" ]; then
-	if [[ "$aliasName" =~ ^[^-].*[[:upper:]]$ ]]; then
+	if [[ "$aliasName" =~ ^[^-].*[[:upper:]] ]]; then
 	    # Translate "X" to "-x" to enable looking up aliases with uppercase letters.
 	    aliasName="$(echo "$aliasName" | sed -e 's/[[:upper:]]/-\l\0/g')"
 	fi
 
 	aliasSearchSedArgs=(
-	    -e "/^${aliasName}/b"
-	    -e d
+	    -e "/^${aliasName}/!d"
 	)
     fi
 
     git config --get-regexp '^alias\.' | \
 	sed -e 's/^alias\.//' \
-	    -e 's/^\([^ ]\+\)-\([[:lower:]]\) /\1\u\2 /' \
 	    -e 's/^\([^ ]\+\) /\1 = /' \
-	    "${aliasSearchSedArgs[@]}"
-    # Translate "-x" to "X" to correctly render aliases with uppercase letters.
+	    "${aliasSearchSedArgs[@]}" \
+	    -e 's/^\([^ ]\+\)-\([[:lower:]]\)\([^[:lower:]]\)/\1\u\2\3/'
+	    # Translate "-x" to "X" to correctly render aliases with uppercase letters.
 }
 
 eval 'printAliases "$@"' "${pager:+|}" '"${pager[@]}"'

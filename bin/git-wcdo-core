@@ -10,7 +10,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s%s%s\n' "$(basename "$1")" '[--no-pager] [--no-header|--branch-name]' "${hasProgressNotification:+ [--progress overlay|title|command|notify${hasProgressNotificationToAddendum:+|addendum}]}" ' [--separate-errors] [--no-git-color] [--single-success] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [--skip-files] [-s|--skip-foreign|--foreign-command "COMMANDLINE" [...]] [-P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] WORKING-COPY [...] [-- SIMPLECOMMAND ...] [-?|-h|--help]'
+    printf 'Usage: %q %s%s%s\n' "$(basename "$1")" '[--no-pager] [--no-header|--branch-name]' "${hasProgressNotification:+ [--progress overlay|title|command|notify${hasProgressNotificationToAddendum:+|addendum}]}" ' [--separate-errors] [--no-git-color] [--single-success] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [--skip-files] [-s|--skip-foreign|--foreign-command "COMMANDLINE" [...]] [-P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] [--] WORKING-COPY [...] [-- SIMPLECOMMAND ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -113,6 +113,7 @@ progressSink=
 errorRedir='2>&1'
 isGitColor=t
 typeset -a colorArg=()
+isDoneWorkingCopies=
 typeset -a args=()
 while [ $# -ne 0 ]
 do
@@ -134,9 +135,14 @@ do
 	--no-git-color)		shift; isGitColor=;;
 	--no-color|--color=*)	colorArg=("$1"); shift;;
 	--color)		colorArg=("$1" "$2"); shift; shift;;
-	--)			shift; break;;
+	--)			shift; [ "$isDoneWorkingCopies" ] && break || isDoneWorkingCopies=t;;
 	-*)			{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
-	*)			args+=("$1"); shift;;
+	*)			if [ "$isDoneWorkingCopies" ]; then
+				    break
+				else
+				    args+=("$1"); shift
+				fi
+				;;
     esac
 done
 if [ ${#args[@]} -eq 0 ]; then

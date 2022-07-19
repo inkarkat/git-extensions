@@ -23,6 +23,7 @@ isQuiet=
 isForeign=
 isSkipSymlinks=
 compareOp=-d
+isDoneDirspecs=
 typeset -a dirspecs=()
 typeset -a wcdoArgs=()
 while [ $# -ne 0 ]
@@ -43,9 +44,14 @@ do
 	--foreign-command)
 			wcdoArgs+=("$1" "$2"); isForeign=t; shift; shift;;
 	--worktrees)	shift; compareOp=-e;;
-	--)		shift; break;;
+	--)		shift; [ "$isDoneDirspecs" ] && break || isDoneDirspecs=t;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
-	*)		dirspecs+=("$1"); shift;;
+	*)		if [ "$isDoneDirspecs" ]; then
+			    break
+			else
+			    dirspecs+=("$1"); shift
+			fi
+			;;
     esac
 done
 if [ ${#dirspecs[@]} -eq 0 ]; then

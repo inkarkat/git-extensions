@@ -1,6 +1,8 @@
 #!/bin/bash source-this-script
 shopt -qs extglob
 
+: ${GIT_DOEXTENSIONS_WRAPPEE:?}
+: ${GIT_DOEXTENSIONS_DASHDASH_ARGS_BEFORE_SIMPLECOMMAND?}
 : ${GIT_DOEXTENSIONS_WHAT:=CONFIGURED SUBJECTS}
 
 : ${SHELL:=bash}
@@ -16,7 +18,7 @@ typeset -ra shellWcdoArgs=(--no-pager --no-header --no-git-color --abort-on 126)
 printExtendedUsage()
 {
     local splitPattern='/^Note:/'
-    "${1:?}" --help 2>&1 | sed -e "${splitPattern},\$d"
+    "$GIT_DOEXTENSIONS_WRAPPEE" --help 2>&1 | sed -e "${splitPattern},\$d"
     cat <<HELPTEXT
 Supports the following special commands:
     repo-missing	    Show those $GIT_DOEXTENSIONS_WHAT that are not yet
@@ -48,18 +50,20 @@ Supports the following special commands:
 			    may happen when just following an upstream repo.
 HELPTEXT
     [ "$GIT_DOEXTENSIONS_ADDITIONAL_HELP" ] && printf '%s\n' "$GIT_DOEXTENSIONS_ADDITIONAL_HELP"
-    "${1:?}" --help 2>&1 | sed -e "${splitPattern}p" -e "1,${splitPattern}d"
+    "$GIT_DOEXTENSIONS_WRAPPEE" --help 2>&1 | sed -e "${splitPattern}p" -e "1,${splitPattern}d"
 }
 
 typeset -a wcdoArgs=()
 typeset -a wcdoCommandArgs=()
+typeset -a dashdashArgs=()
 typeset -a args=()
+typeset -a accumulationCommand=()
 parseCommand()
 {
     while [ $# -ne 0 ]
     do
 	case "$1" in
-	    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	    --help|-h|-\?)  shift; printExtendedUsage "$0"; exit 0;;
 
 	    --command|-c)
 			    wcdoCommandArgs+=("$1" "$2"); shift; shift;;
@@ -71,8 +75,19 @@ parseCommand()
 			    wcdoArgs+=("$1" "$2"); shift; shift;;
 	    --@(abort-on|color|progress|foreign-command|predicate-command${GIT_WCDO_COMMAND_LONG_PARAMS:+|}${GIT_WCDO_COMMAND_LONG_PARAMS}))
 			    wcdoArgs+=("$1" "$2"); shift; shift;;
-	    --)		wcdoArgs+=("$1"); shift; break;;
-	    *)		break;;
+	    --)		    if [ "$GIT_DOEXTENSIONS_DASHDASH_ARGS_BEFORE_SIMPLECOMMAND" ]; then
+				dashdashArgs+=("$1"); shift
+			    else
+				wcdoArgs+=("$1"); shift
+			    fi
+			    break
+			    ;;
+	    *)		    if [ "$GIT_DOEXTENSIONS_DASHDASH_ARGS_BEFORE_SIMPLECOMMAND" ]; then
+				dashdashArgs+=("$1"); shift
+			    else
+				break
+			    fi
+			    ;;
 	esac
     done
 
@@ -241,8 +256,8 @@ parseCommand()
 executeCommand()
 {
     if [ ${#accumulationCommand[@]} -eq 0 ]; then
-	exec "${1:?}" "${wcdoCommandArgs[@]}" "${wcdoArgs[@]}" "${args[@]}"
+	exec "$GIT_DOEXTENSIONS_WRAPPEE" "${wcdoCommandArgs[@]}" "${wcdoArgs[@]}" "${dashdashArgs[@]}" "${args[@]}"
     else
-	"${1:?}" "${wcdoCommandArgs[@]}" "${wcdoArgs[@]}" "${args[@]}" | "${accumulationCommand[@]}"
+	"$GIT_DOEXTENSIONS_WRAPPEE" "${wcdoCommandArgs[@]}" "${wcdoArgs[@]}" "${dashdashArgs[@]}" "${args[@]}" | "${accumulationCommand[@]}"
     fi
 }

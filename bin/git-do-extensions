@@ -20,7 +20,7 @@ printExtendedUsage()
     local splitPattern='/^Note:/'
     "$GIT_DOEXTENSIONS_WRAPPEE" --help 2>&1 | sed \
 	-e "${splitPattern},\$d" \
-	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ ]\+ \)*'"${GIT_DOEXTENSIONS_WRAPPEE} /\\1\\2$(basename "$1")"' /; }'
+	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ ]\+ \)*'"${GIT_DOEXTENSIONS_WRAPPEE} /\\1\\2$(basename "$1")"' [--dirty|--wips [(+|-)CHECK [(+|-)...]]] /; }'
     cat <<HELPTEXT
 Supports the following special commands:
     repo-missing	    Show those $GIT_DOEXTENSIONS_WHAT that are not yet
@@ -34,11 +34,16 @@ Supports the following special commands:
 			    $GIT_DOEXTENSIONS_WHAT that have uncommitted changes.
 			    You can abort the iteration by exiting the shell
 			    with exit status 126.
-    wips-sh [(+|-)CHECK] [COMMAND ...]
+			    Also available as a standalone predicate --dirty (to
+			    combine with other COMMAND(s)).
+    wips-sh [(+|-)CHECK [(+|-)...]] [COMMAND ...]
 			    Open an interactive shell / execute COMMAND in those
 			    $GIT_DOEXTENSIONS_WHAT that have work in
 			    progress. You can abort the iteration by exiting the
 			    shell with exit status 126.
+			    Also available as a standalone predicate
+			    --wips [(+|-)CHECK [(+|-)...]] (to combine with
+			    other COMMAND(s)).
     fetchdate [--absolute|-a|--epoch] [-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]]
 			    Show when (any) remote was last fetched if it
 			    matches the condition. Allows to identify repos in
@@ -78,6 +83,18 @@ parseCommand()
 			    wcdoArgs+=("$1" "$2"); shift; shift;;
 	    --@(abort-on|color|progress|foreign-command|predicate-command))
 			    wcdoArgs+=("$1" "$2"); shift; shift;;
+
+	    --dirty)	    shift; wcdoArgs+=(--predicate-command 'git dirty');;
+	    --wips)	    shift
+			    typeset -a wipsArgs=()
+			    while [ $# -gt 0 ] && [[ "$1" =~ ^[+-][[:alpha:]]+$ ]]
+			    do
+				wipsArgs+=("$1"); shift
+			    done
+			    quotedWipsArgs=; [ ${#wipsArgs[@]} -gt 0 ] && printf -v quotedWipsArgs '%q ' "${wipsArgs[@]}"
+			    wcdoArgs+=(--predicate-command "git wips --quiet ${quotedWipsArgs}")
+			    ;;
+
 	    --)		    if [ "$GIT_DOEXTENSIONS_DASHDASH_ARGS_BEFORE_SIMPLECOMMAND" ]; then
 				dashdashArgs+=("$1"); shift
 			    else

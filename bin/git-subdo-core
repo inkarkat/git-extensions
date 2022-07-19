@@ -120,10 +120,11 @@ do
 	--color)		colorArg=("$1" "$2"); shift; shift;;
 
 	--collect)		shift
+				predicateOutput=
 				if [ $# -gt 0 ]; then
-				    eval "${@//\{\}/$displaypath}" >/dev/null || exit 0
+				    predicateOutput="$(eval "${@//\{\}/$displaypath}")" || exit 0
 				fi
-				printf '%s=%q; ' dirspec "${PWD:?}" name "${name:?}" sm_path "${sm_path:?}" displaypath "${displaypath:?}" sha1 "${sha1:?}" toplevel "${toplevel:?}"
+				printf '%s=%q; ' dirspec "${PWD:?}" name "${name:?}" sm_path "${sm_path:?}" displaypath "${displaypath:?}" sha1 "${sha1:?}" toplevel "${toplevel:?}" predicateOutput "${predicateOutput?}"
 				echo
 				exit
 				;;
@@ -248,7 +249,7 @@ subdo()
 	    typeset -a c=('"${commands[@]}"')
 	fi
 	reportProgress "$header"
-	if eval "${isHeader:+{}" "${c[@]}" "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_SUBDO_HEADER_ID' -- '${displaypath:?}'}"; then
+	if eval "${isHeader:+{}" ${predicateOutput:+printf %s\\\\n \"\$predicateOutput\"; }"${c[@]}" "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_SUBDO_HEADER_ID' -- '${displaypath:?}'}"; then
 	    isSuccess=t
 	else
 	    status=$?

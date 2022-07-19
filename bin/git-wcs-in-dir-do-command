@@ -24,11 +24,11 @@ printUsage()
     local additions=
     [ -n "$wrapper" ] || additions+="${additions:+ }WRAPPER-NAME"
     [ -n "$what" ] || additions+="${additions:+ }WRAPPER-DESCRIPTION"
-    "$GIT_WCDO_COMMAND" --help 2>&1 | sed \
+    git-wcs-in-dir-do --help 2>&1 | sed \
 	-e "1s#^.*\$#Execute \"git SIMPLECOMMAND\" and/or COMMANDLINE inside ${what:=CONFIGURED SUBJECTS} that are under Git source control. Considers a ${wrapper:-WRAPPER}-SIMPLECOMMAND wrapper.\\nLists all filespecs if no command(s) are passed.#" \
 	-e '2b removeFirstParagraphLoop' \
 	-e "${splitPattern},\$d" \
-	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ ]\+ \)*$GIT_WCDO_COMMAND /\1\2'"${wrapper:-$(basename "$1")}${additions:+ }$additions / }" \
+	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ ]\+ \)*$git-wcs-in-dir-do /\1\2'"${wrapper:-$(basename "$1")}${additions:+ }$additions / }" \
 	-e b -e :removeFirstParagraphLoop -e '{ /\(^\|\n\)$/{ s/^\(.*\n\)\?//; b; }; N; b removeFirstParagraphLoop }'
 
     cat <<HELPTEXT
@@ -260,7 +260,7 @@ elif [ "${1:0:1}" != '-' ]; then
 fi
 
 if [ ${#accumulationCommand[@]} -eq 0 ]; then
-    exec $GIT_WCDO_COMMAND "${wcdoCommandArgs[@]}" "${wcdoArgs[@]}" "${wcs[@]}" "$@"
+    exec git-wcs-in-dir-do  "${wcdoCommandArgs[@]}" "${wcdoArgs[@]}" "${wcs[@]}" "$@"
 else
-    $GIT_WCDO_COMMAND "${wcdoCommandArgs[@]}" "${wcdoArgs[@]}" "${wcs[@]}" "$@" | "${accumulationCommand[@]}"
+    git-wcs-in-dir-do  "${wcdoCommandArgs[@]}" "${wcdoArgs[@]}" "${wcs[@]}" "$@" | "${accumulationCommand[@]}"
 fi

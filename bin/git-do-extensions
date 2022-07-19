@@ -42,7 +42,8 @@ Supports the following special commands:
 			    matches the condition. Allows to identify repos in
 			    need of an update.
     ufetch [--gui|--terminal|--none]
-			    Fetch all upstream changes, and show a log of changes.
+			    Fetch all upstream changes, and show a log of
+			    changes.
     uprogress [WIPS-ARGS ...]
 			    Test whether changes in upstream have been fetched
 			    that could be incorporated into the working copy.
@@ -167,12 +168,14 @@ parseCommand()
 		# Synthesized new command.
 		shift
 		typeset -a fetchDateFormatArgs=()
+		typeset -a fetchDateMessageArgs=(--message 'Last fetched')
 		typeset -a fetchDateAgeArgs=()
 		while [ $# -ne 0 ]
 		do
 		    case "$1" in
 			--absolute|-a|--epoch)	fetchDateFormatArgs+=("$1"); shift;;
-			*)				fetchDateAgeArgs+=("$1"); shift;;
+			--message|-m)		fetchDateMessageArgs+=("$1" "$2"); shift; shift;;
+			*)			fetchDateAgeArgs+=("$1"); shift;;
 		    esac
 		done
 		if [ ${#fetchDateAgeArgs[@]} -gt 0 ]; then
@@ -180,7 +183,7 @@ parseCommand()
 		    wcdoArgs+=(--predicate-command "git-fetchdate ${quotedFetchDateAgeArgs% }")
 		fi
 		wcdoArgs+=(--no-git-color)
-		args=(fetchdate --message 'Last fetched' "${fetchDateFormatArgs[@]}")
+		args=(fetchdate "${fetchDateMessageArgs[@]}" "${fetchDateFormatArgs[@]}")
 		;;
 	    ufetch)
 		# Synthesized new command.

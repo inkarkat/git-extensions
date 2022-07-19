@@ -92,7 +92,15 @@ parseCommand()
 				wipsArgs+=("$1"); shift
 			    done
 			    quotedWipsArgs=; [ ${#wipsArgs[@]} -gt 0 ] && printf -v quotedWipsArgs '%q ' "${wipsArgs[@]}"
-			    wcdoArgs+=(--predicate-command "git wips --quiet ${quotedWipsArgs}")
+			    wipsQuietArg='--quiet'; if [ $# -eq 0 ]; then
+				# DWIM: When no COMMAND is given, don't print
+				# the default working copy root / submodule
+				# name, but instead keep the git-wips output.
+				wipsQuietArg=''
+				wcdoArgs+=(--no-git-color)
+				args=(exec true)
+			    fi
+			    wcdoArgs+=(--predicate-command "git wips ${wipsQuietArg}${wipsQuietArg:+ }${quotedWipsArgs}")
 			    ;;
 
 	    --)		    if [ "$GIT_DOEXTENSIONS_DASHDASH_ARGS_BEFORE_SIMPLECOMMAND" ]; then

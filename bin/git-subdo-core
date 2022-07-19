@@ -1,0 +1,266 @@
+#!/bin/bash
+
+: ${PROGRESSNOTIFICATION_REPORT_MARKER='{}'}
+
+hasProgressNotification=; type -t progressNotification >/dev/null && hasProgressNotification=t
+hasProgressNotificationToAddendum=; type -t progressNotificationToAddendum >/dev/null && hasProgressNotificationToAddendum=t
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s%s%s\n' "$(basename "$1")" '[-R|--no-recurse] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress overlay|title|command|notify${hasProgressNotificationToAddendum:+|addendum}]}" ' [--separate-errors] [--no-git-color] [--single-success] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [-P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Execute "git SIMPLECOMMAND" and/or COMMANDLINE in each Git submodule.
+An alternative to "git submodule foreach".
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+Puts a header line (unless --no-header) that contains the submodule name before
+the command output.
+    --no-recurse|-R	Do not recurse into submodules of submodules; just
+			process the direct submodules of the current repo.
+    --no-pager		Do not page the output (so contents will scroll out of
+			view if there's too much output).
+    --no-header		Do not output the header line before command output (and
+			no separating empty line after it).${hasProgressNotification:+
+    --progress overlay|title|command|notify${hasProgressNotificationToAddendum:+|addendum}
+			Report the current WORKING-COPY name (and count +
+			percentage) in one of the following ways:
+			overlay:    in the form of overlaid text, written via
+				    ANSI escape sequences in the first line of
+				    the terminal
+			title:	    in the terminal's window title via ANSI
+				    escape sequences
+			command:    by invoking
+					PROGRESSNOTIFICATION_COMMANDLINE${PROGRESSNOTIFICATION_REPORT_MARKER:+
+				    while replacing $PROGRESSNOTIFICATION_REPORT_MARKER with the report}
+			notify:	    via notify-send to the system's notification
+				    system}${hasProgressNotificationToAddendum:+
+			addendum:   via the addendum of the terminal"'"s window
+				    title}
+    --separate-errors	Do not combine command output and command errors into
+			one (paged) stream. Commands that just cause error
+			output won't have a header then. Error output will
+			remain on its separate file descriptor and will not be
+			paged. Useful if you want to suppress errors or handle
+			them separately.
+    --no-git-color	Do not pass a --color=... to "git SIMPLECOMMAND". (For
+			COMMANDLINE you have to insert "\${gitColorArg[@]}"
+			yourself.)
+    --abort-on-failure	Abort iteration when COMMAND fails.
+    --abort-on|-X EXIT_STATUS
+			Abort iteration when COMMAND exits with EXIT_STATUS.
+    --single-success	Exit status is 0 if at least command in one submodule
+			succeeded.
+    --predicate-command|-P CMD
+			Skip submodules where CMD (executed in the submodule
+			root) fails. The string {} is replaced with the relative
+			path to the submodule; all variables from "git submodule
+			foreach" are available as well.
+    --command|-c CMD	Execute the passed command line. When this is a simple
+			Git command, it can also be passed as such:
+			    $(basename "$1") [...] [--] SIMPLECOMMAND
+Note: For paging and headers, this command has to control Git's color output.
+Pass --no-git-color if "git SIMPLECOMMAND" does not support the --color=...
+arguments. (For COMMANDLINE you have to insert "\${gitColorArg[@]}" yourself.)
+You can still pass --color=always if you pipe this command's output yet still
+want coloring of headers.
+
+EXIT STATUS
+Returns the last non-successful exit status. With --single-success,
+non-successful executions are ignored unless all of them fail. In other words,
+exit status is 0 if at least one command succeeded.
+HELPTEXT
+}
+
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+submoduleRecurseArg=(--recursive)
+abortStatus=
+abortComparison=-eq
+isSingleSuccess=
+typeset -a predicateCommands=()
+isNeedEval=
+typeset -a commands=()
+isHeader=; type -t withHeader >/dev/null && isHeader=t
+progressSink=
+errorRedir='2>&1'
+isGitColor=t
+typeset -a colorArg=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)		shift; printLongUsage "$0"; exit 0;;
+	--abort-on-failure)	shift; abortComparison=-ne; abortStatus=0;;
+	--abort-on|-X)		shift; abortStatus="$1"; shift;;
+	--single-success)	shift; isSingleSuccess=t;;
+	--predicate-command|-P)	shift; predicateCommands+=(${predicateCommands:+&&} "$1"); shift;;
+	--command|-c)		shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
+	--no-recurse|-R)	shift; submoduleRecurseArg=();;
+	--no-pager)		shift; pager=();;
+	--no-header)		shift; isHeader=;;
+	--progress)		shift; progressSink="$1"; shift;;
+	--separate-errors)	shift; errorRedir='';;
+	--no-git-color)		shift; isGitColor=;;
+	--no-color|--color=*)	colorArg=("$1"); shift;;
+	--color)		colorArg=("$1" "$2"); shift; shift;;
+
+	--collect)		shift
+				if [ $# -gt 0 ]; then
+				    eval "${@//\{\}/$displaypath}" || exit 0
+				fi
+				printf '%s=%q; ' dirspec "${PWD:?}" name "${name:?}" sm_path "${sm_path:?}" displaypath "${displaypath:?}" sha1 "${sha1:?}" toplevel "${toplevel:?}"
+				echo
+				exit
+				;;
+	--)			shift; break;;
+	-*)			{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)			break;;
+    esac
+done
+typeset -a uncoloredSimpleCommand=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--no-color|--color=*)	colorArg=("$1"); shift;;
+	--color)		colorArg=("$1" "$2"); shift; shift;;
+	*)			uncoloredSimpleCommand+=("$1"); shift;;
+    esac
+done
+set -- "${uncoloredSimpleCommand[@]}"
+
+# With piping into withHeader / pager, we need to explicitly enable color for
+# Git, unless this command's output itself is redirected. Also don't do this if
+# the user explicitly turned off color.
+gitColorArg=()
+if [ -n "$pager" -o -n "$isHeader" ] && isNeedColorArgumentWhenPiping "${colorArg[@]}"; then
+    colorArg=(--color=always)	# Force for withHeader
+    [ "$isGitColor" ] && gitColorArg=(--color=always)	# Force for Git
+fi
+
+typeset -a gitCommand=(git-wrapper)
+if [ $# -gt 0 ]; then
+    if [ ${#gitColorArg[@]} -gt 0 ]; then
+	# Simply appending gitColorArg doesn't work; many Git commands have a
+	# special <path> or <commit> part at the end. Place it just behind the
+	# Git subcommand by iterating arguments in the same way as the various
+	# git-*-command metaprograms, and moving anything that is in front from
+	# $@ to gitCommand.
+	case "$1" in
+	    [^-]*-command)  gitCommand+=("$1"); shift
+			    while [ $# -ne 0 ]
+			    do
+				case "$1" in
+				    --)		break;;
+				    -*)		gitCommand+=("$1"); shift;;
+				    *)		gitCommand+=("$1"); shift; break;;
+				esac
+			    done
+			    ;;
+	    *)		    while [ $# -ne 0 ]
+			    do
+				case "$1" in
+				    -c) gitCommand+=("$1" "$2"); shift; shift;;
+				    *)	gitCommand+=("$1"); shift; break;;
+				esac
+			    done
+	esac
+	gitCommand+=("${gitColorArg[@]}")
+    fi
+
+    if [ "$isNeedEval" ]; then
+	# Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
+	# undo the effects of eval.
+	printf -v quotedSimpleCommand '%q ' "$@"
+	commands+=(${commands:+;} "${quotedSimpleCommand% }")
+    else
+	commands=("${gitCommand[@]}" "$@")
+    fi
+fi
+if [ ${#commands[@]} -eq 0 ]; then
+    isHeader=
+    isNeedEval=t
+    commands=('echo "$displaypath"')
+fi
+
+printf -v quotedScriptFilespec %q "${BASH_SOURCE[0]}"
+printf -v quotedPredicateCommands ' %q' "${predicateCommands[*]}"
+readarray -t submoduleEnvironments < <(git submodule foreach --quiet "${submoduleRecurseArg[@]}" "$quotedScriptFilespec --collect${quotedPredicateCommands}")
+if [ ${#submoduleEnvironments[@]} -eq 0 ]; then
+    echo >&2 'No submodules found!'
+    exit 1
+fi
+
+if [ "$hasProgressNotification" ] && [ -n "$progressSink" ]; then
+    if [ "$progressSink" = addendum ]; then
+	[ "$hasProgressNotificationToAddendum" ] && \
+	    exec 3> >(progressNotificationToAddendum --prepend-count 'submodule' --count-to "${#wcs[@]}" 2>/dev/null)  # Silence "Cannot notify via titleupdate; TERMID not defined."
+    else
+	exec 3> >(progressNotification --to "$progressSink" --prepend-count 'submodule' --count-to "${#wcs[@]}" 2>/dev/null)
+    fi
+
+    reportProgress()
+    {
+	trap 'reportProgress() { :; }; trap PIPE' PIPE
+	printf '%s\n' "$*" >&3 2>/dev/null  # Silence "printf: write error: Broken pipe"
+    }
+else
+    reportProgress() { :; }
+fi
+
+abortIfDesired()
+{
+    local status="${1:?}"; shift
+    [ -n "$abortStatus" ] || return
+    [ "$status" $abortComparison $abortStatus ] && exit $status
+}
+
+set -o pipefail
+subdo()
+{
+    : ${GIT_SUBDO_HEADER_ID:="subdo-$$-$RANDOM"}
+    local isSuccess status=0
+    for environment in "${submoduleEnvironments[@]}"
+    do
+	eval "$environment" || exit 3
+	if ! cd "${dirspec:?}" 2>/dev/null; then
+	    printf >&2 'ERROR: Cannot chdir to %s!\n' "$dirspec"
+	    status=1; continue
+	fi
+
+	if [ "$isNeedEval" ]; then
+	    typeset -a c=("${commands[@]}")
+	else
+	    typeset -a c=('"${commands[@]}"')
+	fi
+	reportProgress "$header"
+	if eval "${isHeader:+{}" "${c[@]}" "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_SUBDO_HEADER_ID' -- '${displaypath:?}'}"; then
+	    isSuccess=t
+	else
+	    status=$?
+	    abortIfDesired $status
+	fi
+    done
+
+    if [ "$isSingleSuccess" ]; then
+	[ "$isSuccess" ]
+    else
+	return $status
+    fi
+}
+
+eval "subdo ${pager:+$errorRedir |}" '"${pager[@]}"'

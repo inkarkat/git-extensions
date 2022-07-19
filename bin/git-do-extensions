@@ -18,7 +18,9 @@ typeset -ra shellWcdoArgs=(--no-pager --no-header --no-git-color --abort-on 126)
 printExtendedUsage()
 {
     local splitPattern='/^Note:/'
-    "$GIT_DOEXTENSIONS_WRAPPEE" --help 2>&1 | sed -e "${splitPattern},\$d"
+    "$GIT_DOEXTENSIONS_WRAPPEE" --help 2>&1 | sed \
+	-e "${splitPattern},\$d" \
+	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ ]\+ \)*'"${GIT_DOEXTENSIONS_WRAPPEE} /\\1\\2$(basename "$1")"' /; }'
     cat <<HELPTEXT
 Supports the following special commands:
     repo-missing	    Show those $GIT_DOEXTENSIONS_WHAT that are not yet

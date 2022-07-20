@@ -17,10 +17,11 @@ typeset -ra shellWcdoArgs=(--no-pager --no-header --no-git-color --abort-on 126)
 
 printExtendedUsage()
 {
+    local wrapper="$GIT_DOEXTENSIONS_WRAPPER"; [ -n "$wrapper" ] || wrapper="$(basename "$1")"
     local splitPattern='/^Note:/'
     "$GIT_DOEXTENSIONS_WRAPPEE" --help 2>&1 | sed \
 	-e "${splitPattern},\$d" \
-	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ ]\+ \)*'"${GIT_DOEXTENSIONS_WRAPPEE} /\\1\\2$(basename "$1")"' [--dirty|--wips [(+|-)CHECK [(+|-)...]]] /; }'
+	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ ]\+ \)*'"${GIT_DOEXTENSIONS_WRAPPEE} /\\1\\2${wrapper}"' [--dirty|--wips [(+|-)CHECK [(+|-)...]]] /; }'
     cat <<HELPTEXT
 Supports the following special commands:
     repo-missing	    Show those $GIT_DOEXTENSIONS_WHAT that are not yet
@@ -122,8 +123,8 @@ parseCommand()
     if [ ${#wcdoCommandArgs[@]} -eq 0 -a $# -eq 0 ]; then
 	:
     elif [ "${1:0:1}" != '-' ]; then
-	commandSubAlias="${GIT_DOEXTENSIONS_WRAPPER:- does not exist}-$1-$2"
-	commandAlias="${GIT_DOEXTENSIONS_WRAPPER:- does not exist}-$1"
+	commandSubAlias="${wrapper:- does not exist}-$1-$2"
+	commandAlias="${wrapper:- does not exist}-$1"
 	if type -t "$commandSubAlias" >/dev/null; then
 	    shift; shift	# The first two arguments are part of the alias.
 	    $commandSubAlias "$@"

@@ -1,14 +1,35 @@
 #!/bin/bash
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--real-branch-only|--raw] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 Print current (local) branch name, tag, or detached commit.
---real-branch-only aborts with an error if no ordinary branch is checked out.
---raw avoids embellishments on tags or detached commits (so that the result can
-be passed to other Git commands as a revision).
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --real-branch-only	Abort with an error if no ordinary branch is checked
+			out.
+    --raw		Avoid embellishments on tags or detached commits (so
+			that the result can be passed to other Git commands as a
+			revision).
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--real-branch-only|--raw] [-?|-h|--help]'
 }
 
 isRealBranchOnly=
@@ -17,7 +38,7 @@ detachedEmbellishment='(%s...)'
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--real-branch-only)
 			shift; isRealBranchOnly=t;;
 	--raw)		shift; tagEmbellishment='%s'; detachedEmbellishment='%s';;

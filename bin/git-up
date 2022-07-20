@@ -25,8 +25,12 @@ HELPTEXT
 
 getDetachedBranch()
 {
-    git-nbr 2>/dev/null || \
-	git-mbr 2>/dev/null
+    # On a detached checkout, use a branch that coincides with the detached
+    # commit (assuming that there's only one), and fall back to the base /
+    # master branch.
+    git-brname --detached-effective-branch --raw 2>/dev/null || \
+	git-nbr 2>/dev/null || \
+	    git-mbr 2>/dev/null
 }
 
 getRemoteBranch()
@@ -88,7 +92,6 @@ else
 	    logDeltaArgs=(--none)
 	fi
     elif git-isdetached; then
-	# On a detached checkout, fall back to the base / master branch.
 	if branch="$(getDetachedBranch)"; then
 	    logDeltaArgs+=(--branch "${remote}/${branch}")
 	else

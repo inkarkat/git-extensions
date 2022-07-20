@@ -4,7 +4,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--real-branch-only|--raw] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--real-branch-only|--detached-effective-branch] [--raw] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -26,6 +26,10 @@ HELPDESCRIPTION
     cat <<HELPTEXT
     --real-branch-only	Abort with an error if no ordinary branch is checked
 			out.
+    --detached-effective-branch
+			If there's a (not neccessarily the only) local branch
+			for the detached commit, print that one instead of the
+			hash.
     --raw		Avoid embellishments on tags or detached commits (so
 			that the result can be passed to other Git commands as a
 			revision).
@@ -33,7 +37,9 @@ HELPTEXT
 }
 
 isRealBranchOnly=
+isDetachedEffectiveBranch=
 tagEmbellishment='(tag: %s)'
+detachedBranchEmbellishment='(%s)'
 detachedEmbellishment='(%s...)'
 while [ $# -ne 0 ]
 do
@@ -41,7 +47,9 @@ do
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--real-branch-only)
 			shift; isRealBranchOnly=t;;
-	--raw)		shift; tagEmbellishment='%s'; detachedEmbellishment='%s';;
+	--detached-effective-branch)
+			shift; isDetachedEffectiveBranch=t;;
+	--raw)		shift; tagEmbellishment='%s'; detachedBranchEmbellishment='%s'; detachedEmbellishment='%s';;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -54,6 +62,10 @@ fi
 
 if branch=$(git symbolic-ref HEAD 2>/dev/null); then
     printf '%s\n' "${branch##refs/heads/}"
+elif [ ! "$isRealBranchOnly" ] && [ "$isDetachedEffectiveBranch" ] && \
+    effectiveBranch="$(git name-rev --name-only --exclude 'refs/tags/*' --exclude 'refs/remotes/*' HEAD 2>/dev/null)"
+then
+    printf "${detachedBranchEmbellishment}\\n" "$effectiveBranch"
 elif tags=$(git tag --list --points-at HEAD 2>/dev/null) && [ "$tags" ]; then
     if [ "$isRealBranchOnly" ]; then
 	printf >&2 'ERROR: Checked out tag %s\n' "${tags//

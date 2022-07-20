@@ -21,9 +21,9 @@ printExtendedUsage()
     local splitPattern='/^Note:/'
     "$GIT_DOEXTENSIONS_WRAPPEE" --help 2>&1 | sed \
 	-e "${splitPattern},\$d" \
-	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ ]\+ \)*'"${GIT_DOEXTENSIONS_WRAPPEE} /\\1\\2${wrapper}"' [--dirty|--wips [(+|-)CHECK [(+|-)...]]] /; }'
+	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ ]\+ \)*'"${GIT_DOEXTENSIONS_WRAPPEE} /\\1\\2${wrapper}"' [--dirty|--wips [(+|-)CHECK [(+|-)...]]|--same-branch] /; }'
     cat <<HELPTEXT
-Supports the following special commands:
+Supports the following special commands and options:
     repo-missing	    Show those $GIT_DOEXTENSIONS_WHAT that are not yet
 			    under Git source control.
     *logs-distribution [LOGDISTRIBUTION-OPTIONS ...] [<log-options>] [<revision range>] [[--] <path>...]
@@ -57,6 +57,8 @@ Supports the following special commands:
 			    that could be incorporated into the working copy.
 			    Ignores local customizations and private files that
 			    may happen when just following an upstream repo.
+    --same-branch	    Only consider those $GIT_DOEXTENSIONS_WHAT that are
+			    on the same branch as the current working copy.
 HELPTEXT
     [ "$GIT_DOEXTENSIONS_ADDITIONAL_EXTENSIONS" ] && printf '%s\n' "$GIT_DOEXTENSIONS_ADDITIONAL_EXTENSIONS"
     "$GIT_DOEXTENSIONS_WRAPPEE" --help 2>&1 | sed -e "${splitPattern}p" -e "1,${splitPattern}d"
@@ -102,6 +104,11 @@ parseCommand()
 				args=(exec true)
 			    fi
 			    wcdoArgs+=(--predicate-command "git wips ${wipsQuietArg}${wipsQuietArg:+ }${quotedWipsArgs}")
+			    ;;
+	    --same-branch)  shift
+			    currentBranch="$(git-brname --real-branch-only)" || exit $?
+			    printf -v quotedCurrentBranch '%q' "$currentBranch"
+			    wcdoArgs+=(--predicate-command "[ \"\$(git-brname --real-branch-only 2>/dev/null)\" = $quotedCurrentBranch ]")
 			    ;;
 
 	    --)		    if [ "$GIT_DOEXTENSIONS_DASHDASH_ARGS_BEFORE_SIMPLECOMMAND" ]; then

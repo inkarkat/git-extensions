@@ -4,7 +4,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--real-branch-only|--detached-effective-branch] [--raw] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--real-branch-only|--detached-effective-branch] [--raw] [<commit>] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -18,7 +18,8 @@ printLongUsage()
     # This is the long "man page" when launched with the help argument.
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
-Print current (local) branch name, tag, or detached commit.
+Print current (local) branch name, tag, or detached commit for HEAD / the passed
+<commit>.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
@@ -55,18 +56,21 @@ do
 	*)		break;;
     esac
 done
-if [ $# -ne 0 ]; then
-    printUsage "$0" >&2
-    exit 2
-fi
+case $# in
+    0)	commit='HEAD';;
+    1)	commit="$1"; shift;;
+    *)	printUsage "$0" >&2
+	exit 2
+	;;
+esac
 
-if branch=$(git symbolic-ref HEAD 2>/dev/null); then
+if branch=$(git symbolic-ref "$commit" 2>/dev/null); then
     printf '%s\n' "${branch##refs/heads/}"
 elif [ ! "$isRealBranchOnly" ] && [ "$isDetachedEffectiveBranch" ] && \
-    effectiveBranch="$(git name-rev --name-only --exclude 'refs/tags/*' --exclude 'refs/remotes/*' HEAD 2>/dev/null)"
+    effectiveBranch="$(git name-rev --name-only --exclude 'refs/tags/*' --exclude 'refs/remotes/*' "$commit" 2>/dev/null)"
 then
     printf "${detachedBranchEmbellishment}\\n" "$effectiveBranch"
-elif tags=$(git tag --list --points-at HEAD 2>/dev/null) && [ "$tags" ]; then
+elif tags=$(git tag --list --points-at "$commit" 2>/dev/null) && [ "$tags" ]; then
     if [ "$isRealBranchOnly" ]; then
 	printf >&2 'ERROR: Checked out tag %s\n' "${tags//
 /, }"
@@ -81,7 +85,7 @@ elif tags=$(git tag --list --points-at HEAD 2>/dev/null) && [ "$tags" ]; then
 	printf "${tagEmbellishment}\\n" "${tags//
 /, tag: }"
     fi
-elif detached=$(git rev-parse --short HEAD 2>/dev/null); then
+elif detached=$(git rev-parse --short "$commit" 2>/dev/null); then
     if [ "$isRealBranchOnly" ]; then
 	printf >&2 'ERROR: Detached checkout of %s\n' "$detached"
 	exit 1
@@ -89,5 +93,5 @@ elif detached=$(git rev-parse --short HEAD 2>/dev/null); then
     printf "${detachedEmbellishment}\\n" "$detached"
 else
     # Re-execute command to obtain the original error message.
-    git symbolic-ref HEAD
+    git symbolic-ref "$commit"
 fi

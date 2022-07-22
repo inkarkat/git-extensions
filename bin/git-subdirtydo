@@ -1,0 +1,17 @@
+#!/bin/bash
+
+printUsage()
+{
+    git-subdo --help 2>&1 | sed \
+	-e '1s#^.*$#Execute "git SIMPLECOMMAND" and/or COMMANDLINE in each Git submodule that contains modified content.#' \
+	-e '2b removeFirstParagraphLoop' \
+	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ ]\+ \)*git-subdo /\1\2'"$(basename "$1")"' /; }' \
+	-e '/^Example:$/N' -e '/\(^\|\n\)Example: */{ s/\(^\|\n\)\(Example: *\)\?git-subdo /\1\2'"$(basename "$1") /; }" \
+	-e b -e :removeFirstParagraphLoop -e '{ /\(^\|\n\)$/{ s/^\(.*\n\)\?//; b; }; N; b removeFirstParagraphLoop; }'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+readarray -t submodules < <(git-subdirty)
+exec git-subdo --for "${submodules[@]}" \; "$@"

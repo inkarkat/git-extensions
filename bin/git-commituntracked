@@ -6,28 +6,47 @@ printUsage()
 Commit only new files, respecting the ignore patterns.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<commit-arguments> ...] <ref>|:/<pattern> [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<commit-arguments> ...] [--] [<path> ...] [-?|-h|--help]'
 }
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-esac
+typeset -a gitCommitArgs=()
+typeset -a paths=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--)		gitCommitArgs+=("$1"); shift; paths=("$@"); break;;
+	*)		gitCommitArgs+=("$1"); shift;;
+    esac
+done
+if [ ${#paths[@]} -eq 0 ]; then
+    # No files after -- captured yet; need to investigate parsed and
+    # remaining args from behind for files.
+    gitCommitArgs+=("$@")
+    while [ ${#gitCommitArgs[@]} -ne 0 ]
+    do
+	lastArg="${gitCommitArgs[-1]}"
+	[ -e "$lastArg" ] || break
 
+	paths=("$lastArg" "${paths[@]}")
+	gitCommitArgs=("${gitCommitArgs[@]:0:${#gitCommitArgs[@]}-1}")
+    done
+fi
 
-hasStashed=
+readarray -t untrackedFilespecs < <(git ls-files -o --exclude-standard -- "${paths[@]}")
+[ ${#untrackedFilespecs[@]} -gt 0 ]  || exit 1
+
+# "git commit -- <pathspec>" only works with files already under version control
+# - we have to go through the index for untracked files.
+restoreIndex()
+{
+    git stash pop --index && echo "Recreated index." || exit $?
+}
 if git-staged --quiet; then
     git-stashi || exit $?
-    hasStashed=t
+    trap restoreIndex EXIT
 fi
-finally()
-{
-    if [ "$hasStashed" ]; then
-	git stash pop --index && echo "Recreated index." || exit $?
-    fi
-    exit $status
-}
-trap 'finally' EXIT
 
-
-status=1
-git-adduntracked && git-commit "$@"
-status=$?
+git add "${untrackedFilespecs[@]}" && \
+    git-commit \
+	--template <(printf '%s\n' "${untrackedFilespecs[@]}" | linesToArg basename | uniqueStable | joinBy --prefix 'Add ' --truncate-after 7 - ', ') \
+	"${gitCommitArgs[@]}"

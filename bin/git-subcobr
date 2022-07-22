@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--status|--query|--all] [--recursive] [--start-point REV|--existing-local|--existing-remote|--checkout|--remote|--update [--gui|--terminal|--none]] [-f|--force] [--] [SUBMODULE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--status|--query|--all] [--recursive] [--start-point REV|--existing-local|--existing-remote|--checkout|--remote|--update [--gui|--terminal|--none]] [-f|--force] [--dirty] [--] [SUBMODULE ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -50,11 +50,15 @@ HELPDESCRIPTION
 			checkout and the remote branch.
     --force|-f		Proceed even if the index or the working tree differs
 			from HEAD. This is used to throw away local changes.
+    --dirty		Only cover those submodules that contain modified
+			content (and any additional explicitly passed
+			SUBMODULE(s)).
 HELPTEXT
 }
 
 typeset -a recursiveArgs=()
 action=
+isDirty=
 isRecursive=
 startPoint=
 checkoutAction=checkoutExistingLocal
@@ -83,12 +87,21 @@ do
 			logArg="$1"; shift;;
 	--force|-f)	recursiveArgs+=("$1"); forceArg="$1"; shift;;
 	--prefix)	recursiveArgs+=("$1" "$2"); shift; prefix+="$1"; noOpStatus=0; shift;;
+	--dirty)	shift; isDirty=t;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
     esac
 done
 typeset -A selectedSubmodules=()
+if [ "$isDirty" ]; then
+    while IFS=$'\n' read -r submodule
+    do
+	selectedSubmodules["$submodule"]=t
+    done < <(git-stfiles --porcelain=1 --untracked-files=no --ignore-submodules=untracked)
+    # Note: This obtains _all_ modified files, not just submodules. As this
+    # feeds a selection from the list of submodules, this is fine.
+fi
 for submodule
 do
     : ${action:=all}

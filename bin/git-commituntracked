@@ -17,18 +17,14 @@ readarray -t untrackedFilespecs < <(git ls-files -o --exclude-standard)
 
 # "git commit -- <pathspec>" only works with files already under version control
 # - we have to go through the index for untracked files.
-hasStashed=
+restoreIndex()
+{
+    git stash pop --index && echo "Recreated index." || exit $?
+}
 if git-staged --quiet; then
     git-stashi || exit $?
-    hasStashed=t
+    trap restoreIndex EXIT
 fi
-finally()
-{
-    if [ "$hasStashed" ]; then
-	git stash pop --index && echo "Recreated index." || exit $?
-    fi
-}
-trap 'finally' EXIT
 
 git add "${untrackedFilespecs[@]}" && \
     git-commit "$@"

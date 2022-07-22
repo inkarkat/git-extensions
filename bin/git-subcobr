@@ -53,8 +53,8 @@ HELPDESCRIPTION
     --dirty		Only cover those submodules that contain modified
 			content (and any additional explicitly passed
 			SUBMODULE(s)).
-    --untracked		Only cover those submodules that contain untracked files.
-			content (and any additional explicitly passed
+    --untracked		Only cover those submodules that contain untracked
+			files. (and any additional explicitly passed
 			SUBMODULE(s)).
 HELPTEXT
 }
@@ -105,7 +105,7 @@ if [ "$isDirty" ]; then
     while IFS=$'\n' read -r submodule
     do
 	selectedSubmodules["$submodule"]=t
-    done < <(git-stfiles --porcelain=1 --untracked-files=no --ignore-submodules=untracked | git-subfilter)
+    done < <(git-subdirty)
 fi
 if [ "$isUntracked" ]; then
     selectedSubmodules[$'untracked\ndummy']=t   # Add a dummy entry to prevent the entire submodule list from being iterated if there are no submodules with untracked files.
@@ -113,7 +113,7 @@ if [ "$isUntracked" ]; then
     while IFS=$'\n' read -r submodule
     do
 	selectedSubmodules["$submodule"]=t
-    done < <(git status --short --untracked-files=no --ignore-submodules=none | sed -ne 's/^ ? //p' | git-subfilter)
+    done < <(git-subuntracked)
 fi
 for submodule
 do

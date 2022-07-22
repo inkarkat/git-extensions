@@ -9,7 +9,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s%s%s\n' "$(basename "$1")" '[-R|--no-recurse] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress overlay|title|command|notify${hasProgressNotificationToAddendum:+|addendum}]}" ' [--separate-errors] [--no-git-color] [--single-success] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [-P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]'
+    printf 'Usage: %q %s%s%s\n' "$(basename "$1")" '[-R|--no-recurse] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress overlay|title|command|notify${hasProgressNotificationToAddendum:+|addendum}]}" ' [--separate-errors] [--no-git-color] [--single-success] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [<revision-range>] [--since <date>] [--after <date>] [--for SUBMODULE [...] ;] [-P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -67,6 +67,13 @@ the command output.
 			Abort iteration when COMMAND exits with EXIT_STATUS.
     --single-success	Exit status is 0 if at least command in one submodule
 			succeeded.
+    <revision-range>|--since <date>|--after <date>
+			Only consider submodules that have undergone changes in
+			the passed revision range.
+    --for SUBMODULE [...] ;
+			Only consider the following SUBMODULE(s); i.e. all
+			following arguments until an argument consisting of ';'
+			is encountered.
     --predicate-command|-P CMD
 			Skip submodules where CMD (executed in the submodule
 			root) fails. The string {} is replaced with the relative
@@ -88,8 +95,22 @@ exit status is 0 if at least one command succeeded.
 HELPTEXT
 }
 
+obtainSubmodulesFromRange()
+{
+    submoduleArgs+=(--for)
+    local submodule; while IFS=$'\n' read -r submodule
+    do
+	submodules["$submodule"]=t
+	submoduleArgs+=("$submodule")
+    done < <(git-showsubmodules "$@")
+    readarray -t submodulesInRange < <(git-showsubmodules "$@")
+    submoduleArgs+=(\;)
+}
+
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 submoduleRecurseArg=(--recursive)
+typeset -a submoduleArgs=()
+typeset -A submodules=()
 abortStatus=
 abortComparison=-eq
 isSingleSuccess=
@@ -119,13 +140,32 @@ do
 	--no-color|--color=*)	colorArg=("$1"); shift;;
 	--color)		colorArg=("$1" "$2"); shift; shift;;
 
+	--since|--after)	obtainSubmodulesFromRange "$1" "$2"; shift; shift;;
+	*..|..*|*..*)		obtainSubmodulesFromRange "$1"; shift;;
+	--for)			submoduleArgs+=("$1"); shift
+				while [ $# -gt 0 -a "$1" != ';' ]
+				do
+				    submoduleArgs+=("$1")
+				    submodules["$1"]=t
+				    shift
+				done
+				if [ $# -eq 0 ]; then
+				    echo 'ERROR: --for must be concluded with ;!'; echo; printUsage "$0"
+				    exit 2
+				fi >&2
+				submoduleArgs+=("$1")
+				shift
+				;;
+
 	--collect)		shift
+				[ ${#submodules[@]} -eq 0 ] || [ "${submodules["${displaypath:?}"]}" ] || exit 0
+
 				predicateOutput=
 				if [ $# -gt 0 ]; then
 				    predicateOutput="$(eval "${@//\{\}/$displaypath}")" || exit 0
 				fi
-				printf '%s=%q; ' dirspec "${PWD:?}" name "${name:?}" sm_path "${sm_path:?}" displaypath "${displaypath:?}" sha1 "${sha1:?}" toplevel "${toplevel:?}" predicateOutput "${predicateOutput?}"
-				echo
+				printf '%s=%q; ' dirspec "${PWD:?}" name "${name:?}" sm_path "${sm_path:?}" displaypath "${displaypath:?}" sha1 "${sha1:?}" toplevel "${toplevel:?}" predicateOutput "${predicateOutput?}"; echo
+
 				exit
 				;;
 	--)			shift; break;;
@@ -197,10 +237,15 @@ if [ ${#commands[@]} -eq 0 ]; then
     isNeedEval=t
     commands=('echo "$displaypath"')
 fi
+if [ ${#submoduleArgs[@]} -gt 0 -a ${#submodules[@]} -eq 0 ]; then
+    echo 'No SUBMODULE(s) given to --for.'
+    exit 99
+fi >&2
 
 printf -v quotedScriptFilespec %q "${BASH_SOURCE[0]}"
+quotedSubmoduleArgs=; [ ${#submoduleArgs[@]} -eq 0 ] || printf -v quotedSubmoduleArgs ' %q' "${submoduleArgs[@]}"
 printf -v quotedPredicateCommands ' %q' "${predicateCommands[*]}"
-readarray -t submoduleEnvironments < <(git submodule foreach --quiet "${submoduleRecurseArg[@]}" "$quotedScriptFilespec --collect${quotedPredicateCommands}")
+readarray -t submoduleEnvironments < <(git submodule foreach --quiet "${submoduleRecurseArg[@]}" "$quotedScriptFilespec${quotedSubmoduleArgs} --collect${quotedPredicateCommands}")
 if [ ${#submoduleEnvironments[@]} -eq 0 ]; then
     echo >&2 'No submodules found!'
     exit 1

@@ -41,8 +41,7 @@ done
 if [ $# -eq 0 ]; then
     if [ ! "$isYes" ] && git-ismerge "$commit"; then
 	# The commit has been merged from a branch; this is dubious.
-	</dev/tty read -r -N 1 -p "The last commit is a merge, you should use \"git unmerge\" to undo the merge and checkout the original branch again; really move to that? (y/n) " choice; echo >/dev/tty
-	[ "$choice" = "y" ] || exit 1
+	userBinaryChoice --question "The last commit is a merge, you should use \"git unmerge\" to undo the merge and checkout the original branch again; really move to that?" --yes-no || exit 4
     fi
 else
     commit="$1"; shift
@@ -55,8 +54,7 @@ else
 	let commitNum+=commitOffset
 	# The commit has been merged from a branch; this is dubious.
 	if [ ! "$isYes" ]; then
-	    </dev/tty read -r -N 1 -p "The target commit is on a side branch that was merged into the current branch; really move to that? (y/n) " choice; echo >/dev/tty
-	    [ "$choice" = "y" ] || exit 1
+	    userBinaryChoice --question "The target commit is on a side branch that was merged into the current branch; really move to that?" --yes-no || exit 4
 	fi
     else
 	[ "$isQuiet" ] || echo >&2 'ERROR: The target commit is not an ancestor of the current branch!'
@@ -83,8 +81,7 @@ commitNumPlural=s; [ $commitNum -eq 1 ] && commitNumPlural=
 if [ "$isYes" ]; then
     [ "$isQuiet" ] || printf >&2 'Moving %d commit%s onto %s.\n' "$commitNum" "$commitNumPlural" "$branchName"
 else
-    </dev/tty read -r -N 1 -p "Really move $commitNum commit${commitNumPlural} onto branch '$branchName'? (y/n) " choice; echo >/dev/tty
-    [ "$choice" = "y" ] || exit 1
+    userBinaryChoice --question "Really move $commitNum commit${commitNumPlural} onto branch '$branchName'?" --yes-no || exit 4
 fi
 
 git checkout -b "$branchName" "$branchCommit" || exit $?

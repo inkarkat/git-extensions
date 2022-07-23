@@ -13,21 +13,19 @@ case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
 if [ $# -ne 1 ]; then
-    echo >&2 "Need to pass URL!"
+    echo >&2 'Need to pass URL!'
     echo
     printUsage "$0"
     exit 2
 fi >&2
 
 
-oldOrigin=$(git remote get-url origin 2>/dev/null)
+oldOrigin="$(git remote get-url origin 2>/dev/null)"
 
-if [ "$oldOrigin" ]; then
-    printf 'origin already exists: %s\n' "$oldOrigin"
-    </dev/tty read -r -N 1 -p "Rename to upstream? (y/n) " choice; echo >/dev/tty
-    [ "$choice" = 'y' ] || exit 1
+if [ -n "$oldOrigin" ]; then
+    userBinaryChoice --introduction "origin already exists: $oldOrigin" --question 'Rename to upstream?' --yes-no || exit 4
 
     git remote rename origin upstream || exit $?
 fi
 
-git remote add -f origin "$1"
+exec git remote add -f origin "$1"

@@ -38,8 +38,7 @@ if [ -n "$branchName" ]; then
     if [ "$isYes" ] || git-equals "$branchName" HEAD; then
 	: # Directly on the detached branch, go for it!
     else
-	</dev/tty read -r -N 1 -p "'${branchName}' contains the current revision; forward to and check out that? (y/n) " choice; echo >/dev/tty
-	[ "$choice" = "y" ] || branchName=''
+	userBinaryChoice --question "'${branchName}' contains the current revision; forward to and check out that?" --yes-no || branchName=''
     fi
 fi
 if [ -z "$branchName" ]; then
@@ -50,8 +49,7 @@ if [ -z "$branchName" ]; then
     elif [ ${#containedBranches[@]} -eq 1 ]; then
 	branchName="${containedBranches[0]}"
 	if [ ! "$isYes" ]; then
-	    </dev/tty read -r -N 1 -p "'${branchName}' is contained in the current revision; go back and check out that? (y/n) " choice; echo >/dev/tty
-	    [ "$choice" = "y" ] || exit 4
+	    userBinaryChoice --question "'${branchName}' is contained in the current revision; go back and check out that?" --yes-no || exit 4
 	fi
     else
 	if [ "$isYes" ]; then

@@ -48,8 +48,7 @@ if [ $# -gt 0 ]; then
 	let commitNum+=1
 	# The commit has been merged from a branch; this is dubious.
 	if [ ! "$isYes" ]; then
-	    </dev/tty read -r -N 1 -p "The target commit is on a side branch that was merged into the current branch; really archive that? (y/n) " choice; echo >/dev/tty
-	    [ "$choice" = "y" ] || exit 1
+	    userBinaryChoice --question "The target commit is on a side branch that was merged into the current branch; really archive that?" --yes-no || exit 4
 	fi
     else
 	[ "$isQuiet" ] || echo >&2 'ERROR: The target commit is not an ancestor of the current branch!'
@@ -67,7 +66,7 @@ fi
 
 tagCommit="$(git rev-parse HEAD)" || exit $?
 if [ -z "$tagName" ] && [ ! "$isYes" ]; then
-    </dev/tty read -r -p "Please enter tag name: " tagName
+    tagName="$(userquery -r -p 'Please enter tag name: ')" || exit $?
 fi
 [ -n "$tagName" ] || exit 1
 fullTagName="archive/$tagName"
@@ -84,8 +83,7 @@ commitNumPlural=s; [ $commitNum -eq 1 ] && commitNumPlural=
 if [ "$isYes" ]; then
     [ "$isQuiet" ] || printf >&2 'Moving %d commit%s to tag %s.\n' "$commitNum" "$commitNumPlural" "$fullTagName"
 else
-    </dev/tty read -r -N 1 -p "Really move $commitNum commit${commitNumPlural} to tag '$fullTagName'? (y/n) " choice; echo >/dev/tty
-    [ "$choice" = "y" ] || exit 1
+    userBinaryChoice --question "Really move $commitNum commit${commitNumPlural} to tag '$fullTagName'?" --yes-no || exit 4
 fi
 
 git tag ${isForce:+--force} "$fullTagName" "$tagCommit" || exit $?

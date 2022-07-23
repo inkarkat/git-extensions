@@ -13,5 +13,8 @@ case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
 
-git-stfiles --porcelain=1 --untracked-files=no --ignore-submodules=untracked "$@" | \
-    git-subfilter
+# "S<c><m><u>" when the entry is a submodule.
+# <m> is "M" if it has tracked changes; otherwise ".".
+# Example: 1 .M S.M. 160000 160000 160000 76d00931ab0707f824e99ad217aabf5953e9808b 76d00931ab0707f824e99ad217aabf5953e9808b submodule
+git status --porcelain=2 --untracked-files=no --ignore-submodules=none --no-renames "$@" | \
+    sed -ne 's/^1 .. S.M. [[:digit:]]\+ [[:digit:]]\+ [[:digit:]]\+ [[:xdigit:]]\+ [[:xdigit:]]\+ \(.*\)$/\1/p'

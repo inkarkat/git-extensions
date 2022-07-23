@@ -21,7 +21,7 @@ printExtendedUsage()
     local splitPattern='/^Note:/'
     "$GIT_DOEXTENSIONS_WRAPPEE" --help 2>&1 | sed \
 	-e "${splitPattern},\$d" \
-	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ ]\+ \)*'"${GIT_DOEXTENSIONS_WRAPPEE} /\\1\\2${wrapper}"' [--dirty|--wips [(+|-)CHECK [(+|-)...]]|--same-branch] /; }'
+	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ ]\+ \)*'"${GIT_DOEXTENSIONS_WRAPPEE} /\\1\\2${wrapper}"' [--untracked|--dirty|--wips [(+|-)CHECK [(+|-)...]]|--same-branch] /; }'
     cat <<HELPTEXT
 Supports the following special commands and options:
     repo-missing	    Show those $GIT_DOEXTENSIONS_WHAT that are not yet
@@ -31,6 +31,15 @@ Supports the following special commands and options:
 			    $GIT_DOEXTENSIONS_WHAT that fall into the logged range.
 			    * stands for any logdistribution range variant (td,
 			    year, ...).
+    untracked-sh [COMMAND ...]
+			    Open an interactive shell / execute COMMAND in those
+			    $GIT_DOEXTENSIONS_WHAT that have new files not yet
+			    added to version control (and not covered by the
+			    ignore patterns).
+			    You can abort the iteration by exiting the shell
+			    with exit status 126.
+    --untracked		    Also available as a standalone predicate (to combine
+			    with other COMMAND(s)).
     dirty-sh [COMMAND ...]  Open an interactive shell / execute COMMAND in those
 			    $GIT_DOEXTENSIONS_WHAT that have uncommitted changes.
 			    You can abort the iteration by exiting the shell
@@ -87,6 +96,7 @@ parseCommand()
 	    --@(abort-on|color|progress|foreign-command|predicate-command))
 			    wcdoArgs+=("$1" "$2"); shift; shift;;
 
+	    --untracked)    shift; wcdoArgs+=(--predicate-command 'git untracked');;
 	    --dirty)	    shift; wcdoArgs+=(--predicate-command 'git dirty');;
 	    --wips)	    shift
 			    typeset -a wipsArgs=()
@@ -167,6 +177,19 @@ parseCommand()
 		printf -v quotedLogDistributionArgs '%q ' --log-only "$@"; quotedLogDistributionArgs="${quotedLogDistributionArgs% }"
 		wcdoArgs+=(--no-header --skip-files --no-git-color --command "$logDistributionCommand $quotedLogDistributionArgs")
 		accumulationCommand=(git-logdistribution --stdin "$@")
+		;;
+	    untracked-sh)
+		# Synthesized new command.
+		shift
+		wcdoArgs+=(--predicate-command 'git untracked')
+		wcdoArgs+=("${shellWcdoArgs[@]}" --command)
+		if [ $# -eq 0 ]; then
+		    wcdoArgs+=("$quotedShell -i")
+		    echo "Note: To abort the iteration of $GIT_DOEXTENSIONS_WHAT, use \"exit 126\"."
+		else
+		    printf -v quotedSimpleCommand '%q ' "$@"
+		    wcdoArgs+=("${quotedSimpleCommand# }")
+		fi
 		;;
 	    dirty-sh)
 		# Synthesized new command.

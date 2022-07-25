@@ -1,26 +1,46 @@
 #!/bin/bash
 shopt -qs globstar # ** matches files and/only (as **/) subdirs recursively.
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--bare] [-r|-a] [-b|--base <branch>] [<branch-glob>] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 List local branches and their first commit ordered by date of first commit, as
 based on the best common ancestors of all branches or the branch passed with
---base <branch>.
-Pass -r to list remote-tracking branches.
-Pass -a to list both.
-The branches can be optionally filtered by <branch-glob>.
+--base <branch>. The branches can be optionally filtered by <branch-glob>.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --long|-l		Also print the author name.
+    -r			List remote-tracking branches.
+    -a			List both local and remote-tracking branches.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--bare] [-r|-a] [-b|--base <branch>] [<branch-glob>] [-?|-h|--help]'
 }
 
 locality='local'
 base=
-format='%at	%h	(%aN, %ar)'
+format='%at	%ai	(%ar)'
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--long|-l)	shift; format="${format/)/, %aN)}";;
 	--all|-a)	shift; locality='all';;
 	--remote|-r)	shift; locality='remote';;
 	--base|-b)	shift; base="$1"; shift;;

@@ -66,7 +66,7 @@ isUntracked=
 isRecursive=
 startPoint=
 checkoutAction=checkoutExistingLocal
-checkoutWhat='update to tracked remote'
+checkoutWhat='Update to tracked remote'
 logArg=
 forceArg=
 prefix=
@@ -80,12 +80,12 @@ do
 	--recursive)	recursiveArgs+=("$1"); shift; isRecursive=t;;
 	--start-point)	shift; startPoint="${1:?}"; shift; checkoutAction=checkoutStartPoint;;
 	--existing-local)
-			recursiveArgs+=("$1"); shift; checkoutAction=checkoutExistingLocal; checkoutWhat='check out existing local';;
+			recursiveArgs+=("$1"); shift; checkoutAction=checkoutExistingLocal; checkoutWhat='Check out existing local';;
 	--existing-remote)
-			recursiveArgs+=("$1"); shift; checkoutAction=checkoutExistingRemote; checkoutWhat='check out existing remote';;
-	--checkout)	recursiveArgs+=("$1"); shift; checkoutAction=checkoutCreate; checkoutWhat='check out or create';;
-	--remote)	recursiveArgs+=("$1"); shift; checkoutAction=update; checkoutWhat='update to tracked remote'; logArg=--none;;
-	--update)	recursiveArgs+=("$1"); shift; checkoutAction=update; checkoutWhat='update to tracked remote';;
+			recursiveArgs+=("$1"); shift; checkoutAction=checkoutExistingRemote; checkoutWhat='Check out existing remote';;
+	--checkout)	recursiveArgs+=("$1"); shift; checkoutAction=checkoutCreate; checkoutWhat='Check out or create';;
+	--remote)	recursiveArgs+=("$1"); shift; checkoutAction=update; checkoutWhat='Update to tracked remote'; logArg=--none;;
+	--update)	recursiveArgs+=("$1"); shift; checkoutAction=update; checkoutWhat='Update to tracked remote';;
 	--@(gui|terminal|none))
 			recursiveArgs+=("$1")
 			logArg="$1"; shift;;
@@ -327,15 +327,15 @@ do
 	    ;;
 	query)
 	    if [ "${uninitializedSubmodules["$submodule"]}" ]; then
-		choice="$(userchoiceFromList --no-cancel --question "${prefix}${submodule} hasn't been initialized yet" \
-		    'initialize now' 'skip' 'abort')"
+		choice="$(userchoiceFromList --question "${prefix}${submodule} hasn't been initialized yet" --no-cancel --ignore-case \
+		    '[I]nitialize now' '[S]kip' '[A]bort')"
 		case "$choice" in
-		    'initialize now')
+		    'Initialize now')
 			git submodule update --init --recursive -- "$submodule" || { status=$?; continue; }
 			;;
-		    'skip')
+		    'Skip')
 			continue;;
-		    'abort')
+		    'Abort')
 			exit 1;;
 		    *)	printf >&2 'ASSERT: Invalid choice: %s\n' "$choice"; exit 3;;
 		esac
@@ -349,17 +349,17 @@ do
 
 	    isSkipped && continue
 
-	    choice="$(userchoiceFromList --no-cancel --question "$submoduleStatus" \
-		"$checkoutWhat" 'reset to superproject' 'leave as-is')"
+	    choice="$(userchoiceFromList --question "$submoduleStatus" --no-cancel --ignore-case \
+		"$checkoutWhat" '[R]eset to superproject' '[L]eave as-is')"
 	    case "$choice" in
 		"$checkoutWhat")
 		    # This is the default action.
 		    ;;
-		'reset to superproject')
+		'Reset to superproject')
 		    git submodule update --init --checkout $forceArg --recursive -- "$submodule" && : ${status:=0} || status=$?
 		    continue
 		    ;;
-		'leave as-is')
+		'Leave as-is')
 		    : ${status:=0}
 		    continue
 		    ;;

@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--resolve] [-l|--long] [<pattern> ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--resolve] [-l|--long] [-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [<pattern> ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -28,18 +28,27 @@ HELPDESCRIPTION
     --resolve|-r	Use the date of the tagged commit instead of the tag
 			creation date.
     --long|-l		Also print the tag[ged commit]'s author name.
+    -n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]
+			Only print those tags that match the age comparison.
+SUFFIX may be 's' for seconds (the default), 'm' for minutes, 'h' for hours, 'd'
+for days, 'w' for weeks, 'mo' for months, 'y' for years, 'g' for generations.
 HELPTEXT
 }
 
 action=ageByCreation
+prefixLogFormat=
+prefixRefFormat=
 additionalLogFormat=
 additionalRefFormat=
+typeset -a postAction=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--resolve|-r)	shift; action=ageByCommit;;
 	--long|-l)	shift; additionalLogFormat='%aN'; additionalRefFormat='%(authorname)%(*authorname)';;
+	-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt)
+			postAction=(filterAge --field-separator $'\t' "$1" "$2"); shift; shift; prefixLogFormat='%ct'; prefixRefFormat='%(creatordate:unix)';;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -49,16 +58,15 @@ done
 ageByCommit()
 {
     git tag --list --format='%(refname)' "$@" | \
-	xargs --no-run-if-empty --delimiter '\n' -n 1 git log --max-count 1 --pretty=tformat:"%ci	(%cr${additionalLogFormat:+, }${additionalLogFormat})	%D: %s" | \
+	xargs --no-run-if-empty --delimiter '\n' -n 1 git log --max-count 1 --pretty=tformat:"${prefixLogFormat}${prefixLogFormat:+	}%ci	(%cr${additionalLogFormat:+, }${additionalLogFormat})	%D: %s" | \
 	sort -r -n | \
-	sed -e 's/\(\t\|, \)tag: /\1/g' | \
-	column -s $'\t' -t
+	sed -e 's/\(\t\|, \)tag: /\1/g'
     }
 
 ageByCreation()
 {
-    git tag --list --sort=-creatordate --format="%(creatordate:iso)	(%(creatordate:relative)${additionalRefFormat:+, }${additionalRefFormat})	%(refname:short)" "$@" | \
-	column -s $'\t' -t
+    git tag --list --sort=-creatordate --format="${prefixRefFormat}${prefixRefFormat:+	}%(creatordate:iso)	(%(creatordate:relative)${additionalRefFormat:+, }${additionalRefFormat})	%(refname:short)" "$@"
 }
 
-$action "$@"
+eval '$action "$@"' "${postAction:+|}" '"${postAction[@]}"' | \
+    column -s $'\t' -t

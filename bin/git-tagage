@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--resolve] [<pattern> ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--resolve] [-l|--long] [<pattern> ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -27,19 +27,29 @@ HELPDESCRIPTION
     cat <<HELPTEXT
     --resolve|-r	Use the date of the tagged commit instead of the tag
 			creation date.
+    --long|-l		Also print the tag[ged commit]'s author name.
 HELPTEXT
 }
 
 action=ageByCreation
-case "$1" in
-    --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
-    --resolve|-r)	shift; action=ageByCommit;;
-esac
+additionalLogFormat=
+additionalRefFormat=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--resolve|-r)	shift; action=ageByCommit;;
+	--long|-l)	shift; additionalLogFormat='%aN'; additionalRefFormat='%(authorname)%(*authorname)';;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 
 ageByCommit()
 {
     git tag --list --format='%(refname)' "$@" | \
-	xargs --no-run-if-empty --delimiter '\n' -n 1 git log --max-count 1 --pretty=tformat:'%ci	(%cr)	%D: %s' | \
+	xargs --no-run-if-empty --delimiter '\n' -n 1 git log --max-count 1 --pretty=tformat:"%ci	(%cr${additionalLogFormat:+, }${additionalLogFormat})	%D: %s" | \
 	sort -r -n | \
 	sed -e 's/\(\t\|, \)tag: /\1/g' | \
 	column -s $'\t' -t
@@ -47,7 +57,7 @@ ageByCommit()
 
 ageByCreation()
 {
-    git tag --list --sort=-creatordate --format='%(creatordate:iso)	(%(creatordate:relative))	%(refname:short)' "$@" | \
+    git tag --list --sort=-creatordate --format="%(creatordate:iso)	(%(creatordate:relative)${additionalRefFormat:+, }${additionalRefFormat})	%(refname:short)" "$@" | \
 	column -s $'\t' -t
 }
 

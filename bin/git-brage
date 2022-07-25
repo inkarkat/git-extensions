@@ -1,0 +1,76 @@
+#!/bin/bash
+set -o pipefail
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--bare|-l|--long] [-r|--remote REMOTE|-a] [-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [--] [<branch-glob> ...] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+List branches by age (descending, starting with old branches).
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --long|-l		Also print the author name.
+    --bare		Just print the branch names.
+    -r			List remote-tracking branches.
+    --remote REMOTE	List a particular REMOTE.
+    -a			List both local and remote-tracking branches.
+    -n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]
+			Only print those branches that match the age comparison.
+SUFFIX may be 's' for seconds (the default), 'm' for minutes, 'h' for hours, 'd'
+for days, 'w' for weeks, 'mo' for months, 'y' for years, 'g' for generations.
+HELPTEXT
+}
+
+typeset branchPrefixes=('refs/heads/')
+isInfo=t
+prefixRefFormat=
+additionalRefFormat=
+typeset -a postAction=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--bare)		shift
+			isInfo=
+			;;
+	--long|-l)	shift; additionalRefFormat='%(authorname)%(*authorname)';;
+	-a)		shift; branchPrefixes=('refs/heads/' 'refs/remotes/');;
+	--remote)	shift; branchPrefixes=("refs/remotes/${1}/"); shift;;
+	-r)		shift; branchPrefixes=('refs/remotes/');;
+	-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt)
+			postAction=(filterAge --field-separator $'\t' "$1" "$2"); shift; shift; prefixRefFormat='%(committerdate:unix)';;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+typeset -a branchGlobs=()
+[ $# -gt 0 ] || set -- ''
+for arg
+do
+    branchGlobs+=("${branchPrefixes[@]/%/$arg}")
+done
+
+branchAge()
+{
+    git for-each-ref --sort=committerdate --format="${prefixRefFormat}${prefixRefFormat:+%09}${isInfo:+%(committerdate:iso)%09(%(committerdate:relative)}${additionalRefFormat:+, }${additionalRefFormat}${isInfo:+)%09}%(refname:short)" "${branchGlobs[@]}"
+}
+
+eval 'branchAge "$@"' "${postAction:+|}" '"${postAction[@]}"' | \
+    column -s $'\t' -t

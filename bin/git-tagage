@@ -51,7 +51,7 @@ do
 	--resolve|-r)	shift; action=ageByCommit;;
 	--bare)		shift
 			isInfo=
-			additionalLogMassaging=(-e 's/^[^	]\+\t//' -e 's/, /\n/g')    # Need to remove the ISO date required for sorting, and unjoin multiple "TAG1, TAG2" lists.
+			additionalLogMassaging=(-e 's/^[^\t]\+\t//' -e 's/, /\n/g')    # Need to remove the ISO date required for sorting, and unjoin multiple "TAG1, TAG2" lists.
 			;;
 	--long|-l)	shift; additionalLogFormat='%aN'; additionalRefFormat='%(authorname)%(*authorname)';;
 	-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt)
@@ -65,14 +65,14 @@ done
 ageByCommit()
 {
     git tag --list --format='%(refname)' "$@" | \
-	xargs --no-run-if-empty --delimiter '\n' -n 1 git log --max-count 1 --pretty=tformat:"${prefixLogFormat}${prefixLogFormat:+	}%ci	${isInfo:+(%cr}${additionalLogFormat:+, }${additionalLogFormat}${isInfo:+)	}%D${isInfo:+: %s}" | \
+	xargs --no-run-if-empty --delimiter '\n' -n 1 git log --max-count 1 --pretty=tformat:"${prefixLogFormat}${prefixLogFormat:+\\t}%ci	${isInfo:+(%cr}${additionalLogFormat:+, }${additionalLogFormat}${isInfo:+)	}%D${isInfo:+: %s}" | \
 	sort -r -n | \
 	sed -e 's/\(\t\|, \)tag: /\1/g' "${additionalLogMassaging[@]}"
 }
 
 ageByCreation()
 {
-    git tag --list --sort=-creatordate --format="${prefixRefFormat}${prefixRefFormat:+	}${isInfo:+%(creatordate:iso)	(%(creatordate:relative)}${additionalRefFormat:+, }${additionalRefFormat}${isInfo:+)	}%(refname:short)" "$@"
+    git tag --list --sort=-creatordate --format="${prefixRefFormat}${prefixRefFormat:+%09}${isInfo:+%(creatordate:iso)%09(%(creatordate:relative)}${additionalRefFormat:+, }${additionalRefFormat}${isInfo:+)%09}%(refname:short)" "$@"
 }
 
 eval '$action "$@"' "${postAction:+|}" '"${postAction[@]}"' | \

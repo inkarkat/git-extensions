@@ -16,7 +16,7 @@ HELPTEXT
 
 locality='local'
 base=
-format='%at %h (%aN, %ar)'
+format='%at	%h	(%aN, %ar)'
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -58,11 +58,12 @@ do
 	# whether the hashes are identical.
 	firstCommit="$(git log -1 --pretty="tformat:$format" "${branch}")"
     fi
-    firstCommits+=("$firstCommit $branch")
+    firstCommits+=("$firstCommit	$branch")
 done
-IFS=$'\n'
-readarray -t sortedFirstCommits < <(sort <<<"${firstCommits[*]}")
 
 # Print the sorted information without the leading Unix timestamp used as the
 # sort key.
-printf '%s\n' "${sortedFirstCommits[*]#* }"
+printf '%s\n' "${firstCommits[@]}" | \
+    sort | \
+    sed -e 's/^[^\t]*\t//' | \
+    column -s $'\t' -t

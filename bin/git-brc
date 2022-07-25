@@ -5,7 +5,7 @@ printUsage()
 {
     cat <<HELPTEXT
 List local branches and their first commit ordered by date of first commit, as
-based on the best common ancestors of all branches  or the branch passed with
+based on the best common ancestors of all branches or the branch passed with
 --base <branch>.
 Pass -r to list remote-tracking branches.
 Pass -a to list both.
@@ -51,12 +51,12 @@ do
 	mergeBase=$(git merge-base --octopus "$branch") || exit $?
     fi
     firstCommit=$(git log --pretty="tformat:$format" "${mergeBase}..${branch}" | tail -n 1)
-    if [ ! "$firstCommit" ]; then
+    if [ -z "$firstCommit" ]; then
 	# There's no log output when the merge base is identical to the branch;
 	# i.e. there's only one commit on the branch so far. Grab that commit
-	# separately; this is easier than first checking with get show-ref
+	# separately; this is easier than first checking with git show-ref
 	# whether the hashes are identical.
-	firstCommit=$(git log -1 --pretty="tformat:$format" "${branch}")
+	firstCommit="$(git log -1 --pretty="tformat:$format" "${branch}")"
     fi
     firstCommits+=("$firstCommit $branch")
 done

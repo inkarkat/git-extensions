@@ -1,30 +1,62 @@
 #!/bin/bash
+set -o pipefail
 shopt -qs globstar # ** matches files and/only (as **/) subdirs recursively.
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--bare] [-r|-a] [-b|--base <branch>] [-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [<branch-glob>] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 List local branches and their first commit ordered by date of first commit, as
-based on the best common ancestors of all branches  or the branch passed with
---base <branch>.
-Pass -r to list remote-tracking branches.
-Pass -a to list both.
-The branches can be optionally filtered by <branch-glob>.
+based on the current branch (brbase: as tagged or referenced anywhere in the
+history (also by remotes)) or the best common ancestors of all branches or the
+branch passed with --base <branch>. The branches can be optionally filtered by
+<branch-glob>.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --long|-l		Also print the author name.
+    --bare		Just print the branch names.
+    --base|-b BASE	Use base as the base for all branches.
+    -r			List remote-tracking branches.
+    -a			List both local and remote-tracking branches.
+    -n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]
+			Only print those branches that match the age comparison.
+SUFFIX may be 's' for seconds (the default), 'm' for minutes, 'h' for hours, 'd'
+for days, 'w' for weeks, 'mo' for months, 'y' for years, 'g' for generations.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--bare] [-r|-a] [-b|--base <branch>] [<branch-glob>] [-?|-h|--help]'
 }
 
 locality='local'
 base=
-format='%at %h (%aN, %ar)'
+format='%at	%ai	(%ar)'
+typeset -a filterAction=(sed -e 's/^[^\t]*\t//')
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--long|-l)	shift; format="${format/)/, %aN)}";;
 	--all|-a)	shift; locality='all';;
 	--remote|-r)	shift; locality='remote';;
 	--base|-b)	shift; base="$1"; shift;;
 	--bare)		shift; format='%at';;
+	-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt)
+			filterAction=(filterAge --field-separator $'\t' "$1" "$2"); shift; shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -48,21 +80,22 @@ do
     if [ "$base" ]; then
 	mergeBase=$(git merge-base "$branch" "$base") || exit $?
     else
-	mergeBase=$(git merge-base --octopus "$branch") || exit $?
+	mergeBase=$(git brbase --branch "$branch" 2>/dev/null || git merge-base --octopus "$branch") || exit $?
     fi
-    firstCommit=$(git log --pretty="tformat:$format" "${mergeBase}..${branch}" | tail -n 1)
-    if [ ! "$firstCommit" ]; then
+    firstCommit=$(git log --pretty="tformat:${format}" "${mergeBase}..${branch}" | tail -n 1)
+    if [ -z "$firstCommit" ]; then
 	# There's no log output when the merge base is identical to the branch;
 	# i.e. there's only one commit on the branch so far. Grab that commit
-	# separately; this is easier than first checking with get show-ref
+	# separately; this is easier than first checking with git show-ref
 	# whether the hashes are identical.
-	firstCommit=$(git log -1 --pretty="tformat:$format" "${branch}")
+	firstCommit="$(git log -1 --pretty="tformat:${format}" "${branch}")"
     fi
-    firstCommits+=("$firstCommit $branch")
+    firstCommits+=("$firstCommit	$branch")
 done
-IFS=$'\n'
-readarray -t sortedFirstCommits < <(sort <<<"${firstCommits[*]}")
 
 # Print the sorted information without the leading Unix timestamp used as the
 # sort key.
-printf '%s\n' "${sortedFirstCommits[*]#* }"
+printf '%s\n' "${firstCommits[@]}" | \
+    sort -n | \
+    "${filterAction[@]}" | \
+    column -s $'\t' -t

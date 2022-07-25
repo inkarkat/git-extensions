@@ -1,19 +1,38 @@
 #!/bin/bash
 set -o pipefail
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--resolve] [<pattern> ...] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
-List tags by age (ascending, starting with recent tags). By default, uses the
-tag creation date; with -r|--resolve, uses the date of the tagged commit.
-HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+List tags by age (ascending, starting with recent tags).
+HELPDESCRIPTION
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--resolve] [<pattern> ...] [-?|-h|--help]'
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --resolve|-r	Use the date of the tagged commit instead of the tag
+			creation date.
+HELPTEXT
 }
 
 action=ageByCreation
 case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
     --resolve|-r)	shift; action=ageByCommit;;
 esac
 

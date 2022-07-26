@@ -6,18 +6,18 @@ printUsage()
     cat <<HELPTEXT
 Filter out the current branch and master (and base branch if defined) from the input.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--remote REMOTE] [--include-current] [--include-master] [--include-base] [--include-all] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--remote REMOTE|"" [--remote ...]] [--include-current] [--include-master] [--include-base] [--include-all] [-?|-h|--help]'
 }
 
 isIncludeCurrent=
 isIncludeMaster=
 isIncludeBase=
-remote=
+typeset -a remotes=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	    shift; printUsage "$0"; exit 0;;
-	--remote)	    shift; remote="$1"; shift;;
+	--remote)	    shift; remotes+=("$1"); shift;;
 	--include-current)  shift; isIncludeCurrent=t;;
 	--include-master)   shift; isIncludeMaster=t;;
 	--include-base)	    shift; isIncludeBase=t;;
@@ -49,9 +49,13 @@ baseBranch="$(git-nbr 2>/dev/null)"
 [ "$isIncludeBase" ] && [ -n "$baseBranch" ] && unset "excludedBranches[$baseBranch]"
 
 typeset -a grepArgs=()
-for excludedBranch in "${!excludedBranches[@]}"
+[ ${#remotes[@]} -gt 0 ] || remotes=('')
+for remote in "${remotes[@]}"
 do
-    grepArgs+=(-e "${remote}${remote:+/}$excludedBranch")
+    for excludedBranch in "${!excludedBranches[@]}"
+    do
+	grepArgs+=(-e "${remote}${remote:+/}$excludedBranch")
+    done
 done
 
 if [ ${#grepArgs[@]} -eq 0 ]; then

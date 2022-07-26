@@ -19,43 +19,17 @@ getBranches()
     fi
 }
 
-isIncludeCurrent=
-isIncludeMaster=
-isIncludeBase=
+typeset -a branchFilters=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	    shift; printUsage "$0"; exit 0;;
-	--include-current)  shift; isIncludeCurrent=t;;
-	--include-master)   shift; isIncludeMaster=t;;
-	--include-base)	    shift; isIncludeBase=t;;
-	--include-all)	    shift; isIncludeCurrent=t; isIncludeMaster=t; isIncludeBase=t;;
+	--include-*)	    branchFilters+=("$1"); shift;;
 	--)		    shift; break;;
 	-*)		    { echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		    break;;
     esac
 done
 
-typeset -A excludedBranches=()
-
-currentBranch="$(git symbolic-ref HEAD 2>/dev/null)"
-currentBranch="${currentBranch##refs/heads/}"
-[ -z "$currentBranch" ] || excludedBranches["$currentBranch"]=1
-
-masterBranch="$(git-mbr)"
-[ -z "$masterBranch" ] || excludedBranches["$masterBranch"]=1
-
-baseBranch="$(git-nbr 2>/dev/null)"
-[ -z "$baseBranch" ] || excludedBranches+=(["$baseBranch"]=1)
-
-[ "$isIncludeCurrent" ] && [ -n "$currentBranch" ] && unset "excludedBranches[$currentBranch]"
-[ "$isIncludeMaster" ] && [ -n "$masterBranch" ] && unset "excludedBranches[$masterBranch]"
-[ "$isIncludeBase" ] && [ -n "$baseBranch" ] && unset "excludedBranches[$baseBranch]"
-
-typeset -a grepArgs=()
-for excludedBranch in "${!excludedBranches[@]}"
-do
-    grepArgs+=(-e "$excludedBranch")
-done
-
-eval 'getBranches "$@"' "${grepArgs:+ | grep -v -F --line-regexp}" '"${grepArgs[@]}"'
+getBranches "$@" | \
+    git-filter-out-persistent-branches "${branchFilters[@]}"

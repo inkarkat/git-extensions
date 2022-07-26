@@ -10,15 +10,16 @@ where the current branch / N previous branch got branched off / with
 tip of the branch was [N'th] last. If there's no branch, an error is printed.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--last-checkout|--previous|(-a|--any|-r|--include-remote-refs|-t|--include-tags [...])] [-n|--branch-number N] [--] GIT-COMMAND [...] [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '--keep-position [--last-checkout|--previous|(-a|--any|-r|--include-remote-refs|-t|--include-tags [...])] [-n|--branch-number N] [--] GIT-COMMAND [... BRANCH ...] [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '-N BRANCH [--last-checkout|--previous|(-a|--any|-r|--include-remote-refs|-t|--include-tags [...])] [-n|--branch-number N] [--] GIT-COMMAND [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--last-checkout|--previous|(-a|--any|-r|--include-remote-refs|-t|--include-tags [...])] [-n|--branch-number N] [--drop-remote] [--] GIT-COMMAND [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--keep-position [--last-checkout|--previous|(-a|--any|-r|--include-remote-refs|-t|--include-tags [...])] [-n|--branch-number N] [--drop-remote] [--] GIT-COMMAND [... BRANCH ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '-N BRANCH [--last-checkout|--previous|(-a|--any|-r|--include-remote-refs|-t|--include-tags [...])] [-n|--branch-number N] [--drop-remote] [--] GIT-COMMAND [...] [-?|-h|--help]'
 }
 
 typeset -a gitRevRangeThisBranchArgs=()
 isLast=
 lastSigil=
 lastCount=1
+isDropRemote=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -28,6 +29,7 @@ do
 	--any|-a|--include-remote-refs|-r|--include-tags|-t)
 				gitRevRangeThisBranchArgs+=("$1"); shift;;
 	--branch-number|-n)	gitRevRangeThisBranchArgs+=("$1" "$2"); shift; lastCount="$1"; shift;;
+	--drop-remote)		shift; isDropRemote=t;;
 	--)			shift; break;;
 	*)			break;;
     esac
@@ -37,13 +39,22 @@ branchBranch="$(
     if [ "$isLast" ]; then
 	git-rev-range --revision "@{${lastSigil}${lastCount}}" --no-range name-rev --name-only
     else
-	git-rev-range-this-branch --no-range "${gitRevRangeThisBranchArgs[@]}" | \
-	    sed -e 's#^remotes/##'
-    fi 2>/dev/null
+	git-rev-range-this-branch --no-range "${gitRevRangeThisBranchArgs[@]}"
+    fi 2>/dev/null | \
+	sed -e 's#^remotes/##'
 )"
 if ! git-existsbr "$branchBranch"; then
     echo >&2 'No branch found.'
     exit 1
+fi
+if [ "$isDropRemote" ]; then
+    for remote in $(git remote)
+    do
+	if [[ "$branchBranch" =~ ^"${remote}/"(.*)$ ]]; then
+	    branchBranch="${BASH_REMATCH[1]}"
+	    break
+	fi
+    done
 fi
 
 typeset -a branchArgs=()

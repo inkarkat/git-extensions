@@ -52,7 +52,13 @@ do
 
 	--force|-f)	gitArchiveArgs+=("$1"); shift;;
 
-	-a|-r)		gitStalebrArgs+=("$1"); shift;;
+	-a|-r)		[ "$1" = '-a' ] && gitFilterOutPersistentBranchesArgs+=(--remote '')
+			gitStalebrArgs+=("$1"); shift
+			for remote in $(git remote)
+			do
+			    gitFilterOutPersistentBranchesArgs+=(--remote "$remote")
+			done
+			;;
 	--remote)	gitStalebrArgs+=("$1" "$2"); gitFilterOutPersistentBranchesArgs=(--remote "$2"); shift; shift;;
 
 	-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt)

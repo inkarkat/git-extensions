@@ -1,0 +1,59 @@
+#!/bin/bash
+shopt -qs extglob
+
+printUsage()
+{
+    cat <<HELPTEXT
+Filter out the current branch and master (and base branch if defined) from the input.
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--include-current] [--include-master] [--include-base] [--include-all] [-?|-h|--help]'
+}
+
+isIncludeCurrent=
+isIncludeMaster=
+isIncludeBase=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	    shift; printUsage "$0"; exit 0;;
+	--include-current)  shift; isIncludeCurrent=t;;
+	--include-master)   shift; isIncludeMaster=t;;
+	--include-base)	    shift; isIncludeBase=t;;
+	--include-all)	    shift; isIncludeCurrent=t; isIncludeMaster=t; isIncludeBase=t;;
+	--)		    shift; break;;
+	-*)		    { echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		    break;;
+    esac
+done
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+typeset -A excludedBranches=()
+
+currentBranch="$(git symbolic-ref HEAD 2>/dev/null)"
+currentBranch="${currentBranch##refs/heads/}"
+[ -z "$currentBranch" ] || excludedBranches["$currentBranch"]=1
+
+masterBranch="$(git-mbr)"
+[ -z "$masterBranch" ] || excludedBranches["$masterBranch"]=1
+
+baseBranch="$(git-nbr 2>/dev/null)"
+[ -z "$baseBranch" ] || excludedBranches+=(["$baseBranch"]=1)
+
+[ "$isIncludeCurrent" ] && [ -n "$currentBranch" ] && unset "excludedBranches[$currentBranch]"
+[ "$isIncludeMaster" ] && [ -n "$masterBranch" ] && unset "excludedBranches[$masterBranch]"
+[ "$isIncludeBase" ] && [ -n "$baseBranch" ] && unset "excludedBranches[$baseBranch]"
+
+typeset -a grepArgs=()
+for excludedBranch in "${!excludedBranches[@]}"
+do
+    grepArgs+=(-e "$excludedBranch")
+done
+
+if [ ${#grepArgs[@]} -eq 0 ]; then
+    exec cat
+else
+    grep --invert-match --fixed-strings --line-regexp "${grepArgs[@]}"
+fi

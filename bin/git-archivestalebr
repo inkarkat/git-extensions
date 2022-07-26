@@ -41,6 +41,7 @@ HELPTEXT
 isQuiet=
 isYes=
 typeset -a gitArchiveArgs=()
+typeset -a gitFilterOutPersistentBranchesArgs=()
 typeset -a gitStalebrArgs=()
 while [ $# -ne 0 ]
 do
@@ -52,7 +53,7 @@ do
 	--force|-f)	gitArchiveArgs+=("$1"); shift;;
 
 	-a|-r)		gitStalebrArgs+=("$1"); shift;;
-	--remote)	gitStalebrArgs+=("$1" "$2"); shift; shift;;
+	--remote)	gitStalebrArgs+=("$1" "$2"); gitFilterOutPersistentBranchesArgs=(--remote "$2"); shift; shift;;
 
 	-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt)
 			gitStalebrArgs+=("$1" "$2"); shift; shift;;
@@ -63,7 +64,7 @@ do
     esac
 done
 
-readarray -t staleBranches < <(git-stalebr --bare "${gitStalebrArgs[@]}" "$@" | git-filter-out-persistent-branches)
+readarray -t staleBranches < <(git-stalebr --bare "${gitStalebrArgs[@]}" "$@" | git-filter-out-persistent-branches "${gitFilterOutPersistentBranchesArgs[@]}")
 [ ${#staleBranches[@]} -gt 0 ] || exit 99
 
 IFS=$'\n'

@@ -76,8 +76,15 @@ if [ "$isYes" ]; then
     [ "$isQuiet" ] || echo >&2 "Archiving:
 ${localBranches[*]}"
 else
+    if [ ${#localBranches[@]} -eq 1 ]; then
+	localBranchesArticle=this
+	localBranchesPlural=
+    else
+	localBranchesPlural=es
+	localBranchesArticle=these
+    fi
     userBinaryChoice --introduction "Archiving:
-${localBranches[*]}" --question 'Really archive these branches?' --yes-no || exit 4
+${localBranches[*]}" --question "Really archive $localBranchesArticle branch${localBranchesPlural}?" --yes-no || exit 4
 fi
 
 exec git-archivebr "${gitArchiveArgs[@]}" "${localBranches[@]}"

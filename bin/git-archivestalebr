@@ -78,8 +78,15 @@ if [ "$isYes" ]; then
     [ "$isQuiet" ] || echo >&2 "Archiving:
 ${staleBranches[*]}"
 else
+    if [ ${#staleBranches[@]} -eq 1 ]; then
+	staleBranchesArticle=this
+	staleBranchesPlural=
+    else
+	staleBranchesPlural=es
+	staleBranchesArticle=these
+    fi
     userBinaryChoice --introduction "Archiving:
-${staleBranches[*]}" --question 'Really archive these branches?' --yes-no || exit 4
+${staleBranches[*]}" --question "Really archive $staleBranchesArticle branch${staleBranchesPlural}?" --yes-no || exit 4
 fi
 
 exec git-archivebr "${gitArchiveArgs[@]}" "${staleBranches[@]}"

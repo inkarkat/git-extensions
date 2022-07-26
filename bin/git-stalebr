@@ -1,0 +1,78 @@
+#!/bin/bash
+set -o pipefail
+
+: ${GIT_STALEBR_AGE:=3mo}
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--bare] [--compare-to <branch>|<commit>|""] [-r|--remote REMOTE|-a] [-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [--] [<branch-glob> ...] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+List branches that have not been updated in a while (for ${GIT_STALEBR_AGE}).
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --bare		Just print the branch names.
+    --compare-to <branch>|<commit>|""
+			Show ahead-behind information with regards to <branch>
+			(default: the master branch) or <commit> (or omit that).
+    -r			List remote-tracking branches.
+    --remote REMOTE	List a particular REMOTE.
+    -a			List both local and remote-tracking branches.
+    -n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]
+			Only print those branches that match the age comparison.
+SUFFIX may be 's' for seconds (the default), 'm' for minutes, 'h' for hours, 'd'
+for days, 'w' for weeks, 'mo' for months, 'y' for years, 'g' for generations.
+HELPTEXT
+}
+
+isBare=
+compareTo="$(git-mbr)"
+typeset -a branchFilter=(--older "$GIT_STALEBR_AGE")
+typeset -a branchScope=()
+typeset -a additionalBranchInfoArgs=(--long)
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--bare)		shift; isBare=t; additionalBranchInfoArgs=(--bare);;
+	--compare-to)	shift; compareTo="$1"; shift;;
+	-a|-r)		branchScope+=("$1"); shift;;
+	--remote)	branchScope+=("$1" "$2"); shift; shift;;
+	-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt)
+			branchFilter=("$1" "$2"); shift; shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+
+readarray -t staleBranches < <(git-brage "${additionalBranchInfoArgs[@]}" "${branchFilter[@]}" "${branchScope[@]}" "$@")
+[ ${#staleBranches[@]} -gt 0 ] || exit 99
+
+if [ "$isBare" ] || [ -z "$compareTo" ]; then
+    printf '%s\n' "${staleBranches[@]}"
+else
+    for branch in "${staleBranches[@]}"
+    do
+	branchName="${branch##* }"
+	branchInfo="${branch%"$branchName"}"
+	aheadBehind="$(git ab "$branchName" "$compareTo" 2>/dev/null)"
+	printf '%s %s\n' "$branchInfo" "${aheadBehind/ /$'\t'}"
+    done | column -s $'\t' -t
+fi

@@ -6,16 +6,18 @@ printUsage()
     cat <<HELPTEXT
 Filter out the current branch and master (and base branch if defined) from the input.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--include-current] [--include-master] [--include-base] [--include-all] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--remote REMOTE] [--include-current] [--include-master] [--include-base] [--include-all] [-?|-h|--help]'
 }
 
 isIncludeCurrent=
 isIncludeMaster=
 isIncludeBase=
+remote=
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	    shift; printUsage "$0"; exit 0;;
+	--remote)	    shift; remote="$1"; shift;;
 	--include-current)  shift; isIncludeCurrent=t;;
 	--include-master)   shift; isIncludeMaster=t;;
 	--include-base)	    shift; isIncludeBase=t;;
@@ -49,7 +51,7 @@ baseBranch="$(git-nbr 2>/dev/null)"
 typeset -a grepArgs=()
 for excludedBranch in "${!excludedBranches[@]}"
 do
-    grepArgs+=(-e "$excludedBranch")
+    grepArgs+=(-e "${remote}${remote:+/}$excludedBranch")
 done
 
 if [ ${#grepArgs[@]} -eq 0 ]; then

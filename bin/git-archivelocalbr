@@ -1,16 +1,38 @@
 #!/bin/bash
 shopt -qs extglob
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--branches "<branch1> ..."] [-n N|--count N] [-q|--quiet] [-y|--yes] [-f|--force] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
-Tag all / the first committed N local branches (except for the current branch
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Tag all / the first N committed local branches (except for the current branch
 and master (and base branch if defined)), then delete them from the local
 repository as well as origin.
-Use this to remove old branches that have been incorporated into master (or the
-base branch), or pass -f to force archiving.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --count|-n N	Only archive the first N committed local branches.
+    --quiet|-q		Don't print the branches that will be archived.
+    --yes|-y		Skip the confirmation.
+    --force|-f		Force archiving of those branches that have not been
+			fully merged.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--branches "<branch1> ..."] [-q|--quiet] [-y|--yes] [-f|--force] [-n N|--count N] [-?|-h|--help]'
 }
 
 branchNum=9999
@@ -54,8 +76,15 @@ if [ "$isYes" ]; then
     [ "$isQuiet" ] || echo >&2 "Archiving:
 ${localBranches[*]}"
 else
+    if [ ${#localBranches[@]} -eq 1 ]; then
+	localBranchesArticle=this
+	localBranchesPlural=
+    else
+	localBranchesPlural=es
+	localBranchesArticle=these
+    fi
     userBinaryChoice --introduction "Archiving:
-${localBranches[*]}" --question 'Really archive these branches?' --yes-no || exit 4
+${localBranches[*]}" --question "Really archive $localBranchesArticle branch${localBranchesPlural}?" --yes-no || exit 4
 fi
 
 exec git-archivebr "${gitArchiveArgs[@]}" "${localBranches[@]}"

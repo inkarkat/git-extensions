@@ -1,0 +1,92 @@
+#!/bin/bash
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [-y|--yes] [-f|--force] [-r|--remote REMOTE|-a] [-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [--] [<branch-glob> ...] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Archive branches that have not been updated in a while (for ${GIT_STALEBR_AGE}).
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --quiet|-q		Don't print the branches that will be archived.
+    --yes|-y		Skip the confirmation.
+    --force|-f		Force archiving of those branches that have not been
+			fully merged.
+    -r			Archive remote-tracking branches.
+    --remote REMOTE	Archive branches in a particular REMOTE.
+    -a			Archive both local and remote-tracking branches.
+    -n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]
+			Only archive those branches that match the age comparison.
+SUFFIX may be 's' for seconds (the default), 'm' for minutes, 'h' for hours, 'd'
+for days, 'w' for weeks, 'mo' for months, 'y' for years, 'g' for generations.
+HELPTEXT
+}
+
+isQuiet=
+isYes=
+typeset -a gitArchiveArgs=()
+typeset -a gitFilterOutPersistentBranchesArgs=()
+typeset -a gitStalebrArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--quiet|-q)	shift; isQuiet=t;;
+	--yes|-y)	shift; isYes=t;;
+
+	--force|-f)	gitArchiveArgs+=("$1"); shift;;
+
+	-a|-r)		[ "$1" = '-a' ] && gitFilterOutPersistentBranchesArgs+=(--remote '')
+			gitStalebrArgs+=("$1"); shift
+			for remote in $(git remote)
+			do
+			    gitFilterOutPersistentBranchesArgs+=(--remote "$remote")
+			done
+			;;
+	--remote)	gitStalebrArgs+=("$1" "$2"); gitFilterOutPersistentBranchesArgs=(--remote "$2"); shift; shift;;
+
+	-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt)
+			gitStalebrArgs+=("$1" "$2"); shift; shift;;
+
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+
+readarray -t staleBranches < <(git-stalebr --bare "${gitStalebrArgs[@]}" "$@" | git-filter-out-persistent-branches "${gitFilterOutPersistentBranchesArgs[@]}")
+[ ${#staleBranches[@]} -gt 0 ] || exit 99
+
+IFS=$'\n'
+if [ "$isYes" ]; then
+    [ "$isQuiet" ] || echo >&2 "Archiving:
+${staleBranches[*]}"
+else
+    if [ ${#staleBranches[@]} -eq 1 ]; then
+	staleBranchesArticle=this
+	staleBranchesPlural=
+    else
+	staleBranchesPlural=es
+	staleBranchesArticle=these
+    fi
+    userBinaryChoice --introduction "Archiving:
+${staleBranches[*]}" --question "Really archive $staleBranchesArticle branch${staleBranchesPlural}?" --yes-no || exit 4
+fi
+
+exec git-archivebr "${gitArchiveArgs[@]}" "${staleBranches[@]}"

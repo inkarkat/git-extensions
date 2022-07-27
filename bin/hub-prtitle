@@ -4,7 +4,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--qualified-with-userrepo] [<commit> [...]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-m|--as-merge-message] [--qualified-with-userrepo] [<commit> [...]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -26,17 +26,29 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
+    --as-mergeMessage|-m
+			Output in a format suitable for a merge commit instead
+			of a plain list.
     --qualified-with-userrepo
 			Put the USER/REPO in front of the pull request number.
 HELPTEXT
 }
+action=list
 isQualified=
 prIdentifierFormat='%i'
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --qualified-with-userrepo)
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--as-merge-message|-m)
+			shift; action=mergeMessage;;
+	--qualified-with-userrepo)
 			shift; isQualified=t; prIdentifierFormat='%U';;
-esac
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 
 contains()
 {
@@ -48,6 +60,27 @@ contains()
     return 1
 }
 
+list()
+{
+    [ ${#titles[@]} -gt 0 ] || return 99
+    local i; for ((i = 0; i < ${#identifiers[@]}; i++))
+    do
+	printf '%s %s\n' "${identifiers[$i]}" "${titles[$i]}"
+    done
+}
+
+mergeMessage()
+{
+    IFS=$'\n'
+    case "${#titles[@]}" in
+	0)  return 99;;
+	1)  printf '%s\n' "${titles[0]}";;
+	*)  printf -v summary '%s, ' "${identifiers[@]}"
+	    printf 'Merge pull requests %s\n\n' "${summary%, }"
+	    printf '%s\n' "${titles[@]}"
+	    ;;
+    esac
+}
 
 [ $# -gt 0 ] || set -- 'HEAD'
 typeset -a commitIds=()
@@ -55,7 +88,7 @@ for c
 do
     commitId="$(git rev-parse "$c" 2>/dev/null)" && commitIds+=("$commitId")
 done
-[ ${#commitIds[@]} -eq 0 ] && exit 1
+[ ${#commitIds[@]} -gt 0 ] || exit 1
 
 
 typeset -a titles=()
@@ -72,13 +105,4 @@ do
     fi
 done < <(hub pr list -f "%sH	$prIdentifierFormat	%t%n")
 
-
-IFS=$'\n'
-case "${#titles[@]}" in
-    0)	exit 1;;
-    1)	printf '%s\n' "${titles[0]}";;
-    *)	printf -v summary '%s, ' "${identifiers[@]}"
-	printf 'Merge pull requests %s\n\n' "${summary%, }"
-	printf '%s\n' "${titles[@]}"
-	;;
-esac
+$action

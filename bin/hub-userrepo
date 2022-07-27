@@ -3,15 +3,26 @@
 printUsage()
 {
     cat <<HELPTEXT
-Print the user/repository part of a GitHub repository.
+Print the user/repository part and a possible issue / pull request ID of a
+GitHub repository / passed URL.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[URL] [-?|-h|--help]'
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
 
-url="$(hub-url "$@")" || exit $?
-[[ "$url" =~ ^[[:alnum:]]+://[^/]+/([^/]+/[^/]+).*$ ]] || exit 3
-printf '%s\n' "${BASH_REMATCH[1]}"
+case $# in
+    0)	url="$(hub-url "$@")" || exit $?;;
+    1)	url="${1:?}"; shift;;
+    *)	printUsage "$0" >&2; exit 2;;
+esac
+
+if [[ "$url" =~ ^[[:alnum:]]+://[^/]+/([^/]+/[^/]+)/(issue|pull)/(.*)$ ]]; then
+    printf '%s\n' "${BASH_REMATCH[1]}#${BASH_REMATCH[3]}"
+elif [[ "$url" =~ ^[[:alnum:]]+://[^/]+/([^/]+/[^/]+).*$ ]]; then
+    printf '%s\n' "${BASH_REMATCH[1]}"
+else
+    exit 3
+fi

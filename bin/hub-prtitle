@@ -1,23 +1,54 @@
 #!/bin/bash
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-m|--as-merge-message] [--qualified-with-userrepo] [<commit> [...]] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
-Obtain corresponding GitHub pull request(s) that have <commit>(s) as the
-branch's HEAD, and print its title(s; on separate lines, with a summary header
-listing the PR numbers followed by an empty line) then.
-HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '<commit> [...] [-?|-h|--help]'
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
 }
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-esac
-if [ $# -eq 0 ]; then
-    echo >&2 'ERROR: No <commit> passed.'
-    echo >&2
-    printUsage "$0" >&2
-    exit 2
-fi
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Obtain corresponding GitHub pull request(s) that have HEAD / <commit>(s) as the
+branch's HEAD, and print its title(s); on separate lines, with a summary header
+listing the PR numbers followed by an empty line) then.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --as-mergeMessage|-m
+			Output in a format suitable for a merge commit instead
+			of a plain list.
+    --qualified-with-userrepo
+			Put the USER/REPO in front of the pull request number.
+HELPTEXT
+}
+action=list
+isQualified=
+prIdentifierFormat='%i'
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--as-merge-message|-m)
+			shift; action=mergeMessage;;
+	--qualified-with-userrepo)
+			shift; isQualified=t; prIdentifierFormat='%U';;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 
 contains()
 {
@@ -29,32 +60,49 @@ contains()
     return 1
 }
 
+list()
+{
+    [ ${#titles[@]} -gt 0 ] || return 99
+    local i; for ((i = 0; i < ${#identifiers[@]}; i++))
+    do
+	printf '%s %s\n' "${identifiers[$i]}" "${titles[$i]}"
+    done
+}
 
+mergeMessage()
+{
+    IFS=$'\n'
+    case "${#titles[@]}" in
+	0)  return 99;;
+	1)  printf '%s\n' "${titles[0]}";;
+	*)  printf -v summary '%s, ' "${identifiers[@]}"
+	    printf 'Merge pull requests %s\n\n' "${summary%, }"
+	    printf '%s\n' "${titles[@]}"
+	    ;;
+    esac
+}
+
+[ $# -gt 0 ] || set -- 'HEAD'
 typeset -a commitIds=()
 for c
 do
     commitId="$(git rev-parse "$c" 2>/dev/null)" && commitIds+=("$commitId")
 done
-[ ${#commitIds[@]} -eq 0 ] && exit 1
+[ ${#commitIds[@]} -gt 0 ] || exit 1
 
 
 typeset -a titles=()
-typeset -a numbers=()
-while IFS=$'\t' read -r prCommitId prNumber prTitle
+typeset -a identifiers=()
+while IFS=$'\t' read -r prCommitId prIdentifier prTitle
 do
     if contains "$prCommitId" "${commitIds[@]}"; then
 	titles+=("$prTitle")
-	numbers+=("$prNumber")
+	if [ "$isQualified" ]; then
+	    identifiers+=("$(hub-userrepo "$prIdentifier")")
+	else
+	    identifiers+=("$prIdentifier")
+	fi
     fi
-done < <(hub pr list -f '%sH	%i	%t%n')
+done < <(hub pr list -f "%sH	$prIdentifierFormat	%t%n")
 
-
-IFS=$'\n'
-case "${#titles[@]}" in
-    0)	exit 1;;
-    1)	printf '%s\n' "${titles[0]}";;
-    *)	printf -v summary '%s, ' "${numbers[@]}"
-	printf 'Merge pull requests %s\n\n' "${summary%, }"
-	printf '%s\n' "${titles[@]}"
-	;;
-esac
+$action

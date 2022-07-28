@@ -108,13 +108,19 @@ setDefaultAutoLinks()
 	[ ! "$hasPassedAutoLinks" ] || [ "${passedAutoLinks["$keyPrefix"]}" ] || continue
 
 	local autoLinkJson; autoLinkJson="$(jo -- key_prefix="$keyPrefix" -s url_template="$urlTemplate")" || exit $?
+	local what='Added'
 	if id="${existingAutoLinks["$keyPrefix"]}" && [ -n "$id" ]; then
-	    hub api --method PATCH --input <(printf "%s\n" "$autoLinkJson") "repos/{owner}/{repo}/autolinks/${id}" >/dev/null <&3 && \
-		printf 'Updated autolink "%s"\n' "$keyPrefix"
-	else
-	    hub api --method POST --input <(printf '%s\n' "$autoLinkJson") 'repos/{owner}/{repo}/autolinks' >/dev/null <&3 && \
-		printf 'Added autolink "%s"\n' "$keyPrefix"
+	    # XXX: PATCH now (yet) supported.
+	    # Source: https://docs.github.com/en/rest/repos/autolinks
+	    # Need to delete and create.
+	    #hub api --method PATCH --input <(printf "%s\n" "$autoLinkJson") "repos/{owner}/{repo}/autolinks/${id}" >/dev/null <&3 && \
+	    #	printf 'Updated autolink "%s"\n' "$keyPrefix"
+	    deleteAutoLinks "$keyPrefix"
+	    what='Updated'
+	#else
 	fi
+	hub api --method POST --input <(printf '%s\n' "$autoLinkJson") 'repos/{owner}/{repo}/autolinks' >/dev/null <&3 && \
+	    printf '%s autolink "%s"\n' "$what" "$keyPrefix"
 	unset "unprocessedAutoLinks[$keyPrefix]"
 	unset "passedAutoLinks[$keyPrefix]"
     done < "$defaultAutoLinksFilespec"

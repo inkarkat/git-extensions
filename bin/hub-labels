@@ -72,10 +72,10 @@ listLabels()
 setDefaultLabels()
 {
     typeset -A existingLabels=() unprocessedLabels=()
-    local line; while IFS=$'\n' read -r line
+    local name; while IFS=$'\n' read -r name
     do
-	existingLabels["$line"]=t
-	unprocessedLabels["$line"]=t
+	existingLabels["$name"]=t
+	unprocessedLabels["$name"]=t
     done < <(
 	hub api 'repos/{owner}/{repo}/labels' | \
 	    jq -r '.[] | .name'
@@ -113,8 +113,8 @@ setDefaultLabels()
 	    hub api --method POST --input <(printf '%s\n' "$labelJson") 'repos/{owner}/{repo}/labels' >/dev/null <&3 && \
 		printf 'Added label "%s"\n' "$label"
 	fi
-	unset unprocessedLabels["$label"]
-	unset passedLabels["$label"]
+	unset "unprocessedLabels[$label]"
+	unset "passedLabels[$label]"
     done < "$defaultLabelsFilespec"
 
     if [ "$hasPassedLabels" ]; then

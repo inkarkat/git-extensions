@@ -1,0 +1,155 @@
+#!/bin/bash
+
+readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
+[ -d "$scriptDir" ] || { echo >&2 "ERROR: Cannot determine script directory!"; exit 3; }
+readonly projectDir="${scriptDir}/.."
+
+: ${HUB_AUTOLINKS_DEFAULT_AUTOLINK_FILESPEC:=${projectDir}/etc/github-autolinks.tsv}
+
+printUsage()
+{
+    cat <<HELPTEXT
+List the autolinks defined for the current GitHub repository.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'list [-?|-h|--help]'
+    echo
+    cat <<HELPTEXT
+Add / update [/ delete only KEY-PREFIX(s) from] my default autolinks to the
+current GitHub repository.
+The autolinks are stored as tab-separated values (KEY-PREFIX URL-TEMPLATE); by
+default in file ${HUB_AUTOLINKS_DEFAULT_AUTOLINK_FILESPEC}
+URL-TEMPLATE must contain a <num> placeholder!
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'set [DEFAULT-AUTOLINK-FILESPEC] [KEY-PREFIX ...]'
+    echo
+    cat <<HELPTEXT
+Delete the passed autolinks on the current GitHub repository.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'delete KEY-PREFIX [...]'
+}
+
+action=usageError
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	list)		shift; action=listAutoLinks; break;;
+	set)		shift; action=setDefaultAutoLinks; break;;
+	delete)		shift; action=deleteAutoLinks; break;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+
+usageError()
+{
+    printUsage "$0" >&2
+    exit 2
+}
+
+getAutoLinks()
+{
+    hub api 'repos/{owner}/{repo}/autolinks'
+}
+
+listAutoLinks()
+{
+    [ $# -eq 0 ] || usageError
+
+    local autoLinkJson; autoLinkJson="$(getAutoLinks)" || return 1
+    printf '%s\n' "$autoLinkJson" | \
+	jq -r '.[] | .key_prefix + "\t" + .url_template' | \
+	column -s $'\t' -t
+}
+
+typeset -A existingAutoLinks=() unprocessedAutoLinks=()
+getAutoLinkIds()
+{
+    local autoLinkJson; autoLinkJson="$(getAutoLinks)" || return 1
+    local keyPrefix id; while IFS=$'\t' read -r keyPrefix id
+    do
+	existingAutoLinks["$keyPrefix"]="$id"
+	unprocessedAutoLinks["$keyPrefix"]="$id"
+    done < <(printf '%s\n' "$autoLinkJson" | \
+	jq -r '.[] | .key_prefix + "\t" + (.id|tostring)'
+    )
+}
+
+setDefaultAutoLinks()
+{
+    getAutoLinkIds
+
+    if [ -r "$1" ]; then
+	local defaultAutoLinksFilespec="$1"; shift
+    else
+	local defaultAutoLinksFilespec="$HUB_AUTOLINKS_DEFAULT_AUTOLINK_FILESPEC"
+    fi
+    if [ ! -r "$defaultAutoLinksFilespec" ]; then
+	printf >&2 'ERROR: Default autolinks definition does not exist: %s\n' "$defaultAutoLinksFilespec"
+	exit 1
+    fi
+
+    local hasPassedAutoLinks=
+    typeset -A passedAutoLinks=()
+    for keyPrefix
+    do
+	hasPassedAutoLinks=t
+	passedAutoLinks["$keyPrefix"]=t
+    done
+
+    local keyPrefix urlTemplate
+    exec 3<&0
+    while IFS=$'\t' read -r keyPrefix urlTemplate
+    do
+	[ ! "$hasPassedAutoLinks" ] || [ "${passedAutoLinks["$keyPrefix"]}" ] || continue
+
+	local autoLinkJson; autoLinkJson="$(jo -- key_prefix="$keyPrefix" -s url_template="$urlTemplate")" || exit $?
+	if id="${existingAutoLinks["$keyPrefix"]}" && [ -n "$id" ]; then
+	    hub api --method PATCH --input <(printf "%s\n" "$autoLinkJson") "repos/{owner}/{repo}/autolinks/${id}" >/dev/null <&3 && \
+		printf 'Updated autolink "%s"\n' "$keyPrefix"
+	else
+	    hub api --method POST --input <(printf '%s\n' "$autoLinkJson") 'repos/{owner}/{repo}/autolinks' >/dev/null <&3 && \
+		printf 'Added autolink "%s"\n' "$keyPrefix"
+	fi
+	unset "unprocessedAutoLinks[$keyPrefix]"
+	unset "passedAutoLinks[$keyPrefix]"
+    done < "$defaultAutoLinksFilespec"
+
+    if [ "$hasPassedAutoLinks" ]; then
+	typeset -a undesiredAutoLinks=()
+	for keyPrefix in "${!passedAutoLinks[@]}"
+	do
+	    if [ "${unprocessedAutoLinks["$keyPrefix"]}" ]; then
+		undesiredAutoLinks+=("$keyPrefix")
+	    else
+		printf 'Note: Autolink "%s" does not exist in GitHub.\n' "$keyPrefix"
+	    fi
+	done
+	[ ${#undesiredAutoLinks[@]} -eq 0 ] || deleteAutoLinks "${undesiredAutoLinks[@]}"
+    elif [ ${#unprocessedAutoLinks[@]} -gt 0 ]; then
+	printf 'Note: Additional autolink in GitHub: "%s"\n' "${!unprocessedAutoLinks[@]}"
+    fi
+}
+
+deleteAutoLinks()
+{
+    [ $# -gt 0 ] || usageError
+
+    [ ${#existingAutoLinks[@]} -gt 0 ] || getAutoLinkIds
+    local status=
+    for keyPrefix
+    do
+	if id="${existingAutoLinks["$keyPrefix"]}" && [ -n "$id" ]; then
+	    hub api --method DELETE "repos/{owner}/{repo}/autolinks/${id}" && : ${status:=0} || status=$?
+	else
+	    printf >&2 'Ignoring non-existing autolink: %s\n' "$keyPrefix"
+	fi
+    done
+    return ${status:-99}
+}
+
+$action "$@"

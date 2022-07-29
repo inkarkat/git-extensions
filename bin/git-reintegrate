@@ -159,6 +159,34 @@ printContinueCommand()
     [ "$isCheckFromStdin" ] && printf >&2 '-'
     printf >&2 '\n'
 }
+pushit()
+{
+    if [ -z "$targetTracks" ]; then
+	printf >&2 "ERROR: Cannot push; no upstream configured for branch '%s'\\n" "$path"
+	return 1    # Still continue with the branch deletion here, but following push errors will abort.
+    elif [ "$targetTrackedRemote" = 'origin' ]; then
+	# First push to upstream; we usually want to catch up origin to
+	# upstream, but keep it at the current state if pushing to upstream
+	# failed.
+	if git-existsbr "upstream/$path" && ! git-remote-isreadonly upstream; then
+	    git push upstream "$path" || exit $?
+	fi
+    fi
+    if [ -n "$targetTrackedRemote" ]; then
+	# Push to the tracked remote (usually origin).
+	git push "$targetTrackedRemote" || exit $?
+    fi
+    if [ "$targetTrackedRemote" != 'origin' ]; then
+	# Push to origin (if it's different from the tracked remote) last.
+	if git-existsbr "origin/$path" && ! git-remote-isreadonly origin; then
+	    git push origin "$path" || exit $?
+	fi
+    fi
+}
+
+path="$(git-brname --real-branch-only)" || exit $?
+targetTracks="$(git-tracks 2>/dev/null)"
+targetTrackedRemote="${targetTracks%%/*}"
 
 if [ ! "$isContinue" ]; then
     if [ ! "$hasMergeResolutionArg" ]; then
@@ -245,39 +273,15 @@ fi || {
     exit $status
 }
 
-
-if [ "$isPush" ]; then
-    path="$(git-brname --real-branch-only)" || exit $?
-    targetTracks="$(git-tracks 2>/dev/null)"
-    targetTrackedRemote="${targetTracks%%/*}"
-
-    if [ "$targetTrackedRemote" = 'origin' ]; then
-	# First push to upstream; we usually want to catch up origin to
-	# upstream, but keep it at the current state if pushing to upstream
-	# failed.
-	if git-existsbr "upstream/$path" && ! git-remote-isreadonly upstream; then
-	    git push upstream "$path" || exit $?
-	fi
-    fi
-    if [ -n "$targetTrackedRemote" ]; then
-	# Push to the tracked remote (usually origin).
-	git push "$targetTrackedRemote" || exit $?
-    fi
-    if [ "$targetTrackedRemote" != 'origin' ]; then
-	# Push to origin (if it's different from the tracked remote) last.
-	if git-existsbr "origin/$path" && ! git-remote-isreadonly origin; then
-	    git push origin "$path" || exit $?
-	fi
-    fi
-fi
+status=0
+[ ! "$isPush" ] || pushit || status=$?
 
 [ "$isDelete" ] || exit 0
-status=0
 for branch in "${branches[@]}"
 do
     tracks="$(git-tracks "$branch" 2>/dev/null)"
     trackedRemote="${tracks%%/*}"
-    if [ "$trackedRemote" ]; then
+    if [ -n "$trackedRemote" ]; then
 	git-rldeletebr "$trackedRemote" "$branch" || status=$?
     else
 	git-deletebr "$branch" || status=$?

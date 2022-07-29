@@ -189,6 +189,17 @@ targetTracks="$(git-tracks 2>/dev/null)"
 targetTrackedRemote="${targetTracks%%/*}"
 
 if [ ! "$isContinue" ]; then
+    if [ -n "$targetTracks" ] && ! git-equals HEAD "$targetTracks"; then
+	printf 'Your %s branch is not up-to-date with %s; trying to fast-forward first...\n' "$path" "$targetTrackedRemote"
+	if ! git merge --ff-only "$targetTracks"; then
+	    if userBinaryChoice --console --question "Fast-forwarding failed; your $path branch has diverged from ${targetTracks}; do you want to stop here and merge that first?" --yes-no; then
+		exit 0
+	    else
+		printf "Okay, I'll reintegrate into %s locally and you'll then have to merge with %s after that.\\n" "$path" "$targetTracks"
+	    fi
+	fi
+    fi
+
     if [ ! "$hasMergeResolutionArg" ]; then
 	if canFastForward; then
 	    commitNum=$(git log --pretty=tformat:%H "HEAD..${branches[-1]}" | wc -l)

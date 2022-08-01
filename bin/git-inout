@@ -9,7 +9,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--stat|--ahead-behind] [<remote>|(<branch>|<commit> [<other-branch>|<other-commit>])] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--stat|--ahead-behind] [--ignore-nonexisting] [<remote>|(<branch>|<commit> [<other-branch>|<other-commit>])] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -36,6 +36,9 @@ HELPDESCRIPTION
 			represented by either ${GIT_INOUT_COLOR_IN}i${GIT_INOUT_COLOR_RESET} or ${GIT_INOUT_COLOR_OUT}o${GIT_INOUT_COLOR_RESET}.
     --ahead-behind	Just print a one-line summary like "git status":
 			BASE...BRANCH [ahead 2, behind 1]
+    --ignore-nonexisting
+			Don't print an error if a passed ref does not exist;
+			simply output nothing then.
 HELPTEXT
 }
 
@@ -46,6 +49,7 @@ if [ -t 1 ]; then
 else
     pager=()
 fi
+isIgnoreNonexisting=
 action=inout
 while [ $# -ne 0 ]
 do
@@ -53,6 +57,8 @@ do
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--stat)		shift; action=inoutStat;;
 	--ahead-behind)	shift; action=aheadBehind;;
+	--ignore-nonexisting)
+			shift; isIgnoreNonexisting=t;;
 	--color=auto)	shift;;
 	--no-color|--color=*)
 			colorArg=("$1"); shift;;
@@ -68,7 +74,7 @@ ensureValidRef()
 {
     local ref="${1:?}"; shift
     if ! git rev-parse --verify --quiet "$ref" >/dev/null 2>&1; then
-	printf >&2 'ERROR: %s does not exist!\n' "$ref"
+	[ "$isIgnoreNonexisting" ] || printf >&2 'ERROR: %s does not exist!\n' "$ref"
 	exit 1
     fi
 }

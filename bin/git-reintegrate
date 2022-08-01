@@ -159,8 +159,47 @@ printContinueCommand()
     [ "$isCheckFromStdin" ] && printf >&2 '-'
     printf >&2 '\n'
 }
+pushit()
+{
+    if [ -z "$targetTracks" ]; then
+	printf >&2 "ERROR: Cannot push; no upstream configured for branch '%s'\\n" "$path"
+	return 1    # Still continue with the branch deletion here, but following push errors will abort.
+    elif [ "$targetTrackedRemote" = 'origin' ]; then
+	# First push to upstream; we usually want to catch up origin to
+	# upstream, but keep it at the current state if pushing to upstream
+	# failed.
+	if git-existsbr "upstream/$path" && ! git-remote-isreadonly upstream; then
+	    git push upstream "$path" || exit $?
+	fi
+    fi
+    if [ -n "$targetTrackedRemote" ]; then
+	# Push to the tracked remote (usually origin).
+	git push "$targetTrackedRemote" || exit $?
+    fi
+    if [ "$targetTrackedRemote" != 'origin' ]; then
+	# Push to origin (if it's different from the tracked remote) last.
+	if git-existsbr "origin/$path" && ! git-remote-isreadonly origin; then
+	    git push origin "$path" || exit $?
+	fi
+    fi
+}
+
+path="$(git-brname --real-branch-only)" || exit $?
+targetTracks="$(git-tracks 2>/dev/null)"
+targetTrackedRemote="${targetTracks%%/*}"
 
 if [ ! "$isContinue" ]; then
+    if [ -n "$targetTracks" ] && ! git-equals HEAD "$targetTracks"; then
+	printf 'Your %s branch is not up-to-date with %s; trying to fast-forward first...\n' "$path" "$targetTrackedRemote"
+	if ! git merge --ff-only "$targetTracks"; then
+	    if userBinaryChoice --console --question "Fast-forwarding failed; your $path branch has diverged from ${targetTracks}; do you want to stop here and merge that first?" --yes-no; then
+		exit 0
+	    else
+		printf "Okay, I'll reintegrate into %s locally and you'll then have to merge with %s after that.\\n" "$path" "$targetTracks"
+	    fi
+	fi
+    fi
+
     if [ ! "$hasMergeResolutionArg" ]; then
 	if canFastForward; then
 	    commitNum=$(git log --pretty=tformat:%H "HEAD..${branches[-1]}" | wc -l)
@@ -245,39 +284,15 @@ fi || {
     exit $status
 }
 
-
-if [ "$isPush" ]; then
-    path="$(git-brname --real-branch-only)" || exit $?
-    targetTracks="$(git-tracks 2>/dev/null)"
-    targetTrackedRemote="${targetTracks%%/*}"
-
-    if [ "$targetTrackedRemote" = 'origin' ]; then
-	# First push to upstream; we usually want to catch up origin to
-	# upstream, but keep it at the current state if pushing to upstream
-	# failed.
-	if git-existsbr "upstream/$path" && ! git-remote-isreadonly upstream; then
-	    git push upstream "$path" || exit $?
-	fi
-    fi
-    if [ -n "$targetTrackedRemote" ]; then
-	# Push to the tracked remote (usually origin).
-	git push "$targetTrackedRemote" || exit $?
-    fi
-    if [ "$targetTrackedRemote" != 'origin' ]; then
-	# Push to origin (if it's different from the tracked remote) last.
-	if git-existsbr "origin/$path" && ! git-remote-isreadonly origin; then
-	    git push origin "$path" || exit $?
-	fi
-    fi
-fi
+status=0
+[ ! "$isPush" ] || pushit || status=$?
 
 [ "$isDelete" ] || exit 0
-status=0
 for branch in "${branches[@]}"
 do
     tracks="$(git-tracks "$branch" 2>/dev/null)"
     trackedRemote="${tracks%%/*}"
-    if [ "$trackedRemote" ]; then
+    if [ -n "$trackedRemote" ]; then
 	git-rldeletebr "$trackedRemote" "$branch" || status=$?
     else
 	git-deletebr "$branch" || status=$?

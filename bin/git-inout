@@ -74,8 +74,13 @@ ensureValidRef()
 }
 
 case $# in
-    2)	baseRev="$(git-desc "$1")" || exit $?; shift
-	otherRev="$(git-desc "$1")" || exit $?; shift
+    2)	if ! [[ "$1" =~ / ]] && git-existsremote "$1"; then
+	    otherRev="$(git-remotebr "$1" "$2")" || exit $?; shift
+	    baseRev="$(git-desc "$1")" || exit $?; shift
+	else
+	    baseRev="$(git-desc "$1")" || exit $?; shift
+	    otherRev="$(git-desc "$1")" || exit $?; shift
+	fi
 	;;
     1)	baseRev="$(git-brname --raw)" || exit $?
 	case "$1" in

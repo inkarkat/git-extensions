@@ -1,3 +1,16 @@
-#!/bin/sh
+#!/bin/bash
+
+typeset -a colorArg=()
+case "$1" in
+    --no-color|--color=*)
+			colorArg=("$1"); shift;;
+    --color)		colorArg=("$1" "$2"); shift; shift;;
+esac
+if [ ${#colorArg[@]} -gt 0 ]; then
+    case "$1" in
+	git|git-wrapper)    set -- "$1" "$2" "${colorArg[@]}" "${@:3}";;
+	*)		    set -- "$1" "${colorArg[@]}" "${@:2}";;
+    esac
+fi
 
 exec "$@"

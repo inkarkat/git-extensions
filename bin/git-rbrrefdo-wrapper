@@ -1,0 +1,24 @@
+#!/bin/bash
+shopt -qs extglob
+
+case "$1" in
+    --help|-h|-\?)	;;
+    *)			remote="$1"; shift
+esac
+
+typeset -a localbrrefdoArgs=()
+typeset -a otherArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	-+([?hqXy]))	localbrrefdoArgs+=("$1"); shift;;
+	--@(help|quiet|no-pager|no-header|separate-errors|no-git-color|single-success|abort-on-failure|yes))
+			localbrrefdoArgs+=("$1"); shift;;
+	-[B])		localbrrefdoArgs+=("$1" "$2"); shift; shift;;
+	--@(progress|abort-on|max-branch))
+			localbrrefdoArgs+=("$1" "$2"); shift; shift;;
+	--)		otherArgs+=("$1"); shift; break;;
+	*)		otherArgs+=("$1"); shift;;
+    esac
+done
+exec git-rbrrefdo $remote "${localbrrefdoArgs[@]}" "${otherArgs[@]}" "$@"

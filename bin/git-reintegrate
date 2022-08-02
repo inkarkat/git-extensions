@@ -111,7 +111,7 @@ if [ ${#branches[@]} -eq 1 ]; then
     verbPlural=s
 fi
 
-joinBy --prefix 'Reintegrating ' ', ' "${branches[@]}" 2>/dev/null
+joinBy --prefix 'Reintegrating ' --last-separator ' and ' ', ' "${branches[@]}" 2>/dev/null
 
 # Ensure that the branch(es) are good for merging.
 git-mergecheck "${branches[@]}" || exit $?
@@ -280,7 +280,7 @@ if [ ! "$isContinue" ]; then
 	    mergedSubmodulesAuxiliaryVerb=have
 	    mergedSubmodulesPlural=s
 	fi
-	printf '%s submodule%s %s been merged; checking out the resulting version%s now: %s\n' "$mergedSubmodulesArticle" "$mergedSubmodulesPlural" "$mergedSubmodulesAuxiliaryVerb" "$mergedSubmodulesPlural" "$(joinBy ', ' "${mergedSubmodules[@]}")"
+	printf '%s submodule%s %s been merged; checking out the resulting version%s now: %s\n' "$mergedSubmodulesArticle" "$mergedSubmodulesPlural" "$mergedSubmodulesAuxiliaryVerb" "$mergedSubmodulesPlural" "$(joinBy --last-separator ' and ' ', ' "${mergedSubmodules[@]}")"
 	git subwipe || {
 	    status=$?
 	    echo >&2 "Oops, the submodule update somehow failed. After fixing that, you can ${isCheckFromStdin:+run checks and }${isPush:+push and }delete $branchesSubject via"

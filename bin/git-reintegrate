@@ -111,7 +111,7 @@ if [ ${#branches[@]} -eq 1 ]; then
     verbPlural=s
 fi
 
-joinBy --prefix 'Reintegrating ' ', ' "${branches[@]}" 2>/dev/null
+joinBy --prefix 'Reintegrating ' --last-separator ' and ' ', ' "${branches[@]}" 2>/dev/null
 
 # Ensure that the branch(es) are good for merging.
 git-mergecheck "${branches[@]}" || exit $?
@@ -125,7 +125,8 @@ if [ -n "$HUB" ] && [ ! "$isRebase" ]; then
     type -t timeout >/dev/null && prefixCommands=(timeout 10 "${prefixCommands[@]}")
     type -t invocationMessage >/dev/null && prefixCommands=(invocationMessage --message 'Searching for PR...' --success FOUND --fail NONE -- "${prefixCommands[@]}")
     pullRequestTitles="$("${prefixCommands[@]}" hub-prtitle --as-merge-message "${branches[@]}")"
-    [ -n "$pullRequestTitles" ] && mergeArgs+=(-m "$pullRequestTitles" --edit)
+    branchMergeMessage="$(joinBy --prefix "Merge branch$branchesPlural '" --suffix "'" --last-separator "' and '" "', '" "${branches[@]}" 2>/dev/null)"
+    [ -n "$pullRequestTitles" ] && mergeArgs+=(--message "$pullRequestTitles"$'\n\n'"$branchMergeMessage" --edit)
 fi
 
 
@@ -279,7 +280,7 @@ if [ ! "$isContinue" ]; then
 	    mergedSubmodulesAuxiliaryVerb=have
 	    mergedSubmodulesPlural=s
 	fi
-	printf '%s submodule%s %s been merged; checking out the resulting version%s now: %s\n' "$mergedSubmodulesArticle" "$mergedSubmodulesPlural" "$mergedSubmodulesAuxiliaryVerb" "$mergedSubmodulesPlural" "$(joinBy ', ' "${mergedSubmodules[@]}")"
+	printf '%s submodule%s %s been merged; checking out the resulting version%s now: %s\n' "$mergedSubmodulesArticle" "$mergedSubmodulesPlural" "$mergedSubmodulesAuxiliaryVerb" "$mergedSubmodulesPlural" "$(joinBy --last-separator ' and ' ', ' "${mergedSubmodules[@]}")"
 	git subwipe || {
 	    status=$?
 	    echo >&2 "Oops, the submodule update somehow failed. After fixing that, you can ${isCheckFromStdin:+run checks and }${isPush:+push and }delete $branchesSubject via"

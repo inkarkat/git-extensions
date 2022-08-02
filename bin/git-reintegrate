@@ -125,7 +125,8 @@ if [ -n "$HUB" ] && [ ! "$isRebase" ]; then
     type -t timeout >/dev/null && prefixCommands=(timeout 10 "${prefixCommands[@]}")
     type -t invocationMessage >/dev/null && prefixCommands=(invocationMessage --message 'Searching for PR...' --success FOUND --fail NONE -- "${prefixCommands[@]}")
     pullRequestTitles="$("${prefixCommands[@]}" hub-prtitle --as-merge-message "${branches[@]}")"
-    [ -n "$pullRequestTitles" ] && mergeArgs+=(-m "$pullRequestTitles" --edit)
+    branchMergeMessage="$(joinBy --prefix "Merge branch$branchesPlural '" --suffix "'" --last-separator "' and '" "', '" "${branches[@]}" 2>/dev/null)"
+    [ -n "$pullRequestTitles" ] && mergeArgs+=(--message "$pullRequestTitles"$'\n\n'"$branchMergeMessage" --edit)
 fi
 
 

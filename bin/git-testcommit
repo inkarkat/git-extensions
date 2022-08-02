@@ -26,11 +26,23 @@ if [ $# -ne 0 -o ${#messages[@]} -ne ${#files[@]} ]; then
     exit 2
 fi
 
+typeset -a existingFiles=() newFiles=()
 set -e
 for ((i = 0; i < ${#files[@]}; i++))
 do
-    printf '%s\n' "${messages[$i]}" >> "${files[$i]}"
+    filespec="${files[$i]}"
+    [ -e "$filespec" ] && \
+	existingFiles+=("$filespec") || \
+	newFiles+=("$filespec")
+    printf '%s\n' "${messages[$i]}" >> "${files[$i]}" || exit $?
 done
 commitMessage="$(joinBy --truncate-after 3 -- ', ' "${messages[@]}")"
 
-exec git-commit --message "$commitMessage" -- "${files[@]}"
+if [ ${#existingFiles[@]} -gt 0 -a ${#newFiles[@]} -gt 0 ]; then
+    git-commit --message "$commitMessage" -- "${existingFiles[@]}" && \
+	git-commituntracked --amend --reuse-message=HEAD -- "${newFiles[@]}"
+elif [ ${#existingFiles[@]} -gt 0 ]; then
+    git-commit --message "$commitMessage" -- "${existingFiles[@]}"
+elif [ ${#newFiles[@]} -gt 0 ]; then
+    git-commituntracked --message "$commitMessage" -- "${newFiles[@]}"
+fi

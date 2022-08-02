@@ -267,6 +267,26 @@ if [ ! "$isContinue" ]; then
 	    exit $status
 	}
     fi
+
+    readarray -t mergedSubmodules < <(git subst)
+    if [ ${#mergedSubmodules[@]} -gt 0 ]; then
+	if [ ${#mergedSubmodules[@]} -eq 1 ]; then
+	    mergedSubmodulesArticle=This
+	    mergedSubmodulesAuxiliaryVerb=has
+	    mergedSubmodulesPlural=
+	else
+	    mergedSubmodulesArticle=These
+	    mergedSubmodulesAuxiliaryVerb=have
+	    mergedSubmodulesPlural=s
+	fi
+	printf '%s submodule%s %s been merged; checking out the resulting version%s now: %s\n' "$mergedSubmodulesArticle" "$mergedSubmodulesPlural" "$mergedSubmodulesAuxiliaryVerb" "$mergedSubmodulesPlural" "$(joinBy ', ' "${mergedSubmodules[@]}")"
+	git subwipe || {
+	    status=$?
+	    echo >&2 "Oops, the submodule update somehow failed. After fixing that, you can ${isCheckFromStdin:+run checks and }${isPush:+push and }delete $branchesSubject via"
+	    printContinueCommand
+	    exit $status
+	}
+    fi
 fi
 
 

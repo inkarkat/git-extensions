@@ -81,7 +81,12 @@ fi >&2
 
 obtainChanges()
 {
-    git log --pretty= --patch --submodule=log "${colorArg[@]}" "${rangeModificationArgs[@]}" "${rangeArgs[@]}" "$@" -- "${submodules[@]}"
+    local submodule status=
+    for submodule in "${submodules[@]}"
+    do
+	git log --pretty= --patch --submodule=log "${colorArg[@]}" "${rangeModificationArgs[@]}" "${rangeArgs[@]}" "$@" -- "$submodule" && : ${status:=0} || status=$?
+    done
+    return ${status:-99}
 }
 
 eval 'obtainChanges "$@"' "${pager:+|}" '"${pager[@]}"'

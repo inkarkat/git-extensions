@@ -81,10 +81,18 @@ fi >&2
 
 obtainChanges()
 {
-    local submodule status=
+    local separator status='' submodule logOutput
     for submodule in "${submodules[@]}"
     do
-	git log --pretty= --patch --submodule=log "${colorArg[@]}" "${rangeModificationArgs[@]}" "${rangeArgs[@]}" "$@" -- "$submodule" && : ${status:=0} || status=$?
+	if logOutput="$(git log --pretty= --patch --submodule=log "${colorArg[@]}" "${rangeModificationArgs[@]}" "${rangeArgs[@]}" "$@" -- "$submodule")"; then
+	    : ${status:=0}
+	    if [ -n "$logOutput" ]; then
+		printf '%s%s\n' "$separator" "$logOutput"
+		separator=$'\n'
+	    fi
+	else
+	    status=$?
+	fi
     done
     return ${status:-99}
 }

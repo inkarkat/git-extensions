@@ -4,21 +4,45 @@ shopt -qs extglob
 : ${GIT_SUBCHANGES_PRCOLOR_PREFIX=[35m}
 : ${GIT_SUBCHANGES_PRCOLOR_SUFFIX=[0m}
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--since <date>|--max-count|-n|<range> [--include-pull-requests [-Q|--qualified-with-userrepo]] [<log-args> ...] [--] [SUBMODULE ...] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 Log changes in submodules done in the commits [that cover SUBMODULE(s)] in the
 passed <range>.
-HELPTEXT
+HELPDESCRIPTION
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '--since <date>|--max-count|-n|<range> [--include-pull-requests [-Q|--qualified-with-userrepo]] [<log-args> ...] [--] [SUBMODULE ...] [-?|-h|--help]'
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --include-pull-requests
+			If there's a pull request for the HEAD of a changed
+			submodule, just include the pull request's title instead
+			of the log of changes.
+    --qualified-with-userrepo|-Q
+			Put the USER/REPO in front of the pull request number.
+HELPTEXT
 }
 typeset -a gitCommandArgs=()
 typeset -a submodules=()
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--)		shift; submodules=("$@"); break;;
 	*)		gitCommandArgs+=("$1"); shift;;
     esac

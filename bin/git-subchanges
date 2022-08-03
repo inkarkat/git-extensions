@@ -117,12 +117,16 @@ elif [ ${#submodules[@]} -eq 0 ]; then
     exit 99
 fi >&2
 
+obtainLog()
+{
+    git log --pretty= --patch --submodule=log "${colorArg[@]}" "${rangeModificationArgs[@]}" "${rangeArgs[@]}" "$@" -- "$submodule"
+}
 obtainChanges()
 {
     local separator status='' submodule logOutput prTitleOutput
     for submodule in "${submodules[@]}"
     do
-	if logOutput="$(git log --pretty= --patch --submodule=log "${colorArg[@]}" "${rangeModificationArgs[@]}" "${rangeArgs[@]}" "$@" -- "$submodule")"; then
+	if logOutput="$(obtainLog "$@")"; then
 	    : ${status:=0}
 	    if [ -n "$logOutput" ]; then
 		if [ "$isIncludePullRequests" ] && prTitleOutput="$(cd "$submodule" && hub-prtitle "${prTitleArgs[@]}")"; then

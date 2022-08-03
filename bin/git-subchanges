@@ -8,7 +8,7 @@ Log changes in submodules done in the commits [that cover SUBMODULE(s)] in the
 passed <range>.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '--since <date>|--max-count|-n|<range> [<log-args> ...] [--] [SUBMODULE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--since <date>|--max-count|-n|<range> [--include-pull-requests] [<log-args> ...] [--] [SUBMODULE ...] [-?|-h|--help]'
 }
 typeset -a gitCommandArgs=()
 typeset -a submodules=()
@@ -52,6 +52,7 @@ if [ ! -t 1 ]; then
     colorArg=()
     pager=()
 fi
+isIncludePullRequests=
 typeset -a rangeArgs=()
 typeset -a rangeModificationArgs=()
 while [ $# -ne 0 ]
@@ -62,6 +63,9 @@ do
 	--no-color|--color=*)
 			colorArg=("$1"); shift;;
 	--color)	colorArg=("$1" "$2"); if [ "$2" = auto ]; then colorArg=("$1" always); fi; shift; shift;;
+
+	--include-pull-requests)
+			shift; isIncludePullRequests=t;;
 
 	--since)	rangeArgs+=("$1" "$2"); shift; shift;;
 	--max-count|-n)	rangeArgs+=("$1" "$2"); shift; shift;;
@@ -81,12 +85,16 @@ fi >&2
 
 obtainChanges()
 {
-    local separator status='' submodule logOutput
+    local separator status='' submodule logOutput prTitleOutput
     for submodule in "${submodules[@]}"
     do
 	if logOutput="$(git log --pretty= --patch --submodule=log "${colorArg[@]}" "${rangeModificationArgs[@]}" "${rangeArgs[@]}" "$@" -- "$submodule")"; then
 	    : ${status:=0}
 	    if [ -n "$logOutput" ]; then
+		if [ "$isIncludePullRequests" ] && prTitleOutput="$(cd "$submodule" && hub-prtitle)"; then
+		    logOutput="${logOutput%%$'\n'*}"$'\n'"  $prTitleOutput"
+		fi
+
 		printf '%s%s\n' "$separator" "$logOutput"
 		separator=$'\n'
 	    fi

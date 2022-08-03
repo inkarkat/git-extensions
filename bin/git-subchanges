@@ -1,4 +1,5 @@
 #!/bin/bash
+set -o pipefail
 shopt -qs extglob
 
 : ${GIT_SUBCHANGES_PRCOLOR_PREFIX=[35m}
@@ -8,7 +9,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '--since <date>|--max-count|-n|<range> [--include-pull-requests [-Q|--qualified-with-userrepo]] [<log-args> ...] [--] [SUBMODULE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--since <date>|--max-count|-n|<range> [--include-pull-requests [-Q|--qualified-with-userrepo]] [--as markdown] [<log-args> ...] [--] [SUBMODULE ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -35,6 +36,11 @@ HELPDESCRIPTION
 			of the log of changes.
     --qualified-with-userrepo|-Q
 			Put the USER/REPO in front of the pull request number.
+    --as markdown	Render as (GitHub-flavored) Markdown:
+			- Drop the "submodule" and ranges.
+			- Convert the log lines to list items.
+			- Drop the pull request title if qualified (GitHub
+			  renders that itself).
 HELPTEXT
 }
 typeset -a gitCommandArgs=()
@@ -83,6 +89,8 @@ if [ ! -t 1 ]; then
 fi
 isIncludePullRequests=
 typeset -a prTitleArgs=()
+logPostProcessor=
+prTitlePostProcessor=
 typeset -a rangeArgs=()
 typeset -a rangeModificationArgs=()
 while [ $# -ne 0 ]
@@ -100,6 +108,20 @@ do
 			shift; isIncludePullRequests=t;;
 	--qualified-with-userrepo|-Q)
 			prTitleArgs+=("$1"); shift;;
+	--as)		shift
+			case "$1" in
+			    markdown)	logPostProcessor=logAsMarkdown
+					prTitlePostProcessor=prTitleAsMarkdown
+					hasColor=; colorArg=(--no-color)
+					;;
+			    *)		printf 'ERROR: Invalid renderer: %s\n' "$1"
+					echo
+					printUsage "$0"
+					exit 2
+					;;
+			esac >&2
+			shift
+			;;
 
 	--since)	rangeArgs+=("$1" "$2"); shift; shift;;
 	--max-count|-n)	rangeArgs+=("$1" "$2"); shift; shift;;
@@ -117,6 +139,19 @@ elif [ ${#submodules[@]} -eq 0 ]; then
     exit 99
 fi >&2
 
+logAsMarkdown()
+{
+    sed \
+	-e '1{ s/^Submodule //; s/ [[:xdigit:]]\+..[[:xdigit:]]\+:$/:/; b; }' \
+	-e 's/^  > /* /' \
+	-e 's/^  < \(.*\)$/* ~~\1~~/'
+}
+prTitleAsMarkdown()
+{
+    sed \
+	-e 's/^  \([^ ]\+\) .*$/* \1/'
+}
+
 obtainLog()
 {
     git log --pretty= --patch --submodule=log "${colorArg[@]}" "${rangeModificationArgs[@]}" "${rangeArgs[@]}" "$@" -- "$submodule"
@@ -126,11 +161,11 @@ obtainChanges()
     local separator status='' submodule logOutput prTitleOutput
     for submodule in "${submodules[@]}"
     do
-	if logOutput="$(obtainLog "$@")"; then
+	if logOutput="$(eval 'obtainLog "$@"' "${logPostProcessor:+|}$logPostProcessor")"; then
 	    : ${status:=0}
 	    if [ -n "$logOutput" ]; then
-		if [ "$isIncludePullRequests" ] && prTitleOutput="$(cd "$submodule" && hub-prtitle "${prTitleArgs[@]}")"; then
-		    logOutput="${logOutput%%$'\n'*}"$'\n'"  ${hasColor:+$GIT_SUBCHANGES_PRCOLOR_PREFIX}${prTitleOutput}${hasColor:+$GIT_SUBCHANGES_PRCOLOR_SUFFIX}"
+		if [ "$isIncludePullRequests" ] && prTitleOutput="$(cd "$submodule" && eval '{ printf "  "; hub-prtitle "${prTitleArgs[@]}"; }' "${prTitlePostProcessor:+|}$prTitlePostProcessor")"; then
+		    logOutput="${logOutput%%$'\n'*}"$'\n'"${hasColor:+$GIT_SUBCHANGES_PRCOLOR_PREFIX}${prTitleOutput}${hasColor:+$GIT_SUBCHANGES_PRCOLOR_SUFFIX}"
 		fi
 
 		printf '%s%s\n' "$separator" "$logOutput"

@@ -1,0 +1,181 @@
+#!/bin/bash
+set -o pipefail
+shopt -qs extglob
+
+: ${GIT_SUBCHANGES_PRCOLOR_PREFIX=[35m}
+: ${GIT_SUBCHANGES_PRCOLOR_SUFFIX=[0m}
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--since <date>|--max-count|-n|<range> [--include-pull-requests [-Q|--qualified-with-userrepo]] [--as markdown] [<log-args> ...] [--] [SUBMODULE ...] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Log changes in submodules done in the commits [that cover SUBMODULE(s)] in the
+passed <range>.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --include-pull-requests
+			If there's a pull request for the HEAD of a changed
+			submodule, just include the pull request's title instead
+			of the log of changes.
+    --qualified-with-userrepo|-Q
+			Put the USER/REPO in front of the pull request number.
+    --as markdown	Render as (GitHub-flavored) Markdown:
+			- Drop the "submodule" and ranges.
+			- Convert the log lines to list items.
+			- Drop the pull request title if qualified (GitHub
+			  renders that itself).
+HELPTEXT
+}
+typeset -a gitCommandArgs=()
+typeset -a submodules=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--)		shift; submodules=("$@"); break;;
+	*)		gitCommandArgs+=("$1"); shift;;
+    esac
+done
+if [ ${#submodules[@]} -eq 0 ]; then
+    typeset -A submoduleDict=()
+    while IFS=$'\n' read -r name
+    do
+	submoduleDict["$name"]=t
+    done < <(git sublist)
+
+    # No submodules after -- captured yet; need to investigate parsed and
+    # remaining args from behind for submodules.
+    gitCommandArgs+=("$@")
+    while [ ${#gitCommandArgs[@]} -ne 0 ]
+    do
+	lastArg="${gitCommandArgs[-1]}"
+	[ "${submoduleDict["$lastArg"]}" ] || break
+
+	submodules=("$lastArg" "${submodules[@]}")
+	gitCommandArgs=("${gitCommandArgs[@]:0:${#gitCommandArgs[@]}-1}")
+    done
+
+    if [ ${#submodules[@]} -eq 0 ]; then
+	# No submodules passed - iterate over all submodules.
+	submodules=("${!submoduleDict[@]}")
+    fi
+fi
+set -- "${gitCommandArgs[@]}"
+
+hasColor=t
+typeset -a colorArg=(--color=always)
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+if [ ! -t 1 ]; then
+    hasColor=
+    colorArg=()
+    pager=()
+fi
+isIncludePullRequests=
+typeset -a prTitleArgs=()
+logPostProcessor=
+prTitlePostProcessor=
+typeset -a rangeArgs=()
+typeset -a rangeModificationArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--color=auto)	shift;;
+	--no-color|--color=never)
+			colorArg=("$1"); shift; hasColor=;;
+	--color=always)	colorArg=("$1"); shift; hasColor=t;;
+	--color=*)	colorArg=("$1"); shift;;
+	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); case "$2" in never) hasColor=;; always) hasColor=t;; esac; shift; shift;;
+
+	--include-pull-requests)
+			shift; isIncludePullRequests=t;;
+	--qualified-with-userrepo|-Q)
+			prTitleArgs+=("$1"); shift;;
+	--as)		shift
+			case "$1" in
+			    markdown)	logPostProcessor=logAsMarkdown
+					prTitlePostProcessor=prTitleAsMarkdown
+					hasColor=; colorArg=(--no-color)
+					;;
+			    *)		printf 'ERROR: Invalid renderer: %s\n' "$1"
+					echo
+					printUsage "$0"
+					exit 2
+					;;
+			esac >&2
+			shift
+			;;
+
+	--since)	rangeArgs+=("$1" "$2"); shift; shift;;
+	--max-count|-n)	rangeArgs+=("$1" "$2"); shift; shift;;
+	--max-count=*|-+([0-9]))
+			rangeArgs+=("$1"); shift;;
+	--follow)	rangeModificationArgs+=("$1"); shift;;
+	*)		rangeArgs+=("$1"); shift; break;;
+    esac
+done
+if [ ${#rangeArgs[@]} -eq 0 ]; then
+    echo 'ERROR: Need <range>.'
+    exit 2
+elif [ ${#submodules[@]} -eq 0 ]; then
+    echo >&2 'No submodules.'
+    exit 99
+fi >&2
+
+logAsMarkdown()
+{
+    sed \
+	-e '1{ s/^Submodule //; s/ [[:xdigit:]]\+..[[:xdigit:]]\+:$/:/; b; }' \
+	-e 's/^  > /* /' \
+	-e 's/^  < \(.*\)$/* ~~\1~~/'
+}
+prTitleAsMarkdown()
+{
+    sed \
+	-e 's/^  \([^ ]\+\) .*$/* \1/'
+}
+
+obtainLog()
+{
+    git log --pretty= --patch --submodule=log "${colorArg[@]}" "${rangeModificationArgs[@]}" "${rangeArgs[@]}" "$@" -- "$submodule"
+}
+obtainChanges()
+{
+    local separator status='' submodule logOutput prTitleOutput
+    for submodule in "${submodules[@]}"
+    do
+	if logOutput="$(eval 'obtainLog "$@"' "${logPostProcessor:+|}$logPostProcessor")"; then
+	    : ${status:=0}
+	    if [ -n "$logOutput" ]; then
+		if [ "$isIncludePullRequests" ] && prTitleOutput="$(cd "$submodule" && eval '{ printf "  "; hub-prtitle "${prTitleArgs[@]}"; }' "${prTitlePostProcessor:+|}$prTitlePostProcessor")"; then
+		    logOutput="${logOutput%%$'\n'*}"$'\n'"${hasColor:+$GIT_SUBCHANGES_PRCOLOR_PREFIX}${prTitleOutput}${hasColor:+$GIT_SUBCHANGES_PRCOLOR_SUFFIX}"
+		fi
+
+		printf '%s%s\n' "$separator" "$logOutput"
+		separator=$'\n'
+	    fi
+	else
+	    status=$?
+	fi
+    done
+    return ${status:-99}
+}
+
+eval 'obtainChanges "$@"' "${pager:+|}" '"${pager[@]}"'

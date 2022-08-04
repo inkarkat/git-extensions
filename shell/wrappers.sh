@@ -40,14 +40,14 @@ hub()
     typeset hubSubAlias="hub-$1-$2"
     typeset hubAlias="hub-$1"
     if [ $# -eq 0 ]; then
-	command hub ${HUB_DEFAULT_COMMAND:-str}
+	HUB=t command hub ${HUB_DEFAULT_COMMAND:-str}
     elif type ${BASH_VERSION:+-t} "$hubSubAlias" >/dev/null 2>&1; then
 	shift; shift
-	$hubSubAlias "$@"
+	HUB=t $hubSubAlias "$@"
     elif type ${BASH_VERSION:+-t} "$hubAlias" >/dev/null 2>&1; then
 	shift
-	$hubAlias "$@"
+	HUB=t $hubAlias "$@"
     else
-	command hub "$@"
+	HUB=t command hub "$@"
     fi
 }

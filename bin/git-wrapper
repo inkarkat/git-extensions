@@ -12,20 +12,25 @@ fixPath()
 
 wrappedCommand=git
 if type -t hub >/dev/null; then
-    wrappedCommand=hub
+    wrappedCommand=hub	# Built-in Git / hub commands are always executed through hub.
 
-    hubSubAlias="hub-$1-$2"
-    hubAlias="hub-$1"
-    if type -t "$hubSubAlias" >/dev/null; then
-	shift; shift
-	fixPath
-	$hubSubAlias "$@"
-	exit $?
-    elif type -t "$hubAlias" >/dev/null; then
-	shift
-	fixPath
-	$hubAlias "$@"
-	exit $?
+    # Only execute hub overloads when actually invoked via "hub", but now when
+    # invoked via "git". This allows us to obtain different functionality
+    # depending on what command is used to invoke it.
+    if [ "$HUB" ]; then
+	hubSubAlias="hub-$1-$2"
+	hubAlias="hub-$1"
+	if type -t "$hubSubAlias" >/dev/null; then
+	    shift; shift
+	    fixPath
+	    $hubSubAlias "$@"
+	    exit $?
+	elif type -t "$hubAlias" >/dev/null; then
+	    shift
+	    fixPath
+	    $hubAlias "$@"
+	    exit $?
+	fi
     fi
 fi
 

@@ -16,6 +16,8 @@ isValidRef()
 }
 
 isStatus=
+isAllowFastForward=t
+isAllowMerge=t
 typeset -a mergeArgs=()
 typeset -a commits=()
 while [ $# -ne 0 ]
@@ -23,6 +25,9 @@ do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--status)	shift; isStatus=t;;
+	--ff)		shift;;
+	--no-ff)	shift; isAllowFastForward=; isAllowMerge=t;;
+	--ff-only)	shift; isAllowFastForward=t; isAllowMerge=;;
 	--)		mergeArgs+=("$1"); shift; commits=("$@"); break;;
 	*)		mergeArgs+=("$1"); shift;;
     esac
@@ -47,8 +52,18 @@ if [ ${#commits[@]} -eq 0 ]; then
     exit 2
 fi >&2
 
-git merge --no-commit --no-ff "${mergeArgs[@]}" "${commits[@]}"
-status=$?
-[ "$isStatus" ] && git st
-git merge --abort
-exit $status
+fastForwardCheck()
+{
+    git-ffdryrun -- "${commits[@]}"
+}
+mergeCheck()
+{
+    git merge --no-commit --no-ff "${mergeArgs[@]}" "${commits[@]}"; status=$?
+    [ "$isStatus" ] && git st
+    git merge --abort
+    return $status
+}
+
+[ "$isAllowFastForward" ] && fastForwardCheck && exit 0
+[ "$isAllowMerge" ] && mergeCheck && exit 0
+exit 1

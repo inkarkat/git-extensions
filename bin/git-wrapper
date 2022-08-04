@@ -11,31 +11,31 @@ fixPath()
 }
 
 wrappedCommand=git
+gitSubAlias="git-$1-$2"
+gitAlias="git-$1"
 if type -t hub >/dev/null; then
     wrappedCommand=hub	# Built-in Git / hub commands are always executed through hub.
 
-    # Only execute hub overloads when actually invoked via "hub", but now when
-    # invoked via "git". This allows us to obtain different functionality
-    # depending on what command is used to invoke it.
-    if [ "$HUB" ]; then
-	hubSubAlias="hub-$1-$2"
-	hubAlias="hub-$1"
-	if type -t "$hubSubAlias" >/dev/null; then
-	    shift; shift
-	    fixPath
-	    $hubSubAlias "$@"
-	    exit $?
-	elif type -t "$hubAlias" >/dev/null; then
-	    shift
-	    fixPath
-	    $hubAlias "$@"
-	    exit $?
-	fi
+    # When there are both git-* and hub-* commands, only invoke the hub-*
+    # variant when actually invoked via "hub" (or when the client expressly
+    # chooses the hub variant via HUB=t), but not when invoked via "git".
+    # This allows us to obtain different functionality depending on what command
+    # is used to invoke it.
+    hubSubAlias="hub-$1-$2"
+    hubAlias="hub-$1"
+    if type -t "$hubSubAlias" >/dev/null && { [ "$HUB" ] || ! type -t "$gitSubAlias" >/dev/null; }; then
+	shift; shift
+	fixPath
+	$hubSubAlias "$@"
+	exit $?
+    elif type -t "$hubAlias" >/dev/null && { [ "$HUB" ] || ! type -t "$gitAlias" >/dev/null; }; then
+	shift
+	fixPath
+	$hubAlias "$@"
+	exit $?
     fi
 fi
 
-gitSubAlias="git-$1-$2"
-gitAlias="git-$1"
 if type -t "$gitSubAlias" >/dev/null; then
     shift; shift
     fixPath

@@ -4,7 +4,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-Q|--qualified-with-userrepo] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-i|--as-integration-message] [-Q|--qualified-with-userrepo] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -26,16 +26,29 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
+    --as-integration-message|-i
+			Output in a format suitable for a pull request that
+			references the superproject that integrates the changes
+			in this submodule.
     --qualified-with-userrepo|-Q
 			Put the USER/REPO in front of the pull request number.
 HELPTEXT
 }
 
+toIntegrationMessage()
+{
+    sed \
+	-e 's/^\([^ ]\+\) .*$/* Note: This is being integrated via \1/'
+}
+
 typeset -a prTitleArgs=()
+postProcessor=
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--as-integration-message|-i)
+			shift; postProcessor=toIntegrationMessage;;
 	--qualified-with-userrepo|-Q)
 			prTitleArgs+=("$1"); shift;;
 	--)		shift; break;;
@@ -52,4 +65,4 @@ elif ! superproject="$(git-issubmodule --print)"; then
 fi
 
 cd "$superproject" || exit $?
-exec hub-prtitle "${prTitleArgs[@]}"
+eval 'hub-prtitle "${prTitleArgs[@]}"' "${postProcessor:+|}$postProcessor"

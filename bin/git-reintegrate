@@ -180,13 +180,18 @@ targetTrackedRemote="${targetTracks%%/*}"
 
 if [ ! "$isContinue" ]; then
     if [ -n "$targetTracks" ] && ! git-equals HEAD "$targetTracks"; then
-	printf 'Your %s branch is not up-to-date with %s; trying to fast-forward first...\n' "$path" "$targetTrackedRemote"
-	if ! git merge --ff-only "$targetTracks"; then
-	    if userBinaryChoice --console --question "Fast-forwarding failed; your $path branch has diverged from ${targetTracks}; do you want to stop here and merge that first?" --yes-no; then
-		exit 0
-	    else
-		printf "Okay, I'll reintegrate into %s locally and you'll then have to merge with %s after that.\\n" "$path" "$targetTracks"
+	if git-ffdryrun "$targetTracks"; then
+	    if userBinaryChoice --console --question "Your $path branch is not up-to-date with ${targetTrackedRemote}, but can be fast-forwarded. Fast-forward now?" --yes-no; then
+		git merge --ff-only "$targetTracks" || {
+		    status=$?
+		    echo >&2 'Fast-forwarding unexpectedly failed.'
+		    exit $status
+		}
 	    fi
+	elif userBinaryChoice --console --question "Your $path branch has diverged from ${targetTracks}; do you want to stop here and merge that first?" --yes-no; then
+	    exit 0
+	else
+	    printf "Okay, I'll reintegrate into %s locally and you'll then have to merge with %s after that.\\n" "$path" "$targetTracks"
 	fi
     fi
 

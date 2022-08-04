@@ -1,0 +1,29 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Commit and immediately archive the committed changes by tagging it (also in
+origin if it exists).
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [-q|--quiet] [-y|--yes] [-t|--name <tagname>] [<commit-args> ...] [-?|-h|--help]'
+}
+
+typeset -a archiveArgs=()
+typeset -a commitArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+
+	--force|-f|--quiet|-q)
+			archiveArgs+=("$1"); shift;;
+	--name|-t)	archiveArgs+=("$1" "$2"); shift; shift;;
+
+	--)		commitArgs+=("$1"); shift; break;;
+	*)		commitArgs+=("$1"); shift;;
+    esac
+done
+git-commit "${commitArgs[@]}" "$@" && \
+    git-autostash git-archivelast "${archiveArgs[@]}"

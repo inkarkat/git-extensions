@@ -1,0 +1,31 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Join two or more development histories together.
+Also considers submodules and automatically checks out resulting versions.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '<merge-args> [...] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+git merge "$@" || exit $?
+
+readarray -t mergedSubmodules < <(git subst)
+[ ${#mergedSubmodules[@]} -gt 0 ] || exit 0
+
+if [ ${#mergedSubmodules[@]} -eq 1 ]; then
+    mergedSubmodulesArticle=This
+    mergedSubmodulesAuxiliaryVerb=has
+    mergedSubmodulesPlural=
+else
+    mergedSubmodulesArticle=These
+    mergedSubmodulesAuxiliaryVerb=have
+    mergedSubmodulesPlural=s
+fi
+printf '%s submodule%s %s been merged; checking out the resulting version%s now: %s\n' "$mergedSubmodulesArticle" "$mergedSubmodulesPlural" "$mergedSubmodulesAuxiliaryVerb" "$mergedSubmodulesPlural" "$(joinBy --last-separator ' and ' ', ' "${mergedSubmodules[@]}")"
+git subwipe

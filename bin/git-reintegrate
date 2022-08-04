@@ -182,7 +182,7 @@ if [ ! "$isContinue" ]; then
     if [ -n "$targetTracks" ] && ! git-equals HEAD "$targetTracks"; then
 	if git-ffdryrun "$targetTracks"; then
 	    if userBinaryChoice --console --question "Your $path branch is not up-to-date with ${targetTrackedRemote}, but can be fast-forwarded. Fast-forward now?" --yes-no; then
-		git merge --ff-only "$targetTracks" || {
+		git-merge --ff-only "$targetTracks" || {
 		    status=$?
 		    echo >&2 'Fast-forwarding unexpectedly failed.'
 		    exit $status
@@ -232,7 +232,7 @@ if [ ! "$isContinue" ]; then
 		status=$?
 		if [ "$branch" = "${branches[-1]}" ]; then
 		    echo >&2 "After this branch has been successfully rebased (see above), you can merge $branchesSubject and ${isCheckFromStdin:+run checks and }${isPush:+push and }delete $branchesSubject via"
-		    printf >&2 'git checkout %q && git merge --ff-only %q && ' "$origRef" "$branch"
+		    printf >&2 'git checkout %q && git-merge --ff-only %q && ' "$origRef" "$branch"
 		    printContinueCommand
 		else
 		    typeset -a missingBranches=("${branches[@]}")
@@ -243,39 +243,19 @@ if [ ! "$isContinue" ]; then
 		    missingBranches=("${missingBranches[@]:1}")
 
 		    echo >&2 "After this branch has been successfully rebased (see above), you can continue rebasing, merge $branchesSubject and ${isCheckFromStdin:+run checks and }${isPush:+push and }delete $branchesSubject via"
-		    printf >&2 'git checkout %q && git merge --ff-only %q && %q --rebase --no-delete ' "$origRef" "$branch" "$(basename "$0")"
+		    printf >&2 'git checkout %q && git-merge --ff-only %q && %q --rebase --no-delete ' "$origRef" "$branch" "$(basename "$0")"
 		    printf >&2 -- '--branch %q ' "${missingBranches[@]}"
 		    printf >&2 '&& '
 		    printContinueCommand
 		fi
 		exit $status
 	    }
-	    git merge --ff-only "$branch" || exit $?
+	    git-merge --ff-only "$branch" || exit $?
 	done
     else
-	git merge "${fastForwardArgs[@]:---no-ff}" "${mergeArgs[@]}" "${branches[@]}" || {
+	git-merge "${fastForwardArgs[@]:---no-ff}" "${mergeArgs[@]}" "${branches[@]}" || {
 	    status=$?
 	    echo >&2 "After $branchesSubjectAuxiliaryVerb been merged, you can ${isCheckFromStdin:+run checks and }${isPush:+push and }delete $branchesSubject via"
-	    printContinueCommand
-	    exit $status
-	}
-    fi
-
-    readarray -t mergedSubmodules < <(git subst)
-    if [ ${#mergedSubmodules[@]} -gt 0 ]; then
-	if [ ${#mergedSubmodules[@]} -eq 1 ]; then
-	    mergedSubmodulesArticle=This
-	    mergedSubmodulesAuxiliaryVerb=has
-	    mergedSubmodulesPlural=
-	else
-	    mergedSubmodulesArticle=These
-	    mergedSubmodulesAuxiliaryVerb=have
-	    mergedSubmodulesPlural=s
-	fi
-	printf '%s submodule%s %s been merged; checking out the resulting version%s now: %s\n' "$mergedSubmodulesArticle" "$mergedSubmodulesPlural" "$mergedSubmodulesAuxiliaryVerb" "$mergedSubmodulesPlural" "$(joinBy --last-separator ' and ' ', ' "${mergedSubmodules[@]}")"
-	git subwipe || {
-	    status=$?
-	    echo >&2 "Oops, the submodule update somehow failed. After fixing that, you can ${isCheckFromStdin:+run checks and }${isPush:+push and }delete $branchesSubject via"
 	    printContinueCommand
 	    exit $status
 	}

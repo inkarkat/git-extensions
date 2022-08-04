@@ -7,16 +7,63 @@ Test whether a merge will do through or cause conflicts without actually doing
 the merge.
     --status	    Show concise status after the merge.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--status] [MERGE-ARGS ...] <commit>... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--status] [MERGE-ARGS ...] [--] <commit> [...] [-?|-h|--help]'
 }
-isStatus=
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --status)		shift; isStatus=t;;
-esac
 
-git merge --no-commit --no-ff "$@"
-status=$?
-[ "$isStatus" ] && git st
-git merge --abort
-exit $status
+isValidRef()
+{
+    git rev-parse --verify --quiet "$@" >/dev/null
+}
+
+isStatus=
+isAllowFastForward=t
+isAllowMerge=t
+typeset -a mergeArgs=()
+typeset -a commits=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--status)	shift; isStatus=t;;
+	--ff)		shift;;
+	--no-ff)	shift; isAllowFastForward=; isAllowMerge=t;;
+	--ff-only)	shift; isAllowFastForward=t; isAllowMerge=;;
+	--)		mergeArgs+=("$1"); shift; commits=("$@"); break;;
+	*)		mergeArgs+=("$1"); shift;;
+    esac
+done
+if [ ${#commits[@]} -eq 0 ]; then
+    # No commits after -- captured yet; need to investigate parsed and remaining
+    # args from behind for commits.
+    mergeArgs+=("$@")
+    while [ ${#mergeArgs[@]} -ne 0 ]
+    do
+	lastArg="${mergeArgs[-1]}"
+	isValidRef "$lastArg" || break
+
+	commits=("$lastArg" "${commits[@]}")
+	mergeArgs=("${mergeArgs[@]:0:${#mergeArgs[@]}-1}")
+    done
+fi
+if [ ${#commits[@]} -eq 0 ]; then
+    echo 'ERROR: No <commit>(s) passed.'
+    echo
+    printUsage "$0"
+    exit 2
+fi >&2
+
+fastForwardCheck()
+{
+    git-ffdryrun -- "${commits[@]}"
+}
+mergeCheck()
+{
+    git merge --no-commit --no-ff "${mergeArgs[@]}" "${commits[@]}"; status=$?
+    [ "$isStatus" ] && git st
+    git merge --abort 2>/dev/null
+    return $status
+}
+
+[ "$isAllowFastForward" ] && fastForwardCheck && exit 0
+[ "$isAllowMerge" ] && mergeCheck && exit 0
+exit 1

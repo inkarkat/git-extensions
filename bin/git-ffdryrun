@@ -1,0 +1,28 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Test whether passed <commit>(s) can be fast-forwarded without actually fast-forwarding.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '<commit> [...] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+if [ $# -eq 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+previousCommit=HEAD
+for commit
+do
+    if [ -n "$(git log --pretty=tformat:%H --max-count 1 "${commit}..$previousCommit")" ]; then
+	# At least one branch has diverged from its predecessor.
+	exit 1
+    fi
+    previousCommit="$commit"
+done
+exit 0

@@ -130,19 +130,6 @@ if [ -n "$HUB" ] && [ ! "$isRebase" ]; then
 fi
 
 
-canFastForward()
-{
-    local previousBranch=HEAD
-    for branch in "${branches[@]}"
-    do
-	if [ -n "$(git log --pretty=tformat:%H --max-count 1 "${branch}..$previousBranch")" ]; then
-	    # At least one branch has diverged from its predecessor.
-	    return 1
-	fi
-	previousBranch="$branch"
-    done
-    return 0
-}
 canRebase()
 {
     for branch in "${branches[@]}"
@@ -204,7 +191,7 @@ if [ ! "$isContinue" ]; then
     fi
 
     if [ ! "$hasMergeResolutionArg" ]; then
-	if canFastForward; then
+	if git-ffdryrun "${branches[@]}"; then
 	    commitNum=$(git log --pretty=tformat:%H "HEAD..${branches[-1]}" | wc -l)
 	    commitNumPlural=s; [ $commitNum -eq 1 ] && commitNumPlural=
 	    branchNum=${#branches[@]}; [ $branchNum -eq 1 ] && branchNum=

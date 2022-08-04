@@ -32,7 +32,7 @@ if [ $# -gt 0 ]; then
     stash="$1"; shift
 
     # Check reachability.
-    git stash show "$1" >/dev/null || exit 2
+    git stash show "$stash" >/dev/null || exit 2
 fi
 if [ $# -gt 0 ]; then
     printUsage "$0" >&2
@@ -40,6 +40,33 @@ if [ $# -gt 0 ]; then
 fi
 
 tagCommit="$(git rev-parse "$stash")" || exit $?
+
+# Git stash makes either two commits, or (with -u|--include-untracked or
+# -a|--all) three commits. The first and last commits stash makes are, in order,
+# the index i and working-tree w commits. Commit w has the form of a merge
+# commit. If git stash is making three commits total, the second commit is the
+# untracked-files commit u . The final w commit has either two parents, the
+# current commit and i (in that order), or three parents: the current commit, i
+# , and u (in that order).
+# If we've just stashed the index, we can remove the ugliness by choosing the
+# index commit (i.e. the second parent). A working copy-only stash unfortunately
+# would require commit modification, to get rid of the empty second-parent index
+# commit.
+isEmptyChange()
+{
+    [ -z "$(git show --pretty= -- "$tagCommit")" ]
+}
+hasUntrackedFiles()
+{
+    git rev-parse "${tagCommit}^3" >/dev/null 2>&1
+}
+if isEmptyChange && \
+    ! hasUntrackedFiles && \
+    tagIndexCommit="$(git rev-parse "${tagCommit}^2" 2>/dev/null)"
+then
+    tagCommit="$tagIndexCommit"
+fi
+
 if [ -z "$tagName" ] && [ ! "$isYes" ]; then
     tagName="$(userquery -r -p 'Please enter tag name: ')" || exit $?
 fi

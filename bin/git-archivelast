@@ -1,0 +1,91 @@
+#!/bin/bash
+set -o pipefail
+
+printUsage()
+{
+    cat <<HELPTEXT
+Undo the last commit / N commits / commits up to <commit> of the current branch,
+and archive it by tagging it (also in origin if it exists).
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [-q|--quiet] [-y|--yes] [-t|--name <tagname>] [-n|--count N|<commit>] [-?|-h|--help]'
+}
+tagName=
+isForce=
+isQuiet=
+isYes=
+commit=HEAD
+commitNum=1
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	    shift; printUsage "$0"; exit 0;;
+	--force|-f)	    shift; isForce=t;;
+	--quiet|-q)	    shift; isQuiet=t;;
+	--yes|-y)	    shift; isYes=t;;
+	--name|-t)	    shift; tagName="$1"; shift;;
+	--count|-n)	    shift
+			    if ! [[ "$1" =~ ^[0-9]+$ ]]; then
+				printUsage "$0" >&2
+				exit 2
+			    fi
+			    commit="HEAD~$(($1 - 1))"
+			    commitNum=$1
+			    shift
+			    ;;
+	-*)		    { echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		    break;;
+    esac
+done
+if [ $# -gt 0 ]; then
+    commit="$1"; shift
+
+    # Check reachability.
+    if git rev-list --quiet --first-parent "${commit}.." -- 2>/dev/null; then
+	commitNum=$(git rev-list "${commit}.." -- | wc -l)
+	let commitNum+=1
+    elif commitNum=$(git rev-list "${commit}.." -- 2>/dev/null | wc -l); then
+	let commitNum+=1
+	# The commit has been merged from a branch; this is dubious.
+	if [ ! "$isYes" ]; then
+	    userBinaryChoice --question "The target commit is on a side branch that was merged into the current branch; really archive that?" --yes-no || exit 4
+	fi
+    else
+	[ "$isQuiet" ] || echo >&2 'ERROR: The target commit is not an ancestor of the current branch!'
+	exit 1
+    fi
+fi
+if [ $# -gt 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+elif git-dirty; then
+    echo >&2 'ERROR: working copy is still dirty; please clean up first.'
+    git status
+    exit 1
+fi
+
+tagCommit="$(git rev-parse HEAD)" || exit $?
+if [ -z "$tagName" ] && [ ! "$isYes" ]; then
+    tagName="$(userquery -r -p 'Please enter tag name: ')" || exit $?
+fi
+[ -n "$tagName" ] || exit 1
+fullTagName="archive/$tagName"
+if git-existstag "$fullTagName"; then
+    if [ "$isForce" ]; then
+	printf >&2 "Note: Tag '%s' already exists; overwriting because of --force.\\n" "$fullTagName"
+    else
+	printf >&2 "ERROR: Tag '%s' already exists.\\n" "$fullTagName"
+	exit 1
+    fi
+fi
+
+commitNumPlural=s; [ $commitNum -eq 1 ] && commitNumPlural=
+if [ "$isYes" ]; then
+    [ "$isQuiet" ] || printf >&2 'Moving %d commit%s to tag %s.\n' "$commitNum" "$commitNumPlural" "$fullTagName"
+else
+    userBinaryChoice --question "Really move $commitNum commit${commitNumPlural} to tag '$fullTagName'?" --yes-no || exit 4
+fi
+
+git tag ${isForce:+--force} "$fullTagName" "$tagCommit" || exit $?
+git reset --hard "${commit}^" || exit $?
+! git existsremote origin || git push ${isForce:+--force} --tags origin || exit $?

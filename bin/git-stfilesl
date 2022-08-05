@@ -1,0 +1,72 @@
+#!/bin/bash
+set -o pipefail
+shopt -qs nullglob
+
+: ${GIT_STFILESL_SOURCE_COMMAND:=git-stfiles}
+: ${GIT_STFILESL_COMMAND:=diff}
+
+printUsage()
+{
+    cat <<HELPTEXT
+Show separate $GIT_STFILESL_COMMAND (instead of concatenating all changes), paged
+through with less, of each file obtained from ${GIT_STFILESL_SOURCE_COMMAND}.
+HELPTEXT
+    echo
+    printf 'Usage: git %ql %s\n' "$GIT_STFILESL_COMMAND" "[${GIT_STFILESL_COMMAND^^}-OPTIONS ...] [--] [<path>...] [-?|-h|--help]"
+}
+typeset -a args=()
+typeset -a paths=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--)		args+=("$1"); shift; paths=("$@"); break;;
+	*)		args+=("$1"); shift;;
+    esac
+done
+if [ ${#paths[@]} -eq 0 ]; then
+    # No files after -- captured yet; need to investigate parsed and
+    # remaining args from behind for files.
+    args+=("$@")
+    while [ ${#args[@]} -ne 0 ]
+    do
+	lastArg="${args[-1]}"
+	[ -e "$lastArg" ] || break
+
+	paths=("$lastArg" "${paths[@]}")
+	args=("${args[@]:0:${#args[@]}-1}")
+    done
+fi
+echo "${args[@]}" "${paths[@]}" # All arguments have been parsed into args and paths; don't use $@.
+
+
+readarray -t stfiles < <(eval "$GIT_STFILESL_SOURCE_COMMAND" '"${paths[@]}"'; printf '\n%d\n' "$?")	# Exit status from the process substitution is lost; return the actual exit status via an appended additional line.
+[ ${stfiles[-1]} -ne 0 ] && exit ${stfiles[-1]}
+unset "stfiles[$((${#stfiles[@]}-1))]"
+[ -z "${stfiles[-1]}" ] && unset "stfiles[$((${#stfiles[@]}-1))]"
+if [ ${#stfiles[@]} -eq 0 ]; then
+    echo >&2 'ERROR: No files.'
+    exit 1
+fi
+
+TMPDIR="$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || { dirspec="${TEMP:-/tmp}/$(basename -- "$0").$$$RANDOM"; mkdir -p -- "$dirspec" && printf %s "$dirspec"; })" || exit $?
+[ "$DEBUG" ] || trap 'rm -rf "$TMPDIR" 2>/dev/null' EXIT
+
+status=0
+typeset -a patches=()
+for filespec in "${stfiles[@]}"
+do
+    patchFilespec="${TMPDIR}/${filespec//\//_}${GIT_STFILESL_EXTENSION-.patch}"
+    git $GIT_STFILESL_COMMAND "${args[@]}" -- "$filespec" > "$patchFilespec" || status=$?
+    [ -s "$patchFilespec" ] && patches+=("$patchFilespec")
+done
+
+[ ${#patches[@]} -gt 0 ] || exit 1
+
+if ! isColorOffArgument "$@"; then
+    pipethrough --piped -- colordiff --color=yes -- "${patches[@]}" 2>/dev/null
+fi
+
+[ "$PAGER" = smartless ] && PAGER=less	# smartless does not page small outputs that fit the terminal, but we explicitly want to page through each date range separately.
+"${PAGER:-less}" --RAW-CONTROL-CHARS "${patches[@]}"
+exit $status

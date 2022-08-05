@@ -1,4 +1,5 @@
 #!/bin/bash
+shopt -qs extglob
 
 printUsage()
 {
@@ -9,8 +10,9 @@ When no <stash> is given, it removes the latest one. i.e.  stash@{0}, otherwise
 <stash> must be a valid stash log reference of the form stash@{<revision>}.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [-q|--quiet] [-y|--yes] [-t|--name <tagname>] [<stash>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [-q|--quiet] [-y|--yes] [-t|--name <tagname>] [-m <msg>|--message=<msg>|-F <file>|--file=<file>] [<stash>] [-?|-h|--help]'
 }
+typeset -a gitTagArgs=()
 tagName=
 isForce=
 isQuiet=
@@ -24,6 +26,10 @@ do
 	--quiet|-q)	    shift; isQuiet=t;;
 	--yes|-y)	    shift; isYes=t;;
 	--name|-t)	    shift; tagName="$1"; shift;;
+	--@(message|file)|-[mF])
+			    gitTagArgs+=("$1" "$2"); shift; shift;;
+	--@(message|file)=*)
+			    gitTagArgs+=("$1"); shift;;
 	-*)		    { echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		    break;;
     esac
@@ -87,6 +93,6 @@ else
     userBinaryChoice --question "Really move $stash to tag '$fullTagName'?" --yes-no || exit 4
 fi
 
-git tag ${isForce:+--force} "$fullTagName" "$tagCommit" || exit $?
+git tag ${isForce:+--force} "${gitTagArgs[@]}" "$fullTagName" "$tagCommit" || exit $?
 git stash drop "$stash" || exit $?
 ! git existsremote origin || git push ${isForce:+--force} --tags origin || exit $?

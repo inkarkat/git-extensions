@@ -1,10 +1,11 @@
 #!/bin/bash
+shopt -qs extglob
 
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [-y|--yes] [-f|--force] [-r|--remote REMOTE|-a] [-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [--] [<branch-glob> ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [-y|--yes] [-f|--force] [-m <msg>|--message=<msg>|-F <file>|--file=<file>] [-r|--remote REMOTE|-a] [-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [--] [<branch-glob> ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -51,6 +52,10 @@ do
 	--yes|-y)	shift; isYes=t;;
 
 	--force|-f)	gitArchiveArgs+=("$1"); shift;;
+	--@(message|file)|-[mF])
+			gitArchiveArgs+=("$1" "$2"); shift; shift;;
+	--@(message|file)=*)
+			gitArchiveArgs+=("$1"); shift;;
 
 	-a|-r)		[ "$1" = '-a' ] && gitFilterOutPersistentBranchesArgs+=(--remote '')
 			gitStalebrArgs+=("$1"); shift

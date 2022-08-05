@@ -1,4 +1,5 @@
 #!/bin/bash
+shopt -qs extglob
 
 printUsage()
 {
@@ -7,7 +8,7 @@ Commit and immediately archive the committed changes by tagging it (also in
 origin if it exists).
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [-q|--quiet] [-y|--yes] [-t|--name <tagname>] [<commit-args> ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [-q|--quiet] [-y|--yes] [-t|--name <tagname>] [-m <msg>|--message=<msg>|-F <file>|--file=<file>] [<commit-args> ...] [-?|-h|--help]'
 }
 
 typeset -a archiveArgs=()
@@ -20,6 +21,10 @@ do
 	--force|-f|--quiet|-q)
 			archiveArgs+=("$1"); shift;;
 	--name|-t)	archiveArgs+=("$1" "$2"); shift; shift;;
+	--@(message|file)|-[mF])
+			archiveArgs+=("$1" "$2"); shift; shift;;
+	--@(message|file)=*)
+			archiveArgs+=("$1"); shift;;
 
 	--)		commitArgs+=("$1"); shift; break;;
 	*)		commitArgs+=("$1"); shift;;

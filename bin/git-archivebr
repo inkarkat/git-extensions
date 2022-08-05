@@ -1,30 +1,39 @@
 #!/bin/bash
 # Source: http://www.aaronwest.net/blog/index.cfm/2011/6/7/Git-Workflows-Archiving-Old-Branches
+shopt -qs extglob
 
 printUsage()
 {
     cat <<HELPTEXT
 Tag <branch>(es), then delete it from the local repository (as well as origin if
 it exists).
-Use this to remove old branches that have been fully merged. If not
-incorporated (e.g. an abandoned experiment), pass -f to force archiving.
+Use this to remove old branches that have been fully merged. If not incorporated
+(e.g. an abandoned experiment), pass -f to force archiving.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [<remote>/]<branch> [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [-m <msg>|--message=<msg>|-F <file>|--file=<file>] [--] [<remote>/]<branch> [...] [-?|-h|--help]'
 }
 
+branchDeleteOption=-d
+isForce=
+typeset -a gitTagArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	-f|--force)	shift; branchDeleteOption=-D; isForce=t;;
+	--@(message|file)|-[mF])
+			gitTagArgs+=("$1" "$2"); shift; shift;;
+	--@(message|file)=*)
+			gitTagArgs+=("$1"); shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 if [ $# -eq 0 ]; then
     echo >&2 'Need <branch> to archive!'
     exit 2
 fi
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-esac
-
-branchDeleteOption=-d
-isForce=
-case $1 in
-    -f|--force)	shift; branchDeleteOption=-D; isForce=t;;
-esac
 
 status=0
 typeset -a localBranches=()
@@ -39,7 +48,7 @@ do
 	git existsremote "${BASH_REMATCH[1]}" && \
 	branch="${BASH_REMATCH[2]}"
 
-    if git tag ${isForce:+--force} "archive/$branch" "$commit"; then
+    if git tag ${isForce:+--force} "${gitTagArgs[@]}" "archive/$branch" "$commit"; then
 	[ "$branch" = "$commit" ] && localBranches+=("$branch")
 	git existsbr "origin/$branch" && originBranches+=("$branch")
     else

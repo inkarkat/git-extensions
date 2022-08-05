@@ -25,3 +25,10 @@ b) maintain history of how the feature grew: `git cu && git opush`
 `git ofetch; git subsamebrdo reintegratetom` (`hub reintegratetom` if you want to do this submodule by submodule)
 ## merge the superproject
 `hub reintegratetom`
+
+# Conflicts
+Resolution and merges have to be done in the submodule itself, as the
+superproject can only reference a single commit! So, if there has been
+concurrent development and there are now two diverging references to a
+submodule, a commit that contains both changes needs to be found or created in
+the submodule itself, and the superproject can then reference that commit.

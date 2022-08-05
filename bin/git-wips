@@ -189,13 +189,14 @@ considerCheck nonmaster && \
 
 findUnmergedDownstreamBranches()
 {
+    local baseBranch="$(git-nbr 2>/dev/null)"
     typeset -a upstreamBranches=()
     readarray -t upstreamBranches < <(git ubr | sed -e 's/^ \+//' ${GIT_WIPS_UPSTREAM_BRANCHES_IGNORE_PATTERN:+-e "/^upstream\\/\\(${GIT_WIPS_UPSTREAM_BRANCHES_IGNORE_PATTERN}\\)\$/d"})
     local upstreamBranch; for upstreamBranch in "${upstreamBranches[@]}"
     do
 	git branch --remotes --no-merged "$upstreamBranch"
     done | \
-	sed -n -e 's/^ \+//' -e "/^origin\/$(git-mbr)/d" -e '/^origin\/HEAD -> /d' -e 's/^origin\//not merged: /p' | \
+	sed -n -e 's/^ \+//' -e "/^origin\/$(git-mbr)/d" ${baseBranch:+-e "/^origin\/${baseBranch}/d"} -e '/^origin\/HEAD -> /d' -e 's/^origin\//not merged: /p' | \
 	uniqueStable | \
 	outputAndPrintf 'These branches in origin have not yet been merged to upstream:\n'
 }

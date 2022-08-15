@@ -40,9 +40,13 @@ if [ -z "$(git log --max-count 1 --pretty=tformat:%H "$@")" ]; then
 
 	if [ ${#allElements[@]} -eq 0 ]; then
 	    exit 99
-	else
-	    zenity --list --title "$(git wcname): $originalRange" --text 'These commit(s) have been reverted:' --width 1600 --height 800 --column 'Commit' --column 'Author' --column 'Date' --column 'Title' "${allElements[@]}" &
+	elif [ -n "$DISPLAY" ] && type -t zenity >/dev/null; then
+	    zenity --list --title "$(git wcname): $originalRange" --text 'These commit(s) have been reverted:' --width 1600 --height 800 --column 'Commit' --column 'Author' --column 'Date' --column 'Title' "${allElements[@]}" >/dev/null 2>&1 &
 	    exit $?
+	else
+	    printf '%s: %s; These commit(s) have been reverted:\n' "$(git wcname)" "$originalRange"
+	    printf '%s\n' "${allElements[@]}"
+	    exit
 	fi
     else
 	exit 99

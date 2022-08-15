@@ -207,7 +207,7 @@ parseCommand()
 	    wips-sh)
 		# Synthesized new command.
 		shift
-		wcdoArgs+=("${shellWcdoArgs[@]}" --command)
+		wcdoArgs+=("${shellWcdoArgs[@]}")
 		typeset -a wipsArgs=()
 		while [ $# -gt 0 ] && [[ "$1" =~ ^[+-][[:alpha:]]+$ ]]
 		do
@@ -215,12 +215,12 @@ parseCommand()
 		done
 		quotedWipsArgs=; [ ${#wipsArgs[@]} -gt 0 ] && printf -v quotedWipsArgs '%q ' "${wipsArgs[@]}"
 		if [ $# -eq 0 ]; then
-		    wcdoArgs+=("git wips ${quotedWipsArgs}&& $quotedShell -i")
+		    wcdoArgs+=(--command "git wips ${quotedWipsArgs}&& $quotedShell -i")
 		    echo "Note: To abort the iteration of $GIT_DOEXTENSIONS_WHAT, use \"exit 126\"."
 		else
 		    wcdoArgs+=(--predicate-command "git wips --quiet ${quotedWipsArgs}")
 		    printf -v quotedSimpleCommand '%q ' "$@"
-		    wcdoArgs+=("${quotedSimpleCommand# }")
+		    wcdoArgs+=(--command "${quotedSimpleCommand# }")
 		fi
 		;;
 	    fetchdate)

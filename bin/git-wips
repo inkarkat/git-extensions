@@ -168,6 +168,7 @@ printChangelogDifferences()
 
     local remoteBranch; remoteBranch="$(git-remotebr upstream 2>/dev/null)" || return 1
     git diff -R "${colorArg[@]}" "$remoteBranch" -- "$changelogFilespec" | outputAndPrintf 'Behind changes in upstream:\n'
+    return ${PIPESTATUS[-1]}
 }
 considerCheck fallenbehind && \
     if git existsremote upstream && git remotebr upstream >/dev/null 2>&1 && printChangelogDifferences; then positiveCheck; fi
@@ -175,11 +176,17 @@ considerCheck fallenbehind && \
 considerCheck behind && \
     if git existsremote upstream && git remotebr upstream >/dev/null 2>&1 && git uinlgn "${colorArg[@]}" | headtail --separator $'\t\t[... use "git uinl[o]g" for the full list ...]' | outputAndPrintf 'Behind upstream:\n'; then positiveCheck; fi
 
+printBehindTags()
+{
+    local tagName="${1:?}"; shift
+    GIT_BRREFDO_BRANCH_COMMAND='git ubr' git-brrefdo --no-header --no-pager -- lgtaggeduntiltag "$tagName" "${colorArg[@]}" {} | \
+		uniqueStable | outputAndPrintf 'Behind these tags in upstream:\n'
+    return ${PIPESTATUS[-1]}
+}
 considerCheck behindtags && \
     git existsremote upstream && \
-	tagName="$(git istagged --print)" && \
-	if GIT_BRREFDO_BRANCH_COMMAND='git ubr' git-brrefdo --no-header --no-pager -- lgtaggeduntiltag "$tagName" "${colorArg[@]}" {} | \
-	    uniqueStable | outputAndPrintf 'Behind these tags in upstream:\n'; then positiveCheck; fi
+    tagName="$(git istagged --print)" && \
+    if printBehindTags "$tagName"; then positiveCheck; fi
 
 considerCheck wipcommit && \
     if git l --max-count=1 "${colorArg[@]}" | grep '\(^\| \)WIP: '; then positiveCheck; fi

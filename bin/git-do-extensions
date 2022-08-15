@@ -66,6 +66,11 @@ Supports the following special commands and options:
 			    that could be incorporated into the working copy.
 			    Ignores local customizations and private files that
 			    may happen when just following an upstream repo.
+    uprogress-sh [(+|-)CHECK [(+|-)...]] [COMMAND ...]
+			    Open an interactive shell / execute COMMAND in those
+			    $GIT_DOEXTENSIONS_WHAT that have changes in upstream
+			    that could be incorporated. You can abort the
+			    iteration by exiting the shell with exit status 126.
     --same-branch	    Only consider those $GIT_DOEXTENSIONS_WHAT that are
 			    on the same branch as the current working copy.
 HELPTEXT
@@ -221,6 +226,26 @@ parseCommand()
 		    wcdoArgs+=(--predicate-command "git wips --quiet ${quotedWipsArgs}")
 		    printf -v quotedSimpleCommand '%q ' "$@"
 		    wcdoArgs+=(--command "${quotedSimpleCommand# }")
+		fi
+		;;
+	    uprogress-sh)
+		# Synthesized new command.
+		shift
+		wcdoArgs+=("${shellWcdoArgs[@]}")
+		typeset -a wipsArgs=()
+		while [ $# -gt 0 ] && [[ "$1" =~ ^[+-][[:alpha:]]+$ ]]
+		do
+		    wipsArgs+=("$1"); shift
+		done
+		wcdoArgs+=(--predicate-command 'git-existsremote upstream')
+		quotedWipsArgs=; [ ${#wipsArgs[@]} -gt 0 ] && printf -v quotedWipsArgs '%q ' "${wipsArgs[@]}"
+		if [ $# -eq 0 ]; then
+		    wcdoArgs+=(--command "git progresswips ${quotedWipsArgs}&& $quotedShell -i")
+		    echo "Note: To abort the iteration of $GIT_DOEXTENSIONS_WHAT, use \"exit 126\"."
+		else
+		    printf -v quotedSimpleCommand '%q ' "$@"
+		    wcdoArgs+=(--command "${quotedSimpleCommand# }")
+		    wcdoArgs+=(--predicate-command "git progresswips --quiet ${quotedWipsArgs}")
 		fi
 		;;
 	    fetchdate)

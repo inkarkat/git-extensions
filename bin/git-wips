@@ -173,10 +173,15 @@ printChangelogDifferences()
 considerCheck fallenbehind && \
     if git existsremote upstream && git remotebr upstream >/dev/null 2>&1 && printChangelogDifferences; then positiveCheck; fi
 
+printBehindCommits()
+{
+    git uinlgn "${colorArg[@]}" | headtail --separator $'\t\t[... use "git uinl[o]g" for the full list ...]' | outputAndPrintf 'Behind upstream:\n'
+    return ${PIPESTATUS[-1]}
+}
 considerCheck behind && \
     if git existsremote upstream && \
 	git remotebr upstream >/dev/null 2>&1 && \
-	git uinlgn "${colorArg[@]}" | headtail --separator $'\t\t[... use "git uinl[o]g" for the full list ...]' | outputAndPrintf 'Behind upstream:\n'; then positiveCheck; fi
+	printBehindCommits; then positiveCheck; fi
 
 printBehindTags()
 {

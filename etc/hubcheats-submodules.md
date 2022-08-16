@@ -4,7 +4,8 @@ superproject: Create a branch: `git com -b feat-4711/super-cool`
 submodules: a) Create branches prior to changes:
 	       `git subconewbr --query|SUBMODULE1 SUBMODULE2`
 submodules: b) Create branches after uncommitted changes:
-	       `git subdirtydo|subuntrackeddo|subdo --dirty --untracked com -b feat-4711/super-cool`
+	       `git (subdirtydo|subuntrackeddo|subdo --dirty --untracked) \`
+	       `> co -b feat-4711/super-cool`
 ## b) start bottom-up
 submodule(s): Create branch: `git com -b feat-4711/super-cool`
 superproject: Create branch: `git com -b feat-4711/super-cool`

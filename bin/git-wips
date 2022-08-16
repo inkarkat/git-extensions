@@ -59,6 +59,9 @@ deselected (from all checks on offer) via -name.
 - behindtags:
 	    where the working copy has checked out a tag and there are upstream
 	    branch(es) that have more recent tags
+	    You can ignore certain tag patterns via the wips.excludedTags
+	    (multi-valued) config key:
+	    $ git config --add wips.excludedTags TAGNAME-*
 - wipcommit:where the last commit had "WIP:" in the message summary
 - nonmaster:a branch different from the master branch (or the base branch if
 	    defined) is checked out
@@ -173,13 +176,24 @@ printChangelogDifferences()
 considerCheck fallenbehind && \
     if git existsremote upstream && git remotebr upstream >/dev/null 2>&1 && printChangelogDifferences; then positiveCheck; fi
 
+printBehindCommits()
+{
+    git uinlgn "${colorArg[@]}" | headtail --separator $'\t\t[... use "git uinl[o]g" for the full list ...]' | outputAndPrintf 'Behind upstream:\n'
+    return ${PIPESTATUS[-1]}
+}
 considerCheck behind && \
-    if git existsremote upstream && git remotebr upstream >/dev/null 2>&1 && git uinlgn "${colorArg[@]}" | headtail --separator $'\t\t[... use "git uinl[o]g" for the full list ...]' | outputAndPrintf 'Behind upstream:\n'; then positiveCheck; fi
+    git existsremote upstream && \
+    git remotebr upstream >/dev/null 2>&1 && \
+    git brname --real-branch-only >/dev/null 2>&1 && \
+    if printBehindCommits; then positiveCheck; fi
 
 printBehindTags()
 {
     local tagName="${1:?}"; shift
-    GIT_BRREFDO_BRANCH_COMMAND='git ubr' git-brrefdo --no-header --no-pager -- lgtaggeduntiltag "$tagName" "${colorArg[@]}" {} | \
+
+    typeset -a excludedTagsArgs=(); readarray -t excludedTagsArgs < <(git config --get-all wips.excludedTags)
+
+    GIT_BRREFDO_BRANCH_COMMAND='git ubr' git-brrefdo --no-header --no-pager -- lgtaggeduntiltag "$tagName" "${excludedTagsArgs[@]/#/--decorate-refs-exclude=refs/tags/}" "${colorArg[@]}" {} | \
 		uniqueStable | outputAndPrintf 'Behind these tags in upstream:\n'
     return ${PIPESTATUS[-1]}
 }

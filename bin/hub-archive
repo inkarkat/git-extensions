@@ -7,10 +7,12 @@ printUsage()
 Archive my GitHub clone (i.e. make it read-only).
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--keep-remote] [-?|-h|--help]'
 }
+isKeepRemote=
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --keep-remote)	shift; isKeepRemote=t;;
 esac
 if [ $# -ne 0 ]; then
     printUsage "$0" >&2
@@ -25,4 +27,6 @@ me="$(git me-in-github)"
 repo="$(git remote get-url origin)" || exit 3
 [[ "$repo" =~ [:/]"$me"/([^/]+)\.git$ ]] || exit 3
 repo="${BASH_REMATCH[1]}"
-exec gh repo archive "${me:?}/${repo}" --confirm
+gh repo archive "${me:?}/${repo}" --confirm || exit $?
+
+[ "$isKeepRemote" ] || git remote remote origin

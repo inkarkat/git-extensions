@@ -4,7 +4,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-m|--as-merge-message] [-Q|--qualified-with-userrepo] [<commit> [...]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-i|--as-integration-message|-m|--as-merge-message] [-Q|--qualified-with-userrepo] [<commit> [...]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -26,6 +26,10 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
+    --as-integration-message|-i
+			Output in a format suitable for a pull request that
+			references the superproject that integrates the changes
+			in this submodule.
     --as-merge-message|-m
 			Output in a format suitable for a merge commit instead
 			of a plain list.
@@ -40,6 +44,8 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--as-integration-message|-i)
+			shift; action=integrationMessage;;
 	--as-merge-message|-m)
 			shift; action=mergeMessage;;
 	--qualified-with-userrepo|-Q)
@@ -66,6 +72,16 @@ list()
     local i; for ((i = 0; i < ${#identifiers[@]}; i++))
     do
 	printf '%s %s\n' "${identifiers[$i]}" "${titles[$i]}"
+    done
+}
+
+integrationMessage()
+{
+    [ ${#titles[@]} -gt 0 ] || return 99
+    local i; for ((i = 0; i < ${#identifiers[@]}; i++))
+    do
+	[ "$isQualified" ] && title='' || title="${titles[$i]}"
+	printf '* Note: This is being integrated via %s%s\n' "${identifiers[$i]}" "${title:+ }${title}"
     done
 }
 

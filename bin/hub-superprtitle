@@ -35,21 +35,12 @@ HELPDESCRIPTION
 HELPTEXT
 }
 
-toIntegrationMessage()
-{
-    sed \
-	-e 's/^\([^ ]\+\) .*$/* Note: This is being integrated via \1/'
-}
-
 typeset -a prTitleArgs=()
-postProcessor=
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
-	--as-integration-message|-i)
-			shift; postProcessor=toIntegrationMessage;;
-	--qualified-with-userrepo|-Q)
+	--as-integration-message|-i|--qualified-with-userrepo|-Q)
 			prTitleArgs+=("$1"); shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
@@ -65,4 +56,4 @@ elif ! superproject="$(git-issubmodule --print)"; then
 fi
 
 cd "$superproject" || exit $?
-eval 'hub-prtitle "${prTitleArgs[@]}"' "${postProcessor:+|}$postProcessor"
+exec hub-prtitle "${prTitleArgs[@]}"

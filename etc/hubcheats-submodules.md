@@ -15,15 +15,26 @@ superproject: Check out branches: `git subcoremotebr --query|--all`
 
 ## create integration build
 superproject: `git cu && git opublish`
-`hub bmsubchanges && hub pull-request --draft`, paste the submodule changes into the description text
+`hub pull-request --draft`
 
 ## update integration build after submodule work
 a) normal updates to short-lived feature: `git amenu && git opush -f`
 b) maintain history of how the feature grew: `git cu && git opush`
 
+## peer review of submodules (optional)
+a) from superproject: `hub integrationpr && git subsamebrdo --no-git-color --no-header --no-pager pull-request`
+b) from submodule(s): `hub superpr && hub pull-request`
+paste the superproject PR reference into the description text
+
+superproject: `hub bmsubchanges && gh pr edit`
+paste the submodule PR references / changes into the description text
+
 ## integrate submodule changes first
-(optional: `hub superpr && git subsamebrdo pull-request`, paste the superproject PR reference into the description text)
 `git ofetch; git subsamebrdo reintegratetom` (`hub reintegratetom` if you want to do this submodule by submodule)
+
+## peer review of integration (optional)
+`gh pr ready`
+
 ## merge the superproject
 `hub reintegratetom`
 

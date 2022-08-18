@@ -7,7 +7,7 @@ Show when the last update of the local repository (fetch or push) happened. With
 -v|--verbose, also which action (and pushed to where). For pushes, considers the
 tracked branch, or passed REMOTE[/BRANCH](s).
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-v|--verbose] [-a|--absolute|--epoch] [REMOTE[/BRANCH], ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-v|--verbose] [-a|--absolute|--epoch] [REMOTE[/BRANCH] ...] [-?|-h|--help]'
 }
 
 : ${GIT_UPDATEDATE_ATTENTION_THRESHOLD:=86400} # Add exclamation mark if older than 1 day.
@@ -31,13 +31,35 @@ if [ $# -eq 0 ]; then
     set -- "$remoteBranch"
 fi
 
+getPushDate()
+{
+    local latestRefLogLine; latestRefLogLine="$(git reflog show --date=local "$remoteBranch" | head -n 1)" || exit $?
+
+    # XXX: Though I can influence the reflog output via "--format=%cd"; this shows
+    # different dates; there doesn't seem to be a symbol for the reflog date.
+    # Therefore, stick to the default format and manually parse out the date.
+    local latestDate="${latestRefLogLine##*@\{}"
+    latestDate="${latestDate%\}*}"
+    latestDate="$(date --date "$latestDate" +%s)" || exit $?
+    printf %s "$latestDate"
+}
+
 fetchEpoch=$(git-fetchdate --epoch) || exit $?
 newestEpoch=$fetchEpoch
 newestAction=fetched
 
 for remote
 do
-    epoch=$(git-pushdate --epoch "$remote") || continue
+    case "$remote" in
+	*/*)	remoteBranch="$remote"; remote="${remote%%/*}";;
+	*)	remoteBranch="${remote}/$(git-brname --real-branch-only)" || exit $?;;
+    esac
+    if ! git-existsbr "$remoteBranch"; then
+	printf >&2 'ERROR: Remote branch %s does not exist!\n' "$remoteBranch"
+	exit 1
+    fi
+
+    epoch="$(getPushDate "$remoteBranch")" || continue
     ((epoch == fetchEpoch)) && continue	# A pull automatically updates the pushdate, too.
     ((epoch + GIT_UPDATEDATE_SIMULTANEOUS_THRESHOLD > newestEpoch)) || continue	# Also accept slightly older dates.
 

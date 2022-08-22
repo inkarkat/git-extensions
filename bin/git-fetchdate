@@ -3,11 +3,18 @@
 printUsage()
 {
     cat <<HELPTEXT
-Show when (any) remote was last fetched.
+Show when REMOTE was last fetched.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-m|--message MESSAGE] [--absolute|-a|--epoch| -n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-m|--message MESSAGE] [--absolute|-a|--epoch| -n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] REMOTE [-?|-h|--help]'
 }
+
+database()
+{
+    gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit 3
+    executionMarker --basedir "$gitDir" --group fetches "$@"
+}
+
 message=
 isAbsolute=
 isEpoch=
@@ -17,32 +24,42 @@ case "$1" in
     --message|-m)	shift; message="$1"; shift;;
     --epoch)		shift; isEpoch=t;;
     --absolute|-a)	shift; isAbsolute=t;;
-    -*)			if [ $# -eq 2 ]; then
+    --set)		shift
+			if [ $# -eq 0 ]; then
+			    echo >&2 'ERROR: No REMOTE(s) passed.'
+			    exit 2
+			fi
+			for remote
+			do
+			    database --update "$remote"
+			done
+			exit $?
+			;;
+    -*)			if [ $# -eq 3 ]; then
 			    fileAgeArgs=("$1" "$2")
 			    shift; shift
 			fi
 			;;
 esac
-if [ $# -ne 0 ]; then
+if [ $# -ne 1 ]; then
     printUsage "$0" >&2
     exit 2
 fi
+remote="${1:?}"; shift
 
 printMessage()
 {
     [ -z "$message" ] || printf '%s ' "$message"
 }
 
-gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit $?
-fetchFilespec="${gitDir}/FETCH_HEAD"
-
 if [ ${#fileAgeArgs[@]} -gt 0 ]; then
-    exec fileAge "${fileAgeArgs[@]}" "$fetchFilespec"
-elif [ ! "$isAbsolute" ]  && [ ! "$isEpoch" ] && type -t reldate >/dev/null; then
+    epoch="$(database --time "$remote")" || exit $?
+    exec parseAge "${fileAgeArgs[@]}" "@$epoch"
+elif [ ! "$isAbsolute" ]  && [ ! "$isEpoch" ]; then
     printMessage
-    exec reldate "$fetchFilespec"
+    database --query "$remote" --get-diff '%R'
 else
-    epoch=$(stat -c %Y "$fetchFilespec") || exit $?
+    epoch="$(database --time "$remote")" || exit $?
     printMessage
     if [ "$isEpoch" ]; then
 	printf '%s\n' "$epoch"

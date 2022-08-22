@@ -8,7 +8,7 @@ submodules: b) Create branches after uncommitted changes:
 	       `> co -b feat-4711/super-cool`
 ## b) start bottom-up
 submodule(s): Create branch: `git com -b feat-4711/super-cool`
-superproject: Create branch: `git com -b feat-4711/super-cool`
+superproject: Create branch: `git com -b $(git substdo --no-header --no-pager --no-git-color brname | sort -u | singleLineOrSuppressAndError)`
 ## c) continue from elsewhere:
 superproject: Check out branch:   `git oco feat-4711/super-cool`
 superproject: Check out branches: `git subcoremotebr --query|--all`

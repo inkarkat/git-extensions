@@ -31,6 +31,9 @@ paste the submodule PR references / changes into the description text
 
 ## integrate submodule changes first
 `git ofetch; git subsamebrdo reintegratetom` (`hub reintegratetom` if you want to do this submodule by submodule)
+## then update integration build after submodules have been reintegrated
+a) amends to short-lived feature: `git amenu && git opush -f`
+b) maintain history of how the feature grew: `git cu -m 'feat-4711 has been reintegrated [into submodule(s)]' && git opush`
 
 ## peer review of integration (optional)
 `gh pr ready`

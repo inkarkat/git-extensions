@@ -9,7 +9,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--stat|--ahead-behind|--files] [--ignore-nonexisting] [<remote>|(<branch>|<commit> [<other-branch>|<other-commit>])] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--stat|--ahead-behind|--files|--submodules] [--ignore-nonexisting] [<remote>|(<branch>|<commit> [<other-branch>|<other-commit>])] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -38,6 +38,9 @@ HELPDESCRIPTION
 			BASE...BRANCH [ahead 2, behind 1]
     --files		Print the names of changed files (separated into in,
 			out, and both) instead of commit logs.
+    --submodules	Print the names of submodules that were modified
+			(separated into in, out, and both) instead of commit
+			logs.
     --ignore-nonexisting
 			Don't print an error if a passed ref does not exist;
 			simply output nothing then.
@@ -53,6 +56,7 @@ else
 fi
 isIgnoreNonexisting=
 action=inout
+filesSourceCommand='git-showfiles'
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -60,6 +64,7 @@ do
 	--stat)		shift; action=inoutStat;;
 	--ahead-behind)	shift; action=aheadBehind;;
 	--files)	shift; action=showfiles;;
+	--submodules)	shift; action=showfiles; filesSourceCommand='git-showsubmodules';;
 	--ignore-nonexisting)
 			shift; isIgnoreNonexisting=t;;
 	--color=auto)	shift;;
@@ -171,8 +176,8 @@ aheadBehind()
 showfiles()
 {
     typeset -a incoming outgoing
-    readarray -t incoming < <(git-showfiles "$baseRev..$otherRev")
-    readarray -t outgoing < <(git-showfiles "$otherRev..$baseRev")
+    readarray -t incoming < <($filesSourceCommand "$baseRev..$otherRev")
+    readarray -t outgoing < <($filesSourceCommand "$otherRev..$baseRev")
 
     if [ ${#incoming[@]} -gt 0 -a ${#outgoing[@]} -eq 0 ]; then
 	echo "incoming ${otherRev} -> ${baseRev}:"

@@ -1,3 +1,11 @@
-#!/bin/sh
+#!/bin/bash
 
-exec git commit "$@"
+git commit "$@" || exit $?
+
+if [ -t 1 ]; then
+    : ${GIT_COMMIT_NOTE_PREFIX=[3;36m}
+    : ${GIT_COMMIT_NOTE_SUFFIX=[0m}
+
+    root="$(git rev-parse --show-toplevel)" || exit 0
+    printf >/dev/tty '%sReuse this commit message via $ git inside lo1 -- %s%s\n' "$GIT_COMMIT_NOTE_PREFIX" "${root/#${HOME}\//~\/}" "$GIT_COMMIT_NOTE_SUFFIX"
+fi

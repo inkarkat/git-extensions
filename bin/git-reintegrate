@@ -182,7 +182,7 @@ if [ ! "$isContinue" ]; then
     if [ -n "$targetTracks" ] && ! git-equals HEAD "$targetTracks"; then
 	if git-ffdryrun "$targetTracks"; then
 	    if userBinaryChoice --console --question "Your $path branch is not up-to-date with ${targetTrackedRemote}, but can be fast-forwarded. Fast-forward now?" --yes-no; then
-		git-merge --ff-only "$targetTracks" || {
+		git-wrapper merge --ff-only "$targetTracks" || {
 		    status=$?
 		    echo >&2 'Fast-forwarding unexpectedly failed.'
 		    exit $status
@@ -250,10 +250,10 @@ if [ ! "$isContinue" ]; then
 		fi
 		exit $status
 	    }
-	    git-merge --ff-only "$branch" || exit $?
+	    git-wrapper merge --ff-only "$branch" || exit $?
 	done
     else
-	git-merge "${fastForwardArgs[@]:---no-ff}" "${mergeArgs[@]}" "${branches[@]}" || {
+	git-wrapper merge "${fastForwardArgs[@]:---no-ff}" "${mergeArgs[@]}" "${branches[@]}" || {
 	    status=$?
 	    echo >&2 "After $branchesSubjectAuxiliaryVerb been merged, you can ${isCheckFromStdin:+run checks and }${isPush:+push and }delete $branchesSubject via"
 	    printContinueCommand

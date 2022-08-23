@@ -3,10 +3,10 @@
 printUsage()
 {
     cat <<HELPTEXT
-Show when REMOTE was last fetched.
+Show when REMOTE(s) were last fetched.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-m|--message MESSAGE] [--absolute|-a|--epoch| -n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] REMOTE [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-m|--message MESSAGE] [--absolute|-a|--epoch| -n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [REMOTE [...]] [-?|-h|--help]'
 }
 
 database()
@@ -41,29 +41,43 @@ case "$1" in
 			fi
 			;;
 esac
-if [ $# -ne 1 ]; then
-    printUsage "$0" >&2
-    exit 2
+if [ $# -eq 0 ]; then
+    readarray -t remotes < <(git remote)
+    if [ ${#remotes[@]} -eq 0 ]; then
+	echo >&2 'ERROR: No remotes.'
+	exit 1
+    fi
+
+    set -- "${remotes[@]}"
 fi
-remote="${1:?}"; shift
 
 printMessage()
 {
     [ -z "$message" ] || printf '%s ' "$message"
 }
 
-if [ ${#fileAgeArgs[@]} -gt 0 ]; then
-    epoch="$(database --time "$remote")" || exit $?
-    exec parseAge "${fileAgeArgs[@]}" "@$epoch"
-elif [ ! "$isAbsolute" ]  && [ ! "$isEpoch" ]; then
-    printMessage
-    database --query "$remote" --get-diff '%R'
-else
-    epoch="$(database --time "$remote")" || exit $?
-    printMessage
-    if [ "$isEpoch" ]; then
-	printf '%s\n' "$epoch"
+processRemote()
+{
+    local remote="${1:?}"; shift
+
+    if [ ${#fileAgeArgs[@]} -gt 0 ]; then
+	epoch="$(database --time "$remote")" || exit $?
+	parseAge "${fileAgeArgs[@]}" "@$epoch" || exit $?
+    elif [ ! "$isAbsolute" ]  && [ ! "$isEpoch" ]; then
+	printMessage
+	database --query "$remote" --get-diff '%R'
     else
-	date --date "@$epoch"
+	epoch="$(database --time "$remote")" || exit $?
+	printMessage
+	if [ "$isEpoch" ]; then
+	    printf '%s\n' "$epoch"
+	else
+	    date --date "@$epoch"
+	fi
     fi
-fi
+}
+
+for remote
+do
+    processRemote "$remote"
+done

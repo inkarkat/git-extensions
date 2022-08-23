@@ -1,0 +1,24 @@
+#!/bin/bash
+
+typeset -A remotes=()
+while IFS=$'\n' read -r remote
+do
+    remotes["$remote"]=t
+done < <(git remote)
+
+typeset -a fetchedRemotes=()
+typeset -a fetchArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--all)		fetchArgs+=("$1"); shift; fetchedRemotes=("${!remotes[@]}");;
+	--)		fetchArgs+=("$1"); shift; break;;
+	-*)		fetchArgs+=("$1"); shift;;
+	*)		[ "${remotes["$1"]}" ] && fetchedRemotes+=("$1")
+			fetchArgs+=("$1"); shift
+			;;
+    esac
+done
+
+git fetch "${fetchArgs[@]}" "$@" || exit $?
+git-fetchdate --set "${fetchedRemotes[@]}" || exit 3

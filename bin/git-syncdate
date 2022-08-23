@@ -4,14 +4,14 @@ printUsage()
 {
     cat <<HELPTEXT
 Show when the local repository was last synchronized (fetch, pull, or push) with
-REMOTE(s). With -v|--verbose, also which action (and pushed to where). For
-pushes, considers the tracked branch, or passed REMOTE[/BRANCH](s).
+REMOTE(s). With -v|--verbose, also which action (and fetched / pushed from/to
+where). For pushes, considers the tracked branch, or passed REMOTE[/BRANCH](s).
 HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-v|--verbose] [-a|--absolute|--epoch] [REMOTE[/BRANCH] ...] [-?|-h|--help]'
 }
 
 : ${GIT_UPDATEDATE_ATTENTION_THRESHOLD:=86400} # Add exclamation mark if older than 1 day.
-: ${GIT_UPDATEDATE_SIMULTANEOUS_THRESHOLD:=30}	# Include both remotes if pushes happened within that timespan.
+: ${GIT_UPDATEDATE_SIMULTANEOUS_THRESHOLD:=30}	# Include both remotes if syncs happened within that timespan.
 dateFormat='relative'
 isVerbose=
 while [ $# -ne 0 ]
@@ -44,10 +44,10 @@ getPushDate()
     printf %s "$latestDate"
 }
 
-fetchEpoch=$(git-fetchdate --epoch) || exit $?
-newestEpoch=$fetchEpoch
-newestAction=fetched
-
+newestFetchEpoch=0
+newestFetchAction=
+newestPushEpoch=0
+newestPushAction=
 for remote
 do
     case "$remote" in
@@ -59,18 +59,43 @@ do
 	exit 1
     fi
 
-    epoch="$(getPushDate "$remoteBranch")" || continue
-    ((epoch == fetchEpoch)) && continue	# A pull automatically updates the pushdate, too.
-    ((epoch + GIT_UPDATEDATE_SIMULTANEOUS_THRESHOLD > newestEpoch)) || continue	# Also accept slightly older dates.
-
-    if [ "$newestAction" = 'fetched' ] || ((epoch - GIT_UPDATEDATE_SIMULTANEOUS_THRESHOLD > newestEpoch)); then
-	newestAction="pushed to $remote"
-    else
-	newestAction+=" and $remote"
+    if fetchEpoch=$(git-fetchdate --epoch "$remote") && ((fetchEpoch + GIT_UPDATEDATE_SIMULTANEOUS_THRESHOLD > newestFetchEpoch)); then # Also accept slightly older dates.
+	if [ -z "$newestFetchAction" ] || ((fetchEpoch - GIT_UPDATEDATE_SIMULTANEOUS_THRESHOLD > newestFetchEpoch)); then
+	    newestFetchAction="fetched $remote"
+	else
+	    newestFetchAction+=" and $remote"
+	fi
+	((fetchEpoch > newestFetchEpoch)) && newestFetchEpoch=$fetchEpoch
     fi
 
-    ((epoch > newestEpoch)) && newestEpoch=$epoch
+    if pushEpoch=$(getPushDate "$remoteBranch") && ((pushEpoch + GIT_UPDATEDATE_SIMULTANEOUS_THRESHOLD > newestPushEpoch)); then # Also accept slightly older dates.
+	if [ -z "$newestPushAction" ] || ((pushEpoch - GIT_UPDATEDATE_SIMULTANEOUS_THRESHOLD > newestPushEpoch)); then
+	    newestPushAction="pushed to $remote"
+	    newestPushEpoch=$pushEpoch
+	else
+	    newestPushAction+=" and $remote"
+	fi
+	((pushEpoch > newestPushEpoch)) && newestPushEpoch=$pushEpoch
+    fi
 done
+
+fetchPushDelta=$((newestFetchEpoch > newestPushEpoch ? newestFetchEpoch - newestPushEpoch : newestPushEpoch - newestFetchEpoch))
+if [ $newestFetchEpoch -eq 0 -a $newestPushEpoch -eq 0 ]; then
+    printf 'Never synced with %s.\n' "$(joinBy --last-separator ' or ' ', ' "$@")"
+    exit 1
+elif ((fetchPushDelta <= GIT_UPDATEDATE_SIMULTANEOUS_THRESHOLD)) && [ -n "$newestFetchAction" -a -n "$newestPushAction" ]; then
+    newestAction="$newestFetchAction and $newestPushAction"
+    [ $newestFetchEpoch -gt $newestPushEpoch ] && \
+	newestEpoch=$newestPushEpoch || \
+	newestEpoch=$newestFetchEpoch
+elif ((newestFetchEpoch > newestPushEpoch)); then
+    newestAction="$newestFetchAction"
+    newestEpoch=$newestFetchEpoch
+else
+    newestAction="$newestPushAction"
+    newestEpoch=$newestPushEpoch
+fi
+
 
 case "$dateFormat" in
     absolute)	newestDate=$(date --date "@$newestEpoch");;

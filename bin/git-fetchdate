@@ -3,11 +3,18 @@
 printUsage()
 {
     cat <<HELPTEXT
-Show when (any) remote was last fetched.
+Show when REMOTE(s) were last fetched.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-m|--message MESSAGE] [--absolute|-a|--epoch| -n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-m|--message MESSAGE] [--absolute|-a|--epoch| -n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [REMOTE [...]] [-?|-h|--help]'
 }
+
+database()
+{
+    gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit 3
+    executionMarker --basedir "$gitDir" --group fetches "$@"
+}
+
 message=
 isAbsolute=
 isEpoch=
@@ -17,36 +24,65 @@ case "$1" in
     --message|-m)	shift; message="$1"; shift;;
     --epoch)		shift; isEpoch=t;;
     --absolute|-a)	shift; isAbsolute=t;;
-    -*)			if [ $# -eq 2 ]; then
+    --set)		shift
+			if [ $# -eq 0 ]; then
+			    echo >&2 'ERROR: No REMOTE(s) passed.'
+			    exit 2
+			fi
+			for remote
+			do
+			    database --update "$remote"
+			done
+			exit $?
+			;;
+    -*)			if [ $# -eq 3 ]; then
 			    fileAgeArgs=("$1" "$2")
 			    shift; shift
 			fi
 			;;
 esac
-if [ $# -ne 0 ]; then
-    printUsage "$0" >&2
-    exit 2
+if [ $# -eq 0 ]; then
+    readarray -t remotes < <(git remote)
+    if [ ${#remotes[@]} -eq 0 ]; then
+	echo >&2 'ERROR: No remotes.'
+	exit 1
+    fi
+
+    set -- "${remotes[@]}"
 fi
 
-printMessage()
+printPrefix()
 {
-    [ -z "$message" ] || printf '%s ' "$message"
+    local prefix="${message}${message:+ }${isPrependRemote:+${remote}: }"
+    [ -z "$prefix" ] || printf '%s' "$prefix"
 }
 
-gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit $?
-fetchFilespec="${gitDir}/FETCH_HEAD"
+processRemote()
+{
+    local remote="${1:?}"; shift
 
-if [ ${#fileAgeArgs[@]} -gt 0 ]; then
-    exec fileAge "${fileAgeArgs[@]}" "$fetchFilespec"
-elif [ ! "$isAbsolute" ]  && [ ! "$isEpoch" ] && type -t reldate >/dev/null; then
-    printMessage
-    exec reldate "$fetchFilespec"
-else
-    epoch=$(stat -c %Y "$fetchFilespec") || exit $?
-    printMessage
-    if [ "$isEpoch" ]; then
-	printf '%s\n' "$epoch"
+    if [ ${#fileAgeArgs[@]} -gt 0 ]; then
+	epoch="$(database --time "$remote")" || exit $?
+	parseAge "${fileAgeArgs[@]}" "@$epoch" || exit $?
+    elif [ ! "$isAbsolute" ]  && [ ! "$isEpoch" ]; then
+	age="$(database --query "$remote" --get-diff '%R')" || return $?
+	printPrefix
+	printf '%s\n' "$age"
     else
-	date --date "@$epoch"
+	epoch="$(database --time "$remote")" || return $?
+	printPrefix
+	if [ "$isEpoch" ]; then
+	    printf '%s\n' "$epoch"
+	else
+	    date --date "@$epoch"
+	fi
     fi
-fi
+}
+
+isPrependRemote=t; [ $# -eq 1 ] && isPrependRemote=
+status=0
+for remote
+do
+    processRemote "$remote" || status=$?
+done
+exit $status

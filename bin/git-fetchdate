@@ -51,9 +51,10 @@ if [ $# -eq 0 ]; then
     set -- "${remotes[@]}"
 fi
 
-printMessage()
+printPrefix()
 {
-    [ -z "$message" ] || printf '%s ' "$message"
+    local prefix="${message}${message:+ }${isPrependRemote:+${remote}: }"
+    [ -z "$prefix" ] || printf '%s' "$prefix"
 }
 
 processRemote()
@@ -64,11 +65,11 @@ processRemote()
 	epoch="$(database --time "$remote")" || exit $?
 	parseAge "${fileAgeArgs[@]}" "@$epoch" || exit $?
     elif [ ! "$isAbsolute" ]  && [ ! "$isEpoch" ]; then
-	printMessage
+	printPrefix
 	database --query "$remote" --get-diff '%R'
     else
 	epoch="$(database --time "$remote")" || exit $?
-	printMessage
+	printPrefix
 	if [ "$isEpoch" ]; then
 	    printf '%s\n' "$epoch"
 	else
@@ -77,6 +78,7 @@ processRemote()
     fi
 }
 
+isPrependRemote=t; [ $# -eq 1 ] && isPrependRemote=
 for remote
 do
     processRemote "$remote"

@@ -65,10 +65,11 @@ processRemote()
 	epoch="$(database --time "$remote")" || exit $?
 	parseAge "${fileAgeArgs[@]}" "@$epoch" || exit $?
     elif [ ! "$isAbsolute" ]  && [ ! "$isEpoch" ]; then
+	age="$(database --query "$remote" --get-diff '%R')" || return $?
 	printPrefix
-	database --query "$remote" --get-diff '%R'
+	printf '%s\n' "$age"
     else
-	epoch="$(database --time "$remote")" || exit $?
+	epoch="$(database --time "$remote")" || return $?
 	printPrefix
 	if [ "$isEpoch" ]; then
 	    printf '%s\n' "$epoch"
@@ -79,7 +80,9 @@ processRemote()
 }
 
 isPrependRemote=t; [ $# -eq 1 ] && isPrependRemote=
+status=0
 for remote
 do
-    processRemote "$remote"
+    processRemote "$remote" || status=$?
 done
+exit $status

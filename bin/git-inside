@@ -4,9 +4,9 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--from-root] [-s|--skip-foreign|--foreign-command "COMMANDLINE"] -c|--command "COMMANDLINE" [-c ...] | SIMPLECOMMAND [...] -- FILE [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--from-root] [-s|--skip-foreign|--foreign-command "COMMANDLINE"] -c|--command "COMMANDLINE" [-c ...] | SIMPLECOMMAND [...] -- FILE|DIR [...] [-?|-h|--help]'
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--from-root] [-s|--skip-foreign|--foreign-command "COMMANDLINE"] -c|--command "COMMANDLINE" [-c ...] | SIMPLECOMMAND [...] [--] FILE [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--from-root] [-s|--skip-foreign|--foreign-command "COMMANDLINE"] -c|--command "COMMANDLINE" [-c ...] | SIMPLECOMMAND [...] [--] FILE|DIR [-?|-h|--help]'
 }
 printUsage()
 {
@@ -21,22 +21,22 @@ printLongUsage()
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
 Execute "git SIMPLECOMMAND" and/or COMMANDLINE (which probably contains Git
-command(s)) inside the working copy that FILE resides in. (Most Git commands
-only work from within the working copy.)
+command(s)) inside the working copy that FILE or DIR resides in. (Most Git
+commands only work from within the working copy.)
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
     cat <<HELPTEXT
     --command|-c CMD	    The command line to be executed. When this is a
 			    simple command, it can also be passed as such.
-			    Within CMD, you can refer to the corresponding FILE
-			    via \$FILE, and to the root directory of the Git
-			    working copy as \$ROOT (both with absolute paths,
-			    also in SIMPLECOMMAND when it's a separate
+			    Within CMD, you can refer to the corresponding
+			    FILE|DIR via \$FILE, and to the root directory of
+			    the Git working copy as \$ROOT (both with absolute
+			    paths, also in SIMPLECOMMAND when it's a separate
 			    argument).
     --from-root|-r	    Use the Git working copy root directory instead of
-			    the directory of FILE for executing CMD.
-    --skip-foreign|-s	    Silently skip FILEs that are not inside a Git
+			    DIR / the directory of FILE for executing CMD.
+    --skip-foreign|-s	    Silently skip FILEs|DIRs that are not inside a Git
 			    working copy (instead of printing an error message).
     --foreign-command CMD   Execute CMD in (accessible) directories that are not
 			    inside a Git working copy (e.g. to initialize a Git
@@ -110,7 +110,11 @@ done
 status=0
 for FILE in "${files[@]}"
 do
-    dirspec=$(dirname -- "$FILE") || { status=$?; continue; }
+    if [ -d "$FILE" ]; then
+	dirspec="$FILE"
+    else
+	dirspec=$(dirname -- "$FILE") || { status=$?; continue; }
+    fi
     if [ ! -d "$dirspec" ]; then
 	printf >&2 'ERROR: The directory %s (of %s) does not exist!\n' "$dirspec" "$FILE"
 	status=1; continue

@@ -22,7 +22,7 @@ a) normal updates to short-lived feature: `git amenu && git opush -f`
 b) maintain history of how the feature grew: `git cu && git opush`
 
 ## peer review of submodules (optional)
-a) from superproject: `hub integrationpr && git subsamebrdo --no-git-color --no-header --no-pager pull-request`
+a) from superproject: `hub integrationpr && hub subsamebrdo --no-git-color --no-header --no-pager pull-request`
 b) from submodule(s): `hub superpr && hub pull-request`
 paste the superproject PR reference into the description text
 
@@ -30,7 +30,7 @@ superproject: `hub bmsubchanges && gh pr edit`
 paste the submodule PR references / changes into the description text
 
 ## integrate submodule changes first
-`git ofetch; git subsamebrdo reintegratetom` (`hub reintegratetom` if you want to do this submodule by submodule)
+`git ofetch; hub subsamebrdo --no-pager --no-git-color reintegratetom` (`hub reintegratetom` if you want to do this submodule by submodule)
 ## then update integration build after submodules have been reintegrated
 a) amends to short-lived feature: `git amenu && git opush -f`
 b) maintain history of how the feature grew: `git cu -m 'feat-4711 has been reintegrated [into submodule(s)]' && git opush`

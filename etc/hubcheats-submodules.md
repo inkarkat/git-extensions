@@ -8,7 +8,7 @@ submodules: b) Create branches after uncommitted changes:
 	       `> co -b feat-4711/super-cool`
 ## b) start bottom-up
 submodule(s): Create branch: `git com -b feat-4711/super-cool`
-superproject: Create branch: `git com -b $(git substdo --no-header --no-pager --no-git-color brname | sort -u | singleLineOrSuppressAndError)`
+superproject: Create branch: `git com -b $(git substdo --no-git-color --no-header --no-pager brname | sort -u | singleLineOrSuppressAndError)`
 ## c) continue from elsewhere:
 superproject: Check out branch:   `git oco feat-4711/super-cool`
 superproject: Check out branches: `git subcoremotebr --query|--all`
@@ -31,7 +31,7 @@ superproject: [if PR there]: `hub bmsubchanges && gh pr edit`
   paste the submodule PR references / changes into the description text
 
 ## integrate submodule changes first
-`git ofetch; hub subsamebrdo --no-pager --no-git-color reintegratetom` (`hub reintegratetom` if you want to do this submodule by submodule)
+`git ofetch; hub subsamebrdo --no-git-color --no-header --no-pager reintegratetom` (`hub reintegratetom` if you want to do this submodule by submodule)
 ## then update integration build after submodules have been reintegrated
 a) amends to short-lived feature: `git amenu && git opush -f`
 b) maintain history of how the feature grew: `git cu -m 'feat-4711 has been reintegrated [into submodule(s)]' && git opush`

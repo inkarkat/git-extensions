@@ -126,7 +126,7 @@ if [ -n "$record" ]; then
     originalRevision="${record%%$'\n'*}"
     record="${record#"$originalRevision"}"; record="${record#$'\n'}"
 else
-    originalRevision="$(git rev-parse "${branch:-HEAD}" 2>/dev/null)"
+    originalRevision="$(git rev-parse --verify --quiet "${branch:-HEAD}")"
     [ "$isRecord" ] && printf '%s\n' "$originalRevision"
 fi
 typeset -A originalSubmoduleRevisions=()
@@ -156,7 +156,7 @@ fi; status=$?
 
 if [ -z "$originalRevision" ]; then
     [ -z "$log" ] || echo >&2 "Warning: Could not determine original revision${branch:+ on $branch}, no logging possible."
-elif [ "$(git rev-parse "${branch:-HEAD}" 2>/dev/null)" = "$originalRevision" ]; then
+elif [ "$(git rev-parse --verify --quiet "${branch:-HEAD}")" = "$originalRevision" ]; then
     [ -z "$log" ] || [ "$isQuiet" ] || echo "No changes${branch:+ on $branch}."
 else
     logChanges "${originalRevision}..${branch}"

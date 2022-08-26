@@ -7,13 +7,12 @@ shopt -qs extglob
 : ${GIT_BRREFDO_WHAT:=branches}
 
 hasProgressNotification=; type -t progressNotification >/dev/null && hasProgressNotification=t
-hasProgressNotificationToAddendum=; type -t progressNotificationToAddendum >/dev/null && hasProgressNotificationToAddendum=t
 
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$GIT_BRREFDO_COMMANDNAME" "[--no-pager] [--no-header] ${hasProgressNotification:+ [--progress overlay|title|command|notify${hasProgressNotificationToAddendum:+|addendum}]} [--separate-errors] [--no-git-color] [--single-success] [--abort-on-failure|-X|--abort-on EXIT_STATUS]${GIT_BRREFDO_ADDITIONAL_ARGS:+ }${GIT_BRREFDO_ADDITIONAL_ARGS} [--branches \"<branch1> ...\"] [-B N|--max-branch N] [-P|--predicate-command \"COMMANDLINE\" [...]] [-c|--command \"COMMANDLINE\" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]"
+    printf 'Usage: %q %s%s %s\n' "$GIT_BRREFDO_COMMANDNAME" '[--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" "[--separate-errors] [--no-git-color] [--single-success] [--abort-on-failure|-X|--abort-on EXIT_STATUS]${GIT_BRREFDO_ADDITIONAL_ARGS:+ }${GIT_BRREFDO_ADDITIONAL_ARGS} [--branches \"<branch1> ...\"] [-B N|--max-branch N] [-P|--predicate-command \"COMMANDLINE\" [...]] [-c|--command \"COMMANDLINE\" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -41,21 +40,9 @@ current Git branch before the command output.
 			view if there's too much output).
     --no-header		Do not output the header line before command output (and
 			no separating empty line after it).${hasProgressNotification:+
-    --progress overlay|title|command|notify${hasProgressNotificationToAddendum:+|addendum}
-			Report the current WORKING-COPY name (and count +
-			percentage) in one of the following ways:
-			overlay:    in the form of overlaid text, written via
-				    ANSI escape sequences in the first line of
-				    the terminal
-			title:	    in the terminal's window title via ANSI
-				    escape sequences
-			command:    by invoking
-					PROGRESSNOTIFICATION_COMMANDLINE${PROGRESSNOTIFICATION_REPORT_MARKER:+
-				    while replacing $PROGRESSNOTIFICATION_REPORT_MARKER with the report}
-			notify:	    via notify-send to the system's notification
-				    system}${hasProgressNotificationToAddendum:+
-			addendum:   via the addendum of the terminal"'"s window
-				    title}
+    --progress SINK	Report the current Git branch (and count + percentage)
+			through one of the SINKs of the progressNotification
+			command.}
     --separate-errors	Do not combine command output and command errors into
 			one (paged) stream. Commands that just cause error
 			output won't have a header then. Error output will
@@ -199,12 +186,7 @@ if [ ${#commands[@]} -eq 0 ]; then
 fi
 
 if [ "$hasProgressNotification" ] && [ -n "$progressSink" ]; then
-    if [ "$progressSink" = addendum ]; then
-	[ "$hasProgressNotificationToAddendum" ] && \
-	    exec 3> >(progressNotificationToAddendum --prepend-count "$GIT_BRREFDO_WHAT" --count-to "${#branches[@]}" 2>/dev/null)  # Silence "Cannot notify via titleupdate; TERMID not defined."
-    else
-	exec 3> >(progressNotification --to "$progressSink" --prepend-count "$GIT_BRREFDO_WHAT" --count-to "${#branches[@]}" 2>/dev/null)
-    fi
+    exec 3> >(progressNotification --to "$progressSink" --prepend-count "$GIT_BRREFDO_WHAT" --count-to "${#branches[@]}" 2>/dev/null)
 
     reportProgress()
     {

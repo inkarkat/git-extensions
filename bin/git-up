@@ -135,9 +135,26 @@ elif [ "$GIT_UP_REBASE" ]; then
     remoteBranch="$(getRemoteBranch "$@")" || exit $?
     git "${gitAutoStashGitArg[@]}" rebase "${gitAutoStashPullOrRebaseArg[@]}" "${gitRebaseMergesArg[@]}" "${@:1:$(($#-1))}" "$remoteBranch" || exit $?
 elif git-isdetached; then
-    # Checkout (and keep detached) latest base / master branch.
+    # Checkout (and keep detached) a corresponding branch (or the base / master branch).
     branch="$(getDetachedBranch)" && git-existsbr "${remote}/${branch}" || exit $?
-    git-equals "${remote}/${branch}" HEAD || git checkout --detach "${remote}/${branch}"
+    if ! git-equals "${remote}/${branch}" HEAD; then
+	if git-dirty; then
+	    echo >&2 'Note: Not touching a dirty detached checkout.'
+	else
+	    # Try to fast-forward the corresponding branch; if it's already
+	    # checked out in a different worktree (i.e. checkout fails), just
+	    # forward the detached HEAD.
+	    if git checkout "${branch}" >/dev/null 2>&1; then
+		if git ff "${remote}/${branch}"; then
+		    git checkout --detach
+		else	# Error case
+		    git checkout --detach "${remote}/${branch}"
+		fi
+	    else
+		git checkout --detach "${remote}/${branch}"
+	    fi
+	fi
+    fi
 else
     git "${gitAutoStashGitArg[@]}" pull "${gitAutoStashPullOrRebaseArg[@]}" "${gitPullRebaseMergesArg[@]}" "$remote" "$@" || exit $?
 fi

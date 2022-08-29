@@ -4,7 +4,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--real-branch-only|--detached-effective-branch] [--raw] [<commit>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--real-branch-only] [--detached-effective-branch] [--raw] [<commit>] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -28,7 +28,7 @@ HELPDESCRIPTION
     --real-branch-only	Abort with an error if no ordinary branch is checked
 			out.
     --detached-effective-branch
-			If there's a (not neccessarily the only) local branch
+			If there's a (not necessarily the only) local branch
 			for the detached commit, print that one instead of the
 			hash.
     --raw		Avoid embellishments on tags or detached commits (so
@@ -66,7 +66,7 @@ esac
 
 if branch=$(git symbolic-ref "$commit" 2>/dev/null); then
     printf '%s\n' "${branch##refs/heads/}"
-elif [ ! "$isRealBranchOnly" ] && [ "$isDetachedEffectiveBranch" ] && \
+elif [ "$isDetachedEffectiveBranch" ] && \
     effectiveBranch="$(git name-rev --name-only --exclude 'refs/tags/*' --exclude 'refs/remotes/*' "$commit" 2>/dev/null)" && \
     [ -n "$effectiveBranch" -a "$effectiveBranch" != 'undefined' ]
 then

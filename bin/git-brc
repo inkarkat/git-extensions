@@ -88,6 +88,17 @@ do
 	    mergeBase="$baseBranch"
 	else
 	    mergeBase=$(git merge-base --octopus "$branch") || exit $?
+	    if git-equals "$mergeBase" "$branch"; then
+		# Fall back to the master branch.
+		baseBranch="$(git-mbr 2>/dev/null)" || exit $?
+		mergeBase="$baseBranch"
+		if git-equals "$baseBranch" "$branch"; then
+		    # Assume the master branch was there from the beginning and
+		    # the first commit was done there.
+		    mergeBase="$(git log --pretty=tformat:%H "$branch" | tail -n 1)"
+		    baseBranch='repo creation'
+		fi
+	    fi
 	fi
     fi
     firstCommit="$(git log --pretty="tformat:${format}" "${mergeBase}..${branch}" | tail -n 1)"

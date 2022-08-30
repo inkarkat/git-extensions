@@ -21,10 +21,7 @@ printLongUsage()
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
 List local branches and their first commit ordered by date of first commit
-(descending, starting with old branches), as based on the current branch
-(brbase: as tagged or referenced anywhere in the history (also by remotes)) or
-the best common ancestors of all branches or the branch passed with --base
-<branch>. The branches can be optionally filtered by <branch-glob>.
+(descending, starting with old branches).
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
@@ -32,18 +29,24 @@ HELPDESCRIPTION
     cat <<HELPTEXT
     --long|-l		Also print the author name.
     --bare		Just print the branch names.
-    --base|-b BASE	Use base as the base for all branches.
+    --base|-b BASE	Use base as the merge base for all branches to find the
+			best common ancestors.
+			By default, each branch's base branch (obtained through
+			brbase: as tagged or referenced anywhere in the history
+			(also by remotes)) is used as the merge base.
     -r			List remote-tracking branches.
     -a			List both local and remote-tracking branches.
     -n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]
 			Only print those branches that match the age comparison.
 SUFFIX may be 's' for seconds (the default), 'm' for minutes, 'h' for hours, 'd'
 for days, 'w' for weeks, 'mo' for months, 'y' for years, 'g' for generations.
+    <branch-glob>	Only consider branches that match <branch-glob>.
 HELPTEXT
 }
 
 locality='local'
 base=
+isBare=
 format='%at	%ai	(%ar)'
 typeset -a filterAction=(sed -e 's/^[^\t]*\t//')
 while [ $# -ne 0 ]
@@ -54,7 +57,7 @@ do
 	--all|-a)	shift; locality='all';;
 	--remote|-r)	shift; locality='remote';;
 	--base|-b)	shift; base="$1"; shift;;
-	--bare)		shift; format='%at';;
+	--bare)		shift; isBare=t; format='%at';;
 	-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt)
 			filterAction=(filterAge --field-separator $'\t' "$1" "$2"); shift; shift;;
 	--)		shift; break;;
@@ -77,12 +80,28 @@ unset 'branches[-1]'
 typeset -a firstCommits=()
 for branch in "${branches[@]}"
 do
-    if [ "$base" ]; then
+    baseBranch=
+    if [ -n "$base" ]; then
 	mergeBase=$(git merge-base "$branch" "$base") || exit $?
     else
-	mergeBase=$(git brbase --branch "$branch" 2>/dev/null || git merge-base --octopus "$branch") || exit $?
+	if baseBranch="$(git brbase --branch "$branch" 2>/dev/null)"; then
+	    mergeBase="$baseBranch"
+	else
+	    mergeBase=$(git merge-base --octopus "$branch") || exit $?
+	    if git-equals "$mergeBase" "$branch"; then
+		# Fall back to the master branch.
+		baseBranch="$(git-mbr 2>/dev/null)" || exit $?
+		mergeBase="$baseBranch"
+		if git-equals "$baseBranch" "$branch"; then
+		    # Assume the master branch was there from the beginning and
+		    # the first commit was done there.
+		    mergeBase="$(git log --pretty=tformat:%H "$branch" | tail -n 1)"
+		    baseBranch='repo creation'
+		fi
+	    fi
+	fi
     fi
-    firstCommit=$(git log --pretty="tformat:${format}" "${mergeBase}..${branch}" | tail -n 1)
+    firstCommit="$(git log --pretty="tformat:${format}" "${mergeBase}..${branch}" | tail -n 1)"
     if [ -z "$firstCommit" ]; then
 	# There's no log output when the merge base is identical to the branch;
 	# i.e. there's only one commit on the branch so far. Grab that commit
@@ -90,6 +109,7 @@ do
 	# whether the hashes are identical.
 	firstCommit="$(git log -1 --pretty="tformat:${format}" "${branch}")"
     fi
+    [ "$isBare" ] || [ -z "$baseBranch" ] || firstCommit="${firstCommit/)/, from $baseBranch)}"
     firstCommits+=("$firstCommit"$'\t'"$branch")
 done
 

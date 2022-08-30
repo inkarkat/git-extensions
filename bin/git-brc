@@ -46,6 +46,7 @@ HELPTEXT
 
 locality='local'
 base=
+isBare=
 format='%at	%ai	(%ar)'
 typeset -a filterAction=(sed -e 's/^[^\t]*\t//')
 while [ $# -ne 0 ]
@@ -56,7 +57,7 @@ do
 	--all|-a)	shift; locality='all';;
 	--remote|-r)	shift; locality='remote';;
 	--base|-b)	shift; base="$1"; shift;;
-	--bare)		shift; format='%at';;
+	--bare)		shift; isBare=t; format='%at';;
 	-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt)
 			filterAction=(filterAge --field-separator $'\t' "$1" "$2"); shift; shift;;
 	--)		shift; break;;
@@ -79,12 +80,17 @@ unset 'branches[-1]'
 typeset -a firstCommits=()
 for branch in "${branches[@]}"
 do
+    baseBranch=
     if [ -n "$base" ]; then
 	mergeBase=$(git merge-base "$branch" "$base") || exit $?
     else
-	mergeBase=$(git brbase --branch "$branch" 2>/dev/null || git merge-base --octopus "$branch") || exit $?
+	if baseBranch="$(git brbase --branch "$branch" 2>/dev/null)"; then
+	    mergeBase="$baseBranch"
+	else
+	    mergeBase=$(git merge-base --octopus "$branch") || exit $?
+	fi
     fi
-    firstCommit=$(git log --pretty="tformat:${format}" "${mergeBase}..${branch}" | tail -n 1)
+    firstCommit="$(git log --pretty="tformat:${format}" "${mergeBase}..${branch}" | tail -n 1)"
     if [ -z "$firstCommit" ]; then
 	# There's no log output when the merge base is identical to the branch;
 	# i.e. there's only one commit on the branch so far. Grab that commit
@@ -92,6 +98,7 @@ do
 	# whether the hashes are identical.
 	firstCommit="$(git log -1 --pretty="tformat:${format}" "${branch}")"
     fi
+    [ "$isBare" ] || [ -z "$baseBranch" ] || firstCommit="${firstCommit/)/, from $baseBranch)}"
     firstCommits+=("$firstCommit"$'\t'"$branch")
 done
 

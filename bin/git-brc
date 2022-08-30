@@ -21,10 +21,7 @@ printLongUsage()
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
 List local branches and their first commit ordered by date of first commit
-(descending, starting with old branches), as based on the current branch
-(brbase: as tagged or referenced anywhere in the history (also by remotes)) or
-the best common ancestors of all branches or the branch passed with --base
-<branch>. The branches can be optionally filtered by <branch-glob>.
+(descending, starting with old branches).
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
@@ -32,13 +29,18 @@ HELPDESCRIPTION
     cat <<HELPTEXT
     --long|-l		Also print the author name.
     --bare		Just print the branch names.
-    --base|-b BASE	Use base as the base for all branches.
+    --base|-b BASE	Use base as the merge base for all branches to find the
+			best common ancestors.
+			By default, each branch's base branch (obtained through
+			brbase: as tagged or referenced anywhere in the history
+			(also by remotes)) is used as the merge base.
     -r			List remote-tracking branches.
     -a			List both local and remote-tracking branches.
     -n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]
 			Only print those branches that match the age comparison.
 SUFFIX may be 's' for seconds (the default), 'm' for minutes, 'h' for hours, 'd'
 for days, 'w' for weeks, 'mo' for months, 'y' for years, 'g' for generations.
+    <branch-glob>	Only consider branches that match <branch-glob>.
 HELPTEXT
 }
 
@@ -77,7 +79,7 @@ unset 'branches[-1]'
 typeset -a firstCommits=()
 for branch in "${branches[@]}"
 do
-    if [ "$base" ]; then
+    if [ -n "$base" ]; then
 	mergeBase=$(git merge-base "$branch" "$base") || exit $?
     else
 	mergeBase=$(git brbase --branch "$branch" 2>/dev/null || git merge-base --octopus "$branch") || exit $?

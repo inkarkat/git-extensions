@@ -10,7 +10,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-a|--all] [-v|--verbose] [-q|--quiet|--color=(always|auto|never)|--no-color] [(+|-)(dirty|private|stashed|noremote|outgoing|incoming|fallenbehind|behind|behindtags|wipcommit|nonmaster|unmergeddownstream|downstreambranches|inactivefork) ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--submodules|--all-submodules] [--no-submodule-recurse] [-a|--all] [-v|--verbose] [-q|--quiet|--color=(always|auto|never)|--no-color] [(+|-)(dirty|private|stashed|noremote|outgoing|incoming|fallenbehind|behind|behindtags|wipcommit|nonmaster|unmergeddownstream|downstreambranches|inactivefork) ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -32,9 +32,15 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
-    --verbose|-v	Show each check's name as it's being executed.
+    --submodules	Check each submodule if the repository itself is clean.
+    --all-submodules	Always also check each submodule, also if the repository
+			itself got reported already.
+    --no-submodule-recurse
+			Do not recurse into submodules of submodules; just
+			check the direct submodules of the current repo.
     --all|-a		Execute each check instead of stopping after the first
 			positive check that found unresolved work.
+    --verbose|-v	Show each check's name as it's being executed.
     --quiet|-q		Don't print details on the work-in-progress; just
 			indicate via the exit status whether there is some.
 			(Any errors are still output.)
@@ -76,21 +82,45 @@ deselected (from all checks on offer) via -name.
 	    branches, and therefore can be archived (made read-only).
 HELPTEXT
 }
-positiveCheck() { exit 0; }
+typeset -a recursiveArgs=()
+recurseSubmodules()
+{
+    git-hassubmodules && \
+	git-subdo-core --no-pager "${colorArg[@]}" --single-success "${subdoArgs[@]}" -- wips "${recursiveArgs[@]}"
+}
+printSubmoduleSeparator()
+{
+    printf "${HEADER_SEPARATOR-\\n}"
+}
+positiveCheck() {
+    if [ "$isSubmodulesAlways" ]; then
+	printSubmoduleSeparator
+	recurseSubmodules
+    fi
+    exit 0
+}
 typeset -a colorArg=()
 typeset -a gitColorConfigArg=()
+isSubmodules=
+isSubmodulesAlways=
+typeset -a subdoArgs=()
 isVerbose=
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--no-color|--color=*)
-			colorArg=("$1"); shift;;
-	--color)	colorArg=("$1" "$2"); shift; shift;;
-	--all|-a)	shift; positiveCheck() { echo; overallStatus=0; };;
-	--verbose|-v)	shift; isVerbose=t;;
-	--quiet|-q)	shift; exec 1>/dev/null;;
-	*)		break;;
+			recursiveArgs+=("$1"); colorArg=("$1"); shift;;
+	--color)	recursiveArgs+=("$1" "$2"); colorArg=("$1" "$2"); shift; shift;;
+	--submodules)	shift; isSubmodules=t;;
+	--all-submodules)
+			shift; isSubmodules=t; isSubmodulesAlways=t;;
+	--no-submodule-recurse)
+			shift; subdoArgs+=(--no-recurse);;
+	--all|-a)	recursiveArgs+=("$1"); shift; positiveCheck() { echo; overallStatus=0; };;
+	--verbose|-v)	recursiveArgs+=("$1"); shift; isVerbose=t;;
+	--quiet|-q)	recursiveArgs+=("$1"); shift; exec 1>/dev/null;;
+	*)		recursiveArgs+=("$@"); break;;
     esac
 done
 if isNeedColorArgumentWhenPiping "${colorArg[@]}"; then
@@ -253,4 +283,10 @@ considerCheck inactivefork && \
     if git existsremote origin && git existsremote upstream && findInactiveFork; then positiveCheck; fi
 
 [ "$isVerbose" ] && printf >/dev/tty %s "$CLEAR_PREVIOUS_LINE"
+
+if [ "$isSubmodules" ] && { [ "$isSubmodulesAlways" ] || [ $overallStatus -ne 0 ]; }; then
+    [ $overallStatus -eq 0 ] && printSubmoduleSeparator
+    recurseSubmodules && overallStatus=0
+fi
+
 exit $overallStatus

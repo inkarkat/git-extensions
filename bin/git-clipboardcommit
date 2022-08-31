@@ -1,0 +1,28 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Commit directly (without further edits, unless -e|--edit is given) with the
+commit message taken from the clipboard.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-e|--edit] [<commit-arguments> ...] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+commitMessageFilespec="$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TEMP:-/tmp}/$(basename -- "$0").$$$RANDOM")"
+cleanup()
+{
+    rm -f "$commitMessageFilespec" 2>/dev/null
+}
+[ "$DEBUG" ] || trap 'cleanup' EXIT
+clipboard > "$commitMessageFilespec" || exit $?
+if [ ! -s "$commitMessageFilespec" ]; then
+    echo >&2 'ERROR: Empty clipboard.'
+    exit 1
+fi
+
+exec git-wrapper commit --file "$commitMessageFilespec" "$@"

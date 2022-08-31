@@ -33,6 +33,7 @@ superproject: [if PR there]: `hub bmsubchanges && gh pr edit`
 ## integrate submodule changes first
 `git ofetch; hub subsamebrdo --no-git-color --no-header --no-pager reintegratetom` (`hub reintegratetom` if you want to do this submodule by submodule)
 ## then update integration build after submodules have been reintegrated
+0) submodule branch(es) have been fast-forwarded: no changes, no action here
 a) amends to short-lived feature: `git amenu && git opush -f`
 b) maintain history of how the feature grew: `git cu -m 'feat-4711 has been reintegrated [into submodule(s)]' && git opush`
 

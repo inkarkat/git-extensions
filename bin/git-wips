@@ -10,7 +10,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--submodules|--all-submodules] [-a|--all] [-v|--verbose] [-q|--quiet|--color=(always|auto|never)|--no-color] [(+|-)(dirty|private|stashed|noremote|outgoing|incoming|fallenbehind|behind|behindtags|wipcommit|nonmaster|unmergeddownstream|downstreambranches|inactivefork) ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--submodules|--all-submodules] [--no-submodule-recurse] [-a|--all] [-v|--verbose] [-q|--quiet|--color=(always|auto|never)|--no-color] [(+|-)(dirty|private|stashed|noremote|outgoing|incoming|fallenbehind|behind|behindtags|wipcommit|nonmaster|unmergeddownstream|downstreambranches|inactivefork) ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -35,6 +35,9 @@ HELPDESCRIPTION
     --submodules	Check each submodule if the repository itself is clean.
     --all-submodules	Always also check each submodule, also if the repository
 			itself got reported already.
+    --no-submodule-recurse
+			Do not recurse into submodules of submodules; just
+			check the direct submodules of the current repo.
     --all|-a		Execute each check instead of stopping after the first
 			positive check that found unresolved work.
     --verbose|-v	Show each check's name as it's being executed.
@@ -83,7 +86,7 @@ typeset -a recursiveArgs=()
 recurseSubmodules()
 {
     git-hassubmodules && \
-	git-subdo-core --no-pager "${colorArg[@]}" --single-success -- wips "${recursiveArgs[@]}"
+	git-subdo-core --no-pager "${colorArg[@]}" --single-success "${subdoArgs[@]}" -- wips "${recursiveArgs[@]}"
 }
 positiveCheck() {
     if [ "$isSubmodulesAlways" ]; then
@@ -96,6 +99,7 @@ typeset -a colorArg=()
 typeset -a gitColorConfigArg=()
 isSubmodules=
 isSubmodulesAlways=
+typeset -a subdoArgs=()
 isVerbose=
 while [ $# -ne 0 ]
 do
@@ -107,6 +111,8 @@ do
 	--submodules)	shift; isSubmodules=t;;
 	--all-submodules)
 			shift; isSubmodules=t; isSubmodulesAlways=t;;
+	--no-submodule-recurse)
+			shift; subdoArgs+=(--no-recurse);;
 	--all|-a)	recursiveArgs+=("$1"); shift; positiveCheck() { echo; overallStatus=0; };;
 	--verbose|-v)	recursiveArgs+=("$1"); shift; isVerbose=t;;
 	--quiet|-q)	recursiveArgs+=("$1"); shift; exec 1>/dev/null;;

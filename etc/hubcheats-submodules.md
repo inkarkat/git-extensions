@@ -8,7 +8,7 @@ submodules: b) Create branches after uncommitted changes:
 	       `> co -b feat-4711/super-cool`
 ## b) start bottom-up
 submodule(s): Create branch: `$ git com -b feat-4711/super-cool`
-superproject: Create branch: `$ git com -b $(git substdo --no-git-color --no-header --no-pager brname | sort -u | singleLineOrSuppressAndError)`
+superproject: Create branch: `$ git com -b $(git substdo --no-git-color --interactive brname | sort -u | singleLineOrSuppressAndError)`
 ## c) continue from elsewhere:
 superproject: Check out branch:   `$ git oco feat-4711/super-cool`
 superproject: Check out branches: `$ git subcoremotebr --query|--all`
@@ -22,7 +22,7 @@ a) normal updates to short-lived feature: `$ git amenu && git opush -f`
 b) maintain history of how the feature grew: `$ git cu && git opush`
 
 ## peer review of submodules (optional)
-a) from superproject: `$ hub integrationpr && hub subsamebrdo --no-git-color --no-header --no-pager pull-request`
+a) from superproject: `$ hub integrationpr && hub subsamebrdo --no-git-color --interactive pull-request`
 b) from submodule(s), no superproject PR: `$ hub pull-request`
 c) from submodule(s), with superproject PR: `$ hub superpr && hub pull-request`
    paste the superproject PR reference into the description text
@@ -32,7 +32,7 @@ superproject: [if PR there]: `$ hub bmsubchanges && gh pr edit`
 
 ## integrate submodule changes first
 `$ git ofetch`
-`$ hub subsamebrdo --no-git-color --no-header --no-pager reintegratetom`
+`$ hub subsamebrdo --no-git-color --interactive reintegratetom`
 (if you want to do this submodule by submodule: `$ hub reintegratetom`)
 ## then update integration build after submodules have been reintegrated
 0) submodule branch(es) have been fast-forwarded: no changes, no action here

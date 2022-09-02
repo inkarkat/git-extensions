@@ -21,16 +21,16 @@ will be replayed on top of `<upstream>`.
   clean up `<upstream>`)
 
 # special use cases
-* `git rebase HEAD <feature> && git rebase HEAD @{-2}`
+* `$ git rebase HEAD <feature> && git rebase HEAD @{-2}`
   Rebase `<feature>` to current branch and merge back to current
-* `git rebase master --onto <newbase>` <=> `git bmrbi --onto <newbase>`
+* `$ git rebase master --onto <newbase>` <=> `$ git bmrbi --onto <newbase>`
   Rebase the changes in the current branch (with regards to master) to appear
   as if they were committed onto `<newbase>`. Can be used to move a branch with
   a set of commits to another base commit.
-* `git rebase HEAD^ --onto <newbase>` <=> `git rblast -n 1 --onto <newbase>`
+* `$ git rebase HEAD^ --onto <newbase>` <=> `$ git rblast -n 1 --onto <newbase>`
   Rebase the last commit to appear as if they were committed onto `<newbase>`
   (but all on the current branch!)
-* `git merge --squash`
+* `$ git merge --squash`
   Create a single commit on top of the current branch whose effect is the same
   as merging the other branch. Shorter form of interactive rebasing where you
   choose squash for all following commits.
@@ -48,18 +48,18 @@ g) `fixup` to merge a commit with the previous one and discard the log message.
 
 # during a rebase
 
-1. Resolve the conflicted files; `git conflicts` tells them (again)
+1. Resolve the conflicted files; `$ git conflicts` tells them (again)
    To completely override upstream's changes, we have to use _theirs_ (from the
-   branch being rebased, i.e. `git cot`), not _ours_; this is unintuitive!
-2. `git add` # after the conflicts have been resolved
-3. `git rbc`
+   branch being rebased, i.e. `$ git cot`), not _ours_; this is unintuitive!
+2. `$ git add` # after the conflicts have been resolved
+3. `$ git rbc`
 It may help to have both our and their changes separately:
-`git lc master`
-`git lc`
+`$ git lc master`
+`$ git lc`
 
 # getting out
 
-`git rbq` # Cancels the whole rebase and returns to the original state.
-`git rbs` # Skips the current patch as if you had initially deleted the line.
-`git rbe` # Edit the todo list to change following choices (e.g. if you realize that a following patch needs editing, too)
-`git rbu` # Undo the last rebase commit. Effectively squashes this patch with the previous one.
+`$ git rbq` # Cancels the whole rebase and returns to the original state.
+`$ git rbs` # Skips the current patch as if you had initially deleted the line.
+`$ git rbe` # Edit the todo list to change following choices (e.g. if you realize that a following patch needs editing, too)
+`$ git rbu` # Undo the last rebase commit. Effectively squashes this patch with the previous one.

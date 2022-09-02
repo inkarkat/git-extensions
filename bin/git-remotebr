@@ -1,6 +1,28 @@
 #!/bin/bash
 
+printUsage()
+{
+    cat <<HELPTEXT
+Print corresponding remote/branch for the current / passed branch(es) (or return error).
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [<branch> [...]] [-?|-h|--help]"
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --no-color|--color=*)
+			shift;;
+    --color)		shift; shift;;
+esac
+
 remote=${1:?}; shift
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --no-color|--color=*)
+			shift;;
+    --color)		shift; shift;;
+esac
 
 if [ $# -eq 0 ]; then
     branch=$(git-brname --real-branch-only) || exit $?

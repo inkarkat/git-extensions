@@ -17,5 +17,10 @@ case "$1" in
     --color)		shift; shift;;
 esac
 
+stfiles()
+{
+    git status --short "$@" | sed -e 's/^...//' -e 's/\(.*\) -> \(.*\)/\1\n\2/'
+}
 
-git status --short "$@" | sed -e 's/^...//' -e 's/\(.*\) -> \(.*\)/\1\n\2/'
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+eval 'stfiles "$@"' "${pager:+|}" '"${pager[@]}"'

@@ -10,7 +10,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--submodules|--all-submodules] [--no-submodule-recurse] [-a|--all] [-v|--verbose] [-q|--quiet|--color=(always|auto|never)|--no-color] [(+|-)(dirty|private|stashed|noremote|outgoing|incoming|fallenbehind|behind|behindtags|wipcommit|nonmaster|unmergeddownstream|downstreambranches|inactivefork) ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--submodules|--all-submodules] [--no-submodule-recurse] [--filter-worktree-duplicates] [-a|--all] [-v|--verbose] [-q|--quiet|--color=(always|auto|never)|--no-color] [(+|-)(dirty|private|stashed|noremote|outgoing|incoming|fallenbehind|behind|behindtags|wipcommit|nonmaster|unmergeddownstream|downstreambranches|inactivefork) ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -38,6 +38,11 @@ HELPDESCRIPTION
     --no-submodule-recurse
 			Do not recurse into submodules of submodules; just
 			check the direct submodules of the current repo.
+    --filter-worktree-duplicates
+			Skip checks that would report the same state in each
+			worktree (like stashes) when executed in a secondary
+			worktree. Pass this when iterating over multiple
+			worktrees to avoid duplicates.
     --all|-a		Execute each check instead of stopping after the first
 			positive check that found unresolved work.
     --verbose|-v	Show each check's name as it's being executed.
@@ -103,6 +108,7 @@ typeset -a colorArg=()
 typeset -a gitColorConfigArg=()
 isSubmodules=
 isSubmodulesAlways=
+isFilterWorktreeDuplicates=
 typeset -a subdoArgs=()
 isVerbose=
 while [ $# -ne 0 ]
@@ -113,6 +119,8 @@ do
 			recursiveArgs+=("$1"); colorArg=("$1"); shift;;
 	--color)	recursiveArgs+=("$1" "$2"); colorArg=("$1" "$2"); shift; shift;;
 	--submodules)	shift; isSubmodules=t;;
+	--filter-worktree-duplicates)
+			shift; isFilterWorktreeDuplicates=t;;
 	--all-submodules)
 			shift; isSubmodules=t; isSubmodulesAlways=t;;
 	--no-submodule-recurse)
@@ -148,6 +156,11 @@ do
     esac
     isFirst=
 done
+
+if [ "$isFilterWorktreeDuplicates" ] && git-isworktree; then
+    # These checks are independent of the current worktree / current branch:
+    unset 'checks[stashed]' 'checks[noremote]' 'checks[unmergeddownstream]' 'checks[downstreambranches]' 'checks[inactivefork]'
+fi
 
 isSubsequentCheck=
 : ${CLEAR_PREVIOUS_LINE=[1F[0K}

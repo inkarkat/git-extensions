@@ -14,12 +14,14 @@ HELPTEXT
     cat <<HELPTEXTCHECK
 Merge / rebase <branch> (with --rebase-single rebase only if it's a single
 non-merge commit, else merge) to the current branch, run CHECK-COMMANDS, and if
-all succeed (for -c|--commands, for stdin: only with --worst-status, else if the
-last succeeds) delete the branch from the local repository as well as a tracked
-remote (if it exists there) (unless --no-delete is given).
+all succeed (for -c|--commands|--exec, for stdin: only with --worst-status, else
+if the last succeeds) delete the branch from the local repository as well as a
+tracked remote (if it exists there) (unless --no-delete is given).
 HELPTEXTCHECK
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[...] -c|--command "CHECK-COMMANDLINE" [-c ...]'
+    printf 'Usage: GIT_REINTEGRATE_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" '[...]'
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[...] -c|--command "CHECK-COMMANDLINE" [-c ...] | --exec SIMPLECOMMAND [...] ; [...]'
     echo
     printf 'Usage: echo CHECK-COMMANDLINES | %q %s\n' "$(basename "$1")" '[...] [--bare|[--initial-status NUM] [--trailing-prompt|--no-trailing-prompt] [--no-output-no-prompt] [--no-output-no-error] [--emulate-prompt]] [--no-success-no-count|--no-count-on N] [--exit-on-success|--exit-on-failure|--exit-on NUM] [--worst-status] [--comment COMMENT] [--summarize-failed ERROR-TEXT [--summarize-failed-separator SEP]] -'
     echo
@@ -65,6 +67,21 @@ do
 	--ff|--no-ff|--ff-only)
 			hasMergeResolutionArg=t; fastForwardArgs=("$1"); shift;;
 	--command|-c)	checkCommandArgs+=("$1" "$2"); shift; checkCommands+=(${checkCommands:+&&} "$1"); shift;;
+	--exec)		checkCommandArgs+=("$1"); shift
+			cmd=
+			while [ $# -gt 0 -a "$1" != ';' ]
+			do
+			    printf -v quotedArg '%q' "$1"
+			    cmd="${cmd}${cmd:+ }${quotedArg}"
+			    checkCommandArgs+=("$1"); shift
+			done
+			if [ $# -eq 0 ]; then
+			    echo 'ERROR: --exec command must be concluded with ;!'; echo; printUsage "$0"
+			    exit 2
+			fi >&2
+			checkCommandArgs+=("$1"); shift
+			checkCommands+=(${checkCommands:+&&} "$cmd")
+			;;
 	--bare)		shift; isBare=t; runWithCommand=runWith;;
 	--exit-on-failure)
 			bashArgs+=(-e); runWithPromptArgs+=("$1"); shift;;
@@ -88,12 +105,16 @@ if [ "${!#}" = '-' ]; then
     isCheckFromStdin=t
     set -- "${@:1:$(($#-1))}"
 fi
-if [ "$isCheckFromStdin" ] && [ ${#checkCommands[@]} -gt 0 ]; then
-    echo 'ERROR: Cannot combine CHECK-COMMANDLINE from stdin (-) with -c|--command.'
-    echo
-    printUsage "$0"
-    exit 2
-fi >&2
+if [ "$isCheckFromStdin" ]; then
+    if [ ${#checkCommands[@]} -gt 0 ]; then
+	echo 'ERROR: Cannot combine CHECK-COMMANDLINE from stdin (-) with -c|--command|--exec.'
+	echo
+	printUsage "$0"
+	exit 2
+    fi >&2
+elif [ -n "$GIT_REINTEGRATE_CHECK_COMMAND" -a ${#checkCommands[@]} -eq 0 ]; then
+    checkCommands=("$GIT_REINTEGRATE_CHECK_COMMAND")
+fi
 
 branches+=("$@")
 if [ ${#branches[@]} -eq 0 ]; then

@@ -45,6 +45,11 @@ b) maintain history of how the feature grew: `$ git cu -m 'feat-4711 has been re
 ## merge the superproject
 `$ hub reintegratetom`
 
+# Rules
+- When checking out branches, do so everywhere (especially both in the
+  superproject and submodule(s)). Mixing branches will lead to dirty working
+  copies!
+
 # Conflicts
 Resolution and merges have to be done in the submodule itself, as the
 superproject can only reference a single commit! So, if there has been

@@ -50,6 +50,7 @@ typeset -a checkCommands=()
 typeset -a bashArgs=()
 runWithCommand=runWithPrompt
 typeset -a runWithPromptArgs=()
+typeset -a continueArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -58,8 +59,8 @@ do
 			shift;;
 	--color)	shift; shift;;
 	--continue)	shift; isContinue=t;;
-	--no-delete)	shift; isDelete=;;
-	--push)		shift; isPush=t;;
+	--no-delete)	continueArgs+=("$1"); shift; isDelete=;;
+	--push)		continueArgs+=("$1"); shift; isPush=t;;
 	--branch|-b)	shift; branches+=("$1"); shift;;
 	--rebase)	shift; hasMergeResolutionArg=t; isRebase=t;;
 	--rebase-single)
@@ -171,7 +172,7 @@ printContinueCommand()
     local -r scriptName="$(basename -- "${BASH_SOURCE[0]}")"
     [ "$isCheckFromStdin" ] && printf >&2 'echo CHECK-COMMANDLINES | '
     printf >&2 '$ %s %q' "$gitCommand" "${scriptName#git-}"
-    printf >&2 ' %q' '--continue' ${isBare:+--bare} "${runWithPromptArgs[@]}" "${checkCommandArgs[@]}"
+    printf >&2 ' %q' '--continue' ${isBare:+--bare} "${runWithPromptArgs[@]}" "${continueArgs[@]}" "${checkCommandArgs[@]}"
     printf >&2 -- ' --branch %q'  "${branches[@]}"
     [ "$isCheckFromStdin" ] && printf >&2 ' -'
     printf >&2 '\n'

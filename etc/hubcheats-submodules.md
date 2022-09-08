@@ -50,6 +50,9 @@ b) maintain history of how the feature grew: `$ git cu -m 'feat-4711 has been re
   superproject and submodule(s)). Mixing branches will lead to dirty working
   copies!
 
+# Switching between branches
+superproject: `$ git co BRANCH && git subcolocalbr --query|SUBMODULE1 SUBMODULE2`
+
 # Conflicts
 Resolution and merges have to be done in the submodule itself, as the
 superproject can only reference a single commit! So, if there has been

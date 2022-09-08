@@ -167,10 +167,13 @@ canRebase()
 }
 printContinueCommand()
 {
+    local gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
+    local -r scriptName="$(basename -- "${BASH_SOURCE[0]}")"
     [ "$isCheckFromStdin" ] && printf >&2 'echo CHECK-COMMANDLINES | '
-    printf >&2 '%q ' "$(basename "$0")" '--continue' ${isBare:+--bare} "${runWithPromptArgs[@]}" "${checkCommandArgs[@]}"
-    printf >&2 -- '--branch %q '  "${branches[@]}"
-    [ "$isCheckFromStdin" ] && printf >&2 '-'
+    printf >&2 '$ %s %q' "$gitCommand" "${scriptName#git-}"
+    printf >&2 ' %q' '--continue' ${isBare:+--bare} "${runWithPromptArgs[@]}" "${checkCommandArgs[@]}"
+    printf >&2 -- ' --branch %q'  "${branches[@]}"
+    [ "$isCheckFromStdin" ] && printf >&2 ' -'
     printf >&2 '\n'
 }
 pushit()

@@ -1,0 +1,46 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Delete remote <branch> from ${remote:-REMOTE}.
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [-i|--ignore-missing] <branch> [...] [-?|-h|--help]"
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --no-color|--color=*)
+			shift;;
+    --color)		shift; shift;;
+esac
+remote=${1:?}; shift
+
+isIgnoreMissing=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+	--ignore-missing|-i)
+			shift; isIgnoreMissing=t;;
+	*)		break;;
+    esac
+done
+if [ $# -eq 0 ]; then
+    echo 'Need (at least one) remote <branch> to delete!'
+    echo
+    printUsage "$0"
+    exit 2
+fi >&2
+
+
+if [ "$isIgnoreMissing" ]; then
+    readarray -t remoteBranches < <(git-remotebr "$remote" "$@" 2>/dev/null)
+else
+    remoteBranches=("$@")
+fi
+[ ${#remoteBranches[@]} -gt 0 ] || exit 99
+
+exec git push "$remote" --delete "${remoteBranches[@]#${remote}/}"

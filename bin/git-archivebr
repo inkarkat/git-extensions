@@ -41,6 +41,7 @@ fi
 status=0
 typeset -a localBranches=()
 typeset -a originBranches=()
+typeset -a createdTags=()
 for branch
 do
     commit="$branch"
@@ -51,7 +52,9 @@ do
 	git existsremote "${BASH_REMATCH[1]}" && \
 	branch="${BASH_REMATCH[2]}"
 
-    if git tag ${isForce:+--force} "${gitTagArgs[@]}" "archive/$branch" "$commit"; then
+    tagName="archive/$branch"
+    if git tag ${isForce:+--force} "${gitTagArgs[@]}" "$tagName" "$commit"; then
+	createdTags+=("$tagName")
 	[ "$branch" = "$commit" ] && localBranches+=("$branch")
 	git existsbr "origin/$branch" && originBranches+=("$branch")
     else
@@ -60,7 +63,7 @@ do
 done
 [ $status -eq 0 ] || exit $status
 
-! git existsremote origin || git push ${isForce:+--force} --tags origin || exit $?
+! git existsremote origin || git push ${isForce:+--force} origin "${createdTags[@]/#/refs/tags/}" || exit $?
 
 # Note: Process all passed branches in one fell swoop; this avoid re-querying
 # (on push) the remote repository credentials for each branch. When one branch

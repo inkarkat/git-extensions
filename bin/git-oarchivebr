@@ -28,13 +28,19 @@ case $1 in
 esac
 
 status=0
+typeset -a createdTags=()
 for branch
 do
-    git tag $tagForceOption "archive/$branch" "origin/$branch" || status=1
+    tagName="archive/$branch"
+    if git tag $tagForceOption "$tagName" "origin/$branch"; then
+	createdTags+=("$tagName")
+    else
+	status=1
+    fi
 done
 [ $status -eq 0 ] || exit $status
 
-git push --tags origin || exit $?
+git push origin "${createdTags[@]/#/refs/tags/}" || exit $?
 
 # Note: Process all passed branches in one fell swoop; this avoid re-querying
 # (on push) the remote repository credentials for each branch. When one branch

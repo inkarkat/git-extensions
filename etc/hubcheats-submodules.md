@@ -49,6 +49,10 @@ b) maintain history of how the feature grew: `$ git cu -m 'feat-4711 has been re
 - When checking out branches, do so everywhere (especially both in the
   superproject and submodule(s)). Mixing branches will lead to dirty working
   copies!
+- When adding a new submodule, just editing `.gitmodules` followed by `git
+  submodule update` isn't enough; you need to do `git submodule add <repo>` to
+  add the reference and do the checkout (and update `.gitmodules` - you can
+  edit the file beforehand to have the additional info already in there.)
 
 # Switching between branches
 superproject: `$ git co BRANCH && git subcolocalbr --query|SUBMODULE1 SUBMODULE2`

@@ -1,6 +1,8 @@
 #!/bin/bash
 shopt -qs extglob
 
+: ${GIT_CORRECT_REFERENCE_MESSAGE:=This corrects commit}
+
 printUsage()
 {
     cat <<HELPTEXT
@@ -35,9 +37,9 @@ cleanup()
     IFS=$'\n' read -r titleLine
     titleLine="${titleLine% (after +([0-9A-Fa-f]))}"
 
-    remainingLines="$(grep -v -e '^(This corrects commit [[:xdigit:]]\+)$')"
+    remainingLines="$(grep -v -e "^(${GIT_CORRECT_REFERENCE_MESSAGE} [[:xdigit:]]\\+)\$")"
     remainingLines="${remainingLines%%+($'\n')}"
 } < <(git lo1 "$commitId")
-printf '%s (after %s)\n%s\n\n(This corrects commit %s)\n' "$titleLine" "$shortCommitId" "$remainingLines" "$commitId" > "$commitMessageFilespec" || exit $?
+printf "%s (after %s)\\n%s\\n\\n(${GIT_CORRECT_REFERENCE_MESSAGE} %s)\\n" "$titleLine" "$shortCommitId" "$remainingLines" "$commitId" > "$commitMessageFilespec" || exit $?
 
 exec git-wrapper commit --edit --file "$commitMessageFilespec" "${@:1:$(($#-1))}"

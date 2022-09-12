@@ -8,33 +8,47 @@ Use this to remove old branches that have been incorporated into master, and you
 don't have a local copy. Else, use git-archivebr, which will also clean up the
 local repository.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '<branch> [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [-m <msg>|--message=<msg>|-F <file>|--file=<file>] [--] <branch> [...] [-?|-h|--help]'
 }
 
+tagForceOption=
+typeset -a gitTagArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+	-f|--force)	tagForceOption="$1"; shift;;
+	--@(message|file)|-[mF])
+			gitTagArgs+=("$1" "$2"); shift; shift;;
+	--@(message|file)=*)
+			gitTagArgs+=("$1"); shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 if [ $# -eq 0 ]; then
     echo >&2 'Need <branch> to archive!'
     exit 2
 fi
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
-			shift;;
-    --color)		shift; shift;;
-esac
-
-tagForceOption=
-case $1 in
-    -f|--force)	shift; tagForceOption=-f;;
-esac
 
 status=0
+typeset -a createdTags=()
 for branch
 do
-    git tag $tagForceOption "archive/$branch" "origin/$branch" || status=1
+    tagName="archive/$branch"
+    if git tag $tagForceOption "$tagName" "origin/$branch"; then
+	createdTags+=("$tagName")
+    else
+	status=1
+    fi
 done
 [ $status -eq 0 ] || exit $status
 
-git push --tags origin || exit $?
+git push origin "${createdTags[@]/#/refs/tags/}" || exit $?
 
 # Note: Process all passed branches in one fell swoop; this avoid re-querying
 # (on push) the remote repository credentials for each branch. When one branch

@@ -151,20 +151,6 @@
 	fixupselectedrb7 = fixupselectedrb --max-count 7
 	;; rebaselastfixup: Rebase the last [<number>, useful when there are forgotten commits that cannot be rewritten any more] fixup / squash commit(s) to, well, incorporate the fixes / squash the commits into the current branch.
 
-	amen = wrapper commit --amend --reuse-message=HEAD	; Amend to last commit without re-editing the message.
-	amenu = wrapper commit --all --amend --reuse-message=HEAD	; Amend all modified and deleted files to last commit without re-editing the message.
-	amend = wrapper commit --amend --reedit-message=HEAD	; Amend to last commit.
-	amendu = wrapper commit --all --amend --reedit-message=HEAD	; Amend all modified and deleted files to last commit.
-	amendonly = wrapper commit --amend --only	; Reword commit message / amend passed files to last commit, ignoring any already staged changes.
-	reword = amendonly
-	; touchcommit: Amend the current commit without adding any modification and without changing the message, so just getting a new commit ID and date (e.g. to trigger a rebuild), potentially changing the commit author.
-	amenasme = mine-command amen	; Amend to last commit without re-editing the message and set the author to myself.
-	amendasme = mine-command amend	; Amend to last commit and set the author to myself.
-	;; commitfor: Commit for another author whose "NAME <EMAIL@HOST>" combo is either passed or selected from all previous committers (via passed AUTHOR-PATTERN).
-	;; commitwithfiledate: Commit with the author date set to the most recent file modification date of files in the stage. Useful if you only now noticed that changes should have been committed a long time ago.
-	;; clipboardcommit: Commit directly (without further edits, unless -e|--edit is given) with the commit message taken from the clipboard.
-	cbc = clipboardcommit
-
 	;; commitidentical: Commit directly (without further edits) with the same commit message as <commit>.
 	commitidenticalst = stfiles-command selectedcommit-command --single-only commitidentical	; Commit directly (without further edits) with the same commit message as the commit interactively chosen from the commits of currently modified files in the passed <range>.
 	commitidenticalst7 = commitidenticalst --max-count 7
@@ -186,6 +172,30 @@
 	commitlikeselected = selectedcommit-command --single-only commitlike	; Commit with the same commit message as the commit interactively chosen from the commits in the passed <range> as the base for further editing.
 	commitlikeselected7 = commitlikeselected --max-count 7
 	cls = commitlikeselected7
+
+	;; commitrelate: Commit with the same commit message as <commit> as the base for further editing, referencing prior <commit> (when it's too late to amend the existing commit).
+	commitrelateselected = selectedcommit-command --single-only commitrelate	; Commit with the same commit message as <commit> as the base for further editing, referencing prior commit interactively chosen from the commits in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
+	commitrelateselected7 = commitrelateselected --max-count 7
+	commitrelatest = stfiles-command selectedcommit-command --single-only commitrelate	; Commit with the same commit message as <commit> as the base for further editing, referencing prior commit interactively chosen from the commits of currently modified files in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
+	commitrelatest7 = commitrelatest --max-count 7
+	commitrelatei = stifiles-command selectedcommit-command --single-only commitrelate	; Commit with the same commit message as <commit> as the base for further editing, referencing prior commit interactively chosen from the commits of currently staged files in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
+	commitrelatei7 = commitrelatei --max-count 7
+	commitrelate-i = stIfiles-command selectedcommit-command --single-only commitrelate	; Commit with the same commit message as <commit> as the base for further editing, referencing prior commit interactively chosen from the commits of currently modified but not staged files in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
+	commitrelate-i7 = commitrelate-i --max-count 7
+
+	amen = wrapper commit --amend --reuse-message=HEAD	; Amend to last commit without re-editing the message.
+	amenu = wrapper commit --all --amend --reuse-message=HEAD	; Amend all modified and deleted files to last commit without re-editing the message.
+	amend = wrapper commit --amend --reedit-message=HEAD	; Amend to last commit.
+	amendu = wrapper commit --all --amend --reedit-message=HEAD	; Amend all modified and deleted files to last commit.
+	amendonly = wrapper commit --amend --only	; Reword commit message / amend passed files to last commit, ignoring any already staged changes.
+	reword = amendonly
+	; touchcommit: Amend the current commit without adding any modification and without changing the message, so just getting a new commit ID and date (e.g. to trigger a rebuild), potentially changing the commit author.
+	amenasme = mine-command amen	; Amend to last commit without re-editing the message and set the author to myself.
+	amendasme = mine-command amend	; Amend to last commit and set the author to myself.
+	;; commitfor: Commit for another author whose "NAME <EMAIL@HOST>" combo is either passed or selected from all previous committers (via passed AUTHOR-PATTERN).
+	;; commitwithfiledate: Commit with the author date set to the most recent file modification date of files in the stage. Useful if you only now noticed that changes should have been committed a long time ago.
+	;; clipboardcommit: Commit directly (without further edits, unless -e|--edit is given) with the commit message taken from the clipboard.
+	cbc = clipboardcommit
 
 	;; credit: Amend another author whose "NAME <EMAIL@HOST>" combo is either passed or selected from all previous committers (via passed AUTHOR-PATTERN).
 	;; show-branch: Shows the branch anchestry (heads are prefixed with !, current with *), then after a --- separator commits (+) and merges (-).
@@ -1090,6 +1100,10 @@
 	tdcommitlikest = today-command commitlikest
 	tdcommitlikei = today-command commitlikei
 	tdcommitlike-i = today-command commitlike-i
+	tdcommitrelate = today-command commitrelateselected
+	tdcommitrelatest = today-command commitrelatest
+	tdcommitrelatei = today-command commitrelatei
+	tdcommitrelate-i = today-command commitrelate-i
 	; tdrb is a no-op, because it iterates over the current range without touching fixups.
 	tdrbi = today-command --no-range --one-more rebase -i
 	tdrbni = today-command --no-range --one-more rbni
@@ -1232,6 +1246,10 @@
 	weekcommitlikest = week-command commitlikest
 	weekcommitlikei = week-command commitlikei
 	weekcommitlike-i = week-command commitlike-i
+	weekcommitrelate = week-command commitrelateselected
+	weekcommitrelatest = week-command commitrelatest
+	weekcommitrelatei = week-command commitrelatei
+	weekcommitrelate-i = week-command commitrelate-i
 	; weekrb is a no-op, because it iterates over the current range without touching fixups.
 	weekrbi = week-command --no-range --one-more rebase -i
 	weekrbni = week-command --no-range --one-more rbni
@@ -1374,6 +1392,10 @@
 	monthcommitlikest = month-command commitlikest
 	monthcommitlikei = month-command commitlikei
 	monthcommitlike-i = month-command commitlike-i
+	monthcommitrelate = month-command commitrelateselected
+	monthcommitrelatest = month-command commitrelatest
+	monthcommitrelatei = month-command commitrelatei
+	monthcommitrelate-i = month-command commitrelate-i
 	; monthrb is a no-op, because it iterates over the current range without touching fixups.
 	monthrbi = month-command --no-range --one-more rebase -i
 	monthrbni = month-command --no-range --one-more rbni
@@ -1516,6 +1538,10 @@
 	yearcommitlikest = year-command commitlikest
 	yearcommitlikei = year-command commitlikei
 	yearcommitlike-i = year-command commitlike-i
+	yearcommitrelate = year-command commitrelateselected
+	yearcommitrelatest = year-command commitrelatest
+	yearcommitrelatei = year-command commitrelatei
+	yearcommitrelate-i = year-command commitrelate-i
 	; yearrb is a no-op, because it iterates over the current range without touching fixups.
 	yearrbi = year-command --no-range --one-more rebase -i
 	yearrbni = year-command --no-range --one-more rbni
@@ -1658,6 +1684,10 @@
 	bycommitlikest = byuserrange-command commitlikest
 	bycommitlikei = byuserrange-command commitlikei
 	bycommitlike-i = byuserrange-command commitlike-i
+	bycommitrelate = byuserrange-command commitrelateselected
+	bycommitrelatest = byuserrange-command commitrelatest
+	bycommitrelatei = byuserrange-command commitrelatei
+	bycommitrelate-i = byuserrange-command commitrelate-i
 	byrb = byuserrange-command --no-range rebase	; Rebase on top of the changes committed by the author of the HEAD.
 	byrbi = byuserrange-command --no-range 'rebase -i'
 	byrbni = byuserrange-command --no-range rbni
@@ -1800,6 +1830,10 @@
 	msgcommitlikest = bylogmessagerange-command commitlikest
 	msgcommitlikei = bylogmessagerange-command commitlikei
 	msgcommitlike-i = bylogmessagerange-command commitlike-i
+	msgcommitrelate = bylogmessagerange-command commitrelateselected
+	msgcommitrelatest = bylogmessagerange-command commitrelatest
+	msgcommitrelatei = bylogmessagerange-command commitrelatei
+	msgcommitrelate-i = bylogmessagerange-command commitrelate-i
 	msgrb = bylogmessagerange-command --no-range rebase	; Rebase on top of the consecutive commit(s) from the HEAD whose messages match the specified text or /regexp/
 	msgrbi = bylogmessagerange-command --no-range rebase -i
 	msgrbni = bylogmessagerange-command --no-range rbni
@@ -1941,6 +1975,10 @@
 	lastmsgcommitlikest = bylogmessagerange-command --auto-revision commitlikest
 	lastmsgcommitlikei = bylogmessagerange-command --auto-revision commitlikei
 	lastmsgcommitlike-i = bylogmessagerange-command --auto-revision commitlike-i
+	lastmsgcommitrelate = bylogmessagerange-command --auto-revision commitrelateselected
+	lastmsgcommitrelatest = bylogmessagerange-command --auto-revision commitrelatest
+	lastmsgcommitrelatei = bylogmessagerange-command --auto-revision commitrelatei
+	lastmsgcommitrelate-i = bylogmessagerange-command --auto-revision commitrelate-i
 	lastmsgrb = bylogmessagerange-command --auto-revision --no-range rebase	; Rebase on top of the consecutive commit(s) from the HEAD whose messages match the specified text or /regexp/
 	lastmsgrbi = bylogmessagerange-command --auto-revision --no-range rebase -i
 	lastmsgrbni = bylogmessagerange-command --auto-revision --no-range rbni
@@ -2089,6 +2127,10 @@
 	brcommitlikest = rev-range-this-branch --any commitlikest
 	brcommitlikei = rev-range-this-branch --any commitlikei
 	brcommitlike-i = rev-range-this-branch --any commitlike-i
+	brcommitrelate = rev-range-this-branch --any commitrelateselected
+	brcommitrelatest = rev-range-this-branch --any commitrelatest
+	brcommitrelatei = rev-range-this-branch --any commitrelatei
+	brcommitrelate-i = rev-range-this-branch --any commitrelate-i
 	;brrb is a no-op, because it iterates over the current range without touching fixups.
 	brrbi = rev-range-this-branch --any --no-range rebase -i	; Rebase on top of the current branch.
 	brrbni = rev-range-this-branch --any --no-range rbni
@@ -2232,6 +2274,10 @@
 	b2rcommitlikest = rev-range-this-branch --any --branch-number 2 commitlikest
 	b2rcommitlikei = rev-range-this-branch --any --branch-number 2 commitlikei
 	b2rcommitlike-i = rev-range-this-branch --any --branch-number 2 commitlike-i
+	b2rcommitrelate = rev-range-this-branch --any --branch-number 2 commitrelateselected
+	b2rcommitrelatest = rev-range-this-branch --any --branch-number 2 commitrelatest
+	b2rcommitrelatei = rev-range-this-branch --any --branch-number 2 commitrelatei
+	b2rcommitrelate-i = rev-range-this-branch --any --branch-number 2 commitrelate-i
 	;b2rrb is a no-op, because it iterates over the current range without touching fixups.
 	b2rrbi = rev-range-this-branch --any --branch-number 2 --no-range rebase -i	; Rebase on top of the current branch and preceding branches.
 	b2rrbni = rev-range-this-branch --any --branch-number 2 --no-range rbni
@@ -2375,6 +2421,10 @@
 	b3rcommitlikest = rev-range-this-branch --any --branch-number 3 commitlikest
 	b3rcommitlikei = rev-range-this-branch --any --branch-number 3 commitlikei
 	b3rcommitlike-i = rev-range-this-branch --any --branch-number 3 commitlike-i
+	b3rcommitrelate = rev-range-this-branch --any --branch-number 3 commitrelateselected
+	b3rcommitrelatest = rev-range-this-branch --any --branch-number 3 commitrelatest
+	b3rcommitrelatei = rev-range-this-branch --any --branch-number 3 commitrelatei
+	b3rcommitrelate-i = rev-range-this-branch --any --branch-number 3 commitrelate-i
 	;b3rrb is a no-op, because it iterates over the current range without touching fixups.
 	b3rrbi = rev-range-this-branch --any --branch-number 3 --no-range rebase -i	; Rebase on top of the current branch and two preceding branches.
 	b3rrbni = rev-range-this-branch --any --branch-number 3 --no-range rbni
@@ -2518,6 +2568,10 @@
 	bmcommitlikest = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --end-revision HEAD commitlikest
 	bmcommitlikei = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --end-revision HEAD commitlikei
 	bmcommitlike-i = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --end-revision HEAD commitlike-i
+	bmcommitrelate = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --end-revision HEAD commitrelateselected
+	bmcommitrelatest = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --end-revision HEAD commitrelatest
+	bmcommitrelatei = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --end-revision HEAD commitrelatei
+	bmcommitrelate-i = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --end-revision HEAD commitrelate-i
 	bmrb = master-command --keep-position rev-range --revision MASTER --no-range rebase	; Rebase on top of master.
 	bmrbi = master-command --keep-position rev-range --revision MASTER --no-range rebase -i
 	bmrbni = master-command --keep-position rev-range --revision MASTER --no-range rbni
@@ -2661,6 +2715,10 @@
 	mbcommitlikest = branch-command --keep-position master-command --keep-position rev-range --revision HEAD --end-revision MASTER commitlikest
 	mbcommitlikei = branch-command --keep-position master-command --keep-position rev-range --revision HEAD --end-revision MASTER commitlikei
 	mbcommitlike-i = branch-command --keep-position master-command --keep-position rev-range --revision HEAD --end-revision MASTER commitlike-i
+	mbcommitrelate = branch-command --keep-position master-command --keep-position rev-range --revision HEAD --end-revision MASTER commitrelateselected
+	mbcommitrelatest = branch-command --keep-position master-command --keep-position rev-range --revision HEAD --end-revision MASTER commitrelatest
+	mbcommitrelatei = branch-command --keep-position master-command --keep-position rev-range --revision HEAD --end-revision MASTER commitrelatei
+	mbcommitrelate-i = branch-command --keep-position master-command --keep-position rev-range --revision HEAD --end-revision MASTER commitrelate-i
 	;mbrb is a no-op, because it always yields HEAD as the starting point
 	;mbrbi is a no-op, because it always yields HEAD as the starting point
 	;mbrbni is a no-op, because it always yields HEAD as the starting point
@@ -2804,6 +2862,10 @@
 	bncommitlikest = branch-command --keep-position base-command --keep-position rev-range --revision BASE --end-revision HEAD commitlikest
 	bncommitlikei = branch-command --keep-position base-command --keep-position rev-range --revision BASE --end-revision HEAD commitlikei
 	bncommitlike-i = branch-command --keep-position base-command --keep-position rev-range --revision BASE --end-revision HEAD commitlike-i
+	bncommitrelate = branch-command --keep-position base-command --keep-position rev-range --revision BASE --end-revision HEAD commitrelateselected
+	bncommitrelatest = branch-command --keep-position base-command --keep-position rev-range --revision BASE --end-revision HEAD commitrelatest
+	bncommitrelatei = branch-command --keep-position base-command --keep-position rev-range --revision BASE --end-revision HEAD commitrelatei
+	bncommitrelate-i = branch-command --keep-position base-command --keep-position rev-range --revision BASE --end-revision HEAD commitrelate-i
 	bnrb = base-command --keep-position rev-range --revision BASE --no-range rebase	; Rebase on top of the base branch.
 	bnrbi = base-command --keep-position rev-range --revision BASE --no-range rebase -i
 	bnrbni = base-command --keep-position rev-range --revision BASE --no-range rbni
@@ -2947,6 +3009,10 @@
 	nbcommitlikest = branch-command --keep-position base-command --keep-position rev-range --revision HEAD --end-revision BASE commitlikest
 	nbcommitlikei = branch-command --keep-position base-command --keep-position rev-range --revision HEAD --end-revision BASE commitlikei
 	nbcommitlike-i = branch-command --keep-position base-command --keep-position rev-range --revision HEAD --end-revision BASE commitlike-i
+	nbcommitrelate = branch-command --keep-position base-command --keep-position rev-range --revision HEAD --end-revision BASE commitrelateselected
+	nbcommitrelatest = branch-command --keep-position base-command --keep-position rev-range --revision HEAD --end-revision BASE commitrelatest
+	nbcommitrelatei = branch-command --keep-position base-command --keep-position rev-range --revision HEAD --end-revision BASE commitrelatei
+	nbcommitrelate-i = branch-command --keep-position base-command --keep-position rev-range --revision HEAD --end-revision BASE commitrelate-i
 	;nbrb is a no-op, because it always yields HEAD as the starting point
 	;nbrbi is a no-op, because it always yields HEAD as the starting point
 	;nbrbni is a no-op, because it always yields HEAD as the starting point
@@ -3090,6 +3156,10 @@
 	blcommitlikest = branch-command --keep-position rev-range --revision @{-1} --end-revision HEAD commitlikest
 	blcommitlikei = branch-command --keep-position rev-range --revision @{-1} --end-revision HEAD commitlikei
 	blcommitlike-i = branch-command --keep-position rev-range --revision @{-1} --end-revision HEAD commitlike-i
+	blcommitrelate = branch-command --keep-position rev-range --revision @{-1} --end-revision HEAD commitrelateselected
+	blcommitrelatest = branch-command --keep-position rev-range --revision @{-1} --end-revision HEAD commitrelatest
+	blcommitrelatei = branch-command --keep-position rev-range --revision @{-1} --end-revision HEAD commitrelatei
+	blcommitrelate-i = branch-command --keep-position rev-range --revision @{-1} --end-revision HEAD commitrelate-i
 	blrb = rev-range --revision @{-1} --no-range rebase	; Rebase on top of the last checked-out branch.
 	blrbi = rev-range --revision @{-1} --no-range rebase -i
 	blrbni = rev-range --revision @{-1} --no-range rbni
@@ -3233,6 +3303,10 @@
 	b2lcommitlikest = branch-command --keep-position rev-range --revision @{-2} --end-revision HEAD commitlikest
 	b2lcommitlikei = branch-command --keep-position rev-range --revision @{-2} --end-revision HEAD commitlikei
 	b2lcommitlike-i = branch-command --keep-position rev-range --revision @{-2} --end-revision HEAD commitlike-i
+	b2lcommitrelate = branch-command --keep-position rev-range --revision @{-2} --end-revision HEAD commitrelateselected
+	b2lcommitrelatest = branch-command --keep-position rev-range --revision @{-2} --end-revision HEAD commitrelatest
+	b2lcommitrelatei = branch-command --keep-position rev-range --revision @{-2} --end-revision HEAD commitrelatei
+	b2lcommitrelate-i = branch-command --keep-position rev-range --revision @{-2} --end-revision HEAD commitrelate-i
 	b2lrb = rev-range --revision @{-2} --no-range rebase	; Rebase on top of the second-last checked out branch.
 	b2lrbi = rev-range --revision @{-2} --no-range rebase -i
 	b2lrbni = rev-range --revision @{-2} --no-range rbni
@@ -3376,6 +3450,10 @@
 	bpcommitlikest = branch-command --keep-position rev-range --revision @{1} --end-revision HEAD commitlikest
 	bpcommitlikei = branch-command --keep-position rev-range --revision @{1} --end-revision HEAD commitlikei
 	bpcommitlike-i = branch-command --keep-position rev-range --revision @{1} --end-revision HEAD commitlike-i
+	bpcommitrelate = branch-command --keep-position rev-range --revision @{1} --end-revision HEAD commitrelateselected
+	bpcommitrelatest = branch-command --keep-position rev-range --revision @{1} --end-revision HEAD commitrelatest
+	bpcommitrelatei = branch-command --keep-position rev-range --revision @{1} --end-revision HEAD commitrelatei
+	bpcommitrelate-i = branch-command --keep-position rev-range --revision @{1} --end-revision HEAD commitrelate-i
 	bprb = rev-range --revision @{1} --no-range --one-more-command ^ rebase	; Rebase on top of where the tip of the branch was previously.
 	bprbi = rev-range --revision @{1} --no-range --one-more-command ^ rebase -i
 	bprbni = rev-range --revision @{1} --no-range --one-more-command ^ rbni
@@ -3519,6 +3597,10 @@
 	b2pcommitlikest = branch-command --keep-position rev-range --revision @{2} --end-revision HEAD commitlikest
 	b2pcommitlikei = branch-command --keep-position rev-range --revision @{2} --end-revision HEAD commitlikei
 	b2pcommitlike-i = branch-command --keep-position rev-range --revision @{2} --end-revision HEAD commitlike-i
+	b2pcommitrelate = branch-command --keep-position rev-range --revision @{2} --end-revision HEAD commitrelateselected
+	b2pcommitrelatest = branch-command --keep-position rev-range --revision @{2} --end-revision HEAD commitrelatest
+	b2pcommitrelatei = branch-command --keep-position rev-range --revision @{2} --end-revision HEAD commitrelatei
+	b2pcommitrelate-i = branch-command --keep-position rev-range --revision @{2} --end-revision HEAD commitrelate-i
 	b2prb = rev-range --revision @{2} --no-range --one-more-command ^ rebase	; Rebase on top of where the tip of the branch was second-last.
 	b2prbi = rev-range --revision @{2} --no-range --one-more-command ^ rebase -i
 	b2prbni = rev-range --revision @{2} --no-range --one-more-command ^ rbni
@@ -3662,6 +3744,10 @@
 	outcommitlikest = rev-range-outgoing '' commitlikest
 	outcommitlikei = rev-range-outgoing '' commitlikei
 	outcommitlike-i = rev-range-outgoing '' commitlike-i
+	outcommitrelate = rev-range-outgoing '' commitrelateselected
+	outcommitrelatest = rev-range-outgoing '' commitrelatest
+	outcommitrelatei = rev-range-outgoing '' commitrelatei
+	outcommitrelate-i = rev-range-outgoing '' commitrelate-i
 	outrbi = trbi
 	outrbni = trbni
 	outmove-to-branch = trmove-to-branch
@@ -3928,6 +4014,10 @@
 	ooutcommitlikest = rev-range-outgoing origin commitlikest
 	ooutcommitlikei = rev-range-outgoing origin commitlikei
 	ooutcommitlike-i = rev-range-outgoing origin commitlike-i
+	ooutcommitrelate = rev-range-outgoing origin commitrelateselected
+	ooutcommitrelatest = rev-range-outgoing origin commitrelatest
+	ooutcommitrelatei = rev-range-outgoing origin commitrelatei
+	ooutcommitrelate-i = rev-range-outgoing origin commitrelate-i
 	ooutmove-to-branch = omove-to-branch
 	ooutrbi = orbi
 	ooutrbni = orbni
@@ -4194,6 +4284,10 @@
 	uoutcommitlikest = rev-range-outgoing upstream commitlikest
 	uoutcommitlikei = rev-range-outgoing upstream commitlikei
 	uoutcommitlike-i = rev-range-outgoing upstream commitlike-i
+	uoutcommitrelate = rev-range-outgoing upstream commitrelateselected
+	uoutcommitrelatest = rev-range-outgoing upstream commitrelatest
+	uoutcommitrelatei = rev-range-outgoing upstream commitrelatei
+	uoutcommitrelate-i = rev-range-outgoing upstream commitrelate-i
 	uoutrbi = urbi
 	uoutrbni = urbni
 	uoutmove-to-branch = umove-to-branch
@@ -4448,6 +4542,7 @@
 	; lbrfixuprb does not make sense with branch references
 	; lbrcommitidentical does not make sense with branch references
 	; lbrcommitlike does not make sense with branch references
+	; lbrcommitrelate does not make sense with branch references
 	; lbrrbi would be a generic implementation of the specialized rebaselocalbr.
 	; lbrrbni would be a generic implementation of the specialized rebaselocalbr.
 	; lbrwipe does not make sense
@@ -4576,6 +4671,7 @@
 	; lbmfixuprb does not make sense with branch references
 	; lbmcommitidentical does not make sense with branch references
 	; lbmcommitlike does not make sense with branch references
+	; lbmcommitrelate does not make sense with branch references
 	; lbmrbi would be a generic implementation of the specialized rebaselocalbr.
 	; lbmrbni would be a generic implementation of the specialized rebaselocalbr.
 	; lbmwipe does not make sense
@@ -4704,6 +4800,7 @@
 	; obrfixuprb does not make sense with branch references
 	; obrcommitidentical does not make sense with branch references
 	; obrcommitlike does not make sense with branch references
+	; obrcommitrelate does not make sense with branch references
 	; obrrbi does not make sense with branch references
 	; obrrbni does not make sense with branch references
 	; obrwipe does not make sense
@@ -4832,6 +4929,7 @@
 	; obmfixuprb does not make sense with branch references
 	; obmcommitidentical does not make sense with branch references
 	; obmcommitlike does not make sense with branch references
+	; obmcommitrelate does not make sense with branch references
 	; obmrbi does not make sense with branch references
 	; obmrbni does not make sense with branch references
 	; obmwipe does not make sense
@@ -4960,6 +5058,7 @@
 	; ubrfixuprb does not make sense with branch references
 	; ubrcommitidentical does not make sense with branch references
 	; ubrcommitlike does not make sense with branch references
+	; ubrcommitrelate does not make sense with branch references
 	; ubrrbi does not make sense with branch references
 	; ubrrbni does not make sense with branch references
 	; ubrwipe does not make sense
@@ -5088,6 +5187,7 @@
 	; ubmfixuprb does not make sense with branch references
 	; ubmcommitidentical does not make sense with branch references
 	; ubmcommitlike does not make sense with branch references
+	; ubmcommitrelate does not make sense with branch references
 	; ubmrbi does not make sense with branch references
 	; ubmrbni does not make sense with branch references
 	; ubmwipe does not make sense

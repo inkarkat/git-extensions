@@ -187,17 +187,20 @@ pushit()
 	# upstream, but keep it at the current state if pushing to upstream
 	# failed.
 	if git-existsbr "upstream/$path" && ! git-remote-isreadonly upstream; then
-	    git push upstream "$path" || exit $?
+	    git-remote-mutate upstream --message 'Push' --argument "$path" \
+		push upstream "$path" || exit $?
 	fi
     fi
     if [ -n "$targetTrackedRemote" ]; then
 	# Push to the tracked remote (usually origin).
-	git push "$targetTrackedRemote" || exit $?
+	git-remote-mutate "$targetTrackedRemote" --message 'Push' --argument "$path" \
+	    push "$targetTrackedRemote" || exit $?
     fi
     if [ "$targetTrackedRemote" != 'origin' ]; then
 	# Push to origin (if it's different from the tracked remote) last.
 	if git-existsbr "origin/$path" && ! git-remote-isreadonly origin; then
-	    git push origin "$path" || exit $?
+	    git-remote-mutate origin --message 'Push' --argument "$path" \
+		push origin "$path" || exit $?
 	fi
     fi
 }

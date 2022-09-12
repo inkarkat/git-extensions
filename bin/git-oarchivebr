@@ -48,12 +48,14 @@ do
 done
 [ $status -eq 0 ] || exit $status
 
-git push origin "${createdTags[@]/#/refs/tags/}" || exit $?
+git-remote-mutate origin --message 'Create tag(s)' --arguments "${createdTags[@]}" \; \
+    push origin "${createdTags[@]/#/refs/tags/}" || exit $?
 
 # Note: Process all passed branches in one fell swoop; this avoid re-querying
 # (on push) the remote repository credentials for each branch. When one branch
 # is invalid, an error is returned, but following (valid) branches are still
 # processed: just as we'd like.
 status=0
-git push origin --delete "$@" || status=$?
+git-remote-mutate origin --message 'Delete branch(es)' --arguments "$@" \; \
+    push origin --delete "$@" || status=$?
 exit $status

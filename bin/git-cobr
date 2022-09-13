@@ -12,6 +12,7 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--gui|--terminal|--none] [--submodule ignore|yes|recurse] [<checkout-args> ...] <remote-branch> [-?|-h|--help]'
 }
 logArg=
+submoduleHandling=recurse
 typeset -a logDeltaArgs=(--submodule recurse)
 typeset -a checkoutArgs=()
 while [ $# -ne 0 ]
@@ -23,7 +24,10 @@ do
 	--color)	shift; shift;;
 	--@(gui|terminal|none))
 			logArg="$1"; shift;;
-	--submodule)	logDeltaArgs=("$1" "$2"); shift; shift;;
+	--submodule)	logDeltaArgs+=("$1" "$2")
+			submoduleHandling="$2"
+			shift; shift
+			;;
 	--)		checkoutArgs+=("$1"); shift; break;;
 	*)		checkoutArgs+=("$1"); shift;;
     esac
@@ -85,3 +89,4 @@ else
     git checkout "$@" --track -b "$branch" "$remoteBranch" || exit $?
 fi
 [ -z "$record" ] || git-logdelta $logArg "${logDeltaArgs[@]}" --from-record "$record"
+[ "$submoduleHandling" = ignore ] || ! GIT_SUBMODULEUNINITIALIZED_MESSAGE='Warning: Uninitialized submodule(s) found:' git-submodule-uninitialized --print --recursive

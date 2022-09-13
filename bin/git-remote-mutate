@@ -1,13 +1,22 @@
 #!/bin/bash
 
+: ${GITREMOTEMUTATE_REMOTERS=upstream}
+typeset -A confirmRemotes=()
+read -r -d '' -a remotes <<< "$GITREMOTEMUTATE_REMOTERS"
+for remote in "${remotes[@]}"
+do
+    confirmRemotes["$remote"]=t
+done
+
 printUsage()
 {
+    local IFS=/
     cat <<HELPTEXT
 Wrapper for SIMPLECOMMAND that mutates (push, delete branch) REMOTE; queries for
-confirmation unless --yes is given.
+confirmation if REMOTE is ${!confirmRemotes[*]} (unless --yes is given).
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'REMOTE [--message MESSAGE] [--argument ARG|--arguments ARG1 [...] ;] [-y|--yes] [--] SIMPLECOMMAND [...] [-?|-h|--help]'
+    printf 'Usage: [GITREMOTEMUTATE_REMOTERS="origin ..."] %q %s\n' "$(basename "$1")" 'REMOTE [--message MESSAGE] [--argument ARG|--arguments ARG1 [...] ;] [-y|--yes] [--] SIMPLECOMMAND [...] [-?|-h|--help]'
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
@@ -15,7 +24,7 @@ case "$1" in
 			shift;;
     --color)		shift; shift;;
 esac
-remote=${1:?}; shift
+remote="${1:?}"; shift
 
 message=
 isYes=
@@ -43,5 +52,10 @@ do
 	*)		break;;
     esac
 done
+
+if [ ! "$isYes" ] && [ "${confirmRemotes["$remote"]}" ]; then
+    concatenatedArguments="$(joinBy --empty "with $*" --last-separator ' and ' ', ' "${arguments[@]}")"
+    userBinaryChoice --console --question "${remote:?}: ${message:-Mutate}${concatenatedArguments:+ }${concatenatedArguments}" --yes-no || exit 4
+fi
 
 exec git-wrapper "$@"

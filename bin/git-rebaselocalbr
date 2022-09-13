@@ -10,7 +10,7 @@ branch.<name>.remote and branch.<name>.merge) head.
 After that, you can push all branches via to the default (or passed, if you did
 not pass a remote to this command) remote via git push -f --all.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--continue|--skip|--abort] [--upstream <remote>/<branch>] [--push|--push-to <remote>] [--include-current] [--include-master] [--include-base] [--include-all] [--branches "<branch1> ..."] [-n N|--count N] [-i|--interactive] [options] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--continue|--skip|--abort] [--upstream <remote>/<branch>] [--push|--push-to <remote>] [--include-current] [--include-master] [--include-base] [--include-all] [--branches "<branch1> ..."] [-n N|--count N] [-i|--interactive] [-y|--yes] [options] [-?|-h|--help]'
 }
 
 branchNum=9999
@@ -20,6 +20,7 @@ pushRemote=
 typeset -a inputBranches=()
 rebaseAction=
 typeset -a gitLocalbrArgs=()
+typeset -a gitRemoteMutateArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -35,6 +36,7 @@ do
 	--continue|--skip|--abort)
 			rebaseAction="$1"; shift; break;;
 	--count|-n)	shift; branchNum="$1"; shift;;
+	--yes|-y)	gitRemoteMutateArgs+=("$1"); shift;;
 	*)		break;;
     esac
 done
@@ -127,7 +129,7 @@ do
 	fi
 
 	if git-existsbr "$target"; then
-	    git-remote-mutate "$targetRemote" --message 'Push rebased branch' --argument "$branch" \
+	    git-remote-mutate "$targetRemote" --message 'Push rebased branch' --argument "$branch" "${gitRemoteMutateArgs[@]}" \
 		push --force "$targetRemote" "${targetBranchArg[@]}" || status=$?   # Need to use --force because rebasing changed history.
 	fi
     fi

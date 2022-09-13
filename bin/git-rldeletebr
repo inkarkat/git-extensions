@@ -5,7 +5,7 @@ printUsage()
     cat <<HELPTEXT
 Delete <branch> from the local repository as well as ${remote:-REMOTE}.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [-f|--force] [-i|--ignore-missing-in-${remote}] <branch> [...] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [-f|--force] [-i|--ignore-missing-in-${remote}] [-y|--yes] [--] <branch> [...] [-?|-h|--help]"
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
@@ -13,10 +13,11 @@ case "$1" in
 			shift;;
     --color)		shift; shift;;
 esac
-remote=${1:?}; shift
+remote="${1:?}"; shift
 
 branchDeleteOption=-d
 isIgnoreMissingInRemote=
+typeset -a gitRemoteMutateArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -27,6 +28,7 @@ do
 	-f|--force)	shift; branchDeleteOption=-D;;
 	--ignore-missing-in-${remote}|-i)
 			shift; isIgnoreMissingInRemote=t;;
+	--yes|-y)	gitRemoteMutateArgs+=("$1"); shift;;
 	*)		break;;
     esac
 done
@@ -68,7 +70,7 @@ status=0
 # to keep the branch (both locally and remote), we need to manually opublish it
 # again.
 if [ ${#remoteBranches[@]} -gt 0 ]; then
-    git-remote-mutate "$remote" --message 'Delete branch(es)' --arguments "${remoteBranches[@]#${remote}/}" \; \
+    git-remote-mutate "$remote" --message 'Delete branch(es)' --arguments "${remoteBranches[@]#${remote}/}" \; "${gitRemoteMutateArgs[@]}" \
 	push "$remote" --delete "${remoteBranches[@]#${remote}/}" || status=$?
 fi
 

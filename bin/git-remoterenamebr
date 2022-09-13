@@ -6,16 +6,24 @@ printUsage()
     cat <<HELPTEXT
 Rename a branch on the server without checking it out.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '<remote> <old> <new> [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-y|--yes] [--] <remote> <old> <new> [-?|-h|--help]'
     printf 'Example: %q %s\n' "$(basename "$1")" 'origin master release'
 }
 
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
+typeset -a gitRemoteMutateArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
 			shift;;
-    --color)		shift; shift;;
-esac
+	--color)	shift; shift;;
+	--yes|-y)	gitRemoteMutateArgs+=("$1"); shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 if [ $# -ne 3 ]; then
     printUsage "$0" >&2
     exit 2
@@ -24,5 +32,5 @@ remote="$1"; shift
 old="$1"; shift
 new="$1"; shift
 
-exec git-remote-mutate "$remote" --message "Rename branch $old to $new" \
+exec git-remote-mutate "$remote" --message "Rename branch $old to $new" "${gitRemoteMutateArgs[@]}" \
     push "$remote" "${remote}/${old}:refs/heads/${new}" ":$old"

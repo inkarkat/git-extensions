@@ -7,14 +7,23 @@ push upstream + origin; Directly push current / passed <branch> to upstream and
 (if successful) push it to the tracking GitHub clone, too.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<branch>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-y|--yes] [--] [<branch>] [-?|-h|--help]'
 }
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
+
+typeset -a gitRemoteMutateArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
 			shift;;
-    --color)		shift; shift;;
-esac
+	--color)	shift; shift;;
+	--yes|-y)	gitRemoteMutateArgs+=("$1"); shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 
 lastArg=; [ $# -gt 0 ] && lastArg=${!#}
 path="$lastArg"
@@ -38,7 +47,7 @@ fi
 
 # First push to upstream; we usually want to catch up origin to upstream, but
 # keep it at the current state if pushing to upstream failed.
-git-remote-mutate upstream --message 'Push' \
+git-remote-mutate upstream --message 'Push' "${gitRemoteMutateArgs[@]}" \
     push "$@" upstream "$path" || exit $?
-git-remote-mutate origin --message 'Push' \
+git-remote-mutate origin --message 'Push' "${gitRemoteMutateArgs[@]}" \
     push "$@" origin "$path"

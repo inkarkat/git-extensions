@@ -9,7 +9,7 @@ Merge / rebase <branch> to the current branch, then delete it from the local
 repository as well as a tracked remote (if it exists there).
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--push] [--no-delete] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] -b|--branch <branch> [...] | [--] <branch> [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--push] [--no-delete] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] [-y|--yes] -b|--branch <branch> [...] | [--] <branch> [...] [-?|-h|--help]'
     echo
     cat <<HELPTEXTCHECK
 Merge / rebase <branch> (with --rebase-single rebase only if it's a single
@@ -51,6 +51,7 @@ typeset -a bashArgs=()
 runWithCommand=runWithPrompt
 typeset -a runWithPromptArgs=()
 typeset -a continueArgs=()
+typeset -a gitRemoteMutateArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -67,6 +68,7 @@ do
 			shift; hasMergeResolutionArg=t; isRebaseSingle=t;;
 	--ff|--no-ff|--ff-only)
 			hasMergeResolutionArg=t; fastForwardArgs=("$1"); shift;;
+	--yes|-y)	gitRemoteMutateArgs+=("$1"); shift;;
 	--command|-c)	checkCommandArgs+=("$1" "$2"); shift; checkCommands+=(${checkCommands:+&&} "$1"); shift;;
 	--exec)		checkCommandArgs+=("$1"); shift
 			cmd=
@@ -187,19 +189,19 @@ pushit()
 	# upstream, but keep it at the current state if pushing to upstream
 	# failed.
 	if git-existsbr "upstream/$path" && ! git-remote-isreadonly upstream; then
-	    git-remote-mutate upstream --message 'Push' --argument "$path" \
+	    git-remote-mutate upstream --message 'Push' --argument "$path" "${gitRemoteMutateArgs[@]}" \
 		push upstream "$path" || exit $?
 	fi
     fi
     if [ -n "$targetTrackedRemote" ]; then
 	# Push to the tracked remote (usually origin).
-	git-remote-mutate "$targetTrackedRemote" --message 'Push' --argument "$path" \
+	git-remote-mutate "$targetTrackedRemote" --message 'Push' --argument "$path" "${gitRemoteMutateArgs[@]}" \
 	    push "$targetTrackedRemote" || exit $?
     fi
     if [ "$targetTrackedRemote" != 'origin' ]; then
 	# Push to origin (if it's different from the tracked remote) last.
 	if git-existsbr "origin/$path" && ! git-remote-isreadonly origin; then
-	    git-remote-mutate origin --message 'Push' --argument "$path" \
+	    git-remote-mutate origin --message 'Push' --argument "$path" "${gitRemoteMutateArgs[@]}" \
 		push origin "$path" || exit $?
 	fi
     fi

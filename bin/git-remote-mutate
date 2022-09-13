@@ -1,0 +1,61 @@
+#!/bin/bash
+
+: ${GIT_REMOTEMUTATE_REMOTES=upstream}
+typeset -A confirmRemotes=()
+read -r -d '' -a remotes <<< "$GIT_REMOTEMUTATE_REMOTES"
+for remote in "${remotes[@]}"
+do
+    confirmRemotes["$remote"]=t
+done
+
+printUsage()
+{
+    local IFS=/
+    cat <<HELPTEXT
+Wrapper for SIMPLECOMMAND that mutates (push, delete branch) REMOTE; queries for
+confirmation if REMOTE is ${!confirmRemotes[*]} (unless --yes is given).
+HELPTEXT
+    echo
+    printf 'Usage: [GIT_REMOTEMUTATE_REMOTES="origin ..."] %q %s\n' "$(basename "$1")" 'REMOTE [--message MESSAGE] [--argument ARG|--arguments ARG1 [...] ;] [-y|--yes] [--] SIMPLECOMMAND [...] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --no-color|--color=*)
+			shift;;
+    --color)		shift; shift;;
+esac
+remote="${1:?}"; shift
+
+message=
+isYes=
+typeset -a arguments=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--message|-m)	shift; message="${1:?}"; shift;;
+	--argument)	shift; arguments+=("$1"); shift;;
+	--arguments)	shift
+			while [ $# -gt 0 -a "$1" != ';' ]
+			do
+			    arguments+=("$1"); shift
+			done
+			if [ $# -eq 0 ]; then
+			    echo 'ERROR: --arguments command must be concluded with ;!'; echo; printUsage "$0"
+			    exit 2
+			fi >&2
+			shift
+			;;
+	--yes|-y)	shift; isYes=t;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+
+if [ ! "$isYes" ] && [ "${confirmRemotes["$remote"]}" ]; then
+    concatenatedArguments="$(joinBy --empty "with $*" --last-separator ' and ' ', ' "${arguments[@]}")"
+    userBinaryChoice --console --question "${remote:?}: ${message:-Mutate}${concatenatedArguments:+ }${concatenatedArguments}" --yes-no || exit 4
+fi
+
+exec git-wrapper "$@"

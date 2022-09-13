@@ -1,12 +1,17 @@
-#!/bin/sh
+#!/bin/bash
 set -o noglob
 
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
+typeset -a gitRemoteMutateArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--no-color|--color=*)
 			shift;;
-    --color)		shift; shift;;
-esac
+	--color)	shift; shift;;
+	--yes|-y)	gitRemoteMutateArgs+=("$1"); shift;;
+	*)		break;;
+    esac
+done
 
 # Need to specify a branch, because the current branch presumably tracks origin,
 # not upstream. Because of this, Git wouldn't normally allow pushing to
@@ -16,4 +21,5 @@ esac
 # > which remote branch.
 parsedArguments="$(git-parse-last-remotebr-argument --separate-remote-and-branch upstream "$@")" || exit $?
 eval "set -- $parsedArguments"
-exec git push "$@"
+exec git-remote-mutate upstream --message 'Push' "${gitRemoteMutateArgs[@]}" \
+    push "$@"

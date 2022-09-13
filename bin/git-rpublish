@@ -6,7 +6,7 @@ printUsage()
 Initial publish of current / passed <branch> to ${remote:-REMOTE}.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [<branch> ...] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [-f|--force] [-y|--yes] [--] [<branch> ...] [-?|-h|--help]"
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
@@ -15,14 +15,23 @@ case "$1" in
     --color)		shift; shift;;
 esac
 
-remote=${1:?}; shift
+remote="${1:?}"; shift
+typeset -a gitRemoteMutateArgs=()
 typeset -a forceArg=()
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
 			shift;;
-    --color)		shift; shift;;
-    --force|-f)		forceArg+=("$1"); shift;;
-esac
+	--color)	shift; shift;;
+	--force|-f)	forceArg+=("$1"); shift;;
+	--yes|-y)	gitRemoteMutateArgs+=("$1"); shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 
-exec git push "${forceArg[@]}" --set-upstream "$remote" "${@:-HEAD}"
+exec git-remote-mutate "$remote" --message 'Publish' --arguments "$@" \; "${gitRemoteMutateArgs[@]}" \
+    push "${forceArg[@]}" --set-upstream "$remote" "${@:-HEAD}"

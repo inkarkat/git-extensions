@@ -17,10 +17,13 @@ update your repo to its most recent version.
 HELPTEXT
     fi
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-y|--yes] [UP-ARGS ...] [-?|-h|--help]'
 }
+
+typeset -a gitRemoteMutateArgs=()
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --yes|-y)		gitRemoteMutateArgs+=("$1"); shift;;
 esac
 
 # Need to specify a branch, because the current branch presumably tracks origin,
@@ -40,5 +43,6 @@ if git-existsremote origin; then
 	git-wrapper fetch origin || exit $?
     fi
 
-    git push origin "$path"
+    git-remote-mutate origin --message 'Push upstream changes' "${gitRemoteMutateArgs[@]}" \
+	push origin "$path"
 fi

@@ -6,7 +6,7 @@ printUsage()
 Delete remote TAGNAME(s) in ${remote:-REMOTE}.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} TAGNAME [...] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [-y|--yes] [--] TAGNAME [...] [-?|-h|--help]"
 }
 case "$1" in
     --help|-h|-\?)  shift; printUsage "$0"; exit 0;;
@@ -15,16 +15,25 @@ case "$1" in
     --color)		shift; shift;;
 esac
 remote="${1:?}"; shift
-case "$1" in
-    --help|-h|-\?)  shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
+typeset -a gitRemoteMutateArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)  shift; printUsage "$0"; exit 0;;
+	--yes|-y)	gitRemoteMutateArgs+=("$1"); shift;;
+	--no-color|--color=*)
 			shift;;
-    --color)		shift; shift;;
-esac
+	--color)	shift; shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 if [ $# -eq 0 ]; then
     printUsage "$0" >&2
     exit 2
 fi
 
 # To make sure that you cannot accidentally remove a branch instead of a tag, you can specify full ref which will never delete a branch.
-exec git push "$remote" "${@/#/:refs/tags/}"
+exec git-remote-mutate "$remote" --message 'Delete tag(s)' --arguments "$@" \; "${gitRemoteMutateArgs[@]}" \
+    push "$remote" "${@/#/:refs/tags/}"

@@ -10,16 +10,26 @@ with other requests, so that the commit history deviates from mine). Ensures
 that the current branch isn't dirty.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [<branch>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [-y|--yes] [--] [<branch>] [-?|-h|--help]'
 }
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
+
+typeset -a gitRemoteMutateArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
 			shift;;
-    --color)		shift; shift;;
-esac
+	--color)	shift; shift;;
+	--yes|-y)	gitRemoteMutateArgs+=("$1"); shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 
 git uwipe "$@" && \
     if git-existsremote origin; then
-	    git push -f origin
+	    git-remote-mutate origin --message 'Push restored upstream' "${gitRemoteMutateArgs[@]}" \
+		push --force origin
     fi

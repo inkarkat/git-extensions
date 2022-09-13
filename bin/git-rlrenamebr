@@ -5,7 +5,7 @@ printUsage()
     cat <<HELPTEXT
 Rename <oldbranch> to <newbranch> in both local repository and ${remote:-REMOTE}.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [<oldbranch>] <newbranch> [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [-y|--yes] [--] [<oldbranch>] <newbranch> [-?|-h|--help]"
 }
 
 case "$1" in
@@ -14,25 +14,31 @@ case "$1" in
 			shift;;
     --color)		shift; shift;;
 esac
-remote=${1:?}; shift
+remote="${1:?}"; shift
 
+typeset -a gitRemoteMutateArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+	--yes|-y)	gitRemoteMutateArgs+=("$1"); shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 if [ $# -eq 0 -o $# -gt 2 ]; then
     echo >&2 'Need <newbranch> target!'
     exit 2
-fi
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
-			shift;;
-    --color)		shift; shift;;
-esac
-
-if [ $# -eq 1 ]; then
+elif [ $# -eq 1 ]; then
     oldBranch="$(git-brname --real-branch-only)" || exit $?
-    newBranch=$1
+    newBranch="$1"
 else
-    oldBranch=$1
-    newBranch=$2
+    oldBranch="$1"
+    newBranch="$2"
 fi
 
 git branch -m "$oldBranch" "$newBranch" || exit $?
@@ -47,4 +53,5 @@ if [ "${tracks%%/*}" = "$remote" ]; then
     git branch --unset-upstream "$newBranch"
     oldRemoteBranch="${tracks#*/}"
 fi
-git push --set-upstream "$remote" "$newBranch" ":$oldRemoteBranch"
+exec git-remote-mutate "$remote" --message "Rename $oldRemoteBranch to $newBranch" "${gitRemoteMutateArgs[@]}" \
+    push --set-upstream "$remote" "$newBranch" ":$oldRemoteBranch"

@@ -22,7 +22,7 @@ Note: To do this automatically on each fetch / pull:
     git config --global fetch.prune true
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [-t|--test|-f|--force] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [-t|--test|-f|--force] [-y|--yes] [-?|-h|--help]"
     echo
     cat <<HELPTEXT
 Remove old branches in ${remote:-REMOTE} that have no corresponding local branch any
@@ -44,6 +44,7 @@ remote="${1:?}"; shift
 action=
 branchDeleteOption=-d
 isReverse=
+typeset -a gitRemoteMutateArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -53,6 +54,7 @@ do
 	--color)	shift; shift;;
 	--reverse|-R)	shift; isReverse=t;;
 	--force|-f)	shift; branchDeleteOption=-D;;
+	--yes|-y)	gitRemoteMutateArgs+=("$1"); shift;;
 	--test|-t)	shift; action=dryRun;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
@@ -71,7 +73,8 @@ deleteLocalBranch()
 }
 deleteRemoteBranches()
 {
-    git push "$remote" --delete "${@#${remote}/}"
+    git-remote-mutate "$remote" --message 'Delete branch(es)' --arguments "${@#${remote}/}" \; "${gitRemoteMutateArgs[@]}" \
+	push "$remote" --delete "${@#${remote}/}"
 }
 dryRun()
 {

@@ -10,12 +10,13 @@ it exists).
 Use this to remove old branches that have been fully merged. If not incorporated
 (e.g. an abandoned experiment), pass -f to force archiving.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [-m <msg>|--message=<msg>|-F <file>|--file=<file>] [--] [<remote>/]<branch> [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [-y|--yes] [-m <msg>|--message=<msg>|-F <file>|--file=<file>] [--] [<remote>/]<branch> [...] [-?|-h|--help]'
 }
 
 branchDeleteOption=-d
 isForce=
 typeset -a gitTagArgs=()
+typeset -a gitRemoteMutateArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -24,6 +25,7 @@ do
 			shift;;
 	--color)	shift; shift;;
 	-f|--force)	shift; branchDeleteOption=-D; isForce=t;;
+	--yes|-y)	gitRemoteMutateArgs+=("$1"); shift;;
 	--@(message|file)|-[mF])
 			gitTagArgs+=("$1" "$2"); shift; shift;;
 	--@(message|file)=*)
@@ -63,7 +65,8 @@ do
 done
 [ $status -eq 0 ] || exit $status
 
-! git existsremote origin || git push ${isForce:+--force} origin "${createdTags[@]/#/refs/tags/}" || exit $?
+! git existsremote origin || git-remote-mutate origin --message 'Create tag(s)' --arguments "${createdTags[@]}" \; "${gitRemoteMutateArgs[@]}" \
+    push ${isForce:+--force} origin "${createdTags[@]/#/refs/tags/}" || exit $?
 
 # Note: Process all passed branches in one fell swoop; this avoid re-querying
 # (on push) the remote repository credentials for each branch. When one branch
@@ -71,5 +74,6 @@ done
 # processed: just as we'd like.
 status=0
 [ ${#localBranches[@]} -eq 0 ] || git branch $branchDeleteOption "${localBranches[@]}" || status=$?
-[ ${#originBranches[@]} -eq 0 ] || ! git existsremote origin || git push origin --delete "${originBranches[@]}" || status=$?
+[ ${#originBranches[@]} -eq 0 ] || ! git existsremote origin || git-remote-mutate origin --message 'Delete branch(es)' --arguments "${originBranches[@]}" \; "${gitRemoteMutateArgs[@]}" \
+    push origin --delete "${originBranches[@]}" || status=$?
 exit $status

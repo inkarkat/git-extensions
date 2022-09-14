@@ -129,7 +129,8 @@ do
 	fi
 
 	if git-existsbr "$target"; then
-	    git-remote-mutate "$targetRemote" --message 'Push rebased branch' --argument "$branch" "${gitRemoteMutateArgs[@]}" \
+	    printf -v quotedBranch %q "$branch"
+	    git-remote-mutate "$targetRemote" --message 'Push rebased branch' --argument "$branch" --context-command "git rev-range-outgoing $targetRemote --color=always --one-more-command greyonelinelog --one-more-only-to-terminal lg --branch $quotedBranch" "${gitRemoteMutateArgs[@]}" \
 		push --force "$targetRemote" "${targetBranchArg[@]}" || status=$?   # Need to use --force because rebasing changed history.
 	fi
     fi

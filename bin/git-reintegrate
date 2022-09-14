@@ -181,6 +181,7 @@ printContinueCommand()
 }
 pushit()
 {
+    local quotedPath; printf -v quotedPath %q "$path"
     if [ -z "$targetTracks" ]; then
 	printf >&2 "ERROR: Cannot push; no upstream configured for branch '%s'\\n" "$path"
 	return 1    # Still continue with the branch deletion here, but following push errors will abort.
@@ -189,19 +190,19 @@ pushit()
 	# upstream, but keep it at the current state if pushing to upstream
 	# failed.
 	if git-existsbr "upstream/$path" && ! git-remote-isreadonly upstream; then
-	    git-remote-mutate upstream --message 'Push' --argument "$path" "${gitRemoteMutateArgs[@]}" \
+	    git-remote-mutate upstream --message 'Push' --argument "$path" --context-command "git uoutlg --color=always --branch $quotedPath" "${gitRemoteMutateArgs[@]}" \
 		push upstream "$path" || exit $?
 	fi
     fi
     if [ -n "$targetTrackedRemote" ]; then
 	# Push to the tracked remote (usually origin).
-	git-remote-mutate "$targetTrackedRemote" --message 'Push' --argument "$path" "${gitRemoteMutateArgs[@]}" \
+	git-remote-mutate "$targetTrackedRemote" --message 'Push' --argument "$path" --context-command "git rev-range-outgoing $targetTrackedRemote --color=always --one-more-command greyonelinelog --one-more-only-to-terminal lg --branch $quotedPath" "${gitRemoteMutateArgs[@]}" \
 	    push "$targetTrackedRemote" || exit $?
     fi
     if [ "$targetTrackedRemote" != 'origin' ]; then
 	# Push to origin (if it's different from the tracked remote) last.
 	if git-existsbr "origin/$path" && ! git-remote-isreadonly origin; then
-	    git-remote-mutate origin --message 'Push' --argument "$path" "${gitRemoteMutateArgs[@]}" \
+	    git-remote-mutate origin --message 'Push' --argument "$path" --context-command "git ooutlg --color=always --branch $quotedPath" "${gitRemoteMutateArgs[@]}" \
 		push origin "$path" || exit $?
 	fi
     fi

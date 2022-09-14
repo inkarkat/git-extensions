@@ -21,5 +21,7 @@ done
 # > which remote branch.
 parsedArguments="$(git-parse-last-remotebr-argument --separate-remote-and-branch upstream "$@")" || exit $?
 eval "set -- $parsedArguments"
-exec git-remote-mutate upstream --message 'Push' "${gitRemoteMutateArgs[@]}" \
+printf -v quotedPath %q "${!#}"
+
+exec git-remote-mutate upstream --message 'Push' --context-command "git uoutlg --color=always --branch $quotedPath" "${gitRemoteMutateArgs[@]}" \
     push "$@"

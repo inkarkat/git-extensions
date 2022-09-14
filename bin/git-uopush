@@ -25,7 +25,7 @@ do
     esac
 done
 
-lastArg=; [ $# -gt 0 ] && lastArg=${!#}
+lastArg=; [ $# -gt 0 ] && lastArg="${!#}"
 path="$lastArg"
 if git-existsbr "origin/$path"; then
     if ! git-existsbr "upstream/$path"; then
@@ -47,7 +47,8 @@ fi
 
 # First push to upstream; we usually want to catch up origin to upstream, but
 # keep it at the current state if pushing to upstream failed.
-git-remote-mutate upstream --message 'Push' "${gitRemoteMutateArgs[@]}" \
+printf -v quotedPath %q "$path"
+git-remote-mutate upstream --message 'Push' --context-command "git uoutlg --color=always --branch $quotedPath" "${gitRemoteMutateArgs[@]}" \
     push "$@" upstream "$path" || exit $?
-git-remote-mutate origin --message 'Push' "${gitRemoteMutateArgs[@]}" \
+git-remote-mutate origin --message 'Push' --context-command "git ooutlg --color=always --branch $quotedPath" "${gitRemoteMutateArgs[@]}" \
     push "$@" origin "$path"

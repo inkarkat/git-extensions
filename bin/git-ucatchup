@@ -37,12 +37,13 @@ eval "set -- $parsedArguments"
 
 git-up "$@" || exit $?
 
-path=${!#}
+path="${!#}"
 if git-existsremote origin; then
     if [ "$GIT_UP_FETCH" ]; then
 	git-wrapper fetch origin || exit $?
     fi
 
-    git-remote-mutate origin --message 'Push upstream changes' "${gitRemoteMutateArgs[@]}" \
+    printf -v quotedPath %q "$path"
+    git-remote-mutate origin --message 'Push upstream changes' --context-command "git ooutlg --color=always --branch $quotedPath" "${gitRemoteMutateArgs[@]}" \
 	push origin "$path"
 fi

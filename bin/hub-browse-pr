@@ -1,0 +1,91 @@
+#!/bin/bash
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-l|--list|-u|--url] [<commit> [...]] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Obtain corresponding GitHub pull request(s) that have HEAD / <commit>(s) as the
+branch's HEAD, and open in the browser / print its URL(s).
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --list|-l		Print the URL(s) and pull request titles.
+    --url|-u		Print the URL(s) instead of opening them.
+HELPTEXT
+}
+
+action=browse
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+	--list|-l)	shift; action=list;;
+	--url|-u)	shift; action=printUrls;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+
+contains()
+{
+    local elem needle=$1; shift
+    for elem
+    do
+	[ "$needle" = "$elem" ] && return 0
+    done
+    return 1
+}
+
+list()
+{
+    local i; for ((i = 0; i < ${#urls[@]}; i++))
+    do
+	printf '%s %s\n' "${urls[$i]}" "${titles[$i]}"
+    done
+}
+
+printUrls()
+{
+    printf '%s\n' "$@"
+}
+
+[ $# -gt 0 ] || set -- 'HEAD'
+typeset -a commitIds=()
+for c
+do
+    commitId="$(git rev-parse "$c" 2>/dev/null)" && commitIds+=("$commitId")
+done
+[ ${#commitIds[@]} -gt 0 ] || exit 1
+
+
+typeset -a urls=() titles=()
+while IFS=$'\t' read -r prCommitId prUrl prTitle
+do
+    if contains "$prCommitId" "${commitIds[@]}"; then
+	urls+=("$prUrl")
+	titles+=("$prTitle")
+    fi
+done < <(hub pr list -f "%sH	%U	%t%n")
+
+[ ${#urls[@]} -gt 0 ] || exit 99
+$action "${urls[@]}"

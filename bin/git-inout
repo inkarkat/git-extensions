@@ -10,6 +10,7 @@ printShortUsage()
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--stat|--ahead-behind|--files|--submodules] [--ignore-nonexisting] [<remote>|(<branch>|<commit> [<other-branch>|<other-commit>])] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[...]  [--base <remote>|(--base <branch>|--base <commit> [<other-branch>|<other-commit>])]'
 }
 printUsage()
 {
@@ -54,6 +55,7 @@ if [ -t 1 ]; then
 else
     pager=()
 fi
+base=
 isIgnoreNonexisting=
 action=inout
 filesSourceCommand='git-showfiles'
@@ -61,6 +63,16 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--base)		shift
+			if [ -n "$base" ]; then
+			    echo 'ERROR: Only one --base allowed.'
+			    echo
+			    printUsage "$0"
+			    exit 2
+			fi >&2
+			base="${1:?}"
+			shift
+			;;
 	--stat)		shift; action=inoutStat;;
 	--ahead-behind)	shift; action=aheadBehind;;
 	--files)	shift; action=showfiles;;
@@ -87,6 +99,7 @@ ensureValidRef()
     fi
 }
 
+[ -n "$base" ] && set -- "$base" "$@"
 case $# in
     2)	if ! [[ "$1" =~ / ]] && git-existsremote "$1"; then
 	    if otherRev="$(git-remotebr "$1" "$2" 2>/dev/null)"; then

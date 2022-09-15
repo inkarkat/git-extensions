@@ -13,10 +13,10 @@ HELPTEXT
     echo
     cat <<HELPTEXTCHECK
 Merge / rebase <branch> (with --rebase-single rebase only if it's a single
-non-merge commit, else merge) to the current branch, run CHECK-COMMANDS, and if
-all succeed (for -c|--commands|--exec, for stdin: only with --worst-status, else
-if the last succeeds) delete the branch from the local repository as well as a
-tracked remote (if it exists there) (unless --no-delete is given).
+non-merge commit, else merge) to the current branch, run CHECK-COMMAND(s), and
+if all succeed (for -c|--commands|--exec, for stdin: only with --worst-status,
+else if the last succeeds) delete the branch from the local repository as well
+as a tracked remote (if it exists there) (unless --no-delete is given).
 HELPTEXTCHECK
     echo
     printf 'Usage: GIT_REINTEGRATE_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" '[...]'
@@ -236,7 +236,12 @@ if [ ! "$isContinue" ]; then
 	    branchNum=${#branches[@]}; [ $branchNum -eq 1 ] && branchNum=
 	    userBinaryChoice --console --question "The $commitNum commit$commitNumPlural on the ${branchNum}${branchNum:+ }branch$branchesPlural can be fast-forwarded instead of merged. Fast-forward?" --yes-no && fastForwardArgs=(--ff-only)
 	elif canRebase; then
-	    hubNote=; [ "$HUB" ] && [ -n "$pullRequestTitles" ] && hubNote='Note: GitHub cannot detect the rebase and will say that the PR has been closed. If you need proper indication, please quit now and directly rebase in GitHub itself instead.'
+	    hubNote=; if [ "$HUB" ] && [ -n "$pullRequestTitles" ]; then
+		hubNote='Note: GitHub cannot detect the rebase and will say that the PR has been closed. If you need proper indication, please quit now and directly rebase in GitHub itself instead.'
+		if [  "$isCheckFromStdin" ] || [  ${#checkCommands[@]} -gt 0 ]; then
+		    hubNote+=" (But be aware that the CHECK-COMMAND(s) won't be executed then.)"
+		fi
+	    fi
 	    choice="$(userchoiceFromList --question "The branch$branchesPlural only consist$verbPlural of a single commit. Rebase $branchesSubject instead of creating a separate merge commit?${hubNote:+$'\n'}${hubNote}" --no-cancel --ignore-case -- '[Y]es' '[N]o' '[Q]uit')" || exit $?
 	    case "$choice" in
 		Yes)

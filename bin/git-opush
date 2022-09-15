@@ -1,0 +1,21 @@
+#!/bin/bash
+set -o noglob
+
+typeset -a gitRemoteMutateArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+	--yes|-y)	gitRemoteMutateArgs+=("$1"); shift;;
+	*)		break;;
+    esac
+done
+
+branch="${!#}"
+quotedBranch=
+git-existsbr "$branch" && printf -v quotedBranch %q "$branch"
+
+exec git-remote-mutate origin --message 'Push' --context-command "git ooutlg --color=always${quotedBranch:+ --branch $quotedBranch}" "${gitRemoteMutateArgs[@]}" \
+    push origin "$@"

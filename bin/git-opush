@@ -1,21 +1,32 @@
 #!/bin/bash
 set -o noglob
 
+isForce=
 typeset -a gitRemoteMutateArgs=()
+typeset -a pushArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
 	--yes|-y)	gitRemoteMutateArgs+=("$1"); shift;;
-	*)		break;;
+	--force|-f)	pushArgs+=("$1"); shift; isForce=t;;
+	--)		pushArgs+=("$1"); shift; break;;
+	*)		pushArgs+=("$1"); shift;;
     esac
 done
+set -- "${pushArgs[@]}" "$@"
 
 branch="${!#}"
 quotedBranch=
 git-existsbr "$branch" && printf -v quotedBranch %q "$branch"
+if [ "$isForce" ]; then
+    contextCommand="git oinout --color=always${quotedBranch:+ }${quotedBranch}"
+else
+    contextCommand="git ooutlg --color=always${quotedBranch:+ --branch $quotedBranch}"
+fi
 
-exec git-remote-mutate origin --message 'Push' --context-command "git ooutlg --color=always${quotedBranch:+ --branch $quotedBranch}" "${gitRemoteMutateArgs[@]}" \
+exec git-remote-mutate origin --message 'Push' --context-command "$contextCommand" "${gitRemoteMutateArgs[@]}" \
     push origin "$@"

@@ -1,17 +1,23 @@
 #!/bin/bash
 set -o noglob
 
+isForce=
 typeset -a gitRemoteMutateArgs=()
+typeset -a pushArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
 	--yes|-y)	gitRemoteMutateArgs+=("$1"); shift;;
-	*)		break;;
+	--force|-f)	pushArgs+=("$1"); shift; isForce=t;;
+	--)		pushArgs+=("$1"); shift; break;;
+	*)		pushArgs+=("$1"); shift;;
     esac
 done
+set -- "${pushArgs[@]}" "$@"
 
 # Need to specify a branch, because the current branch presumably tracks origin,
 # not upstream. Because of this, Git wouldn't normally allow pushing to
@@ -21,7 +27,13 @@ done
 # > which remote branch.
 parsedArguments="$(git-parse-last-remotebr-argument --separate-remote-and-branch upstream "$@")" || exit $?
 eval "set -- $parsedArguments"
-printf -v quotedPath %q "${!#}"
+printf -v quotedBranch %q "${!#}"
 
-exec git-remote-mutate upstream --message 'Push' --context-command "git uoutlg --color=always --branch $quotedPath" "${gitRemoteMutateArgs[@]}" \
+if [ "$isForce" ]; then
+    contextCommand="git uinout --color=always $quotedBranch"
+else
+    contextCommand="git uoutlg --color=always --branch $quotedBranch"
+fi
+
+exec git-remote-mutate upstream --message 'Push' --context-command "$contextCommand" "${gitRemoteMutateArgs[@]}" \
     push "$@"

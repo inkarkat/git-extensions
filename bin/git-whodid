@@ -8,7 +8,7 @@ printUsage()
 Show log grouped by name and sorted by the number of their commits.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-s|--summary] [-N|--alphabetic] [LOG-ARGS ...] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-s|--summary|-n|--names-only] [-N|--alphabetic] [LOG-ARGS ...] [<revision range>] [[--] <path>...] [-?|-h|--help]'
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
@@ -33,6 +33,8 @@ do
 	--summary|-s)	shortlogArgs+=("$1"); shift; isSummary=t;;
 	--alphabetic|-N)
 			shift; shortlogOrderingArg=();;
+	--names-only|-n)
+			shift; filter=(sed -e '/^[[:space:]]*<none>$/d' -e 's/^[[:space:]]*[[:digit:]]\+[[:space:]]\+//'); shortlogArgs+=(--summary); shortlogOrderingArg=();;
 	--)		break;;
 	*)		logArgs+=("$1"); shift;;
     esac

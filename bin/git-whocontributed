@@ -19,29 +19,34 @@ case "$1" in
     --)			shift;;
 esac
 
-git log --shortstat --pretty=format:%aN "$@" | awk -v isVerbose="$isVerbose" '
-$3 == "changed," {
-    commits[author] += 1
-    if ($5 !~ "^insertion") {
-	deleted[author] += $4
-	score[author] += $4
-    } else {
-	inserted[author] += $4; deleted[author] += $6
-	score[author] += $4 + $6
-    }
-}
-{ author=$0 }
-function plural(v, a) {
-    return (v == 1 ? a " " : "s" (a ? a : ""))
-}
-END {
-    PROCINFO["sorted_in"] = "@val_num_desc"
-    for (a in score) {
-	if (isVerbose) {
-	    printf "%7d %-22s: %4d commit%s %5d insertion%s %5d deletion%s\n", score[a], a, commits[a], plural(commits[a], ","), inserted[a], plural(inserted[a], ","), deleted[a], plural(deleted[a])
+logContributions()
+{
+    git log --shortstat --pretty=format:%aN "$@" | awk -v isVerbose="$isVerbose" '
+    $3 == "changed," {
+	commits[author] += 1
+	if ($5 !~ "^insertion") {
+	    deleted[author] += $4
+	    score[author] += $4
 	} else {
-	    printf "%7d %s\n", score[a], a
+	    inserted[author] += $4; deleted[author] += $6
+	    score[author] += $4 + $6
 	}
     }
+    { author=$0 }
+    function plural(v, a) {
+	return (v == 1 ? a " " : "s" (a ? a : ""))
+    }
+    END {
+	PROCINFO["sorted_in"] = "@val_num_desc"
+	for (a in score) {
+	    if (isVerbose) {
+		printf "%7d %-22s: %4d commit%s %5d insertion%s %5d deletion%s\n", score[a], a, commits[a], plural(commits[a], ","), inserted[a], plural(inserted[a], ","), deleted[a], plural(deleted[a])
+	    } else {
+		printf "%7d %s\n", score[a], a
+	    }
+	}
+    }
+    '
 }
-'
+
+logContributions "$@"

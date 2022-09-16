@@ -22,6 +22,7 @@ typeset -a logArgs=()
 typeset -a shortlogOrderingArg=(--numbered)
 typeset -a shortlogArgs=()
 typeset -a filter=(grep -v -e '^[[:space:]]*<none>$')
+isSummary=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -29,15 +30,15 @@ do
 	-w*)		shortlogArgs+=("$1"); shift; shift;;
 	--@(committer|email))
 			shortlogArgs+=("$1"); shift;;
-	--summary|-s)	shortlogArgs+=("$1"); shift
-			filter=(sed -e '/^[[:space:]]*1[[:space:]]\+/{ $b }' -e ':loop' -e 's/^[[:space:]]*1[[:space:]]\+\(.*\)$/\1/' -e T -e 'H; $!{ N; s/.*\n//; b loop }' -e '${ g; s/^\n/  Once: /; s/\n/, /g }'  )
-			;;
+	--summary|-s)	shortlogArgs+=("$1"); shift; isSummary=t;;
 	--alphabetic|-N)
 			shift; shortlogOrderingArg=();;
 	--)		break;;
 	*)		logArgs+=("$1"); shift;;
     esac
 done
+[ "$isSummary" ] && [ ${#shortlogOrderingArg[@]} -gt 0 ] && \
+    filter=(sed -e '/^[[:space:]]*1[[:space:]]\+/{ $b }' -e ':loop' -e 's/^[[:space:]]*1[[:space:]]\+\(.*\)$/\1/' -e T -e 'H; $!{ N; s/.*\n//; b loop }' -e '${ g; s/^\n/  Once: /; s/\n/, /g }'  )
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 if [ ${#logArgs[@]} -eq 0 ]; then

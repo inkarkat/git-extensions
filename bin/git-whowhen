@@ -44,6 +44,7 @@ typeset branchPrefixes=('refs/heads/')
 
 typeset -a logArgs=()
 typeset -a uniqueStableArgs=(--both)
+typeset -a timespanConverter=(startEndDatesToDuration)
 typeset -a postAction=(field --field-separator $'\t' --remove 1)
 typeset -a endFilter=(column -s $'\t' -t)
 while [ $# -ne 0 ]
@@ -56,8 +57,8 @@ do
 	-a)		shift; branchPrefixes=('refs/heads/' 'refs/remotes/');;
 	--remote)	shift; branchPrefixes=("refs/remotes/${1}/"); shift;;
 	-r)		shift; branchPrefixes=('refs/remotes/');;
-	--first)	shift; uniqueStableArgs=();;
-	--last)		shift; uniqueStableArgs=(--last);;
+	--first)	shift; uniqueStableArgs=(); timespanConverter=();;
+	--last)		shift; uniqueStableArgs=(--last); timespanConverter=();;
 	-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt)
 			postAction=(filterAge --field-separator $'\t' "$1" "$2"); shift; shift;;
 	--names-only)
@@ -74,5 +75,23 @@ whoWhen()
 	uniqueStable --field-separator $'\t' --skip-field 1 --skip-field 2 "${uniqueStableArgs[@]}"
 }
 
-eval 'whoWhen "$@"' "${postAction:+|}" '"${postAction[@]}"' | \
+startEndDatesToDuration()
+{
+    awk --field-separator $'\t' '
+{
+    if (! seen[$3]++) {
+	startEpoch[$3] = $1
+	startDate[$3] = gensub(/ \(.*\)$/, "", 1, $2)
+    } else {
+	endEpoch = $1
+	endDate = gensub(/ \(.*\)$/, "", 1, $2)
+	print (endEpoch - startEpoch[$3]) "\t" startDate[$3] " ... " endDate " (" (endEpoch - startEpoch[$3]) ")\t" $3
+    }
+}
+'
+}
+
+eval 'whoWhen "$@"' \
+    "${timespanConverter:+|}" '"${timespanConverter[@]}"' \
+    "${postAction:+|}" '"${postAction[@]}"' | \
     "${endFilter[@]}"

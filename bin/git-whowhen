@@ -6,7 +6,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--remote REMOTE|-a] [-s|--shorter|-l|--longer|-lt|-le|-eq|-ne|-ge|-gt TIMESPAN[SUFFIX]]|[--first|--last [-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [--names-only]] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--remote REMOTE|-a] [--authored] [-s|--shorter|-l|--longer|-lt|-le|-eq|-ne|-ge|-gt TIMESPAN[SUFFIX]]|[--first|--last [-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [--names-only]] [<revision range>] [[--] <path>...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -27,6 +27,7 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
+    --authored		Use authored times instead of commit times.
     -r			List remote-tracking branches.
     --remote REMOTE	List a particular REMOTE.
     -a			List both local and remote-tracking branches.
@@ -44,6 +45,7 @@ HELPTEXT
 typeset branchPrefixes=('refs/heads/')
 
 typeset -a logArgs=()
+subjectPlaceholder='%c'
 typeset -a uniqueStableArgs=(--both)
 typeset -a timespanConverter=(startEndDatesToDuration)
 firstColumnType=Timespan
@@ -56,6 +58,7 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
+	--authored)	shift; subjectPlaceholder='%a';;
 	-a)		shift; branchPrefixes=('refs/heads/' 'refs/remotes/');;
 	--remote)	shift; branchPrefixes=("refs/remotes/${1}/"); shift;;
 	-r)		shift; branchPrefixes=('refs/remotes/');;
@@ -77,7 +80,7 @@ filterFirstColumn()
 
 whoWhen()
 {
-    git log --pretty='tformat:%ct	%cd (%cr)	%cN' "${logArgs[@]}" "$@" | \
+    git log --pretty="tformat:${subjectPlaceholder}t	${subjectPlaceholder}d (${subjectPlaceholder}r)	${subjectPlaceholder}N" "${logArgs[@]}" "$@" | \
 	sort --numeric-sort --key=1,1 | \
 	uniqueStable --field-separator $'\t' --skip-field 1 --skip-field 2 "${uniqueStableArgs[@]}"
 }

@@ -7,17 +7,20 @@ printUsage()
 List all branches, both local and remote [matching <glob>].
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<glob> ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--exclude-current] [<glob> ...] [-?|-h|--help]'
 }
+
+typeset -a sedCurrentBranchHandling=(-e 's/^\* //')
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
     --no-color|--color=*)
 			shift;;
     --color)		shift; shift;;
+    --exclude-current)	shift; sedCurrentBranchHandling=(-e '/^\* /d');;
 esac
 
 git branch --all --list "$@" | \
     sed -e '/^ *.*\/HEAD -> /d' \
-	-e '/^\* /d' \
+	"${sedCurrentBranchHandling[@]}" \
 	-e 's/^[[:space:]]\+//' \
 	-e 's#^remotes/##'

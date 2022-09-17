@@ -4,10 +4,10 @@ set -o pipefail
 printUsage()
 {
     cat <<HELPTEXT
-List all branches in ${remote:-REMOTE} [matching <glob>].
+List all branches in ${remote:-REMOTE / all remotes} [matching <glob>].
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [<glob> ...] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE|''} [<glob> ...] [-?|-h|--help]"
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
@@ -23,5 +23,5 @@ case "$1" in
 esac
 [ $# -gt 0 ] || set -- '*'
 
-git branch -r --list "${@/#/${remote}/}" | \
+git branch -r --list "${@/#/${remote}${remote:+/}}" | \
     sed -e "/^ *${remote}\/HEAD -> /d" -e 's/^[[:space:]]\+//'

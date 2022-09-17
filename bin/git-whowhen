@@ -1,0 +1,140 @@
+#!/bin/bash
+
+set -o pipefail
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-b|--branch BRANCH [-b ...]|--local|-r|(--remote REMOTE [--remote ...])|-a|--all] [--authored] [-s|--shorter|-l|--longer|-lt|-le|-eq|-ne|-ge|-gt TIMESPAN[SUFFIX]]|[--first|--last [-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [--names-only]] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Show the earliest and/or latest commit dates (descending, starting with longest
+/ oldest commits) by name.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --branch|-b BRANCH	Consider BRANCH.
+    --local		Consider all local branches.
+    -r			Consider all remote branches.
+    --remote REMOTE	Consider all branches from a particular REMOTE.
+    --all|-a		Consider both local and remote branches.
+    --authored		Use authored times instead of commit times.
+    -s|--shorter|-l|--longer|-lt|-le|-eq|-ne|-ge|-gt TIMESPAN[SUFFIX]
+    -n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]
+			Only print those dates and names that match the age /
+			timespan comparison.
+    --first		Only show the earliest commit dates of someone.
+    --last		Only show the latest commit dates of someone.
+    --names-only	Omit the date / age; just print the names that match.
+SUFFIX may be 's' for seconds (the default), 'm' for minutes, 'h' for hours, 'd'
+for days, 'w' for weeks, 'mo' for months, 'y' for years, 'g' for generations.
+HELPTEXT
+}
+
+typeset branches=()
+addBranches()
+{
+    local isAppend="${1?}"; shift
+    readarray ${isAppend:+-O ${#branches[@]}} -t branches < <("$@")
+    if [ ${#branches[@]} -eq 0 ]; then
+	echo 'ERROR: No branches.'
+	return 1
+    fi
+}
+
+typeset -a logArgs=()
+subjectPlaceholder='%c'
+typeset -a uniqueStableArgs=(--both)
+typeset -a timespanConverter=(startEndDatesToDuration)
+firstColumnType=Timespan
+typeset -a postAction=(field --field-separator $'\t' --remove 1)
+typeset -a endFilter=(column -s $'\t' -t)
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+
+	--authored)	shift; subjectPlaceholder='%a';;
+
+	--branch|-b)	shift; branches+=("$1"); shift;;
+	--local)	shift; addBranches '' git-localbr --include-all || exit 1;;
+	-r)		shift; addBranches '' git-rbr '' || exit 1;;
+	--remote)	shift; addBranches t git-rbr "${1:?}" || exit 1; shift;;
+	--all|-a)	shift; addBranches '' git-abr || exit 1;;
+
+	--first)	shift; uniqueStableArgs=(); timespanConverter=(); firstColumnType=Age;;
+	--last)		shift; uniqueStableArgs=(--last); timespanConverter=(); firstColumnType=Age;;
+
+	-s|--shorter|-l|--longer|-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt)
+			postAction=(filterFirstColumn --field-separator $'\t' "$1" "$2"); shift; shift;;
+
+	--names-only)	shift; endFilter=(field --field-separator $'\t' --remove 1);;
+	--)		break;;
+	*)		logArgs+=("$1"); shift;;
+    esac
+done
+[ ${#branches[@]} -gt 0 ] || branches=(HEAD)
+
+filterFirstColumn()
+{
+    filter$firstColumnType "$@"
+}
+
+whoWhen()
+{
+    local branch; for branch in "${branches[@]}"
+    do
+	git ${GIT_WHOWHEN_LOG_COMMAND:-log} --pretty="tformat:${subjectPlaceholder}t	${subjectPlaceholder}d (${subjectPlaceholder}r)	${subjectPlaceholder}N" "${logArgs[@]}" "$branch" "$@"
+    done | \
+	sort --numeric-sort --key=1,1 | \
+	uniqueStable --field-separator $'\t' --skip-field 1 --skip-field 2 "${uniqueStableArgs[@]}"
+}
+
+startEndDatesToDuration()
+{
+    awk --field-separator $'\t' '
+BEGIN {
+    timespanToDuration = "reldate --unbuffered --timespan-lines"
+}
+{
+    if (! seen[$3]++) {
+	startEpoch[$3] = $1
+	startDate[$3] = gensub(/ \(.*\)$/, "", 1, $2)
+    } else {
+	endEpoch = $1
+	endDate = gensub(/ \(.*\)$/, "", 1, $2)
+	timespan = (endEpoch - startEpoch[$3])
+
+	print timespan |& timespanToDuration
+	timespanToDuration |& getline duration
+
+	print timespan "\t" startDate[$3] " ... " endDate " (" duration ")\t" $3
+    }
+}
+' | \
+    sort --numeric-sort --key=1,1 --reverse
+}
+
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+eval 'whoWhen "$@"' \
+    "${timespanConverter:+|}" '"${timespanConverter[@]}"' \
+    "${postAction:+|}" '"${postAction[@]}"' \
+    "${endFilter[*]:+|}" '"${endFilter[@]}"' \
+    "${pager:+|}" '"${pager[@]}"'

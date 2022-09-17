@@ -1,0 +1,68 @@
+#!/bin/bash
+
+set -o pipefail
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--remote REMOTE|-a] [--first|--last] [-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Show the earliest and/or latest commit dates (descending, starting with longest
+/ oldest commits) by name.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    -r			List remote-tracking branches.
+    --remote REMOTE	List a particular REMOTE.
+    -a			List both local and remote-tracking branches.
+    -n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]
+			Only print those names that match the age comparison.
+SUFFIX may be 's' for seconds (the default), 'm' for minutes, 'h' for hours, 'd'
+for days, 'w' for weeks, 'mo' for months, 'y' for years, 'g' for generations.
+HELPTEXT
+}
+
+# TODO
+typeset branchPrefixes=('refs/heads/')
+prefixRefFormat=
+typeset -a postAction=()
+
+typeset -a logArgs=()
+typeset -a uniqueStableArgs=(--both)
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+	-a)		shift; branchPrefixes=('refs/heads/' 'refs/remotes/');;
+	--remote)	shift; branchPrefixes=("refs/remotes/${1}/"); shift;;
+	-r)		shift; branchPrefixes=('refs/remotes/');;
+	--first)	shift; uniqueStableArgs=();;
+	--last)		shift; uniqueStableArgs=(--last);;
+	-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt)
+			postAction=(filterAge --field-separator $'\t' "$1" "$2"); shift; shift; prefixRefFormat=$'%ct\t';;
+	--)		break;;
+	*)		logArgs+=("$1"); shift;;
+    esac
+done
+
+git log --pretty='tformat:%ct	%cd (%cr)	%cN' "${logArgs[@]}" "$@" | \
+    sort --numeric-sort --key=1,1 | \
+    uniqueStable --field-separator $'\t' --skip-field 1 --skip-field 2 "${uniqueStableArgs[@]}"

@@ -39,11 +39,10 @@ HELPTEXT
 
 # TODO
 typeset branchPrefixes=('refs/heads/')
-prefixRefFormat=
-typeset -a postAction=()
 
 typeset -a logArgs=()
 typeset -a uniqueStableArgs=(--both)
+typeset -a postAction=(field --field-separator $'\t' --remove 1)
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -57,12 +56,18 @@ do
 	--first)	shift; uniqueStableArgs=();;
 	--last)		shift; uniqueStableArgs=(--last);;
 	-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt)
-			postAction=(filterAge --field-separator $'\t' "$1" "$2"); shift; shift; prefixRefFormat=$'%ct\t';;
+			postAction=(filterAge --field-separator $'\t' "$1" "$2"); shift; shift;;
 	--)		break;;
 	*)		logArgs+=("$1"); shift;;
     esac
 done
 
-git log --pretty='tformat:%ct	%cd (%cr)	%cN' "${logArgs[@]}" "$@" | \
-    sort --numeric-sort --key=1,1 | \
-    uniqueStable --field-separator $'\t' --skip-field 1 --skip-field 2 "${uniqueStableArgs[@]}"
+whoWhen()
+{
+    git log --pretty='tformat:%ct	%cd (%cr)	%cN' "${logArgs[@]}" "$@" | \
+	sort --numeric-sort --key=1,1 | \
+	uniqueStable --field-separator $'\t' --skip-field 1 --skip-field 2 "${uniqueStableArgs[@]}"
+}
+
+eval 'whoWhen "$@"' "${postAction:+|}" '"${postAction[@]}"' | \
+    column -s $'\t' -t

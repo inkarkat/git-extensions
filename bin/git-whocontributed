@@ -8,7 +8,7 @@ Show author names sorted by the total size of the diffs they're responsible for.
 A change counts twice as much as a plain addition or deletion.
 With -v|--verbose, shows details counts of commits, insertions, and deletions.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-v|--verbose] [--] [FILE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-v|--verbose] [<revision range>] [--] [<path> ...] [-?|-h|--help]'
 }
 isVerbose=
 case "$1" in
@@ -22,7 +22,7 @@ esac
 
 logContributions()
 {
-    git log --shortstat --pretty=format:%aN "$@" | awk -v isVerbose="$isVerbose" '
+    git ${GIT_WHOCONTRIBUTED_LOG_COMMAND:-log} --shortstat --pretty=format:%aN "$@" | awk -v isVerbose="$isVerbose" '
     $3 == "changed," {
 	commits[author] += 1
 	if ($5 !~ "^insertion") {

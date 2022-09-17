@@ -37,6 +37,8 @@ if [ $# -eq 0 ]; then
     exit 2
 fi
 
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+
 for filespec
 do
     if [ -d "$filespec" ]; then
@@ -49,4 +51,4 @@ done | \
     sed -ne 's/^author //p' | \
     sort | \
     uniq -c | \
-    sort -nr
+    eval 'sort -nr' "${pager:+|}" '"${pager[@]}"'

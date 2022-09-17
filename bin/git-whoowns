@@ -6,16 +6,32 @@ printUsage()
     cat <<HELPTEXT
 Show statistics on how many lines were last committed by which author.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--since=<date>] [<commit>] [--] FILE|DIR [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--since=<date>] [<commit>] [--] <path> [...] [-?|-h|--help]'
 }
 
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
+typeset -a blameArgs=()
+commit=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
 			shift;;
-    --color)		shift; shift;;
-    --)			shift;;
-esac
+	--color)	shift; shift;;
+
+	--since)	blameArgs+=("$1" "$2"); shift; shift;;
+	--since=*)	blameArgs+=("$1"); shift;;
+
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		if [ -z "$commit" ] && git rev-parse --verify --quiet "$1" >/dev/null; then
+			    commit="$1"; shift
+			else
+			    break
+			fi
+			;;
+    esac
+done
 if [ $# -eq 0 ]; then
     printUsage "$0" >&2
     exit 2
@@ -24,12 +40,12 @@ fi
 for filespec
 do
     if [ -d "$filespec" ]; then
-	git ls-tree -r -z --name-only HEAD -- "$filespec"
+	git ls-tree -r -z --name-only "${commit:-HEAD}" -- "$filespec"
     else
 	printf '%s\0' "$filespec"
     fi
 done | \
-    xargs --no-run-if-empty --null -n 1 git blame --line-porcelain -- | \
+    xargs --no-run-if-empty --null -n 1 git blame --line-porcelain "${blameArgs[@]}" $commit -- | \
     sed -ne 's/^author //p' | \
     sort | \
     uniq -c | \

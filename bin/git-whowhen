@@ -6,7 +6,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--remote REMOTE|-a] [--first|--last] [-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX] [--names-only]] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--remote REMOTE|-a] [-s|--shorter|-l|--longer|-lt|-le|-eq|-ne|-ge|-gt TIMESPAN[SUFFIX]]|[--first|--last [-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [--names-only]] [<revision range>] [[--] <path>...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -31,8 +31,9 @@ HELPDESCRIPTION
     --remote REMOTE	List a particular REMOTE.
     -a			List both local and remote-tracking branches.
     -n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]
-			Only print those dates and names that match the age
-			comparison.
+    -s|--shorter|-l|--longer|-lt|-le|-eq|-ne|-ge|-gt TIMESPAN[SUFFIX]
+			Only print those dates and names that match the age /
+			timespan comparison.
     --names-only	Omit the date / age; just print the names that match.
 SUFFIX may be 's' for seconds (the default), 'm' for minutes, 'h' for hours, 'd'
 for days, 'w' for weeks, 'mo' for months, 'y' for years, 'g' for generations.
@@ -45,6 +46,7 @@ typeset branchPrefixes=('refs/heads/')
 typeset -a logArgs=()
 typeset -a uniqueStableArgs=(--both)
 typeset -a timespanConverter=(startEndDatesToDuration)
+firstColumnType=Timespan
 typeset -a postAction=(field --field-separator $'\t' --remove 1)
 typeset -a endFilter=(column -s $'\t' -t)
 while [ $# -ne 0 ]
@@ -57,16 +59,21 @@ do
 	-a)		shift; branchPrefixes=('refs/heads/' 'refs/remotes/');;
 	--remote)	shift; branchPrefixes=("refs/remotes/${1}/"); shift;;
 	-r)		shift; branchPrefixes=('refs/remotes/');;
-	--first)	shift; uniqueStableArgs=(); timespanConverter=();;
-	--last)		shift; uniqueStableArgs=(--last); timespanConverter=();;
-	-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt)
-			postAction=(filterAge --field-separator $'\t' "$1" "$2"); shift; shift;;
+	--first)	shift; uniqueStableArgs=(); timespanConverter=(); firstColumnType=Age;;
+	--last)		shift; uniqueStableArgs=(--last); timespanConverter=(); firstColumnType=Age;;
+	-s|--shorter|-l|--longer|-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt)
+			postAction=(filterFirstColumn --field-separator $'\t' "$1" "$2"); shift; shift;;
 	--names-only)
 			shift; endFilter=(field --field-separator $'\t' --remove 1);;
 	--)		break;;
 	*)		logArgs+=("$1"); shift;;
     esac
 done
+
+filterFirstColumn()
+{
+    filter$firstColumnType "$@"
+}
 
 whoWhen()
 {
@@ -96,7 +103,8 @@ BEGIN {
 	print timespan "\t" startDate[$3] " ... " endDate " (" duration ")\t" $3
     }
 }
-'
+' | \
+    sort --numeric-sort --key=1,1 --reverse
 }
 
 eval 'whoWhen "$@"' \

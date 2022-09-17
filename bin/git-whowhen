@@ -78,6 +78,9 @@ whoWhen()
 startEndDatesToDuration()
 {
     awk --field-separator $'\t' '
+BEGIN {
+    timespanToDuration = "reldate --unbuffered --timespan-lines"
+}
 {
     if (! seen[$3]++) {
 	startEpoch[$3] = $1
@@ -85,7 +88,12 @@ startEndDatesToDuration()
     } else {
 	endEpoch = $1
 	endDate = gensub(/ \(.*\)$/, "", 1, $2)
-	print (endEpoch - startEpoch[$3]) "\t" startDate[$3] " ... " endDate " (" (endEpoch - startEpoch[$3]) ")\t" $3
+	timespan = (endEpoch - startEpoch[$3])
+
+	print timespan |& timespanToDuration
+	timespanToDuration |& getline duration
+
+	print timespan "\t" startDate[$3] " ... " endDate " (" duration ")\t" $3
     }
 }
 '

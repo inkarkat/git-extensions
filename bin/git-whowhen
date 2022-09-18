@@ -6,7 +6,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-b|--branch BRANCH [-b ...]|--local|-r|(--remote REMOTE [--remote ...])|-a|--all] [--authored] [-s|--shorter|-l|--longer|-lt|-le|-eq|-ne|-ge|-gt TIMESPAN[SUFFIX]]|[--first|--last [-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [--names-only]] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-b|--branch BRANCH [-b ...]|--local|-r|(--remote REMOTE [--remote ...])|-a|--all] [--committer] [-s|--shorter|-l|--longer|-lt|-le|-eq|-ne|-ge|-gt TIMESPAN[SUFFIX]]|[--first|--last [-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [--names-only]] [<revision range>] [[--] <path>...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -32,7 +32,7 @@ HELPDESCRIPTION
     -r			Consider all remote branches.
     --remote REMOTE	Consider all branches from a particular REMOTE.
     --all|-a		Consider both local and remote branches.
-    --authored		Use authored times instead of commit times.
+    --committer		Use commit times instead of authored times.
     -s|--shorter|-l|--longer|-lt|-le|-eq|-ne|-ge|-gt TIMESPAN[SUFFIX]
     -n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]
 			Only print those dates and names that match the age /
@@ -57,7 +57,7 @@ addBranches()
 }
 
 typeset -a logArgs=()
-subjectPlaceholder='%c'
+subjectPlaceholder='%a'
 typeset -a uniqueStableArgs=(--both)
 typeset -a timespanConverter=(startEndDatesToDuration)
 firstColumnType=Timespan
@@ -71,7 +71,7 @@ do
 			shift;;
 	--color)	shift; shift;;
 
-	--authored)	shift; subjectPlaceholder='%a';;
+	--committer)	shift; subjectPlaceholder='%c';;
 
 	--branch|-b)	shift; branches+=("$1"); shift;;
 	--local)	shift; addBranches '' git-localbr --include-all || exit 1;;

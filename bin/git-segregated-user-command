@@ -126,6 +126,19 @@ fi
 		    done
 esac
 
+# Remote any --author= argument; these are only useful for limiting the source
+# user list, but would wreak havoc on the iteration.
+typeset -a gitCommandArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--${filter})	shift; shift;;
+	--${filter}=*)	shift;;
+	--)		break;;
+	*)		gitCommandArgs+=("$1"); shift;;
+    esac
+done
+
 readarray -t authors < <(git log --pretty="tformat:${subjectPlaceholder}N" "${sharedLogArgs[@]}" | sort --unique)
 [ ${#authors[@]} -gt 0 ] || exit 99
 
@@ -134,7 +147,7 @@ iterateUsers()
     status=0
     for author in "${authors[@]}"
     do
-	eval 'git-wrapper "${gitCommand[@]}" "${gitColorArg[@]}" --$filter="$author" "$@"' "${contextCommand:+|}${contextCommand//\{\}/\"${author}\"}" || status=$?
+	eval 'git-wrapper "${gitCommand[@]}" "${gitColorArg[@]}" --$filter="$author" "${gitCommandArgs[@]}" "$@"' "${contextCommand:+|}${contextCommand//\{\}/\"${author}\"}" || status=$?
     done
     return $status
 }

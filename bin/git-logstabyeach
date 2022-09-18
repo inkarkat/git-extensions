@@ -1,0 +1,49 @@
+#!/bin/bash
+set -o pipefail
+
+: ${GIT_LOGSTABYEACH_FILE_FACTOR:=100}	# Factor by which a file change is rated vs. an added or deleted line.
+
+printUsage()
+{
+    cat <<HELPTEXT
+Show a combined short one-line diffstat for each user that authored commits
+separately (descending by impact, starting with the most changes).
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+evaluateChanges()
+{
+    awk --field-separator ', ' \
+	-v "fileFactor=$GIT_LOGSTABYEACH_FILE_FACTOR" \
+'
+{
+    result = 0
+    resultFactor = fileFactor
+    for (i = 1; i <= NF; ++i) {
+	if (match($i, /^[[:digit:]]+ /)) {
+	    result += substr($i, RSTART, RLENGTH - 1) * resultFactor
+	    resultFactor = 1
+	}
+    }
+
+    print result " " $0
+}
+'
+}
+sortByChanges()
+{
+    evaluateChanges | \
+	sort --numeric --key=1,1 --reverse | \
+	field --field-separator ' ' --remove 1
+}
+
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+GIT_SEGREGATEDUSERCOMMAND_PREFIX_SEPARATOR=, \
+    git-segregated-user-command --prefixed --with-log-args logsta "$@" | \
+	sortByChanges | \
+	eval 'column -s , -t' "${pager:+|}" '"${pager[@]}"'

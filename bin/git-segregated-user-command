@@ -1,0 +1,142 @@
+#!/bin/bash
+set -o noglob -o pipefail
+
+: ${GIT_SEGREGATEDUSERCOMMAND_PREFIX_SEPARATOR:=:}
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--prefixed|--with-header [--no-git-color]] [--committer] [--with-log-args|--with-log-args-except-last] GIT-COMMAND [...] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Execute GIT-COMMAND for each user that authored commits separately.
+    --no-pager		Do not page the output (so contents will scroll out of
+			view if there's too much output).
+    --prefixed		Put the author name before each line produced by
+			GIT-COMMAND, followed by a : (like grep -H|--with-filename).
+    --with-header	Print a header containing the author name before
+			GIT-COMMAND output.
+    --no-git-color	Do not pass a --color=... to GIT-COMMAND.
+    --committer		Use committers and pass --committer instead of --author
+			to GIT-COMMAND.
+    --with-log-args	All GIT-COMMAND arguments should also be used when
+			determining the authors.
+    --with-log-args-except-last
+			All GIT-COMMAND arguments expect the very last should
+			also be used when determining the authors.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    cat <<HELPTEXT
+
+HELPTEXT
+}
+
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+isGitColor=t
+typeset -a colorArg=()
+filter=author
+subjectPlaceholder='%a'
+contextCommand=
+typeset -a gitCommand=()
+isFirstArg=t
+withLogArgs=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--no-pager)	shift; pager=();;
+	--prefixed)	shift
+			printf -v prefixSeparator %q "$GIT_SEGREGATEDUSERCOMMAND_PREFIX_SEPARATOR"
+			contextCommand="prefix --skip-empty -- {}${prefixSeparator}"
+			;;
+	--with-header)	shift; contextCommand="withHeader \"\${colorArg[@]}\" --id 'git-segregated-user-command-$$' -- {}";;
+	--no-git-color)	shift; isGitColor=;;
+	--no-color|--color=*)
+			colorArg=("$1"); shift;;
+	--color)	colorArg=("$1" "$2"); shift; shift;;
+	--committer)	shift; filter=committer; subjectPlaceholder='%c';;
+	--with-log-args)
+			shift; withLogArgs=all;;
+	--with-log-args-except-last)
+			shift; withLogArgs=except-last;;
+	--)		shift; break;;
+	*)		if [ "$isFirstArg" ]; then
+			    case "$1" in
+				-c) gitCommand+=("$1" "$2"); shift; shift;;
+				*)  eval "gitCommand+=($1)"	# Note: The Git command itself can consist of command + arguments, so it must not be quoted here!
+				    shift; isFirstArg=;;
+			    esac
+			else
+			    isFirstArg=
+			    break
+			fi
+			;;
+    esac
+done
+if [ ${#gitCommand[@]} -eq 0 -a $# -eq 0 ]; then
+    printUsage "$0"
+    exit 2
+fi >&2
+
+typeset sharedLogArgs=()
+case "$withLogArgs" in
+    all)	    sharedLogArgs+=("$@");;
+    except-last)    sharedLogArgs+=("${@:1:$(($#-1))}");;
+esac
+
+# With piping into withHeader / pager, we need to explicitly enable color for
+# Git, unless this command's output itself is redirected. Also don't do this if
+# the user explicitly turned off color.
+gitColorArg=()
+if [ -n "$pager" -o -n "$contextCommand" ] && isNeedColorArgumentWhenPiping "${colorArg[@]}"; then
+    colorArg=(--color=always)	# Force for withHeader
+    [ "$isGitColor" ] && gitColorArg=(--color=always)	# Force for Git
+fi
+
+[ ${#gitCommand[@]} -eq 0 ] && case "$1" in
+    [^-]*-command)  gitCommand+=("$1"); shift
+		    while [ $# -ne 0 ]
+		    do
+			case "$1" in
+			    --)		break;;
+			    -*)		gitCommand+=("$1"); shift;;
+			    *)		gitCommand+=("$1"); shift; break;;
+			esac
+		    done
+		    ;;
+    *)		    while [ $# -ne 0 ]
+		    do
+			case "$1" in
+			    -c) gitCommand+=("$1" "$2"); shift; shift;;
+			    *)	gitCommand+=("$1"); shift; break;;
+			esac
+		    done
+esac
+
+readarray -t authors < <(git log --pretty="tformat:${subjectPlaceholder}N" "${sharedLogArgs[@]}" | sort --unique)
+[ ${#authors[@]} -gt 0 ] || exit 99
+
+iterateUsers()
+{
+    status=0
+    for author in "${authors[@]}"
+    do
+	eval 'git-wrapper "${gitCommand[@]}" "${gitColorArg[@]}" --$filter="$author" "$@"' "${contextCommand:+|}${contextCommand//\{\}/\"${author}\"}" || status=$?
+    done
+    return $status
+}
+
+eval 'iterateUsers "$@"' "${pager:+|}" '"${pager[@]}"'

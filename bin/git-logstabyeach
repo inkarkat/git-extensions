@@ -13,6 +13,7 @@ case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
 
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 GIT_SEGREGATEDUSERCOMMAND_PREFIX_SEPARATOR=, \
     git-segregated-user-command --prefixed --with-log-args logsta "$@" | \
-	column -s ',' -t
+	eval 'column -s , -t' "${pager:+|}" '"${pager[@]}"'

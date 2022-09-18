@@ -7,7 +7,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--prefixed|--with-header [--no-git-color]] [--committer] [--with-log-args|--with-log-args-except-last] GIT-COMMAND [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--prefixed|--with-header [--no-git-color]] [--committer] [--with-log-args|--with-log-args-except-last] GIT-COMMAND [...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -22,6 +22,8 @@ printLongUsage()
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
 Execute GIT-COMMAND for each user that authored commits separately.
+    --no-pager		Do not page the output (so contents will scroll out of
+			view if there's too much output).
     --prefixed		Put the author name before each line produced by
 			GIT-COMMAND, followed by a : (like grep -H|--with-filename).
     --with-header	Print a header containing the author name before
@@ -55,6 +57,7 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--no-pager)	shift; pager=();;
 	--prefixed)	shift
 			printf -v prefixSeparator %q "$GIT_SEGREGATEDUSERCOMMAND_PREFIX_SEPARATOR"
 			contextCommand="prefix --skip-empty -- {}${prefixSeparator}"
@@ -126,9 +129,14 @@ esac
 readarray -t authors < <(git log --pretty="tformat:${subjectPlaceholder}N" "${sharedLogArgs[@]}" | sort --unique)
 [ ${#authors[@]} -gt 0 ] || exit 99
 
-status=0
-for author in "${authors[@]}"
-do
-    eval 'git-wrapper "${gitCommand[@]}" "${gitColorArg[@]}" --$filter="$author" "$@"' "${contextCommand:+|}${contextCommand//\{\}/\"${author}\"}" || status=$?
-done
-exit $status
+iterateUsers()
+{
+    status=0
+    for author in "${authors[@]}"
+    do
+	eval 'git-wrapper "${gitCommand[@]}" "${gitColorArg[@]}" --$filter="$author" "$@"' "${contextCommand:+|}${contextCommand//\{\}/\"${author}\"}" || status=$?
+    done
+    return $status
+}
+
+eval 'iterateUsers "$@"' "${pager:+|}" '"${pager[@]}"'

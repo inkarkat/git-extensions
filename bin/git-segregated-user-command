@@ -7,7 +7,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--prefixed|--with-header] [--committer] [--with-log-args|--with-log-args-except-last] GIT-COMMAND [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--prefixed|--with-header [--no-git-color]] [--committer] [--with-log-args|--with-log-args-except-last] GIT-COMMAND [...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -26,6 +26,7 @@ Execute GIT-COMMAND for each user that authored commits separately.
 			GIT-COMMAND, followed by a : (like grep -H|--with-filename).
     --with-header	Print a header containing the author name before
 			GIT-COMMAND output.
+    --no-git-color	Do not pass a --color=... to GIT-COMMAND.
     --committer		Use committers and pass --committer instead of --author
 			to GIT-COMMAND.
     --with-log-args	All GIT-COMMAND arguments should also be used when
@@ -41,6 +42,9 @@ HELPDESCRIPTION
 HELPTEXT
 }
 
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+isGitColor=t
+typeset -a colorArg=()
 filter=author
 subjectPlaceholder='%a'
 contextCommand=
@@ -55,7 +59,11 @@ do
 			printf -v prefixSeparator %q "$GIT_SEGREGATEDUSERCOMMAND_PREFIX_SEPARATOR"
 			contextCommand="prefix --skip-empty -- {}${prefixSeparator}"
 			;;
-	--with-header)	shift; contextCommand="withHeader --id 'git-segregated-user-command-$$' -- {}";;
+	--with-header)	shift; contextCommand="withHeader \"\${colorArg[@]}\" --id 'git-segregated-user-command-$$' -- {}";;
+	--no-git-color)	shift; isGitColor=;;
+	--no-color|--color=*)
+			colorArg=("$1"); shift;;
+	--color)	colorArg=("$1" "$2"); shift; shift;;
 	--committer)	shift; filter=committer; subjectPlaceholder='%c';;
 	--with-log-args)
 			shift; withLogArgs=all;;
@@ -86,6 +94,15 @@ case "$withLogArgs" in
     except-last)    sharedLogArgs+=("${@:1:$(($#-1))}");;
 esac
 
+# With piping into withHeader / pager, we need to explicitly enable color for
+# Git, unless this command's output itself is redirected. Also don't do this if
+# the user explicitly turned off color.
+gitColorArg=()
+if [ -n "$pager" -o -n "$contextCommand" ] && isNeedColorArgumentWhenPiping "${colorArg[@]}"; then
+    colorArg=(--color=always)	# Force for withHeader
+    [ "$isGitColor" ] && gitColorArg=(--color=always)	# Force for Git
+fi
+
 [ ${#gitCommand[@]} -eq 0 ] && case "$1" in
     [^-]*-command)  gitCommand+=("$1"); shift
 		    while [ $# -ne 0 ]
@@ -112,6 +129,6 @@ readarray -t authors < <(git log --pretty="tformat:${subjectPlaceholder}N" "${sh
 status=0
 for author in "${authors[@]}"
 do
-    eval 'git-wrapper "${gitCommand[@]}" --$filter="$author" "$@"' "${contextCommand:+|}${contextCommand//\{\}/\"${author}\"}" || status=$?
+    eval 'git-wrapper "${gitCommand[@]}" "${gitColorArg[@]}" --$filter="$author" "$@"' "${contextCommand:+|}${contextCommand//\{\}/\"${author}\"}" || status=$?
 done
 exit $status

@@ -21,6 +21,7 @@ esac
 typeset -a logArgs=()
 typeset -a shortlogOrderingArg=(--numbered)
 typeset -a shortlogArgs=()
+prettyFormat=short
 typeset -a filter=(grep -v -e '^[[:space:]]*<none>$')
 isSummary=
 while [ $# -ne 0 ]
@@ -28,8 +29,8 @@ do
     case "$1" in
 	-+([ce]))	shortlogArgs+=("$1"); shift;;
 	-w*)		shortlogArgs+=("$1"); shift; shift;;
-	--@(committer|email))
-			shortlogArgs+=("$1"); shift;;
+	--committer)	shortlogArgs+=("$1"); shift; prettyFormat=full;;    # Need the full log output format; the "short" one does not include the committer.
+	--email)	shortlogArgs+=("$1"); shift;;
 	--summary|-s)	shortlogArgs+=("$1"); shift; isSummary=t;;
 	--alphabetic|-N)
 			shift; shortlogOrderingArg=();;
@@ -46,6 +47,6 @@ typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 if [ ${#logArgs[@]} -eq 0 ]; then
     git shortlog "${shortlogOrderingArg[@]}" "${shortlogArgs[@]}" "$@"
 else
-    git log --pretty=short "${logArgs[@]}" "$@" | git shortlog "${shortlogOrderingArg[@]}" "${shortlogArgs[@]}"
+    git log --pretty=$prettyFormat "${logArgs[@]}" "$@" | git shortlog "${shortlogOrderingArg[@]}" "${shortlogArgs[@]}"
 fi | \
     eval '"${filter[@]}"' "${pager:+|}" '"${pager[@]}"'

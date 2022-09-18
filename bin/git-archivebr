@@ -6,10 +6,11 @@ printUsage()
 {
     cat <<HELPTEXT
 Tag <branch>(es), then delete it from the local repository (as well as origin if
-it exists).
+it exists, and a passed <remote>, too).
 Use this to remove old branches that have been fully merged. If not incorporated
 (e.g. an abandoned experiment), pass -f to force archiving.
 HELPTEXT
+    echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [-y|--yes] [-m <msg>|--message=<msg>|-F <file>|--file=<file>] [--] [<remote>/]<branch> [...] [-?|-h|--help]'
 }
 
@@ -43,22 +44,41 @@ fi
 status=0
 typeset -a localBranches=()
 typeset -a originBranches=()
+remote=
+typeset -a remoteTags=()
+typeset -a remoteBranches=()
 typeset -a createdTags=()
 for branch
 do
+    remote=
     commit="$branch"
 
     # When archiving a remote branch, don't include the remote itself in the
     # archived branch name.
-    [[ "$branch" =~ ^([^/]+)/(.+)$ ]] && \
-	git existsremote "${BASH_REMATCH[1]}" && \
+    if [[ "$branch" =~ ^([^/]+)/(.+)$ ]] && branchRemote="${BASH_REMATCH[1]}" && git existsremote "$branchRemote"; then
 	branch="${BASH_REMATCH[2]}"
+
+	if [ "$branchRemote" = 'origin' ]; then
+	    branchRemote=''
+	elif [ -z "$remote" ]; then
+	    remote="$branchRemote"
+	elif [ "$branchRemote" != "$remote" ]; then
+	    echo 'ERROR: Cannot process multiple (non-origin) <remote>s at once.'
+	    exit 2
+	fi
+    else
+	branchRemote=''
+    fi
 
     tagName="archive/$branch"
     if git tag ${isForce:+--force} "${gitTagArgs[@]}" "$tagName" "$commit"; then
 	createdTags+=("$tagName")
 	[ "$branch" = "$commit" ] && localBranches+=("$branch")
 	git existsbr "origin/$branch" && originBranches+=("$branch")
+	if [ -n "$branchRemote" ]; then
+	    remoteTags+=("$tagName")
+	    remoteBranches+=("$branch")
+	fi
     else
 	status=1
     fi
@@ -67,6 +87,8 @@ done
 
 ! git existsremote origin || git-remote-mutate origin --message 'Create tag(s)' --arguments "${createdTags[@]}" \; "${gitRemoteMutateArgs[@]}" \
     push ${isForce:+--force} origin "${createdTags[@]/#/refs/tags/}" || exit $?
+[ ${#remoteTags[@]} -eq 0 ] || git-remote-mutate "$remote" --message 'Create tag(s)' --arguments "${remoteTags[@]}" \; "${gitRemoteMutateArgs[@]}" \
+    push ${isForce:+--force} "$remote" "${remoteTags[@]/#/refs/tags/}" || exit $?
 
 # Note: Process all passed branches in one fell swoop; this avoid re-querying
 # (on push) the remote repository credentials for each branch. When one branch
@@ -74,6 +96,10 @@ done
 # processed: just as we'd like.
 status=0
 [ ${#localBranches[@]} -eq 0 ] || git branch $branchDeleteOption "${localBranches[@]}" || status=$?
-[ ${#originBranches[@]} -eq 0 ] || ! git existsremote origin || git-remote-mutate origin --message 'Delete branch(es)' --arguments "${originBranches[@]}" \; "${gitRemoteMutateArgs[@]}" \
-    push origin --delete "${originBranches[@]}" || status=$?
+[ ${#originBranches[@]} -eq 0 ] || ! git existsremote origin || \
+    git-remote-mutate origin --message 'Delete branch(es)' --arguments "${originBranches[@]}" \; "${gitRemoteMutateArgs[@]}" \
+	push origin --delete "${originBranches[@]}" || status=$?
+[ ${#remoteBranches[@]} -eq 0 ] || \
+    git-remote-mutate "$remote" --message 'Delete branch(es)' --arguments "${remoteBranches[@]}" \; "${gitRemoteMutateArgs[@]}" \
+	push "$remote" --delete "${remoteBranches[@]}" || status=$?
 exit $status

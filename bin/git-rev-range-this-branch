@@ -57,7 +57,10 @@ do
 	# This will exit eventually with
 	#	"fatal: Not a valid object name REV^" or
 	#	"fatal: No tags can describe REV".
-	previousRev=$(git describe --abbrev=0 --all "${previousRev}^") || exit $?
+	if ! previousRev="$(git describe --abbrev=0 --all "${previousRev}^" 2>/dev/null)"; then
+	    printf >&2 'ERROR: Cannot find base commit for %s\n' "${startRev:-the current branch.}"
+	    exit 1
+	fi
 	[ "$isAny" ] && break
 	contains "${previousRev%%/*}" "${include[@]}" && break
     done

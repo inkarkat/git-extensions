@@ -99,18 +99,6 @@ ensureValidRef()
     fi
 }
 
-getRemoteBranchOfCurrent()
-{
-    local remote="${1:?}"; shift
-    git-remotebr "$remote" 2>/dev/null && return
-
-    # On a detached checkout, use a branch that coincides with the detached
-    # commit (assuming that there's only one).
-    local detachedEffectiveBranch
-    git-isdetached && detachedEffectiveBranch="$(git-brname --real-branch-only --detached-effective-branch --raw)" && \
-	git-remotebr "$remote" "$detachedEffectiveBranch"
-}
-
 baseName=
 otherName=
 [ -n "$base" ] && set -- "$base" "$@"
@@ -134,7 +122,7 @@ case $# in
 	case "$1" in
 	    */*)    otherRev="$1";;
 	    *)	    if git-existsremote "$1"; then
-			otherRev="$(getRemoteBranchOfCurrent "$1")" || exit $?
+			otherRev="$(git-remotebr "$1" --detached-effective-branch)" || exit $?
 		    else
 			otherRev="$(git-desc "$1")" || exit $?
 		    fi

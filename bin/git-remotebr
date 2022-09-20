@@ -1,31 +1,65 @@
 #!/bin/bash
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [--detached-effective-branch] [<branch> [...]] [-?|-h|--help]"
+}
 printUsage()
 {
-    cat <<HELPTEXT
-Print corresponding remote/branch for the current / passed branch(es) (or return error).
-HELPTEXT
-    echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [<branch> [...]] [-?|-h|--help]"
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
 }
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Print corresponding ${remote:-REMOTE}/BRANCH for the current / passed branch(es) (or return error).
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --detached-effective-branch
+			If there's a (not necessarily the only) local branch
+			for the detached commit, print that one instead of the
+			hash.
+HELPTEXT
+}
+
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
-			shift;;
-    --color)		shift; shift;;
 esac
-
 remote=${1:?}; shift
 
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
+isDetachedEffectiveBranch=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--no-color|--color=*)
 			shift;;
-    --color)		shift; shift;;
-esac
-
+	--color)	shift; shift;;
+	--detached-effective-branch)
+			shift; isDetachedEffectiveBranch=t;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 if [ $# -eq 0 ]; then
-    branch=$(git-brname --real-branch-only) || exit $?
+    if [ "$isDetachedEffectiveBranch" ] && git-isdetached; then
+	# On a detached checkout, use a branch that coincides with the detached
+	# commit (assuming that there's only one).
+	branch="$(git-brname --real-branch-only --detached-effective-branch --raw)" || exit $?
+    else
+	branch="$(git-brname --real-branch-only)" || exit $?
+    fi
+
     set -- "$branch"
 fi
 

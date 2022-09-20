@@ -99,6 +99,8 @@ ensureValidRef()
     fi
 }
 
+baseName=
+otherName=
 [ -n "$base" ] && set -- "$base" "$@"
 case $# in
     2)	if ! [[ "$1" =~ / ]] && git-existsremote "$1"; then
@@ -116,11 +118,11 @@ case $# in
 	    otherRev="$(git-desc "$1")" || exit $?; shift
 	fi
 	;;
-    1)	baseRev="$(git-brname --raw)" || exit $?
+    1)	baseRev="$(git-brname --raw)" && baseName="$(git-brname --detached-effective-branch)" || exit $?
 	case "$1" in
 	    */*)    otherRev="$1";;
 	    *)	    if git-existsremote "$1"; then
-			otherRev="$(git-remotebr "$1")" || exit $?
+			otherRev="$(git-remotebr "$1" --detached-effective-branch)" || exit $?
 		    else
 			otherRev="$(git-desc "$1")" || exit $?
 		    fi
@@ -128,7 +130,7 @@ case $# in
 	esac
 	shift
 	;;
-    0)	baseRev="$(git-brname --raw)" || exit $?
+    0)	baseRev="$(git-brname --raw)" && baseName="$(git-brname --detached-effective-branch)" || exit $?
 	otherRev="$(git tracks)" || exit $?
 	;;
     *)	printUsage >&2 "$0"
@@ -144,10 +146,10 @@ inout()
     local status=1
     local padding=$'\n'
     GIT_ONELINELOG_DIRECT_ARG=--no-pager git-onelinelog "${colorArg[@]}" "$baseRev..$otherRev" | \
-	outputAndPrintf "incoming ${otherRev} -> ${baseRev}:\\n" && status=0 || padding=''
+	outputAndPrintf "incoming ${otherName:-$otherRev} -> ${baseName:-$baseRev}:\\n" && status=0 || padding=''
 
     GIT_ONELINELOG_DIRECT_ARG=--no-pager git-onelinelog "${colorArg[@]}" "$otherRev..$baseRev" | \
-	outputAndPrintf "${padding}outgoing ${baseRev} -> ${otherRev}:\\n" && status=0
+	outputAndPrintf "${padding}outgoing ${baseName:-$baseRev} -> ${otherName:-$otherRev}:\\n" && status=0
 
     return $status
 }
@@ -161,11 +163,11 @@ inoutStat()
     local symbolString; printf -v symbolString %s "${symbols[@]}"
 
     if [ ${#incoming[@]} -gt 0 -a ${#outgoing[@]} -eq 0 ]; then
-	echo "incoming ${otherRev} -> ${baseRev}: $symbolString"
+	echo "incoming ${otherName:-$otherRev} -> ${baseName:-$baseRev}: $symbolString"
     elif [ ${#incoming[@]} -eq 0 -a ${#outgoing[@]} -gt 0 ]; then
-	echo "outgoing ${baseRev} -> ${otherRev}: $symbolString"
+	echo "outgoing ${baseName:-$baseRev} -> ${otherName:-$otherRev}: $symbolString"
     elif [ ${#incoming[@]} -gt 0 -a ${#outgoing[@]} -gt 0 ]; then
-	echo "in/out  ${baseRev} <-> ${otherRev}: $symbolString"
+	echo "in/out  ${baseName:-$baseRev} <-> ${otherName:-$otherRev}: $symbolString"
     else
 	return 1
     fi
@@ -180,7 +182,7 @@ aheadBehind()
     [ $behind -gt 0 ] && printf -v indicator '%sbehind %d' "${indicator}${indicator:+, }" $behind
 
     if [ -n "$indicator" ]; then
-	echo "${baseRev}...${otherRev} [${indicator}]"
+	echo "${baseName:-$baseRev}...${otherName:-$otherRev} [${indicator}]"
     else
 	return 1
     fi
@@ -193,10 +195,10 @@ showfiles()
     readarray -t outgoing < <($filesSourceCommand "$otherRev..$baseRev")
 
     if [ ${#incoming[@]} -gt 0 -a ${#outgoing[@]} -eq 0 ]; then
-	echo "incoming ${otherRev} -> ${baseRev}:"
+	echo "incoming ${otherName:-$otherRev} -> ${baseName:-$baseRev}:"
 	printf '%s\n' "${incoming[@]}"
     elif [ ${#incoming[@]} -eq 0 -a ${#outgoing[@]} -gt 0 ]; then
-	echo "outgoing ${baseRev} -> ${otherRev}:"
+	echo "outgoing ${baseName:-$baseRev} -> ${otherName:-$otherRev}:"
 	printf '%s\n' "${outgoing[@]}"
     elif [ ${#incoming[@]} -gt 0 -a ${#outgoing[@]} -gt 0 ]; then
 	typeset -a onlyIn onlyOut bothInOut
@@ -206,17 +208,17 @@ showfiles()
 
 	padding=''
 	if [ ${#onlyIn[@]} -gt 0 ]; then
-	    echo "${padding}incoming ${otherRev} -> ${baseRev}:"
+	    echo "${padding}incoming ${otherName:-$otherRev} -> ${baseName:-$baseRev}:"
 	    printf '%s\n' "${onlyIn[@]}"
 	    padding=$'\n'
 	fi
 	if [ ${#onlyOut[@]} -gt 0 ]; then
-	    echo "${padding}outgoing ${baseRev} -> ${otherRev}:"
+	    echo "${padding}outgoing ${baseName:-$baseRev} -> ${otherName:-$otherRev}:"
 	    printf '%s\n' "${onlyOut[@]}"
 	    padding=$'\n'
 	fi
 	if [ ${#bothInOut[@]} -gt 0 ]; then
-	    echo "${padding}both    ${baseRev} <-> ${otherRev}:"
+	    echo "${padding}both    ${baseName:-$baseRev} <-> ${otherName:-$otherRev}:"
 	    printf '%s\n' "${bothInOut[@]}"
 	    padding=$'\n'
 	fi

@@ -6,7 +6,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[-R|--no-recurse] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [<revision-range>] [--since <date>] [--after <date>] [--for SUBMODULE [...] ;] [-P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]'
+    printf 'Usage: [GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES=99] %q %s%s %s\n' "$(basename "$1")" '[-R|--no-recurse] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [<revision-range>] [--since <date>] [--after <date>] [--for SUBMODULE [...] ;] [-P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -236,8 +236,8 @@ quotedSubmoduleArgs=; [ ${#submoduleArgs[@]} -eq 0 ] || printf -v quotedSubmodul
 printf -v quotedPredicateCommands ' %q' "${predicateCommands[*]}"
 readarray -t submoduleEnvironments < <(git submodule foreach --quiet "${submoduleRecurseArg[@]}" "$quotedScriptFilespec${quotedSubmoduleArgs} --collect${quotedPredicateCommands}")
 if [ ${#submoduleEnvironments[@]} -eq 0 ]; then
-    echo >&2 'No submodules found!'
-    exit 1
+    [ -n "$GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES" ] || echo >&2 'No submodules found!'
+    exit ${GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES:-99}
 fi
 
 if [ "$hasProgressNotification" ] && [ -n "$progressSink" ]; then

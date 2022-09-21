@@ -6,10 +6,11 @@ printUsage()
 Commit with the intent of squashing this with the passed <commit> (id or
 :/<pattern>) via interactive rebase later (now with --rebase).
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--rebase] [<commit-arguments> ...] <ref>|:/<pattern> [--] [<path> ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--amend|--reword] [--rebase] [<commit-arguments> ...] <ref>|:/<pattern> [--] [<path> ...] [-?|-h|--help]'
 }
 typeset -a gitCommitArgs=()
 typeset -a files=()
+fixupType=
 isRebase=
 while [ $# -ne 0 ]
 do
@@ -18,6 +19,8 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
+	--amend|--reword)
+			fixupType="${1#--}"; shift;;
 	--rebase)	shift; isRebase=t;;
 	--)		gitCommitArgs+=("$1"); shift; files=("$@"); break;;
 	*)		gitCommitArgs+=("$1"); shift;;
@@ -49,10 +52,10 @@ if [ "$isRebase" ]; then
     # in order to reference the commit before it for rebase.
     fixupRev=$(git-commitid "$fixupCommit") || exit $?
 
-    git-wrapper commit --fixup "$fixupRev" "${gitCommitArgs[@]:0:$((${#gitCommitArgs[@]}-1))}" "${files[@]}" || exit $?
+    git-wrapper commit --fixup="${fixupType}${fixupType:+:}$fixupRev" "${gitCommitArgs[@]:0:$((${#gitCommitArgs[@]}-1))}" "${files[@]}" || exit $?
     exec git-rbni "${fixupRev}^"
 else
     # --fixup will do good error handling for us ("fatal: could not lookup commit
     # :/doesNotExist), just pass it along.
-    exec git-wrapper commit --fixup "$fixupCommit" "${gitCommitArgs[@]:0:$((${#gitCommitArgs[@]}-1))}" "${files[@]}"
+    exec git-wrapper commit --fixup="${fixupType}${fixupType:+:}$fixupCommit" "${gitCommitArgs[@]:0:$((${#gitCommitArgs[@]}-1))}" "${files[@]}"
 fi

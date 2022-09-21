@@ -10,7 +10,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[-q|--quiet] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [--interrupt-on-failure|--interrupt-on EXIT_STATUS] [--continue|--abort|--stashed] [--include-current] [--include-master] [--include-base] [--include-all] [--branches "<branch1> ..."] [--detach] [-B N|--max-branch N] [-P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...]] [-?|-h|--help]'
+    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[-q|--quiet] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success|--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [--interrupt-on-failure|--interrupt-on EXIT_STATUS] [--continue|--abort|--stashed] [--include-current] [--include-master] [--include-base] [--include-all] [--branches "<branch1> ..."] [--detach] [-B N|--max-branch N] [-P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -66,8 +66,11 @@ current Git branch before the command output.
 			with --abort.
     --interrupt-on EXIT_STATUS
 			Halt iteration when COMMAND exits with EXIT_STATUS.
-    --single-success	Exit status is 0 if at least command in one of the
-			local branches succeeded.
+    --single-success	Exit status is 0 if COMMAND succeeded in at least one
+			local branch.
+    --status-99-is-noop Exit status is the last failure, but 99 signifies no
+			action or inapplicability, and that is only returned if
+			all invocations of COMMAND return that.
     --max-branch|-B N	Only consider the last committed N local branches.
     --predicate-command|-P CMD
 			Skip local branches where CMD fails. The string {}
@@ -92,6 +95,7 @@ You can still pass --color=always if you pipe this command's output yet still
 want coloring of headers.
 
 EXIT STATUS
+Returns 99 if no local branches found / to be considered.
 Returns the last non-successful exit status. With --single-success,
 non-successful executions are ignored unless all of them fail. In other words,
 exit status is 0 if at least one command succeeded.
@@ -106,6 +110,7 @@ interruptStatus=
 interruptComparison=-eq
 progressSink=
 isSingleSuccess=
+isStatus99Noop=
 isQuiet=
 isHeader=; type -t withHeader >/dev/null && isHeader=t
 errorRedir='2>&1'
@@ -130,6 +135,7 @@ do
 	--interrupt-on-failure)
 			    shift; interruptComparison=-ne; interruptStatus=0;;
 	--single-success)   shift; isSingleSuccess=t;;
+	--status-99-is-noop)	shift; isStatus99Noop=t;;
 	--quiet|-q)	    shift; isQuiet=t;;
 	--no-pager)	    shift; pager=();;
 	--no-header)	    shift; isHeader=;;
@@ -241,7 +247,7 @@ persistContext()
 
     typeset -p localBranches originalCommands originalIsNeedEval originalBranch \
 	pager abortStatus abortComparison interruptStatus interruptComparison progressSink \
-	isSingleSuccess isQuiet isHeader errorRedir \
+	isSingleSuccess isStatus99Noop isQuiet isHeader errorRedir \
 	colorArg isStashed gitCheckoutArgs \
 	GIT_LOCALBRDO_HEADER_ID \
 	| sed -e 's#^declare #&-g #' > "${usedContextStore:?}"	# The sourcing is done inside a function, so "declare -g" must be used to define the variables with global scope.
@@ -316,17 +322,17 @@ case "$iterationAction" in
 	readarray -t localBranches < <(git-localbr "${gitLocalbrArgs[@]}" -- "${inputBranches[@]}" | tail -n "$branchNum")
 	if [ ${#localBranches[@]} -eq 0 ]; then
 	    echo >&2 'No local branches found!'
-	    exit 1
+	    exit 99
 	fi
 	if [ ${#predicateCommands[@]} -gt 0 ]; then
 	    typeset -a filteredLocalBranches=()
 	    for branch in "${localBranches[@]}"
 	    do
-		eval "${predicateCommands[@]//\{\}/$branch}" && filteredLocalBranches+=("$branch")
+		(eval "${predicateCommands[@]//\{\}/$branch}") && filteredLocalBranches+=("$branch")
 	    done
 	    if [ ${#filteredLocalBranches[@]} -eq 0 ]; then
 		echo >&2 'No local branches to consider.'
-		exit 1
+		exit 99
 	    fi
 	    localBranches=("${filteredLocalBranches[@]}")
 	fi
@@ -357,10 +363,10 @@ fi
 localbrdo()
 {
     : ${GIT_LOCALBRDO_HEADER_ID:="localbrdo-$$-$RANDOM"}
-    local status=0
+    local isSuccess= status=
     while [ ${#localBranches[@]} -gt 0 ]
     do
-	local status=0 branch="${localBranches[0]}"
+	local branch="${localBranches[0]}"
 	localBranches=("${localBranches[@]:1}")
 
 	git checkout --quiet "${gitCheckoutArgs[@]}" "${branch}" || exit $?	# Suppress Git's checkout information with --quiet. We're probably not interested in stuff like "Your branch is up-to-date with ...", and we emulate the switch message itself:
@@ -371,12 +377,22 @@ localbrdo()
 	fi
 	reportProgress "$branch"
 	if (eval "${isHeader:+{}" "${c[@]}" "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_LOCALBRDO_HEADER_ID' -- '$branch'}"); then
-	    isSuccess=t
+	    local newStatus=0
 	    dirtyCheck
 	else
-	    status=$?
-	    abortIfDesired $status
-	    interruptIfDesired $status
+	    local newStatus=$?
+	fi
+
+	abortIfDesired $newStatus
+	interruptIfDesired $newStatus
+
+	if [ "$isStatus99Noop" ]; then
+	    status=$(status99Reduction "$status" $newStatus)
+	else
+	    case $newStatus in
+		0)  isSuccess=t; : ${status:=0};;
+		*)  status=$newStatus;;
+	    esac
 	fi
     done
 
@@ -386,7 +402,7 @@ localbrdo()
     if [ "$isSingleSuccess" ]; then
 	[ "$isSuccess" ]
     else
-	return $status
+	return ${status:-99}
     fi
 }
 eval "localbrdo ${pager:+$errorRedir |}" '"${pager[@]}"'

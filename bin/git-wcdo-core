@@ -8,7 +8,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[--no-pager] [--no-header|--branch-name]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [--skip-files] [-s|--skip-foreign|--foreign-command "COMMANDLINE" [...]] [-P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] [--] WORKING-COPY [...] [-- SIMPLECOMMAND ...] [-?|-h|--help]'
+    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[--no-pager] [--no-header|--branch-name]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success|--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [--skip-files] [-s|--skip-foreign|--foreign-command "COMMANDLINE" [...]] [-P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] [--] WORKING-COPY [...] [-- SIMPLECOMMAND ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -54,8 +54,11 @@ Puts a header line (unless --no-header) that contains the WORKING-COPY name
     --abort-on-failure	Abort iteration when COMMAND fails.
     --abort-on|-X EXIT_STATUS
 			Abort iteration when COMMAND exits with EXIT_STATUS.
-    --single-success	Exit status is 0 if at least command in one WORKING-COPY
-			succeeded.
+    --single-success	Exit status is 0 if COMMAND succeeded in at least one
+			WORKING-COPY.
+    --status-99-is-noop Exit status is the last failure, but 99 signifies no
+			action or inapplicability, and that is only returned if
+			all invocations of COMMAND return that.
     --skip-files	Silently skip files that are passed as WORKING-COPY
 			(e.g. resulting from a file glob).
     --skip-foreign|-s	Silently skip directories that are not a Git working
@@ -90,6 +93,7 @@ typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 abortStatus=
 abortComparison=-eq
 isSingleSuccess=
+isStatus99Noop=
 isSkipFiles=
 isSkipForeign=
 typeset -a foreignCommands=()
@@ -111,6 +115,7 @@ do
 	--abort-on-failure)	shift; abortComparison=-ne; abortStatus=0;;
 	--abort-on|-X)		shift; abortStatus="$1"; shift;;
 	--single-success)	shift; isSingleSuccess=t;;
+	--status-99-is-noop)	shift; isStatus99Noop=t;;
 	--skip-files)		shift; isSkipFiles=t;;
 	--skip-foreign|-s)	shift; isSkipForeign=t;;
 	--foreign-command)	shift; foreignCommands+=(${foreignCommands:+;} "$1"); shift;;
@@ -240,8 +245,7 @@ set -o pipefail
 wcdo()
 {
     : ${GIT_WCDO_HEADER_ID:="wcdo-$$-$RANDOM"}
-    isSuccess=
-    status=0
+    local dirspec isSuccess= status=
     for dirspec in "${wcDirspecs[@]}"
     do
 	if ! cd "$dirspec" 2>/dev/null; then
@@ -256,10 +260,19 @@ wcdo()
 		    [ "$isBranchName" ] && header="${header%.*} outside Git"
 		fi
 		reportProgress "$header"
-		eval "${isHeader:+{}" "${foreignCommands[@]}" "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_WCDO_HEADER_ID' -- '$header'}" && \
-		    isSuccess=t
-		status=$?
+		(eval "${isHeader:+{}" "${foreignCommands[@]}" "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_WCDO_HEADER_ID' -- '$header'}")
+		local newStatus=$?
+
 		abortIfDesired $status
+
+		if [ "$isStatus99Noop" ]; then
+		    status=$(status99Reduction "$status" $newStatus)
+		else
+		    case $newStatus in
+			0)  isSuccess=t; : ${status:=0};;
+			*)  status=$newStatus;;
+		    esac
+		fi
 	    elif [ ! "$isSkipForeign" ]; then
 		printf >&2 'ERROR: %s is not inside a Git working copy!\n' "$dirspec"
 		status=1
@@ -269,7 +282,7 @@ wcdo()
 	NAME="${ROOT##*/}"
 
 	if [ ${#predicateCommands[@]} -gt 0 ]; then
-	    eval "${predicateCommands[@]}" || continue
+	    (eval "${predicateCommands[@]}") || continue
 	fi
 
 	if [ "$isHeader" ] || [ -n "$progressSink" ]; then
@@ -283,16 +296,25 @@ wcdo()
 	    typeset -a c=('"${commands[@]}"')
 	fi
 	reportProgress "$header"
-	eval "${isHeader:+{}" "${c[@]}" "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_WCDO_HEADER_ID' -- '$header'}" && \
-	    isSuccess=t
-	status=$?
-	abortIfDesired $status
+	(eval "${isHeader:+{}" "${c[@]}" "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_WCDO_HEADER_ID' -- '$header'}")
+	local newStatus=$?
+
+	abortIfDesired $newStatus
+
+	if [ "$isStatus99Noop" ]; then
+	    status=$(status99Reduction "$status" $newStatus)
+	else
+	    case $newStatus in
+		0)  isSuccess=t; : ${status:=0};;
+		*)  status=$newStatus;;
+	    esac
+	fi
     done
 
     if [ "$isSingleSuccess" ]; then
 	[ "$isSuccess" ]
     else
-	return $status
+	return ${status:-99}
     fi
 }
 

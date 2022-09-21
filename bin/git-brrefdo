@@ -12,7 +12,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s%s %s\n' "$GIT_BRREFDO_COMMANDNAME" '[--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" "[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success] [--abort-on-failure|-X|--abort-on EXIT_STATUS]${GIT_BRREFDO_ADDITIONAL_ARGS:+ }${GIT_BRREFDO_ADDITIONAL_ARGS} [--branches \"<branch1> ...\"] [-B N|--max-branch N] [-P|--predicate-command \"COMMANDLINE\" [...]] [-c|--command \"COMMANDLINE\" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]"
+    printf 'Usage: %q %s%s %s\n' "$GIT_BRREFDO_COMMANDNAME" '[--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" "[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success|--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS]${GIT_BRREFDO_ADDITIONAL_ARGS:+ }${GIT_BRREFDO_ADDITIONAL_ARGS} [--branches \"<branch1> ...\"] [-B N|--max-branch N] [-P|--predicate-command \"COMMANDLINE\" [...]] [-c|--command \"COMMANDLINE\" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -58,8 +58,11 @@ current Git branch before the command output.
     --abort-on-failure	Abort iteration when COMMAND fails.
     --abort-on|-X EXIT_STATUS
 			Abort iteration when COMMAND exits with EXIT_STATUS.
-    --single-success	Exit status is 0 if at least command in one of the
-			${GIT_BRREFDO_WHAT} succeeded.
+    --single-success	Exit status is 0 if COMMAND succeeded in at least one
+			${GIT_BRREFDO_WHAT}.
+    --status-99-is-noop Exit status is the last failure, but 99 signifies no
+			action or inapplicability, and that is only returned if
+			all invocations of COMMAND return that.
     --max-branch|-B N	Only consider the last N ${GIT_BRREFDO_WHAT}${GIT_BRREFDO_WHAT_DETAILS:+ }${GIT_BRREFDO_WHAT_DETAILS}.
     --predicate-command|-P CMD
 			Skip ${GIT_BRREFDO_WHAT} where CMD fails. The string {}
@@ -75,6 +78,7 @@ You can still pass --color=always if you pipe this command's output yet still
 want coloring of headers.
 
 EXIT STATUS
+Returns 99 if no ${GIT_BRREFDO_WHAT} found.
 Returns the last non-successful exit status. With --single-success,
 non-successful executions are ignored unless all of them fail. In other words,
 exit status is 0 if at least one command succeeded.
@@ -85,6 +89,7 @@ typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 abortStatus=
 abortComparison=-eq
 isSingleSuccess=
+isStatus99Noop=
 isHeader=; type -t withHeader >/dev/null && isHeader=t
 progressSink=
 errorRedir='2>&1'
@@ -103,6 +108,7 @@ do
 	--abort-on-failure) shift; abortComparison=-ne; abortStatus=0;;
 	--abort-on|-X)	    shift; abortStatus="$1"; shift;;
 	--single-success)   shift; isSingleSuccess=t;;
+	--status-99-is-noop)	shift; isStatus99Noop=t;;
 	--no-pager)	    shift; pager=();;
 	--no-header)	    shift; isHeader=;;
 	--progress)	    shift; progressSink="$1"; shift;;
@@ -181,7 +187,7 @@ fi
 readarray -t branches < <(eval '$GIT_BRREFDO_BRANCH_COMMAND "${gitBrArgs[@]}" ${inputBranches:+--} "${inputBranches[@]}"' ${branchNum:+ | tail -n "$branchNum"})
 if [ ${#branches[@]} -eq 0 ]; then
     echo >&2 "No ${GIT_BRREFDO_WHAT} found!"
-    exit 1
+    exit 99
 fi
 
 if [ ${#commands[@]} -eq 0 ]; then
@@ -211,11 +217,11 @@ abortIfDesired()
 brrefdo()
 {
     : ${GIT_BRREFDO_HEADER_ID:="brrefdo-$$-$RANDOM"}
-    local status=0
+    local branch status=
     for branch in "${branches[@]}"
     do
 	if [ ${#predicateCommands[@]} -gt 0 ]; then
-	    eval "${predicateCommands[@]//\{\}/$branch}" || continue
+	    (eval "${predicateCommands[@]//\{\}/$branch}") || continue
 	fi
 
 	typeset -a interpolatedCommands=("${commands[@]//\{\}/$branch}")
@@ -225,17 +231,25 @@ brrefdo()
 	    typeset -a c=('"${interpolatedCommands[@]}"')
 	fi
 	reportProgress "$branch"
-	if (eval "${isHeader:+{}" "${c[@]}" "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_BRREFDO_HEADER_ID' -- '$branch'}"); then
-	    isSuccess=t
+	(eval "${isHeader:+{}" "${c[@]}" "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_BRREFDO_HEADER_ID' -- '$branch'}")
+	local newStatus=$?
+
+	abortIfDesired $newStatus
+
+	if [ "$isStatus99Noop" ]; then
+	    status=$(status99Reduction "$status" $newStatus)
 	else
-	    status=$?
-	    abortIfDesired $status
+	    case $newStatus in
+		0)  isSuccess=t; : ${status:=0};;
+		*)  status=$newStatus;;
+	    esac
 	fi
     done
+
     if [ "$isSingleSuccess" ]; then
 	[ "$isSuccess" ]
     else
-	return $status
+	return ${status:-99}
     fi
 }
 eval "brrefdo ${pager:+$errorRedir |}" '"${pager[@]}"'

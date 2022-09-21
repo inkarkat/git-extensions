@@ -6,7 +6,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: [GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES=99] %q %s%s %s\n' "$(basename "$1")" '[-R|--no-recurse] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [<revision-range>] [--since <date>] [--after <date>] [--for SUBMODULE [...] ;] [-P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]'
+    printf 'Usage: [GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES=99] %q %s%s %s\n' "$(basename "$1")" '[-R|--no-recurse] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success|--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [<revision-range>] [--since <date>] [--after <date>] [--for SUBMODULE [...] ;] [-P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -53,8 +53,11 @@ the command output.
     --abort-on-failure	Abort iteration when COMMAND fails.
     --abort-on|-X EXIT_STATUS
 			Abort iteration when COMMAND exits with EXIT_STATUS.
-    --single-success	Exit status is 0 if at least command in one submodule
-			succeeded.
+    --single-success	Exit status is 0 if COMMAND succeeded in at least one
+			submodule.
+    --status-99-is-noop Exit status is the last failure, but 99 signifies no
+			action or inapplicability, and that is only returned if
+			all invocations of COMMAND return that.
     <revision-range>|--since <date>|--after <date>
 			Only consider submodules that have undergone changes in
 			the passed revision range.
@@ -77,6 +80,7 @@ You can still pass --color=always if you pipe this command's output yet still
 want coloring of headers.
 
 EXIT STATUS
+Returns ${GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES:-99} if no submodules found.
 Returns the last non-successful exit status. With --single-success,
 non-successful executions are ignored unless all of them fail. In other words,
 exit status is 0 if at least one command succeeded.
@@ -102,6 +106,7 @@ typeset -A submodules=()
 abortStatus=
 abortComparison=-eq
 isSingleSuccess=
+isStatus99Noop=
 typeset -a predicateCommands=()
 isNeedEval=
 typeset -a commands=()
@@ -117,6 +122,7 @@ do
 	--abort-on-failure)	shift; abortComparison=-ne; abortStatus=0;;
 	--abort-on|-X)		shift; abortStatus="$1"; shift;;
 	--single-success)	shift; isSingleSuccess=t;;
+	--status-99-is-noop)	shift; isStatus99Noop=t;;
 	--predicate-command|-P)	shift; predicateCommands+=(${predicateCommands:+&&} "$1"); shift;;
 	--command|-c)		shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
 	--no-recurse|-R)	shift; submoduleRecurseArg=();;
@@ -228,7 +234,7 @@ if [ ${#commands[@]} -eq 0 ]; then
 fi
 if [ ${#submoduleArgs[@]} -gt 0 -a ${#submodules[@]} -eq 0 ]; then
     echo 'No SUBMODULE(s) given to --for.'
-    exit 99
+    exit 2
 fi >&2
 
 printf -v quotedScriptFilespec %q "${BASH_SOURCE[0]}"
@@ -263,7 +269,7 @@ set -o pipefail
 subdo()
 {
     : ${GIT_SUBDO_HEADER_ID:="subdo-$$-$RANDOM"}
-    local isSuccess status=0
+    local environment isSuccess= status=
     for environment in "${submoduleEnvironments[@]}"
     do
 	eval "$environment" || exit 3
@@ -278,18 +284,25 @@ subdo()
 	    typeset -a c=('"${commands[@]}"')
 	fi
 	reportProgress "${displaypath:?}"
-	if eval "${isHeader:+{}" ${predicateOutput:+printf %s\\\\n \"\$predicateOutput\"; }"${c[@]}" "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_SUBDO_HEADER_ID' -- '${displaypath:?}'}"; then
-	    isSuccess=t
+	(eval "${isHeader:+{}" ${predicateOutput:+printf %s\\\\n \"\$predicateOutput\"; }"${c[@]}" "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_SUBDO_HEADER_ID' -- '${displaypath:?}'}")
+	local newStatus=$?
+
+	abortIfDesired $newStatus
+
+	if [ "$isStatus99Noop" ]; then
+	    status=$(status99Reduction "$status" $newStatus)
 	else
-	    status=$?
-	    abortIfDesired $status
+	    case $newStatus in
+		0)  isSuccess=t; : ${status:=0};;
+		*)  status=$newStatus;;
+	    esac
 	fi
     done
 
     if [ "$isSingleSuccess" ]; then
 	[ "$isSuccess" ]
     else
-	return $status
+	return ${status:-${GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES:-99}}
     fi
 }
 

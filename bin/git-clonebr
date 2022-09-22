@@ -10,10 +10,16 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [--] [<branch>] [-?|-h|--help]'
 }
 typeset -a forceArgs=()
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --force|-f)		forceArgs+=("$1"); shift;;
-esac
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--force|-f)	forceArgs+=("$1"); shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 case $# in
     0)	branch="$(git-brname --real-branch-only)" || exit $?;;
     1)	branch="$1"; shift

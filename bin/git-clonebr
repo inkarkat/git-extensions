@@ -1,0 +1,39 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Clone the current / passed branch by appending /1 (/2, etc.) at the end of the
+branch name and switch to it.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [--] [<branch>] [-?|-h|--help]'
+}
+typeset -a forceArgs=()
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --force|-f)		forceArgs+=("$1"); shift;;
+esac
+case $# in
+    0)	branch="$(git-brname --real-branch-only)" || exit $?;;
+    1)	branch="$1"; shift
+
+	remoteCandidate="${branch%%/*}"
+	git-existsremote "$remoteCandidate" && \
+	    branch="${branch#*/}"
+	;;
+    *)	printUsage "$0" >&2
+	exit 2
+esac
+
+# Handle cloning an existing clone.
+[[ "$branch" =~ ^(.+)-[[:digit:]]+$ ]] && \
+    branch="${BASH_REMATCH[1]}"
+
+let num=1
+while newBranch="${branch}-${num}" && git-existsbr "$newBranch"
+do
+    let num+=1
+done
+
+exec git checkout "${forceArgs[@]}" -b "$newBranch"

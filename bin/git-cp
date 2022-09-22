@@ -4,15 +4,17 @@ printUsage()
 {
     cat <<HELPTEXT
 Retrieve the contents of <path> as it exists in revision <ref> and save it as
-<path>.<ref> (or <target> if given).
+<path>.<ref> (or override with -O|--override, or <target> if given).
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '<ref> <path> [to <target>] [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-O|--override] <ref> <path> [to <target>] [...] [-?|-h|--help]'
 }
+isOverride=
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
     --no-color|--color=*)
 			shift;;
     --color)		shift; shift;;
+    --override|-O)	shift; isOverride=t;;
 esac
 if [ $# -lt 2 ]; then
     printUsage "$0"
@@ -30,6 +32,8 @@ do
 
     if [ "$1" = to ]; then
 	shift; target="$1"; shift
+    elif [ "$isOverride" ]; then
+	target="$path"
     else
 	target="${path}.${ref}"
     fi

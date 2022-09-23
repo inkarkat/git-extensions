@@ -3,13 +3,20 @@
 printUsage()
 {
     cat <<HELPTEXT
-Commit directly (without further edits) with the same commit message as <commit>.
+Commit directly (without further edits) with the same commit message as <commit>
+[from the working copy that FILE or DIR resides in].
 This is similar to git commit -c|--reedit-message|-C|--reuse-message, but
 doesn't include authorship and timestamp as well.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<commit-arguments> ...] <ref>|:/<pattern> [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<commit-arguments> ...] <ref>|:/<pattern> [-- FILE|DIR] [-?|-h|--help]'
 }
+
+gitInWorkingCopy()
+{
+    git ${workingCopyFilespec:+inside} "$@" ${workingCopyFilespec:+-- "$workingCopyFilespec"}
+}
+
 typeset -a commitArgs=()
 while [ $# -ne 0 ]
 do
@@ -24,11 +31,18 @@ do
     esac
 done
 if [ $# -eq 0 ]; then
-    echo >&2 "ERROR: Must pass <commit>!"
+    echo >&2 'ERROR: Must pass <commit>!'
     exit 2
 fi
-ref="${!#}"
-commitId="$(git-commitid "$ref")" || exit $?
+lastArg="${!#}"
+workingCopyFilespec=
+if [ $# -gt 1 -a -e "$lastArg" -a "${*:(-2):1}" = '--' ]; then
+    workingCopyFilespec="$lastArg"
+    set -- "${@:1:$(($#-2))}"
+    lastArg="${!#}"
+fi
+
+commitId="$(gitInWorkingCopy commitid "$lastArg")" || exit $?
 
 commitMessageFilespec="$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TEMP:-/tmp}/$(basename -- "$0").$$$RANDOM")"
 cleanup()
@@ -36,7 +50,7 @@ cleanup()
     rm -f "$commitMessageFilespec" 2>/dev/null
 }
 [ "$DEBUG" ] || trap 'cleanup' EXIT
-git lo1 "$commitId" > "$commitMessageFilespec" || exit $?
+gitInWorkingCopy lo1 "$commitId" > "$commitMessageFilespec" || exit $?
 if [ ! -s "$commitMessageFilespec" ]; then
     echo >&2 "ERROR: No commit message"
     exit 1

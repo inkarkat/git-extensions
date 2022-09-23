@@ -54,9 +54,11 @@ do
     esac
 done
 if [ ${#submodules[@]} -eq 0 ]; then
+    typeset -a submoduleList=()
     typeset -A submoduleDict=()
     while IFS=$'\n' read -r name
     do
+	submoduleList+=("$name")
 	submoduleDict["$name"]=t
     done < <(git sublist)
 
@@ -74,7 +76,7 @@ if [ ${#submodules[@]} -eq 0 ]; then
 
     if [ ${#submodules[@]} -eq 0 ]; then
 	# No submodules passed - iterate over all submodules.
-	submodules=("${!submoduleDict[@]}")
+	submodules=("${submoduleList[@]}")
     fi
 fi
 set -- "${gitCommandArgs[@]}"
@@ -89,6 +91,7 @@ if [ ! -t 1 ]; then
 fi
 isIncludePullRequests=
 typeset -a prTitleArgs=()
+isQualifiedWithUserRepo=
 logPostProcessor=
 prTitlePostProcessor=
 typeset -a rangeArgs=()
@@ -107,7 +110,7 @@ do
 	--include-pull-requests)
 			shift; isIncludePullRequests=t;;
 	--qualified-with-userrepo|-Q)
-			prTitleArgs+=("$1"); shift;;
+			prTitleArgs+=("$1"); shift; isQualifiedWithUserRepo=t;;
 	--as)		shift
 			case "$1" in
 			    markdown)	logPostProcessor=logAsMarkdown
@@ -141,8 +144,19 @@ fi >&2
 
 logAsMarkdown()
 {
+    typeset -a sedHeaderTransformation=(-e '1{ s/^Submodule //; s/ [[:xdigit:]]\+..[[:xdigit:]]\+:$/:/; b; }')
+    if [ "$isQualifiedWithUserRepo" ]; then
+	local userRepo="$(cd "$submodule" && hub-userrepo)"
+	if [ -n "$userRepo" ]; then
+	    literalUserRepo="$userRepo"
+	    literalUserRepo="${literalUserRepo//\\/\\\\}"
+	    literalUserRepo="${literalUserRepo//&/\\&}"
+	    sedHeaderTransformation=(-e "1{ s/^Submodule //; s# [[:xdigit:]]\\+..\\([[:xdigit:]]\\+\\):\$# ${literalUserRepo//#/\\#}@\\1:#; b; }")
+	fi
+    fi
+
     sed \
-	-e '1{ s/^Submodule //; s/ [[:xdigit:]]\+..[[:xdigit:]]\+:$/:/; b; }' \
+	"${sedHeaderTransformation[@]}" \
 	-e 's/^  > /* /' \
 	-e 's/^  < \(.*\)$/* ~~\1~~/'
 }

@@ -6,13 +6,20 @@ shopt -qs extglob
 printUsage()
 {
     cat <<HELPTEXT
-Commit as a correction of <commit> (when it's too late or cumbersome to fixup
-the existing commit). This just adds a reference to the prior commit in the
-commit message (title and body).
+Commit as a correction of <commit> [from the working copy that FILE or DIR
+resides in] (when it's too late or cumbersome to fixup the existing commit).
+This just adds a reference to the prior commit in the commit message (title and
+body).
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<commit-arguments> ...] <ref>|:/<pattern> [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<commit-arguments> ...] <ref>|:/<pattern> [-- FILE|DIR] [-?|-h|--help]'
 }
+
+gitInWorkingCopy()
+{
+    git ${workingCopyFilespec:+inside} "$@" ${workingCopyFilespec:+-- "$workingCopyFilespec"}
+}
+
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
     --no-color|--color=*)
@@ -20,12 +27,21 @@ case "$1" in
     --color)		shift; shift;;
 esac
 if [ $# -eq 0 ]; then
-    echo >&2 "ERROR: Must pass <commit>!"
+    echo >&2 'ERROR: Must pass <commit>!'
     exit 2
 fi
-ref="${!#}"
-commitId="$(git-commitid "$ref")" || exit $?
-shortCommitId="$(git-commitid --short "$ref")" || exit $?
+lastArg="${!#}"
+workingCopyFilespec=
+repoContext=
+if [ $# -gt 1 -a -e "$lastArg" -a "${*:(-2):1}" = '--' ]; then
+    workingCopyFilespec="$lastArg"
+    repoContext="$(gitInWorkingCopy userrepo 2>/dev/null)"
+    set -- "${@:1:$(($#-2))}"
+    lastArg="${!#}"
+fi
+
+commitId="$(gitInWorkingCopy commitid "$lastArg")" || exit $?
+shortCommitId="$(gitInWorkingCopy commitid --short "$lastArg")" || exit $?
 
 commitMessageFilespec="$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TEMP:-/tmp}/$(basename -- "$0").$$$RANDOM")"
 cleanup()
@@ -35,11 +51,11 @@ cleanup()
 [ "$DEBUG" ] || trap 'cleanup' EXIT
 {
     IFS=$'\n' read -r titleLine
-    titleLine="${titleLine% (after +([0-9A-Fa-f]))}"
+    titleLine="${titleLine% (after ?(+([^ ])@)+([0-9A-Fa-f]))}"
 
     remainingLines="$(grep -v -e "^(${GIT_CORRECT_REFERENCE_MESSAGE} [[:xdigit:]]\\+)\$")"
     remainingLines="${remainingLines%%+($'\n')}"
-} < <(git lo1 "$commitId")
-printf "%s (after %s)\\n%s\\n\\n(${GIT_CORRECT_REFERENCE_MESSAGE} %s)\\n" "$titleLine" "$shortCommitId" "$remainingLines" "$commitId" > "$commitMessageFilespec" || exit $?
+} < <(gitInWorkingCopy lo1 "$commitId")
+printf "%s (after %s)\\n%s\\n\\n(${GIT_CORRECT_REFERENCE_MESSAGE} %s)\\n" "$titleLine" "${repoContext}${repoContext:+}${shortCommitId}" "$remainingLines" "${repoContext}${repoContext:+}${commitId}" > "$commitMessageFilespec" || exit $?
 
 exec git-wrapper commit --edit --file "$commitMessageFilespec" "${@:1:$(($#-1))}"

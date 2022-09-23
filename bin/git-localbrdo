@@ -10,7 +10,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[-q|--quiet] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success|--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [--interrupt-on-failure|--interrupt-on EXIT_STATUS] [--continue|--abort|--stashed] [--include-current] [--include-master] [--include-base] [--include-all] [--branches "<branch1> ..."] [--detach] [-B N|--max-branch N] [-P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...]] [-?|-h|--help]'
+    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[-q|--quiet] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success|--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [--interrupt-on-failure|--interrupt-on EXIT_STATUS] [--continue|--abort|--stashed] [--include-current] [--include-master] [--include-base] [--include-all] [--branches "<branch1> ..."] [--detach] [-B N|--max-branch N] [[--not]-P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -76,6 +76,8 @@ current Git branch before the command output.
 			Skip local branches where CMD fails. The string {}
 			is replaced with the current branch name; the working
 			copy isn't switched yet.
+    --not		Invert the predicate so that local branches are skipped
+			where CMD succeeds.
     --command|-c CMD	Execute the passed command line. When this is a simple
 			Git command, it can also be passed as such:
 			    $(basename "$1") [...] [--] SIMPLECOMMAND
@@ -117,6 +119,7 @@ errorRedir='2>&1'
 isGitColor=t
 typeset -a colorArg=()
 isNeedEval=
+predicateComparison=-eq
 typeset -a predicateCommands=()
 typeset -a commands=()
 isStashed=
@@ -153,6 +156,7 @@ do
 	--max-branch|-B)    shift; branchNum="$1"; shift;;
 	--predicate-command|-P)
 			    shift; predicateCommands+=(${predicateCommands:+&&} "$1"); shift;;
+	--not)		    shift; predicateComparison=-ne;;
 	--command|-c)	    shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
 	--)		    shift; break;;
 	-*)		    { echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
@@ -328,7 +332,8 @@ case "$iterationAction" in
 	    typeset -a filteredLocalBranches=()
 	    for branch in "${localBranches[@]}"
 	    do
-		(eval "${predicateCommands[@]//\{\}/$branch}") && filteredLocalBranches+=("$branch")
+		(eval "${predicateCommands[@]//\{\}/$branch}")
+		[ $? $predicateComparison 0 ] && filteredLocalBranches+=("$branch")
 	    done
 	    if [ ${#filteredLocalBranches[@]} -eq 0 ]; then
 		echo >&2 'No local branches to consider.'

@@ -6,7 +6,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: [GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES=99] %q %s%s %s\n' "$(basename "$1")" '[-R|--no-recurse] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success|--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [<revision-range>] [--since <date>] [--after <date>] [--for SUBMODULE [...] ;] [-P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]'
+    printf 'Usage: [GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES=99] %q %s%s %s\n' "$(basename "$1")" '[-R|--no-recurse] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success|--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [<revision-range>] [--since <date>] [--after <date>] [--for SUBMODULE [...] ;] [[--not] -P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -70,6 +70,8 @@ the command output.
 			root) fails. The string {} is replaced with the relative
 			path to the submodule; all variables from "git submodule
 			foreach" are available as well.
+    --not		Invert the predicate so that those submodules are
+			skipped where CMD succeeds.
     --command|-c CMD	Execute the passed command line. When this is a simple
 			Git command, it can also be passed as such:
 			    $(basename "$1") [...] [--] SIMPLECOMMAND
@@ -100,13 +102,15 @@ obtainSubmodulesFromRange()
 }
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
-submoduleRecurseArg=(--recursive)
+typeset -a submoduleRecurseArg=(--recursive)
 typeset -a submoduleArgs=()
 typeset -A submodules=()
 abortStatus=
 abortComparison=-eq
 isSingleSuccess=
 isStatus99Noop=
+predicateComparison=-eq
+predicateInversionArg=
 typeset -a predicateCommands=()
 isNeedEval=
 typeset -a commands=()
@@ -124,6 +128,7 @@ do
 	--single-success)	shift; isSingleSuccess=t;;
 	--status-99-is-noop)	shift; isStatus99Noop=t;;
 	--predicate-command|-P)	shift; predicateCommands+=(${predicateCommands:+&&} "$1"); shift;;
+	--not)			predicateInversionArg="$1"; shift; predicateComparison=-ne;;
 	--command|-c)		shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
 	--no-recurse|-R)	shift; submoduleRecurseArg=();;
 	--no-pager)		shift; pager=();;
@@ -157,7 +162,8 @@ do
 
 				predicateOutput=
 				if [ $# -gt 0 ]; then
-				    predicateOutput="$(eval "${@//\{\}/$displaypath}")" || exit 0
+				    predicateOutput="$(eval "${@//\{\}/$displaypath}")"
+				    [ $? $predicateComparison 0 ] || exit 0
 				fi
 				printf '%s=%q; ' dirspec "${PWD:?}" name "${name:?}" sm_path "${sm_path:?}" displaypath "${displaypath:?}" sha1 "${sha1:?}" toplevel "${toplevel:?}" predicateOutput "${predicateOutput?}"; echo
 
@@ -240,7 +246,7 @@ fi >&2
 printf -v quotedScriptFilespec %q "${BASH_SOURCE[0]}"
 quotedSubmoduleArgs=; [ ${#submoduleArgs[@]} -eq 0 ] || printf -v quotedSubmoduleArgs ' %q' "${submoduleArgs[@]}"
 printf -v quotedPredicateCommands ' %q' "${predicateCommands[*]}"
-readarray -t submoduleEnvironments < <(git submodule foreach --quiet "${submoduleRecurseArg[@]}" "$quotedScriptFilespec${quotedSubmoduleArgs} --collect${quotedPredicateCommands}")
+readarray -t submoduleEnvironments < <(git submodule foreach --quiet "${submoduleRecurseArg[@]}" "$quotedScriptFilespec${quotedSubmoduleArgs}${predicateInversionArg:+ }${predicateInversionArg} --collect${quotedPredicateCommands}")
 if [ ${#submoduleEnvironments[@]} -eq 0 ]; then
     [ -n "$GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES" ] || echo >&2 'No submodules found!'
     exit ${GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES:-99}

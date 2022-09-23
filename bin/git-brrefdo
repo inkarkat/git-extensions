@@ -12,7 +12,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s%s %s\n' "$GIT_BRREFDO_COMMANDNAME" '[--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" "[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success|--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS]${GIT_BRREFDO_ADDITIONAL_ARGS:+ }${GIT_BRREFDO_ADDITIONAL_ARGS} [--branches \"<branch1> ...\"] [-B N|--max-branch N] [-P|--predicate-command \"COMMANDLINE\" [...]] [-c|--command \"COMMANDLINE\" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]"
+    printf 'Usage: %q %s%s %s\n' "$GIT_BRREFDO_COMMANDNAME" '[--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" "[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success|--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS]${GIT_BRREFDO_ADDITIONAL_ARGS:+ }${GIT_BRREFDO_ADDITIONAL_ARGS} [--branches \"<branch1> ...\"] [-B N|--max-branch N] [[--not] -P|--predicate-command \"COMMANDLINE\" [...]] [-c|--command \"COMMANDLINE\" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -67,6 +67,8 @@ current Git branch before the command output.
     --predicate-command|-P CMD
 			Skip ${GIT_BRREFDO_WHAT} where CMD fails. The string {}
 			is replaced with the current branch name.
+    --not		Invert the predicate so that ${GIT_BRREFDO_WHAT} are
+			skipped where CMD succeeds.
     --command|-c CMD	Execute the passed command line. When this is a simple
 			Git command, it can also be passed as such:
 			    $(basename "$1") [...] [--] SIMPLECOMMAND
@@ -96,6 +98,7 @@ errorRedir='2>&1'
 isGitColor=t
 typeset -a colorArg=()
 isNeedEval=
+predicateComparison=-eq
 typeset -a predicateCommands=()
 typeset -a commands=()
 branchNum=
@@ -127,6 +130,7 @@ do
 			    gitBrArgs+=("$1" "$2"); shift; shift;;
 	--branches)	    shift; IFS=$' \t' read -r -a inputBranches <<<"${1//$'\n'/ }"; shift;;	# Internal hook to pass in the branches.
 	--max-branch|-B)    shift; branchNum="$1"; shift;;
+	--not)		    shift; predicateComparison=-ne;;
 	--predicate-command|-P)
 			    shift; predicateCommands+=(${predicateCommands:+&&} "$1"); shift;;
 	--command|-c)	    shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
@@ -227,7 +231,8 @@ brrefdo()
     for branch in "${branches[@]}"
     do
 	if [ ${#predicateCommands[@]} -gt 0 ]; then
-	    (eval "${predicateCommands[@]//\{\}/$branch}") || continue
+	    (eval "${predicateCommands[@]//\{\}/$branch}")
+	    [ $? $predicateComparison 0 ] || continue
 	fi
 
 	typeset -a interpolatedCommands=("${commands[@]//\{\}/$branch}")

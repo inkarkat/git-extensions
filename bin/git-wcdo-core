@@ -8,7 +8,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[--no-pager] [--no-header|--branch-name]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success|--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [--skip-files] [-s|--skip-foreign|--foreign-command "COMMANDLINE" [...]] [-P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] [--] WORKING-COPY [...] [-- SIMPLECOMMAND ...] [-?|-h|--help]'
+    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[--no-pager] [--no-header|--branch-name]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success|--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [--skip-files] [-s|--skip-foreign|--foreign-command "COMMANDLINE" [...]] [[--not]-P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] [--] WORKING-COPY [...] [-- SIMPLECOMMAND ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -71,6 +71,8 @@ Puts a header line (unless --no-header) that contains the WORKING-COPY name
 			copy root) fails. This is an alternative to
 				--command "if CMD; then COMMANDLINE; fi"
 			that lets you still use SIMPLECOMMAND.
+    --not		Invert the predicate so that working copies are skipped
+			where CMD succeeds.
     --command|-c CMD	Execute the passed command line. When this is a simple
 			Git command, it can also be passed as such:
 			    $(basename "$1") [...] [--] SIMPLECOMMAND
@@ -97,6 +99,7 @@ isStatus99Noop=
 isSkipFiles=
 isSkipForeign=
 typeset -a foreignCommands=()
+predicateComparison=-eq
 typeset -a predicateCommands=()
 isNeedEval=
 typeset -a commands=()
@@ -120,6 +123,7 @@ do
 	--skip-foreign|-s)	shift; isSkipForeign=t;;
 	--foreign-command)	shift; foreignCommands+=(${foreignCommands:+;} "$1"); shift;;
 	--predicate-command|-P)	shift; predicateCommands+=(${predicateCommands:+&&} "$1"); shift;;
+	--not)			shift; predicateComparison=-ne;;
 	--command|-c)		shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
 	--no-pager)		shift; pager=();;
 	--no-header)		shift; isHeader=;;
@@ -282,7 +286,8 @@ wcdo()
 	NAME="${ROOT##*/}"
 
 	if [ ${#predicateCommands[@]} -gt 0 ]; then
-	    (eval "${predicateCommands[@]}") || continue
+	    (eval "${predicateCommands[@]}")
+	    [ $? $predicateComparison 0 ] || continue
 	fi
 
 	if [ "$isHeader" ] || [ -n "$progressSink" ]; then

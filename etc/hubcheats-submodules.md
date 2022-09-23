@@ -37,6 +37,8 @@ superproject: [if PR there]:
 `$ git ofetch`
 `$ hub subsamebrdo --no-git-color --interactive reintegratetom`
 (if you want to do this submodule by submodule: `$ hub reintegratetom`)
+Note: When doing a bulk change, default check commands (that would run for each
+submodule) can be skipped via `reintegrate --no-checks`
 ## then update integration build after submodules have been reintegrated
 0) submodule branch(es) have been fast-forwarded: no changes, no action here
 a) amends to short-lived feature: `$ git amenu && git opush -f`

@@ -54,9 +54,11 @@ do
     esac
 done
 if [ ${#submodules[@]} -eq 0 ]; then
+    typeset -a submoduleList=()
     typeset -A submoduleDict=()
     while IFS=$'\n' read -r name
     do
+	submoduleList+=("$name")
 	submoduleDict["$name"]=t
     done < <(git sublist)
 
@@ -74,7 +76,7 @@ if [ ${#submodules[@]} -eq 0 ]; then
 
     if [ ${#submodules[@]} -eq 0 ]; then
 	# No submodules passed - iterate over all submodules.
-	submodules=("${!submoduleDict[@]}")
+	submodules=("${submoduleList[@]}")
     fi
 fi
 set -- "${gitCommandArgs[@]}"

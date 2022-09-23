@@ -182,16 +182,16 @@ getSubmoduleStatus()
 	esac
 	currentBranchName="$(git-brname --real-branch-only 2>/dev/null)"
 	if [ "$currentBranchName" = "${submoduleBranches["$submodule"]}" ]; then
-	    printf "%-${submoduleWidth}s already on %s%s\\n" "${prefix}${submodule}" "$currentBranchName" "$actionHint"
+	    printf "%-${submoduleWidth}s Already on %s%s\\n" "${prefix}${submodule}" "$currentBranchName" "$actionHint"
 	elif [ -n "$currentBranchName" ]; then
-	    printf "%-${submoduleWidth}s on %s; would %s %s%s\\n" "${prefix}${submodule}" "$currentBranchName" "$toBranchAction" "${submoduleBranches["$submodule"]}" "$actionHint"
+	    printf "%-${submoduleWidth}s On %s; would %s %s%s\\n" "${prefix}${submodule}" "$currentBranchName" "$toBranchAction" "${submoduleBranches["$submodule"]}" "$actionHint"
 	else
 	    currentRev="$(git rev-parse --short HEAD)" || exit $?
 	    currentRevDescription="$(git-desc HEAD)"
 	    if [ "$subhash" = "$currentRev" ]; then
-		printf "%-${submoduleWidth}s detached checkout of %s (%s); would %s %s%s\\n" "${prefix}${submodule}" "$currentRevDescription" "$currentRev" "$toBranchAction" "${submoduleBranches["$submodule"]}" "$actionHint"
+		printf "%-${submoduleWidth}s Detached checkout of %s (%s); would %s %s%s\\n" "${prefix}${submodule}" "$currentRevDescription" "$currentRev" "$toBranchAction" "${submoduleBranches["$submodule"]}" "$actionHint"
 	    else
-		printf "%-${submoduleWidth}s detached modified checkout of %s (%s) != %s (%s); would %s %s%s\\n" "${prefix}${submodule}" "$currentRevDescription" "$currentRev" "$(git-desc "$subhash")" "$subhash" "$toBranchAction" "${submoduleBranches["$submodule"]}" "$actionHint"
+		printf "%-${submoduleWidth}s Detached modified checkout of %s (%s) != %s (%s); would %s %s%s\\n" "${prefix}${submodule}" "$currentRevDescription" "$currentRev" "$(git-desc "$subhash")" "$subhash" "$toBranchAction" "${submoduleBranches["$submodule"]}" "$actionHint"
 	    fi
 	fi
     )
@@ -200,13 +200,13 @@ getSubmoduleStatus()
 isSkipped()
 {
     if [ "$checkoutAction" = checkoutStartPoint ] && ! git rev-parse --verify --quiet "${startPoint:?}" >/dev/null 2>&1; then
-	printf "%-${submoduleWidth}s skipping the start point %s does not exist\\n" "${prefix}${submodule}" "$startPoint"
+	printf "%-${submoduleWidth}s Skipping the start point %s does not exist\\n" "${prefix}${submodule}" "$startPoint"
 	return 0
     elif [ "$checkoutAction" = checkoutExistingLocal ] && [ ! "$hasLocalBranch" ]; then
-	printf "%-${submoduleWidth}s skipping because no local branch %s exists\\n" "${prefix}${submodule}" "${submoduleBranches["$submodule"]}"
+	printf "%-${submoduleWidth}s Skipping because no local branch %s exists\\n" "${prefix}${submodule}" "${submoduleBranches["$submodule"]}"
 	return 0
     elif [ "$checkoutAction" = checkoutExistingRemote ] && [ ! "$hasRemoteBranch" ]; then
-	printf "%-${submoduleWidth}s skipping because no remote branch for %s exists\\n" "${prefix}${submodule}" "${submoduleBranches["$submodule"]}"
+	printf "%-${submoduleWidth}s Skipping because no remote branch for %s exists\\n" "${prefix}${submodule}" "${submoduleBranches["$submodule"]}"
 	return 0
     fi
     return 1

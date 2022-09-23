@@ -1,4 +1,5 @@
 #!/bin/bash
+set -o pipefail
 shopt -qs extglob
 
 printShortUsage()
@@ -381,7 +382,8 @@ do
     (
 	cd "$submodule" || exit 3
 
-	$checkoutAction "${submoduleBranches["$submodule"]}" || exit $?
+	printf -v header "%-${submoduleWidth}s" "${prefix}${submodule}"
+	$checkoutAction "${submoduleBranches["$submodule"]}" 2>&1 | HEADER_COLON='' HEADER_SEPARATOR='' withHeader --no-newline --no-color "$header" || exit $?
 
 	if [ "$isRecursive" ]; then
 	    typeset -a selectedNestedSubmodules=()

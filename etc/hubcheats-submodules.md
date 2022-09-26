@@ -6,11 +6,12 @@ superproject: Create a branch: `$ git mco -b feat-4711/super-cool`
 submodules: a) Create branches prior to changes:
 	       `$ git subconewbr --query|SUBMODULE1 SUBMODULE2`
 submodules: b) Create branches after uncommitted changes:
-	       `$ git (subdirtydo|subuntrackeddo|subdo --dirty --untracked) --no-git-color \`
-	       `> co -b feat-4711/super-cool`
+	       `$ git subdirtydo mco -b feat-4711/super-cool`
+	       `$ git subuntrackeddo mco -b feat-4711/super-cool`
+	       `$ git subdo --dirty --untracked mco -b feat-4711/super-cool`
 ## b) start bottom-up
 submodule(s): Create branch: `$ git omco -b feat-4711/super-cool`
-superproject: Create branch: `$ git mco -b $(git substdo --no-git-color --interactive brname | sort -u | singleLineOrSuppressAndError)`
+superproject: Create branch: `$ git mco -b $(git substdo --interactive brname | sort -u | singleLineOrSuppressAndError)`
 ## c) continue from elsewhere:
 superproject: Check out branch:   `$ git oco feat-4711/super-cool`
 superproject: Check out submodule branches: `$ git subcoremotebr --query|--all`
@@ -37,7 +38,7 @@ superproject: [if PR there]:
 
 ## integrate submodule changes first
 superproject: `$ git ofetch`
-superproject: `$ hub subsamebrdo --no-git-color --interactive reintegratetom`
+superproject: `$ hub subsamebrdo --interactive reintegratetom`
 (if you want to do this submodule by submodule: `$ hub reintegratetom`)
 ## then update integration build after submodules have been reintegrated
 0) submodule branch(es) have been fast-forwarded: no changes, no action here

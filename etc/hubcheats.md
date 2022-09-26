@@ -69,7 +69,7 @@ hub is a command-line wrapper for git that makes you better at GitHub.
 `$ hub compare v0.9..v1.0`
 
 ### put compare URL for a topic branch to clipboard
-`$ hub compare -u feature | pbcopy`
+`$ hub compare -u feature | cb`
 
 ### create a repo for a new project
 `$ git init`
@@ -85,7 +85,7 @@ hub is a command-line wrapper for git that makes you better at GitHub.
 
 ### open a pull request using a message generated from script, then put its URL to the clipboard
 `$ git push origin feature`
-`$ hub pull-request -F prepared-message.md | pbcopy`
+`$ hub pull-request -F prepared-message.md | cb`
 → (URL ready for pasting in a chat room)
 
 ### push to multiple remotes

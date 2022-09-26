@@ -35,6 +35,12 @@ superproject: [if PR there]:
   `$ hub bmsubchanges && git-servername -m | cba -A $'\n\n' && gh pr edit`
   paste the submodule PR references / changes + server into the description
   text
+## peer review of superproject (optional)
+For similar, mechanical changes in all submodules that don't need to be
+reviewed separately.
+  `$ hub bmsubchanges && git-servername -m | cba -A $'\n\n' && hub pull-request`
+  paste the submodule PR references / changes + server into the description
+  text
 
 ## integrate submodule changes first
 superproject: `$ git ofetch`

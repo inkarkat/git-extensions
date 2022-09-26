@@ -1,17 +1,20 @@
 # Feature development
+superproject: `$ git com && git oup`
+(directly from another feature:) `$ git ofetch && git omco -b feat-4711/super-cool`
 ## a) start top-down
-superproject: Create a branch: `$ git com -b feat-4711/super-cool`
+superproject: Create a branch: `$ git mco -b feat-4711/super-cool`
 submodules: a) Create branches prior to changes:
 	       `$ git subconewbr --query|SUBMODULE1 SUBMODULE2`
 submodules: b) Create branches after uncommitted changes:
-	       `$ git (subdirtydo|subuntrackeddo|subdo --dirty --untracked) --no-git-color \`
-	       `> co -b feat-4711/super-cool`
+	       `$ git subdirtydo mco -b feat-4711/super-cool`
+	       `$ git subuntrackeddo mco -b feat-4711/super-cool`
+	       `$ git subdo --dirty --untracked mco -b feat-4711/super-cool`
 ## b) start bottom-up
-submodule(s): Create branch: `$ git com -b feat-4711/super-cool`
-superproject: Create branch: `$ git com -b $(git substdo --no-git-color --interactive brname | sort -u | singleLineOrSuppressAndError)`
+submodule(s): Create branch: `$ git omco -b feat-4711/super-cool`
+superproject: Create branch: `$ git mco -b $(git substdo --interactive brname | sort -u | singleLineOrSuppressAndError)`
 ## c) continue from elsewhere:
 superproject: Check out branch:   `$ git oco feat-4711/super-cool`
-superproject: Check out branches: `$ git subcoremotebr --query|--all`
+superproject: Check out submodule branches: `$ git subcoremotebr --query|--all`
 
 ## create integration build
 superproject: `$ git cu && git opublish`
@@ -32,10 +35,16 @@ superproject: [if PR there]:
   `$ hub bmsubchanges && git-servername -m | cba -A $'\n\n' && gh pr edit`
   paste the submodule PR references / changes + server into the description
   text
+## peer review of superproject (optional)
+For similar, mechanical changes in all submodules that don't need to be
+reviewed separately.
+  `$ hub bmsubchanges && git-servername -m | cba -A $'\n\n' && hub pull-request`
+  paste the submodule PR references / changes + server into the description
+  text
 
 ## integrate submodule changes first
-`$ git ofetch`
-`$ hub subsamebrdo --no-git-color --interactive reintegratetom`
+superproject: `$ git ofetch`
+superproject: `$ hub subsamebrdo --interactive reintegratetom`
 (if you want to do this submodule by submodule: `$ hub reintegratetom`)
 Note: When doing a bulk change, default check commands (that would run for each
 submodule) can be skipped via `reintegrate --no-checks`
@@ -57,9 +66,9 @@ b) maintain history of how the feature grew: `$ git cu -m 'feat-4711 has been re
 - When checking out branches, do so everywhere (especially both in the
   superproject and submodule(s)). Mixing branches will lead to dirty working
   copies!
-- When adding a new submodule, just editing `.gitmodules` followed by `git
-  submodule update` isn't enough; you need to do `git submodule add <repo>` to
-  add the reference and do the checkout (and update `.gitmodules` - you can
+- When adding a new submodule, just editing `.gitmodules` followed by
+  `git submodule update` isn't enough; you need to do `git submodule add <repo>`
+  to add the reference and do the checkout (and update `.gitmodules` - you can
   edit the file beforehand to have the additional info already in there.)
 
 # Switching between branches

@@ -18,7 +18,7 @@ superproject: Check out submodule branches: `$ git subcoremotebr --query|--all`
 
 ## create integration build
 superproject: `$ git cu && git opublish`
-optional: `$ hub pull-request --draft`
+optional: `$ git bml | cb && hub pull-request --draft`
 
 ## update integration build after submodule work
 a) normal updates to short-lived feature: `$ git amenu && git opush -f`
@@ -26,19 +26,19 @@ b) maintain history of how the feature grew: `$ git cu && git opush`
 
 ## peer review of submodules (optional)
 a) from superproject: `$ hub integrationpr && hub subsamebrdo --no-git-color --interactive pull-request`
-b) from submodule(s), no superproject PR: `$ git-servername -m | cb && hub pull-request`
+b) from submodule(s), no superproject PR: `$ withSeparator -c git\ bml -c git-servername\ -m | cb && hub pull-request`
    paste the server into the description text
 c) from submodule(s), with superproject PR: `$ hub superpr && hub pull-request`
    paste the superproject PR reference into the description text
 
 superproject: [if PR there]:
-  `$ hub bmsubchanges && git-servername -m | cba -A $'\n\n' && gh pr edit`
+  `$ withSeparator -c git\ bml -c hub\ bmsubchanges -c git-servername\ -m | cb && gh pr edit`
   paste the submodule PR references / changes + server into the description
   text
 ## peer review of superproject (optional)
 For similar, mechanical changes in all submodules that don't need to be
 reviewed separately.
-  `$ hub bmsubchanges && git-servername -m | cba -A $'\n\n' && hub pull-request`
+  `$ withSeparator -c git\ bml -c hub\ bmsubchanges -c git-servername\ -m | cb && hub pull-request`
   paste the submodule PR references / changes + server into the description
   text
 

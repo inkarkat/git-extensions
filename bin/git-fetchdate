@@ -18,16 +18,18 @@ database()
 message=
 isAbsolute=
 isEpoch=
-typeset -a fileAgeArgs=()
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
+typeset -a parseAgeArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
 			shift;;
-    --color)		shift; shift;;
-    --message|-m)	shift; message="$1"; shift;;
-    --epoch)		shift; isEpoch=t;;
-    --absolute|-a)	shift; isAbsolute=t;;
-    --set)		shift
+	--color)	shift; shift;;
+	--message|-m)	shift; message="$1"; shift;;
+	--epoch)	shift; isEpoch=t;;
+	--absolute|-a)	shift; isAbsolute=t;;
+	--set)		shift
 			if [ $# -eq 0 ]; then
 			    echo >&2 'ERROR: No REMOTE(s) passed.'
 			    exit 2
@@ -38,12 +40,13 @@ case "$1" in
 			done
 			exit $?
 			;;
-    -*)			if [ $# -eq 3 ]; then
-			    fileAgeArgs=("$1" "$2")
-			    shift; shift
-			fi
-			;;
-esac
+	-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt)
+			parseAgeArgs=("$1" "$2"); shift; shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 if [ $# -eq 0 ]; then
     readarray -t remotes < <(git remote)
     if [ ${#remotes[@]} -eq 0 ]; then
@@ -64,9 +67,9 @@ processRemote()
 {
     local remote="${1:?}"; shift
 
-    if [ ${#fileAgeArgs[@]} -gt 0 ]; then
-	epoch="$(database --time "$remote")" || exit $?
-	parseAge "${fileAgeArgs[@]}" "@$epoch" || exit $?
+    if [ ${#parseAgeArgs[@]} -gt 0 ]; then
+	epoch="$(database --time "$remote")" || epoch=0
+	parseAge "${parseAgeArgs[@]}" "@$epoch" || exit $?
     elif [ ! "$isAbsolute" ]  && [ ! "$isEpoch" ]; then
 	age="$(database --query "$remote" --get-diff '%R')" || return $?
 	printPrefix

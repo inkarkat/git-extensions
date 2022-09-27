@@ -18,7 +18,7 @@ database()
 message=
 isAbsolute=
 isEpoch=
-typeset -a fileAgeArgs=()
+typeset -a parseAgeArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -41,7 +41,7 @@ do
 			exit $?
 			;;
 	-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt)
-			fileAgeArgs=("$1" "$2"); shift; shift;;
+			parseAgeArgs=("$1" "$2"); shift; shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -67,9 +67,9 @@ processRemote()
 {
     local remote="${1:?}"; shift
 
-    if [ ${#fileAgeArgs[@]} -gt 0 ]; then
+    if [ ${#parseAgeArgs[@]} -gt 0 ]; then
 	epoch="$(database --time "$remote")" || epoch=0
-	parseAge "${fileAgeArgs[@]}" "@$epoch" || exit $?
+	parseAge "${parseAgeArgs[@]}" "@$epoch" || exit $?
     elif [ ! "$isAbsolute" ]  && [ ! "$isEpoch" ]; then
 	age="$(database --query "$remote" --get-diff '%R')" || return $?
 	printPrefix

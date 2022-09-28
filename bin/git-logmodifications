@@ -48,6 +48,9 @@ do
 	--pretty=tformat:%H)
 			shift; action="$quotedPager";;
 	--pretty=*)	gitPrettyArg=("$1"); shift;;
+	--name-status)	shift; filter=nameStatus; action="$quotedPager";;
+	--name-only)	shift; filter=nameOnly; action="$quotedPager";;
+
 	--added|-a)	shift; statusFilter+='A';;
 	--modified|-m)	shift; statusFilter+='M';;
 	--deleted|-d)	shift; statusFilter+='D';;
@@ -68,6 +71,16 @@ fi >&2
 extractCommits()
 {
     sed -n -e '/^[[:xdigit:]]\+$/h' -e "/^[${statusFilter}][0-9]*[[:space:]]\\+/{ g; /./p; s/.*//; h; }"
+}
+
+nameStatus()
+{
+    sed -n -e '/^[[:xdigit:]]\+$/{ x; /\n/p; b; }' -e "/^[${statusFilter}][0-9]*[[:space:]]\\+/H" -e '${ g; /\n/p; }'
+}
+
+nameOnly()
+{
+    sed -n -e '/^[[:xdigit:]]\+$/{ x; /\n/p; b; }' -e "/^[${statusFilter}][0-9]*[[:space:]]\\+/{ s/^[${statusFilter}][0-9]*[[:space:]]\\+//; H; }" -e '${ g; /\n/p; }'
 }
 
 log()

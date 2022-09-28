@@ -1,0 +1,75 @@
+#!/bin/bash
+set -o pipefail
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--[no-]renames] [-M[<n>]|--find-renames[=<n>]] [-C[<n>]|--find-copies[=<n>]|--find-copies-harder] [-a|--added] [-m|--modified] [-r|--renamed] [-c|--copied] [-d|--deleted] [<log-options>] [<revision-range>] [[--] <path>...] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Show a log of commits that modify files in the specified way.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    cat <<HELPTEXT
+    --added|-a --modified|-m --deleted|-d --renamed|-r --copied|-c
+		    Only log commits with added / modified / deleted / renamed /
+		    copied files (can be combined; at least one must be
+		    specified). If you want renames / copies to be counted as
+		    added / deleted, pass --no-renames.
+HELPTEXT
+}
+
+action=log
+statusFilter=
+typeset -a logArgs=()
+typeset -a renameArgs=()
+typeset -a gitPrettyArg=(--pretty=medium)
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--no-renames|--renames|--find-renames|--find-renames=*|-M*|--find-copies|--find-copies=*|-C*|--find-copies-harder)
+			renameArgs+=("$1"); shift;;
+	--pretty=*)	gitPrettyArg=("$1"); shift;;
+	--added|-a)	shift; statusFilter+='A';;
+	--modified|-m)	shift; statusFilter+='M';;
+	--deleted|-d)	shift; statusFilter+='D';;
+	--renamed|-r)	shift; statusFilter+='R';;
+	--copied|-c)	shift; statusFilter+='C';;
+
+	--)		break;;
+	*)		logArgs+=("$1"); shift;;
+    esac
+done
+if [ -z "$statusFilter" ]; then
+    echo 'ERROR: At least one of -a|--added, -m|--modified, -r|--renamed, -c|--copied, -d|--deleted must be passed.'
+    echo
+    printUsage "$0"
+    exit 2
+fi >&2
+
+filter()
+{
+    sed -n -e '/^[[:xdigit:]]\+$/h' -e "/^[${statusFilter}][0-9]*[[:space:]]\\+/{ g; /./p; s/.*//; h; }"
+}
+
+log()
+{
+	xargs --no-run-if-empty --delimiter '\n' git show --decorate --name-status "${gitPrettyArg[@]}"
+}
+
+git log --pretty='format:%H' --name-status "${renameArgs[@]}" "${logArgs[@]}" "$@" | \
+    eval filter "${action:+|}$action"

@@ -9,7 +9,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--cached|--intermediate] [-s|--status] [-a|--added] [-m|--modified] [-d|--deleted] [<since>..<until>] [[--] <path>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--cached|--intermediate] [-s|--status [--no-renames] [-M[<n>]|--find-renames[=<n>]] [-C[<n>]|--find-copies[=<n>]] [-a|--added] [-m|--modified] [-d|--deleted] [<since>..<until>] [[--] <path>...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -32,6 +32,9 @@ HELPDESCRIPTION
 		    changed back, are included, too
     -s|--status	    includes the status (added, modified, etc.), as a first
 		    column
+    --added|-a --modified|-m --deleted|-d
+		    Only list added / modified / deleted files (can be
+		    combined).
 HELPTEXT
 }
 
@@ -41,6 +44,7 @@ isIncludeIntermediate=
 isShowStatus=
 statusFilter=
 typeset -a allargs=()
+typeset -a renameArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -48,6 +52,8 @@ do
 	--cached)	range="$1"; shift;;
 	--intermediate)	shift; isIncludeIntermediate=t;;
 	--status|-s)	shift; isShowStatus=t;;
+	--find-renames|--find-renames=*|-M*|--find-copies|--find-copies=*|-C*)
+			renameArgs+=("$1"); shift;;
 	--added|-a)	shift; statusFilter+='A';;
 	--modified|-m)	shift; statusFilter+='M';;
 	--deleted|-d)	shift; statusFilter+='D';;
@@ -78,15 +84,15 @@ do
     esac
 done
 
-gitNameArg='--name-only'
+typeset -a gitArgs=('--name-only')
 filter=
 sorter='sort -u'
 if [ "$isShowStatus" ]; then
-    gitNameArg='--name-status'
+    gitArgs=('--name-status' "${renameArgs[@]}")
     sorter='sort -k 2 -u'
 fi
 if [ -n "$statusFilter" ]; then
-    gitNameArg='--name-status'
+    gitArgs=('--name-status' '--no-renames')
     if [ "$isShowStatus" ]; then
 	filter="sed -ne /^[${statusFilter}]/p"
     else
@@ -95,10 +101,10 @@ if [ -n "$statusFilter" ]; then
 fi
 
 if [ "$isIncludeIntermediate" ]; then
-    git log --pretty='format:' "$gitNameArg" "${allargs[@]}" "$@"
+    git log --pretty='format:' "${gitArgs[@]}" "${allargs[@]}" "$@"
 elif [ -n "$range" ]; then
     # Source: http://stackoverflow.com/a/1552353/813602
-    git diff "$gitNameArg" "${allargs[@]}" "$range" "$@"
+    git diff "${gitArgs[@]}" "${allargs[@]}" "$range" "$@"
 else
-    git show --pretty='format:' "$gitNameArg" "${allargs[@]}" "$@"
+    git show --pretty='format:' "${gitArgs[@]}" "${allargs[@]}" "$@"
 fi | eval "$filter ${filter:+|} $sorter | sed -e '/^\$/d'" "${pager:+|}" '"${pager[@]}"'

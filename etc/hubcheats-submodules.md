@@ -6,9 +6,9 @@ superproject: Create a branch: `$ git mco -b feat-4711/super-cool`
 submodules: a) Create branches prior to changes:
 	       `$ git subconewbr --query|SUBMODULE1 SUBMODULE2`
 submodules: b) Create branches after uncommitted changes:
-	       `$ git subdirtydo mco -b feat-4711/super-cool`
-	       `$ git subuntrackeddo mco -b feat-4711/super-cool`
-	       `$ git subdo --dirty --untracked mco -b feat-4711/super-cool`
+	       `$ git subdirtydo omco -b feat-4711/super-cool`
+	       `$ git subuntrackeddo omco -b feat-4711/super-cool`
+	       `$ git subdo --dirty --untracked omco -b feat-4711/super-cool`
 ## b) start bottom-up
 submodule(s): Create branch: `$ git omco -b feat-4711/super-cool`
 superproject: Create branch: `$ git mco -b $(git substdo --interactive brname | sort -u | singleLineOrSuppressAndError)`

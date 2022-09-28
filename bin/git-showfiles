@@ -9,7 +9,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--cached|--intermediate] [-s|--status [--no-renames] [-M[<n>]|--find-renames[=<n>]] [-C[<n>]|--find-copies[=<n>]] [-a|--added] [-m|--modified] [-d|--deleted] [<since>..<until>] [[--] <path>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--cached|--intermediate] [-s|--status [--[no-]renames] [-M[<n>]|--find-renames[=<n>]] [-C[<n>]|--find-copies[=<n>]|--find-copies-harder] [-a|--added] [-m|--modified] [-r|--renamed] [-c|--copied] [-d|--deleted] [<since>..<until>] [[--] <path>...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -32,9 +32,10 @@ HELPDESCRIPTION
 		    changed back, are included, too
     -s|--status	    includes the status (added, modified, etc.), as a first
 		    column
-    --added|-a --modified|-m --deleted|-d
-		    Only list added / modified / deleted files (can be
-		    combined).
+    --added|-a --modified|-m --deleted|-d --renamed|-r --copied|-c
+		    Only list added / modified / deleted / renamed / copied
+		    files (can be combined). If you want renames / copies to be
+		    counted as added / deleted, pass --no-renames.
 HELPTEXT
 }
 
@@ -52,11 +53,13 @@ do
 	--cached)	range="$1"; shift;;
 	--intermediate)	shift; isIncludeIntermediate=t;;
 	--status|-s)	shift; isShowStatus=t;;
-	--find-renames|--find-renames=*|-M*|--find-copies|--find-copies=*|-C*)
+	--no-renames|--renames|--find-renames|--find-renames=*|-M*|--find-copies|--find-copies=*|-C*|--find-copies-harder)
 			renameArgs+=("$1"); shift;;
 	--added|-a)	shift; statusFilter+='A';;
 	--modified|-m)	shift; statusFilter+='M';;
 	--deleted|-d)	shift; statusFilter+='D';;
+	--renamed|-r)	shift; statusFilter+='R';;
+	--copied|-c)	shift; statusFilter+='C';;
 
 	# XXX: Semantics of r1..r2 and r1...r2 are swapped between rev-range and
 	# diff.
@@ -92,11 +95,11 @@ if [ "$isShowStatus" ]; then
     sorter='sort -k 2 -u'
 fi
 if [ -n "$statusFilter" ]; then
-    gitArgs=('--name-status' '--no-renames')
+    gitArgs=('--name-status' "${renameArgs[@]}")
     if [ "$isShowStatus" ]; then
 	filter="sed -ne /^[${statusFilter}]/p"
     else
-	filter="sed -ne s/^[${statusFilter}][[:space:]]\\\\+//p"
+	filter="sed -ne s/^[${statusFilter}][0-9]*[[:space:]]\\\\+//p"
     fi
 fi
 

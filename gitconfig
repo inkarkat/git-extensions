@@ -303,7 +303,9 @@
 	; How to create an unrelated branch that doesn't hold the previous commit history (e.g. as for the gh-pages)
 	; 1. git checkout --orphan gh-pages
 	; 2. git rm -rf .
-	detach = checkout --detach	; Unassociate from the current branch without changing the current commit. Useful e.g. for separate worktrees, because they all must be on distinct branches.
+	detach = checkout --detach	; Detach HEAD at passed <commit> / unassociate from the current branch without changing the current commit. Useful e.g. for separate worktrees, because they all must be on distinct branches.
+	detachselected = selectedcommit-command --single-only detach	; Detach HEAD to the commit interactively chosen from the commits in the passed <range>.
+	detachselected7 = detachselected --max-count 7
 	;; reattach: Find a branch name that the detached commit is based on and check that out, looking first to the commit itself, then the first branch that comes after the detached commit, and thus contains it, then falling back to branch(es) that are reachable from the detached commit.
 
 	co = checkout
@@ -1251,6 +1253,7 @@
 	tdrbni = today-command --no-range --one-more rbni
 	tdmove-to-branch = today-command --no-range -- uncommit-to-branch --exclude-commit
 	tduncommit-to-branch = today-command -- selectedcommit-command --single-only uncommit-to-branch
+	tddetach = today-command --one-more detachselected
 	tdwipe = today-command --one-more wipetoselected
 	tdbase = today-command --no-range name-rev --name-only
 	tdwhodid = files-command whodid tdshowfiles
@@ -1411,6 +1414,7 @@
 	weekrbni = week-command --no-range --one-more rbni
 	weekmove-to-branch = week-command --no-range -- uncommit-to-branch --exclude-commit
 	weekuncommit-to-branch = week-command -- selectedcommit-command --single-only uncommit-to-branch
+	weekdetach = week-command --one-more detachselected
 	weekwipe = week-command --one-more wipetoselected
 	weekbase = week-command --no-range name-rev --name-only
 	weekwhodid = files-command whodid weekshowfiles
@@ -1571,6 +1575,7 @@
 	monthrbni = month-command --no-range --one-more rbni
 	monthmove-to-branch = month-command --no-range -- uncommit-to-branch --exclude-commit
 	monthuncommit-to-branch = month-command -- selectedcommit-command --single-only uncommit-to-branch
+	monthdetach = month-command --one-more detachselected
 	monthwipe = month-command --one-more wipetoselected
 	monthbase = month-command --no-range name-rev --name-only
 	monthwhodid = files-command whodid monthshowfiles
@@ -1731,6 +1736,7 @@
 	yearrbni = year-command --no-range --one-more rbni
 	yearmove-to-branch = year-command --no-range -- uncommit-to-branch --exclude-commit
 	yearuncommit-to-branch = year-command -- selectedcommit-command --single-only uncommit-to-branch
+	yeardetach = year-command --one-more detachselected
 	yearwipe = year-command --one-more wipetoselected
 	yearbase = year-command --no-range name-rev --name-only
 	yearwhodid = files-command whodid yearshowfiles
@@ -1891,6 +1897,7 @@
 	byrbni = byuserrange-command --no-range rbni
 	bymove-to-branch = byuserrange-command --no-range -- uncommit-to-branch --exclude-commit
 	byuncommit-to-branch = byuserrange-command -- selectedcommit-command --single-only --range-is-last uncommit-to-branch
+	bydetach = byuserrange-command --one-more detachselected
 	bywipe = byuserrange-command --one-more wipetoselected
 	bybase = byuserrange-command --no-range name-rev --name-only
 	bywhodid = files-command whodid byshowfiles
@@ -2051,6 +2058,7 @@
 	msgrbni = bylogmessagerange-command --no-range rbni
 	msgmove-to-branch = bylogmessagerange-command --no-range -- uncommit-to-branch --exclude-commit
 	msguncommit-to-branch = bylogmessagerange-command -- selectedcommit-command --single-only --range-is-last uncommit-to-branch
+	msgdetach = bylogmessagerange-command --one-more detachselected
 	msgwipe = bylogmessagerange-command --one-more wipetoselected
 	msgbase = bylogmessagerange-command --no-range name-rev --name-only
 	msgwhodid = files-command whodid byshowfiles
@@ -2210,6 +2218,7 @@
 	lastmsgrbni = bylogmessagerange-command --auto-revision --no-range rbni
 	lastmsgmove-to-branch = bylogmessagerange-command --auto-revision --no-range -- uncommit-to-branch --exclude-commit
 	lastmsguncommit-to-branch = bylogmessagerange-command --auto-revision -- selectedcommit-command --single-only --range-is-last uncommit-to-branch
+	lastmsgdetach = bylogmessagerange-command --auto-revision --one-more detachselected
 	lastmsgwipe = bylogmessagerange-command --auto-revision --one-more wipetoselected
 	lastmsgbase = bylogmessagerange-command --auto-revision --no-range name-rev --name-only
 	lastmsgwhodid = files-command whodid byshowfiles
@@ -2376,6 +2385,7 @@
 	brrbni = rev-range-this-branch --any --no-range rbni
 	brmove-to-branch = rev-range-this-branch --any --no-range -- uncommit-to-branch --exclude-commit
 	bruncommit-to-branch = rev-range-this-branch --any -- selectedcommit-command --single-only --range-is-last uncommit-to-branch
+	brdetach = rev-range-this-branch --any detachselected
 	brwipe = rev-range-this-branch --any wipetoselected
 	brbase = rev-range-this-branch --any --no-range name-rev --name-only
 	brwhodid = files-command whodid brshowfiles
@@ -2537,6 +2547,7 @@
 	b2rrbni = rev-range-this-branch --any --branch-number 2 --no-range rbni
 	b2rmove-to-branch = rev-range-this-branch --any --branch-number 2 --no-range -- uncommit-to-branch --exclude-commit
 	b2runcommit-to-branch = rev-range-this-branch --any --branch-number 2 -- selectedcommit-command --single-only --range-is-last uncommit-to-branch
+	b2rdetach = rev-range-this-branch --any --branch-number 2 detachselected
 	b2rwipe = rev-range-this-branch --any --branch-number 2 wipetoselected
 	b2rbase = rev-range-this-branch --any --branch-number 2 --no-range name-rev --name-only
 	b2rwhodid = files-command whodid b2rshowfiles
@@ -2698,6 +2709,7 @@
 	b3rrbni = rev-range-this-branch --any --branch-number 3 --no-range rbni
 	b3rmove-to-branch = rev-range-this-branch --any --branch-number 3 --no-range -- uncommit-to-branch --exclude-commit
 	b3runcommit-to-branch = rev-range-this-branch --any --branch-number 3 -- selectedcommit-command --single-only --range-is-last uncommit-to-branch
+	b3rdetach = rev-range-this-branch --any --branch-number 3 detachselected
 	b3rwipe = rev-range-this-branch --any --branch-number 3 wipetoselected
 	b3rbase = rev-range-this-branch --any --branch-number 3 --no-range name-rev --name-only
 	b3rwhodid = files-command whodid b3rshowfiles
@@ -2859,6 +2871,7 @@
 	bmrbni = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --no-range rbni
 	bmmove-to-branch = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --no-range uncommit-to-branch --exclude-commit
 	bmuncommit-to-branch = branch-command --keep-position master-command --keep-position rev-range --revision MASTER selectedcommit-command --single-only --range-is-last uncommit-to-branch
+	bmdetach = branch-command --keep-position master-command --keep-position rev-range --revision MASTER detachselected
 	bmwipe = branch-command --keep-position master-command --keep-position rev-range --revision MASTER wipetoselected
 	bmbase = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --no-range name-rev --name-only
 	bmwhodid = files-command whodid bmshowfiles
@@ -3020,6 +3033,7 @@
 	;mbrbni is a no-op, because it always yields HEAD as the starting point
 	mbmove-to-branch = master-command --keep-position rev-range --revision HEAD --no-range uncommit-to-branch --exclude-commit
 	mbuncommit-to-branch = branch-command --keep-position master-command --keep-position rev-range --revision HEAD --end-revision MASTER selectedcommit-command --single-only --range-is-last uncommit-to-branch
+	mbdetach = branch-command --keep-position master-command --keep-position rev-range --revision HEAD --end-revision MASTER detachselected
 	mbwipe = branch-command --keep-position master-command --keep-position rev-range --revision HEAD --end-revision MASTER wipetoselected
 	mbbase = master-command --keep-position rev-range --revision HEAD --no-range name-rev --name-only
 	mbwhodid = files-command whodid bmshowfiles
@@ -3181,6 +3195,7 @@
 	bnrbni = branch-command --keep-position base-command --keep-position rev-range --revision BASE --no-range rbni
 	bnmove-to-branch = branch-command --keep-position base-command --keep-position rev-range --revision BASE --no-range uncommit-to-branch --exclude-commit
 	bnuncommit-to-branch = branch-command --keep-position base-command --keep-position rev-range --revision BASE selectedcommit-command --single-only --range-is-last uncommit-to-branch
+	bndetach = branch-command --keep-position base-command --keep-position rev-range --revision BASE detachselected
 	bnwipe = branch-command --keep-position base-command --keep-position rev-range --revision BASE wipetoselected
 	bnbase = branch-command --keep-position base-command --keep-position rev-range --revision BASE --no-range name-rev --name-only
 	bnwhodid = files-command whodid bnshowfiles
@@ -3342,6 +3357,7 @@
 	;nbrbni is a no-op, because it always yields HEAD as the starting point
 	nbmove-to-branch = base-command --keep-position rev-range --revision HEAD --no-range uncommit-to-branch --exclude-commit
 	nbuncommit-to-branch = branch-command --keep-position base-command --keep-position rev-range --revision HEAD --end-revision BASE selectedcommit-command --single-only --range-is-last uncommit-to-branch
+	nbdetach = branch-command --keep-position base-command --keep-position rev-range --revision HEAD --end-revision BASE detachselected
 	nbwipe = branch-command --keep-position base-command --keep-position rev-range --revision HEAD --end-revision BASE wipetoselected
 	nbbase = base-command --keep-position rev-range --revision HEAD --no-range name-rev --name-only
 	nbwhodid = files-command whodid bnshowfiles
@@ -3503,6 +3519,7 @@
 	blrbni = rev-range --revision @{-1} --no-range rbni
 	blmove-to-branch = rev-range --revision @{-1} -- uncommit-to-branch --no-range --exclude-commit
 	bluncommit-to-branch = branch-command --keep-position rev-range --revision @{-1} -- selectedcommit-command --single-only --range-is-last uncommit-to-branch
+	bldetach = branch-command --keep-position rev-range --revision @{-1} detachselected
 	blwipe = branch-command --keep-position rev-range --revision @{-1} wipetoselected
 	blbase = rev-range --revision @{-1} --no-range name-rev --name-only
 	blwhodid = files-command whodid blshowfiles
@@ -3664,6 +3681,7 @@
 	b2lrbni = rev-range --revision @{-2} --no-range rbni
 	b2lmove-to-branch = rev-range --revision @{-2} --no-range -- uncommit-to-branch --exclude-commit
 	b2luncommit-to-branch = branch-command --keep-position rev-range --revision @{-2} -- selectedcommit-command --single-only --range-is-last uncommit-to-branch
+	b2ldetach = branch-command --keep-position rev-range --revision @{-2} detachselected
 	b2lwipe = branch-command --keep-position rev-range --revision @{-2} wipetoselected
 	b2lbase = rev-range --revision @{-2} --no-range name-rev --name-only
 	b2lwhodid = files-command whodid b2lshowfiles
@@ -3825,6 +3843,7 @@
 	bprbni = rev-range --revision @{1} --no-range --one-more-command ^ rbni
 	bpmove-to-branch = rev-range --revision @{1} --no-range -- uncommit-to-branch --exclude-commit
 	bpuncommit-to-branch = branch-command --keep-position rev-range --revision @{1} -- selectedcommit-command --single-only --range-is-last uncommit-to-branch
+	bpdetach = branch-command --keep-position rev-range --revision @{1} detachselected
 	bpwipe = branch-command --keep-position rev-range --revision @{1} wipetoselected
 	bpbase = rev-range --revision @{1} --no-range name-rev --name-only
 	bpwhodid = files-command whodid bpshowfiles
@@ -3986,6 +4005,7 @@
 	b2prbni = rev-range --revision @{2} --no-range --one-more-command ^ rbni
 	b2pmove-to-branch = rev-range --revision @{2} --no-range -- uncommit-to-branch --exclude-commit
 	b2puncommit-to-branch = branch-command --keep-position rev-range --revision @{2} -- selectedcommit-command --single-only --range-is-last uncommit-to-branch
+	b2pdetach = branch-command --keep-position rev-range --revision @{2} detachselected
 	b2pwipe = branch-command --keep-position rev-range --revision @{2} wipetoselected
 	b2pbase = rev-range --revision @{2} --no-range name-rev --name-only
 	b2pwhodid = files-command whodid b2pshowfiles
@@ -4146,6 +4166,7 @@
 	outrbni = trbni
 	outmove-to-branch = trmove-to-branch
 	outuncommit-to-branch = rev-range-outgoing '' --one-more -- selectedcommit-command --single-only --range-is-last uncommit-to-branch
+	outdetach = rev-range-outgoing '' --one-more detachselected
 	outwipe = rev-range-outgoing '' --one-more wipetoselected
 	outbase = tracks
 	outwhodid = files-command whodid outshowfiles
@@ -4276,6 +4297,7 @@
 	inrbi = trb
 	inrbni = trbni
 	inuncommit-to-branch = rev-range-incoming '' --one-more -- selectedcommit-command --single-only --range-is-last uncommit-to-branch
+	indetach = rev-range-incoming '' --one-more detachselected
 	inwipe = rev-range-incoming '' --one-more wipetoselected
 	inbase = tracks
 	inwhodid = files-command whodid inshowfiles
@@ -4436,6 +4458,7 @@
 	ooutrbi = orbi
 	ooutrbni = orbni
 	ooutuncommit-to-branch = rev-range-outgoing origin --one-more -- selectedcommit-command --single-only --range-is-last uncommit-to-branch
+	ooutdetach = rev-range-outgoing origin --one-more detachselected
 	ooutwipe = rev-range-outgoing origin --one-more wipetoselected
 	; ooutbase would always print "origin/<branch>".
 	ooutwhodid = files-command whodid ooutshowfiles
@@ -4566,6 +4589,7 @@
 	oinrbi = orbi
 	oinrbni = orbni
 	oinuncommit-to-branch = rev-range-incoming origin --one-more -- selectedcommit-command --single-only --range-is-last uncommit-to-branch
+	oindetach = rev-range-incoming origin --one-more detachselected
 	oinwipe = rev-range-incoming origin --one-more wipetoselected
 	; oinbase would always print "origin/<branch>".
 	oinwhodid = files-command whodid oinshowfiles
@@ -4726,6 +4750,7 @@
 	uoutrbni = urbni
 	uoutmove-to-branch = umove-to-branch
 	uoutuncommit-to-branch = rev-range-outgoing upstream --one-more -- selectedcommit-command --single-only --range-is-last uncommit-to-branch
+	uoutdetach = rev-range-outgoing upstream --one-more detachselected
 	uoutwipe = rev-range-outgoing upstream --one-more wipetoselected
 	; uoutbase would always print "upstream/<branch>".
 	uoutwhodid = files-command whodid uoutshowfiles
@@ -4856,6 +4881,7 @@
 	uinrbi = urbi
 	uinrbni = urbni
 	uinuncommit-to-branch = rev-range-incoming upstream --one-more -- selectedcommit-command --single-only --range-is-last uncommit-to-branch
+	uindetach = rev-range-incoming upstream --one-more detachselected
 	uinwipe = rev-range-incoming upstream --one-more wipetoselected
 	; uinbase would always print "upstream/<branch>".
 	uinwhodid = files-command whodid uinshowfiles

@@ -121,11 +121,11 @@
 	commitselected = selected-command commit	; Interactively select (from modified files or passed list of files) files (or directly pass N, M, ... selections) to commit by number.
 	cs = commitselected
 
-	c = wrapper commit
+	c = wrapper-nocolor commit
 	ca = commita
 	;; commita: Commit all new files.
-	cu = wrapper commit --all	; Commit all modified and deleted files, without new.
-	commitu = wrapper commit --all	; Commit all modified and deleted files, without new.
+	cu = wrapper-nocolor commit --all	; Commit all modified and deleted files, without new.
+	commitu = wrapper-nocolor commit --all	; Commit all modified and deleted files, without new.
 	;; cuu: Commit modified and deleted, and add new files, respecting the ignore patterns. Combination of git adduu && git commit.
 	;; testcommit: Do a test commit by appending MESSAGE to FILE and committing with MESSAGE(s).
 
@@ -243,11 +243,11 @@
 	commitrelatelast-i = stIfiles-command selectedcommit-command --accept-single --single-only commitrelate --max-count 1	; Commit with the same commit message as the last commit of currently modified but not staged files as the base for further editing, referencing prior commit (when it's too late to amend the existing commit).
 	commitrelate-i7 = commitrelate-i --max-count 7
 
-	amen = wrapper commit --amend --reuse-message=HEAD	; Amend to last commit without re-editing the message.
-	amenu = wrapper commit --all --amend --reuse-message=HEAD	; Amend all modified and deleted files to last commit without re-editing the message.
-	amend = wrapper commit --amend --reedit-message=HEAD	; Amend to last commit.
-	amendu = wrapper commit --all --amend --reedit-message=HEAD	; Amend all modified and deleted files to last commit.
-	amendonly = wrapper commit --amend --only	; Reword commit message / amend passed files to last commit, ignoring any already staged changes.
+	amen = wrapper-nocolor commit --amend --reuse-message=HEAD	; Amend to last commit without re-editing the message.
+	amenu = wrapper-nocolor commit --all --amend --reuse-message=HEAD	; Amend all modified and deleted files to last commit without re-editing the message.
+	amend = wrapper-nocolor commit --amend --reedit-message=HEAD	; Amend to last commit.
+	amendu = wrapper-nocolor commit --all --amend --reedit-message=HEAD	; Amend all modified and deleted files to last commit.
+	amendonly = wrapper-nocolor commit --amend --only	; Reword commit message / amend passed files to last commit, ignoring any already staged changes.
 	reword = amendonly
 	; amendlike: Amend the same files (inside <path>) as were modified in the last commit / N'th commit / passed <commit> to the last commit (ignoring any already staged changes).
 	amenlike = amendlike --reuse-message=HEAD
@@ -5826,11 +5826,11 @@
 	; merging
 	;; ismerge: Test whether the last commit / <commit> has been created by a merge.
 	;; checkout --ours:   (or git coo) will keep the original one we had (ORIG_HEAD) in case of merge conflict
-	mergeo = wrapper merge --strategy=recursive --strategy-option=ours	; merge that forces conflicting hunks to be auto-resolved cleanly by favoring our version. Changes from the other tree that do not conflict with our side are reflected in the merge result.
+	mergeo = wrapper-nocolor merge --strategy=recursive --strategy-option=ours	; merge that forces conflicting hunks to be auto-resolved cleanly by favoring our version. Changes from the other tree that do not conflict with our side are reflected in the merge result.
 	;; checkout --theirs: (or git cot) will keep the version merged in (MERGE_HEAD) in case of merge conflict
-	merget = wrapper merge --strategy=recursive --strategy-option=theirs	; merge that forces conflicting hunks to be auto-resolved cleanly by favoring the other tree's version. Changes from our side that do not conflict with the other tree are reflected in the merge result.
+	merget = wrapper-nocolor merge --strategy=recursive --strategy-option=theirs	; merge that forces conflicting hunks to be auto-resolved cleanly by favoring the other tree's version. Changes from our side that do not conflict with the other tree are reflected in the merge result.
 	;;; mergedryrun: Test whether a merge will do through or cause conflicts without actually doing the merge.
-	mergelb = wrapper merge @{-1}
+	mergelb = wrapper-nocolor merge @{-1}
 	mergedrlb = mergedryrun @{-1}
 	;; mergeto: Merge the current branch to <target-branch>.
 	;; mergelocalbr: Merge all / the last committed N local branches (except for the current branch and master (and base branch if defined)).
@@ -5844,10 +5844,10 @@
 	; after switching to a branch.
 	; The --ff is the default, but specify it in case it has been overridden by
 	; local config.
-	fast-forward = -c merge.defaultToUpstream=true wrapper merge --ff
-	ff = -c merge.defaultToUpstream=true wrapper merge --ff
+	fast-forward = -c merge.defaultToUpstream=true wrapper-nocolor merge --ff
+	ff = -c merge.defaultToUpstream=true wrapper-nocolor merge --ff
 	fflb = ff @{-1}
-	ffto = -c merge.defaultToUpstream=true wrapper mergeto --ff
+	ffto = -c merge.defaultToUpstream=true wrapper-nocolor mergeto --ff
 	fftom = master-command ffto
 	ffton = base-command ffto
 	;; mergesummary: Show enriched log (for passed remote) of the passed merge commit, including URLs to the merge commit, the merged changes, full commit message, and changed files.
@@ -5856,9 +5856,9 @@
 	;; unmerge: Undo the merge done in the last commit of the current branch, and checkout the original unmerged branch again.
 	;; mergeamend: Commit the staged changes to the (revived) branch that was merged into the last commit of the current branch, and merge it again.
 
-	noff = wrapper merge --no-ff
+	noff = wrapper-nocolor merge --no-ff
 	nofflb =noff @{-1}
-	noffto = wrapper mergeto --no-ff
+	noffto = wrapper-nocolor mergeto --no-ff
 	nofftom = master-command noffto
 	noffton = base-command noffto
 	;; reintegrate: Merge / rebase <branch> to the current branch, then delete it from the local repository as well as a tracked remote (if it exists there).
@@ -5949,7 +5949,7 @@
 	opicks = rev-remote-command origin cherrypicks -v --abbrev=7 ; See which changes from the current branch are already present in my GitHub clone.
 	;; ocreatelocalbr: Create (and track) local branches for all branches in origin (matching PATTERN).
 	oprune = rprune origin	; Remove old local branches that do not exist in origin any more.
-	ofetch = wrapper fetch origin ; Get changes done to my GitHub clone through another Git repository, e.g. from another system. Use this, followed by git owipe, when origin has been reset (e.g. to an updated upstream).
+	ofetch = wrapper-nocolor fetch origin ; Get changes done to my GitHub clone through another Git repository, e.g. from another system. Use this, followed by git owipe, when origin has been reset (e.g. to an updated upstream).
 	ofetchonly = fetchonly origin; Only fetch in my GitHub clone changes (no update of local branches) and show a log of the changes.
 	;; ofetchonly-hushed: Only fetch changes in my GitHub clone (no update of local branches) and show a log of the changes, suppressing standard fetch information and messages when there are no changes in origin. Useful when updating many repositories e.g. with git-wcdo.
 	opull = pull --ff-only origin ; Get and fast-forward changes done to my GitHub clone through another Git repository, e.g. from another system. This allows to either merge or rebase (recommended) when local commits have been done to an outdated local branch.
@@ -6237,7 +6237,7 @@
 	ucolatestc = rcolatestc upstream ; Checkout local branch from the upstream branch [matching pattern] that was created last (except the current branch and master (and base branch if defined)).
 	upicks = rev-remote-command upstream cherrypicks -v --abbrev=7 ; See which changes from the current branch are already present upstream.
 	uprune = rprune upstream	; Remove old local branches that do not exist in upstream any more.
-	ufetch = wrapper fetch upstream	; Get upstream changes.
+	ufetch = wrapper-nocolor fetch upstream	; Get upstream changes.
 	ufetchonly = fetchonly upstream; Only fetch upstream changes (no update of local branches) and show a log of the changes.
 	;; ufetchonly-hushed: Only fetch upstream changes (no update of local branches) and show a log of the changes, suppressing standard fetch information and messages when there are no changes in upstream. Useful when updating many repositories e.g. with git-wcdo.
 	;; upull: Get and fast-forward upstream changes. (With proper use of other branches for patches, there should not be a need to merge upstream.) Use for direct checkouts of upstream, without my own origin. Else, prefer ucatchup.

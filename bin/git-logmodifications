@@ -32,6 +32,7 @@ HELPDESCRIPTION
 HELPTEXT
 }
 
+printf -v quotedPager '%q ' "${PAGER:-less}" --RAW-CONTROL-CHARS; [ -t 1 ] || quotedPager=''
 action=log
 statusFilter=
 typeset -a logArgs=()
@@ -44,7 +45,7 @@ do
 	--no-renames|--renames|--find-renames|--find-renames=*|-M*|--find-copies|--find-copies=*|-C*|--find-copies-harder)
 			renameArgs+=("$1"); shift;;
 	--pretty=tformat:%H)
-			shift; action='';;  # Note: Strictly, we'd have to include the pager here, but the bare list of commit IDs is likely consumed by another script, anyway.
+			shift; action="$quotedPager";;
 	--pretty=*)	gitPrettyArg=("$1"); shift;;
 	--added|-a)	shift; statusFilter+='A';;
 	--modified|-m)	shift; statusFilter+='M';;

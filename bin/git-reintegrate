@@ -160,6 +160,10 @@ if [ -n "$HUB" ] && [ ! "$isRebase" ]; then
 fi
 
 
+confirmFastForward()
+{
+    userBinaryChoice --console --question "Your $path branch is not up-to-date with ${targetTrackedRemote}, but can be fast-forwarded. Fast-forward now?" --yes-no
+}
 canRebase()
 {
     for branch in "${branches[@]}"
@@ -218,7 +222,7 @@ targetTrackedRemote="${targetTracks%%/*}"
 if [ ! "$isContinue" ]; then
     if [ -n "$targetTracks" ] && ! git-equals HEAD "$targetTracks"; then
 	if git-ffdryrun "$targetTracks"; then
-	    if userBinaryChoice --console --question "Your $path branch is not up-to-date with ${targetTrackedRemote}, but can be fast-forwarded. Fast-forward now?" --yes-no; then
+	    if confirmFastForward; then
 		git-wrapper merge --ff-only "$targetTracks" || {
 		    status=$?
 		    echo >&2 'Fast-forwarding unexpectedly failed.'

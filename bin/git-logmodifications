@@ -33,6 +33,7 @@ HELPTEXT
 }
 
 printf -v quotedPager '%q ' "${PAGER:-less}" --RAW-CONTROL-CHARS; [ -t 1 ] || quotedPager=''
+filter=extractCommits
 action=log
 statusFilter=
 typeset -a logArgs=()
@@ -64,7 +65,7 @@ if [ -z "$statusFilter" ]; then
     exit 2
 fi >&2
 
-filter()
+extractCommits()
 {
     sed -n -e '/^[[:xdigit:]]\+$/h' -e "/^[${statusFilter}][0-9]*[[:space:]]\\+/{ g; /./p; s/.*//; h; }"
 }
@@ -75,4 +76,4 @@ log()
 }
 
 git log --pretty='format:%H' --name-status "${renameArgs[@]}" "${logArgs[@]}" "$@" | \
-    eval filter "${action:+|}$action"
+    eval "$filter" "${action:+|}$action"

@@ -9,7 +9,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--cached|--intermediate] [-s|--status] [<since>..<until>] [[--] <path>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--cached|--intermediate] [-s|--status] [-a|--added] [-m|--modified] [-d|--deleted] [<since>..<until>] [[--] <path>...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -38,8 +38,8 @@ HELPTEXT
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 range=
 isIncludeIntermediate=
-gitNameArg='--name-only'
-sorter='sort -u'
+isShowStatus=
+statusFilter=
 typeset -a allargs=()
 while [ $# -ne 0 ]
 do
@@ -47,7 +47,10 @@ do
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--cached)	range="$1"; shift;;
 	--intermediate)	shift; isIncludeIntermediate=t;;
-	--status|-s)	shift; gitNameArg='--name-status'; sorter='sort -k 2 -u';;
+	--status|-s)	shift; isShowStatus=t;;
+	--added|-a)	shift; statusFilter+='A';;
+	--modified|-m)	shift; statusFilter+='M';;
+	--deleted|-d)	shift; statusFilter+='D';;
 
 	# XXX: Semantics of r1..r2 and r1...r2 are swapped between rev-range and
 	# diff.
@@ -75,6 +78,22 @@ do
     esac
 done
 
+gitNameArg='--name-only'
+filter=
+sorter='sort -u'
+if [ "$isShowStatus" ]; then
+    gitNameArg='--name-status'
+    sorter='sort -k 2 -u'
+fi
+if [ -n "$statusFilter" ]; then
+    gitNameArg='--name-status'
+    if [ "$isShowStatus" ]; then
+	filter="sed -ne /^[${statusFilter}]/p"
+    else
+	filter="sed -ne s/^[${statusFilter}][[:space:]]\\\\+//p"
+    fi
+fi
+
 if [ "$isIncludeIntermediate" ]; then
     git log --pretty='format:' "$gitNameArg" "${allargs[@]}" "$@"
 elif [ -n "$range" ]; then
@@ -82,4 +101,4 @@ elif [ -n "$range" ]; then
     git diff "$gitNameArg" "${allargs[@]}" "$range" "$@"
 else
     git show --pretty='format:' "$gitNameArg" "${allargs[@]}" "$@"
-fi | eval "$sorter | sed -e '/^\$/d'" "${pager:+|}" '"${pager[@]}"'
+fi | eval "$filter ${filter:+|} $sorter | sed -e '/^\$/d'" "${pager:+|}" '"${pager[@]}"'

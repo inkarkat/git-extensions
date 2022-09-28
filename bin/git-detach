@@ -1,5 +1,7 @@
 #!/bin/bash
 
+: ${GIT_DETACH_COLOR_ADDEDUNTRACKED=[1m}
+: ${GIT_DETACH_COLOR_RESET=[0m}
 
 printUsage()
 {
@@ -12,15 +14,48 @@ HELPTEXT
     echo
     at <<HELPTEXT
 Detach HEAD at passed <commit>.
+    --added-to-untracked
+			Any files that have been added between the current HEAD
+			and <commit> will be kept as untracked files.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '<commit> [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-u|--added-to-untracked] <commit> [-?|-h|--help]'
 }
+
+isAddedToUntracked=
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
     --no-color|--color=*)
 			shift;;
     --color)		shift; shift;;
+    --added-to-untracked|-u)
+			shift; isAddedToUntracked=t;;
 esac
 
-exec git checkout --detach "$@"
+TMPFILE=
+typeset -a addedFiles=()
+if [ "$isAddedToUntracked" ] && [ $# -gt 0 ]; then
+    commit="${!#}"
+    # <commit> may be a predecessor or successor of HEAD: Try both ways; only
+    # one can yield results.
+    readarray -t addedFiles < <(git-showfiles --added "HEAD..${commit}")
+    [ ${#addedFiles[@]} -gt 0 ] || readarray -t addedFiles < <(git-showfiles --added "${commit}..HEAD")
+
+    if [ ${#addedFiles[@]} -gt 0 ]; then
+	TMPFILE="$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TEMP:-/tmp}/$(basename -- "$0").$$$RANDOM")"
+	cleanup()
+	{
+	    rm -f -- "$TMPFILE" 2>/dev/null
+	}
+	[ "${DEBUG:-}" ] || trap 'cleanup' EXIT
+
+	tar -c -f "$TMPFILE" -- "${addedFiles[@]}" || cleanup
+    fi
+fi
+
+git checkout --detach "$@" || exit $?
+
+if [ -n "$TMPFILE" ]; then
+    tar -x -f "$TMPFILE" && \
+	printf "${GIT_DETACH_COLOR_ADDEDUNTRACKED}??${GIT_DETACH_COLOR_RESET} %s\\n" "${addedFiles[@]}"
+fi

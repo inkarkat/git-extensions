@@ -1,4 +1,5 @@
 #!/bin/bash
+shopt -qs extglob
 
 printUsage()
 {
@@ -9,10 +10,11 @@ detached commit, and thus contains it, then falling back to branch(es) that are
 reachable from the detached commit.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [-y|--yes] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [-y|--yes] [-f|--force] [--gui|--terminal|--none] [-?|-h|--help]'
 }
 isQuiet=
 isYes=
+typeset -a wipeArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -22,6 +24,8 @@ do
 	--color)	shift; shift;;
 	--quiet|-q)	shift; isQuiet=t;;
 	--yes|-y)	shift; isYes=t;;
+	--@(force|f|gui|terminal|none))
+			wipeArgs+=("$1"); shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -64,4 +68,4 @@ if [ -z "$branchName" ]; then
     fi
 fi
 
-exec git checkout -B "${branchName:?}"
+exec git-wipe "${wipeArgs[@]}" "${branchName:?}"

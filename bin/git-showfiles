@@ -9,7 +9,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--cached|--intermediate] [-s|--status] [-a|--added] [-m|--modified] [-d|--deleted] [<since>..<until>] [[--] <path>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--cached|--intermediate] [-s|--status [--no-renames] [-M[<n>]|--find-renames[=<n>]] [-C[<n>]|--find-copies[=<n>]] [-a|--added] [-m|--modified] [-d|--deleted] [<since>..<until>] [[--] <path>...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -41,6 +41,7 @@ isIncludeIntermediate=
 isShowStatus=
 statusFilter=
 typeset -a allargs=()
+typeset -a renameArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -48,6 +49,8 @@ do
 	--cached)	range="$1"; shift;;
 	--intermediate)	shift; isIncludeIntermediate=t;;
 	--status|-s)	shift; isShowStatus=t;;
+	--find-renames|--find-renames=*|-M*|--find-copies|--find-copies=*|-C*)
+			renameArgs+=("$1"); shift;;
 	--added|-a)	shift; statusFilter+='A';;
 	--modified|-m)	shift; statusFilter+='M';;
 	--deleted|-d)	shift; statusFilter+='D';;
@@ -82,7 +85,7 @@ typeset -a gitArgs=('--name-only')
 filter=
 sorter='sort -u'
 if [ "$isShowStatus" ]; then
-    gitArgs=('--name-status')
+    gitArgs=('--name-status' "${renameArgs[@]}")
     sorter='sort -k 2 -u'
 fi
 if [ -n "$statusFilter" ]; then

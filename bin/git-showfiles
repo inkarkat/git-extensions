@@ -78,15 +78,15 @@ do
     esac
 done
 
-gitNameArg='--name-only'
+typeset -a gitArgs=('--name-only')
 filter=
 sorter='sort -u'
 if [ "$isShowStatus" ]; then
-    gitNameArg='--name-status'
+    gitArgs=('--name-status')
     sorter='sort -k 2 -u'
 fi
 if [ -n "$statusFilter" ]; then
-    gitNameArg='--name-status'
+    gitArgs=('--name-status')
     if [ "$isShowStatus" ]; then
 	filter="sed -ne /^[${statusFilter}]/p"
     else
@@ -95,10 +95,10 @@ if [ -n "$statusFilter" ]; then
 fi
 
 if [ "$isIncludeIntermediate" ]; then
-    git log --pretty='format:' "$gitNameArg" "${allargs[@]}" "$@"
+    git log --pretty='format:' "${gitArgs[@]}" "${allargs[@]}" "$@"
 elif [ -n "$range" ]; then
     # Source: http://stackoverflow.com/a/1552353/813602
-    git diff "$gitNameArg" "${allargs[@]}" "$range" "$@"
+    git diff "${gitArgs[@]}" "${allargs[@]}" "$range" "$@"
 else
-    git show --pretty='format:' "$gitNameArg" "${allargs[@]}" "$@"
+    git show --pretty='format:' "${gitArgs[@]}" "${allargs[@]}" "$@"
 fi | eval "$filter ${filter:+|} $sorter | sed -e '/^\$/d'" "${pager:+|}" '"${pager[@]}"'

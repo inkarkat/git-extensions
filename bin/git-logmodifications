@@ -39,6 +39,7 @@ statusFilter=
 typeset -a logArgs=()
 typeset -a renameArgs=()
 typeset -a gitPrettyArg=(--pretty=medium)
+typeset -a showArg=(--name-status)
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -50,6 +51,7 @@ do
 	--pretty=*)	gitPrettyArg=("$1"); shift;;
 	--name-status)	shift; filter=nameStatus; action="$quotedPager";;
 	--name-only)	shift; filter=nameOnly; action="$quotedPager";;
+	--patch|-p|-u)	shift; showArg=();;
 
 	--added|-a)	shift; statusFilter+='A';;
 	--modified|-m)	shift; statusFilter+='M';;
@@ -85,7 +87,7 @@ nameOnly()
 
 log()
 {
-	xargs --no-run-if-empty --delimiter '\n' git show --decorate --name-status "${gitPrettyArg[@]}"
+	xargs --no-run-if-empty --delimiter '\n' git show --decorate "${showArg[@]}" "${gitPrettyArg[@]}"
 }
 
 git log --pretty='format:%H' --name-status "${renameArgs[@]}" "${logArgs[@]}" "$@" | \

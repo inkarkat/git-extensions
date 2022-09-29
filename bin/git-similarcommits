@@ -1,0 +1,24 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Print the titles of commits in RANGE1 and RANGE2 that look similar (based on
+identical commit message titles).
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'RANGE1 RANGE2 [--] [<path> ...] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+if [ $# -lt 2 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+range1="$1"; shift
+range2="$1"; shift
+
+comm -12 \
+    <(git l "$range1" "$@" | sort --unique) \
+    <(git l "$range2" "$@" | sort --unique)

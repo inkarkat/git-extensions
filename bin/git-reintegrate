@@ -277,7 +277,12 @@ if [ ! "$isContinue" ]; then
 	    commitNum=$(git log --pretty=tformat:%H "HEAD..${branches[-1]}" | wc -l)
 	    commitNumPlural=s; [ $commitNum -eq 1 ] && commitNumPlural=
 	    branchNum=${#branches[@]}; [ $branchNum -eq 1 ] && branchNum=
-	    userBinaryChoice --console --question "The $commitNum commit$commitNumPlural on the ${branchNum}${branchNum:+ }branch$branchesPlural can be fast-forwarded instead of merged. Fast-forward?" --yes-no && fastForwardArgs=(--ff-only)
+	    if similarCommitNum=$(git-similarcommits "HEAD..${branches[-1]}" "${targetTracks}..HEAD" | wc -l) && [ $similarCommitNum -gt 0 ]; then
+		question="The $commitNum commit$commitNumPlural on the ${branchNum}${branchNum:+ }branch$branchesPlural could be fast-forwarded, but $((100 * similarCommitNum / commitNum))% of commits look similar. If you're redoing a previously merged (and pushed) branch, please decline."
+	    else
+		question="The $commitNum commit$commitNumPlural on the ${branchNum}${branchNum:+ }branch$branchesPlural can be fast-forwarded instead of merged."
+	    fi
+	    userBinaryChoice --console --question "$question Fast-forward? " --yes-no && fastForwardArgs=(--ff-only)
 	elif canRebase; then
 	    hubNote=; if [ "$HUB" ] && [ -n "$pullRequestTitles" ]; then
 		hubNote='Note: GitHub cannot detect the rebase and will say that the PR has been closed. If you need proper indication, please quit now and directly rebase in GitHub itself instead.'

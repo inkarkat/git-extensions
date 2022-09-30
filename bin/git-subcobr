@@ -2,6 +2,11 @@
 set -o pipefail
 shopt -qs extglob
 
+: ${GIT_SUBCOBR_COLOR_ACTION=[1m}
+: ${GIT_SUBCOBR_COLOR_SKIP=[0m}
+: ${GIT_SUBCOBR_COLOR_ERROR=[31m}
+: ${GIT_SUBCOBR_COLOR_RESET=[0m}
+
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
@@ -62,6 +67,7 @@ HELPTEXT
 
 typeset -a recursiveArgs=()
 action=
+isForcedColor=
 isDirty=
 isUntracked=
 isRecursive=
@@ -76,9 +82,24 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
-	--no-color|--color=*)
-			shift;;
-	--color)	shift; shift;;
+
+	--no-color|--color=never)
+			unset "${!GIT_SUBCOBR_COLOR_@}"; shift;;
+	--color=always)	isForcedColor=t; shift;;
+	--color=auto)	shift;;
+	--color)	case "$2" in
+			    always) isForcedColor=t;;
+			    never)  unset "${!GIT_SUBCOBR_COLOR_@}";;
+			    auto)   ;;
+			    *)	    echo >&2 "ERROR: Invalid --color arg: $2"
+				    echo >&2
+				    printUsage "$0" >&2
+				    exit 2
+				    ;;
+			esac
+			shift; shift
+			;;
+
 	--@(status|query|all))
 			recursiveArgs+=("$1"); action="${1#--}"; shift;;
 	--recursive)	recursiveArgs+=("$1"); shift; isRecursive=t;;
@@ -102,6 +123,8 @@ do
 	*)		break;;
     esac
 done
+[ "$isForcedColor" ] || [ -t 1 ] || unset "${!GIT_SUBCOBR_COLOR_@}"
+
 typeset -A selectedSubmodules=()
 if [ "$isDirty" ]; then
     selectedSubmodules[$'dirty\ndummy']=t   # Add a dummy entry to prevent the entire submodule list from being iterated if there are no dirty submodules.
@@ -128,14 +151,17 @@ done
 
 printPrefixed()
 {
+    local color="${1?}"; shift
     local prefix; printf -v prefix "%-${submoduleWidth}s" "${prefix}${submodule}"
     local message; printf -v message "$@"
+
     if [ -n "$COLUMNS" ] && type -t prefix >/dev/null && type -t fmt >/dev/null; then
-	printf '%s\n' "$message" | \
+	local formattedMessage="$(printf '%s\n' "$message" | \
 	    fmt --width $((COLUMNS - submoduleWidth)) | \
-	    prefix --first-then-indent "$prefix"
+	    prefix --first-then-indent "$prefix")"
+	printf '%s%s%s\n' "$color" "$formattedMessage" "${color:+$GIT_SUBCOBR_COLOR_RESET}"
     else
-	printf '%s%s\n' "$prefix" "$message"
+	printf '%s%s%s%s\n' "$color" "$prefix" "$message" "${color:+$GIT_SUBCOBR_COLOR_RESET}"
     fi
 }
 
@@ -195,16 +221,16 @@ getSubmoduleStatus()
 	esac
 	currentBranchName="$(git-brname --real-branch-only 2>/dev/null)"
 	if [ "$currentBranchName" = "${submoduleBranches["$submodule"]}" ]; then
-	    printPrefixed "Already on %s%s" "$currentBranchName" "$actionHint"
+	    printPrefixed "$GIT_SUBCOBR_COLOR_SKIP" "Already on %s%s" "$currentBranchName" "$actionHint"
 	elif [ -n "$currentBranchName" ]; then
-	    printPrefixed "On %s; would %s %s%s" "$currentBranchName" "$toBranchAction" "${submoduleBranches["$submodule"]}" "$actionHint"
+	    printPrefixed "$GIT_SUBCOBR_COLOR_ACTION" "On %s; would %s %s%s" "$currentBranchName" "$toBranchAction" "${submoduleBranches["$submodule"]}" "$actionHint"
 	else
 	    currentRev="$(git rev-parse --short HEAD)" || exit $?
 	    currentRevDescription="$(git-desc HEAD)"
 	    if [ "$subhash" = "$currentRev" ]; then
-		printPrefixed "Detached %s (%s); would %s %s%s" "$currentRevDescription" "$currentRev" "$toBranchAction" "${submoduleBranches["$submodule"]}" "$actionHint"
+		printPrefixed "$GIT_SUBCOBR_COLOR_ACTION" "Detached %s (%s); would %s %s%s" "$currentRevDescription" "$currentRev" "$toBranchAction" "${submoduleBranches["$submodule"]}" "$actionHint"
 	    else
-		printPrefixed "Detached %s (%s), modified from %s (%s); would %s %s%s" "$currentRevDescription" "$currentRev" "$(git-desc "$subhash")" "$subhash" "$toBranchAction" "${submoduleBranches["$submodule"]}" "$actionHint"
+		printPrefixed "$GIT_SUBCOBR_COLOR_ACTION" "Detached %s (%s), modified from %s (%s); would %s %s%s" "$currentRevDescription" "$currentRev" "$(git-desc "$subhash")" "$subhash" "$toBranchAction" "${submoduleBranches["$submodule"]}" "$actionHint"
 	    fi
 	fi
     )
@@ -213,13 +239,13 @@ getSubmoduleStatus()
 isSkipped()
 {
     if [ "$checkoutAction" = checkoutStartPoint ] && ! git rev-parse --verify --quiet "${startPoint:?}" >/dev/null 2>&1; then
-	printPrefixed "Skipping; start point %s does not exist" "$startPoint"
+	printPrefixed "$GIT_SUBCOBR_COLOR_SKIP" "Skipping; start point %s does not exist" "$startPoint"
 	return 0
     elif [ "$checkoutAction" = checkoutExistingLocal ] && [ ! "$hasLocalBranch" ]; then
-	printPrefixed "Skipping; no local branch %s exists" "${submoduleBranches["$submodule"]}"
+	printPrefixed "$GIT_SUBCOBR_COLOR_SKIP" "Skipping; no local branch %s exists" "${submoduleBranches["$submodule"]}"
 	return 0
     elif [ "$checkoutAction" = checkoutExistingRemote ] && [ ! "$hasRemoteBranch" ]; then
-	printPrefixed "Skipping; no remote branch for %s exists" "${submoduleBranches["$submodule"]}"
+	printPrefixed "$GIT_SUBCOBR_COLOR_SKIP" "Skipping; no remote branch for %s exists" "${submoduleBranches["$submodule"]}"
 	return 0
     fi
     return 1
@@ -333,7 +359,7 @@ do
     case "$action" in
 	status)
 	    if [ "${uninitializedSubmodules["$submodule"]}" ]; then
-		printPrefixed "hasn't been initialized yet"
+		printPrefixed "$GIT_SUBCOBR_COLOR_ERROR" "hasn't been initialized yet"
 		status=1
 		continue
 	    fi

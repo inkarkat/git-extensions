@@ -117,6 +117,7 @@ isNeedEval=
 typeset -a commands=()
 isHeader=; type -t withHeader >/dev/null && isHeader=t
 progressSink=
+isInteractive=
 errorRedir='2>&1'
 isGitColor=t
 typeset -a colorArg=()
@@ -135,7 +136,7 @@ do
 	--no-pager)		shift; pager=();;
 	--no-header)		shift; isHeader=;;
 	--progress)		shift; progressSink="$1"; shift;;
-	--interactive|-i)	shift; pager=(); isHeader=; progressSink='addendum';;
+	--interactive|-i)	shift; isInteractive=t; pager=(); isHeader=; progressSink='addendum';;
 	--separate-errors)	shift; errorRedir='';;
 	--no-git-color)		shift; isGitColor=;;
 	--no-color|--color=*)	colorArg=("$1"); shift;;
@@ -295,12 +296,14 @@ subdo()
 	    status=1; continue
 	fi
 
+	reportProgress "${displaypath:?}"
+	[ ! "$isInteractive" ] || header "${colorArg[@]}" --id "$GIT_SUBDO_HEADER_ID" -- "${displaypath:?}"
+
 	if [ "$isNeedEval" ]; then
 	    typeset -a c=("${commands[@]}")
 	else
 	    typeset -a c=('"${commands[@]}"')
 	fi
-	reportProgress "${displaypath:?}"
 	(eval "${isHeader:+{}" ${predicateOutput:+printf %s\\\\n \"\$predicateOutput\"; }"${c[@]}" "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_SUBDO_HEADER_ID' -- '${displaypath:?}'}")
 	local newStatus=$?
 

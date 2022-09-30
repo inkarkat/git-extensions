@@ -94,6 +94,7 @@ isSingleSuccess=
 isStatus99Noop=
 isHeader=; type -t withHeader >/dev/null && isHeader=t
 progressSink=
+isInteractive=
 errorRedir='2>&1'
 isGitColor=t
 typeset -a colorArg=()
@@ -115,7 +116,7 @@ do
 	--no-pager)	    shift; pager=();;
 	--no-header)	    shift; isHeader=;;
 	--progress)	    shift; progressSink="$1"; shift;;
-	--interactive|-i)   shift; pager=(); isHeader=; progressSink='addendum';;
+	--interactive|-i)   shift; isInteractive=t; pager=(); isHeader=; progressSink='addendum';;
 	--separate-errors)  shift; errorRedir='';;
 	--no-git-color)	    shift; isGitColor=;;
 	--no-color|--color=*)	colorArg=("$1"); shift;;
@@ -235,13 +236,15 @@ brrefdo()
 	    [ $? $predicateComparison 0 ] || continue
 	fi
 
+	reportProgress "$branch"
+	[ ! "$isInteractive" ] || header "${colorArg[@]}" --id "$GIT_BRREFDO_HEADER_ID" -- "$branch"
+
 	typeset -a interpolatedCommands=("${commands[@]//\{\}/$branch}")
 	if [ "$isNeedEval" ]; then
 	    typeset -a c=("${interpolatedCommands[@]}")
 	else
 	    typeset -a c=('"${interpolatedCommands[@]}"')
 	fi
-	reportProgress "$branch"
 	(eval "${isHeader:+{}" "${c[@]}" "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_BRREFDO_HEADER_ID' -- '$branch'}")
 	local newStatus=$?
 

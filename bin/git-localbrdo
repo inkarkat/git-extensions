@@ -111,6 +111,7 @@ abortComparison=-eq
 interruptStatus=
 interruptComparison=-eq
 progressSink=
+isInteractive=
 isSingleSuccess=
 isStatus99Noop=
 isQuiet=
@@ -143,7 +144,7 @@ do
 	--no-pager)	    shift; pager=();;
 	--no-header)	    shift; isHeader=;;
 	--progress)	    shift; progressSink="$1"; shift;;
-	--interactive|-i)   shift; pager=(); isHeader=; progressSink='addendum';;
+	--interactive|-i)   shift; isInteractive=t; pager=(); isHeader=; progressSink='addendum';;
 	--separate-errors)  shift; errorRedir='';;
 	--no-git-color)	    shift; isGitColor=;;
 	--no-color|--color=*)	colorArg=("$1"); shift;;
@@ -251,7 +252,7 @@ persistContext()
 
     typeset -p localBranches originalCommands originalIsNeedEval originalBranch \
 	pager abortStatus abortComparison interruptStatus interruptComparison progressSink \
-	isSingleSuccess isStatus99Noop isQuiet isHeader errorRedir \
+	isInteractive isSingleSuccess isStatus99Noop isQuiet isHeader errorRedir \
 	colorArg isStashed gitCheckoutArgs \
 	GIT_LOCALBRDO_HEADER_ID \
 	| sed -e 's#^declare #&-g #' > "${usedContextStore:?}"	# The sourcing is done inside a function, so "declare -g" must be used to define the variables with global scope.
@@ -375,12 +376,15 @@ localbrdo()
 	localBranches=("${localBranches[@]:1}")
 
 	git checkout --quiet "${gitCheckoutArgs[@]}" "${branch}" || exit $?	# Suppress Git's checkout information with --quiet. We're probably not interested in stuff like "Your branch is up-to-date with ...", and we emulate the switch message itself:
+
+	reportProgress "$branch"
+	[ ! "$isInteractive" ] || header "${colorArg[@]}" --id "$GIT_LOCALBRDO_HEADER_ID" -- "$branch"
+
 	if [ "$isNeedEval" ]; then
 	    typeset -a c=("${commands[@]}")
 	else
 	    typeset -a c=('"${commands[@]}"')
 	fi
-	reportProgress "$branch"
 	if (eval "${isHeader:+{}" "${c[@]}" "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_LOCALBRDO_HEADER_ID' -- '$branch'}"); then
 	    local newStatus=0
 	    dirtyCheck

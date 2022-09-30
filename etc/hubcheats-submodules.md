@@ -44,6 +44,8 @@ reviewed separately.
 
 ## integrate submodule changes first
 superproject: `$ git ofetch`
+Check for other open reintegrations (i.e. submodule commits on main not yet
+referenced in the superproject): `$ git osuperhaspendingsubintegrations`
 superproject: `$ hub subsamebrdo --interactive reintegratetom`
 (if you want to do this submodule by submodule: `$ hub reintegratetom`)
 Note: When doing a bulk change, default check commands (that would run for each
@@ -52,6 +54,9 @@ submodule) can be skipped via `reintegrate* --no-checks`
 0) submodule branch(es) have been fast-forwarded: no changes, no action here
 a) amends to short-lived feature: `$ git amenu && git opush -f`
 b) maintain history of how the feature grew: `$ git cu -m 'feat-4711 has been reintegrated [into submodule(s)]' && git opush`
+Note: If other changes have been reintegrated between branching off and now,
+these now show up in the diffs as well. This is okay; we're already checked
+that there were no open reintegrations that we'd take with us.
 ## Transactional only local merges, then remote updates in bulk at the end:
 ### Prepare transaction:
 `$ git subsamebrdo --interactive reintegratetom --no-checks --no-delete`

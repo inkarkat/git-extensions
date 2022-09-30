@@ -47,14 +47,21 @@ superproject: `$ git ofetch`
 superproject: `$ hub subsamebrdo --interactive reintegratetom`
 (if you want to do this submodule by submodule: `$ hub reintegratetom`)
 Note: When doing a bulk change, default check commands (that would run for each
-submodule) can be skipped via `reintegrate --no-checks`
-To do the remote updates in bulk:
-`$ git subsamebrdo --no-git-color --interactive reintegratetom --no-delete`
-`$ hub subsamebrdo --no-git-color --interactive reintegratetom --continue`
+submodule) can be skipped via `reintegrate* --no-checks`
 ## then update integration build after submodules have been reintegrated
 0) submodule branch(es) have been fast-forwarded: no changes, no action here
 a) amends to short-lived feature: `$ git amenu && git opush -f`
 b) maintain history of how the feature grew: `$ git cu -m 'feat-4711 has been reintegrated [into submodule(s)]' && git opush`
+## Transactional only local merges, then remote updates in bulk at the end:
+### Prepare transaction:
+`$ git subsamebrdo --interactive reintegratetom --no-checks --no-delete`
+`$ git amenu` (or `$ git cu`)
+`$ git reintegratetom --no-delete`
+### Commit transaction:
+`$ git showsubmodules | hub subdo --for - --interactive reintegratetom --continue`
+`$ hub reintegratetom --continue`
+Note: There's no real transactional handling across repos; reintegration may
+fail at any point. This just limits the critical time period.
 
 ## peer review of integration (optional)
 `$ gh pr ready`

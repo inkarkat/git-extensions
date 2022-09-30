@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header] [-p|--super-base SUPER-COMMIT] [-r|--remote SUB-REMOTE] [-b|--submodule-base SUB-BRANCH] [--stat|--ahead-behind [--indicator-only]|--files|--submodules] [--] [SUBMODULE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header] [-p|--super-base SUPER-COMMIT] [-r|--remote SUB-REMOTE] [-b|--submodule-base SUB-BRANCH] [--stat|--ahead-behind [--indicator-only]|--files|--submodules] [--] [-|SUBMODULE ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -56,6 +56,7 @@ typeset -a superBase=()
 submoduleRemote=
 submoduleBase=
 typeset -a inoutArgs=()
+unset submodules
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -75,13 +76,14 @@ do
 	--stat|--ahead-behind|--indicator-only|--files|--submodules)
 			inoutArgs+=("$1"); shift;;
 	--)		shift; break;;
+	-)		shift; readarray -t submodules;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
     esac
 done
 if [ $# -gt 0 ]; then
-    typeset -a submodules=("$@")
-else
+    submodules+=("$@")
+elif [ -z "${submodules+t}" ]; then
     readarray -t submodules < <(git sublist)    # XXX: There's currently no way to obtain the submodules for a past <ref>; fortunately, the submodule configuration likely is quite stable.
 fi
 

@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header] [-p|--super-base SUPER-COMMIT] [-b|--submodule-base SUB-BRANCH] [--stat|--ahead-behind [--indicator-only]|--files|--submodules] [--] [SUBMODULE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header] [-p|--super-base SUPER-COMMIT] [-r|--remote SUB-REMOTE] [-b|--submodule-base SUB-BRANCH] [--stat|--ahead-behind [--indicator-only]|--files|--submodules] [--] [SUBMODULE ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -37,6 +37,9 @@ HELPDESCRIPTION
     --submodule-base|-b SUB-BRANCH
 			Compare the recorded submodule reference with SUB-BRANCH
 			in each submodule (default: master).
+    --remote|-r SUB-REMOTE
+			Compare with SUB-BRANCH in SUB-REMOTE. Same as
+			--submodule-base SUB-REMOTE/SUB-BRANCH.
     --stat|--ahead-behind [--indicator-only]|--files|--submodules
 			Arguments around git-inout output.
 HELPTEXT
@@ -50,12 +53,13 @@ if [ ! -t 1 ]; then
 fi
 isHeader=; type -t withHeader >/dev/null && isHeader=t
 typeset -a superBase=()
+submoduleRemote=
 submoduleBase=
 typeset -a inoutArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--no-pager)	shift; pager=();;
 	--no-header)	shift; isHeader=;;
 	--color=auto)	shift;;
@@ -67,6 +71,7 @@ do
 			shift; superBase=("${1:?}"); shift;;
 	--submodule-base|-b)
 			shift; submoduleBase="$1"; shift;;
+	--remote|-r)	shift; submoduleRemote="$1"; shift;;
 	--stat|--ahead-behind|--indicator-only|--files|--submodules)
 			inoutArgs+=("$1"); shift;;
 	--)		shift; break;;
@@ -97,7 +102,7 @@ superSubInOut()
 	local thisSubmoduleBase="$submoduleBase"
 	[ -n "$thisSubmoduleBase" ] || thisSubmoduleBase="$(git-mbr)"
 
-	eval 'git-inout "${colorArg[@]}" "${inoutArgs[@]}" --base "$base" "$thisSubmoduleBase"' "${isHeader:+| withHeader "${colorArg[@]}" --id "supersubinout-$$-$RANDOM" -- '$submodule'}"
+	eval 'git-inout "${colorArg[@]}" "${inoutArgs[@]}" --base "$base" "${submoduleRemote}${submoduleRemote:+/}${thisSubmoduleBase}"' "${isHeader:+| withHeader "${colorArg[@]}" --id "supersubinout-$$-$RANDOM" -- '$submodule'}"
     ) && status=0 || : ${status:=$?}
     done
     return ${status:-99}

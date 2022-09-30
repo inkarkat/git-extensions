@@ -1,0 +1,76 @@
+#!/bin/bash
+set -o pipefail
+
+printUsage()
+{
+    cat <<HELPTEXT
+Show incoming and outgoing commit logs between the commit recorded in the
+superproject [in <super-commit>] for each submodule and that submodule's master
+branch [or <sub-branch>].
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header] [-p|--super-base <super-commit>] [-b|--submodule-base <sub-branch>] [--stat|--ahead-behind [--indicator-only]|--files|--submodules] [--] [SUBMODULE ...] [-?|-h|--help]'
+}
+
+typeset -a colorArg=(--color=always)
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+if [ ! -t 1 ]; then
+    colorArg=()
+    pager=()
+fi
+isHeader=; type -t withHeader >/dev/null && isHeader=t
+typeset -a superBase=()
+submoduleBase=
+typeset -a inoutArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-pager)	shift; pager=();;
+	--no-header)	shift; isHeader=;;
+	--color=auto)	shift;;
+	--no-color|--color=*)
+			colorArg=("$1"); shift;;
+	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); shift; shift;;
+
+	--super-base|-p)
+			shift; superBase=("${1:?}"); shift;;
+	--submodule-base|-b)
+			shift; submoduleBase="$1"; shift;;
+	--stat|--ahead-behind|--indicator-only|--files|--submodules)
+			inoutArgs+=("$1"); shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if [ $# -gt 0 ]; then
+    typeset -a submodules=("$@")
+else
+    readarray -t submodules < <(git sublist)    # XXX: There's currently no way to obtain the submodules for a past <ref>; fortunately, the submodule configuration likely is quite stable.
+fi
+
+status=
+superSubInOut()
+{
+    for submodule in "${submodules[@]}"
+    do
+    (
+	set -o pipefail
+	local base; base="$(git-subhash "${superBase[@]}" "$submodule")" || exit 3
+
+	if ! cd "${submodule:?}" 2>/dev/null; then
+	    printf >&2 'ERROR: Cannot chdir to %s!\n' "$submodule"
+	    exit 3
+	fi
+
+	local thisSubmoduleBase="$submoduleBase"
+	[ -n "$thisSubmoduleBase" ] || thisSubmoduleBase="$(git-mbr)"
+
+	eval 'git-inout "${colorArg[@]}" "${inoutArgs[@]}" --base "$base" "$thisSubmoduleBase"' "${isHeader:+| withHeader "${colorArg[@]}" --id "supersubinout-$$-$RANDOM" -- '$submodule'}"
+    ) && status=0 || : ${status:=$?}
+    done
+    return ${status:-99}
+}
+
+eval 'superSubInOut "$@"' "${pager:+|}" '"${pager[@]}"'

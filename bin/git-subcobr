@@ -126,6 +126,13 @@ do
 done
 : ${action:=status}
 
+printPrefixed()
+{
+    local prefix; printf -v prefix "%-${submoduleWidth}s" "${prefix}${submodule}"
+    local message; printf -v message "$@"
+    printf '%s%s\n' "$prefix" "$message"
+}
+
 getSubmoduleStatus()
 {
     local submodule="${1:?}"; shift
@@ -182,16 +189,16 @@ getSubmoduleStatus()
 	esac
 	currentBranchName="$(git-brname --real-branch-only 2>/dev/null)"
 	if [ "$currentBranchName" = "${submoduleBranches["$submodule"]}" ]; then
-	    printf "%-${submoduleWidth}s Already on %s%s\\n" "${prefix}${submodule}" "$currentBranchName" "$actionHint"
+	    printPrefixed "Already on %s%s" "$currentBranchName" "$actionHint"
 	elif [ -n "$currentBranchName" ]; then
-	    printf "%-${submoduleWidth}s On %s; would %s %s%s\\n" "${prefix}${submodule}" "$currentBranchName" "$toBranchAction" "${submoduleBranches["$submodule"]}" "$actionHint"
+	    printPrefixed "On %s; would %s %s%s" "$currentBranchName" "$toBranchAction" "${submoduleBranches["$submodule"]}" "$actionHint"
 	else
 	    currentRev="$(git rev-parse --short HEAD)" || exit $?
 	    currentRevDescription="$(git-desc HEAD)"
 	    if [ "$subhash" = "$currentRev" ]; then
-		printf "%-${submoduleWidth}s Detached %s (%s); would %s %s%s\\n" "${prefix}${submodule}" "$currentRevDescription" "$currentRev" "$toBranchAction" "${submoduleBranches["$submodule"]}" "$actionHint"
+		printPrefixed "Detached %s (%s); would %s %s%s" "$currentRevDescription" "$currentRev" "$toBranchAction" "${submoduleBranches["$submodule"]}" "$actionHint"
 	    else
-		printf "%-${submoduleWidth}s Detached %s (%s), modified from %s (%s); would %s %s%s\\n" "${prefix}${submodule}" "$currentRevDescription" "$currentRev" "$(git-desc "$subhash")" "$subhash" "$toBranchAction" "${submoduleBranches["$submodule"]}" "$actionHint"
+		printPrefixed "Detached %s (%s), modified from %s (%s); would %s %s%s" "$currentRevDescription" "$currentRev" "$(git-desc "$subhash")" "$subhash" "$toBranchAction" "${submoduleBranches["$submodule"]}" "$actionHint"
 	    fi
 	fi
     )
@@ -200,13 +207,13 @@ getSubmoduleStatus()
 isSkipped()
 {
     if [ "$checkoutAction" = checkoutStartPoint ] && ! git rev-parse --verify --quiet "${startPoint:?}" >/dev/null 2>&1; then
-	printf "%-${submoduleWidth}s Skipping; start point %s does not exist\\n" "${prefix}${submodule}" "$startPoint"
+	printPrefixed "Skipping; start point %s does not exist" "$startPoint"
 	return 0
     elif [ "$checkoutAction" = checkoutExistingLocal ] && [ ! "$hasLocalBranch" ]; then
-	printf "%-${submoduleWidth}s Skipping; no local branch %s exists\\n" "${prefix}${submodule}" "${submoduleBranches["$submodule"]}"
+	printPrefixed "Skipping; no local branch %s exists" "${submoduleBranches["$submodule"]}"
 	return 0
     elif [ "$checkoutAction" = checkoutExistingRemote ] && [ ! "$hasRemoteBranch" ]; then
-	printf "%-${submoduleWidth}s Skipping; no remote branch for %s exists\\n" "${prefix}${submodule}" "${submoduleBranches["$submodule"]}"
+	printPrefixed "Skipping; no remote branch for %s exists" "${submoduleBranches["$submodule"]}"
 	return 0
     fi
     return 1
@@ -320,7 +327,7 @@ do
     case "$action" in
 	status)
 	    if [ "${uninitializedSubmodules["$submodule"]}" ]; then
-		printf "%-${submoduleWidth}s hasn't been initialized yet\\n" "${prefix}${submodule}"
+		printPrefixed "hasn't been initialized yet"
 		status=1
 		continue
 	    fi

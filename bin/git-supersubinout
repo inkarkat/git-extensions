@@ -1,15 +1,45 @@
 #!/bin/bash
 set -o pipefail
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header] [-p|--super-base SUPER-COMMIT] [-b|--submodule-base SUB-BRANCH] [--stat|--ahead-behind [--indicator-only]|--files|--submodules] [--] [SUBMODULE ...] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 Show incoming and outgoing commit logs between the commit recorded in the
-superproject [in <super-commit>] for each submodule and that submodule's master
-branch [or <sub-branch>].
-HELPTEXT
+superproject [in SUPER-COMMIT] for each submodule and that submodule's master
+branch [or SUB-BRANCH].
+HELPDESCRIPTION
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header] [-p|--super-base <super-commit>] [-b|--submodule-base <sub-branch>] [--stat|--ahead-behind [--indicator-only]|--files|--submodules] [--] [SUBMODULE ...] [-?|-h|--help]'
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --no-pager		Do not page the output (so contents will scroll out of
+			view if there's too much output).
+    --no-header		Do not output the header line before each commit log
+			(and no separating empty line after it).
+    --super-base|-p SUPER-COMMIT
+			Use submodules as recorded in SUPER-COMMIT (instead of
+			what is currently checked out).
+    --submodule-base|-b SUB-BRANCH
+			Compare the recorded submodule reference with SUB-BRANCH
+			in each submodule (default: master).
+    --stat|--ahead-behind [--indicator-only]|--files|--submodules
+			Arguments around git-inout output.
+HELPTEXT
 }
 
 typeset -a colorArg=(--color=always)

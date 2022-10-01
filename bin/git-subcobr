@@ -3,7 +3,7 @@ set -o pipefail
 shopt -qs extglob
 
 : ${GIT_SUBCOBR_COLOR_ACTION=[1m}
-: ${GIT_SUBCOBR_COLOR_SKIP=[0m}
+: ${GIT_SUBCOBR_COLOR_SKIP=[9m}
 : ${GIT_SUBCOBR_COLOR_ERROR=[31m}
 : ${GIT_SUBCOBR_COLOR_RESET=[0m}
 
@@ -239,13 +239,13 @@ getSubmoduleStatus()
 isSkipped()
 {
     if [ "$checkoutAction" = checkoutStartPoint ] && ! git rev-parse --verify --quiet "${startPoint:?}" >/dev/null 2>&1; then
-	printPrefixed "$GIT_SUBCOBR_COLOR_SKIP" "Skipping; start point %s does not exist" "$startPoint"
+	printPrefixed "$GIT_SUBCOBR_COLOR_SKIP" "Skipping; no start point %s" "$startPoint"
 	return 0
     elif [ "$checkoutAction" = checkoutExistingLocal ] && [ ! "$hasLocalBranch" ]; then
-	printPrefixed "$GIT_SUBCOBR_COLOR_SKIP" "Skipping; no local branch %s exists" "${submoduleBranches["$submodule"]}"
+	printPrefixed "$GIT_SUBCOBR_COLOR_SKIP" "Skipping; no local branch %s" "${submoduleBranches["$submodule"]}"
 	return 0
     elif [ "$checkoutAction" = checkoutExistingRemote ] && [ ! "$hasRemoteBranch" ]; then
-	printPrefixed "$GIT_SUBCOBR_COLOR_SKIP" "Skipping; no remote branch for %s exists" "${submoduleBranches["$submodule"]}"
+	printPrefixed "$GIT_SUBCOBR_COLOR_SKIP" "Skipping; no remote branch for %s" "${submoduleBranches["$submodule"]}"
 	return 0
     fi
     return 1
@@ -273,7 +273,7 @@ checkoutStartPoint()
     if git rev-parse --verify --quiet "${startPoint:?}" 2>/dev/null; then
 	git checkout $forceArg --track -B "$branch" "$startPoint"
     else
-	printf >&2 '%s: skipping because the start point %s does not exist\n' "${prefix}${submodule}" "$startPoint"
+	printf >&2 '%sSkipping; no start point %s%s\n' "$GIT_SUBCOBR_COLOR_SKIP" "$startPoint" "$GIT_SUBCOBR_COLOR_RESET"
     fi
 }
 
@@ -283,7 +283,7 @@ checkoutExistingLocal()
     if git-existsbr "$branch"; then
 	git checkout $forceArg "$branch"
     else
-	printf >&2 '%s: skipping because no local branch %s exists\n' "${prefix}${submodule}" "$branch"
+	printf >&2 '%sSkipping; no local branch %s%s\n' "$GIT_SUBCOBR_COLOR_SKIP" "$branch" "$GIT_SUBCOBR_COLOR_RESET"
     fi
 }
 
@@ -294,7 +294,7 @@ checkoutExistingRemote()
     if git-existsbr "$remoteBranch"; then
 	git checkout $forceArg --track -B "$branch" "$remoteBranch"
     else
-	printf >&2 '%s: skipping because no remote branch %s exists\n' "${prefix}${submodule}" "$remoteBranch"
+	printf >&2 '%sSkipping; no remote branch %s%s' "$GIT_SUBCOBR_COLOR_SKIP" "$remoteBranch" "$GIT_SUBCOBR_COLOR_RESET"
     fi
 }
 

@@ -8,20 +8,20 @@ Obtain the last checked-in revision of FILE(s) (just before it got deleted or
 renamed) from the log and restore it as an untracked file.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-n|--dry-run] [-M<n>|--find-renames[=<n>]] [--] [./]FILESPEC|FILENAME [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-n|--dry-run] [--no-renames|-M<n>|--find-renames[=<n>]] [--] [./]FILESPEC|FILENAME [...] [-?|-h|--help]'
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-n|--dry-run] [<log-options>] [<revision-range>] [[--] <path> ...] -- [./]FILESPEC|FILENAME [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[...] [<log-options>] [<revision-range>] [[--] <path> ...] -- [./]FILESPEC|FILENAME [...] [-?|-h|--help]'
     echo
     cat <<HELPTEXT
 Obtain the last checked-in revision of files that got deleted or renamed within
 <revision-range> and restore them as an untracked files.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '--all [-n|--dry-run] <log-options>|<revision-range> [...] [[--] <path> ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--all [...] <log-options>|<revision-range> [...] [[--] <path> ...] [-?|-h|--help]'
 }
 
 typeset -a otherArgs=()
-typeset -a renameArgs=()
+typeset -a renameArgs=(--no-renames)	# Don't check for renames by default so that renames are listed as deletion (+ addition), and therefore renamed files will be revived by default.
 action=revive
 isAll=
 while [ $# -ne 0 ]
@@ -34,6 +34,7 @@ do
 
 	--dry-run|-n)	shift; action=print;;
 	--all)		shift; isAll=t; typeset -A revivedFilespecs=();;
+	--no-renames)	shift; renameArgs=(--find-renames);;	# The toggling works the other way around here: By finding renames, those files aren't listed as deleted, and therefore evade our filter.
 	--find-renames|--find-renames=*|-M?*)
 			renameArgs+=("$1"); shift;;
 	--)		break;;
@@ -105,4 +106,4 @@ do
 	fi && [ ${#filenames[@]} -eq 0 ] && [ ${#filespecs[@]} -eq 0 ] && \
 	    exit 0
     fi
-done < <(git-logmodifications --no-renames --deleted --pretty='format:/%H' --name-only "${renameArgs[@]}" "$@")
+done < <(git-logmodifications --deleted --pretty='format:/%H' --name-only "${renameArgs[@]}" "$@")

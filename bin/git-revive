@@ -1,0 +1,70 @@
+#!/bin/bash
+shopt -qs extglob
+
+printUsage()
+{
+    cat <<HELPTEXT
+Obtain the last checked-in revision of FILE(s) (just before it got deleted or
+renamed) from the log and restore it as an untracked file.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-M<n>|--find-renames[=<n>]] [--] [./]FILESPEC|FILENAME [...] [-?|-h|--help]'
+}
+
+typeset -a logArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+
+	--find-renames|--find-renames=*|-M?*)
+			logArgs+=("$1"); shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if [ $# -eq 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+typeset -A filenames=() filespecs=()
+for arg
+do
+    case "$arg" in
+	./+([^/]))  filenames["${arg#./}"]=t;;
+	*/*)	    filespecs["$arg"]=t;;
+	*)	    filenames["$arg"]=t;;
+    esac
+done
+
+revive()
+{
+    local commit="${1:?}"; shift
+    local filespec="${1:?}"; shift
+
+    git-cat "${commit}^" "$filespec" > "$filespec" && \
+	printf 'Revived %s\n' "$filespec"
+}
+
+while IFS=$'\n' read -r line
+do
+    if [ -z "$line" ]; then
+	continue
+    elif [[ "$line" =~ ^/[[:xdigit:]]+$ ]]; then
+	commit="${line#/}"
+    else
+	filespec="$line"
+	filename="$(basename -- "$filespec")"
+	if [ "${filespecs["$filespec"]}" ]; then
+	    revive "$commit" "$filespec" && unset "filespecs[$filespec]"
+	elif [ "${filenames["$filename"]}" ]; then
+	    revive "$commit" "$filespec" && unset "filenames[$filename]"
+	fi && [ ${#filenames[@]} -eq 0 ] && [ ${#filespecs[@]} -eq 0 ] && \
+	    exit 0
+    fi
+done < <(git-logmodifications --no-renames --deleted --pretty='format:/%H' --name-only "${logArgs[@]}")

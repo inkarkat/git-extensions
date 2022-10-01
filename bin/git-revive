@@ -11,10 +11,18 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-M<n>|--find-renames[=<n>]] [--] [./]FILESPEC|FILENAME [...] [-?|-h|--help]'
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[<log-options>] [<revision-range>] [[--] <path> ...] -- [./]FILESPEC|FILENAME [...] [-?|-h|--help]'
+    echo
+    cat <<HELPTEXT
+Obtain the last checked-in revision of files that got deleted or renamed within
+<revision-range> and restore them as an untracked files.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--all <log-options>|<revision-range> [...] [[--] <path> ...] [-?|-h|--help]'
 }
 
 typeset -a otherArgs=()
 typeset -a renameArgs=()
+isAll=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -23,6 +31,7 @@ do
 			shift;;
 	--color)	shift; shift;;
 
+	--all)		shift; isAll=t; typeset -A revivedFilespecs=();;
 	--find-renames|--find-renames=*|-M?*)
 			renameArgs+=("$1"); shift;;
 	--)		break;;
@@ -31,7 +40,7 @@ do
 done
 set -- "${otherArgs[@]}" "$@"
 typeset -A filenames=() filespecs=()
-while [ $# -gt 0 ]
+[ "$isAll" ] || while [ $# -gt 0 ]
 do
     lastArg="${!#}"
     set -- "${@:1:$(($#-1))}"
@@ -43,10 +52,17 @@ do
 	*)	    filenames["$lastArg"]=t;;
     esac
 done
-if [ ${#filenames[@]} -eq 0 -a ${#filespecs[@]} -eq 0 ]; then
-    printUsage "$0" >&2
+if [ "$isAll" ]; then
+    if [ $# -eq 0 ]; then
+	echo 'ERROR: Need <revision-range> or a <log-option> that limits the range when --all is given.'
+	echo
+	printUsage "$0"
+	exit 2
+    fi
+elif [ ${#filenames[@]} -eq 0 -a ${#filespecs[@]} -eq 0 ]; then
+    printUsage "$0"
     exit 2
-fi
+fi >&2
 
 revive()
 {
@@ -64,6 +80,10 @@ do
 	continue
     elif [[ "$line" =~ ^/[[:xdigit:]]+$ ]]; then
 	commit="${line#/}"
+    elif [ "$isAll" ]; then
+	filespec="$line"
+	[ "${revivedFilespecs["$filespec"]}" ] || \
+	    revive "$commit" "$filespec" && revivedFilespecs["$filespec"]=t
     else
 	filespec="$line"
 	filename="$(basename -- "$filespec")"

@@ -1,6 +1,8 @@
 #!/bin/bash
 set -o pipefail
 
+: ${GIT_INOUT_COLOR_TITLE=[1m}
+: ${GIT_INOUT_COLOR_HEADER=}
 : ${GIT_INOUT_COLOR_IN=[3m}
 : ${GIT_INOUT_COLOR_OUT=[1m}
 : ${GIT_INOUT_COLOR_RESET=[0m}
@@ -150,10 +152,12 @@ inout()
     local status=1
     local padding=$'\n'
     GIT_ONELINELOG_DIRECT_ARG=--no-pager git-onelinelog "${colorArg[@]}" "$baseRev..$otherRev" | \
-	outputAndPrintf "incoming ${otherName:-$otherRev} -> ${baseName:-$baseRev}:\\n" && status=0 || padding=''
+	outputAndPrintf '%sincoming %s -> %s:%s\n' "$GIT_INOUT_COLOR_TITLE" "${otherName:-$otherRev}" "${baseName:-$baseRev}" "$GIT_INOUT_COLOR_RESET" && \
+	    status=0 || padding=''
 
     GIT_ONELINELOG_DIRECT_ARG=--no-pager git-onelinelog "${colorArg[@]}" "$otherRev..$baseRev" | \
-	outputAndPrintf "${padding}outgoing ${baseName:-$baseRev} -> ${otherName:-$otherRev}:\\n" && status=0
+	outputAndPrintf '%s%soutgoing %s -> %s:%s\n' "$GIT_INOUT_COLOR_TITLE" "$padding" "${baseName:-$baseRev}" "${otherName:-$otherRev}" "$GIT_INOUT_COLOR_RESET" && \
+	    status=0
 
     return $status
 }
@@ -167,11 +171,11 @@ inoutStat()
     local symbolString; printf -v symbolString %s "${symbols[@]}"
 
     if [ ${#incoming[@]} -gt 0 -a ${#outgoing[@]} -eq 0 ]; then
-	echo "incoming ${otherName:-$otherRev} -> ${baseName:-$baseRev}: $symbolString"
+	printf '%sincoming %s -> %s: %s%s\n' "$GIT_INOUT_COLOR_HEADER" "${otherName:-$otherRev}" "${baseName:-$baseRev}" "$GIT_INOUT_COLOR_RESET" "$symbolString"
     elif [ ${#incoming[@]} -eq 0 -a ${#outgoing[@]} -gt 0 ]; then
-	echo "outgoing ${baseName:-$baseRev} -> ${otherName:-$otherRev}: $symbolString"
+	printf '%soutgoing %s -> %s: %s%s\n' "$GIT_INOUT_COLOR_HEADER" "${baseName:-$baseRev}" "${otherName:-$otherRev}" "$GIT_INOUT_COLOR_RESET" "$symbolString"
     elif [ ${#incoming[@]} -gt 0 -a ${#outgoing[@]} -gt 0 ]; then
-	echo "in/out  ${baseName:-$baseRev} <-> ${otherName:-$otherRev}: $symbolString"
+	printf '%sin/out  %s <-> %s: %s%s\n' "$GIT_INOUT_COLOR_HEADER" "${baseName:-$baseRev}" "${otherName:-$otherRev}" "$GIT_INOUT_COLOR_RESET" "$symbolString"
     else
 	return 1
     fi
@@ -189,7 +193,7 @@ aheadBehind()
 	if [ "$isIndicatorOnly" ]; then
 	    printf '%s%s%s\n' "$GIT_INOUT_INDICATOR_PREFIX" "$indicator" "$GIT_INOUT_INDICATOR_SUFFIX"
 	else
-	    echo "${baseName:-$baseRev}...${otherName:-$otherRev} ${GIT_INOUT_INDICATOR_PREFIX-[}${indicator}${GIT_INOUT_INDICATOR_SUFFIX-]}"
+	    printf '%s%s...%s %s\n' "$GIT_INOUT_COLOR_HEADER" "${baseName:-$baseRev}" "${otherName:-$otherRev}" "${GIT_INOUT_INDICATOR_PREFIX-[}${indicator}${GIT_INOUT_INDICATOR_SUFFIX-]}"
 	fi
     else
 	return 1
@@ -203,10 +207,10 @@ showfiles()
     readarray -t outgoing < <($filesSourceCommand "$otherRev..$baseRev")
 
     if [ ${#incoming[@]} -gt 0 -a ${#outgoing[@]} -eq 0 ]; then
-	echo "incoming ${otherName:-$otherRev} -> ${baseName:-$baseRev}:"
+	printf '%sincoming %s -> %s:%s\n' "$GIT_INOUT_COLOR_TITLE" "${otherName:-$otherRev}" "${baseName:-$baseRev}" "$GIT_INOUT_COLOR_RESET"
 	printf '%s\n' "${incoming[@]}"
     elif [ ${#incoming[@]} -eq 0 -a ${#outgoing[@]} -gt 0 ]; then
-	echo "outgoing ${baseName:-$baseRev} -> ${otherName:-$otherRev}:"
+	printf '%soutgoing %s -> %s:%s\n' "$GIT_INOUT_COLOR_TITLE" "${baseName:-$baseRev}" "${otherName:-$otherRev}" "$GIT_INOUT_COLOR_RESET"
 	printf '%s\n' "${outgoing[@]}"
     elif [ ${#incoming[@]} -gt 0 -a ${#outgoing[@]} -gt 0 ]; then
 	typeset -a onlyIn onlyOut bothInOut
@@ -216,17 +220,17 @@ showfiles()
 
 	padding=''
 	if [ ${#onlyIn[@]} -gt 0 ]; then
-	    echo "${padding}incoming ${otherName:-$otherRev} -> ${baseName:-$baseRev}:"
+	    printf '%s%sincoming %s -> %s:%s\n' "$GIT_INOUT_COLOR_TITLE" "$padding" "${otherName:-$otherRev}" "${baseName:-$baseRev}" "$GIT_INOUT_COLOR_RESET"
 	    printf '%s\n' "${onlyIn[@]}"
 	    padding=$'\n'
 	fi
 	if [ ${#onlyOut[@]} -gt 0 ]; then
-	    echo "${padding}outgoing ${baseName:-$baseRev} -> ${otherName:-$otherRev}:"
+	    printf '%s%soutgoing %s -> %s:%s\n' "$GIT_INOUT_COLOR_TITLE" "$padding" "${baseName:-$baseRev}" "${otherName:-$otherRev}" "$GIT_INOUT_COLOR_RESET"
 	    printf '%s\n' "${onlyOut[@]}"
 	    padding=$'\n'
 	fi
 	if [ ${#bothInOut[@]} -gt 0 ]; then
-	    echo "${padding}both    ${baseName:-$baseRev} <-> ${otherName:-$otherRev}:"
+	    printf '%s%sboth    %s <-> %s:%s\n' "$GIT_INOUT_COLOR_TITLE" "$padding" "${baseName:-$baseRev}" "${otherName:-$otherRev}" "$GIT_INOUT_COLOR_RESET"
 	    printf '%s\n' "${bothInOut[@]}"
 	    padding=$'\n'
 	fi

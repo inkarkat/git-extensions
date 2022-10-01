@@ -8,20 +8,21 @@ Obtain the last checked-in revision of FILE(s) (just before it got deleted or
 renamed) from the log and restore it as an untracked file.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-M<n>|--find-renames[=<n>]] [--] [./]FILESPEC|FILENAME [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-n|--dry-run] [-M<n>|--find-renames[=<n>]] [--] [./]FILESPEC|FILENAME [...] [-?|-h|--help]'
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<log-options>] [<revision-range>] [[--] <path> ...] -- [./]FILESPEC|FILENAME [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-n|--dry-run] [<log-options>] [<revision-range>] [[--] <path> ...] -- [./]FILESPEC|FILENAME [...] [-?|-h|--help]'
     echo
     cat <<HELPTEXT
 Obtain the last checked-in revision of files that got deleted or renamed within
 <revision-range> and restore them as an untracked files.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '--all <log-options>|<revision-range> [...] [[--] <path> ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--all [-n|--dry-run] <log-options>|<revision-range> [...] [[--] <path> ...] [-?|-h|--help]'
 }
 
 typeset -a otherArgs=()
 typeset -a renameArgs=()
+action=revive
 isAll=
 while [ $# -ne 0 ]
 do
@@ -31,6 +32,7 @@ do
 			shift;;
 	--color)	shift; shift;;
 
+	--dry-run|-n)	shift; action=print;;
 	--all)		shift; isAll=t; typeset -A revivedFilespecs=();;
 	--find-renames|--find-renames=*|-M?*)
 			renameArgs+=("$1"); shift;;
@@ -64,6 +66,15 @@ elif [ ${#filenames[@]} -eq 0 -a ${#filespecs[@]} -eq 0 ]; then
     exit 2
 fi >&2
 
+print()
+{
+    local deletionCommit="${1:?}"; shift
+    local commit="${deletionCommit}^"
+    local filespec="${1:?}"; shift
+
+    printf 'Would revive %s from %s.\n' "$filespec" "$(git rev-parse --short "$commit")"
+}
+
 revive()
 {
     local deletionCommit="${1:?}"; shift
@@ -83,14 +94,14 @@ do
     elif [ "$isAll" ]; then
 	filespec="$line"
 	[ "${revivedFilespecs["$filespec"]}" ] || \
-	    revive "$commit" "$filespec" && revivedFilespecs["$filespec"]=t
+	    $action "$commit" "$filespec" && revivedFilespecs["$filespec"]=t
     else
 	filespec="$line"
 	filename="$(basename -- "$filespec")"
 	if [ "${filespecs["$filespec"]}" ]; then
-	    revive "$commit" "$filespec" && unset "filespecs[$filespec]"
+	    $action "$commit" "$filespec" && unset "filespecs[$filespec]"
 	elif [ "${filenames["$filename"]}" ]; then
-	    revive "$commit" "$filespec" && unset "filenames[$filename]"
+	    $action "$commit" "$filespec" && unset "filenames[$filename]"
 	fi && [ ${#filenames[@]} -eq 0 ] && [ ${#filespecs[@]} -eq 0 ] && \
 	    exit 0
     fi

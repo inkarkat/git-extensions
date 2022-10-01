@@ -45,7 +45,8 @@ reviewed separately.
 ## integrate submodule changes first
 superproject: `$ git ofetch`
 Check for other open reintegrations (i.e. submodule commits on main not yet
-referenced in the superproject): `$ git osuperhaspendingsubintegrations`
+referenced in the superproject):
+superproject: `$ git bmshowsubmodules | git osuperhaspendingsubintegrations -`
 superproject: `$ hub subsamebrdo --interactive reintegratetom`
 (if you want to do this submodule by submodule: `$ hub reintegratetom`)
 Note: When doing a bulk change, default check commands (that would run for each

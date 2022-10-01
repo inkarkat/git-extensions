@@ -47,7 +47,8 @@ HELPTEXT
 }
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
-range=
+diffRange=
+typeset -a logRange=()
 isIncludeIntermediate=
 typeset -a gitNameStatusArg=(--name-only)
 sorter='sort -u'
@@ -58,7 +59,7 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
-	--cached)	range="$1"; shift;;
+	--cached)	diffRange="$1"; shift;;
 	--intermediate)	shift; isIncludeIntermediate=t;;
 	--status|-s)	shift; gitNameStatusArg=(--name-status); sorter='sort -k 2 -u';;
 	--no-renames|--renames|--find-renames|--find-renames=*|-M?*|--find-copies|--find-copies=*|-C?*|--find-copies-harder)
@@ -99,8 +100,8 @@ do
 	# So, the symmetric one is ... for log, but .. for diff, and the one
 	# that excludes changes from the first is .. for log but ... for diff.
 	# WTF.
-	*...*)		range="${1/.../..}"; shift;;
-	*..*)		range="${1/../...}"; shift;;
+	*...*)		logRange=("$1"); diffRange="${1/.../..}"; shift;;
+	*..*)		logRange=("$1"); diffRange="${1/../...}"; shift;;
 
 	--)		break;;
 	*)		allargs+=("$1"); shift;;
@@ -110,10 +111,10 @@ done
 typeset -a statusFilterArg=(); [ -z "$statusFilter" ] || statusFilterArg=(--diff-filter="$statusFilter")
 
 if [ "$isIncludeIntermediate" ]; then
-    git-log --pretty='format:' "${gitNameStatusArg[@]}" "${renameArgs[@]}" "${statusFilterArg[@]}" "${allargs[@]}" "$range" "$@"
-elif [ -n "$range" ]; then
+    git-log --pretty='format:' "${gitNameStatusArg[@]}" "${renameArgs[@]}" "${statusFilterArg[@]}" "${allargs[@]}" "${logRange[@]}" "$@"
+elif [ -n "$diffRange" ]; then
     # Source: http://stackoverflow.com/a/1552353/813602
-    git diff "${gitNameStatusArg[@]}" "${renameArgs[@]}" "${statusFilterArg[@]}" "${allargs[@]}" "$range" "$@"
+    git diff "${gitNameStatusArg[@]}" "${renameArgs[@]}" "${statusFilterArg[@]}" "${allargs[@]}" "$diffRange" "$@"
 else
-    git-show --pretty='format:' "${gitNameStatusArg[@]}" "${renameArgs[@]}" "${statusFilterArg[@]}" "${allargs[@]}" "$@"
+    git-show --pretty='format:' "${gitNameStatusArg[@]}" "${renameArgs[@]}" "${statusFilterArg[@]}" "${allargs[@]}" "${logRange[@]}" "$@"
 fi | eval "$filter ${filter:+|} $sorter | sed -e '/^\$/d'" "${pager:+|}" '"${pager[@]}"'

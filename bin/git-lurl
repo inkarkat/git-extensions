@@ -15,6 +15,15 @@ case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
 remote="${1:?}"; shift
+
+hasColor=t
+typeset -a colorArg=(--color=always)
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+if [ ! -t 1 ]; then
+    hasColor=
+    colorArg=()
+    pager=()
+fi
 isSummarizeFiles=
 typeset -a logArgs=()
 typeset -a prettyArg=(--pretty=tformat:%H)
@@ -22,6 +31,12 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=never)
+			colorArg=("$1"); shift; hasColor=;;
+	--color=always)	colorArg=("$1"); shift; hasColor=t;;
+	--color=*)	colorArg=("$1"); shift;;
+	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); case "$2" in never) hasColor=;; always) hasColor=t;; esac; shift; shift;;
+
 	--summarize-files|-s)
 			shift; isSummarizeFiles=t; logArgs+=(--name-only);;
 	--pretty=*)	prettyArg=("$1"); shift;;
@@ -40,7 +55,7 @@ set -- "${logArgs[@]}" "$@"
 : ${GIT_LURL_FILE_PREFIX=[01;35m}
 : ${GIT_LURL_FILE_SUFFIX=[0m}
 
-if ! isNeedColorArgumentWhenPiping "$@"; then
+if [ ! "$hasColor" ]; then
     # This is for us, to disable the highlighting {pre,suf}fixes. As git-log
     # understands it (and is inconsequential with our --pretty format), we don't
     # need to drop it from the arguments passed to it.
@@ -54,9 +69,10 @@ if ! isNeedColorArgumentWhenPiping "$@"; then
     GIT_LURL_FILE_SUFFIX=
 fi
 
-url=$(git-remote-url "$remote") || exit $?
+url="$(git-remote-url "$remote")" || exit $?
 
-git log "${prettyArg[@]}" "$@" | \
+injectUrls()
+{
     awk -v url="$url" \
 	-v "isSummarizeFiles=$isSummarizeFiles" \
 	-v urlPrefix="$GIT_LURL_URL_PREFIX" \
@@ -79,10 +95,13 @@ function dirname( filespec ) {
     return filespec
 }
 
-/^$/{ next; }
 /^[0-9a-f]+$/{ $0 = urlPrefix url "/" view "/" urlSuffix hashPrefix $0 hashSuffix; print; next; }
 {
-    if (isSummarizeFiles) filespecs[$0] = 1
+    if (isSummarizeFiles) {
+	filespecs[$0] = 1
+    } else {
+	print
+    }
 }
 END {
     asorti(filespecs)
@@ -91,3 +110,7 @@ END {
 	print pathPrefix dirname(filespecs[f]) pathSuffix filePrefix basename(filespecs[f]) fileSuffix
 }
 '
+}
+
+git log "${colorArg[@]}" "${prettyArg[@]}" "$@" | \
+    eval 'injectUrls' "${pager:+|}" '"${pager[@]}"'

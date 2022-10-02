@@ -1,0 +1,40 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Take the contents of conflicted files / <path>(s) from <ref> to resolve current
+conflicts. Useful if you've already successfully done a merge (in <ref>) but now
+try to rebase the branch instead.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '<ref> [[--] <path> ...] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --no-color|--color=*)
+			shift;;
+    --color)		shift; shift;;
+esac
+if [ $# -eq 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+commit="${1:?}"; shift
+
+readarray -t conflictedFilespecs < <(git-conflicts "$@")
+if [ ${#conflictedFilespecs[@]} -eq 0 ]; then
+    echo >&2 'No conflicted files.'
+    exit 99
+fi
+
+typeset -a resolvedFilespecs=()
+status=0
+for filespec in "${conflictedFilespecs[@]}"
+do
+    git-cp --override "$commit" "$filespec" \
+	&& resolvedFilespecs+=("$filespec") \
+	|| status=$?
+done
+[ ${#resolvedFilespecs[@]} -eq 0 ] || git add -- "${resolvedFilespecs[@]}"
+exit $status

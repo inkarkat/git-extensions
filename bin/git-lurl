@@ -118,11 +118,11 @@ function dirname( filespec ) {
     sub("[^/]+$", "", filespec)
     return filespec
 }
-function handleFilespec( filespec ) {
+function handleFilespec( prefix, filespec, suffix ) {
     if (isSummarizeFiles) {
 	filespecs[filespec] = 1
     } else {
-	print urlPrefix url "/blob/" urlencode(filespec, 1) urlSuffix
+	print prefix urlPrefix url "/blob/" urlencode(filespec, 1) urlSuffix suffix
     }
 }
 
@@ -137,7 +137,15 @@ function handleFilespec( filespec ) {
 	$0 = substr($0, 1, RSTART + 6) urlPrefix url "/" view "/" urlSuffix hashPrefix commitId hashSuffix substr($0, RSTART + RLENGTH)
 	print
     } else if (stat($0, fdata) == 0) {
-	handleFilespec($0)
+	handleFilespec("", $0, "")
+    } else if (match($0, /^[A-Z][[:digit:]]*\t/)) {
+	prefix = substr($0, RSTART, RLENGTH)
+	filespec = substr($0, RSTART + RLENGTH)
+	if (stat(filespec, fdata) == 0) {
+	    handleFilespec(prefix, filespec, "")
+	} else {
+	    print
+	}
     } else {
 	print
     }

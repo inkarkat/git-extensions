@@ -85,6 +85,7 @@ injectUrls()
 	-v fileSuffix="$GIT_LURL_FILE_SUFFIX" \
 	-v "view=${GIT_LURL_VIEW//\\/\\\\}" \
 '
+@load "filefuncs"
 function basename( filespec ) {
     sub(".*/", "", filespec)
     return filespec
@@ -98,10 +99,15 @@ function dirname( filespec ) {
 /^[0-9a-f]+$/{ $0 = urlPrefix url "/" view "/" urlSuffix hashPrefix $0 hashSuffix; print; next; }
 {
     if (match($0, /commit [0-9a-f]+/)) {
-	$0 = substr($0, 1, RSTART + 6) urlPrefix url "/" view "/" urlSuffix hashPrefix substr($0, RSTART + 7, RLENGTH - 7) hashSuffix substr($0, RSTART + RLENGTH)
+	commitId = substr($0, RSTART + 7, RLENGTH - 7)
+	$0 = substr($0, 1, RSTART + 6) urlPrefix url "/" view "/" urlSuffix hashPrefix commitId hashSuffix substr($0, RSTART + RLENGTH)
 	print
-    } else if (isSummarizeFiles) {
-	filespecs[$0] = 1
+    } else if (stat($0, fdata) == 0) {
+	if (isSummarizeFiles) {
+	    filespecs[$0] = 1
+	} else {
+	    print urlPrefix url "/blob/" $0 urlSuffix
+	}
     } else {
 	print
     }

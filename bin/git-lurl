@@ -17,12 +17,14 @@ esac
 remote="${1:?}"; shift
 isSummarizeFiles=
 typeset -a logArgs=()
+typeset -a prettyArg=(--pretty=tformat:%H)
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--summarize-files|-s)
 			shift; isSummarizeFiles=t; logArgs+=(--name-only);;
+	--pretty=*)	prettyArg=("$1"); shift;;
 	--)		logArgs+=("$1"); shift; break;;
 	*)		logArgs+=("$1"); shift;;
     esac
@@ -54,7 +56,7 @@ fi
 
 url=$(git-remote-url "$remote") || exit $?
 
-git log --pretty=tformat:%H "$@" | \
+git log "${prettyArg[@]}" "$@" | \
     awk -v url="$url" \
 	-v "isSummarizeFiles=$isSummarizeFiles" \
 	-v urlPrefix="$GIT_LURL_URL_PREFIX" \

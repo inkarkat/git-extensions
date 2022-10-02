@@ -86,6 +86,29 @@ injectUrls()
 	-v "view=${GIT_LURL_VIEW//\\/\\\\}" \
 '
 @load "filefuncs"
+BEGIN {
+    for (i = 0; i <= 255; i++) {
+	ord[sprintf("%c", i)] = i
+    }
+}
+function urlencode(s, isFilespec, isKeepNewlines,      c, len, result)
+{
+    len = length(s)
+    result = ""
+    for (i = 1; i <= len; i++) {
+	c = substr(s, i, 1);
+	if (c ~ /[-_.~a-zA-Z0-9]/) {
+	    result = result c
+	} else if (c == "/") {
+	    result = result (isFilespec ? c : sprintf("%02X", ord[c]))
+	} else if (c ~ /\n/) {
+	    result = result (isKeepNewlines ? c : sprintf("%02X", ord[c]))
+	} else {
+	    result = result "%" sprintf("%02X", ord[c])
+	}
+    }
+    return result
+}
 function basename( filespec ) {
     sub(".*/", "", filespec)
     return filespec
@@ -106,7 +129,7 @@ function dirname( filespec ) {
 	if (isSummarizeFiles) {
 	    filespecs[$0] = 1
 	} else {
-	    print urlPrefix url "/blob/" $0 urlSuffix
+	    print urlPrefix url "/blob/" urlencode($0, 1) urlSuffix
 	}
     } else {
 	print

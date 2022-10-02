@@ -9,15 +9,25 @@ printUsage()
 Log URLs to ${remote:-REMOTE} of all found commits.
 HELPTEXT
     echo
-    printf 'Usage: [GIT_LURL_VIEW=commit|commits|tree] %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]"
+    printf 'Usage: [GIT_LURL_VIEW=commit|commits|tree] %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [-s|--summarize-files] [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]"
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
 remote="${1:?}"; shift
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-esac
+isSummarizeFiles=
+typeset -a logArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--summarize-files|-s)
+			shift; isSummarizeFiles=t; logArgs+=(--name-only);;
+	--)		logArgs+=("$1"); shift; break;;
+	*)		logArgs+=("$1"); shift;;
+    esac
+done
+set -- "${logArgs[@]}" "$@"
 
 : ${GIT_LURL_URL_PREFIX=}
 : ${GIT_LURL_URL_SUFFIX=}
@@ -46,6 +56,7 @@ url=$(git-remote-url "$remote") || exit $?
 
 git log --pretty=tformat:%H "$@" | \
     awk -v url="$url" \
+	-v "isSummarizeFiles=$isSummarizeFiles" \
 	-v urlPrefix="$GIT_LURL_URL_PREFIX" \
 	-v urlSuffix="$GIT_LURL_URL_SUFFIX" \
 	-v hashPrefix="$GIT_LURL_HASH_PREFIX" \
@@ -69,8 +80,7 @@ function dirname( filespec ) {
 /^$/{ next; }
 /^[0-9a-f]+$/{ $0 = urlPrefix url "/" view "/" urlSuffix hashPrefix $0 hashSuffix; print; next; }
 {
-    sub(/^\S*\s+/, "")
-    filespecs[$0] = 1
+    if (isSummarizeFiles) filespecs[$0] = 1
 }
 END {
     asorti(filespecs)

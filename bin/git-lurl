@@ -6,18 +6,53 @@ set -o pipefail
 printUsage()
 {
     cat <<HELPTEXT
-Log URLs to ${remote:-REMOTE} of all found commits.
+Log URLs (and commit summaries by default) to ${remote:-REMOTE} of all found commits.
 HELPTEXT
     echo
-    printf 'Usage: [GIT_LURL_VIEW=commit|commits|tree] %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]"
+    printf 'Usage: [GIT_LURL_VIEW=commit|commits|tree] %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [-s|--summarize-files] [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]"
+    echo
+    cat <<HELPTEXT
+Turn commit IDs and modified files found in stdin into URLs to ${remote:-REMOTE}.
+HELPTEXT
+    echo
+    printf 'Usage: git log [...] | [GIT_LURL_VIEW=commit|commits|tree] %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [-s|--summarize-files]"
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
 remote="${1:?}"; shift
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-esac
+
+sourceCommand=log
+hasColor=t
+typeset -a colorArg=(--color=always)
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+if [ ! -t 1 ]; then
+    hasColor=
+    colorArg=()
+    pager=()
+fi
+isSummarizeFiles=
+typeset -a logArgs=()
+typeset -a prettyArg=(--pretty=tformat:'%H %s')
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=never)
+			colorArg=("$1"); shift; hasColor=;;
+	--color=always)	colorArg=("$1"); shift; hasColor=t;;
+	--color=*)	colorArg=("$1"); shift;;
+	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); case "$2" in never) hasColor=;; always) hasColor=t;; esac; shift; shift;;
+
+	--summarize-files|-s)
+			shift; isSummarizeFiles=t; logArgs+=(--name-only);;
+	--pretty=*)	prettyArg=("$1"); shift;;
+	--)		logArgs+=("$1"); shift; break;;
+	-)		shift; sourceCommand=;;
+	*)		logArgs+=("$1"); shift;;
+    esac
+done
+set -- "${logArgs[@]}" "$@"
 
 : ${GIT_LURL_URL_PREFIX=}
 : ${GIT_LURL_URL_SUFFIX=}
@@ -28,7 +63,7 @@ esac
 : ${GIT_LURL_FILE_PREFIX=[01;35m}
 : ${GIT_LURL_FILE_SUFFIX=[0m}
 
-if ! isNeedColorArgumentWhenPiping "$@"; then
+if [ ! "$hasColor" ]; then
     # This is for us, to disable the highlighting {pre,suf}fixes. As git-log
     # understands it (and is inconsequential with our --pretty format), we don't
     # need to drop it from the arguments passed to it.
@@ -42,10 +77,18 @@ if ! isNeedColorArgumentWhenPiping "$@"; then
     GIT_LURL_FILE_SUFFIX=
 fi
 
-url=$(git-remote-url "$remote") || exit $?
+url="$(git-remote-url "$remote")" || exit $?
 
-git log --pretty=tformat:%H "$@" | \
-    awk -v url="$url" \
+log()
+{
+    git log "${colorArg[@]}" "${prettyArg[@]}" "$@"
+}
+
+injectUrls()
+{
+    awk --field-separator ' ' \
+	-v url="$url" \
+	-v "isSummarizeFiles=$isSummarizeFiles" \
 	-v urlPrefix="$GIT_LURL_URL_PREFIX" \
 	-v urlSuffix="$GIT_LURL_URL_SUFFIX" \
 	-v hashPrefix="$GIT_LURL_HASH_PREFIX" \
@@ -56,6 +99,30 @@ git log --pretty=tformat:%H "$@" | \
 	-v fileSuffix="$GIT_LURL_FILE_SUFFIX" \
 	-v "view=${GIT_LURL_VIEW//\\/\\\\}" \
 '
+@load "filefuncs"
+BEGIN {
+    for (i = 0; i <= 255; i++) {
+	ord[sprintf("%c", i)] = i
+    }
+}
+function urlencode(s, isFilespec, isKeepNewlines,      c, len, result)
+{
+    len = length(s)
+    result = ""
+    for (i = 1; i <= len; i++) {
+	c = substr(s, i, 1);
+	if (c ~ /[-_.~a-zA-Z0-9]/) {
+	    result = result c
+	} else if (c == "/") {
+	    result = result (isFilespec ? c : sprintf("%02X", ord[c]))
+	} else if (c ~ /\n/) {
+	    result = result (isKeepNewlines ? c : sprintf("%02X", ord[c]))
+	} else {
+	    result = result "%" sprintf("%02X", ord[c])
+	}
+    }
+    return result
+}
 function basename( filespec ) {
     sub(".*/", "", filespec)
     return filespec
@@ -65,12 +132,47 @@ function dirname( filespec ) {
     sub("[^/]+$", "", filespec)
     return filespec
 }
+function handleFilespec( prefix, filespec, suffix ) {
+    if (isSummarizeFiles) {
+	filespecs[filespec] = 1
+    } else {
+	print prefix urlPrefix url "/blob/" urlencode(filespec, 1) urlSuffix suffix
+    }
+}
 
-/^$/{ next; }
-/^[0-9a-f]+$/{ $0 = urlPrefix url "/" view "/" urlSuffix hashPrefix $0 hashSuffix; print; next; }
+$1 ~ /^[0-9a-f]+$/ {
+    $1 = urlPrefix url "/" view "/" urlSuffix hashPrefix $1 hashSuffix
+    print
+    next
+}
 {
-    sub(/^\S*\s+/, "")
-    filespecs[$0] = 1
+    if ($0 == "" && isSummarizeFiles) {
+	next
+    } else if (match($0, /commit [0-9a-f]+/)) {
+	commitId = substr($0, RSTART + 7, RLENGTH - 7)
+	$0 = substr($0, 1, RSTART + 6) urlPrefix url "/" view "/" urlSuffix hashPrefix commitId hashSuffix substr($0, RSTART + RLENGTH)
+	print
+    } else if (stat($0, fdata) == 0) {
+	handleFilespec("", $0, "")
+    } else if (match($0, /^[A-Z][[:digit:]]*\t/)) {
+	prefix = substr($0, RSTART, RLENGTH)
+	filespec = substr($0, RSTART + RLENGTH)
+	if (stat(filespec, fdata) == 0) {
+	    handleFilespec(prefix, filespec, "")
+	} else if (match(filespec, /^[^\t]+\t/)) {
+	    prefix =  prefix substr(filespec, RSTART, RLENGTH)
+	    filespec = substr(filespec, RSTART + RLENGTH)
+	    if (stat(filespec, fdata) == 0) {
+		handleFilespec(prefix, filespec, "")
+	    } else {
+		print
+	    }
+	} else {
+	    print
+	}
+    } else {
+	print
+    }
 }
 END {
     asorti(filespecs)
@@ -79,3 +181,7 @@ END {
 	print pathPrefix dirname(filespecs[f]) pathSuffix filePrefix basename(filespecs[f]) fileSuffix
 }
 '
+}
+
+
+eval "${sourceCommand}${sourceCommand:+ \"\$@\" | }injectUrls" "${pager:+|}" '"${pager[@]}"'

@@ -10,12 +10,19 @@ Log URLs (and commit summaries by default) to ${remote:-REMOTE} of all found com
 HELPTEXT
     echo
     printf 'Usage: [GIT_LURL_VIEW=commit|commits|tree] %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [-s|--summarize-files] [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]"
+    echo
+    cat <<HELPTEXT
+Turn commit IDs and modified files found in stdin into URLs to ${remote:-REMOTE}.
+HELPTEXT
+    echo
+    printf 'Usage: git log [...] | [GIT_LURL_VIEW=commit|commits|tree] %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [-s|--summarize-files]"
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
 remote="${1:?}"; shift
 
+sourceCommand=log
 hasColor=t
 typeset -a colorArg=(--color=always)
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
@@ -41,6 +48,7 @@ do
 			shift; isSummarizeFiles=t; logArgs+=(--name-only);;
 	--pretty=*)	prettyArg=("$1"); shift;;
 	--)		logArgs+=("$1"); shift; break;;
+	-)		shift; sourceCommand=;;
 	*)		logArgs+=("$1"); shift;;
     esac
 done
@@ -70,6 +78,11 @@ if [ ! "$hasColor" ]; then
 fi
 
 url="$(git-remote-url "$remote")" || exit $?
+
+log()
+{
+    git log "${colorArg[@]}" "${prettyArg[@]}" "$@"
+}
 
 injectUrls()
 {
@@ -170,5 +183,5 @@ END {
 '
 }
 
-git log "${colorArg[@]}" "${prettyArg[@]}" "$@" | \
-    eval 'injectUrls' "${pager:+|}" '"${pager[@]}"'
+
+eval "${sourceCommand}${sourceCommand:+ \"\$@\" | }injectUrls" "${pager:+|}" '"${pager[@]}"'

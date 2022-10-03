@@ -1,0 +1,44 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Commit with the commit message seeded with the diff additions of the whole
+commit / passed FILE(s).
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<commit-arguments> ...] [-- FILE|DIR [...]] [-?|-h|--help]'
+}
+
+typeset -a commitArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+	--)		shift; break;;
+	*)		commitArgs+=("$1"); shift;;
+    esac
+done
+
+commitMessageFilespec="$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TEMP:-/tmp}/$(basename -- "$0").$$$RANDOM")"
+cleanup()
+{
+    rm -f "$commitMessageFilespec" 2>/dev/null
+}
+[ "$DEBUG" ] || trap 'cleanup' EXIT
+git diff --cached --unified=0 -- "$@" | \
+    sed -e '/^--- /{ N; /\n+++ /d; }' \
+	-e '/^@@ .* @@$/d' \
+	-e '/^+/!d' \
+	-e '/^+[[:space:]]*$/d' \
+	-e 's/^+//' \
+    > "$commitMessageFilespec" || exit $?
+if [ ! -s "$commitMessageFilespec" ]; then
+    echo >&2 'ERROR: No additions committed.'
+    exit 1
+fi
+
+exec git-wrapper commit --edit --file "$commitMessageFilespec" "${commitArgs[@]}"

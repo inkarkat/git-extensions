@@ -6,7 +6,7 @@ set -o pipefail
 printUsage()
 {
     cat <<HELPTEXT
-Log URLs to ${remote:-REMOTE} of all found commits.
+Log URLs (and commit summaries by default) to ${remote:-REMOTE} of all found commits.
 HELPTEXT
     echo
     printf 'Usage: [GIT_LURL_VIEW=commit|commits|tree] %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [-s|--summarize-files] [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]"
@@ -26,7 +26,7 @@ if [ ! -t 1 ]; then
 fi
 isSummarizeFiles=
 typeset -a logArgs=()
-typeset -a prettyArg=(--pretty=tformat:%H)
+typeset -a prettyArg=(--pretty=tformat:'%H %s')
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -73,7 +73,8 @@ url="$(git-remote-url "$remote")" || exit $?
 
 injectUrls()
 {
-    awk -v url="$url" \
+    awk --field-separator ' ' \
+	-v url="$url" \
 	-v "isSummarizeFiles=$isSummarizeFiles" \
 	-v urlPrefix="$GIT_LURL_URL_PREFIX" \
 	-v urlSuffix="$GIT_LURL_URL_SUFFIX" \
@@ -126,8 +127,8 @@ function handleFilespec( prefix, filespec, suffix ) {
     }
 }
 
-/^[0-9a-f]+$/{
-    $0 = urlPrefix url "/" view "/" urlSuffix hashPrefix $0 hashSuffix
+$1 ~ /^[0-9a-f]+$/ {
+    $1 = urlPrefix url "/" view "/" urlSuffix hashPrefix $1 hashSuffix
     print
     next
 }

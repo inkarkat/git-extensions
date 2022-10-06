@@ -4,6 +4,7 @@ superproject: `$ git com && git oup`
 ## a) start top-down
 superproject: Create a branch: `$ git mco -b feat-4711/super-cool`
 submodules: a) Create branches prior to changes:
+	       `$ c ReLogic git omco -b feat-4711/super-cool`
 	       `$ git subconewbr --query|SUBMODULE1 SUBMODULE2`
 submodules: b) Create branches after uncommitted changes:
 	       `$ git subdirtydo omco -b feat-4711/super-cool`

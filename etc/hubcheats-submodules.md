@@ -33,13 +33,13 @@ c) from submodule(s), with superproject PR: `$ hub superpr && hub pull-request`
    paste the superproject PR reference into the description text
 
 superproject: [if PR there]:
-  `$ withSeparator -c git\ bml -c hub\ bmsubchanges -c git-servername\ -m | cb && gh pr edit`
+  `$ withSeparator -c git\ bml -c hub-bmsubchanges -c git-servername\ -m | cb && gh pr edit`
   paste the submodule PR references / changes + server into the description
   text
 ## peer review of superproject (optional)
 For similar, mechanical changes in all submodules that don't need to be
 reviewed separately.
-  `$ withSeparator -c git\ bml -c hub\ bmsubchanges -c git-servername\ -m | cb && hub pull-request`
+  `$ withSeparator -c git\ bml -c hub-bmsubchanges -c git-servername\ -m | cb && hub pull-request`
   paste the submodule PR references / changes + server into the description
   text
 

@@ -164,14 +164,16 @@ typeset -a contextShortener=(headtail --separator $'\t\t\t\t\t[...]')
 confirmFastForward()
 {
     local question="Your $path branch is not up-to-date with ${targetTrackedRemote}, but can be fast-forwarded."
+    typeset -a additionalChoices=()
     if similarCommitNum=$(git-similarcommits "HEAD..${branches[-1]}" "HEAD..${targetTracks}" | wc -l) && [ $similarCommitNum -gt 0 ]; then
 	local commitNum=$(git log --pretty=tformat:%H "HEAD..${branches[-1]}" | wc -l)
 	local commitNumPlural=s; [ $commitNum -eq 1 ] && commitNumPlural=
 	local branchNum=${#branches[@]}; [ $branchNum -eq 1 ] && branchNum=
 	question="Your $path branch is not up-to-date with ${targetTrackedRemote}, but $((100 * similarCommitNum / commitNum))% of the $commitNum commit$commitNumPlural on the ${branchNum}${branchNum:+ }branch$branchesPlural look similar to what you have on ${targetTrackedRemote}. If you're redoing a previously merged (and pushed) branch, please decline."
+	additionalChoices=("Show [D]ifference between ${targetTrackedRemote} and $path branch")
     fi
 
-    local choice; choice="$(userchoiceFromList --question "$question Fast-forward now?" --no-cancel --ignore-case -- '[Y]es' '[N]o' 'Show [C]ontext' '[S]hell')" || exit $?
+    local choice; choice="$(userchoiceFromList --question "$question Fast-forward now?" --no-cancel --ignore-case -- '[Y]es' '[N]o' 'Show [C]ontext' "${additionalChoices[@]}" '[S]hell')" || exit $?
     case "$choice" in
 	Yes) ;;
 	No) return 4;;
@@ -179,6 +181,11 @@ confirmFastForward()
 	    echo "Context${contextShortener[*]:+ (abbreviated)}:"
 	    eval "git-inout --color=always --base $targetTracks" "${contextShortener:+|}" '"${contextShortener[@]}"'
 	    typeset -a contextShortener=()
+	    confirmFastForward "$@"
+	    ;;
+	Show\ Difference\ between\ *)
+	    echo 'Difference:'
+	    git-inout --color=always --base "$targetTracks" "${branches[-1]}"
 	    confirmFastForward "$@"
 	    ;;
 	Shell)

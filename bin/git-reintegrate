@@ -163,14 +163,29 @@ fi
 typeset -a contextShortener=(headtail --separator $'\t\t\t\t\t[...]')
 confirmFastForward()
 {
-    local choice; choice="$(userchoiceFromList --question "Your $path branch is not up-to-date with ${targetTrackedRemote}, but can be fast-forwarded. Fast-forward now?" --no-cancel --ignore-case -- '[Y]es' '[N]o' 'Show [C]ontext' '[S]hell')" || exit $?
+    local question="Your $path branch is not up-to-date with ${targetTrackedRemote}, but can be fast-forwarded."
+    typeset -a additionalChoices=()
+    if similarCommitNum=$(git-similarcommits "HEAD..${branches[-1]}" "HEAD..${targetTracks}" | wc -l) && [ $similarCommitNum -gt 0 ]; then
+	local commitNum=$(git log --pretty=tformat:%H "HEAD..${branches[-1]}" | wc -l)
+	local commitNumPlural=s; [ $commitNum -eq 1 ] && commitNumPlural=
+	local branchNum=${#branches[@]}; [ $branchNum -eq 1 ] && branchNum=
+	question="Your $path branch is not up-to-date with ${targetTrackedRemote}, but $((100 * similarCommitNum / commitNum))% of the $commitNum commit$commitNumPlural on the ${branchNum}${branchNum:+ }branch$branchesPlural look similar to what you have on ${targetTrackedRemote}. If you're redoing a previously merged (and pushed) branch, please decline."
+	additionalChoices=("Show [D]ifference between ${targetTrackedRemote} and $path branch")
+    fi
+
+    local choice; choice="$(userchoiceFromList --question "$question Fast-forward now?" --no-cancel --ignore-case -- '[Y]es' '[N]o' 'Show [C]ontext' "${additionalChoices[@]}" '[S]hell')" || exit $?
     case "$choice" in
 	Yes) ;;
 	No) return 4;;
 	Show\ Context)
 	    echo "Context${contextShortener[*]:+ (abbreviated)}:"
 	    eval "git-inout --color=always --base $targetTracks" "${contextShortener:+|}" '"${contextShortener[@]}"'
-	    contextShortener=()
+	    typeset -a contextShortener=()
+	    confirmFastForward "$@"
+	    ;;
+	Show\ Difference\ between\ *)
+	    echo 'Difference:'
+	    git-inout --color=always --base "$targetTracks" "${branches[-1]}"
 	    confirmFastForward "$@"
 	    ;;
 	Shell)
@@ -190,7 +205,7 @@ confirmMerge()
 	Show\ Context)
 	    echo "Context${contextShortener[*]:+ (abbreviated)}:"
 	    eval "git-inout --color=always --base $targetTracks" "${contextShortener:+|}" '"${contextShortener[@]}"'
-	    contextShortener=()
+	    typeset -a contextShortener=()
 	    confirmMerge "$@"
 	    ;;
 	Shell)
@@ -277,12 +292,7 @@ if [ ! "$isContinue" ]; then
 	    commitNum=$(git log --pretty=tformat:%H "HEAD..${branches[-1]}" | wc -l)
 	    commitNumPlural=s; [ $commitNum -eq 1 ] && commitNumPlural=
 	    branchNum=${#branches[@]}; [ $branchNum -eq 1 ] && branchNum=
-	    if similarCommitNum=$(git-similarcommits "HEAD..${branches[-1]}" "${targetTracks}..HEAD" | wc -l) && [ $similarCommitNum -gt 0 ]; then
-		question="The $commitNum commit$commitNumPlural on the ${branchNum}${branchNum:+ }branch$branchesPlural could be fast-forwarded, but $((100 * similarCommitNum / commitNum))% of commits look similar. If you're redoing a previously merged (and pushed) branch, please decline."
-	    else
-		question="The $commitNum commit$commitNumPlural on the ${branchNum}${branchNum:+ }branch$branchesPlural can be fast-forwarded instead of merged."
-	    fi
-	    userBinaryChoice --console --question "$question Fast-forward? " --yes-no && fastForwardArgs=(--ff-only)
+	    userBinaryChoice --console --question "The $commitNum commit$commitNumPlural on the ${branchNum}${branchNum:+ }branch$branchesPlural can be fast-forwarded instead of merged. Fast-forward?" --yes-no && fastForwardArgs=(--ff-only)
 	elif canRebase; then
 	    hubNote=; if [ "$HUB" ] && [ -n "$pullRequestTitles" ]; then
 		hubNote='Note: GitHub cannot detect the rebase and will say that the PR has been closed. If you need proper indication, please quit now and directly rebase in GitHub itself instead.'

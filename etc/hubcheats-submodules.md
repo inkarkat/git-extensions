@@ -74,7 +74,16 @@ fail at any point. This just limits the critical time period.
 `$ gh pr ready`
 
 ## merge the superproject
-`$ hub reintegratetom`
+Because of the `main` branch protection, we cannot do a local merge and push
+main; the GitHub action must have successfully built the resulting merge commit
+to accept a push. So we need to do a local rebase / merge of `main` onto the
+branch, push that, wait for the action, and then can reintegrate (or push the
+corresponding button in GitHub).
+0) submodule branch(es) have been fast-forwarded, or
+a) amends to short-lived feature:
+   `$ git omrb && git opush -f && hub reintegratetom`
+b) maintain history of how the feature grew:
+   `$ git ommerge && git opush -f && hub reintegratetom`
 
 # Rules
 - When checking out branches, do so everywhere (especially both in the

@@ -3,13 +3,13 @@
 printUsage()
 {
     cat <<HELPTEXT
-Execute GIT-COMMAND with HEAD argument(s) replaced by / appending the name of a
+Execute GIT-COMMAND with BRANCH argument(s) replaced by / appending the name of a
 passed -b|--branch BRANCH branch (or kept as HEAD).
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-b|--branch BRANCH] [--] GIT-COMMAND [...] [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-b|--branch BRANCH] [--] --keep-position GIT-COMMAND [... HEAD ...] [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '-N HEAD [-b|--branch BRANCH] [--] GIT-COMMAND [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-b|--branch <branch>] [--] GIT-COMMAND [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-b|--branch <branch>] [--] --keep-position GIT-COMMAND [... BRANCH ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '-N BRANCH [-b|--branch <branch>] [--] GIT-COMMAND [...] [-?|-h|--help]'
 }
 
 branch='HEAD'
@@ -36,13 +36,13 @@ case "$1" in
 	typeset -a headArgs=("${@:2:${headArgNum}}")
 	set -- "${@:$((2 + headArgNum))}"
 
-	headArgs=("${headArgs[@]//HEAD/${branch}}")
+	headArgs=("${headArgs[@]//BRANCH/${branch}}")
 
 	exec git-wrapper "$@" "${headArgs[@]}"
 	;;
     --keep-position)
 	shift
-	exec git-wrapper "${@//HEAD/${branch}}"
+	exec git-wrapper "${@//BRANCH/${branch}}"
 	;;
     *)
 	exec git-wrapper "$@" "$branch"

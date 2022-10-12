@@ -1,0 +1,21 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Show the most recent tag (only one if a commit has multiple tags) [starting from
+<commit>].
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--annotated-only] [<commit>] [-?|-h|--help]'
+}
+typeset -a describeAnnotatedOnlyArgs=(--tags)
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --no-color|--color=*)
+			shift;;
+    --color)		shift; shift;;
+    --annotated-only)	shift; describeAnnotatedOnlyArgs=();;
+esac
+
+exec git describe "${describeAnnotatedOnlyArgs[@]}" --abbrev=0 "$@"

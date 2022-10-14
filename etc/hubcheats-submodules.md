@@ -79,11 +79,12 @@ main; the GitHub action must have successfully built the resulting merge commit
 to accept a push. So we need to do a local rebase / merge of `main` onto the
 branch, push that, wait for the action, and then can reintegrate (or push the
 corresponding button in GitHub).
+`$ git ofetch`
 0) submodule branch(es) have been fast-forwarded, or
 a) amends to short-lived feature:
-   `$ git omrb && git opush -f && hub reintegratetom`
+   `$ git omrb && git opush -f && hub reintegratetom --ff`
 b) maintain history of how the feature grew:
-   `$ git ommerge && git opush -f && hub reintegratetom`
+   `$ git ommerge && git opush -f && hub reintegratetom --ff`
 
 # Rules
 - When checking out branches, do so everywhere (especially both in the

@@ -17,5 +17,12 @@ case "$1" in
     --color)		shift; shift;;
     --annotated-only)	shift; describeAnnotatedOnlyArgs=();;
 esac
+if [ $# -gt 1 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+ref="${1:-HEAD}"; shift
 
-exec git describe "${describeAnnotatedOnlyArgs[@]}" --abbrev=0 "$@"
+tag="$(git describe "${describeAnnotatedOnlyArgs[@]}" --abbrev=0 "$ref")" || exit $?
+! git-equals "$tag" "$ref" || tag="$(git describe "${describeAnnotatedOnlyArgs[@]}" --abbrev=0 "${ref}^")" || exit $?
+printf '%s\n' "$tag"

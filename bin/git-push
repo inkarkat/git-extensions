@@ -1,0 +1,64 @@
+#!/bin/bash
+
+typeset -A remotes=()
+while IFS=$'\n' read -r remote
+do
+    remotes["$remote"]=t
+done < <(git remote)
+
+typeset -a forceArgs=()
+isSetUpstream=
+remote=
+typeset -a pushArgs=()
+typeset -a refspecs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--force|-f)	forceArgs+=("$1"); shift;;
+	--set-upstream|-u)
+			pushArgs+=("$1"); shift; isSetUpstream=t;;
+	*)		if [ "${remotes["$1"]}" ]; then
+			    if [ -n "$remote" ]; then
+				printf >&2 'ASSERT: Encountered second remote %s after %s.\n' "$1" "$remote"; exit 3
+			    fi
+			    remote="$1"
+			    pushArgs+=("$1")
+			elif [ -n "$remote" ]; then
+			    refspecs+=("$1")
+			else
+			    pushArgs+=("$1")
+			fi
+			shift
+			;;
+    esac
+done
+
+if {
+    [ ${#refspecs[@]} -eq 0 -o \( ${#refspecs[@]} -eq 1 -a "${refspecs[0]}" = 'HEAD' \) ] && \
+	branch="$(git-brname --real-branch-only 2>/dev/null)"
+} || {
+    [[ ${#refspecs[@]} -eq 1 && "${refspecs[0]}" =~ ^HEAD:refs/heads/(.+)$ ]] && \
+	branch="${BASH_REMATCH[1]}"
+} || {
+    [ ${#refspecs[@]} -eq 1 ] && \
+	git-existsbr "${refspecs[0]}" && \
+	branch="${refspecs[0]}"
+}
+then
+    if [ "$isSetUpstream" ]; then
+	if git-existsbr "${remote}/${branch}"; then
+	    [ ${#forceArgs[@]} -ge 2 ] || userBinaryChoice --question "You're publishing to $branch on $remote, but a ${remote}/${branch} already exists." --ok-cancel || exit 4
+	fi
+	if trackedBranch="$(git-tracks --push 2>/dev/null)" && \
+	    [ "$trackedBranch" != "${remote}/${branch}" ]
+	then
+	    [ ${#forceArgs[@]} -ge 2 ] || userBinaryChoice --question "You're publishing to $branch on $remote, but previously this was published to ${trackedBranch}." --ok-cancel || exit 4
+	fi
+    else
+	if trackedBranch="$(git-tracks --push 2>/dev/null)" && [ "$trackedBranch" != "${remote}/${branch}" ]; then
+	    [ ${#forceArgs[@]} -ge 2 ] || userBinaryChoice --question "You're pushing to $trackedBranch on $remote, which is different from $branch." --ok-cancel || exit 4
+	fi
+    fi
+fi
+
+exec git push "${forceArgs[@]}" "${pushArgs[@]}" "${refspecs[@]}"

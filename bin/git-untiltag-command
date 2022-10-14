@@ -1,0 +1,79 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Execute GIT-COMMAND with TAG argument(s) replaced in ARG(s) or those following
+GIT-COMMAND / appending the name of the first reachable / passed -t|--tag
+<tagname> tagname (or fail if no tag found or the passed tag is not reachable
+from HEAD / the passed --reachable-from <commit>|
+--reachable-from-passed-branch).
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-t|--tag <tagname>] [--reachable-from-passed-branch|--reachable-from <commit>] [--] GIT-COMMAND [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-t|--tag <tagname>] [--reachable-from-passed-branch|--reachable-from <commit>] [--] --keep-position GIT-COMMAND [... TAG ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-t|--tag <tagname>] [--reachable-from-passed-branch|--reachable-from <commit>] [--] [-1 ARG1|-2 ARG1 ARG2| -3 ARG1 ARG2 ARG3| ...] GIT-COMMAND [...] [-?|-h|--help]'
+}
+
+isValidRef()
+{
+    git rev-parse --verify --quiet "$@" >/dev/null
+}
+
+tagName=
+startRevision='HEAD'
+branch=
+isReachableFromBranch=
+typeset -a args=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--tag|-t)	shift
+			if ! isValidRef "$1"; then
+			    printf >&2 'ERROR: Not a valid tag: %s\n' "$1"
+			    exit 4
+			fi
+			tagName="$1"
+			shift
+			;;
+	--reachable-from)
+			shift; startRevision="$1"; shift;;
+	--reachable-from-passed-branch)
+			shift; isReachableFromBranch=t;;
+	--branch|-b)	args+=("$1" "$2"); shift; branch="$1"; shift;;
+	--)		shift; break;;
+	*)		args+=("$1"); shift;;
+    esac
+done
+set -- "${args[@]}" "$@"
+if [ $# -eq 0 ]; then
+    echo >&2 'ERROR: No GIT-COMMAND passed.'
+    exit 2
+fi
+[ "$isReachableFromBranch" ] && [ -n "$branch" ] && startRevision="$branch"
+
+if [ -n "$tagName" ]; then
+    git-containstag "$tagName" "$startRevision" || exit $?
+else
+    tagName="$(git-latesttag "$startRevision")" || exit $?
+fi
+
+case "$1" in
+    -[1-9])
+	typeset headArgNum=${1#-}
+	typeset -a headArgs=("${@:2:${headArgNum}}")
+	set -- "${@:$((2 + headArgNum))}"
+
+	headArgs=("${headArgs[@]//TAG/${tagName}}")
+
+	exec git-wrapper "$@" "${headArgs[@]}"
+	;;
+    --keep-position)
+	shift
+	exec git-wrapper "${@//TAG/${tagName}}"
+	;;
+    *)
+	exec git-wrapper "$@" "$tagName"
+	;;
+esac

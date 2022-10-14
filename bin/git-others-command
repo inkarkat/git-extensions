@@ -4,11 +4,16 @@ printUsage()
 {
     cat <<HELPTEXT
 Execute GIT-COMMAND with selected author(s) (chosen from all previous committers
-if only -- is passed), who can be specified partially or via email address, as a
-lookup and filtering is done via git whois.
+if only -- is passed) as AUTHORS replaced in ARG(s) or those following
+GIT-COMMAND / appended, who can be specified partially or via email address, as
+a lookup and filtering is done via git whois.
 HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-option-name] [--joined-as-pattern [--prefix P] [--suffix S]] GIT-COMMAND [...] AUTHOR-PATTERN [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '[...] GIT-COMMAND [...] -- [AUTHOR-PATTERN] [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-option-name] [--joined-as-pattern [--prefix P] [--suffix S]] --keep-position GIT-COMMAND [... AUTHORS ...] AUTHOR-PATTERN [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[...] GIT-COMMAND [... AUTHORS ...] -- [AUTHOR-PATTERN] [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-option-name] [--joined-as-pattern [--prefix P] [--suffix S]] [-1 ARG1|-2 ARG1 ARG2| -3 ARG1 ARG2 ARG3| ...] GIT-COMMAND [...] AUTHOR-PATTERN [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[...] [-1 ARG1|-2 ARG1 ARG2| -3 ARG1 ARG2 ARG3| ...] GIT-COMMAND [...] -- [AUTHOR-PATTERN] [...] [-?|-h|--help]'
 }
 
 optionName='--author='
@@ -80,26 +85,40 @@ else
     typeset -a gitAuthorArgs=("${authors[@]/#/$optionName}")
 fi
 
-
-typeset -a gitCommand=()
 case "$1" in
-    [^-]*-command)  gitCommand+=("$1"); shift
-		    while [ $# -ne 0 ]
-		    do
-			case "$1" in
-			    --)		break;;
-			    -*)		gitCommand+=("$1"); shift;;
-			    *)		gitCommand+=("$1"); shift; break;;
-			esac
-		    done
-		    ;;
-    *)		    while [ $# -ne 0 ]
-		    do
-			case "$1" in
-			    -c) gitCommand+=("$1" "$2"); shift; shift;;
-			    *)	gitCommand+=("$1"); shift; break;;
-			esac
-		    done
-esac
+    -[1-9])
+	typeset headArgNum=${1#-}
+	typeset -a headArgs=("${@:2:${headArgNum}}")
+	set -- "${@:$((2 + headArgNum))}"
 
-exec git-wrapper "${gitCommand[@]}" "${gitAuthorArgs[@]}" "$@"
+	typeset -a appendedArgs=()
+	for arg in "${headArgs[@]}"
+	do
+	    if [ "$arg" = 'AUTHORS' ]; then
+		appendedArgs+=("${gitAuthorArgs[@]}")
+	    else
+		appendedArgs+=("$arg")
+	    fi
+	done
+
+	exec git-wrapper "$@" "${appendedArgs[@]}"
+	;;
+    --keep-position)
+	shift
+
+	typeset -a appendedArgs=()
+	for arg
+	do
+	    if [ "$arg" = 'AUTHORS' ]; then
+		appendedArgs+=("${gitAuthorArgs[@]}")
+	    else
+		appendedArgs+=("$arg")
+	    fi
+	done
+
+	exec git-wrapper "${appendedArgs[@]}"
+	;;
+    *)
+	exec git-wrapper "$@" "${gitAuthorArgs[@]}"
+	;;
+esac

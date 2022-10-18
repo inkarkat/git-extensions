@@ -8,7 +8,7 @@ printUsage()
 Show log grouped by name and sorted by the number of their commits.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-s|--summary|-n|--names-only] [-N|--alphabetic] [LOG-ARGS ...] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-s|--summary|-n|--names-only|-1|--most-only] [-N|--alphabetic] [LOG-ARGS ...] [<revision range>] [[--] <path>...] [-?|-h|--help]'
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
@@ -23,6 +23,7 @@ typeset -a shortlogOrderingArg=(--numbered)
 typeset -a shortlogArgs=()
 prettyFormat=short
 typeset -a filter=(grep -v -e '^[[:space:]]*<none>$')
+selector=
 isSummary=
 while [ $# -ne 0 ]
 do
@@ -36,6 +37,7 @@ do
 			shift; shortlogOrderingArg=();;
 	--names-only|-n)
 			shift; filter=(sed -e '/^[[:space:]]*<none>$/d' -e 's/^[[:space:]]*[[:digit:]]\+[[:space:]]\+//'); shortlogArgs+=(--summary); shortlogOrderingArg=();;
+	--most-only|-1)	shift; shortlogArgs+=(--summary); isSummary=t; selector='countFieldToPercentage 1 | head -n 1';;
 	--)		break;;
 	*)		logArgs+=("$1"); shift;;
     esac
@@ -49,4 +51,4 @@ if [ ${#logArgs[@]} -eq 0 ]; then
 else
     git log --pretty=$prettyFormat "${logArgs[@]}" "$@" | git shortlog "${shortlogOrderingArg[@]}" "${shortlogArgs[@]}"
 fi | \
-    eval '"${filter[@]}"' "${pager:+|}" '"${pager[@]}"'
+    eval '"${filter[@]}"' "${selector:+|}$selector" "${pager:+|}" '"${pager[@]}"'

@@ -8,17 +8,24 @@ Show author names sorted by the total size of the diffs they're responsible for.
 A change counts twice as much as a plain addition or deletion.
 With -v|--verbose, shows details counts of commits, insertions, and deletions.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-v|--verbose] [<revision range>] [--] [<path> ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-v|--verbose] [-1|--most-only] [<revision range>] [--] [<path> ...] [-?|-h|--help]'
 }
 isVerbose=
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
+selector=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
 			shift;;
-    --color)		shift; shift;;
-    --verbose|-v)	shift; isVerbose=t;;
-    --)			shift;;
-esac
+	--color)	shift; shift;;
+	--verbose|-v)	shift; isVerbose=t;;
+	--most-only|-1)	shift; selector='countFieldToPercentage 1 | head -n 1';;
+	--)		break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 
 logContributions()
 {
@@ -51,4 +58,4 @@ logContributions()
 }
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
-eval 'logContributions "$@"' "${pager:+|}" '"${pager[@]}"'
+eval 'logContributions "$@"' "${selector:+|}$selector" "${pager:+|}" '"${pager[@]}"'

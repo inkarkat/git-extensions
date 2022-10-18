@@ -6,11 +6,12 @@ printUsage()
     cat <<HELPTEXT
 Show statistics on how many lines were last committed by which author.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--since=<date>] [<commit>] [--] <path> [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-1|--most-only] [--since=<date>] [<commit>] [--] <path> [...] [-?|-h|--help]'
 }
 
 typeset -a blameArgs=()
 commit=
+selector=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -19,6 +20,7 @@ do
 			shift;;
 	--color)	shift; shift;;
 
+	--most-only|-1)	shift; selector='countFieldToPercentage 1 | head -n 1';;
 	--since)	blameArgs+=("$1" "$2"); shift; shift;;
 	--since=*)	blameArgs+=("$1"); shift;;
 
@@ -51,4 +53,4 @@ done | \
     sed -ne 's/^author //p' | \
     sort | \
     uniq -c | \
-    eval 'sort -nr' "${pager:+|}" '"${pager[@]}"'
+    eval 'sort -nr' "${selector:+|}$selector" "${pager:+|}" '"${pager[@]}"'

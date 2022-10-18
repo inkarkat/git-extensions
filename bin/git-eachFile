@@ -1,0 +1,59 @@
+#!/bin/bash
+shopt -qs extglob
+
+: ${EACHFILE_FILE_WHAT=Git file}
+: ${EACHFILE_FILE_MARKER='{}'}
+
+printUsage()
+{
+    cat <<HELPTEXT
+Execute COMMAND on each FILE under version control (which ${EACHFILE_FILE_MARKER:+either }is appended${EACHFILE_FILE_MARKER:+ or replaces any $EACHFILE_FILE_MARKER marker} inside COMMANDLINE) individually; unversioned files are skipped.
+So one invocation of COMMAND per FILE.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[EACHFILE-ARGS ...] [-r|--recursive|-d|--directory] [-f|--only-files] [--submodule name|ignore|recurse] -c|--command "COMMANDLINE" [...] | SIMPLECOMMAND [...] [--] [FILE ...] [-?|-h|--help]'
+}
+
+typeset -a gitLsArgs=()
+typeset -a eachFileArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+
+	-+([rdf]))	gitLsArgs+=("$1"); shift;;
+	--@(recursive|directory|only-files))
+			gitLsArgs+=("$1"); shift;;
+	--submodule)	gitLsArgs+=("$1" "$2"); shift; shift;;
+
+	-+([l]))	eachFileArgs+=("$1"); shift;;
+	--@(local-dir|with-header|with-prompt|trailing-prompt|no-trailing-prompt|no-output-no-prompt|no-output-no-error|emulate-prompt|no-success-no-count|exit-on-success|exit-on-failure|worst-status))
+			eachFileArgs+=("$1"); shift;;
+	-[c])	eachFileArgs+=("$1" "$2"); shift; shift;;
+	--@(progress|initial-status|no-count-on|exit-on|summarize-failed|summarize-failed-separator|between-command|usage-redirect|command))
+			eachFileArgs+=("$1" "$2"); shift; shift;;
+
+	--)		shift; break;;
+	*)		break;;
+    esac
+done
+typeset -a files=()
+# Consume existing FILEs from behind.
+while [ $# -gt 0 ]
+do
+    lastArg="${!#}"
+    [ -e "$lastArg" ] || break
+    files=("$lastArg" "${files[@]}")
+    set -- "${@:1:$(($#-1))}"
+done
+[ $# -eq 0 ] || set -- git "$@"	# Default to "git SIMPLECOMMAND".
+
+readarray -t filespecs < <(git-ls --no-classify "${gitLsArgs[@]}" -- "${files[@]}")
+[ ${#filespecs[@]} -gt 0 ] || exit 99
+
+# DWIM: Default to prefixed filespec in a header; this can be reverted via
+# $ HEADER_NEWLINE=$'\n' git-eachFile ...
+[ -z "${HEADER_SEPARATOR+t}" -a -z "${HEADER_NEWLINE+t}" ] && \
+    export HEADER_SEPARATOR='' HEADER_NEWLINE='\t'
+
+exec eachFile "${eachFileArgs[@]}" "$@" -- "${filespecs[@]}"

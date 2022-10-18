@@ -5,7 +5,7 @@ printUsage()
     cat <<HELPTEXT
 List files under version control; skip unversioned files.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-l|--long [--date FORMAT|--relative-date]] [-r|--recursive|-d|--directory] [-f|--only-files] [--no-classify] [--submodule name|ignore|recurse] [--] [FILE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-l|--long [--date FORMAT|--relative-date]] [-r|--recursive|-d|--directory] [-f|--only-files|-D|--only-directories] [--no-classify] [--submodule name|ignore|recurse] [--] [FILE ...] [-?|-h|--help]'
 }
 
 typeset -a allSelfArgs=("$@")
@@ -13,7 +13,7 @@ isNeedLog=
 formatPrefix=
 formatSuffix=
 maxDepth=1
-isOnlyFiles=
+isOnly=
 classifyDirectories=/
 submodule=name
 prefix=
@@ -29,7 +29,9 @@ do
 	--recursive|-r)	shift; maxDepth='';;
 	--directory|-d)	shift; maxDepth=0;;
 	--only-files|-f)
-			shift; isOnlyFiles=t;;
+			shift; isOnly=files;;
+	--only-directories|-D)
+			shift; isOnly=directories;;
 	--date)			isNeedLog=t; gitLogArgs+=("$1" "$2"); shift; shift;;
 	--date=*)		isNeedLog=t; gitLogArgs+=("$1"); shift;;
 	--relative-date)	isNeedLog=t; gitLogArgs+=("$1"); shift;;
@@ -85,17 +87,21 @@ do
 
 	filespecSuffix=
 	if [ -d "$filespec" ]; then
-	    [ "$isOnlyFiles" ] && continue
+	    [ "$isOnly" = files ] && continue
 	    filespecSuffix="$classifyDirectories"
+	elif [ "$isOnly" = directories ]; then
+	    continue
 	fi
 	git log --pretty=tformat:"${formatPrefix}${prefix//%//%%}${filespec//%/%%}${filespecSuffix}${formatSuffix}" --max-count 1 "${gitLogArgs[@]}" -- "$filespec"
     else
 	if [ -d "$filespec" ]; then
-	    [ "$isOnlyFiles" ] && continue
+	    [ "$isOnly" = files ] && continue
 	    # Print directory (name) if it contains any tracked files.
 	    if git ls-files --error-unmatch -- "$filespec" >/dev/null 2>&1; then
 		printf '%s%s%s\n' "$prefix" "${filespec%/}" "$classifyDirectories"
 	    fi
+	elif [ "$isOnly" = directories ]; then
+	    continue
 	else
 	    eval 'git ls-files --error-unmatch -- "$filespec" 2>/dev/null' "${prefix:+| prefix "$prefix"}"
 	fi

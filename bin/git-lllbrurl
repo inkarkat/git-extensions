@@ -25,7 +25,8 @@ case "$1" in
     --color)		shift; shift;;
 esac
 
+branch="$(git-brname --real-branch-only --detached-effective-branch --raw)" || exit $?
+urlencodedBranch="$(printf %s "$branch" | urlencode --filespec -)" || exit $?
 url="$(git-remote-url "$remote")" || exit $?
-branch="$(git-brname --real-branch-only --detached-effective-branch --raw | urlencode --filespec -)" || exit $?
 
-exec git-lll --prefix "${url%/}/blob/${branch}/" --transform 'urlencode --filespec --newlines -' --no-classify "$@"
+exec git-lll --prefix "${url%/}/blob/${urlencodedBranch}/" --transform 'urlencode --filespec --newlines -' --no-classify "$@"

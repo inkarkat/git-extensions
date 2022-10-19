@@ -84,7 +84,7 @@ print()
     local commit="${deletionCommit}^"
     local filespec="${1:?}"; shift
 
-    [ -t 1 ] && printf >&2 '%s (as of %s).\n' "$filespec" "$(git rev-parse --short "$commit")"
+    [ -t 1 ] && header ${isFirst:+--first} "$filespec (as of $(git rev-parse --short "$commit"))"
     git-cat "$commit" "$filespec"
 }
 
@@ -98,6 +98,7 @@ revive()
 	printf 'Revived %s from %s.\n' "$filespec" "$(git rev-parse --short "$commit")"
 }
 
+isFirst=t
 while IFS=$'\n' read -r line
 do
     if [ -z "$line" ]; then
@@ -112,9 +113,9 @@ do
 	filespec="$line"
 	filename="$(basename -- "$filespec")"
 	if [ "${filespecs["$filespec"]}" ]; then
-	    $action "$commit" "$filespec" && unset "filespecs[$filespec]"
+	    $action "$commit" "$filespec" && unset "filespecs[$filespec]" && isFirst=
 	elif [ "${filenames["$filename"]}" ]; then
-	    $action "$commit" "$filespec" && unset "filenames[$filename]"
+	    $action "$commit" "$filespec" && unset "filenames[$filename]" && isFirst=
 	fi && [ ${#filenames[@]} -eq 0 ] && [ ${#filespecs[@]} -eq 0 ] && \
 	    exit 0
     fi

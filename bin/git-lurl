@@ -77,8 +77,13 @@ if [ ! "$hasColor" ]; then
     GIT_LURL_FILE_SUFFIX=
 fi
 
-view="/${GIT_LURL_VIEW}/"
-url="$(git-remote-url "$remote")" || exit $?
+if [ "$HUB" ]; then
+    view='@'
+    url="$(hub-userrepo "$(git-remote-url "$remote")")" || exit $?
+else
+    view="/${GIT_LURL_VIEW}/"
+    url="$(git-remote-url "$remote")" || exit $?
+fi
 
 log()
 {

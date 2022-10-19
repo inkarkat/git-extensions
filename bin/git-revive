@@ -5,10 +5,11 @@ printUsage()
 {
     cat <<HELPTEXT
 Obtain the last checked-in revision of FILE(s) (just before it got deleted or
-renamed) from the log and restore it as an untracked file.
+renamed) from the log and restore it as an untracked file / just print its
+contents with -p|--print.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-n|--dry-run] [--no-renames|-M<n>|--find-renames[=<n>]] [--] [./]FILESPEC|FILENAME [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-n|--dry-run|-p|--print] [--no-renames|-M<n>|--find-renames[=<n>]] [--] [./]FILESPEC|FILENAME [...] [-?|-h|--help]'
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[...] [<log-options>] [<revision-range>] [[--] <path> ...] -- [./]FILESPEC|FILENAME [...] [-?|-h|--help]'
     echo
@@ -32,7 +33,8 @@ do
 			shift;;
 	--color)	shift; shift;;
 
-	--dry-run|-n)	shift; action=print;;
+	--dry-run|-n)	shift; action=dryRun;;
+	--print|-p)	shift; action=print;;
 	--all)		shift; isAll=t; typeset -A revivedFilespecs=();;
 	--no-renames)	shift; renameArgs=(--find-renames);;	# The toggling works the other way around here: By finding renames, those files aren't listed as deleted, and therefore evade our filter.
 	--find-renames|--find-renames=*|-M?*)
@@ -67,13 +69,23 @@ elif [ ${#filenames[@]} -eq 0 -a ${#filespecs[@]} -eq 0 ]; then
     exit 2
 fi >&2
 
-print()
+dryRun()
 {
     local deletionCommit="${1:?}"; shift
     local commit="${deletionCommit}^"
     local filespec="${1:?}"; shift
 
     printf 'Would revive %s from %s.\n' "$filespec" "$(git rev-parse --short "$commit")"
+}
+
+print()
+{
+    local deletionCommit="${1:?}"; shift
+    local commit="${deletionCommit}^"
+    local filespec="${1:?}"; shift
+
+    [ -t 1 ] && header ${isFirst:+--first} "$filespec (as of $(git rev-parse --short "$commit"))"
+    git-cat "$commit" "$filespec"
 }
 
 revive()
@@ -86,6 +98,7 @@ revive()
 	printf 'Revived %s from %s.\n' "$filespec" "$(git rev-parse --short "$commit")"
 }
 
+isFirst=t
 while IFS=$'\n' read -r line
 do
     if [ -z "$line" ]; then
@@ -100,9 +113,9 @@ do
 	filespec="$line"
 	filename="$(basename -- "$filespec")"
 	if [ "${filespecs["$filespec"]}" ]; then
-	    $action "$commit" "$filespec" && unset "filespecs[$filespec]"
+	    $action "$commit" "$filespec" && unset "filespecs[$filespec]" && isFirst=
 	elif [ "${filenames["$filename"]}" ]; then
-	    $action "$commit" "$filespec" && unset "filenames[$filename]"
+	    $action "$commit" "$filespec" && unset "filenames[$filename]" && isFirst=
 	fi && [ ${#filenames[@]} -eq 0 ] && [ ${#filespecs[@]} -eq 0 ] && \
 	    exit 0
     fi

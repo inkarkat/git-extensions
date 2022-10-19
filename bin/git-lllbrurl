@@ -5,11 +5,11 @@ printUsage()
 {
     cat <<HELPTEXT
 List URLs to passed ${remote:-REMOTE} of all files under source control in the
-current branch. In contrast to lllhurl, this link will always point to the
-latest version on that branch.
+current / passed branch. In contrast to lllhurl, this link will always point to
+the latest version on that branch.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [FILE, ...] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [-b|--branch BRANCH] [FILE ...] [-?|-h|--help]"
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
@@ -17,9 +17,17 @@ case "$1" in
 			shift;;
     --color)		shift; shift;;
 esac
-
 remote="${1:?}"; shift
-url="$(git-remote-url "$remote")" || exit $?
-branch="$(git-brname --real-branch-only --detached-effective-branch --raw | urlencode --filespec -)" || exit $?
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --no-color|--color=*)
+			shift;;
+    --color)		shift; shift;;
 
-exec git-lll --prefix "${url%/}/blob/${branch}/" --transform 'urlencode --filespec --newlines -' --no-classify "$@"
+    --branch|-b)	shift; branch="${1:?}"; shift;;
+esac
+[ -n "$branch" ] || branch="$(git-brname --real-branch-only --detached-effective-branch --raw)" || exit $?
+urlencodedBranch="$(printf %s "$branch" | urlencode --filespec -)" || exit $?
+url="$(git-remote-url "$remote")" || exit $?
+
+exec git-lll --prefix "${url%/}/blob/${urlencodedBranch}/" --transform 'urlencode --filespec --newlines -' --no-classify "$@"

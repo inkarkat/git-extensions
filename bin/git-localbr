@@ -6,10 +6,10 @@ printUsage()
 {
     cat <<HELPTEXT
 List all local (sorted by last commit age (descending, starting with branches
-that haven't been updated recently)) / passed branches (except for the current
-branch and master (and base branch if defined)).
+that haven't been updated recently)) / branches matching <glob> (except for the
+current branch and master (and base branch if defined)).
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--include-current] [--include-master] [--include-base] [--include-all] [--] [<branch1> ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--include-current] [--include-master] [--include-base] [--include-all] [--] [<glob> ...] [-?|-h|--help]'
 }
 getBranches()
 {
@@ -18,16 +18,20 @@ getBranches()
     [ ${#localBranches[@]} -gt 0 ] || return 1
 
     if [ $# -gt 0 ]; then
-	typeset -A passedBranches=()
-	local branch
-	for branch
+	typeset -A matchedBranches=()
+	local branch; while IFS=$'\n' read -r branch
 	do
-	    passedBranches["$branch"]=t
-	done
+	    matchedBranches["$branch"]=t
+	done < <(local glob; for glob
+	    do
+		filterGlob "$glob" "${localBranches[@]}"
+	    done
+	)
+
 	status=1
 	for branch in "${localBranches[@]}"
 	do
-	    if [ "${passedBranches["$branch"]}" ]; then
+	    if [ "${matchedBranches["$branch"]}" ]; then
 		printf '%s\n' "$branch"
 		status=0
 	    fi

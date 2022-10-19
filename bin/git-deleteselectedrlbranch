@@ -1,0 +1,27 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Delete branches that are interactively selected from existing
+${remote:-REMOTE} branches in ${remote:-REMOTE} and from the local repository as well.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [-f|--force] [-i|--ignore-missing-in-${remote}] [-y|--yes] [-?|-h|--help]"
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+remote="${1:?}"; shift
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --get-branches)	shift
+			comm -12 <(git-rbr "$remote" "$@" | sed -ne "s#^${remote}/##p" | sort) <(git-localbr "$@" | sort)
+			exit
+			;;
+esac
+
+printf -v quotedDeleteCommand '%q ' rldeletebr "$remote" "$@"
+printf -v GIT_SELECTED_COMMAND_DEFAULT_FILES '%q %q --get-branches' "${BASH_SOURCE[0]}" "$remote"; export GIT_SELECTED_COMMAND_DEFAULT_FILES
+exec git-selected-command "${quotedDeleteCommand% }"

@@ -11,7 +11,7 @@ Execute COMMAND on each FILE under version control (which ${EACHFILE_FILE_MARKER
 So one invocation of COMMAND per FILE.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[EACHFILE-ARGS ...] [--no-git-color] [-r|--recursive|-d|--directory] [-f|--only-files] [--submodule name|ignore|recurse] -c|--command "COMMANDLINE" [...] | SIMPLECOMMAND [...] [--] [FILE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[EACHFILE-ARGS ...] [--no-git-color] [-p|--paginate] [--separate-errors] [-r|--recursive|-d|--directory] [-f|--only-files] [--submodule name|ignore|recurse] -c|--command "COMMANDLINE" [...] | SIMPLECOMMAND [...] [--] [FILE ...] [-?|-h|--help]'
 }
 
 typeset -a gitLsArgs=()
@@ -19,6 +19,8 @@ typeset -a eachFileArgs=()
 isHeader=
 isGitColor=t
 typeset -a colorArg=()
+errorRedir='2>&1'
+typeset -a pager=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -26,6 +28,7 @@ do
 	--no-git-color)		shift; isGitColor=;;
 	--no-color|--color=*)	colorArg=("$1"); shift;;
 	--color)		colorArg=("$1" "$2"); shift; shift;;
+	--paginate|-p)		shift; typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=();;
 
 	-+([rdf]))	gitLsArgs+=("$1"); shift;;
 	--@(recursive|directory|only-files))
@@ -34,7 +37,9 @@ do
 
 	-+([l]))	eachFileArgs+=("$1"); shift;;
 	--with-header)	eachFileArgs+=("$1"); shift; isHeader=t;;
-	--@(local-dir|separate-errors|with-prompt|trailing-prompt|no-trailing-prompt|no-output-no-prompt|no-output-no-error|emulate-prompt|no-success-no-count|exit-on-success|exit-on-failure|worst-status))
+	--separate-errors)
+			eachFileArgs+=("$1"); shift; errorRedir='';;
+	--@(local-dir|with-prompt|trailing-prompt|no-trailing-prompt|no-output-no-prompt|no-output-no-error|emulate-prompt|no-success-no-count|exit-on-success|exit-on-failure|worst-status))
 			eachFileArgs+=("$1"); shift;;
 	-[c])	eachFileArgs+=("$1" "$2"); shift; shift;;
 	--@(progress|initial-status|no-count-on|exit-on|summarize-failed|summarize-failed-separator|between-command|usage-redirect|command))
@@ -103,4 +108,4 @@ readarray -t filespecs < <(git-ls $GIT_EACHFILE_LS_ARGS --no-classify "${gitLsAr
 [ -z "${HEADER_SEPARATOR+t}" -a -z "${HEADER_NEWLINE+t}" ] && \
     export HEADER_SEPARATOR='' HEADER_NEWLINE='\t'
 
-exec ${GIT_EACHFILE_ITERATOR_COMMAND:-eachFile} "${colorArg[@]}" "${eachFileArgs[@]}" "$@" -- "${filespecs[@]}"
+eval '${GIT_EACHFILE_ITERATOR_COMMAND:-eachFile} "${colorArg[@]}" "${eachFileArgs[@]}" "$@" -- "${filespecs[@]}"' "${pager:+$errorRedir |}" '"${pager[@]}"'

@@ -30,11 +30,12 @@ cleanup()
 }
 [ "$DEBUG" ] || trap 'cleanup' EXIT
 git diff --cached --unified=0 -- "$@" | \
-    sed -e '/^--- /{ N; /\n+++ /d; }' \
+    sed -n \
+	-e '/^--- /{ N; /\n+++ /d; }' \
 	-e '/^@@ .* @@$/d' \
-	-e '/^+/!d' \
 	-e '/^+[[:space:]]*$/d' \
-	-e 's/^+//' \
+	-e 's/^+//p' \
+	-e 's/^  > //p' \
     > "$commitMessageFilespec" || exit $?
 if [ ! -s "$commitMessageFilespec" ]; then
     echo >&2 'ERROR: No additions committed.'

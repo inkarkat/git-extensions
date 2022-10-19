@@ -155,12 +155,13 @@ printPrefixed()
     local prefix; printf -v prefix "%-${submoduleWidth}s" "${prefix}${submodule}"
     local message; printf -v message "$@"
 
-    if [ -n "$COLUMNS" ] && type -t prefix >/dev/null && type -t fmt >/dev/null; then
+    if [ -n "$COLUMNS" -a $submoduleWidth -gt 0 ] && type -t prefix >/dev/null && type -t fmt >/dev/null; then
 	local formattedMessage="$(printf '%s\n' "$message" | \
 	    fmt --width $((COLUMNS - submoduleWidth)) | \
 	    prefix --first-then-indent "$prefix")"
 	printf '%s%s%s\n' "$color" "$formattedMessage" "${color:+$GIT_SUBCOBR_COLOR_RESET}"
     else
+	[ $submoduleWidth -gt 0 ] || prefix="${prefix}: "
 	printf '%s%s%s%s\n' "$color" "$prefix" "$message" "${color:+$GIT_SUBCOBR_COLOR_RESET}"
     fi
 }

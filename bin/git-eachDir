@@ -1,0 +1,22 @@
+#!/bin/bash
+shopt -qs extglob
+
+: ${EACHDIR_DIR_WHAT=Git dir}
+: ${EACHDIR_DIR_MARKER='{}'}
+
+printUsage()
+{
+    cat <<HELPTEXT
+Execute COMMAND on each DIR under version control (which ${EACHDIR_DIR_MARKER:+either }is appended${EACHDIR_DIR_MARKER:+ or replaces any $EACHDIR_DIR_MARKER marker} inside COMMANDLINE) individually; unversioned directories are skipped.
+So one invocation of COMMAND per DIR.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[EACHDIR-ARGS ...] [-r|--recursive|-d|--directory] [-f|--only-files] [--submodule name|ignore|recurse] -c|--command "COMMANDLINE" [...] | SIMPLECOMMAND [...] [--] [DIR ...] [-?|-h|--help]'
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+GIT_EACHFILE_LS_ARGS=--only-directories GIT_EACHFILE_ITERATOR_COMMAND=eachDir \
+    exec git-eachFile "$@"

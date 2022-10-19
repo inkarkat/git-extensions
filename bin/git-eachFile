@@ -1,0 +1,112 @@
+#!/bin/bash
+shopt -qs extglob
+
+: ${EACHFILE_FILE_WHAT=Git file}
+: ${EACHFILE_FILE_MARKER='{}'}
+
+printUsage()
+{
+    cat <<HELPTEXT
+Execute COMMAND on each FILE under version control (which ${EACHFILE_FILE_MARKER:+either }is appended${EACHFILE_FILE_MARKER:+ or replaces any $EACHFILE_FILE_MARKER marker} inside COMMANDLINE) individually; unversioned files are skipped.
+So one invocation of COMMAND per FILE.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[EACHFILE-ARGS ...] [--no-git-color] [-p|--paginate] [--separate-errors] [-r|--recursive|-d|--directory] [-f|--only-files] [--submodule name|ignore|recurse] -c|--command "COMMANDLINE" [...] | SIMPLECOMMAND [...] [--] [FILE ...] [-?|-h|--help]'
+}
+
+typeset -a gitLsArgs=()
+typeset -a eachFileArgs=()
+isHeader=
+isGitColor=t
+typeset -a colorArg=()
+errorRedir='2>&1'
+typeset -a pager=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-git-color)		shift; isGitColor=;;
+	--no-color|--color=*)	colorArg=("$1"); shift;;
+	--color)		colorArg=("$1" "$2"); shift; shift;;
+	--paginate|-p)		shift; typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=();;
+
+	-+([rdf]))	gitLsArgs+=("$1"); shift;;
+	--@(recursive|directory|only-files))
+			gitLsArgs+=("$1"); shift;;
+	--submodule)	gitLsArgs+=("$1" "$2"); shift; shift;;
+
+	-+([l]))	eachFileArgs+=("$1"); shift;;
+	--@(with-header|with-basename-header))
+			eachFileArgs+=("$1"); shift; isHeader=t;;
+	--separate-errors)
+			eachFileArgs+=("$1"); shift; errorRedir='';;
+	--@(local-dir|with-prompt|trailing-prompt|no-trailing-prompt|no-output-no-prompt|no-output-no-error|emulate-prompt|no-success-no-count|exit-on-success|exit-on-failure|worst-status))
+			eachFileArgs+=("$1"); shift;;
+	-[c])	eachFileArgs+=("$1" "$2"); shift; shift;;
+	--@(progress|initial-status|no-count-on|exit-on|summarize-failed|summarize-failed-separator|between-command|usage-redirect|command))
+			eachFileArgs+=("$1" "$2"); shift; shift;;
+
+	--)		shift; break;;
+	*)		break;;
+    esac
+done
+typeset -a files=()
+# Consume existing FILEs from behind.
+while [ $# -gt 0 ]
+do
+    lastArg="${!#}"
+    [ -e "$lastArg" ] || break
+    files=("$lastArg" "${files[@]}")
+    set -- "${@:1:$(($#-1))}"
+done
+
+# With piping into withHeader, we need to explicitly enable color for
+# Git, unless this command's output itself is redirected. Also don't do this if
+# the user explicitly turned off color.
+gitColorArg=()
+if [ -n "$pager" -o -n "$isHeader" ] && isNeedColorArgumentWhenPiping "${colorArg[@]}"; then
+    colorArg=(--color=always)	# Force for withHeader
+    [ "$isGitColor" ] && gitColorArg=(--color=always)	# Force for Git
+fi
+
+if [ $# -gt 0 ]; then
+    typeset -a gitCommand=(git-wrapper)
+    if [ ${#gitColorArg[@]} -gt 0 ]; then
+	# Simply appending gitColorArg doesn't work; many Git commands have a
+	# special <path> or <commit> part at the end. Place it just behind the
+	# Git subcommand by iterating arguments in the same way as the various
+	# git-*-command metaprograms, and moving anything that is in front from
+	# $@ to gitCommand.
+	case "$1" in
+	    [^-]*-command)  gitCommand+=("$1"); shift
+			    while [ $# -ne 0 ]
+			    do
+				case "$1" in
+				    --)		break;;
+				    -*)		gitCommand+=("$1"); shift;;
+				    *)		gitCommand+=("$1"); shift; break;;
+				esac
+			    done
+			    ;;
+	    *)		    while [ $# -ne 0 ]
+			    do
+				case "$1" in
+				    -c) gitCommand+=("$1" "$2"); shift; shift;;
+				    *)	gitCommand+=("$1"); shift; break;;
+				esac
+			    done
+	esac
+	gitCommand+=("${gitColorArg[@]}")
+    fi
+    set -- "${gitCommand[@]}" "$@"	# Default to "git SIMPLECOMMAND".
+fi
+
+readarray -t filespecs < <(git-ls $GIT_EACHFILE_LS_ARGS --no-classify "${gitLsArgs[@]}" -- "${files[@]}")
+[ ${#filespecs[@]} -gt 0 ] || exit 99
+
+# DWIM: Default to prefixed filespec in a header; this can be reverted via
+# $ HEADER_NEWLINE=$'\n' git-eachFile ...
+[ -z "${HEADER_SEPARATOR+t}" -a -z "${HEADER_NEWLINE+t}" ] && \
+    export HEADER_SEPARATOR='' HEADER_NEWLINE='\t'
+
+eval '${GIT_EACHFILE_ITERATOR_COMMAND:-eachFile} "${colorArg[@]}" "${eachFileArgs[@]}" "$@" -- "${filespecs[@]}"' "${pager:+$errorRedir |}" '"${pager[@]}"'

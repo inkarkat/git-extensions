@@ -1,3 +1,15 @@
 #!/bin/bash
 
-GIT_LOGUNTILTAG_LOG_COMMAND=lgtagged exec git-loguntiltag "$@"
+printUsage()
+{
+    cat <<HELPTEXT
+One-line author, date, tags and commit summary for commits that are tagged until TAGNAME (or nothing and fail if the tag is not reachable from HEAD / the passed <commit>).
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-t|--tag <tagname>] [-b|--branch <branch>] [<log-options>] [<commit>] [[--] <path>...] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+exec git-untiltag-command --reachable-from-passed-branch --keep-position branch-command --keep-position rev-range --revision TAG --end-revision BRANCH lgtagged "$@"

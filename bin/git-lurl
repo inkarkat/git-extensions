@@ -33,7 +33,7 @@ if [ ! -t 1 ]; then
 fi
 isSummarizeFiles=
 typeset -a logArgs=()
-typeset -a prettyArg=(--pretty=tformat:'%H %s')
+unset prettyArg
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -46,7 +46,7 @@ do
 
 	--summarize-files|-s)
 			shift; isSummarizeFiles=t; logArgs+=(--name-only);;
-	--pretty=*)	prettyArg=("$1"); shift;;
+	--pretty=*)	prettyArg="$1"; shift;;
 	--)		logArgs+=("$1"); shift; break;;
 	-)		shift; sourceCommand=;;
 	*)		logArgs+=("$1"); shift;;
@@ -77,11 +77,19 @@ if [ ! "$hasColor" ]; then
     GIT_LURL_FILE_SUFFIX=
 fi
 
-url="$(git-remote-url "$remote")" || exit $?
+if [ "$HUB" ]; then
+    : ${prettyArg='--pretty=tformat:%h %s'}
+    view='@'
+    url="$(hub-userrepo "$(git-remote-url "$remote")")" || exit $?
+else
+    : ${prettyArg='--pretty=tformat:%H %s'}
+    view="/${GIT_LURL_VIEW}/"
+    url="$(git-remote-url "$remote")" || exit $?
+fi
 
 log()
 {
-    git log "${colorArg[@]}" "${prettyArg[@]}" "$@"
+    git log "${colorArg[@]}" "$prettyArg" "$@"
 }
 
 injectUrls()
@@ -97,7 +105,7 @@ injectUrls()
 	-v pathSuffix="$GIT_LURL_PATH_SUFFIX" \
 	-v filePrefix="$GIT_LURL_FILE_PREFIX" \
 	-v fileSuffix="$GIT_LURL_FILE_SUFFIX" \
-	-v "view=${GIT_LURL_VIEW//\\/\\\\}" \
+	-v "view=${view//\\/\\\\}" \
 '
 @load "filefuncs"
 BEGIN {
@@ -141,7 +149,7 @@ function handleFilespec( prefix, filespec, suffix ) {
 }
 
 $1 ~ /^[0-9a-f]+$/ {
-    $1 = urlPrefix url "/" view "/" urlSuffix hashPrefix $1 hashSuffix
+    $1 = urlPrefix url view urlSuffix hashPrefix $1 hashSuffix
     print
     next
 }
@@ -150,7 +158,7 @@ $1 ~ /^[0-9a-f]+$/ {
 	next
     } else if (match($0, /commit [0-9a-f]+/)) {
 	commitId = substr($0, RSTART + 7, RLENGTH - 7)
-	$0 = substr($0, 1, RSTART + 6) urlPrefix url "/" view "/" urlSuffix hashPrefix commitId hashSuffix substr($0, RSTART + RLENGTH)
+	$0 = substr($0, 1, RSTART + 6) urlPrefix url view urlSuffix hashPrefix commitId hashSuffix substr($0, RSTART + RLENGTH)
 	print
     } else if (stat($0, fdata) == 0) {
 	handleFilespec("", $0, "")

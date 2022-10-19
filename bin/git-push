@@ -46,13 +46,18 @@ if {
 }
 then
     if [ "$isSetUpstream" ]; then
-	if git-existsbr "${remote}/${branch}"; then
-	    [ ${#forceArgs[@]} -ge 2 ] || userBinaryChoice --question "You're publishing to $branch on $remote, but a ${remote}/${branch} already exists." --ok-cancel || exit 4
-	fi
 	if trackedBranch="$(git-tracks --push 2>/dev/null)" && \
 	    [ "$trackedBranch" != "${remote}/${branch}" ]
 	then
 	    [ ${#forceArgs[@]} -ge 2 ] || userBinaryChoice --question "You're publishing to $branch on $remote, but previously this was published to ${trackedBranch}." --ok-cancel || exit 4
+	fi
+
+	if git-existsbr "${remote}/${branch}"; then
+	    if [ -z "$trackedBranch" ]; then
+		[ ${#forceArgs[@]} -ge 2 ] || userBinaryChoice --question "You're publishing to $branch on $remote, but a ${remote}/${branch} branch already exists; it isn't yet tracked though." --ok-cancel || exit 4
+	    elif [ "$trackedBranch" = "${remote}/${branch}" ]; then
+		echo >&2 "Note: The ${remote}/${branch} branch already exists and is already being tracked."
+	    fi
 	fi
     else
 	if trackedBranch="$(git-tracks --push 2>/dev/null)" && [ "$trackedBranch" != "${remote}/${branch}" ]; then

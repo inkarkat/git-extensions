@@ -1,25 +1,73 @@
 #!/bin/bash
 set -o pipefail
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-v|--verbose] [-1|--most-only|(--each-file|--each-dir [-r|--recursive]] [<revision range>] [--] [<path> ...] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
-Show author names sorted by the total size of the diffs (over the whole history
-/ <revision range>) they're responsible for.
-A change counts twice as much as a plain addition or deletion.
-With -v|--verbose, shows details counts of commits, insertions, and deletions.
-HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-v|--verbose] [-1|--most-only] [<revision range>] [--] [<path> ...] [-?|-h|--help]'
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
 }
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Show author names sorted by the total size of the diffs (over the whole history
+/ <revision range>) they're responsible for. A change counts twice as much as a
+plain addition or deletion.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --verbose|-v	Show details counts of commits, insertions, and
+			deletions.
+    --most-only|-1	Only show the single author with the most contributions.
+    --each-file		Show separate single authors with the most contributions
+			for each file [in <path>(s)].
+    --each-dir		Show separate single authors with the most contributions
+			for each directory [in <path>(s)].
+    --recursive|-r	Also cover files / directories in subdirectories.
+
+For coarser granularity, use git-whoowns which counts changed lines.
+HELPTEXT
+}
+
+typeset -a colorArg=(--color=always)
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+if [ ! -t 1 ]; then
+    colorArg=()
+    pager=()
+fi
 isVerbose=
 selector=
+typeset -a nonRecursiveArgs=()
+eachType=
+eachRecursion=
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--color=auto)	shift; continue;;
 	--no-color|--color=*)
-			shift;;
-	--color)	shift; shift;;
+			colorArg=("$1"); shift; continue;;
+	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); shift; shift; continue;;
+
+	--each-file)	shift; eachType=File; nonRecursiveArgs+=(--most-only); continue;;
+	--each-dir)	shift; eachType=Dir; nonRecursiveArgs+=(--most-only); continue;;
+	--recursive|-r)	shift; eachRecursion=t; continue;;
+	--)		break;;
+	*)		nonRecursiveArgs+=("$1");;
+    esac
+
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--verbose|-v)	shift; isVerbose=t;;
 	--most-only|-1)	shift; selector='countFieldToPercentage 1 | head -n 1';;
 	--)		break;;
@@ -27,6 +75,18 @@ do
 	*)		break;;
     esac
 done
+
+triggerEachRecursion()
+{
+    local -r scriptName="$(basename -- "${BASH_SOURCE[0]}")"
+    headerArg='--with-header'; [ "$eachRecursion" ] || headerArg=--with-basename-header
+    HEADER_COLON='' git-each$eachType ${eachRecursion:+--recursive} $headerArg "${colorArg[@]}" -- "${scriptName#git-}" "${nonRecursiveArgs[@]}" "$@" \
+	| column -s $'\t' -t
+}
+if [ -n "$eachType" ]; then
+    eval 'triggerEachRecursion "$@"' "${pager:+|}" '"${pager[@]}"'
+    exit $?
+fi
 
 logContributions()
 {
@@ -58,5 +118,4 @@ logContributions()
     '
 }
 
-typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 eval 'logContributions "$@"' "${selector:+|}$selector" "${pager:+|}" '"${pager[@]}"'

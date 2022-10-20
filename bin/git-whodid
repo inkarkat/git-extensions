@@ -2,23 +2,53 @@
 set -o pipefail
 shopt -qs extglob
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-s|--summary|-n|--names-only|-1|--most-only|(--each-file|--each-dir [-r|--recursive])] [-N|--alphabetic] [LOG-ARGS ...] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+}
 printUsage()
 {
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Show short log grouped by name and sorted by the number of their commits.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
     cat <<HELPTEXT
-Show log grouped by name and sorted by the number of their commits.
+    --summary|-s	Only show the number of commits for each author, not the
+			short logs.
+    --names-only|-n	Only show the authors that did commits (alphabetically,
+			i.e. implies --alphabetic).
+    --alphabetic|-N	Output the logs / number of commits sorted by author
+			instead of commit numbers.
+    --most-only|-1	Only show the single author with the most commits.
+    --each-file		Show separate single authors with the most commits for
+			each file [in <path>(s)].
+    --each-dir		Show separate single authors with the most commits for
+			each directory [in <path>(s)].
+    --recursive|-r	Also cover files / directories in subdirectories.
+
 For finer granularity, use git-whoowns which counts changed lines.
 HELPTEXT
-    echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-s|--summary|-n|--names-only|-1|--most-only] [-N|--alphabetic] [LOG-ARGS ...] [<revision range>] [[--] <path>...] [-?|-h|--help]'
 }
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
-			shift;;
-    --color)		shift; shift;;
-esac
 
-
+typeset -a colorArg=(--color=always)
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+if [ ! -t 1 ]; then
+    colorArg=()
+    pager=()
+fi
 typeset -a logArgs=()
 typeset -a shortlogOrderingArg=(--numbered)
 typeset -a shortlogArgs=()
@@ -26,9 +56,27 @@ prettyFormat=short
 typeset -a filter=(grep -v -e '^[[:space:]]*<none>$')
 selector=
 isSummary=
+typeset -a nonRecursiveArgs=()
+eachType=
+eachRecursion=
 while [ $# -ne 0 ]
 do
     case "$1" in
+	--color=auto)	shift; continue;;
+	--no-color|--color=*)
+			colorArg=("$1"); shift; continue;;
+	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); shift; shift; continue;;
+
+	--each-file)	shift; eachType=File; nonRecursiveArgs+=(--most-only); continue;;
+	--each-dir)	shift; eachType=Dir; nonRecursiveArgs+=(--most-only); continue;;
+	--recursive|-r)	shift; eachRecursion=t; continue;;
+	--)		break;;
+	*)		nonRecursiveArgs+=("$1");;
+    esac
+
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+
 	-+([ce]))	shortlogArgs+=("$1"); shift;;
 	-w*)		shortlogArgs+=("$1"); shift; shift;;
 	--committer)	shortlogArgs+=("$1"); shift; prettyFormat=full;;    # Need the full log output format; the "short" one does not include the committer.
@@ -43,10 +91,23 @@ do
 	*)		logArgs+=("$1"); shift;;
     esac
 done
+
+triggerEachRecursion()
+{
+    local -r scriptName="$(basename -- "${BASH_SOURCE[0]}")"
+    headerArg='--with-header'; [ "$eachRecursion" ] || headerArg=--with-basename-header
+    HEADER_COLON='' git-each$eachType ${eachRecursion:+--recursive} $headerArg "${colorArg[@]}" -- "${scriptName#git-}" "${nonRecursiveArgs[@]}" "$@" \
+	| column -s $'\t' -t
+}
+if [ -n "$eachType" ]; then
+    eval 'triggerEachRecursion "$@"' "${pager:+|}" '"${pager[@]}"'
+    exit $?
+fi
+
+
 [ "$isSummary" ] && [ ${#shortlogOrderingArg[@]} -gt 0 ] && \
     filter=(sed -e '/^[[:space:]]*1[[:space:]]\+/{ $b }' -e ':loop' -e 's/^[[:space:]]*1[[:space:]]\+\(.*\)$/\1/' -e T -e 'H; $!{ N; s/.*\n//; b loop }' -e '${ g; s/^\n/  Once: /; s/\n/, /g }'  )
 
-typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 if [ ${#logArgs[@]} -eq 0 ]; then
     git shortlog "${shortlogOrderingArg[@]}" "${shortlogArgs[@]}" "$@"
 else

@@ -2,14 +2,45 @@
 set -o pipefail
 shopt -qs extglob
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-s|--summary|-n|--names-only|-1|--most-only|(--each-file|--each-dir [-r|--recursive])] [-N|--alphabetic] [LOG-ARGS ...] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+}
 printUsage()
 {
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Show short log grouped by name and sorted by the number of their commits.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
     cat <<HELPTEXT
-Show log grouped by name and sorted by the number of their commits.
+    --summary|-s	Only show the number of commits for each author, not the
+			short logs.
+    --names-only|-n	Only show the authors that did commits (alphabetically,
+			i.e. implies --alphabetic).
+    --alphabetic|-N	Output the logs / number of commits sorted by author
+			instead of commit numbers.
+    --most-only|-1	Only show the single author with the most commits.
+    --each-file		Show separate single authors with the most commits for
+			each file [in <path>(s)].
+    --each-dir		Show separate single authors with the most commits for
+			each directory [in <path>(s)].
+    --recursive|-r	Also cover files / directories in subdirectories.
+
 For finer granularity, use git-whoowns which counts changed lines.
 HELPTEXT
-    echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-s|--summary|-n|--names-only|-1|--most-only|(--each-file|--each-dir [-r|--recursive])] [-N|--alphabetic] [LOG-ARGS ...] [<revision range>] [[--] <path>...] [-?|-h|--help]'
 }
 
 typeset -a colorArg=(--color=always)
@@ -44,6 +75,8 @@ do
     esac
 
     case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+
 	-+([ce]))	shortlogArgs+=("$1"); shift;;
 	-w*)		shortlogArgs+=("$1"); shift; shift;;
 	--committer)	shortlogArgs+=("$1"); shift; prettyFormat=full;;    # Need the full log output format; the "short" one does not include the committer.

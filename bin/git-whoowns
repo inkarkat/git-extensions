@@ -1,13 +1,43 @@
 #!/bin/bash
 set -o pipefail
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-1|--most-only|(--each-file|--each-dir [-r|--recursive]] [--since=<date>] [<commit>] [--] <path> [...] [-?|-h|--help]'
+}
 printUsage()
 {
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Show statistics on how many lines were last changed (based on a blame) by which
+author.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
     cat <<HELPTEXT
-Show statistics on how many lines were last changed (based on a blame) by which author.
-For finer granularity, use git-whocontributed which considers the whole file history.
+    --most-only|-1	Only show the single author with the most changed lines.
+    --each-file		Show separate single authors with the most changed lines
+			for each file [in <path>(s)].
+    --each-dir		Show separate single authors with the most changed lines
+			for each directory [in <path>(s)].
+    --recursive|-r	Also cover files / directories in subdirectories.
+
+For finer granularity, use git-whocontributed which considers the whole file
+history.
+For coarser granularity, use git-whodid [--summary] which considers the number
+of commits.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-1|--most-only|(--each-file|--each-dir [-r|--recursive]] [--since=<date>] [<commit>] [--] <path> [...] [-?|-h|--help]'
 }
 
 typeset -a colorArg=(--color=always)
@@ -38,7 +68,7 @@ do
     esac
 
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 
 	--most-only|-1)	shift; selector='countFieldToPercentage 1 | head -n 1';;
 	--since)	blameArgs+=("$1" "$2"); shift; shift;;

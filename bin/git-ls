@@ -5,13 +5,14 @@ printUsage()
     cat <<HELPTEXT
 List files under version control; skip unversioned files.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-l|--long [--date FORMAT|--relative-date]] [-r|--recursive|-d|--directory] [-f|--only-files|-D|--only-directories] [--no-classify] [--submodule name|ignore|recurse] [--] [FILE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-l|--long [--date FORMAT|--relative-date]] [-r|--recursive|-d|--directory] [-f|--only-files|-D|--only-directories] [--no-classify] [--submodule name|ignore|recurse] [--] [<path> ...] [-?|-h|--help]'
 }
 
 typeset -a allSelfArgs=("$@")
 isNeedLog=
 formatPrefix=
 formatSuffix=
+minDepth=1
 maxDepth=1
 isOnly=
 classifyDirectories=/
@@ -27,7 +28,7 @@ do
 	--color)	shift; shift;;
 	--long|-l)	shift; isNeedLog=t; formatPrefix='%h %<(12,trunc)%aN %<(22)%ad '; formatSuffix=;;
 	--recursive|-r)	shift; maxDepth='';;
-	--directory|-d)	shift; maxDepth=0;;
+	--directory|-d)	shift; minDepth=0; maxDepth=0;;
 	--only-files|-f)
 			shift; isOnly=files;;
 	--only-directories|-D)
@@ -47,7 +48,11 @@ typeset -a allSelfOptions=("${allSelfArgs[@]:0:$((${#allSelfArgs[@]} - $#))}")
 
 listFiles()
 {
-    find "${@#${PWD}/}" ${maxDepth:+-maxdepth} $maxDepth -name .git -prune -o -print | sort
+    IFS=$' \t\n'
+    {
+	find "${@#${PWD}/}" ${minDepth:+-mindepth $minDepth} ${maxDepth:+-maxdepth $maxDepth} -name .git -prune -o -type d -print
+	find "${@#${PWD}/}" ${maxDepth:+-maxdepth 0} -name .git -prune -o -type f -print
+    } | sort
 }
 
 typeset -A submodules=()

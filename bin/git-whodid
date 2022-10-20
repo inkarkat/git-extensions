@@ -6,7 +6,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-s|--summary|-n|--names-only|-1|--most-only|(--each-file|--each-dir [-r|--recursive])] [-N|--alphabetic] [LOG-ARGS ...] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-s|--summary|--csv|--spark|-n|--names-only|-1|--most-only] [--each-file|--each-dir [-r|--recursive] [--full]] [-N|--alphabetic] [LOG-ARGS ...] [<revision range>] [[--] <path>...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -28,16 +28,23 @@ HELPDESCRIPTION
     cat <<HELPTEXT
     --summary|-s	Only show the number of commits for each author, not the
 			short logs.
+    --csv		Show the number of commits and author name,
+			comma-separated. Like --summary but in CSV format.
+    --spark		Show a sparkline bar (the higher, the more commits)
+			followed by the author's initials, all in one line.
     --names-only|-n	Only show the authors that did commits (alphabetically,
 			i.e. implies --alphabetic).
     --alphabetic|-N	Output the logs / number of commits sorted by author
 			instead of commit numbers.
     --most-only|-1	Only show the single author with the most commits.
-    --each-file		Show separate single authors with the most commits for
-			each file [in <path>(s)].
-    --each-dir		Show separate single authors with the most commits for
-			each directory [in <path>(s)].
+    --each-file		Show separate author reports (sparkline by default, but
+			other formats can be chosen as well) for each file [in
+			<path>(s)].
+    --each-dir		Show separate author reports for each directory [in
+			<path>(s)].
     --recursive|-r	Also cover files / directories in subdirectories.
+    --full		Show the full shortlog, not the sparkline bar, also
+			with --each-file or --each-dir.
 
 For finer granularity, use git-whoowns which counts changed lines.
 HELPTEXT
@@ -57,6 +64,7 @@ typeset -a filter=(grep -v -e '^[[:space:]]*<none>$')
 selector=
 isSummary=
 typeset -a nonRecursiveArgs=()
+eachOutputFormatArg='--spark'
 eachType=
 eachRecursion=
 while [ $# -ne 0 ]
@@ -67,10 +75,15 @@ do
 			colorArg=("$1"); shift; continue;;
 	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); shift; shift; continue;;
 
-	--each-file)	shift; eachType=File; nonRecursiveArgs+=(--most-only); continue;;
-	--each-dir)	shift; eachType=Dir; nonRecursiveArgs+=(--most-only); continue;;
+	--each-file)	shift; eachType=File; continue;;
+	--each-dir)	shift; eachType=Dir; continue;;
 	--recursive|-r)	shift; eachRecursion=t; continue;;
 	--)		break;;
+	--summary|-s|--names-only|-n|--csv)
+			: ${HEADER_NEWLINE=$'\n'}; export HEADER_NEWLINE;&
+	--spark|--most-only|-1)
+			eachOutputFormatArg="$1";;
+	--full)		shift; : ${HEADER_NEWLINE=$'\n'}; export HEADER_NEWLINE; eachOutputFormatArg=''; continue;;
 	*)		nonRecursiveArgs+=("$1");;
     esac
 
@@ -85,7 +98,13 @@ do
 	--alphabetic|-N)
 			shift; shortlogOrderingArg=();;
 	--names-only|-n)
-			shift; filter=(sed -e '/^[[:space:]]*<none>$/d' -e 's/^[[:space:]]*[[:digit:]]\+[[:space:]]\+//'); shortlogArgs+=(--summary); shortlogOrderingArg=();;
+	    shift; filter=(sed -e '/^[[:space:]]*<none>$/d' -e 's/^[[:space:]]*[[:digit:]]\+[[:space:]]\+//'); shortlogArgs+=(--summary); shortlogOrderingArg=();;
+	--spark)
+	    printf -v selector '%q ' fieldMap --field-separator , 2 'gensub(/^[[:digit:]]+$/, "??", 1, $fieldNr)' 2 '|nameToInitials -u' 3 '" "' 4 '" "'
+	    printf -v selector '%s | spark' "$selector"
+	    ;&	# Continue with CSV.
+	--csv)
+	    shift; filter=(sed -n -e '/^[[:space:]]*<none>$/d' -e 's/^[[:space:]]*\([[:digit:]]\+\)[[:space:]]\+\([^[:space:]].*\)$/\1,\2/p'); shortlogArgs+=(--summary);;
 	--most-only|-1)	shift; shortlogArgs+=(--summary); isSummary=t; selector='countFieldToPercentage 1 | head -n 1';;
 	--)		break;;
 	*)		logArgs+=("$1"); shift;;
@@ -96,7 +115,7 @@ triggerEachRecursion()
 {
     local -r scriptName="$(basename -- "${BASH_SOURCE[0]}")"
     headerArg='--with-header'; [ "$eachRecursion" ] || headerArg=--with-basename-header
-    HEADER_COLON='' git-each$eachType ${eachRecursion:+--recursive} $headerArg "${colorArg[@]}" -- "${scriptName#git-}" "${nonRecursiveArgs[@]}" "$@" \
+    HEADER_COLON='' git-each$eachType ${eachRecursion:+--recursive} $headerArg "${colorArg[@]}" -- "${scriptName#git-}" $eachOutputFormatArg "${nonRecursiveArgs[@]}" "$@" \
 	| column -s $'\t' -t
 }
 if [ -n "$eachType" ]; then
@@ -106,7 +125,7 @@ fi
 
 
 [ "$isSummary" ] && [ ${#shortlogOrderingArg[@]} -gt 0 ] && \
-    filter=(sed -e '/^[[:space:]]*1[[:space:]]\+/{ $b }' -e ':loop' -e 's/^[[:space:]]*1[[:space:]]\+\(.*\)$/\1/' -e T -e 'H; $!{ N; s/.*\n//; b loop }' -e '${ g; s/^\n/  Once: /; s/\n/, /g }'  )
+    filter=(sed -e '/^[[:space:]]*1[[:space:]]\+/{ $b }' -e ':loop' -e 's/^[[:space:]]*1[[:space:]]\+\(.*\)$/\1/' -e T -e 'H; $!{ N; s/.*\n//; b loop }' -e '${ g; s/^\n/  Once:\t/; s/\n/, /g }'  )
 
 if [ ${#logArgs[@]} -eq 0 ]; then
     git shortlog "${shortlogOrderingArg[@]}" "${shortlogArgs[@]}" "$@"

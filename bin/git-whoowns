@@ -7,19 +7,38 @@ printUsage()
 Show statistics on how many lines were last changed (based on a blame) by which author.
 For finer granularity, use git-whocontributed which considers the whole file history.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-1|--most-only] [--since=<date>] [<commit>] [--] <path> [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-1|--most-only|(--each-file|--each-dir [-r|--recursive]] [--since=<date>] [<commit>] [--] <path> [...] [-?|-h|--help]'
 }
 
+typeset -a colorArg=(--color=always)
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+if [ ! -t 1 ]; then
+    colorArg=()
+    pager=()
+fi
 typeset -a blameArgs=()
 commit=
 selector=
+typeset -a nonRecursiveArgs=()
+eachType=
+eachRecursion=
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--color=auto)	shift; continue;;
 	--no-color|--color=*)
-			shift;;
-	--color)	shift; shift;;
+			colorArg=("$1"); shift; continue;;
+	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); shift; shift; continue;;
+
+	--each-file)	shift; eachType=File; nonRecursiveArgs+=(--most-only); continue;;
+	--each-dir)	shift; eachType=Dir; nonRecursiveArgs+=(--most-only); continue;;
+	--recursive|-r)	shift; eachRecursion=t;;
+	--)		break;;
+	*)		nonRecursiveArgs+=("$1");;
+    esac
+
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 
 	--most-only|-1)	shift; selector='countFieldToPercentage 1 | head -n 1';;
 	--since)	blameArgs+=("$1" "$2"); shift; shift;;
@@ -40,7 +59,17 @@ if [ $# -eq 0 ]; then
     exit 2
 fi
 
-typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+triggerEachRecursion()
+{
+    local -r scriptName="$(basename -- "${BASH_SOURCE[0]}")"
+    headerArg='--with-header'; [ "$eachRecursion" ] || headerArg=--with-basename-header
+    HEADER_COLON='' git-each$eachType ${eachRecursion:+--recursive} $headerArg "${colorArg[@]}" -- "${scriptName#git-}" "${nonRecursiveArgs[@]}" "$@" \
+	| column -s $'\t' -t
+}
+if [ -n "$eachType" ]; then
+    eval 'triggerEachRecursion "$@"' "${pager:+|}" '"${pager[@]}"'
+    exit $?
+fi
 
 for filespec
 do

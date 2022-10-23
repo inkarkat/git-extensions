@@ -26,8 +26,18 @@ case "$1" in
 
     --branch|-b)	shift; branch="${1:?}"; shift;;
 esac
+
 [ -n "$branch" ] || branch="$(git-brname --real-branch-only --detached-effective-branch --raw)" || exit $?
 urlencodedBranch="$(printf %s "$branch" | urlencode --filespec -)" || exit $?
-url="$(git-remote-url "$remote")" || exit $?
 
-exec git-lll --prefix "${url%/}/blob/${urlencodedBranch}/" --transform 'urlencode --filespec --newlines -' --no-classify "$@"
+if [ "$HUB" ]; then
+    view='@'
+    fileSeparator='; file '
+    url="$(hub-userrepo "$(git-remote-url "$remote")")" || exit $?
+else
+    view="/blob/"
+    fileSeparator='/'
+    url="$(git-remote-url "$remote")" || exit $?
+fi
+
+exec git-lll --prefix "${url%/}${view}${urlencodedBranch}${fileSeparator}" --transform 'urlencode --filespec --newlines -' --no-classify "$@"

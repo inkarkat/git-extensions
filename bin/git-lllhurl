@@ -17,9 +17,25 @@ case "$1" in
 			shift;;
     --color)		shift; shift;;
 esac
-
 remote="${1:?}"; shift
-url=$(git-remote-url "$remote") || exit $?
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --no-color|--color=*)
+			shift;;
+    --color)		shift; shift;;
+esac
+
+if [ "$HUB" ]; then
+    prettyFormat='%h'
+    view='@'
+    fileSeparator='; file '
+    url="$(hub-userrepo "$(git-remote-url "$remote")")" || exit $?
+else
+    prettyFormat='%H'
+    view="/blob/"
+    fileSeparator='/'
+    url="$(git-remote-url "$remote")" || exit $?
+fi
 
 if [ "$1" = '--' ]; then
     shift
@@ -36,6 +52,6 @@ do
     # cp. https://bugzilla.redhat.com/show_bug.cgi?id=1377440
     # Expand the "lh" alias into the effective log command.
     #hash="$(git lh --max-count 1 "$rev" -- "$filespec")"
-    hash="$(git log --pretty=tformat:%H --max-count 1 "$rev" -- "$filespec")"
-    git-lll --prefix "${url%/}/blob/${hash}/" --transform 'urlencode --filespec --newlines -' --no-classify "$filespec"
+    hash="$(git log --pretty="tformat:$prettyFormat" --max-count 1 "$rev" -- "$filespec")"
+    git-lll --prefix "${url%/}${view}${hash}${fileSeparator}" --transform 'urlencode --filespec --newlines -' --no-classify "$filespec"
 done

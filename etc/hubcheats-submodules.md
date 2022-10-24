@@ -17,29 +17,30 @@ superproject: Create branch: `$ git mco -b $(git substdo --interactive brname | 
 superproject: Check out branch:   `$ git oco feat-4711/super-cool`
 superproject: Check out submodule branches: `$ git subcoremotebr --query|--all`
 
+## publish submodule changes
+a) from superproject: `$ git subsamebrdo --interactive opublish`
+b) from submodule(s): `$ git opublish`
+
 ## create integration build
 superproject: `$ git cu && git opublish`
-optional: `$ git bml | cb && hub pull-request --draft`
 
 ## update integration build after submodule work
 a) normal updates to short-lived feature: `$ git amenu && git opush -f`
 b) maintain history of how the feature grew: `$ git cu && git opush`
 
 ## peer review of submodules (optional)
+Can be omitted in favor of a superproject PR for similar, mechanical changes in
+all submodules that don't need to be reviewed separately.
 a) from superproject: `$ hub integrationpr && hub subsamebrdo --no-git-color --interactive pull-request`
 b) from submodule(s), no superproject PR: `$ withSeparator -c git\ bml -c git-servername\ -m | cb && hub pull-request`
    paste the server into the description text
 c) from submodule(s), with superproject PR: `$ hub superpr && hub pull-request`
    paste the superproject PR reference into the description text
 
-superproject: [if PR there]:
-  `$ withSeparator -c git\ bml -c hub-bmsubchanges -c git-servername\ -m | cb && gh pr edit`
-  paste the submodule PR references / changes + server into the description
-  text
 ## peer review of superproject (optional)
-For similar, mechanical changes in all submodules that don't need to be
-reviewed separately.
-  `$ withSeparator -c git\ bml -c hub-bmsubchanges -c git-servername\ -m | cb && hub pull-request`
+Recommended if several submodules are affected and the integration is
+non-trivial / covers multiple responsibilities.
+  `$ withSeparator -c git\ bml -c hub-bmsubchanges -c git-servername\ -m | cb && hub pull-request --draft`
   paste the submodule PR references / changes + server into the description
   text
 
@@ -62,8 +63,13 @@ that there were no open reintegrations that we'd take with us.
 ## Transactional only local merges, then remote updates in bulk at the end:
 ### Prepare transaction:
 `$ git subsamebrdo --interactive reintegratetom --no-checks --no-delete`
-`$ git amenu` (or `$ git cu`)
-`$ git reintegratetom --no-delete`
+a) amends to short-lived feature:
+   `$ git amenu`
+   `$ git omrb && git opush -f`
+b) maintain history of how the feature grew:
+   `$ git cu`
+   `$ git ommerge && git opush -f`
+`$ git reintegratetom --no-delete --ff`
 ### Commit transaction:
 `$ git showsubmodules | hub subdo --for - --interactive reintegratetom --continue`
 `$ hub reintegratetom --continue`
@@ -96,7 +102,7 @@ b) maintain history of how the feature grew:
   edit the file beforehand to have the additional info already in there.)
 
 # Switching between branches
-superproject: `$ git co BRANCH && git subcolocalbr --query|SUBMODULE1 SUBMODULE2`
+superproject: `$ git co BRANCH && git subcolocalbr --query|--all|SUBMODULE1 ...`
 
 # Conflicts
 Resolution and merges have to be done in the submodule itself, as the

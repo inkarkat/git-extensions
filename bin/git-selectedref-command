@@ -32,7 +32,11 @@ do
 				-n)		shift; number="${1:?}"; shift;;
 				-+([0-9]))	number="${1#-}"; shift;;
 				--)		break;;
-				*)		reflogArgs+=("$1"); shift;;
+				*)		if [ ${#reflogArgs[@]} -eq 0 -a -z "$number" ]; then
+						    reflogArgs+=("$1"); shift
+						fi
+						break
+						;;
 			    esac
 			done
 			eval 'git reflog show "${reflogArgs[@]}"' "${filter:+|}" '"${filter[@]}"' | \

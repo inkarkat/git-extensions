@@ -17,6 +17,10 @@ superproject: Create branch: `$ git mco -b $(git substdo --interactive brname | 
 superproject: Check out branch:   `$ git oco feat-4711/super-cool`
 superproject: Check out submodule branches: `$ git subcoremotebr --query|--all`
 
+## publish submodule changes
+a) from superproject: `$ git subsamebrdo --interactive opublish`
+b) from submodule(s): `$ git opublish`
+
 ## create integration build
 superproject: `$ git cu && git opublish`
 optional: `$ git bml | cb && hub pull-request --draft`

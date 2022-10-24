@@ -62,8 +62,13 @@ that there were no open reintegrations that we'd take with us.
 ## Transactional only local merges, then remote updates in bulk at the end:
 ### Prepare transaction:
 `$ git subsamebrdo --interactive reintegratetom --no-checks --no-delete`
-`$ git amenu` (or `$ git cu`)
-`$ git reintegratetom --no-delete`
+a) amends to short-lived feature:
+   `$ git amenu`
+   `$ git omrb && git opush -f`
+b) maintain history of how the feature grew:
+   `$ git cu`
+   `$ git ommerge && git opush -f`
+`$ git reintegratetom --no-delete --ff`
 ### Commit transaction:
 `$ git showsubmodules | hub subdo --for - --interactive reintegratetom --continue`
 `$ hub reintegratetom --continue`

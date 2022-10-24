@@ -101,7 +101,7 @@ b) maintain history of how the feature grew:
   edit the file beforehand to have the additional info already in there.)
 
 # Switching between branches
-superproject: `$ git co BRANCH && git subcolocalbr --query|SUBMODULE1 SUBMODULE2`
+superproject: `$ git co BRANCH && git subcolocalbr --query|--all|SUBMODULE1 ...`
 
 # Conflicts
 Resolution and merges have to be done in the submodule itself, as the

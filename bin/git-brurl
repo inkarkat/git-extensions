@@ -1,0 +1,97 @@
+#!/bin/bash
+set -o pipefail
+
+: ${GIT_BRURL_VIEW=tree}
+
+printUsage()
+{
+    cat <<HELPTEXT
+Print the URL of the tracked branch. / Turn (remote, tracked) branch names
+printed by BRANCH-COMMAND into URLs.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[BRANCH-COMMAND [...]] [-?|-h|--help]'
+}
+
+hasColor=; [ -t 1 ] && hasColor=t
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=never)
+			hasColor=; shift;;
+	--color=always)	hasColor=t; shift;;
+	--color=auto)	shift;;
+	--color)	case "$2" in
+			    always) hasColor=t;;
+			    never)  hasColor=;;
+			    auto)   ;;
+			    *)	    echo >&2 "ERROR: Invalid --color arg: $2"
+				    echo >&2
+				    printUsage "$0" >&2
+				    exit 2
+				    ;;
+			esac
+			shift; shift
+			;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if [ $# -eq 0 ]; then
+    branch="$(git-brname --real-branch-only)" || exit $?
+    set -- exec printf '%s\n' "$branch"
+fi
+
+: ${GIT_BRURL_URL_PREFIX=}
+: ${GIT_BRURL_URL_SUFFIX=}
+: ${GIT_BRURL_BRANCH_PREFIX=}
+: ${GIT_BRURL_BRANCH_SUFFIX=}
+
+if [ ! "$hasColor" ]; then
+    GIT_BRURL_URL_PREFIX=
+    GIT_BRURL_URL_SUFFIX=
+    GIT_BRURL_BRANCH_PREFIX=
+    GIT_BRURL_BRANCH_SUFFIX=
+fi
+
+if [ "$HUB" ]; then
+    view='; branch '
+else
+    view="/${GIT_BRURL_VIEW}/"
+fi
+
+status=
+while IFS=/ read -r remote branch
+do
+    [ -n "$remote" ] || continue
+    if [ -z "$branch" ]; then
+	branch="$remote"
+	remote=''
+    fi
+
+    if [ -z "$remote" ] || { [ -z "${remoteUrl["$remote"]}" ] && ! git-existsremote "$remote"; }; then
+	branch="${remote}${remote:+/}${branch}"
+	if ! remote="$(git-trackedremote "$branch")"; then
+	    status=1
+	    printf >&2 'No remote for %s\n' "$branch"
+	    continue
+	fi
+    fi
+
+    if [ -z "${remoteUrl["$remote"]}" ]; then
+	if [ "$HUB" ]; then
+	    url="$(hub-userrepo "$(git-remote-url "$remote")")"
+	else
+	    url="$(git-remote-url "$remote")"
+	fi || { status=3; continue; }
+	remoteUrl["$remote"]="$url"
+    fi
+
+    urlencodedBranch="$(printf %s "$branch" | urlencode --filespec -)" || { status=3; continue; }
+
+    printf '%s%s%s%s%s%s%s\n' "$GIT_BRURL_URL_PREFIX" "${remoteUrl["$remote"]}" "$GIT_BRURL_BRANCH_SUFFIX" "$view" "$GIT_BRURL_BRANCH_PREFIX" "$urlencodedBranch" "$GIT_BRURL_BRANCH_SUFFIX"
+    : ${status:=0}
+done < <(git-wrapper "$@")
+exit ${status:-99}

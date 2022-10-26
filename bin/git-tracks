@@ -7,7 +7,7 @@ Show which remote branch is tracked by (pushed to (can be different in a
 triangular workflow) with --push) the current / passed branch.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--push] -<branch> [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--push] <branch> [-?|-h|--help]'
 }
 keyword='upstream'
 case "$1" in
@@ -18,4 +18,5 @@ case "$1" in
     --push)		shift; keyword='push';;
 esac
 
-exec git rev-parse --abbrev-ref "${1}@{${keyword}}"
+branch="$(git rev-parse --abbrev-ref "${1}@{${keyword}}" 2>/dev/null)" \
+    && printf '%s\n' "$branch"

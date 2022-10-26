@@ -6,10 +6,11 @@ set -o pipefail
 printUsage()
 {
     cat <<HELPTEXT
-Turn (remote, tracked) branch names printed by BRANCH-COMMAND into URLs.
+Print the URL of the tracked branch. / Turn (remote, tracked) branch names
+printed by BRANCH-COMMAND into URLs.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'BRANCH-COMMAND [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[BRANCH-COMMAND [...]] [-?|-h|--help]'
 }
 
 hasColor=; [ -t 1 ] && hasColor=t
@@ -38,6 +39,10 @@ do
 	*)		break;;
     esac
 done
+if [ $# -eq 0 ]; then
+    branch="$(git-brname --real-branch-only)" || exit $?
+    set -- exec printf '%s\n' "$branch"
+fi
 
 : ${GIT_BRURL_URL_PREFIX=}
 : ${GIT_BRURL_URL_SUFFIX=}

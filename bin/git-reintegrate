@@ -252,7 +252,9 @@ path="$(git-brname --real-branch-only)" || exit $?
 targetTracks="$(git-tracks 2>/dev/null)"
 targetTrackedRemote="${targetTracks%%/*}"
 
-if [ ! "$isContinue" ]; then
+if [ "$isContinue" ]; then
+    joinBy --prefix 'Finalizing reintegration of ' --last-separator ' and ' ', ' "${branches[@]}" 2>/dev/null
+else
     joinBy --prefix 'Reintegrating ' --last-separator ' and ' ', ' "${branches[@]}" 2>/dev/null
 
     # Ensure that the branch(es) are good for merging.
@@ -357,7 +359,7 @@ if [ ! "$isContinue" ]; then
 	    exit $status
 	}
     fi
-fi
+fi  # End of actual merge; continue finalization from here.
 
 
 if [ "$isCheckFromStdin" ]; then

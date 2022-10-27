@@ -68,10 +68,10 @@ a) amends to short-lived feature:
    `$ git omrb && git opush -f`
 b) maintain history of how the feature grew:
    `$ git cu`
-   `$ git ommerge && git opush -f`
-`$ git reintegratetom --no-delete --ff`
+   `$ git ommerge && git opush`
+`$ git reintegratetom --no-delete --ff-only`
 ### Commit transaction:
-`$ git showsubmodules | hub subdo --for - --interactive reintegratetom --continue`
+`$ git showsubmodules --diff-merges=on | hub subdo --for - --interactive reintegratetom --ff-only`
 `$ hub reintegratetom --continue`
 Note: There's no real transactional handling across repos; reintegration may
 fail at any point. This just limits the critical time period.
@@ -88,9 +88,9 @@ corresponding button in GitHub).
 `$ git ofetch`
 0) submodule branch(es) have been fast-forwarded, or
 a) amends to short-lived feature:
-   `$ git omrb && git opush -f && hub reintegratetom --ff`
+   `$ git omrb && git opush -f && hub reintegratetom --ff-only`
 b) maintain history of how the feature grew:
-   `$ git ommerge && git opush -f && hub reintegratetom --ff`
+   `$ git ommerge && git opush && hub reintegratetom --ff-only`
 
 # Rules
 - When checking out branches, do so everywhere (especially both in the

@@ -5,14 +5,16 @@ printUsage()
     cat <<HELPTEXT
 Switch or create branches.
 Can also check out corresponding branches in submodules with --submodules
-(queried ones with --queried-submodules).
+(queried ones with --queried-submodules, recursively via
+--submodules-recursive).
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--submodules|--queried-submodules] [<checkout-args> ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[(--submodules|--queried-submodules) [--submodules-recursive]] [<checkout-args> ...] [-?|-h|--help]'
 }
 
 isSubmoduleCheckout=
 subcobrInteractivityArg=
+typeset -a subcobrArgs=()
 typeset -a checkoutArgs=()
 while [ $# -ne 0 ]
 do
@@ -24,6 +26,8 @@ do
 	--submodules)	shift; isSubmoduleCheckout=t; subcobrInteractivityArg='--all';;
 	--queried-submodules)
 			shift; isSubmoduleCheckout=t; subcobrInteractivityArg='--query';;
+	--submodules-recursive)
+			shift; subcobrArgs+=(--recursive);;
 	--)		checkoutArgs+=("$1"); shift; break;;
 	*)		checkoutArgs+=("$1"); shift;;
     esac
@@ -32,4 +36,4 @@ done
 git checkout "${checkoutArgs[@]}" "$@" || exit $?
 
 [ "$isSubmoduleCheckout" ] || exit 0
-exec git-wrapper "${GIT_CHECKOUT_SUBMODULES_COMMAND:-subcolocalbr}" "${subcobrInteractivityArg:?}"
+exec git-wrapper "${GIT_CHECKOUT_SUBMODULES_COMMAND:-subcolocalbr}" "${subcobrInteractivityArg:?}" "${subcobrArgs[@]}"

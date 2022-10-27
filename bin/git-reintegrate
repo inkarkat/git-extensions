@@ -141,24 +141,6 @@ if [ ${#branches[@]} -eq 1 ]; then
     verbPlural=s
 fi
 
-joinBy --prefix 'Reintegrating ' --last-separator ' and ' ', ' "${branches[@]}" 2>/dev/null
-
-# Ensure that the branch(es) are good for merging.
-git-mergecheck "${branches[@]}" || exit $?
-
-if [ -n "$HUB" ] && [ ! "$isRebase" ]; then
-    # Try to obtain corresponding pull requests based on the passed branches'
-    # HEAD commits and seed the merge message with it / them (as the PR title
-    # already summarizes the changeset and makes for a great merge title). This
-    # saves the user from opening the PR and copy-and-pasting it.
-    typeset -a prefixCommands=()
-    type -t timeout >/dev/null && prefixCommands=(timeout 10 "${prefixCommands[@]}")
-    type -t invocationMessage >/dev/null && prefixCommands=(invocationMessage --message 'Searching for PR...' --success FOUND --fail NONE -- "${prefixCommands[@]}")
-    pullRequestTitles="$("${prefixCommands[@]}" hub-prtitle --as-merge-message "${branches[@]}")"
-    branchMergeMessage="$(joinBy --prefix "Merge branch$branchesPlural '" --suffix "'" --last-separator "' and '" "', '" "${branches[@]}" 2>/dev/null)"
-    [ -n "$pullRequestTitles" ] && mergeArgs+=(--message "$pullRequestTitles"$'\n\n'"$branchMergeMessage" --edit)
-fi
-
 
 typeset -a contextShortener=(headtail --separator $'\t\t\t\t\t[...]')
 confirmFastForward()
@@ -270,7 +252,27 @@ path="$(git-brname --real-branch-only)" || exit $?
 targetTracks="$(git-tracks 2>/dev/null)"
 targetTrackedRemote="${targetTracks%%/*}"
 
-if [ ! "$isContinue" ]; then
+if [ "$isContinue" ]; then
+    joinBy --prefix 'Finalizing reintegration of ' --last-separator ' and ' ', ' "${branches[@]}" 2>/dev/null
+else
+    joinBy --prefix 'Reintegrating ' --last-separator ' and ' ', ' "${branches[@]}" 2>/dev/null
+
+    # Ensure that the branch(es) are good for merging.
+    git-mergecheck "${branches[@]}" || exit $?
+
+    if [ -n "$HUB" ] && [ ! "$isRebase" ]; then
+	# Try to obtain corresponding pull requests based on the passed branches'
+	# HEAD commits and seed the merge message with it / them (as the PR title
+	# already summarizes the changeset and makes for a great merge title). This
+	# saves the user from opening the PR and copy-and-pasting it.
+	typeset -a prefixCommands=()
+	type -t timeout >/dev/null && prefixCommands=(timeout 10 "${prefixCommands[@]}")
+	type -t invocationMessage >/dev/null && prefixCommands=(invocationMessage --message 'Searching for PR...' --success FOUND --fail NONE -- "${prefixCommands[@]}")
+	pullRequestTitles="$("${prefixCommands[@]}" hub-prtitle --as-merge-message "${branches[@]}")"
+	branchMergeMessage="$(joinBy --prefix "Merge branch$branchesPlural '" --suffix "'" --last-separator "' and '" "', '" "${branches[@]}" 2>/dev/null)"
+	[ -n "$pullRequestTitles" ] && mergeArgs+=(--message "$pullRequestTitles"$'\n\n'"$branchMergeMessage" --edit)
+    fi
+
     if [ -n "$targetTracks" ] && ! git-equals HEAD "$targetTracks"; then
 	if git-ffdryrun "$targetTracks"; then
 	    if confirmFastForward; then
@@ -357,7 +359,7 @@ if [ ! "$isContinue" ]; then
 	    exit $status
 	}
     fi
-fi
+fi  # End of actual merge; continue finalization from here.
 
 
 if [ "$isCheckFromStdin" ]; then

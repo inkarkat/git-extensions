@@ -72,13 +72,13 @@ if git-existsbr "$branch"; then
 	    exit 99
 	else
 	    printf >&2 '%s is already up-to-date with %s.\n' "$branch" "$remoteBranch"
-	    exec git checkout "$@" "$branch"
+	    exec git-wrapper checkout "$@" "$branch"
 	fi
     fi
 
     [ "$logArg" = --none ] || record="$(git-logdelta $logArg "${logDeltaArgs[@]}" --branch "$branch" --record)"
 
-    git checkout "$@" -B "$branch" "$remoteBranch" || exit $?
+    git-wrapper checkout "$@" -B "$branch" "$remoteBranch" || exit $?
 else
     if [ "$logArg" != --none ]; then
 	# Show the log of the entire branch as this is a new local checkout.
@@ -86,7 +86,7 @@ else
 	[ -n "$branchBase" ] && record="$(git-logdelta $logArg "${logDeltaArgs[@]}" --branch "$branchBase" --record)"
     fi
 
-    git checkout "$@" --track -b "$branch" "$remoteBranch" || exit $?
+    git-wrapper checkout "$@" --track -b "$branch" "$remoteBranch" || exit $?
 fi
 [ -z "$record" ] || git-logdelta $logArg "${logDeltaArgs[@]}" --from-record "$record"
 [ "$submoduleHandling" = ignore ] || ! GIT_SUBMODULEUNINITIALIZED_MESSAGE='Warning: Uninitialized submodule(s) found:' git-submodule-uninitialized --print --recursive

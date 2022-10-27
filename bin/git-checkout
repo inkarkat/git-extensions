@@ -1,3 +1,31 @@
 #!/bin/bash
 
-exec git checkout "$@"
+printUsage()
+{
+    cat <<HELPTEXT
+Switch or create branches.
+Can also check out corresponding branches in submodules with --submodules.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--submodules] [<checkout-args> ...] [-?|-h|--help]'
+}
+
+isSubmoduleCheckout=
+typeset -a checkoutArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+	--submodules)	shift; isSubmoduleCheckout=t;;
+	--)		checkoutArgs+=("$1"); shift; break;;
+	*)		checkoutArgs+=("$1"); shift;;
+    esac
+done
+
+git checkout "${checkoutArgs[@]}" "$@" || exit $?
+
+[ "$isSubmoduleCheckout" ] || exit 0
+exec git-wrapper "${GIT_CHECKOUT_SUBMODULES_COMMAND:-subcolocalbr}" --all

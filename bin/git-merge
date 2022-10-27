@@ -4,20 +4,32 @@ printUsage()
 {
     cat <<HELPTEXT
 Join two or more development histories together.
-Also considers submodules and automatically checks out resulting versions.
+Also considers submodules and automatically checks out resulting versions
+(unless --no-submodule-update is given).
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '<merge-args> [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-submodule-update] [<merge-args> ...] [-?|-h|--help]'
 }
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
+
+isSubmoduleUpdate=t
+typeset -a mergeArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
 			shift;;
-    --color)		shift; shift;;
-esac
+	--color)	shift; shift;;
+	--no-submodule-update)
+			shift; isSubmoduleUpdate=;;
+	--)		mergeArgs+=("$1"); shift; break;;
+	*)		mergeArgs+=("$1"); shift;;
+    esac
+done
 
-git merge "$@" || exit $?
+git merge "${mergeArgs[@]}" "$@" || exit $?
 
+[ "$isSubmoduleUpdate" ] || exit 0
 readarray -t mergedSubmodules < <(git subst)
 [ ${#mergedSubmodules[@]} -gt 0 ] || exit 0
 

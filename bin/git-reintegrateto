@@ -29,6 +29,7 @@ case "$1" in
 	fi
 	;;
 esac
+isContinue=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -40,6 +41,7 @@ do
 			targetBranch="${1:?}"
 			shift
 			;;
+	--continue)	reintegrateArgs+=("$1"); shift; isContinue=t;;
 	--)		reintegrateArgs+=("$1"); shift; break;;
 	*)		reintegrateArgs+=("$1"); shift;;
     esac
@@ -49,9 +51,13 @@ if [ -z "$targetBranch" ]; then
     exit 2
 fi
 
-if [ "$targetBranch" = "$sourceBranch" ]; then
-    printf >&2 'ERROR: Cannot reintegrate %s onto itself; check out a different branch first!\n' "$targetBranch"
-    exit 1
+isOnTargetBranch=; [ "$targetBranch" = "$sourceBranch" ] && isOnTargetBranch=t
+if [ "$isOnTargetBranch" ] && [ ! "$isContinue" ]; then
+    printf >&2 'ERROR: Cannot reintegrate %s onto itself; check out a different branch first.\n' "$targetBranch"
+    exit 2
+elif [ "$isContinue" ] && [ ! "$isOnTargetBranch" ]; then
+    printf >&2 'ERROR: Need to be on the target branch %s to be able to continue the finalization of the reintegration.\n' "$targetBranch"
+    exit 2
 fi
 
 if ! { printf '' >/dev/tty; } 2>/dev/null; then
@@ -59,8 +65,26 @@ if ! { printf '' >/dev/tty; } 2>/dev/null; then
     exit 5
 fi
 
-# Ensure that the branch is good for merging.
-git-mergecheck --merge-to "$targetBranch" || exit $?
+if [ "$isContinue" ]; then
+    # Source branch is not the current branch, but (hopefully) the one that was
+    # checked out last, before the first invocation of this command switched
+    # branches.
+    sourceBranch="$(git rev-parse --symbolic-full-name '@{-1}' 2>/dev/null)"
+    if [ -z "$sourceBranch" ]; then
+	echo >&2 'ERROR: Cannot resolve original branch name; please directly invoke git-reintegrate with that BRANCH name:'
 
-git checkout "$targetBranch" || exit $?
+	gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
+	printf >&2 '$ %s reintegrate --branch BRANCH' "$gitCommand"
+	printf >&2 ' %q' "${reintegrateArgs[@]}" "$@"
+
+	exit 1
+    fi
+
+    sourceBranch="${sourceBranch#refs/heads/}"
+else
+    # Ensure that the branch is good for merging.
+    git-mergecheck --merge-to "$targetBranch" || exit $?
+
+    git checkout "$targetBranch" || exit $?
+fi
 exec git-reintegrate --branch "$sourceBranch" "${reintegrateArgs[@]}" "$@"

@@ -48,7 +48,7 @@ non-trivial / covers multiple responsibilities.
 
 ## integrate submodule changes first
 superproject: `$ git ofetch`
-Check for other open reintegrations (i.e. submodule commits on main not yet
+Check for other open reintegrations (i.e. submodule commits on master not yet
 referenced in the superproject):
 superproject: `$ git bmshowsubmodules | git osuperhaspendingsubintegrations -`
 superproject: `$ hub subsamebrdo --interactive reintegratetom`
@@ -86,11 +86,12 @@ fail at any point. This just limits the critical time period.
 `$ gh pr ready`
 
 ## merge the superproject
-Because of the `main` branch protection, we cannot do a local merge and push
-main; the GitHub action must have successfully built the resulting merge commit
-to accept a push. So we need to do a local rebase / merge of `main` onto the
-branch, push that, wait for the action, and then can reintegrate (or push the
-corresponding button in GitHub).
+Because of the `master` branch protection, we cannot do a local merge and push
+master; the GitHub action must have successfully built the resulting merge
+commit to accept a push. So we need to do a local rebase / merge of `master`
+onto the branch, push that, wait for the action, and then can reintegrate (or
+push the corresponding button in GitHub; both of which should be a simple
+fast-forward).
 `$ git ofetch`
 0) submodule branch(es) have been fast-forwarded, or
 a) amends to short-lived feature:

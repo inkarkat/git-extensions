@@ -5,11 +5,11 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-a|--auto-revision|-r|--revision REVISION] [--no-range|--with-range ...|--last-only] [+1|--one-more] [--with-log-args|--with-log-args-except-last] [--invert-grep] [--] [GIT-COMMAND ...] text|/regexp/ [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--revision REVISION] [--no-range|--with-range ...|--last-only] [+1|--one-more] [--with-log-args|--with-log-args-except-last] [--invert-grep] [--] [GIT-COMMAND ...] text|/regexp/ [-?|-h|--help]'
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-a|--auto-revision|-r|--revision REVISION] [--no-range|--with-range ...|--last-only] [+1|--one-more] [--invert-grep] --grep=<pattern> [--] [GIT-COMMAND ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--revision REVISION] [--no-range|--with-range ...|--last-only] [+1|--one-more] [--invert-grep] --grep=<pattern> [--] [GIT-COMMAND ...]'
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND [-a|--auto-revision|-r|--revision REVISION] [...] [--invert-grep] --grep=<pattern>|text|/regexp/'
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND [-r|--revision REVISION] [...] [--invert-grep] --grep=<pattern>|text|/regexp/'
 }
 printUsage()
 {
@@ -23,10 +23,10 @@ printLongUsage()
     # This is the long "man page" when launched with the help argument.
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
-Print / execute GIT-COMMAND with a revision range starting from HEAD / the
-passed REVISION / (with -a|--auto-revision:) the first found revision where log
-messages match the specified text or /regexp/ and including all commits where
-log messages match the specified text or /regexp/.
+Print / execute GIT-COMMAND with a revision range starting from the passed
+REVISION / the first found revision where log messages match the specified text
+or /regexp/ and including all commits where log messages match the specified
+text or /regexp/.
     --no-range	    Only use the earliest matching commit.
     --with-range ...
 		    Use ... instead of .. as the range specifier.
@@ -45,8 +45,7 @@ HELPTEXT
 }
 typeset -a gitCommand=()
 isFirstArg=t
-isAutoRevision=
-revision='HEAD'
+revision=
 range=..
 isLastOnly=
 isShowOneMore=
@@ -57,7 +56,6 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)		    shift; printLongUsage "$0"; exit 0;;
-	--auto-revision|-a)	    shift; isAutoRevision=t;;
 	--revision|-r)		    shift; revision="$1"; shift;;
 	--grep)			    logArgs+=("$1" "$2"); shift; shift;;
 	--grep=*)		    logArgs+=("$1"); shift;;
@@ -105,14 +103,7 @@ case "$withLogArgs" in
     except-last)    sharedLogArgs+=("${@:1:$(($#-1))}");;
 esac
 
-if [ "$isAutoRevision" ]; then
-    if [ "$revision" != 'HEAD' ]; then
-	echo 'ERROR: Cannot combine --auto-revision with --revision.'
-	echo
-	printUsage "$0"
-	exit 2
-    fi >&2
-
+if [ -z "$revision" ]; then
     revision="$(git log --max-count 1 --pretty=tformat:%H "${logModificationArgs[@]}" "${logArgs[@]}" "${sharedLogArgs[@]}")"
     if [ -z "$revision" ]; then
 	echo >&2 'Could not find a matching commit.'

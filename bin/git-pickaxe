@@ -39,17 +39,17 @@ case "$lastArg" in
 esac
 
 typeset -a pickaxe=("-S$lastArg")
-searchString=$(printf '%s' "$lastArg" | sed -ne 's/^\([^a-zA-Z0-9]\)\(.*\)\1$/\2/p')
+searchRegexp="$(printf '%s' "$lastArg" | sed -ne 's/^\([^a-zA-Z0-9]\)\(.*\)\1$/\2/p')" # It's a regexp when enclosed in /.../ or other identical non-alphanumeric characters.
 if [ "$isMore" ]; then
-    if [ ! "$searchString" ]; then
-	# There's no -S<string>, only -G<regex>, so we need to emulate literal
+    if [ -z "$searchRegexp" ]; then
+	# There's no -G<string>, only -G<regex>, so we need to emulate literal
 	# grepping by escaping the (extended) POSIX regexp.
-	searchString="$(printf %s "$lastArg" | sed -e 's/[][\$*+?{}.|()^]/\\\\&/g')"
+	searchRegexp="$(printf %s "$lastArg" | sed -e 's/[][\$*+?{}.|()^]/\\\\&/g')"
     fi
-    pickaxe=("-G$searchString")
+    pickaxe=("-G$searchRegexp")
 else
-    if [ "$searchString" ]; then
-	pickaxe=("-S$searchString" '--pickaxe-regex')
+    if [ -n "$searchRegexp" ]; then
+	pickaxe=("-S$searchRegexp" '--pickaxe-regex')
     fi
 fi
 

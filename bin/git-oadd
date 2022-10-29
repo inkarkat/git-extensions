@@ -3,11 +3,11 @@
 printUsage()
 {
     cat <<HELPTEXT
-Add origin repository and fetch it. Offers to rename original origin to
-upstream.
+Add origin repository at URL / my GitHub clone of upstream / passed REMOTE and
+fetch it. Offers to rename original origin to upstream.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'URL [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[URL|REMOTE] [-?|-h|--help]'
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
@@ -15,20 +15,54 @@ case "$1" in
 			shift;;
     --color)		shift; shift;;
 esac
-if [ $# -ne 1 ]; then
-    echo >&2 'Need to pass URL!'
-    echo
+templateUrl=
+url=
+if [ $# -gt 1 ]; then
     printUsage "$0"
     exit 2
 fi >&2
+if [ $# -eq 0 ]; then
+    if ! git-existsremote upstream; then
+	echo >&2 'ERROR: No upstream remote; please pass either URL or an existing REMOTE.'
+	exit 2
+    fi
 
+    # Default to my GitHub clone of upstream.
+    templateUrl="$(git remote get-url upstream)"
+elif [ $# -eq 1 ] && ! templateUrl="$(git remote get-url "$1" 2>/dev/null)"; then
+    # Use the passed URL as-is.
+    url="$1"
+fi
+if [ -n "$templateUrl" ]; then
+    # Use my GitHub clone.
+    if ! me="$(git me-in-github 2>/dev/null)"; then
+	echo >&2 "ERROR: I don't know who you are in GitHub; please configure or pass the full URL of the repository instead."
+	exit 2
+    fi
+    # There are HTTP and SSH remotes, so assume that the repo name
+    # cannot contain a slash and parse from behind to skip that
+    # complexity.
+    # GitHub username may only contain alphanumeric characters and
+    # single hyphens.
+    if ! [[ "$templateUrl" =~ ^(.*[^[:alnum:]-])[[:alnum:]-]+(/[^/]+)$ ]]; then
+	printf >&2 'ERROR: Cannot parse username from %s URL: %s\n' "$1" "$templateUrl"
+	exit 1
+    fi
+    host="${BASH_REMATCH[1]}"
+    path="${me}${BASH_REMATCH[2]}"
+
+    # DWIM: Turn HTTP remotes into SSH ones, as I use the latter for
+    # authentication.
+    [[ "$host" =~ ^https?://([^/]+)/(.*)$ ]] && host="git@${BASH_REMATCH[1]}:${BASH_REMATCH[2]}"
+
+    url="${host}${path}"
+fi
 
 oldOrigin="$(git remote get-url origin 2>/dev/null)"
-
 if [ -n "$oldOrigin" ]; then
     userBinaryChoice --introduction "origin already exists: $oldOrigin" --question 'Rename to upstream?' --yes-no || exit 4
 
     git remote rename origin upstream || exit $?
 fi
 
-exec git remote add -f origin "$1"
+exec git remote add -f origin "${url:?}"

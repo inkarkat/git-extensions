@@ -14,8 +14,9 @@ submodules: b) Create branches after uncommitted changes:
 submodule(s): Create branch: `$ git omco -b feat-4711/super-cool`
 superproject: Create branch: `$ git mco -b $(git substdo --interactive brname | sort -u | singleLineOrSuppressAndError)`
 ## c) continue from elsewhere:
-superproject: Check out branch:   `$ git oco feat-4711/super-cool`
-superproject: Check out submodule branches: `$ git subcoremotebr --query|--all`
+superproject: `$ git ocosub feat-4711/super-cool`
+(or with querying: `$ git oco --queried-submodules feat-4711/super-cool`)
+(or separately for superproject and submodules: `$ git oco feat-4711/super-cool && $ git subcoremotebr --query|--all`
 
 ## publish submodule changes
 a) from superproject: `$ git subsamebrdo --interactive opublish`

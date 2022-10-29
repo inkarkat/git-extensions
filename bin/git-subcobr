@@ -262,9 +262,9 @@ checkoutNew()
     local remoteBranch="origin/$branch"
 
     if git-existsbr "$remoteBranch"; then
-	git checkout $forceArg --track -b "$branch" "$remoteBranch"
+	git-wrapper checkout $forceArg --track -b "$branch" "$remoteBranch"
     else
-	git checkout $forceArg -b "$branch"
+	git-wrapper checkout $forceArg -b "$branch"
     fi
 }
 
@@ -272,7 +272,7 @@ checkoutStartPoint()
 {
     local branch="${1:?}"; shift
     if git rev-parse --verify --quiet "${startPoint:?}" 2>/dev/null; then
-	git checkout $forceArg --track -B "$branch" "$startPoint"
+	git-wrapper checkout $forceArg --track -B "$branch" "$startPoint"
     else
 	printf >&2 '%sSkipping; no start point %s%s\n' "$GIT_SUBCOBR_COLOR_SKIP" "$startPoint" "$GIT_SUBCOBR_COLOR_RESET"
     fi
@@ -282,7 +282,7 @@ checkoutExistingLocal()
 {
     local branch="${1:?}"; shift
     if git-existsbr "$branch"; then
-	git checkout $forceArg "$branch"
+	git-wrapper checkout $forceArg "$branch"
     else
 	printf >&2 '%sSkipping; no local branch %s%s\n' "$GIT_SUBCOBR_COLOR_SKIP" "$branch" "$GIT_SUBCOBR_COLOR_RESET"
     fi
@@ -293,7 +293,7 @@ checkoutExistingRemote()
     local branch="${1:?}"; shift
     local remoteBranch="origin/$branch"
     if git-existsbr "$remoteBranch"; then
-	git checkout $forceArg --track -B "$branch" "$remoteBranch"
+	git-wrapper checkout $forceArg --track -B "$branch" "$remoteBranch"
     else
 	printf >&2 '%sSkipping; no remote branch %s%s' "$GIT_SUBCOBR_COLOR_SKIP" "$remoteBranch" "$GIT_SUBCOBR_COLOR_RESET"
     fi
@@ -303,7 +303,7 @@ checkoutCreate()
 {
     local branch="${1:?}"; shift
     if git-existsbr "$branch"; then
-	git checkout $forceArg "$branch"
+	git-wrapper checkout $forceArg "$branch"
     else
 	checkoutNew "$branch"
     fi
@@ -322,7 +322,7 @@ update()
 	git reset ${forceArg:+--hard} "${remote}/${branch}" || return $?
     elif git-existsbr "$branch"; then
 	# Reset and check out the branch to the revision of the tracked branch.
-	git checkout $forceArg -B "$branch" "${remote}/${branch}" || return $?
+	git-wrapper checkout $forceArg -B "$branch" "${remote}/${branch}" || return $?
     else
 	checkoutNew "$branch"
 	return	# No changes to log here.

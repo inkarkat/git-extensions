@@ -1,6 +1,8 @@
 #!/bin/bash
 shopt -qs extglob
 
+: ${GIT_CHECKOUT_SUBMODULES_COMMAND:=subcoremotebr}; export GIT_CHECKOUT_SUBMODULES_COMMAND # Check out remote branches in submodules (unless overridden).
+
 printUsage()
 {
     cat <<HELPTEXT
@@ -9,7 +11,7 @@ remote, tracking it if it doesn't yet exist locally, and ensuring that an
 existing tracked branch doesn't contradict the request.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--gui|--terminal|--none] [--submodule ignore|yes|recurse] [<checkout-args> ...] <remote-branch> [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--gui|--terminal|--none] [--submodule ignore|yes|recurse] [(--submodules|--queried-submodules) [--submodules-recursive]] [<checkout-args> ...] <remote-branch> [-?|-h|--help]'
 }
 logArg=
 submoduleHandling=recurse
@@ -39,8 +41,7 @@ if [ $# -eq 0 ]; then
     printUsage "$0"
     exit 2
 fi >&2
-remoteBranch="${!#}"; shift
-[ $# -eq 0 ] && set -- || set -- "${@:1:$(($#-1))}"
+remoteBranch="${!#}"; [ $# -eq 0 ] && set -- || set -- "${@:1:$(($#-1))}"
 remote="${remoteBranch%%/*}"
 branch="${remoteBranch#*/}"
 if [ -z "$remote" -o -z "$branch" ]; then
@@ -72,13 +73,13 @@ if git-existsbr "$branch"; then
 	    exit 99
 	else
 	    printf >&2 '%s is already up-to-date with %s.\n' "$branch" "$remoteBranch"
-	    exec git checkout "$@" "$branch"
+	    exec git-wrapper checkout "$@" "$branch"
 	fi
     fi
 
     [ "$logArg" = --none ] || record="$(git-logdelta $logArg "${logDeltaArgs[@]}" --branch "$branch" --record)"
 
-    git checkout "$@" -B "$branch" "$remoteBranch" || exit $?
+    git-wrapper checkout "$@" -B "$branch" "$remoteBranch" || exit $?
 else
     if [ "$logArg" != --none ]; then
 	# Show the log of the entire branch as this is a new local checkout.
@@ -86,7 +87,7 @@ else
 	[ -n "$branchBase" ] && record="$(git-logdelta $logArg "${logDeltaArgs[@]}" --branch "$branchBase" --record)"
     fi
 
-    git checkout "$@" --track -b "$branch" "$remoteBranch" || exit $?
+    git-wrapper checkout "$@" --track -b "$branch" "$remoteBranch" || exit $?
 fi
 [ -z "$record" ] || git-logdelta $logArg "${logDeltaArgs[@]}" --from-record "$record"
 [ "$submoduleHandling" = ignore ] || ! GIT_SUBMODULEUNINITIALIZED_MESSAGE='Warning: Uninitialized submodule(s) found:' git-submodule-uninitialized --print --recursive

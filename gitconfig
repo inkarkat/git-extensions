@@ -315,16 +315,17 @@
 	detachselected7 = detachselected --max-count 7
 	;; reattach: Find a branch name that the detached commit is based on and check that out, looking first to the commit itself, then the first branch that comes after the detached commit, and thus contains it, then falling back to branch(es) that are reachable from the detached commit.
 
-	co = checkout
+	co = wrapper-nocolor checkout
 	checkoutselected = selected-command --filter '' checkout	; Interactively select (from modified files or passed list of files) files (or directly pass N, M, ... selections) to checkout by number.
 	cos = checkoutselected
+	cosub = co --submodules	; Switch branch, also eponymous local branches in submodules.
 	;; checkoutselectedbranch: Switch to the branch that is interactively selected from existing branches.
 	cosbr = checkoutselectedbranch
 	;; checkout-remote-branch: Checkout passed <remote-branch>, resetting an existing local branch to the remote, tracking it if it doesn't yet exist locally, and ensuring that an existing tracked branch doesn't contradict the request.
 	;; rco: Checkout passed <branch> in <remote>; fetching if needed and ensuring that an existing tracked branch doesn't contradict the request.
 	;; rcolatest: Checkout local branch from latest (by sort order) passed <remote> [matching pattern].
 	;; rcolatestc: Checkout local branch from the passed <remote> branch [matching pattern] that was created last (except the current branch and master (and base branch if defined)).
-	colb = checkout @{-1}	; Checkout last checked-out branch.
+	colb = wrapper-nocolor checkout @{-1}	; Checkout last checked-out branch.
 
 	;; mbr: Show the master branch name.
 	com = master-command checkout	; Checkout master branch.
@@ -361,7 +362,7 @@
 	noffton = base-command noffto	; Merge (even when fast-forwarding is possible) the current branch into the base branch.
 
 	coh = checkout --patch --	; Interactively cherry-pick and check out individual hunks from the index to the working copy.
-	cobad = checkout refs/bisect/bad	; Check out the first bad commit after a bisect run (not done automatically by "git bisect").
+	cobad = wrapper-nocolor checkout refs/bisect/bad	; Check out the first bad commit after a bisect run (not done automatically by "git bisect").
 
 	bl = shortblame
 	;; file-blame: Show author name and last date for each file.
@@ -6532,7 +6533,7 @@
 	;; editlastcommitselected: Interactively select (from files changed in the last commit) files (or directly pass N, M, ... selections) from the last commit by number to edit in the index without modifying the corresponding files in the working copy.
 	;; invertstage: Swap staged and unstaged (just updated; pass -A|--all to also include untracked files) changes.
 	ii = invertstage
-	undelete = checkout HEAD -- ; Undo "git rm <file>"; puts the file back into working copy.
+	undelete = wrapper-nocolor checkout HEAD -- ; Undo "git rm <file>"; puts the file back into working copy.
 	unstage = reset HEAD --	; Undo "git add <file>"; removes the file from the index, so that it isn't committed. (Alternatively, you can commit a few files via "git commit <file>" directly, bypassing the index.)
 	unstagehunk = reset --patch HEAD --	; Interactively cherry-pick and remove individual hunks from the index.
 	unstageh = unstagehunk
@@ -6786,6 +6787,7 @@
 
 	; No oadd.
 	oco = rco origin ; Checkout local branch from origin.
+	ocosub = oco --submodules	; Checkout local branch from origin, also checkout eponymous remote branches in submodules.
 	; No ocom.
 	od = rev-remote-command origin diff ; Show differences to my GitHub clone.
 	odsta = rev-remote-command origin diff --shortstat
@@ -7145,6 +7147,7 @@
 
 	uadd = remote add -f upstream	; Add upstream repository and fetch it.
 	uco = rco upstream ; Checkout local branch from upstream.
+	ucosub = uco --submodules	; Checkout local branch from upstream, also checkout eponymous remote branches in submodules.
 	; No ucom.
 	ud = rev-remote-command upstream diff ; Show differences to upstream.
 	udsta = rev-remote-command upstream diff --shortstat

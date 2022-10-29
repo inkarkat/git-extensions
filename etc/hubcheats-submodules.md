@@ -103,6 +103,7 @@ b) maintain history of how the feature grew:
 
 # Switching between branches
 superproject: `$ git co BRANCH && git subcolocalbr --query|--all|SUBMODULE1 ...`
+or short `$ git cosub BRANCH`
 
 # Conflicts
 Resolution and merges have to be done in the submodule itself, as the

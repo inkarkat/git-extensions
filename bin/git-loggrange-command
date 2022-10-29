@@ -112,7 +112,11 @@ if [ -z "$revision" ]; then
 fi
 
 startRevision=
-< <(diff --unchanged-line-format= --old-line-format='%dn %L' --new-line-format= -- <(git log --first-parent --pretty=tformat:%H "$revision" "${sharedLogArgs[@]}") <(git log --first-parent --pretty=tformat:%H "${logArgs[@]}" "$revision" "${sharedLogArgs[@]}")) IFS=' ' read -r firstDifferentCount firstDifferentRevision	# Fortunately, "git log <revision> --follow -- <path>" also works; else, we would have to split sharedLogArgs into options and path arguments.
+< <(diff --unchanged-line-format= --old-line-format='%dn %L' --new-line-format= -- \
+    <(git log --first-parent --pretty=tformat:%H "$revision" "${sharedLogArgs[@]}") \
+    <(git log --first-parent --pretty=tformat:%H "${logArgs[@]}" "$revision" "${sharedLogArgs[@]}") # Fortunately, "git log <revision> --follow -- <path>" also works; else, we would have to split sharedLogArgs into options and path arguments.
+) IFS=' ' read -r firstDifferentCount firstDifferentRevision
+
 if [ -n "$firstDifferentRevision" ]; then
     if [ $firstDifferentCount -eq 1 ]; then
 	printf >&2 'The %s revision already does not match.\n' "$revision"

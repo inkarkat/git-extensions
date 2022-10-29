@@ -26,9 +26,9 @@ remoteFilter=
 branchPattern="$1"
 if [ -n "$1" ] && git-existsremote "$1"; then
     remoteFilter="| grep -e ' ${1}/'"
-    branchPattern=$2
+    branchPattern="$2"
 fi
-[ "$branchPattern" ] && branchFilter="| grep -e '$branchPattern'"
+[ -n "$branchPattern" ] && branchFilter="| grep -e '$branchPattern'"
 
 
 printMessage()
@@ -39,7 +39,7 @@ printMessage()
 readonly orig=$(git-orig-ref)
 hadOne=
 status=0
-for remote in $(eval "git branch --remotes | grep -v '/$(git-mbr)\$'" $remoteFilter $branchFilter)
+for remote in $(eval "git branch --remotes | grep -v '/$(git-mbr)\$' $remoteFilter $branchFilter")
 do
     branch=${remote##*/}
     if git-existsbr "$branch"; then

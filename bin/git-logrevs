@@ -18,12 +18,16 @@ isReverse=
 typeset -a showArgs=()
 typeset -a revisions=()
 maxCount=
+typeset -a patchArg=(--no-patch)
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--revision|-r)	graphSortRevsArgs+=("$1" "$2"); shift; revisions+=("$1"); shift;;
 	--reverse)	shift; isReverse=t;;
+	--patch|-p|-u)	shift; patchArg=();;
+	--name-only|--name-status|--no-patch|-s)
+			patchArg=("$1"); shift;;
 
 	--max-count|-n) shift; maxCount="$1"; shift;;
 	--max=count=*)	maxCount="${1#*=}"; shift;;
@@ -48,4 +52,4 @@ if [ ! "$isDashDash" ]; then
     done
 fi
 
-exec git ${GIT_LOGREVS_SHOW_COMMAND:-show} "${showArgs[@]}" "${revisionsInOrder[@]}"
+exec git ${GIT_LOGREVS_SHOW_COMMAND:-show} "${patchArg[@]}" "${showArgs[@]}" "${revisionsInOrder[@]}"

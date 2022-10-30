@@ -49,17 +49,17 @@ revision=
 range=..
 isLastOnly=
 isShowOneMore=
-typeset -a logArgs=()
-typeset -a logModificationArgs=()
+typeset -a grepArgs=()
+typeset -a grepModificationArgs=()
 withLogArgs=
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)		    shift; printLongUsage "$0"; exit 0;;
 	--revision|-r)		    shift; revision="$1"; shift;;
-	--grep)			    logArgs+=("$1" "$2"); shift; shift;;
-	--grep=*)		    logArgs+=("$1"); shift;;
-	--invert-grep)		    logModificationArgs+=("$1"); shift;;
+	--grep)			    grepArgs+=("$1" "$2"); shift; shift;;
+	--grep=*)		    grepArgs+=("$1"); shift;;
+	--invert-grep)		    grepModificationArgs+=("$1"); shift;;
 	--no-range)		    shift; range=;;
 	--with-range)		    shift; range="$1"; shift;;
 	--last-only)		    shift; isLastOnly=t; range=;;
@@ -81,21 +81,15 @@ do
 	    ;;
     esac
 done
-if [ ${#logArgs[@]} -eq 0 ]; then
+typeset -a finalGrepArg=()
+if [ ${#grepArgs[@]} -eq 0 ]; then
     # No --grep given; the last argument is the text or /regexp/.
     if [ $# -eq 0 ]; then
 	printUsage "$0"
 	exit 2
     fi
 
-    lastArg="${!#}"
-    searchString=$(printf '%s' "$lastArg" | sed -ne 's/^\([^a-zA-Z0-9]\)\(.*\)\1$/\2/p')
-    if [ "$searchString" ]; then
-	logArgs+=(--grep "$searchString")
-    else
-	logArgs+=(--grep "$lastArg" --fixed-strings)
-    fi
-    set -- "${@:1:$(($#-1))}"
+    finalGrepArg=("${!#}"); [ $# -eq 0 ] && set -- || set -- "${@:1:$(($#-1))}"
 fi
 typeset sharedLogArgs=()
 case "$withLogArgs" in
@@ -104,7 +98,7 @@ case "$withLogArgs" in
 esac
 
 if [ -z "$revision" ]; then
-    revision="$(git log --max-count 1 --pretty=tformat:%H "${logModificationArgs[@]}" "${logArgs[@]}" "${sharedLogArgs[@]}")"
+    revision="$(git logg --max-count 1 --pretty=tformat:%H "${grepModificationArgs[@]}" "${grepArgs[@]}" "${sharedLogArgs[@]}" "${finalGrepArg[@]}")"
     if [ -z "$revision" ]; then
 	echo >&2 'Could not find a matching commit.'
 	exit 1
@@ -114,7 +108,7 @@ fi
 startRevision=
 < <(diff --unchanged-line-format= --old-line-format='%dn %L' --new-line-format= -- \
     <(git log --first-parent --pretty=tformat:%H "$revision" "${sharedLogArgs[@]}") \
-    <(git log --first-parent --pretty=tformat:%H "${logModificationArgs[@]}" "${logArgs[@]}" "$revision" "${sharedLogArgs[@]}") # Fortunately, "git log <revision> --follow -- <path>" also works; else, we would have to split sharedLogArgs into options and path arguments.
+    <(git logg --first-parent --pretty=tformat:%H "${grepModificationArgs[@]}" "${grepArgs[@]}" "$revision" "${sharedLogArgs[@]}" "${finalGrepArg[@]}") # Fortunately, "git log <revision> --follow -- <path>" also works; else, we would have to split sharedLogArgs into options and path arguments.
 ) IFS=' ' read -r firstDifferentCount firstDifferentRevision
 
 if [ -n "$firstDifferentRevision" ]; then

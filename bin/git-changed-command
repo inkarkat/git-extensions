@@ -3,16 +3,28 @@
 printUsage()
 {
     cat <<HELPTEXT
-Pickaxe: Log where text or /regexp/ was added or removed (i.e. those filepairs
-whose preimage and postimage have different number of occurrences of the text).
+${gitCommand:-Execute GIT-COMMAND} where text or /regexp/ was added or removed (i.e. those
+filepairs whose preimage and postimage have different number of occurrences of
+the text).
 With --more also log where lines were modified where text or /regexp/ just
 appears (without necessarily modifying text or /regexp/ itself).
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--more] [<log-options>] [<since>..<until>] [[--] <path>...] text|/regexp/ [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--more] [<log-options>] [<since>..<until>] --grep=<pattern> [[--] <path>...]'
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${gitCommand:-GIT-COMMAND} [--more] [--unique] [<log-options>] [<since>..<until>] [[--] <path>...] text|/regexp/ [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${gitCommand:-GIT-COMMAND} [--more] [--unique] [<log-options>] [<since>..<until>] --grep=<pattern> [[--] <path>...]"
 }
 
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+if [ $# -eq 0 ]; then
+    echo >&2 'ERROR: No GIT-COMMAND passed.'
+    exit 2
+fi
+gitCommand="$1"; shift
+
 isMore=
+isUnique=
 typeset -a args=()
 typeset -a grepPatterns=()
 while [ $# -ne 0 ]
@@ -20,6 +32,7 @@ do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--more)		shift; isMore=t;;
+	--unique)	shift; isUnique=t;;
 	--grep)		shift; grepPatterns+=("$1"); shift;;
 	--grep=*)	grepPatterns+=("${1#--grep=}"); shift;;
 	--)		args+=("$1"); shift; break;;
@@ -65,4 +78,10 @@ else
     fi
 fi
 
-exec git-wrapper ${GIT_PICKAXE_COMMAND:-log} "${pickaxeArgs[@]}" "$@"
+if [ "$isUnique" ]; then
+    typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+    git-wrapper $gitCommand "${pickaxeArgs[@]}" "$@" \
+	| eval 'sort --unique' "${pager:+|}" '"${pager[@]}"'
+else
+    exec git-wrapper $gitCommand "${pickaxeArgs[@]}" "$@"
+fi

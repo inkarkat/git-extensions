@@ -721,25 +721,20 @@
 	logtimeshifted = discrepancylog --field1 AuthorDate: --field2 CommitDate: --pretty=fuller ; Show logs of amended or rebased commits only.
 	logonbehalf = discrepancylog --field1 Author: --field2 Commit: --pretty=fuller	; Show logs where author and committer are not the same person.
 
-	;; logg: Log only those commits where log messages match the specified text or /regexp/.
-	logg1 = logg --max-count 1
-	logg7 = logg --max-count 7
-	loggmine = mine-command logg
-	logg1mine = mine-command logg1
-	logg7mine = mine-command logg7
-	;; lgg
-	lgg1 = lgg --max-count 1
-	lgg7 = lgg --max-count 7
-	lggmine = mine-command lgg
-	lgg1mine = mine-command lgg1
-	lgg7mine = mine-command lgg7
-	;; lcg
-	lcg1 = lcg --max-count 1
-	lcg7 = lcg --max-count 7
-	lcgmine = mine-comand lcg
-	lcgmine1 = mine-comand lcg --max-count 1
-	lcgmine7 = mine-comand lcg --max-count 7
 
+	;; logg: Log only those commits where log messages match the specified text or /regexp/.
+	loggmine = mine-command logg
+	;;loggv
+	loggvmine = mine-command loggv
+	;; lgg
+	lggmine = mine-command lgg
+	;; lcg
+	lcgmine = mine-comand lcg
+	;; lclg
+	lclgmine = mine-command lclg
+	;; loggfiles
+	loggversions = findcontained logg annotated
+	loggtags = findcontained logg describe
 
 	changedlog = changed-command log	; changedlog does not look at the log message at all, but the actual diff; i.e. those filepairs whose preimage and postimage have different number of occurrences of the text.
 	changedlogmine = mine-command changedlog
@@ -747,15 +742,27 @@
 	changedlogvmine = mine-command changedlogv
 	changedlg = changed-command lg
 	changedlgmine = mine-command changedlg
-	changedlc = changed-command lc --date=relative
+	changedlc = changed-command lc
 	changedlcmine = mine-command changedlc
-	changedlcl = changed-command lcl --date=relative
+	changedlcl = changed-command lcl
 	changedlclmine = mine-command changedlcl
-	changedshow = changed-command show --date=relative
-	changedshowmine = mine-command changedshow
-	; TODO: changedfiles = changed-command 'showfiles --pretty=tformat:' --uniq
+	changedfiles = changed-command logfilenames --unique
 	changedversions = findcontained changedlog annotated
 	changedtags = findcontained changedlog describe
+
+	touchedlog = changedlog --more	; touchedlog is a more encompassing variant of changedlog that not just shows those commits where the number of occurrences of text or /regexp/ changes, but also lines matching text or /regexp/ that just were somehow modified, without changing the number of occurrences themselves.
+	touchedlogmine = changedlogmine --more
+	touchedlogv = changedlogv --more
+	touchedlogvmine = changedlogvmine --more
+	touchedlg = changedlg --more
+	touchedlgmine = changedlgmine --more
+	touchedlc = changedlc --more
+	touchedlcmine = changedlcmine --more
+	touchedlcl = changedlcl --more
+	touchedlclmine = changedlclmine --more
+	touchedfiles = changedfiles --more
+	touchedversions = changedversions --more
+	touchedtags = changedtags --more
 
 	changedlogg = pickaxegrep	; changedlogg looks at both log message and actual diff; a combination of logg and changedlog.
 	changedloggmine = mine-command changedlogg
@@ -771,15 +778,15 @@
 	changedversionsg = findcontained changedlogg annotated
 	changedtagsg = findcontained changedlogg describe
 
-	wherelastlog = changed-command 'log --max-count 1'	; wherelastlog is like changedlog but only shows a single log (i.e. the last such commit).
-	wherelastlogmine = mine-command wherelastlog
-	wherelastlogv = changed-command 'logv --max-count 1'
-	wherelastlogvmine = mine-command wherelastlogv
-	wherelastshow = changed-command show
-	wherelastshowmine = mine-command wherelastshow
-	wherelastfiles = changed-command showfiles
-	wherelastversions = findcontained wherelastlog annotated
-	wherelasttags = findcontained wherelastlog describe
+	wherelastchangedlog = changed-command 'log --max-count 1'	; wherelastchangedlog is like changedlog but only shows a single log (i.e. the last such commit).
+	wherelastchangedlogmine = mine-command wherelastlog
+	wherelastchangedlogv = changed-command 'logv --max-count 1'
+	wherelastchangedlogvmine = mine-command wherelastlogv
+	wherelastchangedshow = changed-command 'log --max-count 1 --patch'
+	wherelastchangedshowmine = mine-command wherelastshow
+	wherelastchangedfiles = changed-command 'logfilenames --max-count 1'
+	wherelastchangedversion = findcontained wherelastlog annotated
+	wherelastchangedtag = findcontained wherelastlog describe
 
 	wherelastlogg = pickaxegrep --max-count 1	; wherelastlogg is like changedlogg but only shows a single log (i.e. the last such commit).
 	wherelastloggmine = mine-command wherelastlogg
@@ -791,15 +798,15 @@
 	wherelastversionsg = findcontained wherelastlogg annotated
 	wherelasttagsg = findcontained wherelastlogg describe
 
-	whereintroducedlog = changed-command 'rnlog --reverse --max-count 1'	; whereintroducedlog is like changedlog but only shows a single log (i.e. the first commit that introduced the change).
-	whereintroducedlogmine = mine-command whereintroducedlog
-	whereintroducedlogv = changed-command 'rnlogv --reverse --max-count 1'
-	whereintroducedlogvmine = mine-command whereintroducedlogv
-	whereintroducedshow = changed-command 'rnshow --reverse --max-count 1 --date=relative'
-	whereintroducedshowmine = mine-command whereintroducedshow
-	whereintroducedfiles = changed-command 'rnlogfiles --reverse --max-count 1'
-	whereintroducedversion = findcontained whereintroducedlog annotated
-	whereintroducedtag = findcontained whereintroducedlog describe
+	whereintroducedchangelog = changed-command 'rnlog --reverse --max-count 1'	; whereintroducedchangelog is like changedlog but only shows a single log (i.e. the first commit that introduced the change).
+	whereintroducedchangelogmine = mine-command whereintroducedchangelog
+	whereintroducedchangelogv = changed-command 'rnlogv --reverse --max-count 1'
+	whereintroducedchangelogvmine = mine-command whereintroducedlogv
+	whereintroducedchangeshow = changed-command 'rnshow --reverse --max-count 1'
+	whereintroducedchangeshowmine = mine-command whereintroducedshow
+	whereintroducedchangefiles = changed-command 'rnlogfilenames --reverse --max-count 1'
+	whereintroducedchangeversion = findcontained whereintroducedchangelog annotated
+	whereintroducedchangetag = findcontained whereintroducedchangelog describe
 
 	whereintroducedlogg = pickaxegrep --reverse --max-count 1	; whereintroducedlogg is like changedlogg but only shows a single log (i.e. the first commit that introduced / mentioned the change).
 	whereintroducedloggmine = mine-command whereintroducedlogg
@@ -810,22 +817,6 @@
 	; TODO: whereintroducedfilesg
 	whereintroducedversiong = findcontained whereintroducedlogg annotated
 	whereintroducedtagg = findcontained whereintroducedlogg describe
-
-	touchedlog = changedlog --more	; touchedlog is a more encompassing variant of changedlog that not just shows those commits where the number of occurrences of text or /regexp/ changes, but also lines matching text or /regexp/ that just were somehow modified, without changing the number of occurrences themselves.
-	touchedlogmine = changedlogmine --more
-	touchedlogv = changedlogv --more
-	touchedlogvmine = changedlogvmine --more
-	touchedlg = changedlg --more
-	touchedlgmine = changedlgmine --more
-	touchedlc = changedlc --more
-	touchedlcmine = changedlcmine --more
-	touchedlcl = changedlcl --more
-	touchedlclmine = changedlclmine --more
-	touchedshow = changedshow --more
-	touchedshowmine = changedshowmine --more
-	; TODO: touchedfiles = changedfiles --more 	; Pickaxe: Show files of the most recent commit where text or /regexp/ appears (without necessarily modifying text or /regexp/ itself).
-	touchedversions = changedversions --more
-	touchedtags = changedtags --more
 
 	touchedlogg = pickaxegrep --more	; touchedlogg looks at both log message and actual diff; a combination of logg and touchedlog.
 	touchedloggmine = mine-command touchedlogg
@@ -910,6 +901,7 @@
 	logfiles = onelinelog --name-status	; One-line author, date, tags and commit summary, plus the list of changed files (unlike logv, here filtered by a passed <path>).
 	logfiles1 = logfiles --max-count 1
 	logfiles7 = logfiles --max-count 7
+	logfilenames = onelinelog --pretty=tformat: --name-only
 
 	;; logmodifications: Show a log of commits that modify files in the specified way.
 	logmod = logmodifications -v

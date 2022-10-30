@@ -376,8 +376,7 @@ alias vgitlsprivate='commandOnSelected --command SendToGVIM --generator "git-lsp
 #			Edit selected unversioned files that are not under
 #			source control in the current directory and below in
 #			Vim.
-alias vimgitlsprivate='commandOnSelected --command '"${_aliases_vim}"'
---generator "git-lsprivate --long --ignore-empty-directories" --entries'
+alias vimgitlsprivate='commandOnSelected --command '"${_aliases_vim}"' --generator "git-lsprivate --long --ignore-empty-directories" --entries'
 
 
 

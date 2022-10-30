@@ -3,14 +3,25 @@
 printUsage()
 {
     cat <<HELPTEXT
-Pickaxe: Log where text or /regexp/ was added or removed (i.e. those filepairs
-whose preimage and postimage have different number of occurrences of the text).
+${gitCommand:-Execute GIT-COMMAND} where text or /regexp/ was added or removed (i.e. those
+filepairs whose preimage and postimage have different number of occurrences of
+the text).
 With --more also log where lines were modified where text or /regexp/ just
 appears (without necessarily modifying text or /regexp/ itself).
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--more] [<log-options>] [<since>..<until>] [[--] <path>...] text|/regexp/ [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--more] [<log-options>] [<since>..<until>] --grep=<pattern> [[--] <path>...]'
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${gitCommand:-GIT-COMMAND} [--more] [<log-options>] [<since>..<until>] [[--] <path>...] text|/regexp/ [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${gitCommand:-GIT-COMMAND} [--more] [<log-options>] [<since>..<until>] --grep=<pattern> [[--] <path>...]"
 }
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+if [ $# -eq 0 ]; then
+    echo >&2 'ERROR: No GIT-COMMAND passed.'
+    exit 2
+fi
+gitCommand="$1"; shift
 
 isMore=
 typeset -a args=()
@@ -65,4 +76,4 @@ else
     fi
 fi
 
-exec git-wrapper ${GIT_PICKAXE_COMMAND:-log} "${pickaxeArgs[@]}" "$@"
+exec git-wrapper $gitCommand "${pickaxeArgs[@]}" "$@"

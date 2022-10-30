@@ -741,19 +741,19 @@
 	lcgmine7 = mine-comand lcg --max-count 7
 
 	; changedlog does not look at the log message at all, but the actual diff; i.e. those filepairs whose preimage and postimage have different number of occurrences of the text.
-	; XXX: Git (2.7.4 on Ubuntu, 2.12 on Windows) somehow has a built-in alias of "pickaxe" to "blame". Because of this, we have to use the shell command syntax !git-pickaxe instead of simply pickaxe.
-	changedlog = !git-pickaxe	; Pickaxe: Show log of commits where text or /regexp/ was added or removed in the diff.
+	changedlog = changed-command log	; Pickaxe: Show log of commits where text or /regexp/ was added or removed in the diff.
 	changedlogmine = mine-command changedlog
-	changedlogv = !git-pickaxe --name-status	; Pickaxe: Show log and filenames of commits where text or /regexp/ was added or removed in the diff.
+	changedlogv = changed-command logv 	; Pickaxe: Show log and filenames of commits where text or /regexp/ was added or removed in the diff.
 	changedlogvmine = mine-command changedlogv
-	changedlg = !GIT_PICKAXE_COMMAND=lg git-pickaxe ; Pickaxe: Show short log of commits where text or /regexp/ was added or removed in the diff.
+	changedlg = changed-command lg ; Pickaxe: Show short log of commits where text or /regexp/ was added or removed in the diff.
 	changedlgmine = mine-command changedlg
-	changedlc = !GIT_PICKAXE_COMMAND=lc git-pickaxe --date=relative ; Pickaxe: Show log together with diff of commits where text or /regexp/ was added or removed in the diff.
+	changedlc = changed-command lc --date=relative ; Pickaxe: Show log together with diff of commits where text or /regexp/ was added or removed in the diff.
 	changedlcmine = mine-command changedlc
-	changedlcl = !GIT_PICKAXE_COMMAND=lcl git-pickaxe --date=relative ; Pickaxe: Show separate log together with diff of commits where text or /regexp/ was added or removed in the diff.
+	changedlcl = changed-command lcl --date=relative ; Pickaxe: Show separate log together with diff of commits where text or /regexp/ was added or removed in the diff.
 	changedlclmine = mine-command changedlcl
-	changedshow = !git-pickaxe --max-count 1 --date=relative --patch	; Pickaxe: Show short log together with diff of the most recent commit where text or /regexp/ was added or removed in the diff.
+	changedshow = changed-command show --date=relative 	; Pickaxe: Show short log together with diff of the most recent commit where text or /regexp/ was added or removed in the diff.
 	changedshowmine = mine-command changedshow
+	; TODO: changedfiles = changed-command 'showfiles --pretty=tformat:' --uniq 	; Pickaxe: Show files of the most recent commit where text or /regexp/ was added or removed in the diff.
 	changedversions = findcontained changedlog annotated ; Show (only the) first annotated tag (used for official versions etc.) that comes after the commits where text or /regexp/ was added or removed in the diff.
 	changedtags = findcontained changedlog describe ; Show relation to the first tag (also lightweight, used for archiving) that comes after the commits where text or /regexp/ was added or removed in the diff.
 
@@ -768,18 +768,19 @@
 	changedlcgmine = mine-command changedlcg
 	changedlclg = !GIT_LOGREVS_SHOW_COMMAND=showl git-pickaxegrep --date=relative --patch	; Show separate log together with diff of commits where log messages match text or /regexp/ or where the text or /regexp/ was added or removed in the diff.
 	changedlclgmine = mine-command changedlclg
+	; TODO: changedfilesg
 	changedversionsg = findcontained changedlogg annotated ; Show (only the) first annotated tag (used for official versions etc.) that comes after the commit where log messages match text or /regexp/ or where the text or /regexp/ was added or removed in the diff.
 	changedtagsg = findcontained changedlogg describe ; Show relation to the first tag (also lightweight, used for archiving) that comes after the commit where log messages match text or /regexp/ or where the text or /regexp/ was added or removed in the diff.
 
-	wherelastlog = !GIT_PICKAXE_COMMAND='log --max-count 1' git-pickaxe	; Show single log of the commit where text or /regexp/ was last mentioned in the diff.
+	wherelastlog = changed-command 'log --max-count 1'	; Show single log of the commit where text or /regexp/ was added or removed in the diff.
 	wherelastlogmine = mine-command wherelastlog
-	wherelastlogv = !GIT_PICKAXE_COMMAND='logv --max-count 1' git-pickaxe	; Show single log and filenames of the commit where text or /regexp/ was last mentioned in the diff.
+	wherelastlogv = changed-command 'logv --max-count 1'	; Show single log and filenames of the commit where text or /regexp/ was added or removed in the diff.
 	wherelastlogvmine = mine-command wherelastlogv
-	wherelastshow = !git-pickaxe --max-count 1 --patch	; Show short log together with diff of the most recent commit where text or /regexp/ was last mentioned in the diff.
+	wherelastshow = changed-command show	; wherelastshow is like changedshow, but without the relative date.
 	wherelastshowmine = mine-command wherelastshow
-	; wherelastshow is like changedshow, but without the relative date.
-	wherelastversions = findcontained wherelastlog annotated ; Show (only the) first annotated tag (used for official versions etc.) that comes after the commits where text or /regexp/ was last mentioned in the diff.
-	wherelasttags = findcontained wherelastlog describe ; Show relation to the first tag (also lightweight, used for archiving) that comes after the commits where text or /regexp/ was last mentioned in the diff.
+	wherelastfiles = changed-command showfiles 	; Pickaxe: Show files of the most recent commit where text or /regexp/ was added or removed in the diff.
+	wherelastversions = findcontained wherelastlog annotated ; Show (only the) first annotated tag (used for official versions etc.) that comes after the commits where text or /regexp/ was added or removed in the diff.
+	wherelasttags = findcontained wherelastlog describe ; Show relation to the first tag (also lightweight, used for archiving) that comes after the commits where text or /regexp/ was added or removed in the diff.
 
 	wherelastlogg = pickaxegrep --max-count 1	; Show single log of the commit where text or /regexp/ was last mentioned in the log message or diff.
 	wherelastloggmine = mine-command wherelastlogg
@@ -787,15 +788,17 @@
 	wherelastloggvmine = mine-command wherelastloggv
 	wherelastshowg = pickaxegrep --max-count 1 --date=relative --patch	; Show single log together with diff of the commit where text or /regexp/ was last mentioned in the log message or diff.
 	wherelastshowgmine = mine-command wherelastshowg
+	; TODO: wherelastfilesg
 	wherelastversionsg = findcontained wherelastlogg annotated ; Show (only the) first annotated tag (used for official versions etc.) that comes after the commit where text or /regexp/ was last mentioned in the log message or diff.
 	wherelasttagsg = findcontained wherelastlogg describe ; Show relation to the first tag (also lightweight, used for archiving) that comes after the commit where text or /regexp/ was last mentioned in the log message or diff.
 
-	whereintroducedlog = !GIT_PICKAXE_COMMAND='rnlog --reverse --max-count 1' git-pickaxe	; Show single log of the commit where text or /regexp/ was first mentioned (added) in the diff.
+	whereintroducedlog = changed-command 'rnlog --reverse --max-count 1'	; Show single log of the commit where text or /regexp/ was first mentioned (added) in the diff.
 	whereintroducedlogmine = mine-command whereintroducedlog
-	whereintroducedlogv = !GIT_RNLOG_COMMAND=logv GIT_PICKAXE_COMMAND='rnlog --reverse --max-count 1' git-pickaxe	; Show single log including filenames of the commit where text or /regexp/ was first mentioned (added) in the diff.
+	whereintroducedlogv = changed-command 'rnlogv --reverse --max-count 1'	; Show single log including filenames of the commit where text or /regexp/ was first mentioned (added) in the diff.
 	whereintroducedlogvmine = mine-command whereintroducedlogv
-	whereintroducedshow = !GIT_RNLOG_COMMAND=show GIT_PICKAXE_COMMAND='rnlog --reverse --max-count 1 --date=relative --patch' git-pickaxe	; Show log together with diff of the commit where text or /regexp/ was first mentioned (added) in the diff.
+	whereintroducedshow = changed-command 'rnshow --reverse --max-count 1 --date=relative'	; Show log together with diff of the commit where text or /regexp/ was first mentioned (added) in the diff.
 	whereintroducedshowmine = mine-command whereintroducedshow
+	whereintroducedfiles = changed-command 'rnlogfiles --reverse --max-count 1'	; Show files of the commit where text or /regexp/ was first mentioned (added) in the diff.
 	whereintroducedversion = findcontained whereintroducedlog annotated ; Show (only the) first annotated tag (used for official versions etc.) that comes after the commit where text or /regexp/ was first mentioned (added) in the diff.
 	whereintroducedtag = findcontained whereintroducedlog describe ; Show relation to the first tag (also lightweight, used for archiving) that comes after the commit where text or /regexp/ was first mentioned (added) in the diff.
 
@@ -805,24 +808,26 @@
 	whereintroducedloggvmine = mine-command whereintroducedloggv
 	whereintroducedshowg = pickaxegrep --reverse --max-count 1 --date=relative --patch	; Show single log together with diff of the commit where text or /regexp/ was first mentioned in the log message or diff.
 	whereintroducedshowgmine = mine-command whereintroducedshowg
+	; TODO: whereintroducedfilesg
 	whereintroducedversiong = findcontained whereintroducedlogg annotated ; Show (only the) first annotated tag (used for official versions etc.) that comes after the commit where text or /regexp/ was first mentioned in the log message or diff.
 	whereintroducedtagg = findcontained whereintroducedlogg describe ; Show relation to the first tag (also lightweight, used for archiving) that comes after the commit where text or /regexp/ was first mentioned in the log message or diff.
 
 	; touchedlog is a more encompassing variant of changedlog that not just shows those commits where the number of occurrences of text or /regexp/ changes, but also lines matching text or /regexp/ that just were somehow modified, without changing the number of occurrences themselves.
-	touchedlog = !git-pickaxe --more	; Pickaxe: Show log where lines were modified where text or /regexp/ appears (without necessarily modifying text or /regexp/ itself).
-	touchedlogmine = mine-command touchedlog
-	touchedlogv = !git-pickaxe --more --name-status	; Pickaxe: Show log and filenames where lines were modified where text or /regexp/ appears (without necessarily modifying text or /regexp/ itself).
-	touchedlogvmine = mine-command touchedlogv
-	touchedlg = !GIT_PICKAXE_COMMAND=lg git-pickaxe --more ; Pickaxe: Show short log where lines were modified where text or /regexp/ appears (without necessarily modifying text or /regexp/ itself).
-	touchedlgmine = mine-command touchedlg
-	touchedlc = !GIT_PICKAXE_COMMAND=lc git-pickaxe --more --date=relative ; Pickaxe: Show log together with diff where lines were modified where text or /regexp/ appears (without necessarily modifying text or /regexp/ itself).
-	touchedlcmine = mine-command touchedlc
-	touchedlcl = !GIT_PICKAXE_COMMAND=lcl git-pickaxe --more --date=relative ; Pickaxe: Show separate log together with diff where lines were modified where text or /regexp/ appears (without necessarily modifying text or /regexp/ itself).
-	touchedlclmine = mine-command touchedlcl
-	touchedshow = !git-pickaxe --more --max-count 1 --date=relative --patch	; Pickaxe: Show log together with diff of the most recent commit where lines were modified where text or /regexp/ appears (without necessarily modifying text or /regexp/ itself).
-	touchedshowmine = mine-command touchedshow
-	touchedversions = findcontained touchedlog annotated ; Show (only the) first annotated tag (used for official versions etc.) that comes after the commits where lines were modified where text or /regexp/ appears (without necessarily modifying text or /regexp/ itself).
-	touchedtags = findcontained touchedlog describe ; Show relation to the first tag (also lightweight, used for archiving) that comes after the commits where lines were modified where text or /regexp/ appears (without necessarily modifying text or /regexp/ itself).
+	touchedlog = changedlog --more	; Pickaxe: Show log where lines were modified where text or /regexp/ appears (without necessarily modifying text or /regexp/ itself).
+	touchedlogmine = changedlogmine --more
+	touchedlogv = changedlogv --more	; Pickaxe: Show log and filenames where lines were modified where text or /regexp/ appears (without necessarily modifying text or /regexp/ itself).
+	touchedlogvmine = changedlogvmine --more
+	touchedlg = changedlg --more ; Pickaxe: Show short log where lines were modified where text or /regexp/ appears (without necessarily modifying text or /regexp/ itself).
+	touchedlgmine = changedlgmine --more
+	touchedlc = changedlc --more ; Pickaxe: Show log together with diff where lines were modified where text or /regexp/ appears (without necessarily modifying text or /regexp/ itself).
+	touchedlcmine = changedlcmine --more
+	touchedlcl = changedlcl --more ; Pickaxe: Show separate log together with diff where lines were modified where text or /regexp/ appears (without necessarily modifying text or /regexp/ itself).
+	touchedlclmine = changedlclmine --more
+	touchedshow = changedshow --more	; Pickaxe: Show log together with diff of the most recent commit where lines were modified where text or /regexp/ appears (without necessarily modifying text or /regexp/ itself).
+	touchedshowmine = changedshowmine --more
+	; TODO: touchedfiles = changedfiles --more 	; Pickaxe: Show files of the most recent commit where text or /regexp/ appears (without necessarily modifying text or /regexp/ itself).
+	touchedversions = changedversions --more ; Show (only the) first annotated tag (used for official versions etc.) that comes after the commits where lines were modified where text or /regexp/ appears (without necessarily modifying text or /regexp/ itself).
+	touchedtags = changedtags --more ; Show relation to the first tag (also lightweight, used for archiving) that comes after the commits where lines were modified where text or /regexp/ appears (without necessarily modifying text or /regexp/ itself).
 
 	touchedlogg = pickaxegrep --more	; Show log of commits where log messages match text or /regexp/ or where lines were modified where text or /regexp/ appears (without necessarily modifying text or /regexp/ itself).
 	touchedloggmine = mine-command touchedlogg
@@ -836,6 +841,7 @@
 	touchedlclgmine = mine-command touchedlclg
 	touchedshowg = !git-pickaxegrep --more --max-count 1 --date=relative --patch	; Pickaxe: Show log together with diff of the most recent commit where lines were modified where text or /regexp/ appears (without necessarily modifying text or /regexp/ itself).
 	touchedshowgmine = mine-command touchedshowg
+	; TODO: touchedfilesg
 	touchedversionsg = findcontained touchedlogg annotated ; Show (only the) first annotated tag (used for official versions etc.) that comes after the commit where log messages match text or /regexp/ or where lines were modified where text or /regexp/ appears (without necessarily modifying text or /regexp/ itself).
 	touchedtagsg = findcontained touchedlogg describe ; Show relation to the first tag (also lightweight, used for archiving) that comes after the commit where log messages match text or /regexp/ or where lines were modified where text or /regexp/ appears (without necessarily modifying text or /regexp/ itself).
 
@@ -895,10 +901,6 @@
 	byteamshowfiles = team-command byuserrange-command showfiles	; Show all files modified by my team in the last / passed -r <commit> and directly preceding, as long as they also were by them.
 	byteamshowsubmodules = team-command byuserrange-command showsubmodules	; Show all submodules modified by my team in the last / passed -r <commit> and directly preceding, as long as they also were by them.
 	byteamsubdo = team-command byuserrange-command subdo	; Execute "git SIMPLECOMMAND" and/or COMMANDLINE in each Git submodule modified by my team in the last / passed -r <commit> and directly preceding, as long as they also were by them.
-	showchanged = !GIT_PICKAXE_COMMAND=show git-pickaxe	; Log together with diff of those files where text or /regexp/ was added or removed.
-	showfileschanged = !GIT_PICKAXE_COMMAND=showfiles git-pickaxe	; Show the files modified in passed commit or commit range where text or /regexp/ was added or removed.
-	showtouched = !GIT_PICKAXE_COMMAND=show git-pickaxe --more	; Log together with diff of those files where lines were modified where text or /regexp/ appears.
-	showfilestouched = !GIT_PICKAXE_COMMAND=showfiles git-pickaxe --more	; Show the files modified in passed commit or commit range where lines were modified where text or /regexp/ appears.
 	showst = showfiles --status	; Show the files and their modification status in passed commit or commit range.
 
 	; Commit logs Note: Git 1.6.0 only supports %Cred, %Cgreen, %Cblue for highlighting; only newer Git versions also support %C(more-colors).

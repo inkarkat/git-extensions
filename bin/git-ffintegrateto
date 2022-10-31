@@ -293,6 +293,12 @@ if [ "$isContinue" ]; then
 else
     echo "Integrating $targetBranch"
 
+    # This is the reverse merge message: Though we're actually merging
+    # $targetBranch into $sourceBranch, with the fast-forward integration it
+    # will look as if $sourceBranch got merged into $targetBranch.
+    branchMergeMessage="Merge branch '${sourceBranch}'"
+    [ "$(git-mbr)" = "$targetBranch" ] || branchMergeMessage+=" into $targetBranch"
+
     # Ensure that the current branch is good for merging.
     git-mergecheck --merge-to "$targetBranch" || exit $?
 
@@ -306,7 +312,7 @@ else
 	type -t timeout >/dev/null && prefixCommands=(timeout 10 "${prefixCommands[@]}")
 	type -t invocationMessage >/dev/null && prefixCommands=(invocationMessage --message 'Searching for PR...' --success FOUND --fail NONE -- "${prefixCommands[@]}")
 	pullRequestTitles="$("${prefixCommands[@]}" hub-prtitle --as-merge-message)"
-	[ -n "$pullRequestTitles" ] && mergeMessageArgs+=(--message "$pullRequestTitles"$'\n\n'"Merge branch '${targetBranch}'" --edit)
+	[ -n "$pullRequestTitles" ] && mergeMessageArgs+=(--message "$pullRequestTitles"$'\n\n'"$branchMergeMessage" --edit)
     fi
 
     targetIntegrationSourceBranch="$targetBranch"
@@ -353,7 +359,8 @@ else
 		exit $status
 	    }
 	else
-	    # TODO: Merge message: Merge '$sourceBranch' into $targetBranch
+	    [ ${#mergeMessageArgs[@]} -gt 0 ] || mergeMessageArgs=(--message "$branchMergeMessage" --edit)
+
 	    git-wrapper merge "${fastForwardArgs[@]:---no-ff}" "${mergeMessageArgs[@]}" "${mergeArgs[@]}" "$targetIntegrationSourceBranch" || {
 		status=$?
 		echo >&2 "After the branch has been merged, you can ${isCheckFromStdin:+run checks and }${isPushBranch:+push and }${isMerge:+fast-forward-integrate to $targetBranch and }${isPush:+push and }${isKeepBranches:+not }delete it via"

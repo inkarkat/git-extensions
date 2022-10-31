@@ -329,75 +329,83 @@ else
 	fi
     fi
 
-    if [ ! "$hasMergeResolutionArg" ]; then
-	if git-ffdryrun "${branches[@]}"; then
-	    commitNum=$(git log --pretty=tformat:%H "HEAD..${branches[-1]}" | wc -l)
-	    commitNumPlural=s; [ $commitNum -eq 1 ] && commitNumPlural=
-	    branchNum=${#branches[@]}; [ $branchNum -eq 1 ] && branchNum=
-	    userBinaryChoice --console --question "The $commitNum commit$commitNumPlural on the ${branchNum}${branchNum:+ }branch$branchesPlural can be fast-forwarded instead of merged. Fast-forward?" --yes-no && fastForwardArgs=(--ff-only)
-	elif canRebase; then
-	    hubNote=; if [ "$HUB" ] && [ -n "$pullRequestTitles" ]; then
-		hubNote='Note: GitHub cannot detect the rebase and will say that the PR has been closed. If you need proper indication, please quit now and directly rebase in GitHub itself instead.'
-		if [  "$isCheckFromStdin" ] || [  ${#checkCommands[@]} -gt 0 ]; then
-		    hubNote+=" (But be aware that the CHECK-COMMAND(s) won't be executed then.)"
+    if [ ${#branches[@]} -eq 1 ] && git-equals "${branches[0]}" HEAD; then
+	printf >&2 'Branch %s is already even with %s\n' "${branches[0]}" "$targetBranch"
+
+	# Don't run the checks.
+	checkCommands=()
+	isCheckFromStdin=
+    else
+	if [ ! "$hasMergeResolutionArg" ]; then
+	    if git-ffdryrun "${branches[@]}"; then
+		commitNum=$(git log --pretty=tformat:%H "HEAD..${branches[-1]}" | wc -l)
+		commitNumPlural=s; [ $commitNum -eq 1 ] && commitNumPlural=
+		branchNum=${#branches[@]}; [ $branchNum -eq 1 ] && branchNum=
+		userBinaryChoice --console --question "The $commitNum commit$commitNumPlural on the ${branchNum}${branchNum:+ }branch$branchesPlural can be fast-forwarded instead of merged. Fast-forward?" --yes-no && fastForwardArgs=(--ff-only)
+	    elif canRebase; then
+		hubNote=; if [ "$HUB" ] && [ -n "$pullRequestTitles" ]; then
+		    hubNote='Note: GitHub cannot detect the rebase and will say that the PR has been closed. If you need proper indication, please quit now and directly rebase in GitHub itself instead.'
+		    if [ "$isCheckFromStdin" ] || [  ${#checkCommands[@]} -gt 0 ]; then
+			hubNote+=" (But be aware that the CHECK-COMMAND(s) won't be executed then.)"
+		    fi
 		fi
+		choice="$(userchoiceFromList --question "The branch$branchesPlural only consist$verbPlural of a single commit. Rebase $branchesSubject instead of creating a separate merge commit?${hubNote:+$'\n'}${hubNote}" --no-cancel --ignore-case -- '[Y]es' '[N]o' '[Q]uit')" || exit $?
+		case "$choice" in
+		    Yes)
+			isRebase=t;;
+		    Quit)
+			if [ -n "$hubNote" ]; then
+			    echo "After rebasing in GitHub, you can delete the branch$branchesPlural via:"
+			    printf 'git oldelete -f'
+			    printf ' %q' "${branches[@]}"
+			    printf '\n'
+			fi >&2
+			exit 1
+			;;
+		esac
 	    fi
-	    choice="$(userchoiceFromList --question "The branch$branchesPlural only consist$verbPlural of a single commit. Rebase $branchesSubject instead of creating a separate merge commit?${hubNote:+$'\n'}${hubNote}" --no-cancel --ignore-case -- '[Y]es' '[N]o' '[Q]uit')" || exit $?
-	    case "$choice" in
-		Yes)
-		    isRebase=t;;
-		Quit)
-		    if [ -n "$hubNote" ]; then
-			echo "After rebasing in GitHub, you can delete the branch$branchesPlural via:"
-			printf 'git oldelete -f'
-			printf ' %q' "${branches[@]}"
-			printf '\n'
-		    fi >&2
-		    exit 1
-		    ;;
-	    esac
+	elif [ "$isRebaseSingle" ]; then
+	    canRebase && isRebase=t
 	fi
-    elif [ "$isRebaseSingle" ]; then
-	canRebase && isRebase=t
-    fi
 
 
-    if [ "$isRebase" ]; then
-	origRef="$(git-orig-ref)" || exit $?
+	if [ "$isRebase" ]; then
+	    origRef="$(git-orig-ref)" || exit $?
 
-	for branch in "${branches[@]}"
-	do
-	    git rebase HEAD "$branch" && git checkout "$origRef" || {
-		status=$?
-		if [ "$branch" = "${branches[-1]}" ]; then
-		    echo >&2 "After this branch has been successfully rebased (see above), you can merge $branchesSubject and ${isCheckFromStdin:+run checks and }${isPush:+push and }delete $branchesSubject via"
-		    printf >&2 'git checkout %q && git-merge --ff-only %q && ' "$origRef" "$branch"
-		    printContinueCommand
-		else
-		    typeset -a missingBranches=("${branches[@]}")
-		    while [ "${missingBranches[0]}" != "$branch" ]
-		    do
+	    for branch in "${branches[@]}"
+	    do
+		git rebase HEAD "$branch" && git checkout "$origRef" || {
+		    status=$?
+		    if [ "$branch" = "${branches[-1]}" ]; then
+			echo >&2 "After this branch has been successfully rebased (see above), you can merge $branchesSubject and ${isCheckFromStdin:+run checks and }${isPush:+push and }delete $branchesSubject via"
+			printf >&2 'git checkout %q && git-merge --ff-only %q && ' "$origRef" "$branch"
+			printContinueCommand
+		    else
+			typeset -a missingBranches=("${branches[@]}")
+			while [ "${missingBranches[0]}" != "$branch" ]
+			do
+			    missingBranches=("${missingBranches[@]:1}")
+			done
 			missingBranches=("${missingBranches[@]:1}")
-		    done
-		    missingBranches=("${missingBranches[@]:1}")
 
-		    echo >&2 "After this branch has been successfully rebased (see above), you can continue rebasing, merge $branchesSubject and ${isCheckFromStdin:+run checks and }${isPush:+push and }delete $branchesSubject via"
-		    printf >&2 'git checkout %q && git-merge --ff-only %q && %q --rebase --no-delete ' "$origRef" "$branch" "$(basename "$0")"
-		    printf >&2 -- '--branch %q ' "${missingBranches[@]}"
-		    printf >&2 '&& '
-		    printContinueCommand
-		fi
+			echo >&2 "After this branch has been successfully rebased (see above), you can continue rebasing, merge $branchesSubject and ${isCheckFromStdin:+run checks and }${isPush:+push and }delete $branchesSubject via"
+			printf >&2 'git checkout %q && git-merge --ff-only %q && %q --rebase --no-delete ' "$origRef" "$branch" "$(basename "$0")"
+			printf >&2 -- '--branch %q ' "${missingBranches[@]}"
+			printf >&2 '&& '
+			printContinueCommand
+		    fi
+		    exit $status
+		}
+		git-wrapper merge --ff-only "$branch" || exit $?
+	    done
+	else
+	    git-wrapper merge "${fastForwardArgs[@]:---no-ff}" "${mergeArgs[@]}" "${branches[@]}" || {
+		status=$?
+		echo >&2 "After $branchesSubjectAuxiliaryVerb been merged, you can ${isCheckFromStdin:+run checks and }${isPush:+push and }delete $branchesSubject via"
+		printContinueCommand
 		exit $status
 	    }
-	    git-wrapper merge --ff-only "$branch" || exit $?
-	done
-    else
-	git-wrapper merge "${fastForwardArgs[@]:---no-ff}" "${mergeArgs[@]}" "${branches[@]}" || {
-	    status=$?
-	    echo >&2 "After $branchesSubjectAuxiliaryVerb been merged, you can ${isCheckFromStdin:+run checks and }${isPush:+push and }delete $branchesSubject via"
-	    printContinueCommand
-	    exit $status
-	}
+	fi
     fi
 fi  # End of actual merge; continue finalization from here.
 

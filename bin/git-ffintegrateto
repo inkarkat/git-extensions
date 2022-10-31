@@ -1,4 +1,6 @@
 #!/bin/bash
+set -o pipefail
+shopt -qs extglob
 
 printShortUsage()
 {
@@ -107,7 +109,6 @@ fi
 hasMergeResolutionArg=
 isRebase=
 isRebaseSingle=
-targetBranch=
 typeset -a fastForwardArgs=()
 typeset -a mergeArgs=()
 isBare=
@@ -345,15 +346,15 @@ else
 	if [ "$isRebase" ]; then
 	    git rebase "$targetIntegrationSourceBranch" || {
 		status=$?
-		echo >&2 "After the branch has been successfully rebased (see above), you can ${isCheckFromStdin:+run checks and }${isPushBranch:+push and }${isMerge:+fast-forward to $targetBranch integrate and }${isPush:+push and }${isKeepBranches:+not }delete it via"
+		echo >&2 "After the branch has been successfully rebased (see above), you can ${isCheckFromStdin:+run checks and }${isPushBranch:+push and }${isMerge:+fast-forward-integrate to $targetBranch and }${isPush:+push and }${isKeepBranches:+not }delete it via"
 		printContinueCommand
 		exit $status
 	    }
 	else
 	    # TODO: We want a merge with the two parents swapped here.
-	    git-wrapper merge "${fastForwardArgs[@]:---no-ff}" "${mergeArgs[@]}" "$targetBranch" || {
+	    git-wrapper merge "${fastForwardArgs[@]:---no-ff}" "${mergeArgs[@]}" "$targetIntegrationSourceBranch" || {
 		status=$?
-		echo >&2 "After the branch has been merged, you can ${isCheckFromStdin:+run checks and }${isPushBranch:+push and }${isMerge:+fast-forward integrate to $targetBranch and }${isPush:+push and }${isKeepBranches:+not }delete it via"
+		echo >&2 "After the branch has been merged, you can ${isCheckFromStdin:+run checks and }${isPushBranch:+push and }${isMerge:+fast-forward-integrate to $targetBranch and }${isPush:+push and }${isKeepBranches:+not }delete it via"
 		printContinueCommand
 		exit $status
 	    }
@@ -372,7 +373,7 @@ elif [ ${#checkCommands[@]} -gt 0 ]; then
     (eval "${checkCommands[@]}")
 fi || {
     status=$?
-    echo >&2 "Checks failed; $targetIntegrationSourceBranch has been integrated into the current branch, but the current branch has not been ${isPushBranch:+pushed and }${isMerge:+fast-forward integrated to $targetBranch and }${isPush:+pushed or }${isKeepBranches:+not }deleted yet."
+    echo >&2 "Checks failed; $targetIntegrationSourceBranch has been integrated into the current branch, but the current branch has not been ${isPushBranch:+pushed and }${isMerge:+fast-forward-integrated to $targetBranch and }${isPush:+pushed or }${isKeepBranches:+not }deleted yet."
     echo >&2 'Correct the problem by amending or additional commits, then invoke'
     printRestartCommand	# If the current branch has been modified, the reintegration need to be restarted to be able to fast-forward. We cannot simply continue after the original integration commit has been left behind.
     echo >&2 'to restart the fast-forwarding integration. If the checks just failed due to an external issue and you would like to try again, invoke'

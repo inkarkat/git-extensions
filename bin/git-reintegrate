@@ -68,7 +68,7 @@ HELPTEXT
 }
 
 isContinue=
-isDelete=t
+isKeepBranches=
 isPush=
 if [ "$HUB" ]; then
     # Need to push to remote first so that GitHub recognizes that the branch has
@@ -100,7 +100,7 @@ do
 			shift;;
 	--color)	shift; shift;;
 	--continue)	shift; isContinue=t;;
-	--no-delete)	continueArgs+=("$1"); shift; isDelete=;;
+	--no-delete)	continueArgs+=("$1"); shift; isKeepBranches=t;;
 	--push)		continueArgs+=("$1"); shift; isPush=t;;
 	--branch|-b)	shift; branches+=("$1"); shift;;
 	--rebase)	shift; hasMergeResolutionArg=t; isRebase=t;;
@@ -377,7 +377,7 @@ else
 		git rebase HEAD "$branch" && git checkout "$origRef" || {
 		    status=$?
 		    if [ "$branch" = "${branches[-1]}" ]; then
-			echo >&2 "After this branch has been successfully rebased (see above), you can merge $branchesSubject and ${isCheckFromStdin:+run checks and }${isPush:+push and }delete $branchesSubject via"
+			echo >&2 "After this branch has been successfully rebased (see above), you can merge $branchesSubject and ${isCheckFromStdin:+run checks and }${isPush:+push and }${isKeepBranches:+not }delete $branchesSubject via"
 			printf >&2 'git checkout %q && git-merge --ff-only %q && ' "$origRef" "$branch"
 			printContinueCommand
 		    else
@@ -388,7 +388,7 @@ else
 			done
 			missingBranches=("${missingBranches[@]:1}")
 
-			echo >&2 "After this branch has been successfully rebased (see above), you can continue rebasing, merge $branchesSubject and ${isCheckFromStdin:+run checks and }${isPush:+push and }delete $branchesSubject via"
+			echo >&2 "After this branch has been successfully rebased (see above), you can continue rebasing, merge $branchesSubject and ${isCheckFromStdin:+run checks and }${isPush:+push and }${isKeepBranches:+not }delete $branchesSubject via"
 			printf >&2 'git checkout %q && git-merge --ff-only %q && %q --rebase --no-delete ' "$origRef" "$branch" "$(basename "$0")"
 			printf >&2 -- '--branch %q ' "${missingBranches[@]}"
 			printf >&2 '&& '
@@ -401,7 +401,7 @@ else
 	else
 	    git-wrapper merge "${fastForwardArgs[@]:---no-ff}" "${mergeArgs[@]}" "${branches[@]}" || {
 		status=$?
-		echo >&2 "After $branchesSubjectAuxiliaryVerb been merged, you can ${isCheckFromStdin:+run checks and }${isPush:+push and }delete $branchesSubject via"
+		echo >&2 "After $branchesSubjectAuxiliaryVerb been merged, you can ${isCheckFromStdin:+run checks and }${isPush:+push and }${isKeepBranches:+not }delete $branchesSubject via"
 		printContinueCommand
 		exit $status
 	    }
@@ -429,7 +429,8 @@ fi || {
 status=0
 [ ! "$isPush" ] || pushit || status=$?
 
-[ "$isDelete" ] || exit 0
+[ ! "$isKeepBranches" ] || exit $status
+
 for branch in "${branches[@]}"
 do
     tracks="$(git-tracks "$branch" 2>/dev/null)"

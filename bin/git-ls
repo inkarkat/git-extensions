@@ -48,11 +48,19 @@ typeset -a allSelfOptions=("${allSelfArgs[@]:0:$((${#allSelfArgs[@]} - $#))}")
 
 listFiles()
 {
-    IFS=$' \t\n'
-    {
-	find "${@#${PWD}/}" ${minDepth:+-mindepth $minDepth} ${maxDepth:+-maxdepth $maxDepth} -name .git -prune -o -type d -print \
-	&& find "${@#${PWD}/}" ${maxDepth:+-maxdepth 0} -name .git -prune -o -type f -print
-    } | sort
+    local IFS=$' \t\n'
+    [ $# -gt 0 ] || set -- .
+    local arg; for arg
+    do
+	arg="${arg#${PWD}/}"
+	if [ -d "$arg" ]; then
+	    find "$arg" ${minDepth:+-mindepth $minDepth} ${maxDepth:+-maxdepth $maxDepth} -name .git -prune -o -type d -print \
+		&& find "$arg" ${maxDepth:+-maxdepth 1} -name .git -prune -o -type f -print
+	else
+	    find "$arg" ${maxDepth:+-maxdepth 0} -name .git -prune -o -type f -print
+	fi
+    done \
+	| sort
 }
 
 typeset -A submodules=()

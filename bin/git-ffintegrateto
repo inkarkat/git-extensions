@@ -112,6 +112,7 @@ isRebaseSingle=
 typeset -a fastForwardArgs=()
 typeset -a mergeArgs=()
 typeset -a mergeMessageArgs=()
+typeset -a mergeNoEditMessageArgs=()
 isBare=
 isDisableChecks=
 isCheckFromStdin=
@@ -175,6 +176,7 @@ do
 			runWithPromptArgs+=("$1" "$2"); shift; shift;;
 
 	--message|-m)	mergeMessageArgs+=("$1" "$2"); shift; shift;;
+	--no-edit)	mergeNoEditMessageArgs+=("$1"); shift;;
 	-[sX])		mergeArgs+=("$1" "$2"); shift; shift;;
 	--@(strategy|strategy-option|gpg-sign)=*)	mergeArgs+=("$1"); shift;;
 	--@(strategy|strategy-option|gpg-sign))		mergeArgs+=("$1" "$2"); shift; shift;;
@@ -302,7 +304,7 @@ else
     # Ensure that the current branch is good for merging.
     git-mergecheck --merge-to "$targetBranch" || exit $?
 
-    if [ -n "$HUB" ] && [ ! "$isRebase" ]; then
+    if [ -n "$HUB" ] && [ ! "$isRebase" ] && [ ${#mergeNoEditMessageArgs[@]} -eq 0 ]; then
 	# Try to obtain corresponding pull request based on current branch's
 	# HEAD commits and seed the merge message with it / them (as the PR
 	# title already summarizes the changeset and makes for a great merge
@@ -359,9 +361,12 @@ else
 		exit $status
 	    }
 	else
-	    [ ${#mergeMessageArgs[@]} -gt 0 ] || mergeMessageArgs=(--message "$branchMergeMessage" --edit)
+	    if [ ${#mergeMessageArgs[@]} -eq 0 ]; then
+		mergeMessageArgs=(--message "$branchMergeMessage")
+		[ ${#mergeNoEditMessageArgs[@]} -gt 0 ] || mergeMessageArgs+=(--edit)
+	    fi
 
-	    git-wrapper merge "${fastForwardArgs[@]:---no-ff}" "${mergeMessageArgs[@]}" "${mergeArgs[@]}" "$targetIntegrationSourceBranch" || {
+	    git-wrapper merge "${fastForwardArgs[@]:---no-ff}" "${mergeMessageArgs[@]}" "${mergeNoEditMessageArgs[@]}" "${mergeArgs[@]}" "$targetIntegrationSourceBranch" || {
 		status=$?
 		echo >&2 "After the branch has been merged, you can ${isCheckFromStdin:+run checks and }${isPushBranch:+push and }${isMerge:+fast-forward-integrate to $targetBranch and }${isPush:+push and }${isKeepBranches:+not }delete it via"
 		printContinueCommand 'git swapmergeparents'

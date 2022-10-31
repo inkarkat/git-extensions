@@ -83,6 +83,7 @@ typeset -a branches=()
 typeset -a fastForwardArgs=()
 typeset -a mergeArgs=()
 typeset -a mergeMessageArgs=()
+typeset -a mergeNoEditMessageArgs=()
 isBare=
 isDisableChecks=
 isCheckFromStdin=
@@ -136,6 +137,7 @@ do
 			runWithPromptArgs+=("$1" "$2"); shift; shift;;
 
 	--message|-m)	mergeMessageArgs+=("$1" "$2"); shift; shift;;
+	--no-edit)	mergeNoEditMessageArgs+=("$1"); shift;;
 	-[sX])		mergeArgs+=("$1" "$2"); shift; shift;;
 	--@(strategy|strategy-option|gpg-sign)=*)	mergeArgs+=("$1"); shift;;
 	--@(strategy|strategy-option|gpg-sign))		mergeArgs+=("$1" "$2"); shift; shift;;
@@ -302,7 +304,7 @@ else
     # Ensure that the branch(es) are good for merging.
     git-mergecheck "${branches[@]}" || exit $?
 
-    if [ -n "$HUB" ] && [ ! "$isRebase" ]; then
+    if [ -n "$HUB" ] && [ ! "$isRebase" ] && [ ${#mergeNoEditMessageArgs[@]} -eq 0 ]; then
 	# Try to obtain corresponding pull requests based on the passed branches'
 	# HEAD commits and seed the merge message with it / them (as the PR title
 	# already summarizes the changeset and makes for a great merge title). This
@@ -402,7 +404,7 @@ else
 		git-wrapper merge --ff-only "$branch" || exit $?
 	    done
 	else
-	    git-wrapper merge "${fastForwardArgs[@]:---no-ff}" "${mergeMessageArgs[@]}" "${mergeArgs[@]}" "${branches[@]}" || {
+	    git-wrapper merge "${fastForwardArgs[@]:---no-ff}" "${mergeMessageArgs[@]}" "${mergeNoEditMessageArgs[@]}" "${mergeArgs[@]}" "${branches[@]}" || {
 		status=$?
 		echo >&2 "After $branchesSubjectAuxiliaryVerb been merged, you can ${isCheckFromStdin:+run checks and }${isPush:+push and }${isKeepBranches:+not }delete $branchesSubject via"
 		printContinueCommand

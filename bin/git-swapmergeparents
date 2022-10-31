@@ -1,0 +1,37 @@
+#!/bin/bash
+# Source: https://stackoverflow.com/a/56610502/813602
+
+printUsage()
+{
+    cat <<HELPTEXT
+Swap the order of the two parents of the merge done in the last commit of the
+current branch.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [-?|-h|--help]'
+}
+isQuiet=
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --quiet|-q)		shift; isQuiet=t;;
+esac
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+if ! git-ismerge --single-branch; then
+    if git-ismerge; then
+	echo >&2 'ERROR: Last commit merged more than one branch.'
+    else
+	echo >&2 'ERROR: Last commit is not a merge.'
+    fi
+    exit 1
+fi
+
+[ "$isQuiet" ] && exec >/dev/null
+
+set -e
+git replace -g HEAD HEAD^2 HEAD^1
+git commit --amend --reuse-message=HEAD
+git replace -d 'HEAD@{1}'

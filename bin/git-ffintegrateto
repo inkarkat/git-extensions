@@ -182,7 +182,7 @@ if [ -z "$targetBranch" ]; then
     echo 'ERROR: Missing <branch>.'
     exit 2
 elif [ "$targetBranch" = "$sourceBranch" ]; then
-    printf 'ERROR: Cannot eintegrate %s onto itself; check out a different branch first.\n' "$targetBranch"
+    printf 'ERROR: Cannot integrate %s onto itself; check out a different branch first.\n' "$targetBranch"
     exit 2
 fi >&2
 
@@ -202,3 +202,131 @@ elif [ -n "$GIT_REINTEGRATE_CHECK_COMMAND" -a ${#checkCommands[@]} -eq 0 ]; then
 fi
 [ "$isDisableChecks" ] && checkCommands=()
 
+typeset -a contextShortener=(headtail --separator $'\t\t\t\t\t[...]')
+confirmUseTarget()
+{
+    local question="Your $targetBranch branch is not up-to-date with ${targetTrackedRemote}."
+    typeset -a additionalChoices=()
+    if similarCommitNum=$(git-similarcommits "${targetBranch}..HEAD" "${targetBranch}..${targetTracks}" | wc -l) && [ $similarCommitNum -gt 0 ]; then
+	local commitNum=$(git log --pretty=tformat:%H "${targetBranch}..HEAD" | wc -l)
+	local commitNumPlural=s; [ $commitNum -eq 1 ] && commitNumPlural=
+	question="Your $targetBranch branch is not up-to-date with ${targetTrackedRemote}, but $((100 * similarCommitNum / commitNum))% of the $commitNum commit$commitNumPlural on the current branch look similar to what you have on ${targetTrackedRemote}. If you're redoing a previously merged (and pushed) branch, please decline."
+	additionalChoices=("Show [D]ifference between ${targetTrackedRemote} and the current branch")
+    fi
+
+    local choice; choice="$(userchoiceFromList --question "$question Integrate $targetTracks?" --no-cancel --ignore-case -- '[Y]es' '[N]o' 'Show [C]ontext' "${additionalChoices[@]}" '[S]hell')" || exit $?
+    case "$choice" in
+	Yes) ;;
+	No) return 4;;
+	Show\ Context)
+	    echo "Context${contextShortener[*]:+ (abbreviated)}:"
+	    eval "git-inout --color=always --one-more --base $targetBranch $targetTracks" "${contextShortener:+|}" '"${contextShortener[@]}"'
+	    typeset -a contextShortener=()
+	    confirmUseTarget "$@"
+	    ;;
+	Show\ Difference\ between\ *)
+	    echo 'Difference:'
+	    git-inout --color=always --one-more --base "$targetTracks"
+	    confirmUseTarget "$@"
+	    ;;
+	Shell)
+	    echo "Pending: Integration of $targetTracks, unless you do a non-successful exit."
+	    "${SHELL:-bash}" -i || return $?
+	    ;;
+	*)  printf >&2 'ASSERT: Unhandled choice: %s\n' "$choice"; exit 3;;
+    esac
+}
+canRebase()
+{
+    [ "$(git log --pretty=tformat:%H --max-count 2 --no-merges "${targetIntegrationSourceBranch}.." | wc -l)" -le 1 ]
+}
+printContinueCommand()
+{
+    local gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
+    local -r scriptName="$(basename -- "${BASH_SOURCE[0]}")"
+    [ "$isCheckFromStdin" ] && printf >&2 'echo CHECK-COMMANDLINES | '
+    printf >&2 '$ %s %q' "$gitCommand" "${scriptName#git-}"
+    printf >&2 ' %q' '--continue' ${isBare:+--bare} "${runWithPromptArgs[@]}" "${continueArgs[@]}" "${checkCommandArgs[@]}"
+    printf >&2 -- ' --branch %q'  "$targetBranch"
+    [ "$isCheckFromStdin" ] && printf >&2 ' -'
+    printf >&2 '\n'
+}
+
+targetTracks="$(git-tracks "$targetBranch" 2>/dev/null)"
+targetTrackedRemote="${targetTracks%%/*}"
+
+if [ "$isContinue" ]; then
+    echo "Finalizing integration of $targetBranch"
+else
+    echo "Integrating $targetBranch"
+
+    # Ensure that the current branch is good for merging.
+    git-mergecheck --merge-to "$targetBranch" || exit $?
+
+    if [ -n "$HUB" ] && [ ! "$isRebase" ]; then
+	# Try to obtain corresponding pull request based on current branch's
+	# HEAD commits and seed the merge message with it / them (as the PR
+	# title already summarizes the changeset and makes for a great merge
+	# title). This saves the user from opening the PR and copy-and-pasting
+	# it.
+	typeset -a prefixCommands=()
+	type -t timeout >/dev/null && prefixCommands=(timeout 10 "${prefixCommands[@]}")
+	type -t invocationMessage >/dev/null && prefixCommands=(invocationMessage --message 'Searching for PR...' --success FOUND --fail NONE -- "${prefixCommands[@]}")
+	pullRequestTitles="$("${prefixCommands[@]}" hub-prtitle --as-merge-message)"
+	[ -n "$pullRequestTitles" ] && mergeArgs+=(--message "$pullRequestTitles"$'\n\n'"Merge branch '${targetBranch}'" --edit)
+    fi
+
+    targetIntegrationSourceBranch="$targetBranch"
+    if [ -n "$targetTracks" ] && ! git-equals "$targetBranch" "$targetTracks"; then
+	if confirmUseTarget; then
+	    targetIntegrationSourceBranch="$targetTracks"
+	else
+	    printf "Okay, I'll reintegrate into %s locally and you'll then have to merge with %s after that.\\n" "$targetBranch" "$targetTracks"
+	fi
+    fi
+
+    if git-equals "$targetIntegrationSourceBranch" HEAD; then
+	printf >&2 'Branch %s is already even with %s\n' "$targetIntegrationSourceBranch" "$sourceBranch"
+
+	# Don't run the checks.
+	checkCommands=()
+	isCheckFromStdin=
+    else
+	if [ ! "$hasMergeResolutionArg" ]; then
+	    if git-ffdryrun "$targetIntegrationSourceBranch"; then
+		commitNum=$(git log --pretty=tformat:%H "HEAD..${targetIntegrationSourceBranch}" | wc -l)
+		commitNumPlural=s; [ $commitNum -eq 1 ] && commitNumPlural=
+		userBinaryChoice --console --question "The $commitNum commit$commitNumPlural on $targetIntegrationSourceBranch can be fast-forwarded instead of merged. Fast-forward?" --yes-no && fastForwardArgs=(--ff-only)
+	    elif canRebase; then
+		choice="$(userchoiceFromList --question "The current branch only consists of a single commit. Rebase it instead of creating a separate merge commit?" --no-cancel --ignore-case -- '[Y]es' '[N]o' '[Q]uit')" || exit $?
+		case "$choice" in
+		    Yes)
+			isRebase=t;;
+		    Quit)
+			exit 1
+			;;
+		esac
+	    fi
+	elif [ "$isRebaseSingle" ]; then
+	    canRebase && isRebase=t
+	fi
+
+
+	if [ "$isRebase" ]; then
+	    git rebase "$targetIntegrationSourceBranch" || {
+		status=$?
+		echo >&2 "After the branch has been successfully rebased (see above), you can merge it and ${isCheckFromStdin:+run checks and }${isMerge:+merge and }${isPush:+push and }delete it via"
+		printContinueCommand
+		exit $status
+	    }
+	else
+	    # TODO: We want a merge with the two parents swapped here.
+	    git-wrapper merge "${fastForwardArgs[@]:---no-ff}" "${mergeArgs[@]}" "$targetBranch" || {
+		status=$?
+		echo >&2 "After the branch has been merged, you can ${isCheckFromStdin:+run checks and }${isMerge:+merge and }${isPush:+push and }delete it via"
+		printContinueCommand
+		exit $status
+	    }
+	fi
+    fi
+fi  # End of actual merge; continue finalization from here.

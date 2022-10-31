@@ -71,7 +71,7 @@ reintegration.
 `$ git subsamebrdo --interactive ffintegratetom --push-branch --no-merge --no-checks`
 a) amends to short-lived feature:
    `$ git amenu`
-   `$ git ffintegratetom --push-branch --force --no-submodule-update --rebase-single`
+   `$ git ffintegratetom --push-branch --no-submodule-update --rebase-single`
 b) maintain history of how the feature grew:
    `$ git cu`
    `$ git ffintegratetom --push-branch --no-submodule-update`
@@ -96,7 +96,7 @@ fast-forward).
 0) submodule branch(es) have been fast-forwarded
    `$ hub ffintegratetom`
 a) amends to short-lived feature:
-   `$ hub ffintegratetom --rebase-single --force`
+   `$ hub ffintegratetom --rebase-single`
 b) maintain history of how the feature grew:
    `$ hub ffintegratetom`
 

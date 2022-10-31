@@ -44,6 +44,9 @@ HELPDESCRIPTION
 			merging in / rebasing to <branch>. Most useful in
 			combination with --no-merge to prevent the deletion
 			following the reintegration.
+    --force		Force-push the current branch (when the branch has
+			diverged from the tracked remote). Implied by
+			--rebase|--rebase-single.
     --no-merge		Stop short of the actual fast-forward reintegration;
 			just merge / rebase the passed <branch> to the current
 			branch and run checks.
@@ -94,6 +97,7 @@ isDelete=t
 isMerge=t
 isPush=
 isPushBranch=
+typeset -a pushBranchForceArg=()
 if [ "$HUB" ]; then
     # Need to push to remote first so that GitHub recognizes that the branch has
     # been merged. If the branch is first deleted, GitHub marks a corresponding
@@ -128,6 +132,7 @@ do
 	--no-merge)	continueArgs+=("$1"); shift; isMerge=;;
 	--push)		continueArgs+=("$1"); shift; isPush=t;;
 	--push-branch)	continueArgs+=("$1"); shift; isPushBranch=t;;
+	--force)	pushBranchForceArg=("$1"); shift;;
 	--branch|-b)    shift
 			if [ "$targetBranch" ]; then
 			    echo >&2 'ERROR: <branch> can only be passed once.'
@@ -269,11 +274,12 @@ pushBranch()
 	return 1    # Still continue with the branch deletion here, but following push errors will abort.
     fi
 
+    [ "$isRebase" ] && pushBranchForceArg=(--force) # Need to force-push when rebasing the current branch on top of <branch>.
     local sourceTrackedRemote="${sourceTracks%%/*}"
     local quotedSourceBranch; printf -v quotedSourceBranch %q "$sourceBranch"
     # Push to the tracked remote (usually origin).
     git-remote-mutate "$sourceTrackedRemote" --message 'Push' --argument "$sourceBranch" --context-command "git rev-range-outgoing $sourceTrackedRemote --color=always --one-more-command greyonelinelog --one-more-only-to-terminal lg --branch $quotedSourceBranch" "${gitRemoteMutateArgs[@]}" \
-	push "$sourceTrackedRemote" || exit $?
+	push "${pushBranchForceArg[@]}" "$sourceTrackedRemote" || exit $?
 }
 
 targetTracks="$(git-tracks "$targetBranch" 2>/dev/null)"

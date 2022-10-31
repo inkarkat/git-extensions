@@ -48,11 +48,19 @@ typeset -a allSelfOptions=("${allSelfArgs[@]:0:$((${#allSelfArgs[@]} - $#))}")
 
 listFiles()
 {
-    IFS=$' \t\n'
-    {
-	find "${@#${PWD}/}" ${minDepth:+-mindepth $minDepth} ${maxDepth:+-maxdepth $maxDepth} -name .git -prune -o -type d -print \
-	&& find "${@#${PWD}/}" ${maxDepth:+-maxdepth 0} -name .git -prune -o -type f -print
-    } | sort
+    local IFS=$' \t\n'
+    [ $# -gt 0 ] || set -- .
+    local arg; for arg
+    do
+	arg="${arg#${PWD}/}"
+	if [ -d "$arg" ]; then
+	    find "$arg" ${minDepth:+-mindepth $minDepth} ${maxDepth:+-maxdepth $maxDepth} -name .git -prune -o -type d -print \
+		&& find "$arg" ${maxDepth:+-maxdepth 1} -name .git -prune -o -type f -print
+	else
+	    find "$arg" ${maxDepth:+-maxdepth 0} -name .git -prune -o -type f -print
+	fi
+    done \
+	| sort
 }
 
 typeset -A submodules=()
@@ -71,44 +79,50 @@ case "$submodule" in
 	;;
 esac
 
-IFS=$'\n'
-for filespec in $(listFiles "$@")
-do
-    [ "$filespec" = . ] && [ "$maxDepth" != 0 ] && continue
-    filespec=${filespec#./}
+gitLs()
+{
+    IFS=$'\n'
+    for filespec in $(listFiles "$@")
+    do
+	[ "$filespec" = . ] && [ "$maxDepth" != 0 ] && continue
+	filespec=${filespec#./}
 
-    [ "${submodules["$filespec"]}" ] && case "$submodule" in
-	ignore)
-	    continue;;
-	recurse)
-	    (cd "$filespec" && exec "${BASH_SOURCE[0]}" "${allSelfOptions[@]}" --prefix "${filespec}/");;
-    esac
+	[ "${submodules["$filespec"]}" ] && case "$submodule" in
+	    ignore)
+		continue;;
+	    recurse)
+		(cd "$filespec" && exec "${BASH_SOURCE[0]}" "${allSelfOptions[@]}" --prefix "${filespec}/");;
+	esac
 
 
-    if [ "$isNeedLog" ]; then
-	# Optimization: git ls-files can sort out untracked files much faster
-	# than git log.
-	git ls-files --error-unmatch -- "$filespec" >/dev/null 2>/dev/null || continue
+	if [ "$isNeedLog" ]; then
+	    # Optimization: git ls-files can sort out untracked files much faster
+	    # than git log.
+	    git ls-files --error-unmatch -- "$filespec" >/dev/null 2>/dev/null || continue
 
-	filespecSuffix=
-	if [ -d "$filespec" ]; then
-	    [ "$isOnly" = files ] && continue
-	    filespecSuffix="$classifyDirectories"
-	elif [ "$isOnly" = directories ]; then
-	    continue
-	fi
-	git log --pretty=tformat:"${formatPrefix}${prefix//%//%%}${filespec//%/%%}${filespecSuffix}${formatSuffix}" --max-count 1 "${gitLogArgs[@]}" -- "$filespec"
-    else
-	if [ -d "$filespec" ]; then
-	    [ "$isOnly" = files ] && continue
-	    # Print directory (name) if it contains any tracked files.
-	    if git ls-files --error-unmatch -- "$filespec" >/dev/null 2>&1; then
-		printf '%s%s%s\n' "$prefix" "${filespec%/}" "$classifyDirectories"
+	    filespecSuffix=
+	    if [ -d "$filespec" ]; then
+		[ "$isOnly" = files ] && continue
+		filespecSuffix="$classifyDirectories"
+	    elif [ "$isOnly" = directories ]; then
+		continue
 	    fi
-	elif [ "$isOnly" = directories ]; then
-	    continue
+	    git log --pretty=tformat:"${formatPrefix}${prefix//%//%%}${filespec//%/%%}${filespecSuffix}${formatSuffix}" --max-count 1 "${gitLogArgs[@]}" -- "$filespec"
 	else
-	    eval 'git ls-files --error-unmatch -- "$filespec" 2>/dev/null' "${prefix:+| prefix "$prefix"}"
+	    if [ -d "$filespec" ]; then
+		[ "$isOnly" = files ] && continue
+		# Print directory (name) if it contains any tracked files.
+		if git ls-files --error-unmatch -- "$filespec" >/dev/null 2>&1; then
+		    printf '%s%s%s\n' "$prefix" "${filespec%/}" "$classifyDirectories"
+		fi
+	    elif [ "$isOnly" = directories ]; then
+		continue
+	    else
+		eval 'git ls-files --error-unmatch -- "$filespec" 2>/dev/null' "${prefix:+| prefix "$prefix"}"
+	    fi
 	fi
-    fi
-done
+    done
+}
+
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+eval 'gitLs "$@"' "${pager:+|}" '"${pager[@]}"'

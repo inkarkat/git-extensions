@@ -2,30 +2,68 @@
 set -o pipefail
 shopt -qs extglob
 
-printUsage()
+printShortUsage()
 {
-    cat <<HELPTEXT
-Merge / rebase <branch> to the current branch, then delete it from the local
-repository as well as a tracked remote (if it exists there).
-HELPTEXT
-    echo
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--push] [--no-delete] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] [--no-submodule-update] [-y|--yes] -b|--branch <branch> [...] | [--] <branch> [...] [-?|-h|--help]'
     echo
-    cat <<HELPTEXTCHECK
-Merge / rebase <branch> (with --rebase-single rebase only if it's a single
-non-merge commit, else merge) to the current branch, run CHECK-COMMAND(s), and
-if all succeed (for -c|--commands|--exec, for stdin: only with --worst-status,
-else if the last succeeds) delete the branch from the local repository as well
-as a tracked remote (if it exists there) (unless --no-delete is given).
-HELPTEXTCHECK
-    echo
     printf 'Usage: GIT_REINTEGRATE_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" '[...]'
-    echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[...] --no-checks | -c|--command "CHECK-COMMANDLINE" [-c ...] | --exec SIMPLECOMMAND [...] ; [...]'
-    echo
     printf 'Usage: echo CHECK-COMMANDLINES | %q %s\n' "$(basename "$1")" '[...] [--bare|[--initial-status NUM] [--trailing-prompt|--no-trailing-prompt] [--no-output-no-prompt] [--no-output-no-error] [--emulate-prompt]] [--no-success-no-count|--no-count-on N] [--exit-on-success|--exit-on-failure|--exit-on NUM] [--worst-status] [--comment COMMENT] [--summarize-failed ERROR-TEXT [--summarize-failed-separator SEP]] -'
-    echo
     printf 'Usage: %q %s - <<EOF\n  CHECK-COMMANDLINE\n...\nEOF\n' "$(basename "$1")" '[...]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Merge / rebase <branch> to the current branch, run CHECK-COMMAND(s), and if all
+succeed (for -c|--commands|--exec, for stdin: only with --worst-status, else if
+the last succeeds) then delete it from the local repository as well as a tracked
+remote (if it exists there).
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --push		Push the current branch (to a writable upstream, tracked
+			remote, origin) before deleting the reintegrated
+			branch(es). GitHub needs this to detect that the branch
+			has been merged.
+    --no-delete		Don't delete the reintegrated branch(es) from local
+			repository and tracked remote.
+    --rebase-single	Rebase only if it's a single non-merge commit, else
+			merge.
+    --no-submodule-update
+			Don't automatically check out resulting submodule
+			versions.
+    --yes		Don't query for confirmation of remote mutations.
+    --bare		    Do not print a status line before and after
+			    launching the COMMAND.
+    --emulate-prompt	    Customizations of the prompt emulation around
+    --initial-status NUM    COMMAND; cp. runWithPrompt
+    --trailing-prompt
+    --no-trailing-prompt
+    --no-output-no-prompt
+    --no-output-no-error
+    --no-success-no-count   Stop on condition / summarize at end; cp. runWith
+    --no-count-on N
+    --exit-on-success
+    --exit-on-failure	    (This also works with --bare.)
+    --exit-on NUM
+    --worst-status
+    --comment COMMENT
+    --summarize-failed ERROR-TEXT
+    --summarize-failed-separator SEP
+HELPTEXT
 }
 
 isContinue=
@@ -56,7 +94,7 @@ typeset -a gitRemoteMutateArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;

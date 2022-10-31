@@ -261,7 +261,7 @@ printContinueCommand()
     local gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
     local -r scriptName="$(basename -- "${BASH_SOURCE[0]}")"
     [ "$isCheckFromStdin" ] && printf >&2 'echo CHECK-COMMANDLINES | '
-    printf >&2 '$ %s %q' "$gitCommand" "${scriptName#git-}"
+    printf >&2 '$ %s%s %q' "${1}${1:+ && }" "$gitCommand" "${scriptName#git-}"
     printf >&2 ' %q' '--continue' ${isBare:+--bare} "${runWithPromptArgs[@]}" "${continueArgs[@]}" "${gitRemoteMutateArgs[@]}" "${checkCommandArgs[@]}"
     printf >&2 -- ' --branch %q'  "$targetBranch"
     [ "$isCheckFromStdin" ] && printf >&2 ' -'
@@ -351,12 +351,17 @@ else
 		exit $status
 	    }
 	else
-	    # TODO: We want a merge with the two parents swapped here.
+	    # TODO: Merge message: Merge '$sourceBranch' into $targetBranch
 	    git-wrapper merge "${fastForwardArgs[@]:---no-ff}" "${mergeArgs[@]}" "$targetIntegrationSourceBranch" || {
 		status=$?
 		echo >&2 "After the branch has been merged, you can ${isCheckFromStdin:+run checks and }${isPushBranch:+push and }${isMerge:+fast-forward-integrate to $targetBranch and }${isPush:+push and }${isKeepBranches:+not }delete it via"
-		printContinueCommand
+		printContinueCommand 'git swapmergeparents'
 		exit $status
+	    }
+	    git-swapmergeparents || {
+		echo >&2 'ERROR: Failed to swap the merge parents of the reversed merge.'
+		printContinueCommand
+		exit 3
 	    }
 	fi
     fi

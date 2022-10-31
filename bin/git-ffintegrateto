@@ -403,6 +403,13 @@ fi || {
 status=0
 [ ! "$isPushBranch" ] || pushBranch || status=$?
 
-[ "$isMerge" ] || exit $status
-
-exec git-reintegrateto --ff-only --no-checks --branch "$targetBranch" ${isPush:+--push} ${isKeepBranches:+--no-delete} "${gitRemoteMutateArgs[@]}"
+typeset -a reintegrateToCommand=(reintegrateto --ff-only --no-checks --branch "$targetBranch"${isPush:+ --push}${isKeepBranches:+ --no-delete} "${gitRemoteMutateArgs[@]}")
+if [ "$isMerge" ]; then
+    git "${reintegrateToCommand[@]}" || status=$?
+else
+    gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
+    printf 'You can fast-forward-integrate the current %s into %s via:\n$ %s' "$sourceBranch" "$targetBranch" "$gitCommand"
+    printf >&2 ' %q' "${reintegrateToCommand[@]}"
+    printf '\n'
+fi
+exit $status

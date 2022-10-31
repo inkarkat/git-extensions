@@ -93,7 +93,8 @@ onto the branch, push that, wait for the action, and then can reintegrate (or
 push the corresponding button in GitHub; both of which should be a simple
 fast-forward).
 `$ git ofetch`
-0) submodule branch(es) have been fast-forwarded, or
+0) submodule branch(es) have been fast-forwarded
+   `$ hub ffintegratetom`
 a) amends to short-lived feature:
    `$ hub ffintegratetom --rebase-single --force`
 b) maintain history of how the feature grew:

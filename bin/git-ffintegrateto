@@ -77,6 +77,7 @@ HELPDESCRIPTION
 HELPTEXT
 }
 
+allArgs=("$@")
 sourceBranch="$(git-brname --real-branch-only)" || exit $?
 targetBranch=
 case "$1" in
@@ -240,13 +241,22 @@ canRebase()
 {
     [ "$(git log --pretty=tformat:%H --max-count 2 --no-merges "${targetIntegrationSourceBranch}.." | wc -l)" -le 1 ]
 }
+printRestartCommand()
+{
+    local gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
+    local -r scriptName="$(basename -- "${BASH_SOURCE[0]}")"
+    [ "$isCheckFromStdin" ] && printf >&2 'echo CHECK-COMMANDLINES | '
+    printf >&2 '$ %s %q' "$gitCommand" "${scriptName#git-}"
+    printf >&2 ' %q' "${allArgs[@]}"
+    printf >&2 '\n'
+}
 printContinueCommand()
 {
     local gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
     local -r scriptName="$(basename -- "${BASH_SOURCE[0]}")"
     [ "$isCheckFromStdin" ] && printf >&2 'echo CHECK-COMMANDLINES | '
     printf >&2 '$ %s %q' "$gitCommand" "${scriptName#git-}"
-    printf >&2 ' %q' '--continue' ${isBare:+--bare} "${runWithPromptArgs[@]}" "${continueArgs[@]}" "${checkCommandArgs[@]}"
+    printf >&2 ' %q' '--continue' ${isBare:+--bare} "${runWithPromptArgs[@]}" "${continueArgs[@]}" "${gitRemoteMutateArgs[@]}" "${checkCommandArgs[@]}"
     printf >&2 -- ' --branch %q'  "$targetBranch"
     [ "$isCheckFromStdin" ] && printf >&2 ' -'
     printf >&2 '\n'
@@ -315,7 +325,7 @@ else
 	if [ "$isRebase" ]; then
 	    git rebase "$targetIntegrationSourceBranch" || {
 		status=$?
-		echo >&2 "After the branch has been successfully rebased (see above), you can merge it and ${isCheckFromStdin:+run checks and }${isMerge:+merge and }${isPush:+push and }delete it via"
+		echo >&2 "After the branch has been successfully rebased (see above), you can ${isCheckFromStdin:+run checks and }${isPushBranch:+push and }${isMerge:+fast-forward to $targetBranch integrate and }${isPush:+push and }delete it via"
 		printContinueCommand
 		exit $status
 	    }
@@ -323,10 +333,29 @@ else
 	    # TODO: We want a merge with the two parents swapped here.
 	    git-wrapper merge "${fastForwardArgs[@]:---no-ff}" "${mergeArgs[@]}" "$targetBranch" || {
 		status=$?
-		echo >&2 "After the branch has been merged, you can ${isCheckFromStdin:+run checks and }${isMerge:+merge and }${isPush:+push and }delete it via"
+		echo >&2 "After the branch has been merged, you can ${isCheckFromStdin:+run checks and }${isPushBranch:+push and }${isMerge:+fast-forward integrate to $targetBranch and }${isPush:+push and }delete it via"
 		printContinueCommand
 		exit $status
 	    }
 	fi
     fi
 fi  # End of actual merge; continue finalization from here.
+
+
+if [ "$isCheckFromStdin" ]; then
+    if [ "$isBare" ] && [ ${#runWithPromptArgs[@]} -eq 0 -o "${#runWithPromptArgs[*]}" = --exit-on-failure ]; then
+	bash "${bashArgs[@]}" -
+    else
+	${runWithCommand:?} "${runWithPromptArgs[@]}"
+    fi
+elif [ ${#checkCommands[@]} -gt 0 ]; then
+    (eval "${checkCommands[@]}")
+fi || {
+    status=$?
+    echo >&2 "Checks failed; $targetIntegrationSourceBranch has been integrated into the current branch, but the current branch has not been ${isPushBranch:+pushed and }${isMerge:+fast-forward integrated to $targetBranch and }${isPush:+pushed or }deleted yet."
+    echo >&2 'Correct the problem by amending or additional commits, then invoke'
+    printRestartCommand	# If the current branch has been modified, the reintegration need to be restarted to be able to fast-forward. We cannot simply continue after the original integration commit has been left behind.
+    echo >&2 'to restart the fast-forwarding integration. If the checks just failed due to an external issue and you would like to try again, invoke'
+    printContinueCommand
+    exit $status
+}

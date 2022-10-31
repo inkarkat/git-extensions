@@ -185,14 +185,14 @@ fi
 typeset -a contextShortener=(headtail --separator $'\t\t\t\t\t[...]')
 confirmFastForward()
 {
-    local question="Your $path branch is not up-to-date with ${targetTrackedRemote}, but can be fast-forwarded."
+    local question="Your $targetBranch branch is not up-to-date with ${targetTrackedRemote}, but can be fast-forwarded."
     typeset -a additionalChoices=()
     if similarCommitNum=$(git-similarcommits "HEAD..${branches[-1]}" "HEAD..${targetTracks}" | wc -l) && [ $similarCommitNum -gt 0 ]; then
 	local commitNum=$(git log --pretty=tformat:%H "HEAD..${branches[-1]}" | wc -l)
 	local commitNumPlural=s; [ $commitNum -eq 1 ] && commitNumPlural=
 	local branchNum=${#branches[@]}; [ $branchNum -eq 1 ] && branchNum=
-	question="Your $path branch is not up-to-date with ${targetTrackedRemote}, but $((100 * similarCommitNum / commitNum))% of the $commitNum commit$commitNumPlural on the ${branchNum}${branchNum:+ }branch$branchesPlural look similar to what you have on ${targetTrackedRemote}. If you're redoing a previously merged (and pushed) branch, please decline."
-	additionalChoices=("Show [D]ifference between ${targetTrackedRemote} and $path branch")
+	question="Your $targetBranch branch is not up-to-date with ${targetTrackedRemote}, but $((100 * similarCommitNum / commitNum))% of the $commitNum commit$commitNumPlural on the ${branchNum}${branchNum:+ }branch$branchesPlural look similar to what you have on ${targetTrackedRemote}. If you're redoing a previously merged (and pushed) branch, please decline."
+	additionalChoices=("Show [D]ifference between ${targetTrackedRemote} and $targetBranch branch")
     fi
 
     local choice; choice="$(userchoiceFromList --question "$question Fast-forward now?" --no-cancel --ignore-case -- '[Y]es' '[N]o' 'Show [C]ontext' "${additionalChoices[@]}" '[S]hell')" || exit $?
@@ -211,7 +211,7 @@ confirmFastForward()
 	    confirmFastForward "$@"
 	    ;;
 	Shell)
-	    echo "Pending: Fast-forward of $path branch to ${targetTrackedRemote}, unless you do a non-successful exit."
+	    echo "Pending: Fast-forward of $targetBranch branch to ${targetTrackedRemote}, unless you do a non-successful exit."
 	    "${SHELL:-bash}" -i || return $?
 	    ;;
 	*)  printf >&2 'ASSERT: Unhandled choice: %s\n' "$choice"; exit 3;;
@@ -220,7 +220,7 @@ confirmFastForward()
 confirmMerge()
 {
     local aheadBehind="$(GIT_INOUT_INDICATOR_PREFIX='is ' GIT_INOUT_INDICATOR_SUFFIX=' vs.' git ab --indicator-only --base "$targetTracks")"
-    local choice; choice="$(userchoiceFromList --question "Your $path branch ${aheadBehind:-has diverged from} ${targetTrackedRemote}; do you want to stop here and merge that first?" --no-cancel --ignore-case -- '[Y]es' '[N]o' 'Show [C]ontext' '[S]hell')" || exit $?
+    local choice; choice="$(userchoiceFromList --question "Your $targetBranch branch ${aheadBehind:-has diverged from} ${targetTrackedRemote}; do you want to stop here and merge that first?" --no-cancel --ignore-case -- '[Y]es' '[N]o' 'Show [C]ontext' '[S]hell')" || exit $?
     case "$choice" in
 	Yes) ;;
 	No) return 4;;
@@ -231,7 +231,7 @@ confirmMerge()
 	    confirmMerge "$@"
 	    ;;
 	Shell)
-	    echo "Pending: Merge of $targetTrackedRemote into the $path branch, unless you do a non-successful exit."
+	    echo "Pending: Merge of $targetTrackedRemote into the $targetBranch branch, unless you do a non-successful exit."
 	    "${SHELL:-bash}" -i || return $?
 	    ;;
 	*)  printf >&2 'ASSERT: Unhandled choice: %s\n' "$choice"; exit 3;;
@@ -261,34 +261,34 @@ printContinueCommand()
 }
 pushit()
 {
-    local quotedPath; printf -v quotedPath %q "$path"
+    local quotedTargetBranch; printf -v quotedTargetBranch %q "$targetBranch"
     if [ -z "$targetTracks" ]; then
-	printf >&2 "ERROR: Cannot push; no upstream configured for branch '%s'\\n" "$path"
+	printf >&2 "ERROR: Cannot push; no upstream configured for branch '%s'\\n" "$targetBranch"
 	return 1    # Still continue with the branch deletion here, but following push errors will abort.
     elif [ "$targetTrackedRemote" = 'origin' ]; then
 	# First push to upstream; we usually want to catch up origin to
 	# upstream, but keep it at the current state if pushing to upstream
 	# failed.
-	if git-existsbr "upstream/$path" && ! git-remote-isreadonly upstream; then
-	    git-remote-mutate upstream --message 'Push' --argument "$path" --context-command "git uoutlg --color=always --branch $quotedPath" "${gitRemoteMutateArgs[@]}" \
-		push upstream "$path" || exit $?
+	if git-existsbr "upstream/$targetBranch" && ! git-remote-isreadonly upstream; then
+	    git-remote-mutate upstream --message 'Push' --argument "$targetBranch" --context-command "git uoutlg --color=always --branch $quotedTargetBranch" "${gitRemoteMutateArgs[@]}" \
+		push upstream "$targetBranch" || exit $?
 	fi
     fi
     if [ -n "$targetTrackedRemote" ]; then
 	# Push to the tracked remote (usually origin).
-	git-remote-mutate "$targetTrackedRemote" --message 'Push' --argument "$path" --context-command "git rev-range-outgoing $targetTrackedRemote --color=always --one-more-command greyonelinelog --one-more-only-to-terminal lg --branch $quotedPath" "${gitRemoteMutateArgs[@]}" \
+	git-remote-mutate "$targetTrackedRemote" --message 'Push' --argument "$targetBranch" --context-command "git rev-range-outgoing $targetTrackedRemote --color=always --one-more-command greyonelinelog --one-more-only-to-terminal lg --branch $quotedTargetBranch" "${gitRemoteMutateArgs[@]}" \
 	    push "$targetTrackedRemote" || exit $?
     fi
     if [ "$targetTrackedRemote" != 'origin' ]; then
 	# Push to origin (if it's different from the tracked remote) last.
-	if git-existsbr "origin/$path" && ! git-remote-isreadonly origin; then
-	    git-remote-mutate origin --message 'Push' --argument "$path" --context-command "git ooutlg --color=always --branch $quotedPath" "${gitRemoteMutateArgs[@]}" \
-		push origin "$path" || exit $?
+	if git-existsbr "origin/$targetBranch" && ! git-remote-isreadonly origin; then
+	    git-remote-mutate origin --message 'Push' --argument "$targetBranch" --context-command "git ooutlg --color=always --branch $quotedTargetBranch" "${gitRemoteMutateArgs[@]}" \
+		push origin "$targetBranch" || exit $?
 	fi
     fi
 }
 
-path="$(git-brname --real-branch-only)" || exit $?
+targetBranch="$(git-brname --real-branch-only)" || exit $?
 targetTracks="$(git-tracks 2>/dev/null)"
 targetTrackedRemote="${targetTracks%%/*}"
 
@@ -325,7 +325,7 @@ else
 	elif confirmMerge; then
 	    exit 0
 	else
-	    printf "Okay, I'll reintegrate into %s locally and you'll then have to merge with %s after that.\\n" "$path" "$targetTracks"
+	    printf "Okay, I'll reintegrate into %s locally and you'll then have to merge with %s after that.\\n" "$targetBranch" "$targetTracks"
 	fi
     fi
 

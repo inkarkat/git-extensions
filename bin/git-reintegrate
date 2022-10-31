@@ -45,6 +45,7 @@ HELPDESCRIPTION
     --no-submodule-update
 			Don't automatically check out resulting submodule
 			versions.
+    --no-checks		Don't run any default \$GIT_REINTEGRATE_CHECK_COMMAND.
     --yes		Don't query for confirmation of remote mutations.
     --bare		    Do not print a status line before and after
 			    launching the COMMAND.
@@ -67,7 +68,7 @@ HELPTEXT
 }
 
 isContinue=
-isDelete=t
+isKeepBranches=
 isPush=
 if [ "$HUB" ]; then
     # Need to push to remote first so that GitHub recognizes that the branch has
@@ -81,6 +82,8 @@ isRebaseSingle=
 typeset -a branches=()
 typeset -a fastForwardArgs=()
 typeset -a mergeArgs=()
+typeset -a mergeMessageArgs=()
+typeset -a mergeNoEditMessageArgs=()
 isBare=
 isDisableChecks=
 isCheckFromStdin=
@@ -99,7 +102,7 @@ do
 			shift;;
 	--color)	shift; shift;;
 	--continue)	shift; isContinue=t;;
-	--no-delete)	continueArgs+=("$1"); shift; isDelete=;;
+	--no-delete)	continueArgs+=("$1"); shift; isKeepBranches=t;;
 	--push)		continueArgs+=("$1"); shift; isPush=t;;
 	--branch|-b)	shift; branches+=("$1"); shift;;
 	--rebase)	shift; hasMergeResolutionArg=t; isRebase=t;;
@@ -133,7 +136,9 @@ do
 	--initial-status|--no-count-on|--exit-on|--comment|--summarize-failed|--summarize-failed-separator)
 			runWithPromptArgs+=("$1" "$2"); shift; shift;;
 
-	-[sXm])		mergeArgs+=("$1" "$2"); shift; shift;;
+	--message|-m)	mergeMessageArgs+=("$1" "$2"); shift; shift;;
+	--no-edit)	mergeNoEditMessageArgs+=("$1"); shift;;
+	-[sX])		mergeArgs+=("$1" "$2"); shift; shift;;
 	--@(strategy|strategy-option|gpg-sign)=*)	mergeArgs+=("$1"); shift;;
 	--@(strategy|strategy-option|gpg-sign))		mergeArgs+=("$1" "$2"); shift; shift;;
 	--no-submodule-update)				mergeArgs+=("$1"); shift;;
@@ -184,14 +189,14 @@ fi
 typeset -a contextShortener=(headtail --separator $'\t\t\t\t\t[...]')
 confirmFastForward()
 {
-    local question="Your $path branch is not up-to-date with ${targetTrackedRemote}, but can be fast-forwarded."
+    local question="Your $targetBranch branch is not up-to-date with ${targetTrackedRemote}, but can be fast-forwarded."
     typeset -a additionalChoices=()
     if similarCommitNum=$(git-similarcommits "HEAD..${branches[-1]}" "HEAD..${targetTracks}" | wc -l) && [ $similarCommitNum -gt 0 ]; then
 	local commitNum=$(git log --pretty=tformat:%H "HEAD..${branches[-1]}" | wc -l)
 	local commitNumPlural=s; [ $commitNum -eq 1 ] && commitNumPlural=
 	local branchNum=${#branches[@]}; [ $branchNum -eq 1 ] && branchNum=
-	question="Your $path branch is not up-to-date with ${targetTrackedRemote}, but $((100 * similarCommitNum / commitNum))% of the $commitNum commit$commitNumPlural on the ${branchNum}${branchNum:+ }branch$branchesPlural look similar to what you have on ${targetTrackedRemote}. If you're redoing a previously merged (and pushed) branch, please decline."
-	additionalChoices=("Show [D]ifference between ${targetTrackedRemote} and $path branch")
+	question="Your $targetBranch branch is not up-to-date with ${targetTrackedRemote}, but $((100 * similarCommitNum / commitNum))% of the $commitNum commit$commitNumPlural on the ${branchNum}${branchNum:+ }branch$branchesPlural look similar to what you have on ${targetTrackedRemote}. If you're redoing a previously merged (and pushed) branch, please decline."
+	additionalChoices=("Show [D]ifference between ${targetTrackedRemote} and $targetBranch branch")
     fi
 
     local choice; choice="$(userchoiceFromList --question "$question Fast-forward now?" --no-cancel --ignore-case -- '[Y]es' '[N]o' 'Show [C]ontext' "${additionalChoices[@]}" '[S]hell')" || exit $?
@@ -210,7 +215,7 @@ confirmFastForward()
 	    confirmFastForward "$@"
 	    ;;
 	Shell)
-	    echo "Pending: Fast-forward of $path branch to ${targetTrackedRemote}, unless you do a non-successful exit."
+	    echo "Pending: Fast-forward of $targetBranch branch to ${targetTrackedRemote}, unless you do a non-successful exit."
 	    "${SHELL:-bash}" -i || return $?
 	    ;;
 	*)  printf >&2 'ASSERT: Unhandled choice: %s\n' "$choice"; exit 3;;
@@ -219,7 +224,7 @@ confirmFastForward()
 confirmMerge()
 {
     local aheadBehind="$(GIT_INOUT_INDICATOR_PREFIX='is ' GIT_INOUT_INDICATOR_SUFFIX=' vs.' git ab --indicator-only --base "$targetTracks")"
-    local choice; choice="$(userchoiceFromList --question "Your $path branch ${aheadBehind:-has diverged from} ${targetTrackedRemote}; do you want to stop here and merge that first?" --no-cancel --ignore-case -- '[Y]es' '[N]o' 'Show [C]ontext' '[S]hell')" || exit $?
+    local choice; choice="$(userchoiceFromList --question "Your $targetBranch branch ${aheadBehind:-has diverged from} ${targetTrackedRemote}; do you want to stop here and merge that first?" --no-cancel --ignore-case -- '[Y]es' '[N]o' 'Show [C]ontext' '[S]hell')" || exit $?
     case "$choice" in
 	Yes) ;;
 	No) return 4;;
@@ -230,7 +235,7 @@ confirmMerge()
 	    confirmMerge "$@"
 	    ;;
 	Shell)
-	    echo "Pending: Merge of $targetTrackedRemote into the $path branch, unless you do a non-successful exit."
+	    echo "Pending: Merge of $targetTrackedRemote into the $targetBranch branch, unless you do a non-successful exit."
 	    "${SHELL:-bash}" -i || return $?
 	    ;;
 	*)  printf >&2 'ASSERT: Unhandled choice: %s\n' "$choice"; exit 3;;
@@ -253,41 +258,41 @@ printContinueCommand()
     local -r scriptName="$(basename -- "${BASH_SOURCE[0]}")"
     [ "$isCheckFromStdin" ] && printf >&2 'echo CHECK-COMMANDLINES | '
     printf >&2 '$ %s %q' "$gitCommand" "${scriptName#git-}"
-    printf >&2 ' %q' '--continue' ${isBare:+--bare} "${runWithPromptArgs[@]}" "${continueArgs[@]}" "${checkCommandArgs[@]}"
+    printf >&2 ' %q' '--continue' ${isBare:+--bare} "${runWithPromptArgs[@]}" "${continueArgs[@]}" "${gitRemoteMutateArgs[@]}" "${checkCommandArgs[@]}"
     printf >&2 -- ' --branch %q'  "${branches[@]}"
     [ "$isCheckFromStdin" ] && printf >&2 ' -'
     printf >&2 '\n'
 }
 pushit()
 {
-    local quotedPath; printf -v quotedPath %q "$path"
+    local quotedTargetBranch; printf -v quotedTargetBranch %q "$targetBranch"
     if [ -z "$targetTracks" ]; then
-	printf >&2 "ERROR: Cannot push; no upstream configured for branch '%s'\\n" "$path"
+	printf >&2 "ERROR: Cannot push; no upstream configured for branch '%s'\\n" "$targetBranch"
 	return 1    # Still continue with the branch deletion here, but following push errors will abort.
     elif [ "$targetTrackedRemote" = 'origin' ]; then
 	# First push to upstream; we usually want to catch up origin to
 	# upstream, but keep it at the current state if pushing to upstream
 	# failed.
-	if git-existsbr "upstream/$path" && ! git-remote-isreadonly upstream; then
-	    git-remote-mutate upstream --message 'Push' --argument "$path" --context-command "git uoutlg --color=always --branch $quotedPath" "${gitRemoteMutateArgs[@]}" \
-		push upstream "$path" || exit $?
+	if git-existsbr "upstream/$targetBranch" && ! git-remote-isreadonly upstream; then
+	    git-remote-mutate upstream --message 'Push' --argument "$targetBranch" --context-command "git uoutlg --color=always --branch $quotedTargetBranch" "${gitRemoteMutateArgs[@]}" \
+		push upstream "$targetBranch" || exit $?
 	fi
     fi
     if [ -n "$targetTrackedRemote" ]; then
 	# Push to the tracked remote (usually origin).
-	git-remote-mutate "$targetTrackedRemote" --message 'Push' --argument "$path" --context-command "git rev-range-outgoing $targetTrackedRemote --color=always --one-more-command greyonelinelog --one-more-only-to-terminal lg --branch $quotedPath" "${gitRemoteMutateArgs[@]}" \
+	git-remote-mutate "$targetTrackedRemote" --message 'Push' --argument "$targetBranch" --context-command "git rev-range-outgoing $targetTrackedRemote --color=always --one-more-command greyonelinelog --one-more-only-to-terminal lg --branch $quotedTargetBranch" "${gitRemoteMutateArgs[@]}" \
 	    push "$targetTrackedRemote" || exit $?
     fi
     if [ "$targetTrackedRemote" != 'origin' ]; then
 	# Push to origin (if it's different from the tracked remote) last.
-	if git-existsbr "origin/$path" && ! git-remote-isreadonly origin; then
-	    git-remote-mutate origin --message 'Push' --argument "$path" --context-command "git ooutlg --color=always --branch $quotedPath" "${gitRemoteMutateArgs[@]}" \
-		push origin "$path" || exit $?
+	if git-existsbr "origin/$targetBranch" && ! git-remote-isreadonly origin; then
+	    git-remote-mutate origin --message 'Push' --argument "$targetBranch" --context-command "git ooutlg --color=always --branch $quotedTargetBranch" "${gitRemoteMutateArgs[@]}" \
+		push origin "$targetBranch" || exit $?
 	fi
     fi
 }
 
-path="$(git-brname --real-branch-only)" || exit $?
+targetBranch="$(git-brname --real-branch-only)" || exit $?
 targetTracks="$(git-tracks 2>/dev/null)"
 targetTrackedRemote="${targetTracks%%/*}"
 
@@ -299,7 +304,7 @@ else
     # Ensure that the branch(es) are good for merging.
     git-mergecheck "${branches[@]}" || exit $?
 
-    if [ -n "$HUB" ] && [ ! "$isRebase" ]; then
+    if [ -n "$HUB" ] && [ ! "$isRebase" ] && [ ${#mergeNoEditMessageArgs[@]} -eq 0 ]; then
 	# Try to obtain corresponding pull requests based on the passed branches'
 	# HEAD commits and seed the merge message with it / them (as the PR title
 	# already summarizes the changeset and makes for a great merge title). This
@@ -309,7 +314,8 @@ else
 	type -t invocationMessage >/dev/null && prefixCommands=(invocationMessage --message 'Searching for PR...' --success FOUND --fail NONE -- "${prefixCommands[@]}")
 	pullRequestTitles="$("${prefixCommands[@]}" hub-prtitle --as-merge-message "${branches[@]}")"
 	branchMergeMessage="$(joinBy --prefix "Merge branch$branchesPlural '" --suffix "'" --last-separator "' and '" "', '" "${branches[@]}" 2>/dev/null)"
-	[ -n "$pullRequestTitles" ] && mergeArgs+=(--message "$pullRequestTitles"$'\n\n'"$branchMergeMessage" --edit)
+	[ "$(git-mbr)" = "$targetBranch" ] || branchMergeMessage+=" into $targetBranch"
+	[ -n "$pullRequestTitles" ] && mergeMessageArgs+=(--message "$pullRequestTitles"$'\n\n'"$branchMergeMessage" --edit)
     fi
 
     if [ -n "$targetTracks" ] && ! git-equals HEAD "$targetTracks"; then
@@ -324,79 +330,87 @@ else
 	elif confirmMerge; then
 	    exit 0
 	else
-	    printf "Okay, I'll reintegrate into %s locally and you'll then have to merge with %s after that.\\n" "$path" "$targetTracks"
+	    printf "Okay, I'll reintegrate into %s locally and you'll then have to merge with %s after that.\\n" "$targetBranch" "$targetTracks"
 	fi
     fi
 
-    if [ ! "$hasMergeResolutionArg" ]; then
-	if git-ffdryrun "${branches[@]}"; then
-	    commitNum=$(git log --pretty=tformat:%H "HEAD..${branches[-1]}" | wc -l)
-	    commitNumPlural=s; [ $commitNum -eq 1 ] && commitNumPlural=
-	    branchNum=${#branches[@]}; [ $branchNum -eq 1 ] && branchNum=
-	    userBinaryChoice --console --question "The $commitNum commit$commitNumPlural on the ${branchNum}${branchNum:+ }branch$branchesPlural can be fast-forwarded instead of merged. Fast-forward?" --yes-no && fastForwardArgs=(--ff-only)
-	elif canRebase; then
-	    hubNote=; if [ "$HUB" ] && [ -n "$pullRequestTitles" ]; then
-		hubNote='Note: GitHub cannot detect the rebase and will say that the PR has been closed. If you need proper indication, please quit now and directly rebase in GitHub itself instead.'
-		if [  "$isCheckFromStdin" ] || [  ${#checkCommands[@]} -gt 0 ]; then
-		    hubNote+=" (But be aware that the CHECK-COMMAND(s) won't be executed then.)"
+    if [ ${#branches[@]} -eq 1 ] && git-equals "${branches[0]}" HEAD; then
+	printf >&2 'Branch %s is already even with %s\n' "${branches[0]}" "$targetBranch"
+
+	# Don't run the checks.
+	checkCommands=()
+	isCheckFromStdin=
+    else
+	if [ ! "$hasMergeResolutionArg" ]; then
+	    if git-ffdryrun "${branches[@]}"; then
+		commitNum=$(git log --pretty=tformat:%H "HEAD..${branches[-1]}" | wc -l)
+		commitNumPlural=s; [ $commitNum -eq 1 ] && commitNumPlural=
+		branchNum=${#branches[@]}; [ $branchNum -eq 1 ] && branchNum=
+		userBinaryChoice --console --question "The $commitNum commit$commitNumPlural on the ${branchNum}${branchNum:+ }branch$branchesPlural can be fast-forwarded instead of merged. Fast-forward?" --yes-no && fastForwardArgs=(--ff-only)
+	    elif canRebase; then
+		hubNote=; if [ "$HUB" ] && [ -n "$pullRequestTitles" ]; then
+		    hubNote='Note: GitHub cannot detect the rebase and will say that the PR has been closed. If you need proper indication, please quit now and directly rebase in GitHub itself instead.'
+		    if [ "$isCheckFromStdin" ] || [  ${#checkCommands[@]} -gt 0 ]; then
+			hubNote+=" (But be aware that the CHECK-COMMAND(s) won't be executed then.)"
+		    fi
 		fi
+		choice="$(userchoiceFromList --question "The branch$branchesPlural only consist$verbPlural of a single commit. Rebase $branchesSubject instead of creating a separate merge commit?${hubNote:+$'\n'}${hubNote}" --no-cancel --ignore-case -- '[Y]es' '[N]o' '[Q]uit')" || exit $?
+		case "$choice" in
+		    Yes)
+			isRebase=t;;
+		    Quit)
+			if [ -n "$hubNote" ]; then
+			    echo "After rebasing in GitHub, you can delete the branch$branchesPlural via:"
+			    printf 'git oldelete -f'
+			    printf ' %q' "${branches[@]}"
+			    printf '\n'
+			fi >&2
+			exit 1
+			;;
+		esac
 	    fi
-	    choice="$(userchoiceFromList --question "The branch$branchesPlural only consist$verbPlural of a single commit. Rebase $branchesSubject instead of creating a separate merge commit?${hubNote:+$'\n'}${hubNote}" --no-cancel --ignore-case -- '[Y]es' '[N]o' '[Q]uit')" || exit $?
-	    case "$choice" in
-		Yes)
-		    isRebase=t;;
-		Quit)
-		    if [ -n "$hubNote" ]; then
-			echo "After rebasing in GitHub, you can delete the branch$branchesPlural via:"
-			printf 'git oldelete -f'
-			printf ' %q' "${branches[@]}"
-			printf '\n'
-		    fi >&2
-		    exit 1
-		    ;;
-	    esac
+	elif [ "$isRebaseSingle" ]; then
+	    canRebase && isRebase=t
 	fi
-    elif [ "$isRebaseSingle" ]; then
-	canRebase && isRebase=t
-    fi
 
 
-    if [ "$isRebase" ]; then
-	origRef="$(git-orig-ref)" || exit $?
+	if [ "$isRebase" ]; then
+	    origRef="$(git-orig-ref)" || exit $?
 
-	for branch in "${branches[@]}"
-	do
-	    git rebase HEAD "$branch" && git checkout "$origRef" || {
-		status=$?
-		if [ "$branch" = "${branches[-1]}" ]; then
-		    echo >&2 "After this branch has been successfully rebased (see above), you can merge $branchesSubject and ${isCheckFromStdin:+run checks and }${isPush:+push and }delete $branchesSubject via"
-		    printf >&2 'git checkout %q && git-merge --ff-only %q && ' "$origRef" "$branch"
-		    printContinueCommand
-		else
-		    typeset -a missingBranches=("${branches[@]}")
-		    while [ "${missingBranches[0]}" != "$branch" ]
-		    do
+	    for branch in "${branches[@]}"
+	    do
+		git rebase HEAD "$branch" && git checkout "$origRef" || {
+		    status=$?
+		    if [ "$branch" = "${branches[-1]}" ]; then
+			echo >&2 "After this branch has been successfully rebased (see above), you can merge $branchesSubject and ${isCheckFromStdin:+run checks and }${isPush:+push and }${isKeepBranches:+not }delete $branchesSubject via"
+			printf >&2 'git checkout %q && git-merge --ff-only %q && ' "$origRef" "$branch"
+			printContinueCommand
+		    else
+			typeset -a missingBranches=("${branches[@]}")
+			while [ "${missingBranches[0]}" != "$branch" ]
+			do
+			    missingBranches=("${missingBranches[@]:1}")
+			done
 			missingBranches=("${missingBranches[@]:1}")
-		    done
-		    missingBranches=("${missingBranches[@]:1}")
 
-		    echo >&2 "After this branch has been successfully rebased (see above), you can continue rebasing, merge $branchesSubject and ${isCheckFromStdin:+run checks and }${isPush:+push and }delete $branchesSubject via"
-		    printf >&2 'git checkout %q && git-merge --ff-only %q && %q --rebase --no-delete ' "$origRef" "$branch" "$(basename "$0")"
-		    printf >&2 -- '--branch %q ' "${missingBranches[@]}"
-		    printf >&2 '&& '
-		    printContinueCommand
-		fi
+			echo >&2 "After this branch has been successfully rebased (see above), you can continue rebasing, merge $branchesSubject and ${isCheckFromStdin:+run checks and }${isPush:+push and }${isKeepBranches:+not }delete $branchesSubject via"
+			printf >&2 'git checkout %q && git-merge --ff-only %q && %q --rebase --no-delete ' "$origRef" "$branch" "$(basename "$0")"
+			printf >&2 -- '--branch %q ' "${missingBranches[@]}"
+			printf >&2 '&& '
+			printContinueCommand
+		    fi
+		    exit $status
+		}
+		git-wrapper merge --ff-only "$branch" || exit $?
+	    done
+	else
+	    git-wrapper merge "${fastForwardArgs[@]:---no-ff}" "${mergeMessageArgs[@]}" "${mergeNoEditMessageArgs[@]}" "${mergeArgs[@]}" "${branches[@]}" || {
+		status=$?
+		echo >&2 "After $branchesSubjectAuxiliaryVerb been merged, you can ${isCheckFromStdin:+run checks and }${isPush:+push and }${isKeepBranches:+not }delete $branchesSubject via"
+		printContinueCommand
 		exit $status
 	    }
-	    git-wrapper merge --ff-only "$branch" || exit $?
-	done
-    else
-	git-wrapper merge "${fastForwardArgs[@]:---no-ff}" "${mergeArgs[@]}" "${branches[@]}" || {
-	    status=$?
-	    echo >&2 "After $branchesSubjectAuxiliaryVerb been merged, you can ${isCheckFromStdin:+run checks and }${isPush:+push and }delete $branchesSubject via"
-	    printContinueCommand
-	    exit $status
-	}
+	fi
     fi
 fi  # End of actual merge; continue finalization from here.
 
@@ -411,7 +425,7 @@ elif [ ${#checkCommands[@]} -gt 0 ]; then
     (eval "${checkCommands[@]}")
 fi || {
     status=$?
-    echo >&2 "Checks failed; $branchesSubjectAuxiliaryVerb been merged, but not ${isPush:+pushed or }deleted yet."
+    echo >&2 "Checks failed; $branchesSubjectAuxiliaryVerb been reintegrated, but not ${isPush:+pushed or }deleted yet."
     echo >&2 'Correct the problem by amending or additional commits, then invoke'
     printContinueCommand
     exit $status
@@ -420,7 +434,8 @@ fi || {
 status=0
 [ ! "$isPush" ] || pushit || status=$?
 
-[ "$isDelete" ] || exit 0
+[ ! "$isKeepBranches" ] || exit $status
+
 for branch in "${branches[@]}"
 do
     tracks="$(git-tracks "$branch" 2>/dev/null)"

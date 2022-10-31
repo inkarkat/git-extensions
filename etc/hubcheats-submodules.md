@@ -48,7 +48,7 @@ non-trivial / covers multiple responsibilities.
 
 ## integrate submodule changes first
 superproject: `$ git ofetch`
-Check for other open reintegrations (i.e. submodule commits on main not yet
+Check for other open reintegrations (i.e. submodule commits on master not yet
 referenced in the superproject):
 superproject: `$ git bmshowsubmodules | git osuperhaspendingsubintegrations -`
 superproject: `$ hub subsamebrdo --interactive reintegratetom`
@@ -64,17 +64,21 @@ these now show up in the diffs as well. This is okay; we're already checked
 that there were no open reintegrations that we'd take with us.
 ## Transactional only local merges, then remote updates in bulk at the end:
 ### Prepare transaction:
-`$ git subsamebrdo --interactive reintegratetom --no-checks --no-delete`
+Note: Need to do a reverse integration (i.e. master to branch) because
+submodule changes must be pushed so that the superproject can reference them,
+but should not be visible on master yet. --no-merge stops short of the actual
+reintegration.
+`$ git subsamebrdo --interactive ffintegratetom --push-branch --no-merge --no-checks`
 a) amends to short-lived feature:
    `$ git amenu`
-   `$ git omrb && git opush -f`
+   `$ git ffintegratetom --push-branch --no-submodule-update --rebase-single`
 b) maintain history of how the feature grew:
    `$ git cu`
-   `$ git ommerge && git opush`
-`$ git reintegratetom --no-delete --ff-only`
+   `$ git ffintegratetom --push-branch --no-submodule-update`
+(Wait until the GitHub action has built the pushed feature branch successfully.)
 ### Commit transaction:
-`$ git showsubmodules --diff-merges=on | hub subdo --for - --interactive reintegratetom --ff-only`
-`$ hub reintegratetom --continue`
+`$ git showsubmodules --diff-merges=on | hub subdo --for - --interactive reintegratetom --ff-only --no-checks`
+`$ git opush`
 Note: There's no real transactional handling across repos; reintegration may
 fail at any point. This just limits the critical time period.
 
@@ -82,17 +86,19 @@ fail at any point. This just limits the critical time period.
 `$ gh pr ready`
 
 ## merge the superproject
-Because of the `main` branch protection, we cannot do a local merge and push
-main; the GitHub action must have successfully built the resulting merge commit
-to accept a push. So we need to do a local rebase / merge of `main` onto the
-branch, push that, wait for the action, and then can reintegrate (or push the
-corresponding button in GitHub).
+Because of the `master` branch protection, we cannot do a local merge and push
+master; the GitHub action must have successfully built the resulting merge
+commit to accept a push. So we need to do a local rebase / merge of `master`
+onto the branch, push that, wait for the action, and then can reintegrate (or
+push the corresponding button in GitHub; both of which should be a simple
+fast-forward).
 `$ git ofetch`
-0) submodule branch(es) have been fast-forwarded, or
+0) submodule branch(es) have been fast-forwarded
+   `$ hub ffintegratetom`
 a) amends to short-lived feature:
-   `$ git omrb && git opush -f && hub reintegratetom --ff-only`
+   `$ hub ffintegratetom --rebase-single`
 b) maintain history of how the feature grew:
-   `$ git ommerge && git opush && hub reintegratetom --ff-only`
+   `$ hub ffintegratetom`
 
 # Rules
 - When checking out branches, do so everywhere (especially both in the

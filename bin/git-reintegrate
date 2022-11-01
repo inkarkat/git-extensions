@@ -136,7 +136,8 @@ do
 	--initial-status|--no-count-on|--exit-on|--comment|--summarize-failed|--summarize-failed-separator)
 			runWithPromptArgs+=("$1" "$2"); shift; shift;;
 
-	--message|-m)	mergeMessageArgs+=("$1" "$2"); shift; shift;;
+	--message|-m|--file|-F)
+			mergeMessageArgs+=("$1" "$2"); shift; shift;;
 	--no-edit)	mergeNoEditMessageArgs+=("$1"); shift;;
 	-[sX])		mergeArgs+=("$1" "$2"); shift; shift;;
 	--@(strategy|strategy-option|gpg-sign)=*)	mergeArgs+=("$1"); shift;;
@@ -191,7 +192,10 @@ confirmFastForward()
 {
     local question="Your $targetBranch branch is not up-to-date with ${targetTrackedRemote}, but can be fast-forwarded."
     typeset -a additionalChoices=()
-    if similarCommitNum=$(git-similarcommits "HEAD..${branches[-1]}" "HEAD..${targetTracks}" | wc -l) && [ $similarCommitNum -gt 0 ]; then
+    if ! git-inout --is-ahead "${branches[-1]}" "$targetTracks" >/dev/null \
+	&& similarCommitNum=$(git-similarcommits "HEAD..${branches[-1]}" "HEAD..${targetTracks}" | wc -l) \
+	&& [ $similarCommitNum -gt 0 ]
+    then
 	local commitNum=$(git log --pretty=tformat:%H "HEAD..${branches[-1]}" | wc -l)
 	local commitNumPlural=s; [ $commitNum -eq 1 ] && commitNumPlural=
 	local branchNum=${#branches[@]}; [ $branchNum -eq 1 ] && branchNum=

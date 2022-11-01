@@ -175,7 +175,8 @@ do
 	--initial-status|--no-count-on|--exit-on|--comment|--summarize-failed|--summarize-failed-separator)
 			runWithPromptArgs+=("$1" "$2"); shift; shift;;
 
-	--message|-m)	mergeMessageArgs+=("$1" "$2"); shift; shift;;
+	--message|-m|--file|-F)
+			mergeMessageArgs+=("$1" "$2"); shift; shift;;
 	--no-edit)	mergeNoEditMessageArgs+=("$1"); shift;;
 	-[sX])		mergeArgs+=("$1" "$2"); shift; shift;;
 	--@(strategy|strategy-option|gpg-sign)=*)	mergeArgs+=("$1"); shift;;
@@ -214,11 +215,14 @@ fi
 [ "$isDisableChecks" ] && checkCommands=()
 
 typeset -a contextShortener=(headtail --separator $'\t\t\t\t\t[...]')
-confirmUseTarget()
+confirmFastForwardTarget()
 {
-    local question="Your $targetBranch branch is not up-to-date with ${targetTrackedRemote}."
+    local question="Your $targetBranch branch is not up-to-date with ${targetTrackedRemote}, but can be fast-forwarded."
     typeset -a additionalChoices=()
-    if similarCommitNum=$(git-similarcommits "${targetBranch}..HEAD" "${targetBranch}..${targetTracks}" | wc -l) && [ $similarCommitNum -gt 0 ]; then
+    if ! git-inout --is-ahead HEAD "$targetTracks" >/dev/null \
+	&& similarCommitNum=$(git-similarcommits "${targetBranch}..HEAD" "${targetBranch}..${targetTracks}" | wc -l) \
+	&& [ $similarCommitNum -gt 0 ]
+    then
 	local commitNum=$(git log --pretty=tformat:%H "${targetBranch}..HEAD" | wc -l)
 	local commitNumPlural=s; [ $commitNum -eq 1 ] && commitNumPlural=
 	question="Your $targetBranch branch is not up-to-date with ${targetTrackedRemote}, but $((100 * similarCommitNum / commitNum))% of the $commitNum commit$commitNumPlural on the current branch look similar to what you have on ${targetTrackedRemote}. If you're redoing a previously merged (and pushed) branch, please decline."
@@ -233,15 +237,35 @@ confirmUseTarget()
 	    echo "Context${contextShortener[*]:+ (abbreviated)}:"
 	    eval "git-inout --color=always --one-more --base $targetBranch $targetTracks" "${contextShortener:+|}" '"${contextShortener[@]}"'
 	    typeset -a contextShortener=()
-	    confirmUseTarget "$@"
+	    confirmFastForwardTarget "$@"
 	    ;;
 	Show\ Difference\ between\ *)
 	    echo 'Difference:'
 	    git-inout --color=always --one-more --base "$targetTracks"
-	    confirmUseTarget "$@"
+	    confirmFastForwardTarget "$@"
 	    ;;
 	Shell)
 	    echo "Pending: Integration of $targetTracks, unless you do a non-successful exit."
+	    "${SHELL:-bash}" -i || return $?
+	    ;;
+	*)  printf >&2 'ASSERT: Unhandled choice: %s\n' "$choice"; exit 3;;
+    esac
+}
+confirmUseTarget()
+{
+    local question="Your $targetBranch branch has diverged from ${targetTrackedRemote}."
+    local choice; choice="$(userchoiceFromList --question "$question Integrate $targetBranch despite this?" --no-cancel --ignore-case -- '[Y]es' '[N]o' 'Show [C]ontext' '[S]hell')" || exit $?
+    case "$choice" in
+	Yes) ;;
+	No) return 4;;
+	Show\ Context)
+	    echo "Context${contextShortener[*]:+ (abbreviated)}:"
+	    eval "git-inout --color=always --one-more --base $targetBranch $targetTracks" "${contextShortener:+|}" '"${contextShortener[@]}"'
+	    typeset -a contextShortener=()
+	    confirmUseTarget "$@"
+	    ;;
+	Shell)
+	    echo "Pending: Integration of $targetBranch, unless you do a non-successful exit."
 	    "${SHELL:-bash}" -i || return $?
 	    ;;
 	*)  printf >&2 'ASSERT: Unhandled choice: %s\n' "$choice"; exit 3;;
@@ -319,10 +343,16 @@ else
 
     targetIntegrationSourceBranch="$targetBranch"
     if [ -n "$targetTracks" ] && ! git-equals "$targetBranch" "$targetTracks"; then
-	if confirmUseTarget; then
-	    targetIntegrationSourceBranch="$targetTracks"
+	if git-inout --is-behind "$targetBranch" "$targetTracks" >/dev/null; then
+	    if confirmFastForwardTarget; then
+		targetIntegrationSourceBranch="$targetTracks"
+	    else
+		printf "Okay, I'll ${isMerge:+re}integrate ${isMerge:+into }%s locally and you'll then have to merge with %s after that.\\n" "$targetBranch" "$targetTracks"
+	    fi
+	elif confirmUseTarget; then
+	    printf "Okay, I'll ${isMerge:+re}integrate ${isMerge:+into }%s locally and you'll then have to merge with %s after that.\\n" "$targetBranch" "$targetTracks"
 	else
-	    printf "Okay, I'll reintegrate into %s locally and you'll then have to merge with %s after that.\\n" "$targetBranch" "$targetTracks"
+	    exit 4
 	fi
     fi
 
@@ -366,17 +396,38 @@ else
 		[ ${#mergeNoEditMessageArgs[@]} -gt 0 ] || mergeMessageArgs+=(--edit)
 	    fi
 
+	    originalCommit="$(git rev-parse HEAD)"
 	    git-wrapper merge "${fastForwardArgs[@]:---no-ff}" "${mergeMessageArgs[@]}" "${mergeNoEditMessageArgs[@]}" "${mergeArgs[@]}" "$targetIntegrationSourceBranch" || {
 		status=$?
 		echo >&2 "After the branch has been merged, you can ${isCheckFromStdin:+run checks and }${isPushBranch:+push and }${isMerge:+fast-forward-integrate to $targetBranch and }${isPush:+push and }${isKeepBranches:+not }delete it via"
 		printContinueCommand 'git swapmergeparents'
 		exit $status
 	    }
-	    git-swapmergeparents || {
-		echo >&2 'ERROR: Failed to swap the merge parents of the reversed merge.'
-		printContinueCommand
-		exit 3
-	    }
+	    if [ "${fastForwardArgs[*]:---no-ff}" = '--no-ff' ] && [ "$originalCommit" = "$(git rev-parse HEAD)" ]; then
+		# There have been no updates on target branch; the current
+		# branch is a successor of the target branch. Even with --no-ff,
+		# Git will refuse to create a merge commit with "Already up to
+		# date.", but we need to force a merge commit, as that will
+		# eventually be fast-forwarded to the target branch and should
+		# appear as an actual merge of the current branch.
+		git-mergeancestor "${mergeMessageArgs[@]}" "${mergeNoEditMessageArgs[@]}" "$targetIntegrationSourceBranch" || {
+		    status=$?
+		    echo >&2 "FATAL: The forced merge of ${targetBranch} into ${sourceBranch} even though the latter is a successor of the former somehow failed."
+		    echo >&2 'You might want to retry without --no-ff or with --rebase:'
+		    printRestartCommand	# If the current branch has been modified, the reintegration need to be restarted to be able to fast-forward. We cannot simply continue after the original integration commit has been left behind.
+		    echo >&2 'If you instead can fix this on your own, invoke this to continue after the merge into the current branch:'
+		    printContinueCommand
+		    exit $status
+		}
+	    else
+		! git-ismerge \
+		    || git-swapmergeparents \
+		    || {
+			echo >&2 'ERROR: Failed to swap the merge parents of the reversed merge.'
+			printContinueCommand
+			exit 3
+		    }
+	    fi
 	fi
     fi
 fi  # End of actual merge; continue finalization from here.

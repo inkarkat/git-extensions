@@ -15,4 +15,5 @@ case "$1" in
     --color)		shift; shift;;
 esac
 
-git remote --verbose | sed -e 's/ (\(fetch\|push\))$//' | uniq
+git remote --verbose \
+    | sed -e '/ (fetch)$/{ N; /^\([^\n]*\) (fetch)\n\1 (push)$/{ s/^\([^\n]*\) (fetch)\n.*$/\1/; b; }; /^\([^[:space:]]\+\)[[:space:]]\+\([^\n]\+\) (fetch)\n\1[[:space:]]\+no_push (push)$/{ s/^\([^\n]*\) (fetch)\n.*$/\1 (read-only)/; b; }; }'

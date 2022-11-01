@@ -214,9 +214,9 @@ fi
 [ "$isDisableChecks" ] && checkCommands=()
 
 typeset -a contextShortener=(headtail --separator $'\t\t\t\t\t[...]')
-confirmUseTarget()
+confirmFastForwardTarget()
 {
-    local question="Your $targetBranch branch is not up-to-date with ${targetTrackedRemote}."
+    local question="Your $targetBranch branch is not up-to-date with ${targetTrackedRemote}, but can be fast-forwarded."
     typeset -a additionalChoices=()
     if similarCommitNum=$(git-similarcommits "${targetBranch}..HEAD" "${targetBranch}..${targetTracks}" | wc -l) && [ $similarCommitNum -gt 0 ]; then
 	local commitNum=$(git log --pretty=tformat:%H "${targetBranch}..HEAD" | wc -l)
@@ -233,15 +233,35 @@ confirmUseTarget()
 	    echo "Context${contextShortener[*]:+ (abbreviated)}:"
 	    eval "git-inout --color=always --one-more --base $targetBranch $targetTracks" "${contextShortener:+|}" '"${contextShortener[@]}"'
 	    typeset -a contextShortener=()
-	    confirmUseTarget "$@"
+	    confirmFastForwardTarget "$@"
 	    ;;
 	Show\ Difference\ between\ *)
 	    echo 'Difference:'
 	    git-inout --color=always --one-more --base "$targetTracks"
-	    confirmUseTarget "$@"
+	    confirmFastForwardTarget "$@"
 	    ;;
 	Shell)
 	    echo "Pending: Integration of $targetTracks, unless you do a non-successful exit."
+	    "${SHELL:-bash}" -i || return $?
+	    ;;
+	*)  printf >&2 'ASSERT: Unhandled choice: %s\n' "$choice"; exit 3;;
+    esac
+}
+confirmUseTarget()
+{
+    local question="Your $targetBranch branch has diverged from ${targetTrackedRemote}."
+    local choice; choice="$(userchoiceFromList --question "$question Integrate $targetBranch despite this?" --no-cancel --ignore-case -- '[Y]es' '[N]o' 'Show [C]ontext' '[S]hell')" || exit $?
+    case "$choice" in
+	Yes) ;;
+	No) return 4;;
+	Show\ Context)
+	    echo "Context${contextShortener[*]:+ (abbreviated)}:"
+	    eval "git-inout --color=always --one-more --base $targetBranch $targetTracks" "${contextShortener:+|}" '"${contextShortener[@]}"'
+	    typeset -a contextShortener=()
+	    confirmUseTarget "$@"
+	    ;;
+	Shell)
+	    echo "Pending: Integration of $targetBranch, unless you do a non-successful exit."
 	    "${SHELL:-bash}" -i || return $?
 	    ;;
 	*)  printf >&2 'ASSERT: Unhandled choice: %s\n' "$choice"; exit 3;;
@@ -319,10 +339,16 @@ else
 
     targetIntegrationSourceBranch="$targetBranch"
     if [ -n "$targetTracks" ] && ! git-equals "$targetBranch" "$targetTracks"; then
-	if confirmUseTarget; then
-	    targetIntegrationSourceBranch="$targetTracks"
+	if git-inout --is-behind "$targetBranch" "$targetTracks" >/dev/null; then
+	    if confirmFastForwardTarget; then
+		targetIntegrationSourceBranch="$targetTracks"
+	    else
+		printf "Okay, I'll ${isMerge:+re}integrate ${isMerge:+into }%s locally and you'll then have to merge with %s after that.\\n" "$targetBranch" "$targetTracks"
+	    fi
+	elif confirmUseTarget; then
+	    printf "Okay, I'll ${isMerge:+re}integrate ${isMerge:+into }%s locally and you'll then have to merge with %s after that.\\n" "$targetBranch" "$targetTracks"
 	else
-	    printf "Okay, I'll reintegrate into %s locally and you'll then have to merge with %s after that.\\n" "$targetBranch" "$targetTracks"
+	    exit 4
 	fi
     fi
 

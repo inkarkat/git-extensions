@@ -42,12 +42,13 @@ HELPDESCRIPTION
     --ahead-behind	Just print a one-line summary like "git status":
 			BASE...BRANCH [ahead 2, behind 1]
     --is-ahead		Just indicate whether BASE is purely ahead (but not
-			behind) of BRANCH via the exit status and print the
-			number of commits.
+			behind) of BRANCH via the exit status (1 if not, 99 if
+			neither ahead nor behind) and print the number of
+			commits.
     --is-behind		Just indicate whether BASE is purely behind (but not
-			ahead) of BRANCH via the exit status and print the
-			number of commits.
-    --indicator-only	Omit BASE...BRANCH; only print "ahead 2, behind 1".
+			ahead) of BRANCH via the exit status (1 if not, 99 if
+			neither ahead nor behind) and print the number of
+			commits.
     --files		Print the names of changed files (separated into in,
 			out, and both) instead of commit logs.
     --submodules	Print the names of submodules that were modified
@@ -230,7 +231,12 @@ isAhead()
 	printf '%d\n' "$ahead"
     else
 	echo 0
-	return 1
+
+	if [ $ahead -eq 0 -a $behind -eq 0 ]; then
+	    return 99
+	else
+	    return 1
+	fi
     fi
 }
 isBehind()
@@ -241,7 +247,12 @@ isBehind()
 	printf '%d\n' "$behind"
     else
 	echo 0
-	return 1
+
+	if [ $ahead -eq 0 -a $behind -eq 0 ]; then
+	    return 99
+	else
+	    return 1
+	fi
     fi
 }
 

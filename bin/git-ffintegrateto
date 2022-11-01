@@ -396,19 +396,38 @@ else
 		[ ${#mergeNoEditMessageArgs[@]} -gt 0 ] || mergeMessageArgs+=(--edit)
 	    fi
 
+	    originalCommit="$(git rev-parse HEAD)"
 	    git-wrapper merge "${fastForwardArgs[@]:---no-ff}" "${mergeMessageArgs[@]}" "${mergeNoEditMessageArgs[@]}" "${mergeArgs[@]}" "$targetIntegrationSourceBranch" || {
 		status=$?
 		echo >&2 "After the branch has been merged, you can ${isCheckFromStdin:+run checks and }${isPushBranch:+push and }${isMerge:+fast-forward-integrate to $targetBranch and }${isPush:+push and }${isKeepBranches:+not }delete it via"
 		printContinueCommand 'git swapmergeparents'
 		exit $status
 	    }
-	    ! git-ismerge \
-		|| git-swapmergeparents \
-		|| {
-		    echo >&2 'ERROR: Failed to swap the merge parents of the reversed merge.'
+	    if [ "${fastForwardArgs[*]:---no-ff}" = '--no-ff' ] && [ "$originalCommit" = "$(git rev-parse HEAD)" ]; then
+		# There have been no updates on target branch; the current
+		# branch is a successor of the target branch. Even with --no-ff,
+		# Git will refuse to create a merge commit with "Already up to
+		# date.", but we need to force a merge commit, as that will
+		# eventually be fast-forwarded to the target branch and should
+		# appear as an actual merge of the current branch.
+		git-mergeancestor "${mergeMessageArgs[@]}" "${mergeNoEditMessageArgs[@]}" "$targetIntegrationSourceBranch" || {
+		    status=$?
+		    echo >&2 "FATAL: The forced merge of ${targetBranch} into ${sourceBranch} even though the latter is a successor of the former somehow failed."
+		    echo >&2 'You might want to retry without --no-ff or with --rebase:'
+		    printRestartCommand	# If the current branch has been modified, the reintegration need to be restarted to be able to fast-forward. We cannot simply continue after the original integration commit has been left behind.
+		    echo >&2 'If you instead can fix this on your own, invoke this to continue after the merge into the current branch:'
 		    printContinueCommand
-		    exit 3
+		    exit $status
 		}
+	    else
+		! git-ismerge \
+		    || git-swapmergeparents \
+		    || {
+			echo >&2 'ERROR: Failed to swap the merge parents of the reversed merge.'
+			printContinueCommand
+			exit 3
+		    }
+	    fi
 	fi
     fi
 fi  # End of actual merge; continue finalization from here.

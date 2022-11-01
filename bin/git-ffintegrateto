@@ -218,7 +218,10 @@ confirmFastForwardTarget()
 {
     local question="Your $targetBranch branch is not up-to-date with ${targetTrackedRemote}, but can be fast-forwarded."
     typeset -a additionalChoices=()
-    if similarCommitNum=$(git-similarcommits "${targetBranch}..HEAD" "${targetBranch}..${targetTracks}" | wc -l) && [ $similarCommitNum -gt 0 ]; then
+    if ! git-inout --is-ahead HEAD "$targetTracks" >/dev/null \
+	&& similarCommitNum=$(git-similarcommits "${targetBranch}..HEAD" "${targetBranch}..${targetTracks}" | wc -l) \
+	&& [ $similarCommitNum -gt 0 ]
+    then
 	local commitNum=$(git log --pretty=tformat:%H "${targetBranch}..HEAD" | wc -l)
 	local commitNumPlural=s; [ $commitNum -eq 1 ] && commitNumPlural=
 	question="Your $targetBranch branch is not up-to-date with ${targetTrackedRemote}, but $((100 * similarCommitNum / commitNum))% of the $commitNum commit$commitNumPlural on the current branch look similar to what you have on ${targetTrackedRemote}. If you're redoing a previously merged (and pushed) branch, please decline."

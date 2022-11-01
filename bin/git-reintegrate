@@ -191,7 +191,10 @@ confirmFastForward()
 {
     local question="Your $targetBranch branch is not up-to-date with ${targetTrackedRemote}, but can be fast-forwarded."
     typeset -a additionalChoices=()
-    if similarCommitNum=$(git-similarcommits "HEAD..${branches[-1]}" "HEAD..${targetTracks}" | wc -l) && [ $similarCommitNum -gt 0 ]; then
+    if ! git-inout --is-ahead "${branches[-1]}" "$targetTracks" >/dev/null \
+	&& similarCommitNum=$(git-similarcommits "HEAD..${branches[-1]}" "HEAD..${targetTracks}" | wc -l) \
+	&& [ $similarCommitNum -gt 0 ]
+    then
 	local commitNum=$(git log --pretty=tformat:%H "HEAD..${branches[-1]}" | wc -l)
 	local commitNumPlural=s; [ $commitNum -eq 1 ] && commitNumPlural=
 	local branchNum=${#branches[@]}; [ $branchNum -eq 1 ] && branchNum=

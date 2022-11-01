@@ -11,7 +11,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--one-more|--stat|--ahead-behind [--indicator-only]|--files|--submodules] [--ignore-nonexisting] [<remote>|(<branch>|<commit> [<other-branch>|<other-commit>])] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--one-more|--stat|--ahead-behind [--indicator-only]|--is-ahead|--is-behind|--files|--submodules] [--ignore-nonexisting] [<remote>|(<branch>|<commit> [<other-branch>|<other-commit>])] [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '[...]  [--base <remote>|(--base <branch>|--base <commit> [<other-branch>|<other-commit>])]'
 }
 printUsage()
@@ -41,6 +41,12 @@ HELPDESCRIPTION
 			represented by either ${GIT_INOUT_COLOR_IN}i${GIT_INOUT_COLOR_RESET} or ${GIT_INOUT_COLOR_OUT}o${GIT_INOUT_COLOR_RESET}.
     --ahead-behind	Just print a one-line summary like "git status":
 			BASE...BRANCH [ahead 2, behind 1]
+    --is-ahead		Just indicate whether BASE is purely ahead (but not
+			behind) of BRANCH via the exit status and print the
+			number of commits.
+    --is-behind		Just indicate whether BASE is purely behind (but not
+			ahead) of BRANCH via the exit status and print the
+			number of commits.
     --indicator-only	Omit BASE...BRANCH; only print "ahead 2, behind 1".
     --files		Print the names of changed files (separated into in,
 			out, and both) instead of commit logs.
@@ -83,6 +89,8 @@ do
 	--one-more)	shift; inoutLogAction=onemore;;
 	--stat)		shift; action=inoutStat;;
 	--ahead-behind)	shift; action=aheadBehind;;
+	--is-ahead)	shift; action=isAhead; pager=();;
+	--is-behind)	shift; action=isBehind; pager=();;
 	--indicator-only)
 			shift; isIndicatorOnly=t;;
 	--files)	shift; action=showfiles;;
@@ -210,6 +218,29 @@ aheadBehind()
 	    printf '%s%s...%s %s\n' "$GIT_INOUT_COLOR_HEADER" "${baseName:-$baseRev}" "${otherName:-$otherRev}" "${GIT_INOUT_INDICATOR_PREFIX-[}${indicator}${GIT_INOUT_INDICATOR_SUFFIX-]}"
 	fi
     else
+	return 1
+    fi
+}
+
+isAhead()
+{
+    local behind; behind=$(git log --pretty=$'tformat:x' "$baseRev..$otherRev" | wc -l)
+    local ahead ;  ahead=$(git log --pretty=$'tformat:x' "$otherRev..$baseRev" | wc -l)
+    if [ $ahead -gt 0 -a $behind -eq 0 ]; then
+	printf '%d\n' "$ahead"
+    else
+	echo 0
+	return 1
+    fi
+}
+isBehind()
+{
+    local behind; behind=$(git log --pretty=$'tformat:x' "$baseRev..$otherRev" | wc -l)
+    local ahead ;  ahead=$(git log --pretty=$'tformat:x' "$otherRev..$baseRev" | wc -l)
+    if [ $behind -gt 0 -a $ahead -eq 0 ]; then
+	printf '%d\n' "$behind"
+    else
+	echo 0
 	return 1
     fi
 }

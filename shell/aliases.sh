@@ -81,10 +81,12 @@ git-clone()
 {
     _git_initAndCloneExtension clone "$@"
 }
-# Avoids "git remote rename origin upstream".
+# Avoids "git remote rename origin upstream" and automatically makes upstream
+# read-only.
 git-uclone()
 {
-    _git_initAndCloneExtension clone --origin upstream "$@"
+    _git_initAndCloneExtension clone --origin upstream "$@" \
+	&& git-remote-setreadonly upstream
 }
 
 git-cd()

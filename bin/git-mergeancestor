@@ -1,0 +1,88 @@
+#!/bin/bash
+# Source: https://stackoverflow.com/a/6807602/813602
+
+printUsage()
+{
+    cat <<HELPTEXT
+Join the development history of an earlier <commit> into a dedicated merge
+commit on the current branch. On its own, "git merge --no-ff will refuse such
+with "Already up to date."
+This can be useful though in a fast-forward integration where a fast-forward
+merge of a source branch (because there have been no changes to the target
+branch since branching off) should happen first on the source branch, and the
+result then is to be fast-forwarded onto the target branch.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-e|--edit|--no-edit] [-m|--message MESSAGE] [-F|--file FILE] <commit> [-?|-h|--help]'
+}
+
+typeset -a mergeMessageArgs=()
+mergeEditMessageArg=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+	--message|-m|--file|-F)
+			mergeMessageArgs+=("$1" "$2"); shift; shift;;
+	--edit|-e|--no-edit)
+			mergeEditMessageArg="$1"; shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if [ $# -ne 1 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+commit="${1:?}"; shift
+if ! git-inout --is-ahead HEAD "$commit" >/dev/null; then
+    printf >&2 'ERROR: %s is not an ancestor of the current commit.\n' "$commit"
+    exit 2
+fi
+
+[ -z "$mergeEditMessageArg" -a ${#mergeMessageArgs[@]} -eq 0 ] && mergeEditMessageArg='--edit'	# Do an interactive edit if nothing has been specified and no message is passed.
+
+if [ ${#mergeMessageArgs[@]} -eq 0 ]; then
+    # Synthesize the default merge message if no message [file] given.
+    targetBranch="$(git-brname --real-branch-only)" || exit $?
+    branchMergeMessage="Merge branch '${commit}'"
+    [ "$(git-mbr)" = "$targetBranch" ] || branchMergeMessage+=" into $targetBranch"
+    mergeMessageArgs=(--message "$branchMergeMessage")
+fi
+
+case "$mergeEditMessageArg" in
+    --edit|-e)
+	# git commit-tree supports -m and -F, but no --edit, and therefore
+	# doesn't offer interactive editing; we need to emulate that ourselves.
+	gitDir=$(git rev-parse --git-dir 2>/dev/null) || exit $?
+	mergeMessageFilespec="${gitDir}/MERGE_MSG"
+	isFirst=t
+	set -- "${mergeMessageArgs[@]}"
+	while [ $# -ne 0 ]
+	do
+	    [ "$isFirst" ] && isFirst= || echo
+	    case "$1" in
+		--message|-m)	shift; printf '%s\n' "$1"; shift;;
+		--file|-F)	shift; cat -- "$1"; shift;;
+		*)		printf >&2 'ASSERT: Invalid merge message argument: %s\n' "$1"; exit 3;;
+	    esac > "$mergeMessageFilespec"
+	done
+
+	"$EDITOR" "$mergeMessageFilespec" || { status=$?; echo 2>&1 "Unclean exit of editor; aborting!"; exit $status; }
+
+	mergeMessageArgs=(--file "$mergeMessageFilespec")
+	;;
+esac
+[ ${#mergeMessageArgs[@]} -gt 0 ] || { echo >&2 'ASSERT: Should have merge message argument(s).'; exit 3; }
+
+# XXX: git commit-tree in Git 2.38.1 does not understand the long --file and
+# --message arguments yet.
+mergeMessageArgs=("${mergeMessageArgs[@]/#--file/-F}")
+mergeMessageArgs=("${mergeMessageArgs[@]/#--message/-m}")
+
+mergeCommit="$(git commit-tree "${mergeMessageArgs[@]}" 'HEAD^{tree}' -p "${commit:?}" -p HEAD)" || exit $?
+exec git merge --ff-only "$mergeCommit"

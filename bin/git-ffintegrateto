@@ -401,11 +401,13 @@ else
 		printContinueCommand 'git swapmergeparents'
 		exit $status
 	    }
-	    git-swapmergeparents || {
-		echo >&2 'ERROR: Failed to swap the merge parents of the reversed merge.'
-		printContinueCommand
-		exit 3
-	    }
+	    ! git-ismerge \
+		|| git-swapmergeparents \
+		|| {
+		    echo >&2 'ERROR: Failed to swap the merge parents of the reversed merge.'
+		    printContinueCommand
+		    exit 3
+		}
 	fi
     fi
 fi  # End of actual merge; continue finalization from here.

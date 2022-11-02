@@ -71,10 +71,10 @@ reintegration.
 `$ git subsamebrdo --interactive ffintegratetom --push-branch --no-merge --no-checks`
 a) amends to short-lived feature:
    `$ git amenu`
-   `$ git ffintegratetom --push-branch --no-delete --no-submodule-update --rebase-single`
+   `$ git ffintegratetom --push-branch --no-delete --no-submodule-checkout --no-submodule-update --rebase-single`
 b) maintain history of how the feature grew:
    `$ git cu`   (no-op if all submodule branch(es) have been fast-forwarded)
-   `$ git ffintegratetom --push-branch --no-delete --no-submodule-update --no-ff`
+   `$ git ffintegratetom --push-branch --no-delete --no-submodule-checkout --no-submodule-update --no-ff`
 If the GitHub action does not trigger (if this is just a merge commit affecting
 submodule references but no actual files in the superproject), trigger it
 manually in GitHub.

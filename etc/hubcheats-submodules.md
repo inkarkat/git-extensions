@@ -83,7 +83,7 @@ The superproject now will be on master already, it must **not be pushed to origi
 ### Commit transaction:
 Note: There's no real transactional handling across repos; reintegration may
 fail at any point. This just limits the critical time period.
-`$ git showsubmodules --diff-merges=on | hub subdo --for - --interactive reintegratetom --ff-only --no-checks`
+`$ git showsubmodules | hub subdo --for - --interactive reintegratetom --ff-only --no-checks`
 Now wait until the GitHub action has built the superproject's pushed feature
 branch successfully, then conclude by pushing master and cleaning up with
 `$ git opush`

@@ -23,6 +23,8 @@
 	; To do something with individual arguments, use something like this:
 	;x = "!sh -c 'echo args: \"$@\"' -"
 	; But I prefer defining an external git-subcommand for this.
+	;
+	; Note: To define a Git alias containing a semicolon, wrap the entire alias right-hand side in double quotes.
 
 	; Handle the common typo "git git COMMAND" through my wrapper. Note: Does not handle "git git-COMMAND".
 	git = wrapper
@@ -877,10 +879,10 @@
 	showfilesteam = team-command byuserrange-command showfiles --last-only	; Show the files modified by my team in our last commit.
 	bymefiles = mine-command byuserrange-command showfiles	; Show all files modified by me in the last / passed -r <commit> and directly preceding, as long as they also were by me.
 	bymesubmodules = mine-command byuserrange-command showsubmodules	; Show all submodules modified by me in the last / passed -r <commit> and directly preceding, as long as they also were by me.
-	bymesubdo = mine-command byuserrange-command subdo	; Execute "git SIMPLECOMMAND" and/or COMMANDLINE in each Git submodule modified by me in the last / passed -r <commit> and directly preceding, as long as they also were by me.
+	bymesubdo = "files-command --keep-position subdo bymesubmodules --for SUBMODULES ;"
 	byteamfiles = team-command byuserrange-command showfiles	; Show all files modified by my team in the last / passed -r <commit> and directly preceding, as long as they also were by them.
 	byteamsubmodules = team-command byuserrange-command showsubmodules	; Show all submodules modified by my team in the last / passed -r <commit> and directly preceding, as long as they also were by them.
-	byteamsubdo = team-command byuserrange-command subdo	; Execute "git SIMPLECOMMAND" and/or COMMANDLINE in each Git submodule modified by my team in the last / passed -r <commit> and directly preceding, as long as they also were by them.
+	byteamsubdo = "files-command --keep-position subdo byteamsubmodules --for SUBMODULES ;"
 	showst = showfiles --status	; Show the files and their modification status in passed commit or commit range.
 
 	; Commit logs Note: Git 1.6.0 only supports %Cred, %Cgreen, %Cblue for highlighting; only newer Git versions also support %C(more-colors).
@@ -1243,7 +1245,7 @@
 	tdshowa = today-command showa
 	tdfiles = today-command --range showfiles
 	tdsubmodules = today-command --range showsubmodules
-	tdsubdo = today-command --range subdo
+	tdsubdo = "files-command --keep-position subdo tdsubmodules --for SUBMODULES ;"
 	tdsubchanges = today-command --range subchanges
 	; Note: There is bin/hub-tdsubchanges
 	tdst = today-command --range showst
@@ -1474,7 +1476,7 @@
 	weekshowa = week-command showa
 	weekfiles = week-command --range showfiles
 	weeksubmodules = week-command --range showsubmodules
-	weeksubdo = week-command --range subdo
+	weeksubdo = "files-command --keep-position subdo weeksubmodules --for SUBMODULES ;"
 	weeksubchanges = week-command --range subchanges
 	; Note: There is hub-weeksubchanges
 	weekst = week-command --range showst
@@ -1705,7 +1707,7 @@
 	monthshowa = month-command showa
 	monthfiles = month-command --range showfiles
 	monthsubmodules = month-command --range showsubmodules
-	monthsubdo = month-command --range subdo
+	monthsubdo = "files-command --keep-position subdo monthsubmodules --for SUBMODULES ;"
 	monthsubchanges = month-command --range subchanges
 	; Note: There is bin/hub-monthsubchanges
 	monthst = month-command --range showst
@@ -1936,7 +1938,7 @@
 	yearshowa = year-command showa
 	yearfiles = year-command --range showfiles
 	yearsubmodules = year-command --range showsubmodules
-	yearsubdo = year-command --range subdo
+	yearsubdo = "files-command --keep-position subdo yearsubmodules --for SUBMODULES ;"
 	yearsubchanges = year-command --range subchanges
 	; Note: There is bin/hub-yearsubchanges
 	yearst = year-command --range showst
@@ -2167,7 +2169,7 @@
 	byshowa = byuserrange-command --with-log-args showa
 	byfiles = byuserrange-command --with-log-args showfiles
 	bysubmodules = byuserrange-command --with-log-args showsubmodules
-	bysubdo = byuserrange-command --with-log-args subdo
+	bysubdo = "files-command --keep-position subdo bysubmodules --for SUBMODULES ;"
 	bysubchanges = byuserrange-command --with-log-args subchanges
 	; Note: There is bin/hub-bysubchanges
 	byst = byuserrange-command --with-log-args showst
@@ -2398,7 +2400,7 @@
 	msgshowa = loggrange-command --with-log-args showa
 	msgfiles = loggrange-command --with-log-args showfiles
 	msgsubmodules = loggrange-command --with-log-args showsubmodules
-	msgsubdo = loggrange-command --with-log-args subdo
+	msgsubdo = "files-command --keep-position subdo msgsubmodules --for SUBMODULES ;"
 	msgsubchanges = loggrange-command --with-log-args subchanges
 	; Note: There is bin/hub-msgsubchanges
 	msgst = loggrange-command --with-log-args showst
@@ -2634,7 +2636,7 @@
 	abrshowa = rev-range-this-branch --any --one-more-command log --one-more-with-padding showa
 	abrfiles = rev-range-this-branch --any showfiles
 	abrsubmodules = rev-range-this-branch --any showsubmodules
-	abrsubdo = rev-range-this-branch --any subdo
+	abrsubdo = "files-command --keep-position subdo abrsubmodules --for SUBMODULES ;"
 	abrsubchanges = rev-range-this-branch --any subchanges
 	; Note: There is bin/hub-abrsubchanges
 	abrst = rev-range-this-branch --any showst
@@ -2866,7 +2868,7 @@
 	brshowa = rev-range-this-branch --one-more-command log --one-more-with-padding showa
 	brfiles = rev-range-this-branch showfiles
 	brsubmodules = rev-range-this-branch showsubmodules
-	brsubdo = rev-range-this-branch subdo
+	brsubdo = "files-command --keep-position subdo brsubmodules --for SUBMODULES ;"
 	brsubchanges = rev-range-this-branch subchanges
 	; Note: There is bin/hub-brsubchanges
 	brst = rev-range-this-branch showst
@@ -3098,7 +3100,7 @@
 	b2rshowa = rev-range-this-branch --branch-number 2 --one-more-command log --one-more-with-padding showa
 	b2rfiles = rev-range-this-branch --branch-number 2 showfiles
 	b2rsubmodules = rev-range-this-branch --branch-number 2 showsubmodules
-	b2rsubdo = rev-range-this-branch --branch-number 2 subdo
+	b2rsubdo = "files-command --keep-position subdo b2rsubmodules --for SUBMODULES ;"
 	b2rsubchanges = rev-range-this-branch --branch-number 2 subchanges
 	; Note: There is bin/hub-b2rsubchanges
 	b2rst = rev-range-this-branch --branch-number 2 showst
@@ -3330,7 +3332,7 @@
 	b3rshowa = rev-range-this-branch --branch-number 3 --one-more-command log --one-more-with-padding showa
 	b3rfiles = rev-range-this-branch --branch-number 3 showfiles
 	b3rsubmodules = rev-range-this-branch --branch-number 3 showsubmodules
-	b3rsubdo = rev-range-this-branch --branch-number 3 subdo
+	b3rsubdo = "files-command --keep-position subdo b3rsubmodules --for SUBMODULES ;"
 	b3rsubchanges = rev-range-this-branch --branch-number 3 subchanges
 	; Note: There is bin/hub-b3rsubchanges
 	b3rst = rev-range-this-branch --branch-number 3 showst
@@ -3562,7 +3564,7 @@
 	bmshowa = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --end-revision BRANCH --one-more-command log --one-more-with-padding showa
 	bmfiles = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --end-revision BRANCH showfiles
 	bmsubmodules = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --end-revision BRANCH showsubmodules
-	bmsubdo = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --end-revision BRANCH subdo
+	bmsubdo = "files-command --keep-position subdo bmsubmodules --for SUBMODULES ;"
 	bmsubchanges = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --end-revision BRANCH subchanges
 	; Note: There is bin/hub-bmsubchanges
 	bmst = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --end-revision BRANCH showst
@@ -3794,7 +3796,7 @@
 	mbshowa = branch-command --keep-position master-command --keep-position rev-range --revision BRANCH --end-revision MASTER --one-more-command log --one-more-with-padding showa
 	mbfiles = branch-command --keep-position master-command --keep-position rev-range --revision BRANCH --end-revision MASTER showfiles
 	mbsubmodules = branch-command --keep-position master-command --keep-position rev-range --revision BRANCH --end-revision MASTER showsubmodules
-	mbsubdo = branch-command --keep-position master-command --keep-position rev-range --revision BRANCH --end-revision MASTER subdo
+	mbsubdo = "files-command --keep-position subdo mbsubmodules --for SUBMODULES ;"
 	mbsubchanges = branch-command --keep-position master-command --keep-position rev-range --revision BRANCH --end-revision MASTER subchanges
 	; Note: There is bin/hub-mbsubchanges
 	mbst = branch-command --keep-position master-command --keep-position rev-range --revision BRANCH --end-revision MASTER showst
@@ -4026,7 +4028,7 @@
 	bnshowa = branch-command --keep-position base-command --keep-position rev-range --revision BASE --end-revision BRANCH --one-more-command log --one-more-with-padding showa
 	bnfiles = branch-command --keep-position base-command --keep-position rev-range --revision BASE --end-revision BRANCH showfiles
 	bnsubmodules = branch-command --keep-position base-command --keep-position rev-range --revision BASE --end-revision BRANCH showsubmodules
-	bnsubdo = branch-command --keep-position base-command --keep-position rev-range --revision BASE --end-revision BRANCH subdo
+	bnsubdo = "files-command --keep-position subdo bnsubmodules --for SUBMODULES ;"
 	bnsubchanges = branch-command --keep-position base-command --keep-position rev-range --revision BASE --end-revision BRANCH subchanges
 	; Note: There is bin/hub-bnsubchanges
 	bnst = branch-command --keep-position base-command --keep-position rev-range --revision BASE --end-revision BRANCH showst
@@ -4258,7 +4260,7 @@
 	nbshowa = branch-command --keep-position base-command --keep-position rev-range --revision BRANCH --end-revision BASE --one-more-command log --one-more-with-padding showa
 	nbfiles = branch-command --keep-position base-command --keep-position rev-range --revision BRANCH --end-revision BASE showfiles
 	nbsubmodules = branch-command --keep-position base-command --keep-position rev-range --revision BRANCH --end-revision BASE showsubmodules
-	nbsubdo = branch-command --keep-position base-command --keep-position rev-range --revision BRANCH --end-revision BASE subdo
+	nbsubdo = "files-command --keep-position subdo nbsubmodules --for SUBMODULES ;"
 	nbsubchanges = branch-command --keep-position base-command --keep-position rev-range --revision BRANCH --end-revision BASE subchanges
 	; Note: There is bin/hub-nbsubchanges
 	nbst = branch-command --keep-position base-command --keep-position rev-range --revision BRANCH --end-revision BASE showst
@@ -4490,7 +4492,7 @@
 	stableshowa = branch-command --keep-position rev-range --revision stable --end-revision BRANCH --one-more-command log --one-more-with-padding showa
 	stablefiles = branch-command --keep-position rev-range --revision stable --end-revision BRANCH showfiles
 	stablesubmodules = branch-command --keep-position rev-range --revision stable --end-revision BRANCH showsubmodules
-	stablesubdo = branch-command --keep-position rev-range --revision stable --end-revision BRANCH subdo
+	stablesubdo = "files-command --keep-position subdo stablesubmodules --for SUBMODULES ;"
 	stablesubchanges = branch-command --keep-position rev-range --revision stable --end-revision BRANCH subchanges
 	; Note: There is bin/hub-stablesubchanges
 	stablest = branch-command --keep-position rev-range --revision stable --end-revision BRANCH showst
@@ -4722,7 +4724,7 @@
 	ttshowa = untiltag-command --reachable-from-passed-branch --keep-position branch-command --keep-position rev-range --revision TAG --end-revision BRANCH --one-more-command log --one-more-with-padding showa
 	ttfiles = untiltag-command --reachable-from-passed-branch --keep-position branch-command --keep-position rev-range --revision TAG --end-revision BRANCH showfiles
 	ttsubmodules = untiltag-command --reachable-from-passed-branch --keep-position branch-command --keep-position rev-range --revision TAG --end-revision BRANCH showsubmodules
-	ttsubdo = untiltag-command --reachable-from-passed-branch --keep-position branch-command --keep-position rev-range --revision TAG --end-revision BRANCH subdo
+	ttsubdo = "files-command --keep-position subdo ttsubmodules --for SUBMODULES ;"
 	ttsubchanges = untiltag-command --reachable-from-passed-branch --keep-position branch-command --keep-position rev-range --revision TAG --end-revision BRANCH subchanges
 	; Note: There is bin/hub-ttsubchanges
 	ttst = untiltag-command --reachable-from-passed-branch --keep-position branch-command --keep-position rev-range --revision TAG --end-revision BRANCH showst
@@ -4954,7 +4956,7 @@
 	blshowa = branch-command --keep-position rev-range --revision @{-1} --end-revision BRANCH --one-more-command log --one-more-with-padding showa
 	blfiles = branch-command --keep-position rev-range --revision @{-1} --end-revision BRANCH showfiles
 	blsubmodules = branch-command --keep-position rev-range --revision @{-1} --end-revision BRANCH showsubmodules
-	blsubdo = branch-command --keep-position rev-range --revision @{-1} --end-revision BRANCH subdo
+	blsubdo = "files-command --keep-position subdo blsubmodules --for SUBMODULES ;"
 	blsubchanges = branch-command --keep-position rev-range --revision @{-1} --end-revision BRANCH subchanges
 	; Note: There is bin/hub-blsubchanges
 	blst = branch-command --keep-position rev-range --revision @{-1} --end-revision BRANCH showst
@@ -5186,7 +5188,7 @@
 	b2lshowa = branch-command --keep-position rev-range --revision @{-2} --end-revision BRANCH --one-more-command log --one-more-with-padding showa
 	b2lfiles = branch-command --keep-position rev-range --revision @{-2} --end-revision BRANCH showfiles
 	b2lsubmodules = branch-command --keep-position rev-range --revision @{-2} --end-revision BRANCH showsubmodules
-	b2lsubdo = branch-command --keep-position rev-range --revision @{-2} --end-revision BRANCH subdo
+	b2lsubdo = "files-command --keep-position subdo b2lsubmodules --for SUBMODULES ;"
 	b2lsubchanges = branch-command --keep-position rev-range --revision @{-2} --end-revision BRANCH subchanges
 	; Note: There is bin/hub-b2lsubchanges
 	b2lst = branch-command --keep-position rev-range --revision @{-2} --end-revision BRANCH showst
@@ -5418,7 +5420,7 @@
 	bpshowa = branch-command --keep-position rev-range --revision @{1} --end-revision BRANCH --one-more-command log --one-more-with-padding showa
 	bpfiles = branch-command --keep-position rev-range --revision @{1} --end-revision BRANCH showfiles
 	bpsubmodules = branch-command --keep-position rev-range --revision @{1} --end-revision BRANCH showsubmodules
-	bpsubdo = branch-command --keep-position rev-range --revision @{1} --end-revision BRANCH subdo
+	bpsubdo = "files-command --keep-position subdo bpsubmodules --for SUBMODULES ;"
 	bpsubchanges = branch-command --keep-position rev-range --revision @{1} --end-revision BRANCH subchanges
 	; Note: There is bin/hub-bpsubchanges
 	bpst = branch-command --keep-position rev-range --revision @{1} --end-revision BRANCH showst
@@ -5650,7 +5652,7 @@
 	b2pshowa = branch-command --keep-position rev-range --revision @{2} --end-revision BRANCH --one-more-command log --one-more-with-padding showa
 	b2pfiles = branch-command --keep-position rev-range --revision @{2} --end-revision BRANCH showfiles
 	b2psubmodules = branch-command --keep-position rev-range --revision @{2} --end-revision BRANCH showsubmodules
-	b2psubdo = branch-command --keep-position rev-range --revision @{2} --end-revision BRANCH subdo
+	b2psubdo = "files-command --keep-position subdo b2psubmodules --for SUBMODULES ;"
 	b2psubchanges = branch-command --keep-position rev-range --revision @{2} --end-revision BRANCH subchanges
 	; Note: There is bin/hub-b2psubchanges
 	b2pst = branch-command --keep-position rev-range --revision @{2} --end-revision BRANCH showst
@@ -5882,7 +5884,7 @@
 	outshowa = rev-range-outgoing '' --one-more-command log --one-more-with-padding showa
 	outfiles = rev-range-outgoing '' showfiles
 	outsubmodules = rev-range-outgoing '' showsubmodules
-	outsubdo = rev-range-outgoing '' subdo
+	outsubdo = "files-command --keep-position subdo outsubmodules --for SUBMODULES ;"
 	outsubchanges = rev-range-outgoing '' subchanges
 	; Note: There is bin/hub-outsubchanges
 	outst = rev-range-outgoing '' showst
@@ -6113,7 +6115,7 @@
 	inshowa = rev-range-incoming '' --one-more-command log --one-more-with-padding showa
 	infiles = rev-range-incoming '' showfiles
 	insubmodules = rev-range-incoming '' showsubmodules
-	insubdo = rev-range-incoming '' subdo
+	insubdo = "files-command --keep-position subdo insubmodules --for SUBMODULES ;"
 	insubchanges = rev-range-incoming '' subchanges
 	; Note: There is bin/hub-insubchanges
 	inst = rev-range-incoming '' showst
@@ -6314,7 +6316,7 @@
 	ooutshowa = rev-range-outgoing origin --one-more-command log --one-more-with-padding showa
 	ooutfiles = rev-range-outgoing origin showfiles
 	ooutsubmodules = rev-range-outgoing origin showsubmodules
-	ooutsubdo = rev-range-outgoing origin subdo
+	ooutsubdo = "files-command --keep-position subdo ooutsubmodules --for SUBMODULES ;"
 	ooutsubchanges = rev-range-outgoing origin subchanges
 	; Note: There is bin/hub-ooutsubchanges
 	ooutst = rev-range-outgoing origin showst
@@ -6545,7 +6547,7 @@
 	oinshowa = rev-range-incoming origin --one-more-command log --one-more-with-padding showa
 	oinfiles = rev-range-incoming origin showfiles
 	oinsubmodules = rev-range-incoming origin showsubmodules
-	oinsubdo = rev-range-incoming origin subdo
+	oinsubdo = "files-command --keep-position subdo oinsubmodules --for SUBMODULES ;"
 	oinsubchanges = rev-range-incoming origin subchanges
 	; Note: There is bin/hub-oinsubchanges
 	oinst = rev-range-incoming origin showst
@@ -6746,7 +6748,7 @@
 	uoutshowa = rev-range-outgoing upstream --one-more-command log --one-more-with-padding showa
 	uoutfiles = rev-range-outgoing upstream showfiles
 	uoutsubmodules = rev-range-outgoing upstream showsubmodules
-	uoutsubdo = rev-range-outgoing upstream subdo
+	uoutsubdo = "files-command --keep-position subdo uoutsubmodules --for SUBMODULES ;"
 	uoutsubchanges = rev-range-outgoing upstream subchanges
 	; Note: There is bin/hub-uoutsubchanges
 	uoutst = rev-range-outgoing upstream showst
@@ -6977,7 +6979,7 @@
 	uinshowa = rev-range-incoming upstream --one-more-command log --one-more-with-padding showa
 	uinfiles = rev-range-incoming upstream showfiles
 	uinsubmodules = rev-range-incoming upstream showsubmodules
-	uinsubdo = rev-range-incoming upstream subdo
+	uinsubdo = "files-command --keep-position subdo uinsubmodules --for SUBMODULES ;"
 	uinsubchanges = rev-range-incoming upstream subchanges
 	; Note: There is bin/hub-uinsubchanges
 	uinst = rev-range-incoming upstream showst
@@ -7178,7 +7180,7 @@
 	lbrshowa = localbrrefdo-wrapper rev-range-this-branch --branch {} showa
 	lbrfiles = localbrrefdo-wrapper rev-range-this-branch --branch {} showfiles
 	lbrsubmodules = localbrrefdo-wrapper rev-range-this-branch --branch {} showsubmodules
-	lbrsubdo = localbrrefdo-wrapper rev-range-this-branch --branch {} subdo
+	lbrsubdo = "files-command --keep-position subdo lbrsubmodules --for SUBMODULES ;"
 	lbrsubchanges = localbrrefdo-wrapper rev-range-this-branch --branch {} subchanges
 	; Note: There is bin/hub-lbrsubchanges
 	lbrst = localbrrefdo-wrapper rev-range-this-branch --branch {} showst
@@ -7383,7 +7385,7 @@
 	lbmshowa = localbrrefdo-wrapper master-command --keep-position rev-range --revision MASTER --end-revision {} showa
 	lbmfiles = localbrrefdo-wrapper master-command --keep-position rev-range --revision MASTER --end-revision {} showfiles
 	lbmsubmodules = localbrrefdo-wrapper master-command --keep-position rev-range --revision MASTER --end-revision {} showsubmodules
-	lbmsubdo = localbrrefdo-wrapper master-command --keep-position rev-range --revision MASTER --end-revision {} subdo
+	lbmsubdo = "files-command --keep-position subdo lbmsubmodules --for SUBMODULES ;"
 	lbmsubchanges = localbrrefdo-wrapper master-command --keep-position rev-range --revision MASTER --end-revision {} subchanges
 	; Note: There is bin/hub-lbmsubchanges
 	lbmst = localbrrefdo-wrapper master-command --keep-position rev-range --revision MASTER --end-revision {} showst
@@ -7588,7 +7590,7 @@
 	obrshowa = rbrrefdo-wrapper origin rev-range-this-branch --branch {} --any showa
 	obrfiles = rbrrefdo-wrapper origin rev-range-this-branch --branch {} --any showfiles
 	obrsubmodules = rbrrefdo-wrapper origin rev-range-this-branch --branch {} --any showsubmodules
-	obrsubdo = rbrrefdo-wrapper origin rev-range-this-branch --branch {} --any subdo
+	obrsubdo = "files-command --keep-position subdo obrsubmodules --for SUBMODULES ;"
 	obrsubchanges = rbrrefdo-wrapper origin rev-range-this-branch --branch {} --any subchanges
 	; Note: There is bin/hub-obrsubchanges
 	obrst = rbrrefdo-wrapper origin rev-range-this-branch --branch {} --any showst
@@ -7793,7 +7795,7 @@
 	obmshowa = rbrrefdo-wrapper origin master-command --keep-position rev-range --revision MASTER --end-revision {} showa
 	obmfiles = rbrrefdo-wrapper origin master-command --keep-position rev-range --revision MASTER --end-revision {} showfiles
 	obmsubmodules = rbrrefdo-wrapper origin master-command --keep-position rev-range --revision MASTER --end-revision {} showsubmodules
-	obmsubdo = rbrrefdo-wrapper origin master-command --keep-position rev-range --revision MASTER --end-revision {} subdo
+	obmsubdo = "files-command --keep-position subdo obmsubmodules --for SUBMODULES ;"
 	obmsubchanges = rbrrefdo-wrapper origin master-command --keep-position rev-range --revision MASTER --end-revision {} subchanges
 	; Note: There is bin/hub-obmsubchanges
 	obmst = rbrrefdo-wrapper origin master-command --keep-position rev-range --revision MASTER --end-revision {} showst
@@ -7998,7 +8000,7 @@
 	ubrshowa = rbrrefdo-wrapper upstream rev-range-this-branch --branch {} --any showa
 	ubrfiles = rbrrefdo-wrapper upstream rev-range-this-branch --branch {} --any showfiles
 	ubrsubmodules = rbrrefdo-wrapper upstream rev-range-this-branch --branch {} --any showsubmodules
-	ubrsubdo = rbrrefdo-wrapper upstream rev-range-this-branch --branch {} --any subdo
+	ubrsubdo = "files-command --keep-position subdo ubrsubmodules --for SUBMODULES ;"
 	ubrsubchanges = rbrrefdo-wrapper upstream rev-range-this-branch --branch {} --any subchanges
 	; Note: There is bin/hub-ubrsubchanges
 	ubrst = rbrrefdo-wrapper upstream rev-range-this-branch --branch {} --any showst
@@ -8203,7 +8205,7 @@
 	ubmshowa = rbrrefdo-wrapper upstream master-command --keep-position rev-range --revision MASTER --end-revision {} showa
 	ubmfiles = rbrrefdo-wrapper upstream master-command --keep-position rev-range --revision MASTER --end-revision {} showfiles
 	ubmsubmodules = rbrrefdo-wrapper upstream master-command --keep-position rev-range --revision MASTER --end-revision {} showsubmodules
-	ubmsubdo = rbrrefdo-wrapper upstream master-command --keep-position rev-range --revision MASTER --end-revision {} subdo
+	ubmsubdo = "files-command --keep-position subdo ubmsubmodules --for SUBMODULES ;"
 	ubmsubchanges = rbrrefdo-wrapper upstream master-command --keep-position rev-range --revision MASTER --end-revision {} subchanges
 	; Note: There is bin/hub-ubmsubchanges
 	ubmst = rbrrefdo-wrapper upstream master-command --keep-position rev-range --revision MASTER --end-revision {} showst

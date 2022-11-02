@@ -4,10 +4,13 @@ printUsage()
 {
     cat <<HELPTEXT
 Obtain a list of files from SOURCE-COMMAND (e.g. showfiles), and pass those
-along to GIT-COMMAND [...].
+along to GIT-COMMAND, with SUBMODULES argument(s) replaced in ARG(s) or those
+following GIT-COMMAND / appending the submodules.
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND SOURCE-COMMAND [GIT-COMMAND-ARGS ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--keep-position GIT-COMMAND SOURCE-COMMAND [GIT-COMMAND-ARGS ... SUBMODULES ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-1 ARG1|-2 ARG1 ARG2| -3 ARG1 ARG2 ARG3| ...] GIT-COMMAND SOURCE-COMMAND [...] [-?|-h|--help]'
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
@@ -18,10 +21,57 @@ if [ $# -lt 2 ]; then
     exit 2
 fi
 
+case "$1" in
+    -[1-9])
+	typeset headArgNum=${1#-}
+	typeset -a headArgs=("${@:2:${headArgNum}}")
+	set -- "${@:$((2 + headArgNum))}"
+
+	executor()
+	{
+	    typeset -a appendedArgs=()
+	    for arg in "${headArgs[@]}"
+	    do
+		if [ "$arg" = 'SUBMODULES' ]; then
+		    appendedArgs+=("${files[@]}")
+		else
+		    appendedArgs+=("$arg")
+		fi
+	    done
+
+	    exec git-wrapper "$gitCommand" "$@" "${appendedArgs[@]}"
+	}
+	;;
+    --keep-position)
+	shift
+
+	executor()
+	{
+	    typeset -a appendedArgs=()
+	    for arg
+	    do
+		if [ "$arg" = 'SUBMODULES' ]; then
+		    appendedArgs+=("${files[@]}")
+		else
+		    appendedArgs+=("$arg")
+		fi
+	    done
+
+	    exec git-wrapper "$gitCommand" "${appendedArgs[@]}"
+	}
+	;;
+    *)
+	executor()
+	{
+	    exec git-wrapper "$gitCommand" "$@" -- "${files[@]}"
+	}
+	;;
+esac
+
 gitCommand="$1"; shift
 sourceCommand="$1"; shift
 
 readarray -t files < <(git-wrapper "$sourceCommand")
 [ ${#files[@]} -eq 0 ] && exit 1
 
-exec git-wrapper "$gitCommand" "$@" -- "${files[@]}"
+executor "$@"

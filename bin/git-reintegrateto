@@ -4,7 +4,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '<branch> [--push] [--no-delete] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] [--no-submodule-update] [-y|--yes] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '<branch> [--push] [--no-delete] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] [--no-submodule-checkout] [--no-submodule-update] [-y|--yes] [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--push] [--no-delete] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] [-y|--yes] -b|--branch <branch>'
 }
 printUsage()
@@ -34,6 +34,9 @@ HELPDESCRIPTION
 			repository and tracked remote.
     --rebase-single	Rebase only if it's a single non-merge commit, else
 			merge.
+    --no-submodule-checkout
+			Don't automatically check out resulting submodule
+			versions when switching to the passed <branch>.
     --no-submodule-update
 			Don't automatically check out resulting submodule
 			versions after merging the current branch to <branch>.
@@ -58,6 +61,7 @@ case "$1" in
 	fi
 	;;
 esac
+typeset -a checkoutArgs=()
 typeset -a reintegrateArgs=()
 isContinue=
 while [ $# -ne 0 ]
@@ -71,6 +75,8 @@ do
 			targetBranch="${1:?}"
 			shift
 			;;
+	--no-submodule-checkout)
+			shift; checkoutArgs+=(--no-recurse-submodules);;
 	--continue)	reintegrateArgs+=("$1"); shift; isContinue=t;;
 	--)		reintegrateArgs+=("$1"); shift; break;;
 	*)		reintegrateArgs+=("$1"); shift;;
@@ -115,6 +121,6 @@ else
     # Ensure that the branch is good for merging.
     git-mergecheck --merge-to "$targetBranch" || exit $?
 
-    git-wrapper checkout "$targetBranch" || exit $?
+    git-wrapper checkout "${checkoutArgs[@]}" "$targetBranch" || exit $?
 fi
 exec git-reintegrate --branch "$sourceBranch" "${reintegrateArgs[@]}" "$@"

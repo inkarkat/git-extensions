@@ -1,18 +1,51 @@
 #!/bin/bash
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '<branch> [--push] [--no-delete] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] [--no-submodule-checkout] [--no-submodule-update] [-y|--yes] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--push] [--no-delete] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] [-y|--yes] -b|--branch <branch>'
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 Merge / rebase the current branch to the passed <branch>, then delete it from
 the local repository as well as a tracked remote (if it exists there).
-HELPTEXT
+HELPDESCRIPTION
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '<branch> [--push] [--no-delete] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] [--no-submodule-update] [-y|--yes] [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--push] [--no-delete] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] [-y|--yes] -b|--branch <branch>'
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --push		Push the current branch (to a writable upstream, tracked
+			remote, origin) before deleting the reintegrated
+			branch(es). GitHub needs this to detect that the branch
+			has been merged.
+    --no-delete		Don't delete the reintegrated branch(es) from local
+			repository and tracked remote.
+    --rebase-single	Rebase only if it's a single non-merge commit, else
+			merge.
+    --no-submodule-checkout
+			Don't automatically check out resulting submodule
+			versions when switching to the passed <branch>.
+    --no-submodule-update
+			Don't automatically check out resulting submodule
+			versions after merging the current branch to <branch>.
+    --yes		Don't query for confirmation of remote mutations.
+HELPTEXT
 }
 
 case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
     --no-color|--color=*)
 			shift;;
     --color)		shift; shift;;
@@ -28,6 +61,7 @@ case "$1" in
 	fi
 	;;
 esac
+typeset -a checkoutArgs=()
 typeset -a reintegrateArgs=()
 isContinue=
 while [ $# -ne 0 ]
@@ -41,6 +75,8 @@ do
 			targetBranch="${1:?}"
 			shift
 			;;
+	--no-submodule-checkout)
+			shift; checkoutArgs+=(--no-recurse-submodules);;
 	--continue)	reintegrateArgs+=("$1"); shift; isContinue=t;;
 	--)		reintegrateArgs+=("$1"); shift; break;;
 	*)		reintegrateArgs+=("$1"); shift;;
@@ -85,6 +121,6 @@ else
     # Ensure that the branch is good for merging.
     git-mergecheck --merge-to "$targetBranch" || exit $?
 
-    git-wrapper checkout "$targetBranch" || exit $?
+    git-wrapper checkout "${checkoutArgs[@]}" "$targetBranch" || exit $?
 fi
 exec git-reintegrate --branch "$sourceBranch" "${reintegrateArgs[@]}" "$@"

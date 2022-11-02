@@ -71,10 +71,10 @@ reintegration.
 `$ git subsamebrdo --interactive ffintegratetom --push-branch --no-merge --no-checks`
 a) amends to short-lived feature:
    `$ git amenu`
-   `$ git ffintegratetom --push-branch --no-submodule-update --rebase-single`
+   `$ git ffintegratetom --push-branch --no-delete --no-submodule-checkout --no-submodule-update --rebase-single`
 b) maintain history of how the feature grew:
-   `$ git cu`
-   `$ git ffintegratetom --push-branch --no-submodule-update --no-ff`
+   `$ git cu`   (no-op if all submodule branch(es) have been fast-forwarded)
+   `$ git ffintegratetom --push-branch --no-delete --no-submodule-checkout --no-submodule-update --no-ff`
 If the GitHub action does not trigger (if this is just a merge commit affecting
 submodule references but no actual files in the superproject), trigger it
 manually in GitHub.
@@ -83,9 +83,11 @@ The superproject now will be on master already, it must **not be pushed to origi
 ### Commit transaction:
 Note: There's no real transactional handling across repos; reintegration may
 fail at any point. This just limits the critical time period.
-`$ git showsubmodules --diff-merges=on | hub subdo --for - --interactive reintegratetom --ff-only --no-checks`
+`$ git showsubmodules | hub subdo --for - --interactive reintegratetom --ff-only --no-checks`
 Now wait until the GitHub action has built the superproject's pushed feature
-branch successfully, then conclude by pushing master with `$ git opush`
+branch successfully, then conclude by pushing master and cleaning up with
+`$ git opush`
+`$ git oldeletelb`
 
 ## peer review of integration (optional)
 `$ gh pr ready`

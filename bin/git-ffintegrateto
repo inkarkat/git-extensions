@@ -59,7 +59,8 @@ HELPDESCRIPTION
 			commit, else merge.
     --no-submodule-update
 			Don't automatically check out resulting submodule
-			versions.
+			versions (after the fast-forward; the merge / rebase
+			will update submodules).
     --no-checks		Don't run any default \$GIT_REINTEGRATE_CHECK_COMMAND.
     --yes		Don't query for confirmation of remote mutations.
     --bare		    Do not print a status line before and after
@@ -123,6 +124,7 @@ runWithCommand=runWithPrompt
 typeset -a runWithPromptArgs=()
 typeset -a continueArgs=()
 typeset -a gitRemoteMutateArgs=()
+typeset -a reintegrateArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -181,7 +183,7 @@ do
 	-[sX])		mergeArgs+=("$1" "$2"); shift; shift;;
 	--@(strategy|strategy-option|gpg-sign)=*)	mergeArgs+=("$1"); shift;;
 	--@(strategy|strategy-option|gpg-sign))		mergeArgs+=("$1" "$2"); shift; shift;;
-	--no-submodule-update)				mergeArgs+=("$1"); shift;;
+	--no-submodule-update)				reintegrateArgs+=("$1"); shift;;
 
 	--)		mergeArgs+=("$1"); shift; break;;
 	--*)		mergeArgs+=("$1"); shift;;
@@ -454,7 +456,7 @@ fi || {
 status=0
 [ ! "$isPushBranch" ] || pushBranch || status=$?
 
-typeset -a reintegrateToCommand=(reintegrateto --ff-only --no-checks --branch "$targetBranch"${isPush:+ --push}${isKeepBranches:+ --no-delete} "${gitRemoteMutateArgs[@]}")
+typeset -a reintegrateToCommand=(reintegrateto --ff-only --no-checks --branch "$targetBranch"${isPush:+ --push}${isKeepBranches:+ --no-delete} "${reintegrateArgs[@]}" "${gitRemoteMutateArgs[@]}")
 if [ "$isMerge" ]; then
     git "${reintegrateToCommand[@]}" || status=$?
 else

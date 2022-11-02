@@ -50,7 +50,7 @@ non-trivial / covers multiple responsibilities.
 superproject: `$ git ofetch`
 Check for other open reintegrations (i.e. submodule commits on master not yet
 referenced in the superproject):
-superproject: `$ git bmshowsubmodules | git osuperhaspendingsubintegrations -`
+superproject: `$ git bmsubmodules | git osuperhaspendingsubintegrations -`
 superproject: `$ hub subsamebrdo --interactive reintegratetom`
 (if you want to do this submodule by submodule: `$ hub reintegratetom`)
 Note: When doing a bulk change, default check commands (that would run for each

@@ -12,6 +12,14 @@ gitCompleteAs()
     done
 }
 
+gitCompleteAs branch \
+    odeletebr oldeletebr \
+    orenamebr olrenamebr \
+    oremotebr \
+    udeletebr uldeletebr \
+    urenamebr ulrenamebr \
+    uremotebr
+
 gitCompleteAs checkout co \
     inout iofiles iosubmodules io ab \
     oinout oiofiles oiosubmodules oio oab \

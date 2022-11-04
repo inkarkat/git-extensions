@@ -369,10 +369,9 @@ else
 	isCheckFromStdin=
     else
 	if [ ! "$hasMergeResolutionArg" ]; then
-	    if git-ffdryrun "$targetIntegrationSourceBranch"; then
-		commitNum=$(git log --pretty=tformat:%H "HEAD..${targetIntegrationSourceBranch}" | wc -l)
+	    if commitNum=$(git-inout --is-ahead HEAD "$targetIntegrationSourceBranch"); then
 		commitNumPlural=s; [ $commitNum -eq 1 ] && commitNumPlural=
-		userBinaryChoice --console --question "The $commitNum commit$commitNumPlural on $targetIntegrationSourceBranch can be fast-forwarded instead of merged. Fast-forward?" --yes-no && fastForwardArgs=(--ff-only)
+		userBinaryChoice --console --question "The $commitNum commit$commitNumPlural on the current branch can be fast-forwarded instead of merged. Fast-forward?" --yes-no && fastForwardArgs=(--ff-only)
 	    elif canRebase; then
 		choice="$(userchoiceFromList --question "The current branch only consists of a single commit. Rebase it instead of creating a separate merge commit?" --no-cancel --ignore-case -- '[Y]es' '[N]o' '[Q]uit')" || exit $?
 		case "$choice" in

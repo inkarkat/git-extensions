@@ -46,15 +46,19 @@ if {
 }
 then
     if [ "$isSetUpstream" ]; then
+	if [ -z "$remote" ]; then
+	    echo >&2 'ERROR: You need to pass a REMOTE in order to publish (i.e. set the upstream)'.
+	    exit 2
+	fi
 	if trackedBranch="$(git-tracks --push 2>/dev/null)" && \
 	    [ "$trackedBranch" != "${remote}/${branch}" ]
 	then
-	    [ ${#forceArgs[@]} -ge 2 ] || userBinaryChoice --question "You're publishing to $branch on $remote, but previously this was published to ${trackedBranch}." --ok-cancel || exit 4
+	    [ ${#forceArgs[@]} -ge 2 ] || userBinaryChoice --question "You're publishing to $branch on ${remote:?}, but previously this was published to ${trackedBranch}." --ok-cancel || exit 4
 	fi
 
 	if git-existsbr "${remote}/${branch}"; then
 	    if [ -z "$trackedBranch" ]; then
-		[ ${#forceArgs[@]} -ge 2 ] || userBinaryChoice --question "You're publishing to $branch on $remote, but a ${remote}/${branch} branch already exists; it isn't yet tracked though." --ok-cancel || exit 4
+		[ ${#forceArgs[@]} -ge 2 ] || userBinaryChoice --question "You're publishing to $branch on ${remote:?}, but a ${remote}/${branch} branch already exists; it isn't yet tracked though." --ok-cancel || exit 4
 	    elif [ "$trackedBranch" = "${remote}/${branch}" ]; then
 		echo >&2 "Note: The ${remote}/${branch} branch already exists and is already being tracked."
 	    fi

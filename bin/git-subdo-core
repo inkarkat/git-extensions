@@ -6,7 +6,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: [GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES=99] %q %s%s %s\n' "$(basename "$1")" '[-R|--no-recurse] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success|--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [<revision-range>] [--since <date>] [--after <date>] [--for -|--for SUBMODULE [...] ;] [[--not] -P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]'
+    printf 'Usage: [GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES=99] %q %s%s %s\n' "$(basename "$1")" '[-R|--no-recurse] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success|--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [<revision-range>] [--since <date>] [--after <date>] [--for -|--for SUBMODULE [...] ;] [--include-superproject] [[--not] -P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -66,6 +66,8 @@ the command output.
 			following arguments until an argument consisting of ';'
 			is encountered.
     --for -		Only consider the SUBMODULE(s) read from stdin.
+    --include-superproject
+			First execute COMMAND on the superproject itself.
     --predicate-command|-P CMD
 			Skip submodules where CMD (executed in the submodule
 			root) fails. The string {} is replaced with the relative
@@ -117,6 +119,7 @@ isNeedEval=
 typeset -a commands=()
 isHeader=; type -t withHeader >/dev/null && isHeader=t
 progressSink=
+isIncludeSuperproject=
 isInteractive=
 errorRedir='2>&1'
 isGitColor=t
@@ -169,6 +172,7 @@ do
 				fi
 				;;
 
+	--include-superproject)	shift; isIncludeSuperproject=t;;
 	--collect)		shift
 				[ ${#submodules[@]} -eq 0 ] || [ "${submodules["${displaypath:?}"]}" ] || exit 0
 
@@ -262,6 +266,10 @@ readarray -t submoduleEnvironments < <(git submodule foreach --quiet "${submodul
 if [ ${#submoduleEnvironments[@]} -eq 0 ]; then
     [ -n "$GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES" ] || echo >&2 "No ${predicateCommands[@]:+such }submodules found."
     exit ${GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES:-99}
+fi
+if [ "$isIncludeSuperproject" ]; then
+    printf -v superprojectEnvironment '%s=%q; ' dirspec "${PWD:?}" name 'superproject' sm_path '.' displaypath "../$(git-wcname)" sha1 "$(git rev-parse HEAD)" toplevel "${PWD:?}" predicateOutput ''
+    submoduleEnvironments=("$superprojectEnvironment" "${submoduleEnvironments[@]}")
 fi
 
 if [ "$hasProgressNotification" ] && [ -n "$progressSink" ]; then

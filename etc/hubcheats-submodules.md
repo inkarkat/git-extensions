@@ -103,9 +103,9 @@ fast-forward).
 0) submodule branch(es) have been fast-forwarded
    `$ hub ffintegratetom`
 a) amends to short-lived feature:
-   `$ hub ffintegratetom --rebase-single`
+   `$ hub ffintegratetom --push-branch --rebase-single`
 b) maintain history of how the feature grew:
-   `$ hub ffintegratetom`
+   `$ hub ffintegratetom --push-branch --no-ff`
 
 # Rules
 - When checking out branches, do so everywhere (especially both in the

@@ -10,6 +10,19 @@ fixPath()
     PATH="${scriptDir}:$PATH"
 }
 
+typeset -a gitConfigArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	-c) gitConfigArgs+=("$1" "$2"); shift; shift;;
+	*)  break;;
+    esac
+done
+# If there's no alias we can simply pass gitConfigArgs directly after the "git"
+# command. Aliases however need to do this on their own (if their Git command(s)
+# need to react to config overrides). We can just pass the arguments along here.
+GIT_CONFIG_ARGS=; [ ${#gitConfigArgs[@]} -gt 0 ] && printf -v GIT_CONFIG_ARGS '%q ' "${gitConfigArgs[@]}"; export GIT_CONFIG_ARGS
+
 hubSubAlias="hub-$1-$2"
 hubAlias="hub-$1"
 if type -t "$hubSubAlias" >/dev/null; then
@@ -21,5 +34,5 @@ elif type -t "$hubAlias" >/dev/null; then
     fixPath
     HUB=t $hubAlias "$@"
 else
-    HUB=t exec hub "$@"
+    HUB=t exec hub "${gitConfigArgs[@]}" "$@"
 fi

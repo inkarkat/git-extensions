@@ -9,11 +9,24 @@
 # git, anyway, follow their advice and alias git=hub (adapted to my wrapper).
 git()
 {
+    typeset -a gitConfigArgs=()
+    while [ $# -ne 0 ]
+    do
+	case "$1" in
+	    -c) gitConfigArgs+=("$1" "$2"); shift; shift;;
+	    *)  break;;
+	esac
+    done
+    # If there's no alias we can simply pass gitConfigArgs directly after the "git"
+    # command. Aliases however need to do this on their own (if their Git command(s)
+    # need to react to config overrides). We can just pass the arguments along here.
+    GIT_CONFIG_ARGS=; [ ${#gitConfigArgs[@]} -gt 0 ] && printf -v GIT_CONFIG_ARGS '%q ' "${gitConfigArgs[@]}"; export GIT_CONFIG_ARGS
+
     typeset gitSubAlias="git-$1-$2"
     typeset gitAlias="git-$1"
     typeset gitCommand="$(which hub 2>/dev/null || which git)"
     if [ $# -eq 0 ]; then
-	command git ${GIT_DEFAULT_COMMAND:-str}
+	command git "${gitConfigArgs[@]}" ${GIT_DEFAULT_COMMAND:-str}
     elif type ${BASH_VERSION:+-t} "$gitSubAlias" >/dev/null 2>&1; then
 	shift; shift
 	$gitSubAlias "$@"
@@ -26,10 +39,10 @@ git()
 		# Translate "X" to "-x" to enable aliases with uppercase letters.
 		typeset translatedAlias="$(echo "$1" | sed -e 's/[[:upper:]]/-\l\0/g')"
 		shift
-		"$gitCommand" "$translatedAlias" "$@"
+		"$gitCommand" "${gitConfigArgs[@]}" "$translatedAlias" "$@"
 		;;
 	    *)
-		"$gitCommand" "$@";;
+		"$gitCommand" "${gitConfigArgs[@]}" "$@";;
 	esac
     fi
 }
@@ -37,10 +50,23 @@ git()
 which hub >/dev/null 2>&1 || return
 hub()
 {
+    typeset -a gitConfigArgs=()
+    while [ $# -ne 0 ]
+    do
+	case "$1" in
+	    -c) gitConfigArgs+=("$1" "$2"); shift; shift;;
+	    *)  break;;
+	esac
+    done
+    # If there's no alias we can simply pass gitConfigArgs directly after the "git"
+    # command. Aliases however need to do this on their own (if their Git command(s)
+    # need to react to config overrides). We can just pass the arguments along here.
+    GIT_CONFIG_ARGS=; [ ${#gitConfigArgs[@]} -gt 0 ] && printf -v GIT_CONFIG_ARGS '%q ' "${gitConfigArgs[@]}"; export GIT_CONFIG_ARGS
+
     typeset hubSubAlias="hub-$1-$2"
     typeset hubAlias="hub-$1"
     if [ $# -eq 0 ]; then
-	HUB=t command hub ${HUB_DEFAULT_COMMAND:-str}
+	HUB=t command hub "${gitConfigArgs[@]}" ${HUB_DEFAULT_COMMAND:-str}
     elif type ${BASH_VERSION:+-t} "$hubSubAlias" >/dev/null 2>&1; then
 	shift; shift
 	HUB=t $hubSubAlias "$@"
@@ -48,6 +74,6 @@ hub()
 	shift
 	HUB=t $hubAlias "$@"
     else
-	HUB=t command hub "$@"
+	HUB=t command hub "${gitConfigArgs[@]}" "$@"
     fi
 }

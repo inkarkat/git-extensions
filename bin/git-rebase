@@ -1,4 +1,47 @@
 #!/bin/bash
 
+printUsage()
+{
+    cat <<HELPTEXT
+Reapply commits on top of another base tip.
+Also considers submodules and automatically checks out resulting versions
+(unless --no-submodule-update is given).
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-submodule-update] [<rebase-args> ...] [-?|-h|--help]'
+}
+
+isSubmoduleUpdate=t
+typeset -a rebaseArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+	--no-submodule-update)
+			shift; isSubmoduleUpdate=;;
+	--)		rebaseArgs+=("$1"); shift; break;;
+	*)		rebaseArgs+=("$1"); shift;;
+    esac
+done
+
 eval "typeset -a gitConfigArgs=($GIT_CONFIG_ARGS)"
-exec git "${gitConfigArgs[@]}" rebase "$@"
+exec git "${gitConfigArgs[@]}" rebase "${rebaseArgs[@]}" "$@" || exit $?
+
+[ "$isSubmoduleUpdate" ] || exit 0
+readarray -t rebasedSubmodules < <(git subst)
+[ ${#rebasedSubmodules[@]} -gt 0 ] || exit 0
+
+if [ ${#rebasedSubmodules[@]} -eq 1 ]; then
+    mergedSubmodulesArticle=This
+    mergedSubmodulesAuxiliaryVerb=has
+    mergedSubmodulesPlural=
+else
+    mergedSubmodulesArticle=These
+    mergedSubmodulesAuxiliaryVerb=have
+    mergedSubmodulesPlural=s
+fi
+printf '%s submodule%s %s been rebased; checking out the resulting version%s now: %s\n' "$mergedSubmodulesArticle" "$mergedSubmodulesPlural" "$mergedSubmodulesAuxiliaryVerb" "$mergedSubmodulesPlural" "$(joinBy --last-separator ' and ' ', ' "${rebasedSubmodules[@]}")"
+git subwipe

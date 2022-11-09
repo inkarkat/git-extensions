@@ -84,6 +84,7 @@ typeset -a fastForwardArgs=()
 typeset -a mergeArgs=()
 typeset -a mergeMessageArgs=()
 typeset -a mergeNoEditMessageArgs=()
+typeset -a rebaseArgs=()
 isBare=
 isDisableChecks=
 isCheckFromStdin=
@@ -142,7 +143,7 @@ do
 	-[sX])		mergeArgs+=("$1" "$2"); shift; shift;;
 	--@(strategy|strategy-option|gpg-sign)=*)	mergeArgs+=("$1"); shift;;
 	--@(strategy|strategy-option|gpg-sign))		mergeArgs+=("$1" "$2"); shift; shift;;
-	--no-submodule-update)				mergeArgs+=("$1"); shift;;
+	--no-submodule-update)				mergeArgs+=("$1"); rebaseArgs+=("$1"); shift;;
 
 	--)		mergeArgs+=("$1"); shift; break;;
 	--*)		mergeArgs+=("$1"); shift;;
@@ -383,7 +384,7 @@ else
 
 	    for branch in "${branches[@]}"
 	    do
-		git-wrapper rebase HEAD "$branch" && git checkout "$origRef" || {
+		git-wrapper rebase "${rebaseArgs[@]}" HEAD "$branch" && git checkout "$origRef" || {
 		    status=$?
 		    if [ "$branch" = "${branches[-1]}" ]; then
 			echo >&2 "After this branch has been successfully rebased (see above), you can merge $branchesSubject and ${isCheckFromStdin:+run checks and }${isPush:+push and }${isKeepBranches:+not }delete $branchesSubject via"

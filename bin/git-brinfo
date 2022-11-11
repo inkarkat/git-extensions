@@ -9,7 +9,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: git BRANCH-COMMAND | %q %s\n' "$(basename "$1")" '[--color=(always|auto|never)|--no-color] [--include-authors] [--set-context EXPR] [--add-context EXPR [--add-context ...]] [-?|-h|--help]'
+    printf 'Usage: git BRANCH-COMMAND | %q %s\n' "$(basename "$1")" '[--color=(always|auto|never)|--no-color] [--include-authors] [--include-creator] [--set-context EXPR] [--add-context EXPR [--add-context ...]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -31,6 +31,7 @@ HELPDESCRIPTION
     echo
     cat <<HELPTEXT
     --include-authors	Also list all authors that have committed on the branch.
+    --include-creator	Also list the author of the first commit on the branch.
     --set-context EXPR	For each branch, EXPR is executed with all passed
 			arguments appended / replacing {@}, and the current
 			branch appended / replacing {}; the result is used as
@@ -52,6 +53,7 @@ case "$1" in
     --set-context)	shift; defaultCommand=("$1"); shift;;
     --add-context)	shift; addedCommands+=("$1"); shift;;
     --include-authors)	shift; addedCommands+=('git abrwhodidhere --summary --names-only {} | joinBy --prefix "(by " --suffix ")" --empty "(no authors found)" --summarize-larger "3 authors" - ", " #{@}');;
+    --include-creator)	shift; addedCommands+=('git bcbaselg --pretty=tformat:%an --branch {} | joinBy --prefix "(created by " --suffix ")" --empty "(no author found)" - ", " #{@}');;
 esac
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)

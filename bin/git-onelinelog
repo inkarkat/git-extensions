@@ -10,17 +10,6 @@ contains()
     done
     return 1
 }
-containsGlob()
-{
-    local elem glob=$1; shift
-    for elem
-    do
-	case "$elem" in
-	    @($glob)) return 0;;
-	esac
-    done
-    return 1
-}
 
 printUsage()
 {
@@ -30,10 +19,26 @@ HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
 }
-if containsGlob '--help|-h|-\?' "$@"; then
-    printUsage "$0"
-    exit 0
-fi
+
+isGraph=
+isGrep=
+isReverse=
+isTerminatorSemantics=t
+typeset -a logArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--graph)	logArgs+=("$1"); shift; isGraph=t;;
+	-[GS]*|--grep|--grep=*)
+			logArgs+=("$1"); shift; isGrep=t;;
+	--reverse)	logArgs+=("$1"); shift; isReverse=t;;
+	--name-status)	logArgs+=("$1"); shift; isTerminatorSemantics=;;
+	--)		logArgs+=("$1"); shift; break;;
+	*)		logArgs+=("$1"); shift;;
+    esac
+done
+set -- "${logArgs[@]}" "$@"
 
 FORMAT="%C(cyan)%h%Creset %Cgreen(%aN, ${GIT_ONELINELOG_DATEFORMAT:-%ar})%Creset %C(red bold)%d%Creset %s"
 if isColorOffArgument "$@"; then
@@ -41,11 +46,10 @@ if isColorOffArgument "$@"; then
     FORMAT=${FORMAT//%C+([a-z])/}
 fi
 
-isTerminatorSemantics=t; contains '--name-status' "$@" && isTerminatorSemantics=
 typeset -a removeArgs=()
 reversePipeline=
-if contains '--graph' "$@"; then
-    if containsGlob '-[GS]*' "$@" || contains '--grep' "$@" || containsGlob '--grep=*' "$@"; then
+if [ "$isGraph" ]; then
+    if [ "$isGrep" ]; then
 	# When filtering diffs, Git (2.7.4) adds "..." lines between each result
 	# (presumably to indicate that the graph is disjointed; but that's also
 	# the case with --grep and it's not happening there). These are
@@ -53,7 +57,7 @@ if contains '--graph' "$@"; then
 	# to me. Instead of filtering them away, just drop the --graph, as it's
 	# not useful for any kind of filtering, anyway.
 	removeArgs+=('--graph')
-    elif contains '--reverse' "$@"; then
+    elif [ "$isReverse" ]; then
 	# Git (2.7.4) does not support this, but it can be useful for the one-line
 	# logs here:
 	# > fatal: cannot combine --reverse with --graph

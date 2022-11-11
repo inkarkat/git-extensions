@@ -10,27 +10,33 @@ HELPTEXT
 }
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+typeset -a formatter=(column -s $'\t' -t)
 if [ -t 1 ]; then
     isColorOffArgument "$@" || set -- '--color=always' "$@"
 else
     pager=()
+    formatter=()
 fi
 
-while IFS=$'\n' read -r line || [ -n "$line" ]
-do
-    if [[ "$line" =~ ^(\*? *)(\[[0-9:;]*[mK])?([^ ]+)(\[[0-9:;]*[mK])?(.*)$ ]] \
-	&& prefix="${BASH_REMATCH[1]}" \
-	&& colorOn="${BASH_REMATCH[2]}" \
-	&& branch="${BASH_REMATCH[3]}" \
-	&& colorOff="${BASH_REMATCH[4]}" \
-	&& suffix="${BASH_REMATCH[5]}" \
-	&& git-existsbr "$branch"
-    then
-	info="$(git onelinelog --no-decorate --max-count 1 --pretty='tformat:%C(cyan)%h%Creset %Cgreen(%aN, %ar)%Creset	%s' "$@" "$branch")"
-    else
-	[ -n "$branch" ] || branch="$line"
-	info='(Not a branch)'
-    fi
-    printf '%s%s%s%s\t%s%s\n' "$prefix" "$colorOn" "$branch" "$colorOff" "$info" "$suffix"
-done \
-    | eval "column -s $'\t' -t" "${pager:+|}" '"${pager[@]}"'
+branchInfo()
+{
+    while IFS=$'\n' read -r line || [ -n "$line" ]
+    do
+	if [[ "$line" =~ ^(${GIT_BRINFO_PREFIX_PATTERN-\*? *})(\[[0-9:;]*[mK])?([^ ]+)(\[[0-9:;]*[mK])?(${GIT_BRINFO_SUFFIX_PATTERN-.*})$ ]] \
+	    && prefix="${BASH_REMATCH[1]}" \
+	    && colorOn="${BASH_REMATCH[2]}" \
+	    && branch="${BASH_REMATCH[3]}" \
+	    && colorOff="${BASH_REMATCH[4]}" \
+	    && suffix="${BASH_REMATCH[5]}" \
+	    && git-existsbr "$branch"
+	then
+	    info="$(git onelinelog --no-decorate --max-count 1 --pretty='tformat:%C(cyan)%h%Creset %Cgreen(%aN, %ar)%Creset	%s' "$@" "$branch")"
+	else
+	    [ -n "$branch" ] || branch="$line"
+	    info='(Not a branch)'
+	fi
+	printf '%s%s%s%s\t%s%s\n' "$prefix" "$colorOn" "$branch" "$colorOff" "$info" "$suffix"
+    done
+}
+
+eval 'branchInfo "$@"' "${formatter:+|}" '"${formatter[@]}"' "${pager:+|}" '"${pager[@]}"'

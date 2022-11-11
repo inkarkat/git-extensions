@@ -52,9 +52,11 @@ HELPTEXT
 
 typeset -a colorArg=(--color=always)
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+typeset -a formatter=(column -s $'\t' -t)
 if [ ! -t 1 ]; then
     colorArg=()
     pager=()
+    formatter=()
 fi
 typeset -a logArgs=()
 typeset -a shortlogOrderingArg=(--numbered)
@@ -115,11 +117,10 @@ triggerEachRecursion()
 {
     local -r scriptName="$(basename -- "${BASH_SOURCE[0]}")"
     headerArg='--with-header'; [ "$eachRecursion" ] || headerArg=--with-basename-header
-    HEADER_COLON='' git-each$eachType ${eachRecursion:+--recursive} $headerArg "${colorArg[@]}" -- "${scriptName#git-}" $eachOutputFormatArg "${nonRecursiveArgs[@]}" "$@" \
-	| column -s $'\t' -t
+    HEADER_COLON='' git-each$eachType ${eachRecursion:+--recursive} $headerArg "${colorArg[@]}" -- "${scriptName#git-}" $eachOutputFormatArg "${nonRecursiveArgs[@]}" "$@"
 }
 if [ -n "$eachType" ]; then
-    eval 'triggerEachRecursion "$@"' "${pager:+|}" '"${pager[@]}"'
+    eval 'triggerEachRecursion "$@"' "${formatter:+|}" '"${formatter[@]}"' "${pager:+|}" '"${pager[@]}"'
     exit $?
 fi
 

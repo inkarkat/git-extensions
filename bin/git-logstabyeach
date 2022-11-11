@@ -42,8 +42,13 @@ sortByChanges()
 	field --field-separator ' ' --remove 1
 }
 
-typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+typeset -a formatter=(column -s , -t)
+if [ ! -t 1 ]; then
+    pager=()
+    formatter=()
+fi
+
 GIT_SEGREGATEDUSERCOMMAND_PREFIX_SEPARATOR=, \
     git-segregated-user-command --prefixed --with-log-args logsta "$@" | \
-	sortByChanges | \
-	eval 'column -s , -t' "${pager:+|}" '"${pager[@]}"'
+	eval 'sortByChanges' "${formatter:+|}" '"${formatter[@]}"' "${pager:+|}" '"${pager[@]}"'

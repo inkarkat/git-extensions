@@ -1,13 +1,37 @@
 #!/bin/bash
 
-printUsage()
+printShortUsage()
 {
-    cat <<HELPTEXT
-Add additional information (shortlog of the last commit) about each branch from
-the input.
-HELPTEXT
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
     printf 'Usage: git BRANCH-COMMAND | %q %s\n' "$(basename "$1")" '[--color=(always|auto|never)|--no-color] [-?|-h|--help]'
 }
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Add additional information (shortlog of the last commit) about each branch from
+the input.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+
+HELPTEXT
+}
+case "$1" in
+    --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+esac
+
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
 typeset -a formatter=(column -s $'\t' -t)

@@ -1,16 +1,6 @@
 #!/bin/bash
 shopt -qs extglob
 
-contains()
-{
-    needle=$1; shift
-    for elem
-    do
-	[ "$needle" = "$elem" ] && return 0
-    done
-    return 1
-}
-
 printUsage()
 {
     cat <<HELPTEXT
@@ -20,9 +10,9 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
 }
 
-isGraph=
+typeset -a graphLogArg=()
 isGrep=
-isReverse=
+typeset -a reverseLogArg=()
 isTerminatorSemantics=t
 decorationFormat='%C(red bold)%d%Creset '
 typeset -a decorateLogArg=(--decorate)
@@ -34,10 +24,10 @@ do
 	--no-decorate)	decorateLogArg=("$1"); shift; decorationFormat='';;
 	--decorate|--decorate=*)
 			decorateLogArg=("$1"); shift;;
-	--graph)	logArgs+=("$1"); shift; isGraph=t;;
+	--graph)	graphLogArg=("$1"); shift;;
 	-[GS]*|--grep|--grep=*)
 			logArgs+=("$1"); shift; isGrep=t;;
-	--reverse)	logArgs+=("$1"); shift; isReverse=t;;
+	--reverse)	reverseLogArg+=("$1"); shift;;
 	--name-status)	logArgs+=("$1"); shift; isTerminatorSemantics=;;
 	--)		logArgs+=("$1"); shift; break;;
 	*)		logArgs+=("$1"); shift;;
@@ -51,9 +41,8 @@ if isColorOffArgument "$@"; then
     FORMAT=${FORMAT//%C+([a-z])/}
 fi
 
-typeset -a removeArgs=()
 reversePipeline=
-if [ "$isGraph" ]; then
+if [ ${#graphLogArg[@]} -gt 0 ]; then
     if [ "$isGrep" ]; then
 	# When filtering diffs, Git (2.7.4) adds "..." lines between each result
 	# (presumably to indicate that the graph is disjointed; but that's also
@@ -61,8 +50,8 @@ if [ "$isGraph" ]; then
 	# increasing the number of lines by almost 100% and are just confusing
 	# to me. Instead of filtering them away, just drop the --graph, as it's
 	# not useful for any kind of filtering, anyway.
-	removeArgs+=('--graph')
-    elif [ "$isReverse" ]; then
+	graphLogArg=()
+    elif [ ${#reverseLogArg[@]} -gt 0 ]; then
 	# Git (2.7.4) does not support this, but it can be useful for the one-line
 	# logs here:
 	# > fatal: cannot combine --reverse with --graph
@@ -79,17 +68,8 @@ if [ "$isGraph" ]; then
 	    isColorOffArgument "$@" || set -- '--color=always' "$@"
 	    reversePipeline="$reversePipeline"' | "${PAGER:-less}" --RAW-CONTROL-CHARS'
 	fi
-	removeArgs+=('--reverse')
+	reverseLogArg=()
     fi
 fi
 
-if [ ${#removeArgs[@]} -gt 0 ]; then
-    typeset -a argsCopy=()
-    for arg
-    do
-	contains "$arg" "${removeArgs[@]}" || argsCopy+=("$arg")
-    done
-    set -- "${argsCopy[@]}"
-fi
-
-eval 'git $GIT_ONELINELOG_DIRECT_ARG log --abbrev-commit "${decorateLogArg[@]}" --pretty="${isTerminatorSemantics:+t}format:${GIT_ONELINELOG_PREFORMAT:-}${FORMAT//${GIT_ONELINELOG_NOFORMAT:-}/}${GIT_ONELINELOG_POSTFORMAT:-}" "$@"' "${reversePipeline:+|}$reversePipeline"
+eval 'git $GIT_ONELINELOG_DIRECT_ARG log --abbrev-commit "${decorateLogArg[@]}" "${graphLogArg[@]}" "${reverseLogArg[@]}" --pretty="${isTerminatorSemantics:+t}format:${GIT_ONELINELOG_PREFORMAT:-}${FORMAT//${GIT_ONELINELOG_NOFORMAT:-}/}${GIT_ONELINELOG_POSTFORMAT:-}" "$@"' "${reversePipeline:+|}$reversePipeline"

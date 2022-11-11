@@ -31,15 +31,16 @@ combinedStatus()
 		-e "/^  < /{ g; s/\$/${GIT_STR_COLOR_REMOVE}-${GIT_STR_COLOR_RESET}/; h }" \
 		-e "/^  > /{ g; s/\$/${GIT_STR_COLOR_ADD}+${GIT_STR_COLOR_RESET}/; h }" \
 		-e ':last' \
-		-e '${ g; s/^\n//; /./p }' | \
-	    column -s $'\t' -t
+		-e '${ g; s/^\n//; /./p }'
 }
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+typeset -a formatter=(column -s $'\t' -t)
 if [ -t 1 ]; then
     isColorOffArgument "$@" || colorConfig=(-c color.status=always)
 else
     pager=()
+    formatter=()
 fi
 
-eval 'combinedStatus "$@"' "${pager:+|}" '"${pager[@]}"'
+eval 'combinedStatus "$@"' "${formatter:+|}" '"${formatter[@]}"' "${pager:+|}" '"${pager[@]}"'

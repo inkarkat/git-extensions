@@ -40,6 +40,12 @@ for days, 'w' for weeks, 'mo' for months, 'y' for years, 'g' for generations.
 HELPTEXT
 }
 
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+typeset -a formatter=(column -s $'\t' -t)
+if [ ! -t 1 ]; then
+    pager=()
+    formatter=()
+fi
 typeset branchPrefixes=('refs/heads/')
 isInfo=t
 prefixRefFormat=
@@ -79,5 +85,4 @@ branchAge()
 	grep --invert-match '/HEAD$'
 }
 
-eval 'branchAge "$@"' "${postAction:+|}" '"${postAction[@]}"' | \
-    column -s $'\t' -t
+eval 'branchAge "$@"' "${postAction:+|}" '"${postAction[@]}"' "${formatter:+|}" '"${formatter[@]}"' "${pager:+|}" '"${pager[@]}"'

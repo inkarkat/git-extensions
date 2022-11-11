@@ -56,13 +56,18 @@ addBranches()
     fi
 }
 
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+typeset -a endFilter=(column -s $'\t' -t)
+if [ ! -t 1 ]; then
+    pager=()
+    endFilter=()
+fi
 typeset -a logArgs=()
 subjectPlaceholder='%a'
 typeset -a uniqueStableArgs=(--both)
 typeset -a timespanConverter=(startEndDatesToDuration)
 firstColumnType=Timespan
 typeset -a postAction=(field --field-separator $'\t' --remove 1)
-typeset -a endFilter=(column -s $'\t' -t)
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -141,7 +146,6 @@ END {
     sort --numeric-sort --key=1,1 --reverse
 }
 
-typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 eval 'whoWhen "$@"' \
     "${timespanConverter:+|}" '"${timespanConverter[@]}"' \
     "${postAction:+|}" '"${postAction[@]}"' \

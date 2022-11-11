@@ -1,0 +1,66 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Print / log (with --pretty) the first commit on BRANCH (vs. BASE-BRANCH).
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--short|--pretty=<format>] [-b|--base BASE-BRANCH] [--print-base-branch-after SEP] BRANCH [-?|-h|--help]'
+}
+
+base=
+printBaseBranchSeparator=
+typeset -a prettyArgs=(--pretty='tformat:%H')
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--base|-b)	shift; base="${1:?}"; shift;;
+	--print-base-branch-after)
+			shift; printBaseBranchSeparator="${1:?}"; shift;;
+	--short)	shift; prettyArgs=(--pretty='tformat:%h');;
+	--pretty)	prettyArgs=("$1" "$2"); shift; shift;;
+	--pretty=*)	prettyArgs=("$1"); shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if [ $# -ne 1 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+branch="${1:?}"; shift
+
+baseBranch=
+if [ -n "$base" ]; then
+    mergeBase=$(git merge-base "$branch" "$base") || exit $?
+else
+    if baseBranch="$(git brbase --branch "$branch" 2>/dev/null)"; then
+	mergeBase="$baseBranch"
+    else
+	mergeBase=$(git merge-base --octopus "$branch") || exit $?
+	if git-equals "$mergeBase" "$branch"; then
+	    # Fall back to the master branch.
+	    baseBranch="$(git-mbr 2>/dev/null)" || exit $?
+	    mergeBase="$baseBranch"
+	    if git-equals "$baseBranch" "$branch"; then
+		# Assume the master branch was there from the beginning and
+		# the first commit was done there.
+		mergeBase="$(git log --pretty=tformat:%H "$branch" | tail -n 1)"
+		baseBranch='repo creation'
+	    fi
+	fi
+    fi
+fi
+firstCommit="$(git log "${prettyArgs[@]}" "${mergeBase}..${branch}" | tail -n 1)"
+if [ -z "$firstCommit" ]; then
+    # There's no log output when the merge base is identical to the branch;
+    # i.e. there's only one commit on the branch so far. Grab that commit
+    # separately; this is easier than first checking with git show-ref
+    # whether the hashes are identical.
+    firstCommit="$(git log -1 "${prettyArgs[@]}" "${branch}")"
+fi
+
+printf '%s%s\n' "$firstCommit" "${printBaseBranchSeparator}${printBaseBranchSeparator:+$baseBranch}"

@@ -36,6 +36,12 @@ for days, 'w' for weeks, 'mo' for months, 'y' for years, 'g' for generations.
 HELPTEXT
 }
 
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+typeset -a formatter=(column -s $'\t' -t)
+if [ ! -t 1 ]; then
+    pager=()
+    formatter=()
+fi
 action=ageByCreation
 isInfo=t
 typeset -a additionalLogMassaging=()
@@ -78,5 +84,4 @@ ageByCreation()
     git tag --list --sort=creatordate --format="${prefixRefFormat}${prefixRefFormat:+%09}${isInfo:+%(creatordate:iso)%09(%(creatordate:relative)}${additionalRefFormat:+, }${additionalRefFormat}${isInfo:+)%09}%(refname:short)" "$@"
 }
 
-eval '$action "$@"' "${postAction:+|}" '"${postAction[@]}"' | \
-    column -s $'\t' -t
+eval '$action "$@"' "${postAction:+|}" '"${postAction[@]}"' "${formatter:+|}" '"${formatter[@]}"' "${pager:+|}" '"${pager[@]}"'

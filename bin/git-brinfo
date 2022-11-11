@@ -1,0 +1,33 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Add additional information (shortlog of the last commit) about each branch from
+the input.
+HELPTEXT
+    printf 'Usage: git BRANCH-COMMAND | %q %s\n' "$(basename "$1")" '[--color=(always|auto|never)|--no-color] [-?|-h|--help]'
+}
+
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+if [ -t 1 ]; then
+    isColorOffArgument "$@" || set -- '--color=always' "$@"
+else
+    pager=()
+fi
+
+while IFS=$'\n' read -r line || [ -n "$line" ]
+do
+    [[ "$line" =~ ^(\*? *)([^ ]+)(.*)$ ]]
+    prefix="${BASH_REMATCH[1]}"
+    branch="${BASH_REMATCH[2]}"
+    suffix="${BASH_REMATCH[3]}"
+
+    if git-existsbr "$branch"; then
+	info="$(git onelinelog --no-decorate --max-count 1 --pretty='tformat:%C(cyan)%h%Creset %Cgreen(%aN, %ar)%Creset	%s' "$@" "$branch")"
+    else
+	info='(Not a branch)'
+    fi
+    printf '%s%s\t%s%s\n' "$prefix" "$branch" "$info" "$suffix"
+done \
+    | eval "column -s $'\t' -t" "${pager:+|}" '"${pager[@]}"'

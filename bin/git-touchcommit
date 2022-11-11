@@ -8,20 +8,24 @@ the message, so just getting a new commit ID and date (e.g. to trigger a
 rebuild), potentially changing the commit author.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--foo bar] [--] [FILE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--color=(always|auto|never)|--no-color] [-?|-h|--help]'
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
 
-isColorOffArgument "$@" && typeset colorArg=() || typeset colorArg=('--color=always')
+# Explicitly enable color by default (even if piped).
+# Don't do this if the user explicitly turned it off, though.
+if [ -t 1 ]; then
+    isColorOffArgument "$@" || set -- '--color=always' "$@"
+fi
 originalRev="$(git rev-parse HEAD)"
 originalCommitter="$(git log --max-count 1 --pretty='format:%cN <%cE>')"
 originalCommitDate="$(git log --max-count 1 --pretty='format:%cd')"
 
     git-wrapper commit --quiet --amend --only --no-edit || exit $?
 
-git log --pretty=fuller --max-count 1 "${colorArg[@]}" | \
+git log --pretty=fuller --max-count 1 "$@" | \
     sed -e '1s/\(commit \+\)\([[:xdigit:]]\+\)/'"\\1${originalRev} -> \\2/" \
 	-e 's/^CommitDate: \+/'"&${originalCommitDate} -> /" \
 	-e "/^Commit: \\+${originalCommitter}$/!s/^Commit: \\+/&${originalCommitter} -> /"

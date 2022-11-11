@@ -1,10 +1,15 @@
 #!/bin/bash
 
+: ${GIT_BRINFO_ARGS_MARKER='{@}'}
+: ${GIT_BRINFO_BRANCH_MARKER='{}'}
+argsMarker="$GIT_BRINFO_ARGS_MARKER"; unset GIT_BRINFO_ARGS_MARKER
+branchMarker="$GIT_BRINFO_BRANCH_MARKER"; unset GIT_BRINFO_BRANCH_MARKER
+
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: git BRANCH-COMMAND | %q %s\n' "$(basename "$1")" '[--color=(always|auto|never)|--no-color] [-?|-h|--help]'
+    printf 'Usage: git BRANCH-COMMAND | %q %s\n' "$(basename "$1")" '[--color=(always|auto|never)|--no-color] [--set-context EXPR] [--add-context EXPR [--add-context ...]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -25,13 +30,27 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
-
+    --set-context EXPR	For each branch, EXPR is executed with all passed
+			arguments appended / replacing {@}, and the current
+			branch appended / replacing {}; the result is used as
+			the additional information.
+			If EXPR fails, that branch is completely omitted.
+			By default this is a shortlog of the last commit.
+    --add-context EXPR	For each branch, EXPR is executed with all passed
+			arguments / replacing {@}, and the current branch
+			appended / replacing {}; any result is prepended
+			before the shortlog of the last commit. If EXPR fails,
+			that branch is completely omitted.
+    Note: If an EXPR should not receive the passed arguments, append "# {@}".
 HELPTEXT
 }
+typeset -a defaultCommand=("git onelinelog --no-decorate --max-count 1 --pretty='tformat:%C(cyan)%h%Creset %Cgreen(%aN, %ar)%Creset	%s'")
+typeset -a addedCommands=()
 case "$1" in
     --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+    --set-context)	shift; defaultCommand=("$1"); shift;;
+    --add-context)	shift; addedCommands+=("$1"); shift;;
 esac
-
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
 typeset -a formatter=(column -s $'\t' -t)
@@ -54,7 +73,21 @@ branchInfo()
 	    && suffix="${BASH_REMATCH[5]}" \
 	    && git-existsbr "$branch"
 	then
-	    info="$(git onelinelog --no-decorate --max-count 1 --pretty='tformat:%C(cyan)%h%Creset %Cgreen(%aN, %ar)%Creset	%s' "$@" "$branch")"
+	    local cmd info=
+	    for cmd in "${addedCommands[@]}" "${defaultCommand[@]}"
+	    do
+		local quotedArgs=''; [ $# -eq 0 ] || printf -v quotedArgs '%q ' "$@"; quotedArgs="${quotedArgs% }"
+		typeset -a a=("$@")
+		interpolatedCommand="${cmd//"$argsMarker"/$quotedArgs}"
+		[ "$interpolatedCommand" = "$cmd" ] || a=()
+
+		typeset -a b=("$branch")
+		printf -v quotedBranch %q "$branch"
+		interpolatedBranchCommand="${interpolatedCommand//"$branchMarker"/$quotedBranch}"
+		[ "$interpolatedBranchCommand" = "$interpolatedCommand" ] || b=()
+
+		info+="${info:+$'\t'}$(eval "$interpolatedBranchCommand" '"${a[@]}"' '"${b[@]}"')" || continue 2
+	    done
 	else
 	    [ -n "$branch" ] || branch="$line"
 	    info='(Not a branch)'

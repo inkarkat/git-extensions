@@ -9,7 +9,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: git BRANCH-COMMAND | %q %s\n' "$(basename "$1")" "[--color=(always|auto|never)|--no-color] [--include-authors] [--include-creator] [--set-context EXPR|''] [--add-context EXPR [--add-context ...]] [-?|-h|--help]"
+    printf 'Usage: git BRANCH-COMMAND | %q %s\n' "$(basename "$1")" "[--include-authors] [--include-creator] [--set-context EXPR|''] [--add-context EXPR [--add-context ...]] [--color=(always|auto|never)|--no-color] [CONTEXT-ARGS ...] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -51,15 +51,23 @@ HELPTEXT
 }
 typeset -a defaultCommand=("git onelinelog --no-decorate --max-count 1 --pretty='tformat:%C(cyan)%h%Creset %Cgreen(%aN, %ar)%Creset	%s'")
 typeset -a addedCommands=()
-case "$1" in
-    --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
-    --set-context)	shift; [ -n "$1" ] && defaultCommand=("$1") || defaultCommand=(); shift;;
-    --add-context)	shift; addedCommands+=("$1"); shift;;
-    --include-authors)	shift; addedCommands+=('git abrwhodidhere --summary --names-only --branch {} | joinBy --prefix "(by " --suffix ")" --empty "(no authors found)" --summarize-larger "3 authors" - ", " #{@}');;
-    --include-creator)	shift; addedCommands+=('git bcbaselg --pretty=tformat:%an --branch {} | joinBy --prefix "(created by " --suffix ")" --empty "(no author found)" - ", " #{@}');;
-    --include-month-distribution)
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--set-context)	shift; [ -n "$1" ] && defaultCommand=("$1") || defaultCommand=(); shift;;
+	--add-context)	shift; addedCommands+=("$1"); shift;;
+	--include-authors)
+			shift; addedCommands+=('git abrwhodidhere --summary --names-only --branch {} | joinBy --prefix "(by " --suffix ")" --empty "(no authors found)" --summarize-larger "3 authors" - ", " #{@}');;
+	--include-creator)
+			shift; addedCommands+=('git bcbaselg --pretty=tformat:%an --branch {} | joinBy --prefix "(created by " --suffix ")" --empty "(no author found)" - ", " #{@}');;
+	--include-month-distribution)
 			shift; addedCommands+=('git abrlogdistribution --force-legends --over month --no-footer --branch {} | tail -n 1 #{@}');;
-esac
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
 typeset -a formatter=(column -s $'\t' -t)

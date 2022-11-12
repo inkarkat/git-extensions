@@ -9,7 +9,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: git BRANCH-COMMAND | %q %s\n' "$(basename "$1")" '[--color=(always|auto|never)|--no-color] [--include-authors] [--include-creator] [--set-context EXPR] [--add-context EXPR [--add-context ...]] [-?|-h|--help]'
+    printf 'Usage: git BRANCH-COMMAND | %q %s\n' "$(basename "$1")" "[--color=(always|auto|never)|--no-color] [--include-authors] [--include-creator] [--set-context EXPR|''] [--add-context EXPR [--add-context ...]] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -40,6 +40,7 @@ HELPDESCRIPTION
 			the additional information.
 			If EXPR fails, that branch is completely omitted.
 			By default this is a shortlog of the last commit.
+    --set-context ''	Disable the default shortlog of the last commit.
     --add-context EXPR	For each branch, EXPR is executed with all passed
 			arguments / replacing {@}, and the current branch
 			appended / replacing {}; any result is prepended
@@ -52,7 +53,7 @@ typeset -a defaultCommand=("git onelinelog --no-decorate --max-count 1 --pretty=
 typeset -a addedCommands=()
 case "$1" in
     --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
-    --set-context)	shift; defaultCommand=("$1"); shift;;
+    --set-context)	shift; [ -n "$1" ] && defaultCommand=("$1") || defaultCommand=(); shift;;
     --add-context)	shift; addedCommands+=("$1"); shift;;
     --include-authors)	shift; addedCommands+=('git abrwhodidhere --summary --names-only {} | joinBy --prefix "(by " --suffix ")" --empty "(no authors found)" --summarize-larger "3 authors" - ", " #{@}');;
     --include-creator)	shift; addedCommands+=('git bcbaselg --pretty=tformat:%an --branch {} | joinBy --prefix "(created by " --suffix ")" --empty "(no author found)" - ", " #{@}');;

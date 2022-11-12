@@ -13,13 +13,14 @@ A different GIT-COMMAND2 can be used for the --one-more revision; with ^[1|2],
 the modifier instead is appended to the revision, and there's only one
 invocation of GIT-COMMAND.
 HELPTEXT
-printf 'Usage: %q %s\n' "$(basename "$1")" '[-n|--branch-number N] [--no-range] [-b|--branch BRANCH|--start-rev REV] [-a|--any|-r|--include-remote-refs|-t|--include-tags [...]] [--keep-last] [+1|--one-more|--one-more-command GIT-COMMAND2|^[1|2]] [--] [GIT-COMMAND ...] [-?|-h|--help]'
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-n|--branch-number N] [--no-range] [-b|--branch BRANCH|--start-rev REV] [-a|--any|-r|--include-remote-refs|-t|--include-tags [...]] [--keep-last] [+1|--one-more|--one-more-command GIT-COMMAND2|^[1|2]] [--] [GIT-COMMAND ...] [-?|-h|--help]'
 }
 
 let branchNumber=1
 isAny=
 startRev=
-typeset -a include=('heads')
+typeset -a includedScopes=('heads')
 typeset -a revRangeArgs=()
 isWithRange=t
 while [ $# -ne 0 ]
@@ -29,8 +30,8 @@ do
 	--branch-number|-n)		shift; branchNumber="$1"; shift;;
 	--start-rev|--branch|-b)	shift; startRev="$1"; shift;;
 	--any|-a)			shift; isAny=t;;
-	--include-remote-refs|-r)	shift; include+=('remotes');;
-	--include-tags|-t)		shift; include+=('tags');;
+	--include-remote-refs|-r)	shift; includedScopes+=('remotes');;
+	--include-tags|-t)		shift; includedScopes+=('tags');;
 	--no-range)			revRangeArgs+=("$1"); shift; isWithRange=;;
 	--)				revRangeArgs+=("$1"); shift; break;;
 	*)				revRangeArgs+=("$1"); shift;;
@@ -48,6 +49,13 @@ contains()
     return 1
 }
 
+includedRemote=
+if [ ! "$isAny" ] && [ -n "$startRev" ] && ! contains 'remotes' "${includedScopes[@]}" && branchRemote="${startRev%%/*}" && git-existsremote "$branchRemote"; then
+    # Only accept other branches from the same remote that the BRANCH is from.
+    includedRemote="remotes/$branchRemote"
+fi
+
+
 previousRev="${startRev:-HEAD}"
 let branchCnt=0
 while [ $branchCnt -lt $branchNumber ]
@@ -61,8 +69,13 @@ do
 	    printf >&2 'ERROR: Cannot find base commit for %s\n' "${startRev:-the current branch.}"
 	    exit 1
 	fi
+
 	[ "$isAny" ] && break
-	contains "${previousRev%%/*}" "${include[@]}" && break
+	if [ -n "$includedRemote" ]; then
+	    [[ "$previousRev" =~ ^"$includedRemote"/ ]]
+	else
+	    contains "${previousRev%%/*}" "${includedScopes[@]}"
+	fi && break
     done
     let branchCnt+=1
 done

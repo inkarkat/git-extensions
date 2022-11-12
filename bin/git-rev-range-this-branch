@@ -49,6 +49,13 @@ contains()
     return 1
 }
 
+includedRemote=
+if [ ! "$isAny" ] && [ -n "$startRev" ] && ! contains 'remotes' "${includedScopes[@]}" && branchRemote="${startRev%%/*}" && git-existsremote "$branchRemote"; then
+    # Only accept other branches from the same remote that the BRANCH is from.
+    includedRemote="remotes/$branchRemote"
+fi
+
+
 previousRev="${startRev:-HEAD}"
 let branchCnt=0
 while [ $branchCnt -lt $branchNumber ]
@@ -62,8 +69,13 @@ do
 	    printf >&2 'ERROR: Cannot find base commit for %s\n' "${startRev:-the current branch.}"
 	    exit 1
 	fi
+
 	[ "$isAny" ] && break
-	contains "${previousRev%%/*}" "${includedScopes[@]}" && break
+	if [ -n "$includedRemote" ]; then
+	    [[ "$previousRev" =~ ^"$includedRemote"/ ]]
+	else
+	    contains "${previousRev%%/*}" "${includedScopes[@]}"
+	fi && break
     done
     let branchCnt+=1
 done

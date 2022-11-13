@@ -50,21 +50,23 @@ HELPTEXT
 action=printGraphFromObtainedLogs
 distributionCommand=distribution-over-autorange
 typeset -a distributionArgs=()
+typeset -a distributionReversedArg=()
 typeset -a gitArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
-	--linear)	shift; distributionCommand=distribution-autolinear;;
+	--linear)	shift; distributionCommand=distribution-autolinear; distributionReversedArg=(--reversed);;
 	--log-only)	shift; action=getLogs;;
 	--stdin)	shift; action=printGraphFromInput;;
 
 	-[S])           distributionArgs+=("$1"); shift;;
-	--@(no-footer|final-footer-only|footer-only-on-change|no-splitting|weekly|force-legends|no-start-date|no-end-date|reversed|no-color|color=*))
+	--@(no-footer|final-footer-only|footer-only-on-change|no-splitting|weekly|force-legends|no-start-date|no-end-date|no-color|color=*))
 			distributionArgs+=("$1"); shift;;
 	-[w])           distributionArgs+=("$1" "$2"); shift; shift;;
 	--@(footer-every|graph-legend|footer-legend|as|over|color|width|base-date|days-per-slot|slots-per-day))
 			distributionArgs+=("$1" "$2"); shift; shift;;
+	--reversed)	shift; distributionReversedArg=();;
 
 	--@(pretty|format)?(=*))
 			echo >&2 'ERROR: Cannot influence the log format via --pretty|--format.'
@@ -99,7 +101,7 @@ printGraphFromInput()
 
 printGraph()
 {
-    $distributionCommand "${distributionArgs[@]}"
+    $distributionCommand "${distributionReversedArg[@]}" "${distributionArgs[@]}"
 }
 
 $action

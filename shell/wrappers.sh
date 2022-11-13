@@ -1,5 +1,7 @@
 #!/bin/sh source-this-script
 
+[ "${BASH_VERSION:-}" -o "${KSH_VERSION:-}" ] || return
+
 # Git supports aliases defined in .gitconfig, but you cannot override Git
 # builtins (e.g. "git log") by putting an executable "git-log" somewhere in the
 # PATH. Also, git aliases are case-insensitive, but case can be useful to create

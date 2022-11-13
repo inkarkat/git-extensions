@@ -1,13 +1,73 @@
 #!/bin/bash
 
+: ${GIT_BRINFO_ARGS_MARKER='{@}'}
+: ${GIT_BRINFO_BRANCH_MARKER='{}'}
+argsMarker="$GIT_BRINFO_ARGS_MARKER"; unset GIT_BRINFO_ARGS_MARKER
+branchMarker="$GIT_BRINFO_BRANCH_MARKER"; unset GIT_BRINFO_BRANCH_MARKER
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: git BRANCH-COMMAND | %q %s\n' "$(basename "$1")" "[--include-authors] [--include-creator] [--set-context EXPR|''] [--add-context EXPR [--add-context ...]] [--color=(always|auto|never)|--no-color] [CONTEXT-ARGS ...] [-?|-h|--help]"
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 Add additional information (shortlog of the last commit) about each branch from
 the input.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --include-authors	Also list all authors that have committed on the branch.
+    --include-creator	Also list the author of the first commit on the branch.
+    --include-month-distribution
+			Also show the distribution of commits over this month.
+    --set-context EXPR	For each branch, EXPR is executed with all passed
+			arguments appended / replacing {@}, and the current
+			branch appended / replacing {}; the result is used as
+			the additional information.
+			If EXPR fails, that branch is completely omitted.
+			By default this is a shortlog of the last commit.
+    --set-context ''	Disable the default shortlog of the last commit.
+    --add-context EXPR	For each branch, EXPR is executed with all passed
+			arguments / replacing {@}, and the current branch
+			appended / replacing {}; any result is prepended
+			before the shortlog of the last commit. If EXPR fails,
+			that branch is completely omitted.
+    Note: If an EXPR should not receive the passed arguments, append "# {@}".
 HELPTEXT
-    printf 'Usage: git BRANCH-COMMAND | %q %s\n' "$(basename "$1")" '[--color=(always|auto|never)|--no-color] [-?|-h|--help]'
 }
+typeset -a defaultCommand=("git onelinelog --no-decorate --max-count 1 --pretty='tformat:%C(cyan)%h%Creset %Cgreen(%aN, %ar)%Creset	%s'")
+typeset -a addedCommands=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--set-context)	shift; [ -n "$1" ] && defaultCommand=("$1") || defaultCommand=(); shift;;
+	--add-context)	shift; addedCommands+=("$1"); shift;;
+	--include-authors)
+			shift; addedCommands+=('git abrwhodidhere --summary --names-only --branch {} | joinBy --prefix "(by " --suffix ")" --empty "(no authors found)" --summarize-larger "3 authors" - ", " #{@}');;
+	--include-creator)
+			shift; addedCommands+=('git bcbaselg --pretty=tformat:%an --branch {} | joinBy --prefix "(created by " --suffix ")" --empty "(no author found)" - ", " #{@}');;
+	--include-month-distribution)
+			shift; addedCommands+=('git abrlogdistribution --force-legends --over month --no-footer --branch {} | tail -n 1 #{@}');;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
 typeset -a formatter=(column -s $'\t' -t)
@@ -30,12 +90,27 @@ branchInfo()
 	    && suffix="${BASH_REMATCH[5]}" \
 	    && git-existsbr "$branch"
 	then
-	    info="$(git onelinelog --no-decorate --max-count 1 --pretty='tformat:%C(cyan)%h%Creset %Cgreen(%aN, %ar)%Creset	%s' "$@" "$branch")"
+	    local cmd info=
+	    for cmd in "${addedCommands[@]}" "${defaultCommand[@]}"
+	    do
+		local quotedArgs=''; [ $# -eq 0 ] || printf -v quotedArgs '%q ' "$@"; quotedArgs="${quotedArgs% }"
+		typeset -a a=("$@")
+		interpolatedCommand="${cmd//"$argsMarker"/$quotedArgs}"
+		[ "$interpolatedCommand" = "$cmd" ] || a=()
+
+		typeset -a b=("$branch")
+		printf -v quotedBranch %q "$branch"
+		interpolatedBranchCommand="${interpolatedCommand//"$branchMarker"/$quotedBranch}"
+		[ "$interpolatedBranchCommand" = "$interpolatedCommand" ] || b=()
+
+		info+="${info:+$'\t'}$(eval "$interpolatedBranchCommand" '"${a[@]}"' '"${b[@]}"')" || continue 2
+	    done
+
+	    printf '%s%s%s%s\t%s%s\n' "$prefix" "$colorOn" "$branch" "$colorOff" "$info" "$suffix"
 	else
 	    [ -n "$branch" ] || branch="$line"
-	    info='(Not a branch)'
+	    printf >&2 '%s%s%s%s%s\t(Not a branch)\n' "$prefix" "$colorOn" "$branch" "$colorOff" "$suffix"
 	fi
-	printf '%s%s%s%s\t%s%s\n' "$prefix" "$colorOn" "$branch" "$colorOff" "$info" "$suffix"
     done
 }
 

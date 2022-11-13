@@ -4,13 +4,18 @@ shopt -qs extglob
 
 printShortUsage()
 {
-    local distributionArguments='[--no-footer|--final-footer-only|footer-only-on-change|--footer-every N] [--force-legends] [--as colorbox-calendar|green-[large-]calendar|...] [--over day|month|year|year-weekly|--weekly]'
+    local distributionOverAutorangeArguments='[--no-footer|--final-footer-only|footer-only-on-change|--footer-every N] [--force-legends] [--as colorbox-calendar|green-[large-]calendar|...] [--over day|month|year|year-weekly|--weekly]'
+    local distributionAutolinearArguments='--linear [--color=(always|auto|never)|--no-color] [-w|--width W] [--base-date today|"YYYY MM DD"] [--no-start-date] [--no-end-date] [--days-per-slot N|--slots-per-day N] [--reversed] [--as colorbox-calendar|green-[large-]calendar]'
     local logArguments='[<log-options>] [<revision range>] [[--] <path>...]'
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s %s %s\n' "$(basename "$1")" "$distributionArguments" "$logArguments" '[-?|-h|--help]'
+    printf 'Usage: %q %s %s %s\n' "$(basename "$1")" "$distributionOverAutorangeArguments" "$logArguments" '[-?|-h|--help]'
     echo
-    printf 'Usage: %q %s %s | %q --stdin %s\n' "$(basename "$1")" '--log-only' "$logArguments" "$(basename "$1")" "$distributionArguments"
+    printf 'Usage: %q %s %s %s\n' "$(basename "$1")" "$distributionAutolinearArguments" "$logArguments" '[-?|-h|--help]'
+    echo
+    printf 'Usage: %q %s %s | %q --stdin %s\n' "$(basename "$1")" '--log-only' "$logArguments" "$(basename "$1")" "$distributionOverAutorangeArguments"
+    echo
+    printf 'Usage: %q %s %s | %q --stdin %s\n' "$(basename "$1")" '--log-only' "$logArguments" "$(basename "$1")" "$distributionAutolinearArguments"
 }
 printUsage()
 {
@@ -32,26 +37,33 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
+    --linear		Choose a linear representation in one line with
+			auto-scaling of the time instead of the fixed reporting
+			over day, month, years.
 SEE ALSO:
 - git log
 - distribution-over-autorange
+- distribution-autolinear
 HELPTEXT
 }
 
 action=printGraphFromObtainedLogs
+distributionCommand=distribution-over-autorange
 typeset -a distributionArgs=()
 typeset -a gitArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--linear)	shift; distributionCommand=distribution-autolinear;;
 	--log-only)	shift; action=getLogs;;
 	--stdin)	shift; action=printGraphFromInput;;
 
 	-[S])           distributionArgs+=("$1"); shift;;
-	--@(no-footer|final-footer-only|footer-only-on-change|no-splitting|weekly|force-legends))
+	--@(no-footer|final-footer-only|footer-only-on-change|no-splitting|weekly|force-legends|no-start-date|no-end-date|reversed|no-color|color=*))
 			distributionArgs+=("$1"); shift;;
-	--@(footer-every|graph-legend|footer-legend|as|over))
+	-[w])           distributionArgs+=("$1" "$2"); shift; shift;;
+	--@(footer-every|graph-legend|footer-legend|as|over|color|width|base-date|days-per-slot|slots-per-day))
 			distributionArgs+=("$1" "$2"); shift; shift;;
 
 	--@(pretty|format)?(=*))
@@ -87,7 +99,7 @@ printGraphFromInput()
 
 printGraph()
 {
-    distribution-over-autorange "${distributionArgs[@]}"
+    $distributionCommand "${distributionArgs[@]}"
 }
 
 $action

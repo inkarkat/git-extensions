@@ -4,10 +4,17 @@ set -o noglob
 printUsage()
 {
     cat <<HELPTEXT
-Execute GIT-COMMAND with author filtering of names belonging to my team.
+Execute GIT-COMMAND with author filtering of names belonging to my team
+- appended
+- replacing TEAM argument(s) anywhere
+- replacing TEAM in the following GIT-COMMAND and -(N-1) arguments
+- replacing TEAM in the following +(N) arguments and appending those
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-option-name] GIT-COMMAND [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-option-name] --keep-position GIT-COMMAND [... TEAM ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-option-name] [-2 GIT-COMMAND ARG1| -3 GIT-COMMAND ARG1 ARG2| ...] [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-option-name] [+1 ARG1|+2 ARG1 ARG2| +3 ARG1 ARG2 ARG3| ...] GIT-COMMAND [...]'
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
@@ -39,25 +46,45 @@ if [ $# -eq 0 ]; then
     exit 2
 fi
 
-typeset -a gitCommand=()
+isCountedAppend=
 case "$1" in
-    [^-]*-command)  gitCommand+=("$1"); shift
-		    while [ $# -ne 0 ]
-		    do
-			case "$1" in
-			    --)		break;;
-			    -*)		gitCommand+=("$1"); shift;;
-			    *)		gitCommand+=("$1"); shift; break;;
-			esac
-		    done
-		    ;;
-    *)		    while [ $# -ne 0 ]
-		    do
-			case "$1" in
-			    -c) gitCommand+=("$1" "$2"); shift; shift;;
-			    *)	gitCommand+=("$1"); shift; break;;
-			esac
-		    done
-esac
+    +[1-9])
+	isCountedAppend=t;&
+    -[1-9])
+	typeset countedArgNum=${1#[+-]}
+	typeset -a countedArgs=("${@:2:${countedArgNum}}")
+	set -- "${@:$((2 + countedArgNum))}"
 
-exec git-wrapper "${gitCommand[@]}" "${teamArgs[@]}" "$@"
+	typeset -a appendedArgs=()
+	for arg in "${countedArgs[@]}"
+	do
+	    if [ "$arg" = 'TEAM' ]; then
+		appendedArgs+=("${teamArgs[@]}")
+	    else
+		appendedArgs+=("$arg")
+	    fi
+	done
+
+	[ "$isCountedAppend" ] \
+	    && exec git-wrapper "$@" "${appendedArgs[@]}" \
+	    || exec git-wrapper "${appendedArgs[@]}" "$@"
+	;;
+    --keep-position)
+	shift
+
+	typeset -a appendedArgs=()
+	for arg
+	do
+	    if [ "$arg" = 'TEAM' ]; then
+		appendedArgs+=("${teamArgs[@]}")
+	    else
+		appendedArgs+=("$arg")
+	    fi
+	done
+
+	exec git-wrapper "${appendedArgs[@]}"
+	;;
+    *)
+	exec git-wrapper "$@" "${teamArgs[@]}"
+	;;
+esac

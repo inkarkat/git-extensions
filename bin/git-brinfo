@@ -30,6 +30,8 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
+    --who		Also list the creator, any other authors, and the last
+			author.
     --include-authors	Also list all authors that have committed on the branch.
     --include-creator	Also list the author of the first commit on the branch.
     --include-distribution
@@ -58,6 +60,11 @@ do
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--set-context)	shift; [ -n "$1" ] && defaultCommand=("$1") || defaultCommand=(); shift;;
 	--add-context)	shift; addedCommands+=("$1"); shift;;
+	--who)		shift
+			# The default onelinelog will already show the last
+			# author.
+			addedCommands+=("git whoworkedonthebranch ${defaultCommand[*]:+--omit-last-author} --branch {} | joinBy --omit-empty --prefix '(' --suffix ')' - ', ' || echo ' ' #{@}")
+			;;
 	--include-authors)
 			shift; addedCommands+=('git abrwhodidhere --summary --names-only --branch {} | joinBy --prefix "(by " --suffix ")" --empty "(no authors found)" --summarize-larger "3 authors" - ", " || echo " " #{@}');;
 	--include-creator)

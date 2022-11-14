@@ -3,13 +3,17 @@
 printUsage()
 {
     cat <<HELPTEXT
-Execute GIT-COMMAND with MASTER argument(s) replaced in ARG(s) or those
-following GIT-COMMAND / appending the name of the default (master) branch.
+Execute GIT-COMMAND with the name of the default (master) branch.
+- appended
+- replacing MASTER argument(s) anywhere
+- replacing MASTER in the following GIT-COMMAND and -(N-1) arguments
+- replacing MASTER in the following +(N) arguments and appending those
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND [...] [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '--keep-position GIT-COMMAND [... MASTER ...] [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-1 ARG1|-2 ARG1 ARG2| -3 ARG1 ARG2 ARG3| ...] GIT-COMMAND [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--keep-position GIT-COMMAND [... MASTER ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-2 GIT-COMMAND ARG1| -3 GIT-COMMAND ARG1 ARG2| ...] [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[+1 ARG1|+2 ARG1 ARG2| +3 ARG1 ARG2 ARG3| ...] GIT-COMMAND [...]'
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
@@ -22,15 +26,20 @@ elif [ $# -eq 0 ]; then
     exit 2
 fi
 
+isCountedAppend=
 case "$1" in
+    +[1-9])
+	isCountedAppend=t;&
     -[1-9])
-	typeset masterArgNum=${1#-}
-	typeset -a masterArgs=("${@:2:${masterArgNum}}")
-	set -- "${@:$((2 + masterArgNum))}"
+	typeset countedArgNum=${1#[+-]}
+	typeset -a countedArgs=("${@:2:${countedArgNum}}")
+	set -- "${@:$((2 + countedArgNum))}"
 
-	masterArgs=("${masterArgs[@]//MASTER/${masterBranch}}")
+	countedArgs=("${countedArgs[@]//MASTER/${masterBranch}}")
 
-	exec git-wrapper "$@" "${masterArgs[@]}"
+	[ "$isCountedAppend" ] \
+	    && exec git-wrapper "$@" "${countedArgs[@]}" \
+	    || exec git-wrapper "${countedArgs[@]}" "$@"
 	;;
     --keep-position)
 	shift

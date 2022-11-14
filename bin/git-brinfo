@@ -10,7 +10,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: git BRANCH-COMMAND | %q %s\n' "$(basename "$1")" "[--include-authors] [--include-creator] [--set-context EXPR|''] [--add-context EXPR [-a|--context-arg ARG [-a ...]] [--add-context ...]] [--color=(always|auto|never)|--no-color] [CONTEXT-ARGS ...] [-?|-h|--help]"
+    printf 'Usage: git BRANCH-COMMAND | %q %s\n' "$(basename "$1")" "[--branches-from-me|--my-branches] [--include-authors] [--include-creator] [--set-context EXPR|''] [--add-context EXPR [-a|--context-arg ARG [-a ...]] [--add-context ...]] [--color=(always|auto|never)|--no-color] [CONTEXT-ARGS ...] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -31,6 +31,10 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
+    --branches-from-me	Omit branches that have not been created by me (i.e.
+			where the first commit is not by me).
+    --my-branches	Omit branches that do not have any commit authored by
+			me.
     --who		Also list the creator, any other authors, and the last
 			author.
     --include-authors	Also list all authors that have committed on the branch.
@@ -67,6 +71,9 @@ do
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--set-context)	shift; [ -n "$1" ] && defaultCommand=("$1") || defaultCommand=(); shift;;
 	--add-context)	shift; addedCommands+=("$1"); shift;;
+	--branches-from-me)
+			shift; addedCommands+=('filterBranchesCreatedByMe {} #{@}');;
+	--my-branches)	shift; addedCommands+=('filterMyBranches {} #{@}');;
 	--who)		shift
 			# The default onelinelog will already show the last
 			# author.
@@ -102,6 +109,23 @@ else
     pager=()
     formatter=()
 fi
+
+filterBranchesCreatedByMe()
+{
+    local branch="${1:?}"; shift
+    local me; me="$(git me)" || return 0
+    local creator; creator="$(git bcbaselg --pretty='tformat:%aN' --branch "$branch")" || return 0
+
+    [ "$me" = "$creator" ]
+}
+
+filterMyBranches()
+{
+    local branch="${1:?}"; shift
+
+    git abrwhodidhere --summary --names-only --branch "$branch" \
+	| git-mine-command --no-option-name exec grep --quiet --fixed-strings --line-regexp -e
+}
 
 branchInfo()
 {

@@ -1,5 +1,6 @@
 #!/bin/bash
 set -o pipefail
+shopt -qs extglob
 
 printUsage()
 {
@@ -25,6 +26,14 @@ do
 	--no-color|--color=*)
 			colorArg=("$1"); shift;;
 	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); shift; shift;;
+
+	# Duplicated to git-rbrv
+	--@(who|include-authors|include-creator|include-distribution))
+			brinfoArgs+=("$1"); shift;;
+	-[a])
+			brinfoArgs+=("$1" "$2"); shift; shift;;
+	--@(context-arg|set-context|add-context))
+			brinfoArgs+=("$1" "$2"); shift; shift;;
 
 	--)		brArgs+=("$1"); shift; break;;
 	*)		brArgs+=("$1"); shift;;

@@ -60,6 +60,7 @@ HELPTEXT
 }
 typeset -a defaultCommand=("git onelinelog --no-decorate --max-count 1 --pretty='tformat:%C(cyan)%h%Creset %Cgreen(%aN, %ar)%Creset	%s'")
 typeset -a addedCommands=()
+typeset -a contextArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -88,8 +89,8 @@ do
 			printf -v quotedArg %q "${1?}"; shift
 			addedCommands[-1]="${addedCommands[-1]//"$argsMarker"/$quotedArg $argsMarker}"
 			;;
-	--)		shift; break;;
-	*)		break;;
+	--)		contextArgs+=("$1"); shift; break;;
+	*)		contextArgs+=("$1"); shift;;
     esac
 done
 
@@ -138,4 +139,4 @@ branchInfo()
     done
 }
 
-eval 'branchInfo "$@"' "${formatter:+|}" '"${formatter[@]}"' "${pager:+|}" '"${pager[@]}"'
+eval 'branchInfo "${contextArgs[@]}" "$@"' "${formatter:+|}" '"${formatter[@]}"' "${pager:+|}" '"${pager[@]}"'

@@ -25,6 +25,8 @@ typeset -a colorArg=(--color=always)
 if [ ! -t 1 ]; then
     colorArg=()
 fi
+typeset -a rbrArgs=()
+typeset -a brinfoArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -33,9 +35,10 @@ do
 	--no-color|--color=*)
 			colorArg=("$1"); shift;;
 	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); shift; shift;;
-	--)		break;;
-	*)		break;;
+
+	--)		rbrArgs+=("$1"); shift; break;;
+	*)		rbrArgs+=("$1"); shift;;
     esac
 done
 
-git-rbr "$remote" "${colorArg[@]}" "$@" | git-brinfo "${colorArg[@]}"
+git-rbr "$remote" "${colorArg[@]}" "$@" | git-brinfo "${colorArg[@]}" "${brinfoArgs[@]}"

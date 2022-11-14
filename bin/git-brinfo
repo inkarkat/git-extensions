@@ -32,8 +32,9 @@ HELPDESCRIPTION
     cat <<HELPTEXT
     --include-authors	Also list all authors that have committed on the branch.
     --include-creator	Also list the author of the first commit on the branch.
-    --include-month-distribution
-			Also show the distribution of commits over this month.
+    --include-distribution
+			Also show the distribution of commits over the lifetime
+			of the branch.
     --set-context EXPR	For each branch, EXPR is executed with all passed
 			arguments appended / replacing {@}, and the current
 			branch appended / replacing {}; the result is used as
@@ -61,8 +62,8 @@ do
 			shift; addedCommands+=('git abrwhodidhere --summary --names-only --branch {} | joinBy --prefix "(by " --suffix ")" --empty "(no authors found)" --summarize-larger "3 authors" - ", " #{@}');;
 	--include-creator)
 			shift; addedCommands+=('git bcbaselg --pretty=tformat:%an --branch {} | joinBy --prefix "(created by " --suffix ")" --empty "(no author found)" - ", " #{@}');;
-	--include-month-distribution)
-			shift; addedCommands+=('git abrlogdistribution --force-legends --over month --no-footer --branch {} | tail -n 1 #{@}');;
+	--include-distribution)
+			shift; addedCommands+=('DISTRIBUTIONDAYS_WIDTH=40 DISTRIBUTIONDAYS_COLOR_UNITS=" " git abrlogdistribution --linear {@} --branch {} | reldate');;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;

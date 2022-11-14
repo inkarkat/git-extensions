@@ -1,5 +1,6 @@
 #!/bin/bash
 set -o pipefail
+shopt -qs extglob
 
 printUsage()
 {
@@ -15,6 +16,8 @@ typeset -a colorArg=(--color=always)
 if [ ! -t 1 ]; then
     colorArg=()
 fi
+typeset -a brArgs=()
+typeset -a brinfoArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -23,9 +26,24 @@ do
 	--no-color|--color=*)
 			colorArg=("$1"); shift;;
 	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); shift; shift;;
-	--)		break;;
-	*)		break;;
+
+	# Duplicated to git-rbrv
+	--@(who|include-authors|include-creator))
+			brinfoArgs+=("$1"); shift;;
+	--include-distribution)
+			# DWIM: Prefer short graph over more details for commits
+			# within the day; two scales (one value per day for
+			# short-lived branches and multiple days condensed for
+			# long-lived ones) aid comparison across branches.
+			brinfoArgs+=("$1" --context-arg --no-day-zoom); shift;;
+	-[a])
+			brinfoArgs+=("$1" "$2"); shift; shift;;
+	--@(context-arg|set-context|add-context))
+			brinfoArgs+=("$1" "$2"); shift; shift;;
+
+	--)		brArgs+=("$1"); shift; break;;
+	*)		brArgs+=("$1"); shift;;
     esac
 done
 
-git-br "${colorArg[@]}" "$@" | git-brinfo "${colorArg[@]}"
+git-br "${colorArg[@]}" "${brArgs[@]}" "$@" | git-brinfo "${colorArg[@]}" "${brinfoArgs[@]}"

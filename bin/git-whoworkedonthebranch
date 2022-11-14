@@ -7,27 +7,43 @@ Print the creator, other authors, and the last author for the current / passed
 BRANCH while dropping duplicates.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-b|--branch BRANCH] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--omit-last-author] [-b|--branch BRANCH] [-?|-h|--help]'
 }
+
 branch='HEAD'
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --branch|-b)	shift; branch="${1:?}"; shift;;
-esac
+isOmitLastAuthor=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--branch|-b)	shift; branch="${1:?}"; shift;;
+	--omit-last-author)
+			shift; isOmitLastAuthor=t;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
 
 creator="$(git bcbaselg --pretty=tformat:%aN --branch "$branch")"
 readarray -t authors < <(git abrwhodidhere --summary --names-only --branch "$branch")
 lastAuthor="$(git log1 --pretty='tformat:%aN' "$branch" --)"
 
 if [ "$creator" = "$lastAuthor" -a ${#authors[@]} -eq 1 -a "${authors[0]}" = "$lastAuthor" ]; then
-    printf '%s\n' "$lastAuthor"
+    # This is a one-man show.
+    [ "$isOmitLastAuthor" ] \
+	|| printf '%s\n' "$lastAuthor"
     exit
 fi
 
 for i in "${!authors[@]}"
 do
-    [ "${authors[i]}" = "$creator" -o "${authors[i]}" = "$lastAuthor" ] \
-	&& unset "authors[$i]"
+    [ "${authors[i]}" = "$creator" ]  && unset "authors[$i]"
+    [ "$isOmitLastAuthor" ] && [ "${authors[i]}" = "$lastAuthor" ]  && unset "authors[$i]"
 done
 whoWorked=
 [ "$creator" = "$lastAuthor" ] \

@@ -10,7 +10,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: git BRANCH-COMMAND | %q %s\n' "$(basename "$1")" "[--include-authors] [--include-creator] [--set-context EXPR|''] [--add-context EXPR [--add-context ...]] [--color=(always|auto|never)|--no-color] [CONTEXT-ARGS ...] [-?|-h|--help]"
+    printf 'Usage: git BRANCH-COMMAND | %q %s\n' "$(basename "$1")" "[--include-authors] [--include-creator] [--set-context EXPR|''] [--add-context EXPR [-a|--context-arg ARG [-a ...]] [--add-context ...]] [--color=(always|auto|never)|--no-color] [CONTEXT-ARGS ...] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -50,7 +50,12 @@ HELPDESCRIPTION
 			appended / replacing {}; any result is prepended
 			before the shortlog of the last commit. If EXPR fails,
 			that branch is completely omitted.
-    Note: If an EXPR should not receive the passed arguments, append "# {@}".
+    --context-arg|-a ARG
+			Pass ARG only to the preceding added context EXPR.
+			Generic arguments that apply to all commands (like
+			--color) can also be appended as CONTEXT-ARGS. If an
+			EXPR should not receive any passed arguments, append
+			"# {@}".
 HELPTEXT
 }
 typeset -a defaultCommand=("git onelinelog --no-decorate --max-count 1 --pretty='tformat:%C(cyan)%h%Creset %Cgreen(%aN, %ar)%Creset	%s'")
@@ -72,8 +77,18 @@ do
 			shift; addedCommands+=('git bcbaselg --pretty=tformat:%aN --branch {} | joinBy --prefix "(created by " --suffix ")" --empty "(no author found)" - ", " || echo " " #{@}');;
 	--include-distribution)
 			shift; addedCommands+=('DISTRIBUTIONDAYS_WIDTH=40 DISTRIBUTIONDAYS_COLOR_UNITS=" " git abrlogdistribution --linear {@} --branch {} | reldate || echo " "');;
+	--context-arg|-a)
+			shift
+			if [ ${#addedCommands[@]} -eq 0 ]; then
+			    echo 'ERROR: No previous --add-context.'
+			    echo
+			    printUsage "$0"
+			    exit 2
+			fi >&2
+			printf -v quotedArg %q "${1?}"; shift
+			addedCommands[-1]="${addedCommands[-1]//"$argsMarker"/$quotedArg $argsMarker}"
+			;;
 	--)		shift; break;;
-	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
     esac
 done

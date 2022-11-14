@@ -28,8 +28,14 @@ do
 	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); shift; shift;;
 
 	# Duplicated to git-rbrv
-	--@(who|include-authors|include-creator|include-distribution))
+	--@(who|include-authors|include-creator))
 			brinfoArgs+=("$1"); shift;;
+	--include-distribution)
+			# DWIM: Prefer short graph over more details for commits
+			# within the day; two scales (one value per day for
+			# short-lived branches and multiple days condensed for
+			# long-lived ones) aid comparison across branches.
+			brinfoArgs+=("$1" --context-arg --no-day-zoom); shift;;
 	-[a])
 			brinfoArgs+=("$1" "$2"); shift; shift;;
 	--@(context-arg|set-context|add-context))

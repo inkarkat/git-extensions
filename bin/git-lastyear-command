@@ -8,15 +8,25 @@ printUsage()
 {
     cat <<HELPTEXT
 Execute GIT-COMMAND with a commit range that covers the entire fully passed last
-year (starting with month $GIT_LASTYEAR_COMMAND_START_MONTH).
+year (starting with month $GIT_LASTYEAR_COMMAND_START_MONTH)
+- appended
+- replacing LASTYEAR argument(s) anywhere
+- replacing LASTYEAR in the following GIT-COMMAND and -(N-1) arguments
+- replacing LASTYEAR in the following +(N) arguments and appending those
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--keep-position GIT-COMMAND [... LASTYEAR ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-2 GIT-COMMAND ARG1| -3 GIT-COMMAND ARG1 ARG2| ...] [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[+1 ARG1|+2 ARG1 ARG2| +3 ARG1 ARG2 ARG3| ...] GIT-COMMAND [...]'
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
-
+if [ $# -eq 0 ]; then
+    echo >&2 'ERROR: No GIT-COMMAND passed.'
+    exit 2
+fi
 
 year="$(date +%Y)"
 yearOffset=-1; [ "$(date +%m)" -ge $GIT_LASTYEAR_COMMAND_START_MONTH ] && yearOffset=0
@@ -24,27 +34,53 @@ yearOffset=-1; [ "$(date +%m)" -ge $GIT_LASTYEAR_COMMAND_START_MONTH ] && yearOf
 endYear=$((year + yearOffset))
 startYear=$((endYear - 1))
 
-typeset -a gitCommand=()
+typeset -a lastYearArgs=(
+    --${GIT_LASTYEAR_OPTION_PREFIX}since="${startYear}-${GIT_LASTYEAR_COMMAND_START_MONTH}-01"
+    --${GIT_LASTYEAR_OPTION_PREFIX}until="${endYear}-${GIT_LASTYEAR_COMMAND_START_MONTH}-01"
+)
+[ -n "$GIT_LASTYEAR_DESCRIPTION_OPTION" ] \
+    && lastYearArgs+=("$GIT_LASTYEAR_DESCRIPTION_OPTION" "FY-${startYear}")
+
+
+isCountedAppend=
 case "$1" in
-    [^-]*-command)  gitCommand+=("$1"); shift
-		    while [ $# -ne 0 ]
-		    do
-			case "$1" in
-			    --)		break;;
-			    -*)		gitCommand+=("$1"); shift;;
-			    *)		gitCommand+=("$1"); shift; break;;
-			esac
-		    done
-		    ;;
-    *)		    while [ $# -ne 0 ]
-		    do
-			case "$1" in
-			    -c) gitCommand+=("$1" "$2"); shift; shift;;
-			    *)	gitCommand+=("$1"); shift; break;;
-			esac
-		    done
+    +[1-9])
+	isCountedAppend=t;&
+    -[1-9])
+	typeset countedArgNum=${1#[+-]}
+	typeset -a countedArgs=("${@:2:${countedArgNum}}")
+	set -- "${@:$((2 + countedArgNum))}"
+
+	typeset -a appendedArgs=()
+	for arg in "${countedArgs[@]}"
+	do
+	    if [ "$arg" = 'LASTYEAR' ]; then
+		appendedArgs+=("${lastYearArgs[@]}")
+	    else
+		appendedArgs+=("$arg")
+	    fi
+	done
+
+	[ "$isCountedAppend" ] \
+	    && exec git-wrapper "$@" "${appendedArgs[@]}" \
+	    || exec git-wrapper "${appendedArgs[@]}" "$@"
+	;;
+    --keep-position)
+	shift
+
+	typeset -a appendedArgs=()
+	for arg
+	do
+	    if [ "$arg" = 'LASTYEAR' ]; then
+		appendedArgs+=("${lastYearArgs[@]}")
+	    else
+		appendedArgs+=("$arg")
+	    fi
+	done
+
+	exec git-wrapper "${appendedArgs[@]}"
+	;;
+    *)
+	exec git-wrapper "$@" "${lastYearArgs[@]}"
+	;;
 esac
-
-[ "$GIT_LASTYEAR_DESCRIPTION_OPTION" ] && gitCommand+=("$GIT_LASTYEAR_DESCRIPTION_OPTION" "FY-${startYear}")
-
-exec git-wrapper "${gitCommand[@]}" --${GIT_LASTYEAR_OPTION_PREFIX}since="${startYear}-${GIT_LASTYEAR_COMMAND_START_MONTH}-01" --${GIT_LASTYEAR_OPTION_PREFIX}until="${endYear}-${GIT_LASTYEAR_COMMAND_START_MONTH}-01" "$@"

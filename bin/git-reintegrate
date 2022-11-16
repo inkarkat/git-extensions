@@ -452,7 +452,11 @@ do
 	trackedRemote='origin'
 	rldeletebrArgs=(--ignore-missing-in-origin)
     fi
-
-    git-rldeletebr "$trackedRemote" "${rldeletebrArgs[@]}" "$branch" || status=$?
+    if [ "$(hub settings --remote "$trackedRemote" get deleteBranchOnMerge 2>/dev/null)" = 'true' ]; then
+	printf >&2 "Note: GitHub in %s should have automatically deleted the merged branch '%s' already.\\n" "$trackedRemote" "$branch"
+	git-deletebr "$branch"
+    else
+	git-rldeletebr "$trackedRemote" "${rldeletebrArgs[@]}" "$branch"
+    fi || status=$?
 done
 exit $status

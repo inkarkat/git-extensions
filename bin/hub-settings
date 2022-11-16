@@ -3,30 +3,32 @@
 printUsage()
 {
     cat <<HELPTEXT
-List all cached GitHub settings for the current repository.
+List all cached GitHub settings for the current repository [in REMOTE].
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'list [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--remote REMOTE] list [-?|-h|--help]'
     echo
     cat <<HELPTEXT
-Get cached / obtain and cache GitHub SETTING-NAME for the current repository.
+Get cached / obtain and cache GitHub SETTING-NAME for the current repository [in REMOTE].
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'get SETTING-NAME'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--remote REMOTE] get SETTING-NAME'
     echo
     cat <<HELPTEXT
-Update all cached GitHub settings / SETTING-NAME for the current repository.
+Update all cached GitHub settings / SETTING-NAME for the current repository [in REMOTE].
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'update-all|update SETTING-NAME'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--remote REMOTE] update-all|update SETTING-NAME'
     echo
     cat <<HELPTEXT
-Clear cached GitHub settings / SETTING-NAME for the current repository.
+Clear cached GitHub settings / SETTING-NAME for the current repository [in REMOTE].
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'invalidate-all|invalidate SETTING-NAME'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--remote REMOTE] invalidate-all|invalidate SETTING-NAME'
 }
 
+remote='default'    # We don't know what repository gh defaults to.
+typeset -a remoteRepositoryArg=()
 action=usageError
 while [ $# -ne 0 ]
 do
@@ -35,6 +37,9 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
+	--remote|-r)	shift
+			remote="${1:?}"; shift
+			remoteRepositoryArg=("$(hub-userrepo "$(git remote get-url "$remote")")") || exit $?;;
 	list)		shift; action=listSettings; break;;
 	get)		shift; action=getSetting; break;;
 	update-all)	shift; action=updateAll; break;;
@@ -52,7 +57,7 @@ readonly settingsFilespec="${gitDir}/hub-settings"
 
 database()
 {
-    nanoDB --basedir "$gitDir" --table hub-settings "$@"
+    nanoDB --basedir "$gitDir" --namespace hub-settings --table "$remote" "$@"
 }
 
 usageError()

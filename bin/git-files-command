@@ -3,43 +3,54 @@
 printUsage()
 {
     cat <<HELPTEXT
-Obtain a list of files from SOURCE-COMMAND (e.g. showfiles), and pass those
-along to GIT-COMMAND, with SUBMODULES argument(s) replaced in ARG(s) or those
-following GIT-COMMAND / appending the submodules.
+Execute GIT-COMMAND with a list of files that is obtained from SOURCE-COMMAND
+(e.g. showfiles)
+- appended
+- replacing FILES argument(s) anywhere
+- replacing FILES in the following GIT-COMMAND and -(N-1) arguments
+- replacing FILES in the following +(N) arguments and appending those
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND SOURCE-COMMAND [GIT-COMMAND-ARGS ...] [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '--keep-position GIT-COMMAND SOURCE-COMMAND [GIT-COMMAND-ARGS ... SUBMODULES ...] [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-1 ARG1|-2 ARG1 ARG2| -3 ARG1 ARG2 ARG3| ...] GIT-COMMAND SOURCE-COMMAND [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--source-command SOURCE-COMMAND GIT-COMMAND [GIT-COMMAND-ARGS ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--source-command SOURCE-COMMAND --keep-position GIT-COMMAND SOURCE-COMMAND [GIT-COMMAND-ARGS ... FILES ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--source-command SOURCE-COMMAND [-2 GIT-COMMAND ARG1| -3 GIT-COMMAND ARG1 ARG2| ...] [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--source-command SOURCE-COMMAND [+1 ARG1|+2 ARG1 ARG2| +3 ARG1 ARG2 ARG3| ...] GIT-COMMAND [...]'
 }
+sourceCommand=
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --source-command)	shift; sourceCommand="${1:?}"; shift;;
 esac
-
-if [ $# -lt 2 ]; then
+if [ -z "$sourceCommand" -o $# -lt 1 ]; then
     echo >&2 'ERROR: Need to pass GIT-COMMAND and SOURCE-COMMAND'
     exit 2
 fi
 
+isCountedAppend=
 case "$1" in
+    +[1-9])
+	isCountedAppend=t;&
     -[1-9])
-	typeset headArgNum=${1#-}
-	typeset -a headArgs=("${@:2:${headArgNum}}")
-	set -- "${@:$((2 + headArgNum))}"
+	typeset countedArgNum=${1#[+-]}
+	typeset countedArgNum=${1#-}
+	typeset -a countedArgs=("${@:2:${countedArgNum}}")
+	set -- "${@:$((2 + countedArgNum))}"
 
 	executor()
 	{
 	    typeset -a appendedArgs=()
-	    for arg in "${headArgs[@]}"
+	    for arg in "${countedArgs[@]}"
 	    do
-		if [ "$arg" = 'SUBMODULES' ]; then
+		if [ "$arg" = 'FILES' ]; then
 		    appendedArgs+=("${files[@]}")
 		else
 		    appendedArgs+=("$arg")
 		fi
 	    done
 
-	    exec git-wrapper "$gitCommand" "$@" "${appendedArgs[@]}"
+	    [ "$isCountedAppend" ] \
+		&& exec git-wrapper "$@" "${appendedArgs[@]}" \
+		|| exec git-wrapper "${appendedArgs[@]}" "$@"
 	}
 	;;
     --keep-position)
@@ -50,26 +61,23 @@ case "$1" in
 	    typeset -a appendedArgs=()
 	    for arg
 	    do
-		if [ "$arg" = 'SUBMODULES' ]; then
+		if [ "$arg" = 'FILES' ]; then
 		    appendedArgs+=("${files[@]}")
 		else
 		    appendedArgs+=("$arg")
 		fi
 	    done
 
-	    exec git-wrapper "$gitCommand" "${appendedArgs[@]}"
+	    exec git-wrapper "${appendedArgs[@]}"
 	}
 	;;
     *)
 	executor()
 	{
-	    exec git-wrapper "$gitCommand" "$@" -- "${files[@]}"
+	    exec git-wrapper "$@" -- "${files[@]}"
 	}
 	;;
 esac
-
-gitCommand="$1"; shift
-sourceCommand="$1"; shift
 
 readarray -t files < <(git-wrapper "$sourceCommand")
 [ ${#files[@]} -eq 0 ] && exit 1

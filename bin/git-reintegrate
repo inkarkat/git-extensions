@@ -447,10 +447,12 @@ for branch in "${branches[@]}"
 do
     tracks="$(git-tracks "$branch" 2>/dev/null)"
     trackedRemote="${tracks%%/*}"
-    if [ -n "$trackedRemote" ]; then
-	git-rldeletebr "$trackedRemote" "$branch"
-    else
-	git-rldeletebr origin --ignore-missing-in-origin "$branch"
-    fi || status=$?
+    typeset -a rldeletebrArgs=()
+    if [ -z "$trackedRemote" ]; then
+	trackedRemote='origin'
+	rldeletebrArgs=(--ignore-missing-in-origin)
+    fi
+
+    git-rldeletebr "$trackedRemote" "${rldeletebrArgs[@]}" "$branch" || status=$?
 done
 exit $status

@@ -58,13 +58,19 @@ listSettings()
     database --get-as-list '=' --newline-formatting $'\n    '
 }
 
+obtainSetting()
+{
+    local settingName="${1:?}"; shift
+    gh repo view --json "$settingName" --template "{{.$settingName}}"
+}
+
 getSetting()
 {
     local settingName="${1:?}"; shift
     local status=0 settingValue
 
     if ! settingValue="$(database --query "$settingName")"; then
-	settingValue="$(gh repo view --json "$settingName" --template "{{.$settingName}}")" || exit $?
+	settingValue="$(obtainSetting "$settingName")" || exit $?
 	database --update "$settingName" --value "$settingValue" || status=3
     fi
 

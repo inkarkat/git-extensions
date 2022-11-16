@@ -1,0 +1,128 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+List all cached GitHub settings for the current repository.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'list [-?|-h|--help]'
+    echo
+    cat <<HELPTEXT
+Get cached / obtain and cache GitHub SETTING-NAME for the current repository.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'get SETTING-NAME'
+    echo
+    cat <<HELPTEXT
+Update all cached GitHub settings / SETTING-NAME for the current repository.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'update-all|update SETTING-NAME'
+    echo
+    cat <<HELPTEXT
+Clear cached GitHub settings / SETTING-NAME for the current repository.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'invalidate-all|invalidate SETTING-NAME'
+}
+
+action=usageError
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+	list)		shift; action=listSettings; break;;
+	get)		shift; action=getSetting; break;;
+	update-all)	shift; action=updateAll; break;;
+	update)		shift; action=updateSetting; break;;
+	invalidate-all)	shift; action=invalidateAll; break;;
+	invalidate)	shift; action=invalidateSetting; break;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+
+gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit $?
+readonly settingsFilespec="${gitDir}/hub-settings"
+
+database()
+{
+    nanoDB --basedir "$gitDir" --table hub-settings "$@"
+}
+
+usageError()
+{
+    printUsage "$0" >&2
+    exit 2
+}
+
+listSettings()
+{
+    database --get-as-list '=' --newline-formatting $'\n    '
+}
+
+obtainSetting()
+{
+    local settingName="${1:?}"; shift
+    gh repo view --json "$settingName" --template "{{.$settingName}}"
+}
+
+getSetting()
+{
+    local settingName="${1:?}"; shift
+    local status=0 settingValue
+
+    if ! settingValue="$(database --query "$settingName")"; then
+	settingValue="$(obtainSetting "$settingName")" || exit $?
+	database --update "$settingName" --value "$settingValue" || status=3
+    fi
+
+    printf '%s\n' "$settingValue"
+    return $status
+}
+
+updateAll()
+{
+    status=99
+    local key; while IFS=$'\n' read -r key
+    do
+	update "$key"; status=$(status99Reduction "$status" $?)
+    done < <(database --query-keys)
+    return $status
+}
+
+update()
+{
+    local settingName="${1:?}"; shift
+    unset cachedSettingValue
+
+    cachedSettingValue="$(database --query "$settingName")"
+    newSettingValue="$(obtainSetting "$settingName")" || exit $?
+
+    if [ -z "${cachedSettingValue+t}" ]; then
+	printf 'New %s=%s\n' "$settingName" "$newSettingValue"
+    elif [ "$cachedSettingValue" != "$newSettingValue" ]; then
+	printf "Updated %s from '%s' to '%s'.\n" "$settingName" "$cachedSettingValue" "$newSettingValue"
+    else
+	return 99
+    fi
+
+    database --update "$settingName" --value "$newSettingValue" || return 3
+}
+
+invalidateAll()
+{
+    database --drop
+}
+invalidateSetting()
+{
+    local settingName="${1:?}"; shift
+    database --delete "$settingName"
+}
+
+$action "$@"

@@ -27,7 +27,7 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--remote REMOTE] invalidate-all|invalidate SETTING-NAME'
 }
 
-remote='default'    # We don't know what repository gh defaults to.
+remote=
 typeset -a remoteRepositoryArg=()
 action=usageError
 while [ $# -ne 0 ]
@@ -57,7 +57,17 @@ readonly settingsFilespec="${gitDir}/hub-settings"
 
 database()
 {
-    nanoDB --basedir "$gitDir" --namespace hub-settings --table "$remote" "$@"
+    if [ -z "$remote" ]; then
+	# gh asks for the repository on the first run if none has been specified
+	# so far; this information is stored (a bit intransparenly; cp.
+	# https://github.com/cli/cli/issues/1864) in the repo's Git
+	# configuration under remote.<remote>.gh-resolved. We can query that to
+	# obtain the selected value.
+	# Source: https://github.com/cli/cli/issues/2300#issuecomment-717476725
+	remote="$(git config --local --get-regexp '\.gh-resolved$' | cut -f2 -d.)" || exit 3
+    fi
+
+    nanoDB --basedir "$gitDir" --namespace hub-settings --table "${remote:?}" "$@"
 }
 
 usageError()

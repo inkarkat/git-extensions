@@ -262,7 +262,7 @@ printContinueCommand()
     local gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
     local -r scriptName="$(basename -- "${BASH_SOURCE[0]}")"
     [ "$isCheckFromStdin" ] && printf >&2 'echo CHECK-COMMANDLINES | '
-    printf >&2 '$ %s %q' "$gitCommand" "${scriptName#git-}"
+    printf >&2 '$ %s%s %q' "${1}${1:+ && }" "$gitCommand" "${scriptName#git-}"
     printf >&2 ' %q' '--continue' ${isBare:+--bare} "${runWithPromptArgs[@]}" "${continueArgs[@]}" "${gitRemoteMutateArgs[@]}" "${checkCommandArgs[@]}"
     printf >&2 -- ' --branch %q'  "${branches[@]}"
     [ "$isCheckFromStdin" ] && printf >&2 ' -'
@@ -300,6 +300,8 @@ pushit()
 targetBranch="$(git-brname --real-branch-only)" || exit $?
 targetTracks="$(git-tracks 2>/dev/null)"
 targetTrackedRemote="${targetTracks%%/*}"
+
+gitSubmoduleUpdateCommand=; git hassubmodules && gitSubmoduleUpdateCommand='git subwipe'
 
 if [ "$isContinue" ]; then
     joinBy --prefix 'Finalizing reintegration of ' --last-separator ' and ' ', ' "${branches[@]}" 2>/dev/null
@@ -412,7 +414,7 @@ else
 	    git-wrapper merge "${fastForwardArgs[@]:---no-ff}" "${mergeMessageArgs[@]}" "${mergeNoEditMessageArgs[@]}" "${mergeArgs[@]}" "${branches[@]}" || {
 		status=$?
 		echo >&2 "After $branchesSubjectAuxiliaryVerb been merged (see above), you can ${isCheckFromStdin:+run checks and }${isPush:+push and }${isKeepBranches:+not }delete $branchesSubject via"
-		printContinueCommand
+		printContinueCommand "$gitSubmoduleUpdateCommand"
 		exit $status
 	    }
 	fi

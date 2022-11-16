@@ -5,9 +5,11 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--revision REVISION] [--author=<pattern>|--committer=<pattern> ...] [--no-range|--with-range ...|--last-only] [+1|--one-more] [--with-log-args|--with-log-args-except-last] [--] [GIT-COMMAND ...] [-?|-h|--help]'
-    echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND [-r|--revision REVISION] [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--revision REVISION] [--author=<pattern>|--committer=<pattern> ...] [--no-range|--with-range ...|--last-only] [+1|--one-more] [--with-log-args|--with-log-args-except-last] ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... BASE ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1| -3 GIT-COMMAND ARG1 ARG2| ...] [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2| +3 ARG1 ARG2 ARG3| ...] GIT-COMMAND [...]'
 }
 printUsage()
 {
@@ -24,7 +26,11 @@ printLongUsage()
 Print / execute GIT-COMMAND with a revision range starting from the passed
 REVISION / the first found revision from the passed author / committer(s) and
 including all commits done by the passed author / committer(s) (or the author (+
-committer if different) from the start revision).
+committer if different) from the start revision)
+- appended
+- replacing USERRANGE argument(s) anywhere
+- replacing USERRANGE in the following GIT-COMMAND and -(N-1) arguments
+- replacing USERRANGE in the following +(N) arguments and appending those
     --no-range	    Only use the earliest consecutive commit from the passed
 		    author.
     --with-range ...
@@ -43,8 +49,6 @@ HELPDESCRIPTION
 
 HELPTEXT
 }
-typeset -a gitCommand=()
-isFirstArg=t
 revision=
 range=..
 isLastOnly=
@@ -65,20 +69,46 @@ do
 	--with-log-args)	    shift; withLogArgs=all;;
 	--with-log-args-except-last)
 				    shift; withLogArgs=except-last;;
-	--)			    shift; break;;
-	*)  if [ "$isFirstArg" ]; then
-		case "$1" in
-		    -c) gitCommand+=("$1" "$2"); shift; shift;;
-		    *)  eval "gitCommand+=($1)"	# Note: The Git command itself can consist of command + arguments, so it must not be quoted here!
-			shift; isFirstArg=;;
-		esac
-	    else
-		isFirstArg=
-		break
-	    fi
-	    ;;
+	*)			    break;;
     esac
 done
+
+isCountedAppend=
+typeset -a countedArgs=()
+case "$1" in
+    +[1-9])
+	isCountedAppend=t;&
+    -[1-9])
+	typeset countedArgNum=${1#[+-]}
+	typeset countedArgNum=${1#-}
+	countedArgs=("${@:2:${countedArgNum}}")
+	set -- "${@:$((2 + countedArgNum))}"
+
+	executor()
+	{
+	    countedArgs=("${countedArgs[@]//USERRANGE/${revisionRange}}")
+
+	    [ "$isCountedAppend" ] \
+		&& exec git-wrapper "$@" "${countedArgs[@]}" \
+		|| exec git-wrapper "${countedArgs[@]}" "$@"
+	}
+	;;
+    --keep-position)
+	shift
+	countedArgs=("$@"); set --
+
+	executor()
+	{
+	    exec git-wrapper "${countedArgs[@]//USERRANGE/${revisionRange}}"
+	}
+	;;
+    *)	countedArgs=("$@"); set --
+	executor()
+	{
+	    exec git-wrapper "${countedArgs[@]}" "$revisionRange"
+	}
+	;;
+esac
 
 if [ ${#userFilterArgs[@]} -eq 0 ]; then
     author="$(git show --no-patch --pretty=format:'%aN <%aE>' "${revision:-HEAD}")" || exit $?
@@ -122,30 +152,9 @@ else
     revisionRange="${startRevision}${startRevision:+$range}${range:+${revision}${revisionSuffix}}"
 fi
 
-
-if [ ${#gitCommand[@]} -eq 0 -a $# -eq 0 ]; then
+if [ ${#countedArgs[@]} -eq 0 -a $# -eq 0 ]; then
     printf '%s\n' "$revisionRange"
     exit 0
+else
+    executor "$@"
 fi
-
-[ ${#gitCommand[@]} -eq 0 ] && case "$1" in
-    [^-]*-command)  gitCommand+=("$1"); shift
-		    while [ $# -ne 0 ]
-		    do
-			case "$1" in
-			    --)		break;;
-			    -*)		gitCommand+=("$1"); shift;;
-			    *)		gitCommand+=("$1"); shift; break;;
-			esac
-		    done
-		    ;;
-    *)		    while [ $# -ne 0 ]
-		    do
-			case "$1" in
-			    -c) gitCommand+=("$1" "$2"); shift; shift;;
-			    *)	gitCommand+=("$1"); shift; break;;
-			esac
-		    done
-esac
-
-exec git-wrapper "${gitCommand[@]}" "$revisionRange" "$@"

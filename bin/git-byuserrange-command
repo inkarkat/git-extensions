@@ -31,6 +31,10 @@ committer if different) from the start revision)
 - replacing USERRANGE argument(s) anywhere
 - replacing USERRANGE in the following GIT-COMMAND and -(N-1) arguments
 - replacing USERRANGE in the following +(N) arguments and appending those
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    cat <<HELPTEXT
     --no-range	    Only use the earliest consecutive commit from the passed
 		    author.
     --with-range ...
@@ -42,11 +46,6 @@ committer if different) from the start revision)
     --with-log-args-except-last
 		    All GIT-COMMAND arguments expect the very last should also
 		    be used when determining the revision range.
-HELPDESCRIPTION
-    echo
-    printShortUsage "$1"
-    cat <<HELPTEXT
-
 HELPTEXT
 }
 revision=
@@ -121,6 +120,7 @@ case "$withLogArgs" in
     all)	    sharedLogArgs+=("$@");;
     except-last)    sharedLogArgs+=("${@:1:$(($#-1))}");;
 esac
+
 if [ -z "$revision" ]; then
     revision="$(git log --max-count 1 --pretty=tformat:%H "${userFilterArgs[@]}" "${sharedLogArgs[@]}")"
     if [ -z "$revision" ]; then

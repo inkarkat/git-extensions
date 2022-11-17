@@ -24,20 +24,47 @@ if exists tkdiff; then
     HOME="${USER_HOME:-$HOME}" git-userlocalconfig alias.mergewithtkdiff 'customtool merge.tool tkdiff'
 fi
 if exists vimdiff; then
-    HOME="${USER_HOME:-$HOME}" git-userlocalconfig alias.diffwithvimdiff 'customtool diff.tool vimdiff'
-    HOME="${USER_HOME:-$HOME}" git-userlocalconfig alias.mergewithvimdiff 'customtool merge.tool vimdiff'
-    HOME="${USER_HOME:-$HOME}" git-userlocalconfig alias.diffwithvimdiff2 'customtool diff.tool vimdiff2'
-    HOME="${USER_HOME:-$HOME}" git-userlocalconfig alias.mergewithvimdiff2 'customtool merge.tool vimdiff2'
-    HOME="${USER_HOME:-$HOME}" git-userlocalconfig alias.diffwithvimdiff3 'customtool diff.tool vimdiff3'
-    HOME="${USER_HOME:-$HOME}" git-userlocalconfig alias.mergewithvimdiff3 'customtool merge.tool vimdiff3'
+    # XXX: Git's vimdiff naming is likely historical but veery confusing. I'd
+    # like the number mean the number of windows shown, so everything has to be
+    # remapped.
+
+    # vimdiff is a Git-custom 4 windows layout.
+    # ------------------------------------------
+    # |             |           |              |
+    # |   LOCAL     |   BASE    |   REMOTE     |
+    # |             |           |              |
+    # ------------------------------------------
+    # |                                        |
+    # |                MERGED                  |
+    # |                                        |
+    # ------------------------------------------
+    HOME="${USER_HOME:-$HOME}" git-userlocalconfig alias.diffwithvimdiff4 'customtool diff.tool vimdiff'
+    HOME="${USER_HOME:-$HOME}" git-userlocalconfig alias.mergewithvimdiff4 'customtool merge.tool vimdiff'
+
+    # vimdiff3: Use Vim where only the MERGED file is shown
+    HOME="${USER_HOME:-$HOME}" git-userlocalconfig alias.diffwithvimdiff1 'customtool diff.tool vimdiff3'
+    HOME="${USER_HOME:-$HOME}" git-userlocalconfig alias.mergewithvimdiff1 'customtool merge.tool vimdiff3'
+
+    # vimdiff1: Use Vim with a 2 panes layout (LOCAL and REMOTE)
+    HOME="${USER_HOME:-$HOME}" git-userlocalconfig alias.diffwithvimdiff2 'customtool diff.tool vimdiff1'
+    HOME="${USER_HOME:-$HOME}" git-userlocalconfig alias.mergewithvimdiff2 'customtool merge.tool vimdiff1'
+
+    # vimdiff2: Use Vim with a 3 panes layout (LOCAL, MERGED and REMOTE)
+    HOME="${USER_HOME:-$HOME}" git-userlocalconfig alias.diffwithvimdiff3 'customtool diff.tool vimdiff2'
+    HOME="${USER_HOME:-$HOME}" git-userlocalconfig alias.mergewithvimdiff3 'customtool merge.tool vimdiff2'
 fi
 if exists gvimdiff; then
-    HOME="${USER_HOME:-$HOME}" git-userlocalconfig alias.diffwithgvimdiff 'customtool diff.tool gvimdiff'
-    HOME="${USER_HOME:-$HOME}" git-userlocalconfig alias.mergewithgvimdiff 'customtool merge.tool gvimdiff'
-    HOME="${USER_HOME:-$HOME}" git-userlocalconfig alias.diffwithgvimdiff2 'customtool diff.tool gvimdiff2'
-    HOME="${USER_HOME:-$HOME}" git-userlocalconfig alias.mergewithgvimdiff2 'customtool merge.tool gvimdiff2'
-    HOME="${USER_HOME:-$HOME}" git-userlocalconfig alias.diffwithgvimdiff3 'customtool diff.tool gvimdiff3'
-    HOME="${USER_HOME:-$HOME}" git-userlocalconfig alias.mergewithgvimdiff3 'customtool merge.tool gvimdiff3'
+    HOME="${USER_HOME:-$HOME}" git-userlocalconfig alias.diffwithgvimdiff4 'customtool diff.tool gvimdiff'
+    HOME="${USER_HOME:-$HOME}" git-userlocalconfig alias.mergewithgvimdiff4 'customtool merge.tool gvimdiff'
+
+    HOME="${USER_HOME:-$HOME}" git-userlocalconfig alias.diffwithgvimdiff1 'customtool diff.tool gvimdiff3'
+    HOME="${USER_HOME:-$HOME}" git-userlocalconfig alias.mergewithgvimdiff1 'customtool merge.tool gvimdiff3'
+
+    HOME="${USER_HOME:-$HOME}" git-userlocalconfig alias.diffwithgvimdiff2 'customtool diff.tool gvimdiff1'
+    HOME="${USER_HOME:-$HOME}" git-userlocalconfig alias.mergewithgvimdiff2 'customtool merge.tool gvimdiff1'
+
+    HOME="${USER_HOME:-$HOME}" git-userlocalconfig alias.diffwithgvimdiff3 'customtool diff.tool gvimdiff2'
+    HOME="${USER_HOME:-$HOME}" git-userlocalconfig alias.mergewithgvimdiff3 'customtool merge.tool gvimdiff2'
 fi
 if exists xxdiff; then
     HOME="${USER_HOME:-$HOME}" git-userlocalconfig alias.diffwithxxdiff 'customtool diff.tool xxdiff'

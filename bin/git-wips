@@ -10,7 +10,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--submodules|--all-submodules] [--no-submodule-recurse] [--filter-worktree-duplicates] [-a|--all] [-v|--verbose] [-q|--quiet|--color=(always|auto|never)|--no-color] [(+|-)(dirty|private|stashed|noremote|outgoing|incoming|fallenbehind|behind|behindtags|wipcommit|nonmaster|unmergeddownstream|downstreambranches|inactivefork) ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--submodules|--all-submodules] [--no-submodule-recurse] [--filter-worktree-duplicates] [-a|--all] [-v|--verbose] [-q|--quiet|--color=(always|auto|never)|--no-color] [(+|-)(empty|dirty|private|stashed|noremote|outgoing|incoming|fallenbehind|behind|behindtags|wipcommit|nonmaster|unmergeddownstream|downstreambranches|inactivefork) ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -55,6 +55,7 @@ HELPDESCRIPTION
 
 Individual checks can be selected (from a baseline of no checks) via +name /
 deselected (from all checks on offer) via -name.
+- empty:    empty repository without any commit
 - dirty:    uncommitted changes
 - private:  unversioned files (that are not ignored)
 - stashed:  recorded local changes that have been stashed away
@@ -138,7 +139,7 @@ else
 fi
 
 isFirst=t
-declare -A checks=([dirty]=t [private]=t [stashed]=t [noremote]=t [outgoing]=t [incoming]=t [fallenbehind]=t [behind]=t [behindtags]=t [wipcommit]=t [nonmaster]=t [unmergeddownstream]=t [downstreambranches]=t [inactivefork]=t)
+declare -A checks=([empty]=t [dirty]=t [private]=t [stashed]=t [noremote]=t [outgoing]=t [incoming]=t [fallenbehind]=t [behind]=t [behindtags]=t [wipcommit]=t [nonmaster]=t [unmergeddownstream]=t [downstreambranches]=t [inactivefork]=t)
 while [ $# -gt 0 ]
 do
     case "$1" in
@@ -177,6 +178,9 @@ considerCheck()
 }
 
 overallStatus=1
+considerCheck empty && \
+    if git empty; then echo 'Empty repository.'; positiveCheck; fi
+
 considerCheck dirty && \
     if git dirty; then git "${gitColorConfigArg[@]}" st; positiveCheck; fi
 

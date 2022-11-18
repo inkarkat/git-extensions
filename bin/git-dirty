@@ -17,9 +17,13 @@ case "$1" in
     --)			shift;;
 esac
 
-
 if [ $# -eq 0 ]; then
-    ! { git update-index --refresh >/dev/null && git diff-index --cached --quiet HEAD --; }
+    # An empty repository causes "git diff-index" to complain about "fatal: bad
+    # revision 'HEAD'", so it would be considered dirty if we didn't check for
+    # that here.
+    git rev-parse --quiet HEAD -- >/dev/null 2>&1 || exit 1
+
+    ! { git update-index --refresh >/dev/null  && git diff-index --cached --quiet HEAD --; }
 else
     [ "$(git status --short --untracked-files=no -- "$@" 2>/dev/null)" ]
 fi

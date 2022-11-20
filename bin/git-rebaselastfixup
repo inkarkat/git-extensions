@@ -31,14 +31,20 @@ do
     esac
 done
 
-lastCommit="$(
+IFS=$'\t' read -r lastCommit originalMessage < <(
     git log --pretty='tformat:%H %s' "${gitArgs[@]}" "$@" | \
-	sed -n -e 's/^\([[:xdigit:]]\+\) \(amend\|fixup\|squash\)! .*$/\1/p' | \
+	sed -n -e 's/^\([[:xdigit:]]\+\) \(amend\|fixup\|squash\)! \(.*\)$/\1\t\3/p' | \
 	eval "${number:+sed -n -e "1,${number}p" | }" 'sed -n -e \$p'
-)"
-if [ -z "$lastCommit" ]; then
-    echo 'No fixup / amend / squash commits found.'
+)
+if [ -z "$lastCommit" -o -z "$originalMessage" ]; then
+    echo >&2 'No fixup / amend / squash commits found.'
     exit 1
 fi
 
-exec git-rbni "${lastCommit}^"
+lastFixupCommit="$(git log --pretty='tformat:%H' --max-count 1 --grep "$originalMessage" --fixed-strings "${lastCommit}^" "${gitArgs[@]}" "$@")"
+if [ -z "$lastFixupCommit" ]; then
+    printf >&2 'ERROR: Could not find the original commit prior to %s with message: %s\n' "$lastCommit" "$originalMessage"
+    exit 1
+fi
+
+exec git-rbni "${lastFixupCommit}^"

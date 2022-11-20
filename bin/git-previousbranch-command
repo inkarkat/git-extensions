@@ -4,16 +4,21 @@ set -o pipefail
 printUsage()
 {
     cat <<HELPTEXT
-Execute GIT-COMMAND BRANCH argument(s) replaced in ARG(s) or those following
-GIT-COMMAND / appending the branch name where the current branch / N previous
+Execute GIT-COMMAND with the branch name where the current branch / N previous
 branch got branched off / with --last-checkout: the [N'th] last checked-out
-branch / with --previous: where the tip of the branch was [N'th] last.
+branch / with --previous: where the tip of the branch was [N'th] last
+- appended
+- replacing BRANCH argument(s) anywhere
+- replacing BRANCH in the following GIT-COMMAND and -(N-1) arguments
+- replacing BRANCH in the following +(N) arguments and appending those
 If there's no branch, an error is printed.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--last-checkout|--previous|(-a|--any|-r|--include-remote-refs|-t|--include-tags [...])] [-n|--branch-number N] [--drop-remote] [--] GIT-COMMAND [...] [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--last-checkout|--previous|(-a|--any|-r|--include-remote-refs|-t|--include-tags [...])] [-n|--branch-number N] [--drop-remote] [--] --keep-position GIT-COMMAND [... BRANCH ...] [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--last-checkout|--previous|(-a|--any|-r|--include-remote-refs|-t|--include-tags [...])] [-n|--branch-number N] [--drop-remote] [--] [-1 ARG1|-2 ARG1 ARG2| -3 ARG1 ARG2 ARG3| ...] GIT-COMMAND [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--last-checkout|--previous|(-a|--any|-r|--include-remote-refs|-t|--include-tags [...])] [-n|--branch-number N] [--drop-remote] [--] ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... BRANCH ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1| -3 GIT-COMMAND ARG1 ARG2| ...] [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2| +3 ARG1 ARG2 ARG3| ...] GIT-COMMAND [...]'
 }
 
 typeset -a gitRevRangeThisBranchArgs=()
@@ -58,16 +63,20 @@ if [ "$isDropRemote" ]; then
     done
 fi
 
-typeset -a branchArgs=()
+isCountedAppend=
 case "$1" in
+    +[1-9])
+	isCountedAppend=t;&
     -[1-9])
-	typeset branchArgNum=${1#-}
-	branchArgs=("${@:2:${branchArgNum}}")
-	set -- "${@:$((2 + branchArgNum))}"
+	typeset countedArgNum=${1#[+-]}
+	typeset -a countedArgs=("${@:2:${countedArgNum}}")
+	set -- "${@:$((2 + countedArgNum))}"
 
-	branchArgs=("${branchArgs[@]//BRANCH/${branchBranch}}")
+	countedArgs=("${countedArgs[@]//BRANCH/${branchBranch}}")
 
-	exec git-wrapper "$@" "${branchArgs[@]}"
+	[ "$isCountedAppend" ] \
+	    && exec git-wrapper "$@" "${countedArgs[@]}" \
+	    || exec git-wrapper "${countedArgs[@]}" "$@"
 	;;
     --keep-position)
 	shift

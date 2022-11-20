@@ -7,12 +7,19 @@ printUsage()
 {
     cat <<HELPTEXT
 Print / execute GIT-COMMAND with a revision range starting from the first
-revision committed ${GIT_TIMESPANCOMMAND_WHEN:-\$GIT_TIMESPANCOMMAND_TIMESPAN ago}; possibly including one previous commit.
-The revision range (with --no-range, only the starting revision will be used) is
-appended at the end of GIT-COMMAND ....
+revision committed ${GIT_TIMESPANCOMMAND_WHEN:-\$GIT_TIMESPANCOMMAND_TIMESPAN ago}; possibly including one previous commit
+(with --no-range, only the starting revision will be used)
+- appended
+- replacing TIMESPAN argument(s) anywhere
+- replacing TIMESPAN in the following GIT-COMMAND and -(N-1) arguments
+- replacing TIMESPAN in the following +(N) arguments and appending those
 HELPTEXT
     local requiredEnvironmentVariables; [ -n "$GIT_TIMESPANCOMMAND_TIMESPAN" ] || requiredEnvironmentVariables='GIT_TIMESPANCOMMAND_TIMESPAN=SINCE-ARG'
-    printf "Usage: ${requiredEnvironmentVariables}${requiredEnvironmentVariables:+ }%q %s\\n" "$(basename "$1")" '[--no-range|--range] [+1|--one-more] [--] [GIT-COMMAND ...] [-?|-h|--help]'
+    printf "Usage: ${requiredEnvironmentVariables}${requiredEnvironmentVariables:+ }%q %s\\n" "$(basename "$1")" '[--no-range|--range] [+1|--one-more] ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... TIMESPAN ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [...]'
 }
 
 unset isRange
@@ -53,24 +60,45 @@ else
     rangeArgs=("$(getTimespanAgoCommit)${isShowOneMore:+^}${isRange:+^..}") || exit $?
 fi
 
+isCountedAppend=
 case "$1" in
-    [^-]*-command)  gitCommand+=("$1"); shift
-		    while [ $# -ne 0 ]
-		    do
-			case "$1" in
-			    --)		break;;
-			    -*)		gitCommand+=("$1"); shift;;
-			    *)		gitCommand+=("$1"); shift; break;;
-			esac
-		    done
-		    ;;
-    *)		    while [ $# -ne 0 ]
-		    do
-			case "$1" in
-			    -c) gitCommand+=("$1" "$2"); shift; shift;;
-			    *)	gitCommand+=("$1"); shift; break;;
-			esac
-		    done
-esac
+    +[1-9])
+	isCountedAppend=t;&
+    -[1-9])
+	typeset countedArgNum=${1#[+-]}
+	typeset -a countedArgs=("${@:2:${countedArgNum}}")
+	set -- "${@:$((2 + countedArgNum))}"
 
-exec git-wrapper "${gitCommand[@]}" "${rangeArgs[@]}" "$@"
+	typeset -a appendedArgs=()
+	for arg in "${countedArgs[@]}"
+	do
+	    if [ "$arg" = 'TIMESPAN' ]; then
+		appendedArgs+=("${rangeArgs[@]}")
+	    else
+		appendedArgs+=("$arg")
+	    fi
+	done
+
+	[ "$isCountedAppend" ] \
+	    && exec git-wrapper "$@" "${appendedArgs[@]}" \
+	    || exec git-wrapper "${appendedArgs[@]}" "$@"
+	;;
+    --keep-position)
+	shift
+
+	typeset -a appendedArgs=()
+	for arg
+	do
+	    if [ "$arg" = 'TIMESPAN' ]; then
+		appendedArgs+=("${rangeArgs[@]}")
+	    else
+		appendedArgs+=("$arg")
+	    fi
+	done
+
+	exec git-wrapper "${appendedArgs[@]}"
+	;;
+    *)
+	exec git-wrapper "$@" "${rangeArgs[@]}"
+	;;
+esac

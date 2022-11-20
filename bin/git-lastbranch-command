@@ -3,14 +3,18 @@
 printUsage()
 {
     cat <<HELPTEXT
-Execute GIT-COMMAND with BRANCH argument(s) replaced in ARG(s) or those
-following GIT-COMMAND / appending the name of the last still-existing branch
-found in the reflog.
+Execute GIT-COMMAND with the name of the last still-existing branch found in the
+reflog
+- appended
+- replacing LASTBRANCH argument(s) anywhere
+- replacing LASTBRANCH in the following GIT-COMMAND and -(N-1) arguments
+- replacing LASTBRANCH in the following +(N) arguments and appending those
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND [...] [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '--keep-position GIT-COMMAND [... BRANCH ...] [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-1 ARG1|-2 ARG1 ARG2| -3 ARG1 ARG2 ARG3| ...] GIT-COMMAND [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--keep-position GIT-COMMAND [... LASTBRANCH ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [...]'
 }
 
 branch=
@@ -44,19 +48,24 @@ if [ -z "$branch" ]; then
     exit 1
 fi
 
+isCountedAppend=
 case "$1" in
+    +[1-9])
+	isCountedAppend=t;&
     -[1-9])
-	typeset branchArgNum=${1#-}
-	typeset -a branchArgs=("${@:2:${branchArgNum}}")
-	set -- "${@:$((2 + branchArgNum))}"
+	typeset countedArgNum=${1#[+-]}
+	typeset -a countedArgs=("${@:2:${countedArgNum}}")
+	set -- "${@:$((2 + countedArgNum))}"
 
-	branchArgs=("${branchArgs[@]//BRANCH/${branch}}")
+	countedArgs=("${countedArgs[@]//LASTBRANCH/${branch}}")
 
-	exec git-wrapper "$@" "${branchArgs[@]}"
+	[ "$isCountedAppend" ] \
+	    && exec git-wrapper "$@" "${countedArgs[@]}" \
+	    || exec git-wrapper "${countedArgs[@]}" "$@"
 	;;
     --keep-position)
 	shift
-	exec git-wrapper "${@//BRANCH/${branch}}"
+	exec git-wrapper "${@//LASTBRANCH/${branch}}"
 	;;
     *)
 	exec git-wrapper "$@" "$branch"

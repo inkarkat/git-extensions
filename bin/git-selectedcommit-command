@@ -5,10 +5,18 @@ printUsage()
 {
     cat <<HELPTEXT
 Execute GIT-COMMAND for the commit interactively chosen from the commits [that
-cover FILE ...] in the passed <range>.
+cover FILE ...] in the passed <range>
+- appended
+- replacing COMMITS argument(s) anywhere
+- replacing COMMITS in the following GIT-COMMAND and -(N-1) arguments
+- replacing COMMITS in the following +(N) arguments and appending those
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--accept-single] [--single-only] [--range-is-last] [-c ...] GIT-COMMAND --since <date>|--max-count <number>|-n <number>|<range> [<git-command-args> ...] [--] [FILE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--accept-single] [--single-only] [--range-is-last] ... --since <date>|--max-count <number>|-n <number>|<range> [<git-command-args> ...] [--] [FILE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [GIT-COMMAND-ARGS ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... COMMITS ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [...]'
 }
 isRangeLastArg=
 typeset -a commandOnSelectedArgs=()
@@ -28,15 +36,59 @@ if [ $# -eq 0 ]; then
     echo >&2 'ERROR: No GIT-COMMAND passed.'
     exit 2
 fi
-typeset -a gitCommand=()
-while [ $# -ne 0 ]
-do
-    case "$1" in
-	-c) gitCommand+=("$1" "$2"); shift; shift;;
-	*)  eval "gitCommand+=($1)"	# Note: The Git command itself can consist of command + arguments, so it must not be quoted here!
-	    shift; break;;
-    esac
-done
+
+isCountedAppend=
+case "$1" in
+    +[1-9])
+	isCountedAppend=t;&
+    -[1-9])
+	typeset countedArgNum=${1#[+-]}
+	typeset countedArgNum=${1#-}
+	typeset -a countedArgs=("${@:2:${countedArgNum}}")
+	set -- "${@:$((2 + countedArgNum))}"
+
+	executor()
+	{
+	    typeset -a appendedArgs=()
+	    for arg in "${countedArgs[@]}"
+	    do
+		if [ "$arg" = 'COMMITS' ]; then
+		    appendedArgs+=("${commits[@]}")
+		else
+		    appendedArgs+=("$arg")
+		fi
+	    done
+
+	    [ "$isCountedAppend" ] \
+		&& exec git-wrapper "$@" "${appendedArgs[@]}" \
+		|| exec git-wrapper "${appendedArgs[@]}" "$@"
+	}
+	;;
+    --keep-position)
+	shift
+
+	executor()
+	{
+	    typeset -a appendedArgs=()
+	    for arg
+	    do
+		if [ "$arg" = 'COMMITS' ]; then
+		    appendedArgs+=("${commits[@]}")
+		else
+		    appendedArgs+=("$arg")
+		fi
+	    done
+
+	    exec git-wrapper "${appendedArgs[@]}"
+	}
+	;;
+    *)
+	executor()
+	{
+	    exec git-wrapper "$@" "${commits[@]}"
+	}
+	;;
+esac
 
 typeset -a gitCommandArgs=()
 typeset -a files=()
@@ -106,4 +158,4 @@ elif [ $status -ne 0 ]; then
     exit $status
 fi
 
-exec git-wrapper "${gitCommand[@]}" "$@" "${commits[@]}"
+executor "$@"

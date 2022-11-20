@@ -3,41 +3,50 @@
 printUsage()
 {
     cat <<HELPTEXT
-Execute GIT-COMMAND with my own GitHub name directly appended to --PERSON-OPTION=.
+Execute HUB-COMMAND with my own GitHub name in --PERSON-OPTION=NAME
+- appended
+- replacing ME argument(s) anywhere
+- replacing ME in the following HUB-COMMAND and -(N-1) arguments
+- replacing ME in the following +(N) arguments and appending those
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '--PERSON-OPTION= GIT-COMMAND [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--PERSON-OPTION= HUB-COMMAND [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--PERSON-OPTION= --keep-position HUB-COMMAND [... ME ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--PERSON-OPTION= [-2 HUB-COMMAND ARG1|-3 HUB-COMMAND ARG1 ARG2|...] [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--PERSON-OPTION= [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] HUB-COMMAND [...]'
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
 
-meOptionName="${1:?}"; shift
 me="$(git me-in-github)" || exit $?
+
+optionName="${1:?}"; shift
 if [ $# -eq 0 ]; then
-    echo >&2 'ERROR: No GIT-COMMAND passed.'
+    echo >&2 'ERROR: No HUB-COMMAND passed.'
     exit 2
 fi
 
-typeset -a hubCommand=()
+isCountedAppend=
 case "$1" in
-    [^-]*-command)  hubCommand+=("$1"); shift
-		    while [ $# -ne 0 ]
-		    do
-			case "$1" in
-			    --)		break;;
-			    -*)		hubCommand+=("$1"); shift;;
-			    *)		hubCommand+=("$1"); shift; break;;
-			esac
-		    done
-		    ;;
-    *)		    while [ $# -ne 0 ]
-		    do
-			case "$1" in
-			    -c) hubCommand+=("$1" "$2"); shift; shift;;
-			    *)	hubCommand+=("$1"); shift; break;;
-			esac
-		    done
-esac
+    +[1-9])
+	isCountedAppend=t;&
+    -[1-9])
+	typeset countedArgNum=${1#[+-]}
+	typeset -a countedArgs=("${@:2:${countedArgNum}}")
+	set -- "${@:$((2 + countedArgNum))}"
 
-exec hub-wrapper "${hubCommand[@]}" "${meOptionName}${me}" "$@"
+	countedArgs=("${countedArgs[@]//ME/${optionName}${me}}")
+
+	[ "$isCountedAppend" ] \
+	    && exec hub-wrapper "$@" "${countedArgs[@]}" \
+	    || exec hub-wrapper "${countedArgs[@]}" "$@"
+	;;
+    --keep-position)
+	shift
+	exec hub-wrapper "${@//ME/${optionName}${me}}"
+	;;
+    *)
+	exec hub-wrapper "$@" "${optionName}${me}"
+	;;
+esac

@@ -5,7 +5,11 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header] [--separate-errors] [--no-git-color] [--fine] GIT-COMMAND [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header] [--separate-errors] [--no-git-color] [--fine] ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... PASTTIMES ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [...]'
 }
 printUsage()
 {
@@ -20,7 +24,11 @@ printLongUsage()
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
 Execute GIT-COMMAND (log or a variant) for staggered date ranges: today, last
-week, last 30 days, last year.
+week, last 30 days, last year
+- appended
+- replacing PASTTIMES argument(s) anywhere
+- replacing PASTTIMES in the following GIT-COMMAND and -(N-1) arguments
+- replacing PASTTIMES in the following +(N) arguments and appending those
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
@@ -74,7 +82,7 @@ do
 	--weekly)		shift; eval "dates=({1..${GIT_PASTTIMES_COMMAND_MAX_WEEK_NUM:-521}}\ weeks\ ago)";;
 	--monthly)		shift; eval "dates=({1..${GIT_PASTTIMES_COMMAND_MAX_MONTH_NUM:-120}}\ months\ ago)";;
 	--yearly)		shift; eval "dates=({1..${GIT_PASTTIMES_COMMAND_MAX_YEAR_NUM:-10}}\ years\ ago)";;
-	--)			shift; break;;
+	--)			break;;
 	*)			args+=("$1"); shift;;
     esac
 done
@@ -95,25 +103,58 @@ if [ $# -eq 0 ]; then
     exit 2
 fi >&2
 
-typeset -a gitCommand=()
+isCountedAppend=
 case "$1" in
-    [^-]*-command)  gitCommand+=("$1"); shift
-		    while [ $# -ne 0 ]
-		    do
-			case "$1" in
-			    --)		break;;
-			    -*)		gitCommand+=("$1"); shift;;
-			    *)		gitCommand+=("$1"); shift; break;;
-			esac
-		    done
-		    ;;
-    *)		    while [ $# -ne 0 ]
-		    do
-			case "$1" in
-			    -c) gitCommand+=("$1" "$2"); shift; shift;;
-			    *)	gitCommand+=("$1"); shift; break;;
-			esac
-		    done
+    +[1-9])
+	isCountedAppend=t;&
+    -[1-9])
+	typeset countedArgNum=${1#[+-]}
+	typeset countedArgNum=${1#-}
+	typeset -a countedArgs=("${@:2:${countedArgNum}}")
+	set -- "${@:$((2 + countedArgNum))}"
+
+	executor()
+	{
+	    typeset -a appendedArgs=()
+	    for arg in "${countedArgs[@]}"
+	    do
+		if [ "$arg" = 'PASTTIMES' ]; then
+		    appendedArgs+=("${rangeArgs[@]}")
+		else
+		    appendedArgs+=("$arg")
+		fi
+	    done
+
+	    [ "$isCountedAppend" ] \
+		&& exec git-wrapper "$@" "${appendedArgs[@]}" \
+		|| exec git-wrapper "${appendedArgs[@]}" "$@"
+	}
+	;;
+    --keep-position)
+	shift
+	countedArgs=("$@"); set --
+
+	executor()
+	{
+	    typeset -a appendedArgs=()
+	    for arg in "${countedArgs[@]}"
+	    do
+		if [ "$arg" = 'PASTTIMES' ]; then
+		    appendedArgs+=("${rangeArgs[@]}")
+		else
+		    appendedArgs+=("$arg")
+		fi
+	    done
+
+	    exec git-wrapper "${appendedArgs[@]}" "$@"
+	}
+	;;
+    *)	countedArgs=("$@"); set --
+	executor()
+	{
+	    exec git-wrapper "${countedArgs[@]}" "$@" "${rangeArgs[@]}"
+	}
+	;;
 esac
 
 : ${GIT_PASTTIMES_COMMAND_HEADER_ID:="$pasttimes-command-$$-$RANDOM"}
@@ -127,7 +168,7 @@ pasttimes()
 	[ "$date" ] && rangeArgs+=("--since=$date")
 	[ "$previousDate" ] && rangeArgs+=("--until=$previousDate")
 
-	eval 'git-wrapper "${gitCommand[@]}" "${gitColorArg[@]}" "${rangeArgs[@]}" "$@"' "${isHeader:+$errorRedir | withHeader "${colorArg[@]}" --id '$GIT_PASTTIMES_COMMAND_HEADER_ID' -- '${previousDate:-now}..${date}'}"
+	eval 'executor "${gitColorArg[@]}" "$@"' "${isHeader:+$errorRedir | withHeader "${colorArg[@]}" --id '$GIT_PASTTIMES_COMMAND_HEADER_ID' -- '${previousDate:-now}..${date}'}"
 	exitStatus=$?; if [ -z "$status" ] || [ $exitStatus -lt $status ]; then status=$exitStatus; fi;
 
 	previousDate="$date"

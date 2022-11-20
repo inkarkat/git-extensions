@@ -7,7 +7,11 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--prefixed|--with-header [--no-git-color]] [--committer] [--with-log-args|--with-log-args-except-last] GIT-COMMAND [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--prefixed|--with-header [--no-git-color]] [--committer] [--with-log-args|--with-log-args-except-last] ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... BASE ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [...]'
 }
 printUsage()
 {
@@ -21,7 +25,12 @@ printLongUsage()
     # This is the long "man page" when launched with the help argument.
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
-Execute GIT-COMMAND for each user that authored commits separately.
+Execute GIT-COMMAND for each user that authored commits separately with the user
+filter
+- appended
+- replacing USERFILTER argument(s) anywhere
+- replacing USERFILTER in the following GIT-COMMAND and -(N-1) arguments
+- replacing USERFILTER in the following +(N) arguments and appending those
     --no-pager		Do not page the output (so contents will scroll out of
 			view if there's too much output).
     --prefixed		Put the author name before each line produced by
@@ -50,7 +59,6 @@ typeset -a colorArg=()
 filter=author
 subjectPlaceholder='%a'
 contextCommand=
-typeset -a gitCommand=()
 isFirstArg=t
 withLogArgs=
 while [ $# -ne 0 ]
@@ -72,24 +80,50 @@ do
 			shift; withLogArgs=all;;
 	--with-log-args-except-last)
 			shift; withLogArgs=except-last;;
-	--)		shift; break;;
-	*)		if [ "$isFirstArg" ]; then
-			    case "$1" in
-				-c) gitCommand+=("$1" "$2"); shift; shift;;
-				*)  eval "gitCommand+=($1)"	# Note: The Git command itself can consist of command + arguments, so it must not be quoted here!
-				    shift; isFirstArg=;;
-			    esac
-			else
-			    isFirstArg=
-			    break
-			fi
-			;;
+	*)		break;;
     esac
 done
-if [ ${#gitCommand[@]} -eq 0 -a $# -eq 0 ]; then
-    printUsage "$0"
+if [ $# -eq 0 ]; then
+    echo >&2 'ERROR: No GIT-COMMAND passed.'
     exit 2
-fi >&2
+fi
+
+isCountedAppend=
+typeset -a countedArgs=()
+case "$1" in
+    +[1-9])
+	isCountedAppend=t;&
+    -[1-9])
+	typeset countedArgNum=${1#[+-]}
+	typeset countedArgNum=${1#-}
+	countedArgs=("${@:2:${countedArgNum}}")
+	set -- "${@:$((2 + countedArgNum))}"
+
+	executor()
+	{
+	    countedArgs=("${countedArgs[@]//USERFILTER/--$filter="$author"}")
+
+	    [ "$isCountedAppend" ] \
+		&& exec git-wrapper "$@" "${countedArgs[@]}" \
+		|| exec git-wrapper "${countedArgs[@]}" "$@"
+	}
+	;;
+    --keep-position)
+	shift
+	countedArgs=("$@"); set --
+
+	executor()
+	{
+	    exec git-wrapper "${countedArgs[@]//USERFILTER/--$filter="$author"}"
+	}
+	;;
+    *)	countedArgs=("$@"); set --
+	executor()
+	{
+	    exec git-wrapper "${countedArgs[@]}" --$filter="$author"
+	}
+	;;
+esac
 
 typeset sharedLogArgs=()
 case "$withLogArgs" in
@@ -106,27 +140,7 @@ if [ -n "$pager" -o -n "$contextCommand" ] && isNeedColorArgumentWhenPiping "${c
     [ "$isGitColor" ] && gitColorArg=(--color=always)	# Force for Git
 fi
 
-[ ${#gitCommand[@]} -eq 0 ] && case "$1" in
-    [^-]*-command)  gitCommand+=("$1"); shift
-		    while [ $# -ne 0 ]
-		    do
-			case "$1" in
-			    --)		break;;
-			    -*)		gitCommand+=("$1"); shift;;
-			    *)		gitCommand+=("$1"); shift; break;;
-			esac
-		    done
-		    ;;
-    *)		    while [ $# -ne 0 ]
-		    do
-			case "$1" in
-			    -c) gitCommand+=("$1" "$2"); shift; shift;;
-			    *)	gitCommand+=("$1"); shift; break;;
-			esac
-		    done
-esac
-
-# Remote any --author= argument; these are only useful for limiting the source
+# Remove any --author= argument; these are only useful for limiting the source
 # user list, but would wreak havoc on the iteration.
 typeset -a gitCommandArgs=()
 while [ $# -ne 0 ]
@@ -147,7 +161,7 @@ iterateUsers()
     status=0
     for author in "${authors[@]}"
     do
-	eval 'git-wrapper "${gitCommand[@]}" "${gitColorArg[@]}" --$filter="$author" "${gitCommandArgs[@]}" "$@"' "${contextCommand:+|}${contextCommand//\{\}/\"${author}\"}" || status=$?
+	eval 'executor "${gitColorArg[@]}" "${gitCommandArgs[@]}" "$@"' "${contextCommand:+|}${contextCommand//\{\}/\"${author}\"}" || status=$?
     done
     return $status
 }

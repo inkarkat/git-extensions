@@ -3,16 +3,20 @@
 printUsage()
 {
     cat <<HELPTEXT
-Execute GIT-COMMAND with TAG argument(s) replaced in ARG(s) or those following
-GIT-COMMAND / appending the name of the first reachable / passed -t|--tag
+Execute GIT-COMMAND with the name of the first reachable / passed -t|--tag
 <tagname> tagname (or fail if no tag found or the passed tag is not reachable
-from HEAD / the passed --reachable-from <commit>|
---reachable-from-passed-branch).
+from HEAD / the passed --reachable-from <commit>|--reachable-from-passed-branch)
+- appended
+- replacing TAG argument(s) anywhere
+- replacing TAG in the following GIT-COMMAND and -(N-1) arguments
+- replacing TAG in the following +(N) arguments and appending those
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-t|--tag <tagname>] [--reachable-from-passed-branch|--reachable-from <commit>] [--] GIT-COMMAND [...] [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-t|--tag <tagname>] [--reachable-from-passed-branch|--reachable-from <commit>] [--] --keep-position GIT-COMMAND [... TAG ...] [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-t|--tag <tagname>] [--reachable-from-passed-branch|--reachable-from <commit>] [--] [-1 ARG1|-2 ARG1 ARG2| -3 ARG1 ARG2 ARG3| ...] GIT-COMMAND [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-t|--tag <tagname>] [--reachable-from-passed-branch|--reachable-from <commit>] [--] ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... TAG ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1| -3 GIT-COMMAND ARG1 ARG2| ...] [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2| +3 ARG1 ARG2 ARG3| ...] GIT-COMMAND [...]'
 }
 
 isValidRef()
@@ -59,15 +63,20 @@ else
     tagName="$(git-latesttag "$startRevision")" || exit $?
 fi
 
+isCountedAppend=
 case "$1" in
+    +[1-9])
+	isCountedAppend=t;&
     -[1-9])
-	typeset headArgNum=${1#-}
-	typeset -a headArgs=("${@:2:${headArgNum}}")
-	set -- "${@:$((2 + headArgNum))}"
+	typeset countedArgNum=${1#-}
+	typeset -a countedArgs=("${@:2:${countedArgNum}}")
+	set -- "${@:$((2 + countedArgNum))}"
 
-	headArgs=("${headArgs[@]//TAG/${tagName}}")
+	countedArgs=("${countedArgs[@]//TAG/${tagName}}")
 
-	exec git-wrapper "$@" "${headArgs[@]}"
+	[ "$isCountedAppend" ] \
+	    && exec git-wrapper "$@" "${countedArgs[@]}" \
+	    || exec git-wrapper "${countedArgs[@]}" "$@"
 	;;
     --keep-position)
 	shift

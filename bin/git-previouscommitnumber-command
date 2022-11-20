@@ -3,15 +3,17 @@
 printUsage()
 {
     cat <<HELPTEXT
-Execute GIT-COMMAND with HEAD argument(s) replaced in ARG(s) or those following
-GIT-COMMAND / appending the commit previous to the last / N'th commit (i.e.
-HEAD^ or HEAD~N).
-
+Execute GIT-COMMAND with the last / N'th commit (i.e. HEAD^ or HEAD~N)
+- appended
+- replacing PREVIOUSCOMMIT argument(s) anywhere
+- replacing PREVIOUSCOMMIT in the following GIT-COMMAND and -(N-1) arguments
+- replacing PREVIOUSCOMMIT in the following +(N) arguments and appending those
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND [...] [-n N|--count N] [...] [-?|-i|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '--keep-position GIT-COMMAND [... HEAD ...] [-n N|--count N] [...] [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-1 ARG1|-2 ARG1 ARG2| -3 ARG1 ARG2 ARG3| ...] GIT-COMMAND [...] [-n N|--count N] [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND [...] [-n N|--count N] [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--keep-position GIT-COMMAND [... PREVIOUSCOMMIT ...] [-n N|--count N] [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-2 GIT-COMMAND ARG1| -3 GIT-COMMAND ARG1 ARG2| ...] [...] [-n N|--count N] [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[+1 ARG1|+2 ARG1 ARG2| +3 ARG1 ARG2 ARG3| ...] GIT-COMMAND [...] [-n N|--count N] [...]'
 }
 
 commit='HEAD^'
@@ -39,19 +41,24 @@ if [ $# -eq 0 ]; then
     exit 2
 fi
 
+isCountedAppend=
 case "$1" in
+    +[1-9])
+	isCountedAppend=t;&
     -[1-9])
-	typeset headArgNum=${1#-}
-	typeset -a headArgs=("${@:2:${headArgNum}}")
-	set -- "${@:$((2 + headArgNum))}"
+	typeset countedArgNum=${1#-}
+	typeset -a countedArgs=("${@:2:${countedArgNum}}")
+	set -- "${@:$((2 + countedArgNum))}"
 
-	headArgs=("${headArgs[@]//HEAD/${commit}}")
+	countedArgs=("${countedArgs[@]//PREVIOUSCOMMIT/${commit}}")
 
-	exec git-wrapper "$@" "${headArgs[@]}"
+	[ "$isCountedAppend" ] \
+	    && exec git-wrapper "$@" "${countedArgs[@]}" \
+	    || exec git-wrapper "${countedArgs[@]}" "$@"
 	;;
     --keep-position)
 	shift
-	exec git-wrapper "${@//HEAD/${commit}}"
+	exec git-wrapper "${@//PREVIOUSCOMMIT/${commit}}"
 	;;
     *)
 	exec git-wrapper "$@" "$commit"

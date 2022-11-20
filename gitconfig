@@ -67,7 +67,7 @@
 
 	chp = cherry-pick --no-commit	; Apply the changes introduced by some existing commits (cummulatively) to the index and working copy.
 	cherrypick = cherry-pick --no-commit	; Apply the changes introduced by some existing commits (cummulatively) to the index and working copy.
-	cherrypickselected = selectedcommit-command cherrypick	; Apply the changes introduced by some existing commits interactively chosen from the commits in the passed <range> (cummulatively) to the index and working copy.
+	cherrypickselected = selectedcommit-command -2 cherrypick COMMITS	; Apply the changes introduced by some existing commits interactively chosen from the commits in the passed <range> (cummulatively) to the index and working copy.
 	cherrypickselected1 = cherrypickselected --max-count 1
 	cherrypickselected2 = cherrypickselected --max-count 2
 	cherrypickselected3 = cherrypickselected --max-count 3
@@ -80,7 +80,7 @@
 	chpq = cherry-pick --abort	; Cancel the operation and return to the pre-sequence state.
 	cherrycommit = cherry-pick ; Apply and immediately commit each change (individually) introduced by some existing commit(s).
 	;; cherrymerge: Apply and immediately commit each change (individually), recording the existing commit id(s) in the commit message, like the merge tracking in Subversion.
-	cherrymergeselected = selectedcommit-command cherrymerge	; Apply and immediately commit each change introduced by some existing commits interactively chosen from the commits in the passed <range> (individually), recording the existing commit id(s) in the commit message, like the merge tracking in Subversion.
+	cherrymergeselected = selectedcommit-command -2 cherrymerge COMMITS	; Apply and immediately commit each change introduced by some existing commits interactively chosen from the commits in the passed <range> (individually), recording the existing commit id(s) in the commit message, like the merge tracking in Subversion.
 	cherrymergeselected1 = cherrymergeselected --max-count 1
 	cherrymergeselected2 = cherrymergeselected --max-count 2
 	cherrymergeselected3 = cherrymergeselected --max-count 3
@@ -101,7 +101,7 @@
 	revertcommit = revert	; Apply the reverted changes and commit.
 	revertlast = revert HEAD	; Apply the reverted last commit only to the index and working copy.
 	revertcommitlast = revertcommit HEAD	; Apply the reverted last commit and commit. Basically wipecommit that doesn't rewrite history and records the undo.
-	revertselected = selectedcommit-command revert	; Apply the reverted changes interactively chosen from the commits in the passed <range> only to the index and working copy commit.
+	revertselected = selectedcommit-command -2 revert COMMITS	; Apply the reverted changes interactively chosen from the commits in the passed <range> only to the index and working copy commit.
 	revertselected1 = revertselected --max-count 1
 	revertselected2 = revertselected --max-count 2
 	revertselected3 = revertselected --max-count 3
@@ -109,7 +109,7 @@
 	revertselected5 = revertselected --max-count 5
 	revertselected6 = revertselected --max-count 6
 	revertselected7 = revertselected --max-count 7
-	revertcommitselected = selectedcommit-command revertcommit	; Apply the reverted changes interactively chosen from the commits in the passed <range> and commit.
+	revertcommitselected = selectedcommit-command -2 revertcommit COMMITS	; Apply the reverted changes interactively chosen from the commits in the passed <range> and commit.
 	revertcommitselected1 = revertcommitselected --max-count 1
 	revertcommitselected2 = revertcommitselected --max-count 2
 	revertcommitselected3 = revertcommitselected --max-count 3
@@ -129,7 +129,7 @@
 	;; addi: Add unstaged changes from already staged files; update stage.
 	;; addlike: Add the same files (inside <path>) as were modified in the last commit / N'th commit / passed <commit> to the index.
 	; addlast is built into addlike (with no arguments).
-	addlikeselected = selectedcommit-command --single-only addlike
+	addlikeselected = selectedcommit-command --single-only -2 addlike COMMITS
 	addlikeselected1 = addlikeselected --max-count 1
 	addlikeselected2 = addlikeselected --max-count 2
 	addlikeselected3 = addlikeselected --max-count 3
@@ -165,8 +165,8 @@
 	;; commitwithdiffselected: Interactively select (from staged files or those filtered by passed list of files) files (or directly pass N, M, ... selections) to seed the commit message with their diff additions.
 
 	;; correct: Commit as a correction of <commit> (when it's too late or cumbersome to fixup the existing commit). This just adds a reference to the prior commit in the commit message (title and body).
-	correctlast = selectedcommit-command --accept-single --single-only correct --max-count 1	; Commit as a correction of the last commit (of FILE; if you omit that the HEAD commit would be referenced, and you could just amend there).
-	correctselected = selectedcommit-command --single-only correct	; Commit as a correction of the commit interactively chosen from the commits in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
+	correctlast = selectedcommit-command --accept-single --single-only -4 correct --max-count 1 COMMITS	; Commit as a correction of the last commit (of FILE; if you omit that the HEAD commit would be referenced, and you could just amend there).
+	correctselected = selectedcommit-command --single-only -2 correct COMMITS	; Commit as a correction of the commit interactively chosen from the commits in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
 	correctselected1 = correctselected --max-count 1
 	correctselected2 = correctselected --max-count 2
 	correctselected3 = correctselected --max-count 3
@@ -175,8 +175,8 @@
 	correctselected6 = correctselected --max-count 6
 	correctselected7 = correctselected --max-count 7
 	correctselectedg = selectedgcommit-command --single-only correct	; Commit as a correction of the commit interactively chosen from the commits where log messages match the specified text or /regexp/.
-	correctst = stfiles-command selectedcommit-command --single-only correct	; Commit as a correction of the commit interactively chosen from the commits of currently modified files in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
-	correctlastst = stfiles-command selectedcommit-command --accept-single --single-only correct --max-count 1	; Commit as a correction of the last commit of currently modified files (when it's too late or cumbersome to fixup the existing commit).
+	correctst = stfiles-command selectedcommit-command --single-only -2 correct COMMITS	; Commit as a correction of the commit interactively chosen from the commits of currently modified files in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
+	correctlastst = stfiles-command selectedcommit-command --accept-single --single-only -4 correct --max-count 1 COMMITS	; Commit as a correction of the last commit of currently modified files (when it's too late or cumbersome to fixup the existing commit).
 	correctst1 = correctst --max-count 1
 	correctst2 = correctst --max-count 2
 	correctst3 = correctst --max-count 3
@@ -184,8 +184,8 @@
 	correctst5 = correctst --max-count 5
 	correctst6 = correctst --max-count 6
 	correctst7 = correctst --max-count 7
-	correcti = stifiles-command selectedcommit-command --single-only correct	; Commit as a correction of the commit interactively chosen from the commits of currently staged files in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
-	correctlasti = stifiles-command selectedcommit-command --accept-single --single-only correct --max-count 1	; Commit as a correction of the last commit of currently staged files (when it's too late or cumbersome to fixup the existing commit).
+	correcti = stifiles-command selectedcommit-command --single-only -2 correct COMMITS	; Commit as a correction of the commit interactively chosen from the commits of currently staged files in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
+	correctlasti = stifiles-command selectedcommit-command --accept-single --single-only -4 correct --max-count 1 COMMITS	; Commit as a correction of the last commit of currently staged files (when it's too late or cumbersome to fixup the existing commit).
 	correcti1 = correcti --max-count 1
 	correcti2 = correcti --max-count 2
 	correcti3 = correcti --max-count 3
@@ -193,8 +193,8 @@
 	correcti5 = correcti --max-count 5
 	correcti6 = correcti --max-count 6
 	correcti7 = correcti --max-count 7
-	correct-i = stIfiles-command selectedcommit-command --single-only correct	; Commit as a correction of the commit interactively chosen from the commits of currently modified but not staged files in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
-	correctlast-i = stIfiles-command selectedcommit-command --accept-single --single-only correct --max-count 1	; Commit as a correction of the last commit of currently modified but not staged files (when it's too late or cumbersome to fixup the existing commit).
+	correct-i = stIfiles-command selectedcommit-command --single-only -2 correct COMMITS	; Commit as a correction of the commit interactively chosen from the commits of currently modified but not staged files in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
+	correctlast-i = stIfiles-command selectedcommit-command --accept-single --single-only -4 correct --max-count 1 COMMITS	; Commit as a correction of the last commit of currently modified but not staged files (when it's too late or cumbersome to fixup the existing commit).
 	correct-i1 = correct-i --max-count 1
 	correct-i2 = correct-i --max-count 2
 	correct-i3 = correct-i --max-count 3
@@ -204,8 +204,8 @@
 	correct-i7 = correct-i --max-count 7
 
 	;; fixup: Commit with the intent of squashing this with the passed <commit> (id or :/<pattern>) via interactive rebase later.
-	fixuplast = selectedcommit-command --accept-single --single-only fixup --max-count 1	; Commit with the intent of squashing this with the last commit (of FILE; if you omit that the HEAD commit would be referenced, and you could just amend there).
-	fixupselected = selectedcommit-command --single-only fixup	; Commit with the intent of squashing this with the commit interactively chosen from the commits in the passed <range> via interactive rebase later.
+	fixuplast = selectedcommit-command --accept-single --single-only -4 fixup --max-count 1 COMMITS	; Commit with the intent of squashing this with the last commit (of FILE; if you omit that the HEAD commit would be referenced, and you could just amend there).
+	fixupselected = selectedcommit-command --single-only -2 fixup COMMITS	; Commit with the intent of squashing this with the commit interactively chosen from the commits in the passed <range> via interactive rebase later.
 	fixupselected1 = fixupselected --max-count 1
 	fixupselected2 = fixupselected --max-count 2
 	fixupselected3 = fixupselected --max-count 3
@@ -214,8 +214,8 @@
 	fixupselected6 = fixupselected --max-count 6
 	fixupselected7 = fixupselected --max-count 7
 	fixupselectedg = selectedgcommit-command --single-only fixup	; Commit with the intent of squashing this with the commit interactively chosen from the commits where log messages match the specified text or /regexp/.
-	fixupst = stfiles-command selectedcommit-command --single-only fixup	; Commit with the intent of squashing this with the commit interactively chosen from the commits of currently modified files in the passed <range> via interactive rebase later.
-	fixuplastst = stfiles-command selectedcommit-command --accept-single --single-only fixup --max-count 1	; Commit with the intent of squashing this with the last commit of the currently modified files via interactive rebase later.
+	fixupst = stfiles-command selectedcommit-command --single-only -2 fixup COMMITS	; Commit with the intent of squashing this with the commit interactively chosen from the commits of currently modified files in the passed <range> via interactive rebase later.
+	fixuplastst = stfiles-command selectedcommit-command --accept-single --single-only -4 fixup --max-count 1 COMMITS	; Commit with the intent of squashing this with the last commit of the currently modified files via interactive rebase later.
 	fixupst1 = fixupst --max-count 1
 	fixupst2 = fixupst --max-count 2
 	fixupst3 = fixupst --max-count 3
@@ -223,8 +223,8 @@
 	fixupst5 = fixupst --max-count 5
 	fixupst6 = fixupst --max-count 6
 	fixupst7 = fixupst --max-count 7
-	fixupi = stifiles-command selectedcommit-command --single-only fixup	; Commit with the intent of squashing this with the commit interactively chosen from the commits of currently staged files in the passed <range> via interactive rebase later.
-	fixuplasti = stifiles-command selectedcommit-command --accept-single --single-only fixup --max-count 1	; Commit with the intent of squashing this with the last commit of the currently staged files via interactive rebase later.
+	fixupi = stifiles-command selectedcommit-command --single-only -2 fixup COMMITS	; Commit with the intent of squashing this with the commit interactively chosen from the commits of currently staged files in the passed <range> via interactive rebase later.
+	fixuplasti = stifiles-command selectedcommit-command --accept-single --single-only -4 fixup --max-count 1 COMMITS	; Commit with the intent of squashing this with the last commit of the currently staged files via interactive rebase later.
 	fixupi1 = fixupi --max-count 1
 	fixupi2 = fixupi --max-count 2
 	fixupi3 = fixupi --max-count 3
@@ -232,8 +232,8 @@
 	fixupi5 = fixupi --max-count 5
 	fixupi6 = fixupi --max-count 6
 	fixupi7 = fixupi --max-count 7
-	fixup-i = stIfiles-command selectedcommit-command --single-only fixup	; Commit with the intent of squashing this with the commit interactively chosen from the commits of currently modified but not staged files in the passed <range> via interactive rebase later.
-	fixuplast-i = stIfiles-command selectedcommit-command --accept-single --single-only fixup --max-count 1	; Commit with the intent of squashing this with the last commit of the currently modified but not staged files via interactive rebase later.
+	fixup-i = stIfiles-command selectedcommit-command --single-only -2 fixup COMMITS	; Commit with the intent of squashing this with the commit interactively chosen from the commits of currently modified but not staged files in the passed <range> via interactive rebase later.
+	fixuplast-i = stIfiles-command selectedcommit-command --accept-single --single-only -4 fixup --max-count 1 COMMITS	; Commit with the intent of squashing this with the last commit of the currently modified but not staged files via interactive rebase later.
 	fixup-i1 = fixup-i --max-count 1
 	fixup-i2 = fixup-i --max-count 2
 	fixup-i3 = fixup-i --max-count 3
@@ -243,8 +243,8 @@
 	fixup-i7 = fixup-i --max-count 7
 
 	fixamend = fixup --amend	; Commit with the intent of squashing this with the passed <commit> (id or :/<pattern>) and overwriting the original commit message via interactive rebase later. Note: Keep the summary line 1 as-is; line 3 is the new summary and the commit message starts in line 5.
-	fixamendlast = selectedcommit-command --accept-single --single-only fixamend --max-count 1	; Commit with the intent of squashing this with the last commit (of FILE; if you omit that the HEAD commit would be referenced, and you could just amend there) and overwriting the original commit message via interactive rebase later.
-	fixamendselected = selectedcommit-command --single-only fixamend
+	fixamendlast = selectedcommit-command --accept-single --single-only -4 fixamend --max-count 1 COMMITS	; Commit with the intent of squashing this with the last commit (of FILE; if you omit that the HEAD commit would be referenced, and you could just amend there) and overwriting the original commit message via interactive rebase later.
+	fixamendselected = selectedcommit-command --single-only -2 fixamend COMMITS
 	fixamendselected1 = fixamendselected --max-count 1
 	fixamendselected2 = fixamendselected --max-count 2
 	fixamendselected3 = fixamendselected --max-count 3
@@ -253,8 +253,8 @@
 	fixamendselected6 = fixamendselected --max-count 6
 	fixamendselected7 = fixamendselected --max-count 7
 	fixamendselectedg = selectedgcommit-command --single-only fixamend
-	fixamendst = stfiles-command selectedcommit-command --single-only fixamend
-	fixamendlastst = stfiles-command selectedcommit-command --accept-single --single-only fixamend --max-count 1
+	fixamendst = stfiles-command selectedcommit-command --single-only -2 fixamend COMMITS
+	fixamendlastst = stfiles-command selectedcommit-command --accept-single --single-only -4 fixamend --max-count 1 COMMITS
 	fixamendst1 = fixamendst --max-count 1
 	fixamendst2 = fixamendst --max-count 2
 	fixamendst3 = fixamendst --max-count 3
@@ -262,8 +262,8 @@
 	fixamendst5 = fixamendst --max-count 5
 	fixamendst6 = fixamendst --max-count 6
 	fixamendst7 = fixamendst --max-count 7
-	fixamendi = stifiles-command selectedcommit-command --single-only fixamend
-	fixamendlasti = stifiles-command selectedcommit-command --accept-single --single-only fixamend --max-count 1
+	fixamendi = stifiles-command selectedcommit-command --single-only -2 fixamend COMMITS
+	fixamendlasti = stifiles-command selectedcommit-command --accept-single --single-only -4 fixamend --max-count 1 COMMITS
 	fixamendi1 = fixamendi --max-count 1
 	fixamendi2 = fixamendi --max-count 2
 	fixamendi3 = fixamendi --max-count 3
@@ -271,8 +271,8 @@
 	fixamendi5 = fixamendi --max-count 5
 	fixamendi6 = fixamendi --max-count 6
 	fixamendi7 = fixamendi --max-count 7
-	fixamend-i = stIfiles-command selectedcommit-command --single-only fixamend
-	fixamendlast-i = stIfiles-command selectedcommit-command --accept-single --single-only fixamend --max-count 1
+	fixamend-i = stIfiles-command selectedcommit-command --single-only -2 fixamend COMMITS
+	fixamendlast-i = stIfiles-command selectedcommit-command --accept-single --single-only -4 fixamend --max-count 1 COMMITS
 	fixamend-i1 = fixamend-i --max-count 1
 	fixamend-i2 = fixamend-i --max-count 2
 	fixamend-i3 = fixamend-i --max-count 3
@@ -282,8 +282,8 @@
 	fixamend-i7 = fixamend-i --max-count 7
 
 	fixwording = fixup --reword	; Commit with the intent of squashing this with the passed <commit> (id or :/<pattern>) and just rewording the original commit message (no changes!) via interactive rebase later. Note: Keep the summary line 1 as-is; line 3 is the new summary and the commit message starts in line 5.
-	fixwordinglast = selectedcommit-command --accept-single --single-only fixwording --max-count 1	; Commit with the intent of squashing this with the last commit (of FILE; if you omit that the HEAD commit would be referenced, and you could just amend there) and just rewording the original commit message (no changes!) via interactive rebase later.
-	fixwordingselected = selectedcommit-command --single-only fixwording
+	fixwordinglast = selectedcommit-command --accept-single --single-only -4 fixwording --max-count 1 COMMITS	; Commit with the intent of squashing this with the last commit (of FILE; if you omit that the HEAD commit would be referenced, and you could just amend there) and just rewording the original commit message (no changes!) via interactive rebase later.
+	fixwordingselected = selectedcommit-command --single-only -2 fixwording COMMITS
 	fixwordingselected1 = fixwordingselected --max-count 1
 	fixwordingselected2 = fixwordingselected --max-count 2
 	fixwordingselected3 = fixwordingselected --max-count 3
@@ -292,8 +292,8 @@
 	fixwordingselected6 = fixwordingselected --max-count 6
 	fixwordingselected7 = fixwordingselected --max-count 7
 	fixwordingselectedg = selectedgcommit-command --single-only fixwording
-	fixwordingst = stfiles-command selectedcommit-command --single-only fixwording
-	fixwordinglastst = stfiles-command selectedcommit-command --accept-single --single-only fixwording --max-count 1
+	fixwordingst = stfiles-command selectedcommit-command --single-only -2 fixwording COMMITS
+	fixwordinglastst = stfiles-command selectedcommit-command --accept-single --single-only -4 fixwording --max-count 1 COMMITS
 	fixwordingst1 = fixwordingst --max-count 1
 	fixwordingst2 = fixwordingst --max-count 2
 	fixwordingst3 = fixwordingst --max-count 3
@@ -301,8 +301,8 @@
 	fixwordingst5 = fixwordingst --max-count 5
 	fixwordingst6 = fixwordingst --max-count 6
 	fixwordingst7 = fixwordingst --max-count 7
-	fixwordingi = stifiles-command selectedcommit-command --single-only fixwording
-	fixwordinglasti = stifiles-command selectedcommit-command --accept-single --single-only fixwording --max-count 1
+	fixwordingi = stifiles-command selectedcommit-command --single-only -2 fixwording COMMITS
+	fixwordinglasti = stifiles-command selectedcommit-command --accept-single --single-only -4 fixwording --max-count 1 COMMITS
 	fixwordingi1 = fixwordingi --max-count 1
 	fixwordingi2 = fixwordingi --max-count 2
 	fixwordingi3 = fixwordingi --max-count 3
@@ -310,8 +310,8 @@
 	fixwordingi5 = fixwordingi --max-count 5
 	fixwordingi6 = fixwordingi --max-count 6
 	fixwordingi7 = fixwordingi --max-count 7
-	fixwording-i = stIfiles-command selectedcommit-command --single-only fixwording
-	fixwordinglast-i = stIfiles-command selectedcommit-command --accept-single --single-only fixwording --max-count 1
+	fixwording-i = stIfiles-command selectedcommit-command --single-only -2 fixwording COMMITS
+	fixwordinglast-i = stIfiles-command selectedcommit-command --accept-single --single-only -4 fixwording --max-count 1 COMMITS
 	fixwording-i1 = fixwording-i --max-count 1
 	fixwording-i2 = fixwording-i --max-count 2
 	fixwording-i3 = fixwording-i --max-count 3
@@ -321,7 +321,7 @@
 	fixwording-i7 = fixwording-i --max-count 7
 
 	;; fixuprb: Commit and squash with the passed <commit> (id or :/<pattern>) via interactive rebase.
-	fixupselectedrb = selectedcommit-command --single-only fixuprb	; Commit and squash with the commit interactively chosen from the commits in the passed <range> via interactive rebase.
+	fixupselectedrb = selectedcommit-command --single-only -2 fixuprb COMMITS	; Commit and squash with the commit interactively chosen from the commits in the passed <range> via interactive rebase.
 	fixupselectedrb1 = fixupselectedrb --max-count 1
 	fixupselectedrb2 = fixupselectedrb --max-count 2
 	fixupselectedrb3 = fixupselectedrb --max-count 3
@@ -332,7 +332,7 @@
 	fixupselectedgrb = selectedgcommit-command --single-only fixuprb	; Commit and squash with the commit interactively chosen from the commits where log messages match the specified text or /regexp/.
 
 	;; fixamendrb: Commit and squash and overwrite the original commit message with the passed <commit> (id or :/<pattern>) via interactive rebase.
-	fixamendselectedrb = selectedcommit-command --single-only fixamendrb	; Commit and squash and overwrite the original commit message with the commit interactively chosen from the commits in the passed <range> via interactive rebase.
+	fixamendselectedrb = selectedcommit-command --single-only -2 fixamendrb COMMITS	; Commit and squash and overwrite the original commit message with the commit interactively chosen from the commits in the passed <range> via interactive rebase.
 	fixamendselectedrb1 = fixamendselectedrb --max-count 1
 	fixamendselectedrb2 = fixamendselectedrb --max-count 2
 	fixamendselectedrb3 = fixamendselectedrb --max-count 3
@@ -343,7 +343,7 @@
 	fixamendselectedgrb = selectedgcommit-command --single-only fixamendrb	; Commit and squash and overwrite the original commit message with the commit interactively chosen from the commits where log messages match the specified text or /regexp/.
 
 	;; fixwordingrb: Commit and squash and just reword the original commit message (no changes!) the original commit message with the passed <commit> (id or :/<pattern>) via interactive rebase.
-	fixwordingselectedrb = selectedcommit-command --single-only fixwordingrb	; Commit and squash and just reword the original commit message with the commit interactively chosen from the commits in the passed <range> via interactive rebase.
+	fixwordingselectedrb = selectedcommit-command --single-only -2 fixwordingrb COMMITS	; Commit and squash and just reword the original commit message with the commit interactively chosen from the commits in the passed <range> via interactive rebase.
 	fixwordingselectedrb1 = fixwordingselectedrb --max-count 1
 	fixwordingselectedrb2 = fixwordingselectedrb --max-count 2
 	fixwordingselectedrb3 = fixwordingselectedrb --max-count 3
@@ -356,8 +356,8 @@
 	;; rebaselastfixup: Rebase the last [<number>, useful when there are forgotten commits that cannot be rewritten any more] fixup / amend / squash commit(s) to, well, incorporate the fixes / squash the commits into the current branch.
 
 	;; commitidentical: Commit directly (without further edits) with the same commit message as <commit>.
-	commitidenticallast = selectedcommit-command --accept-single --single-only commitidentical --max-count 1	; Commit directly (without further edits) with the same commit message as the last commit.
-	commitidenticalselected = selectedcommit-command --single-only commitidentical	; Commit directly (without further edits) with the same commit message as the commit interactively chosen from the commits in the passed <range>.
+	commitidenticallast = selectedcommit-command --accept-single --single-only -4 commitidentical --max-count 1 COMMITS	; Commit directly (without further edits) with the same commit message as the last commit.
+	commitidenticalselected = selectedcommit-command --single-only -2 commitidentical COMMITS	; Commit directly (without further edits) with the same commit message as the commit interactively chosen from the commits in the passed <range>.
 	commitidenticalselected1 = commitidenticalselected --max-count 1
 	commitidenticalselected2 = commitidenticalselected --max-count 2
 	commitidenticalselected3 = commitidenticalselected --max-count 3
@@ -368,8 +368,8 @@
 	cis = commitidenticalselected7
 	commitidenticalselectedg = selectedgcommit-command --single-only commitidentical	; Commit directly (without further edits) with the same commit message as the commit interactively chosen from the commits where log messages match the specified text or /regexp/.
 
-	commitidenticalst = stfiles-command selectedcommit-command --single-only commitidentical	; Commit directly (without further edits) with the same commit message as the commit interactively chosen from the commits of currently modified files in the passed <range>.
-	commitidenticallastst = stfiles-command selectedcommit-command --accept-single --single-only commitidentical --max-count 1	; Commit directly (without further edits) with the same commit message as the last commit of currently modified files.
+	commitidenticalst = stfiles-command selectedcommit-command --single-only -2 commitidentical COMMITS	; Commit directly (without further edits) with the same commit message as the commit interactively chosen from the commits of currently modified files in the passed <range>.
+	commitidenticallastst = stfiles-command selectedcommit-command --accept-single --single-only -4 commitidentical --max-count 1 COMMITS	; Commit directly (without further edits) with the same commit message as the last commit of currently modified files.
 	commitidenticalst1 = commitidenticalst --max-count 1
 	commitidenticalst2 = commitidenticalst --max-count 2
 	commitidenticalst3 = commitidenticalst --max-count 3
@@ -377,8 +377,8 @@
 	commitidenticalst5 = commitidenticalst --max-count 5
 	commitidenticalst6 = commitidenticalst --max-count 6
 	commitidenticalst7 = commitidenticalst --max-count 7
-	commitidenticali = stifiles-command selectedcommit-command --single-only commitidentical	; Commit directly (without further edits) with the same commit message as the commit interactively chosen from the commits of currently staged files in the passed <range>.
-	commitidenticallasti = stifiles-command selectedcommit-command --accept-single --single-only commitidentical --max-count 1	; Commit directly (without further edits) with the same commit message as the last commit of currently staged files.
+	commitidenticali = stifiles-command selectedcommit-command --single-only -2 commitidentical COMMITS	; Commit directly (without further edits) with the same commit message as the commit interactively chosen from the commits of currently staged files in the passed <range>.
+	commitidenticallasti = stifiles-command selectedcommit-command --accept-single --single-only -4 commitidentical --max-count 1 COMMITS	; Commit directly (without further edits) with the same commit message as the last commit of currently staged files.
 	commitidenticali1 = commitidenticali --max-count 1
 	commitidenticali2 = commitidenticali --max-count 2
 	commitidenticali3 = commitidenticali --max-count 3
@@ -386,8 +386,8 @@
 	commitidenticali5 = commitidenticali --max-count 5
 	commitidenticali6 = commitidenticali --max-count 6
 	commitidenticali7 = commitidenticali --max-count 7
-	commitidentical-i = stIfiles-command selectedcommit-command --single-only commitidentical	; Commit directly (without further edits) with the same commit message as the commit interactively chosen from the commits of currently modified but not staged files in the passed <range>.
-	commitidenticallast-i = stIfiles-command selectedcommit-command --accept-single --single-only commitidentical --max-count 1	; Commit directly (without further edits) with the same commit message as the last commit of currently modified but not staged files.
+	commitidentical-i = stIfiles-command selectedcommit-command --single-only -2 commitidentical COMMITS	; Commit directly (without further edits) with the same commit message as the commit interactively chosen from the commits of currently modified but not staged files in the passed <range>.
+	commitidenticallast-i = stIfiles-command selectedcommit-command --accept-single --single-only -4 commitidentical --max-count 1 COMMITS	; Commit directly (without further edits) with the same commit message as the last commit of currently modified but not staged files.
 	commitidentical-i1 = commitidentical-i --max-count 1
 	commitidentical-i2 = commitidentical-i --max-count 2
 	commitidentical-i3 = commitidentical-i --max-count 3
@@ -397,8 +397,8 @@
 	commitidentical-i7 = commitidentical-i --max-count 7
 
 	commitlike = commitidentical --edit 	; Commit with the same commit message as <commit> as the base for further editing.
-	commitlikelast = selectedcommit-command --accept-single --single-only commitlike --max-count 1	; Commit with the same commit message as the last commit.
-	commitlikeselected = selectedcommit-command --single-only commitlike	; Commit with the same commit message as the commit interactively chosen from the commits in the passed <range> as the base for further editing.
+	commitlikelast = selectedcommit-command --accept-single --single-only -4 commitlike --max-count 1 COMMITS	; Commit with the same commit message as the last commit.
+	commitlikeselected = selectedcommit-command --single-only -2 commitlike COMMITS	; Commit with the same commit message as the commit interactively chosen from the commits in the passed <range> as the base for further editing.
 	commitlikeselected1 = commitlikeselected --max-count 1
 	commitlikeselected2 = commitlikeselected --max-count 2
 	commitlikeselected3 = commitlikeselected --max-count 3
@@ -408,8 +408,8 @@
 	commitlikeselected7 = commitlikeselected --max-count 7
 	commitlikeselectedg = selectedgcommit-command --single-only commitlike	; Commit with the same commit message as the commit interactively chosen from the commits where log messages match the specified text or /regexp/ as the base for further editing.
 	cls = commitlikeselected7
-	commitlikest = stfiles-command selectedcommit-command --single-only commitlike	; Commit with the same commit message as the commit interactively chosen from the commits of currently modified files in the passed <range> as the base for further editing.
-	commitlikelastst = stfiles-command selectedcommit-command --accept-single --single-only commitlike --max-count 1	; Commit with the same commit message as the last commit of currently modified files.
+	commitlikest = stfiles-command selectedcommit-command --single-only -2 commitlike COMMITS	; Commit with the same commit message as the commit interactively chosen from the commits of currently modified files in the passed <range> as the base for further editing.
+	commitlikelastst = stfiles-command selectedcommit-command --accept-single --single-only -4 commitlike --max-count 1 COMMITS	; Commit with the same commit message as the last commit of currently modified files.
 	commitlikest1 = commitlikest --max-count 1
 	commitlikest2 = commitlikest --max-count 2
 	commitlikest3 = commitlikest --max-count 3
@@ -417,8 +417,8 @@
 	commitlikest5 = commitlikest --max-count 5
 	commitlikest6 = commitlikest --max-count 6
 	commitlikest7 = commitlikest --max-count 7
-	commitlikei = stifiles-command selectedcommit-command --single-only commitlike 	; Commit with the same commit message as the commit interactively chosen from the commits of currently staged files in the passed <range> as the base for further editing.
-	commitlikelasti = stifiles-command selectedcommit-command --accept-single --single-only commitlike --max-count 1	; Commit with the same commit message as the last commit of currently staged files.
+	commitlikei = stifiles-command selectedcommit-command --single-only -2 commitlike COMMITS 	; Commit with the same commit message as the commit interactively chosen from the commits of currently staged files in the passed <range> as the base for further editing.
+	commitlikelasti = stifiles-command selectedcommit-command --accept-single --single-only -4 commitlike --max-count 1 COMMITS	; Commit with the same commit message as the last commit of currently staged files.
 	commitlikei1 = commitlikei --max-count 1
 	commitlikei2 = commitlikei --max-count 2
 	commitlikei3 = commitlikei --max-count 3
@@ -426,8 +426,8 @@
 	commitlikei5 = commitlikei --max-count 5
 	commitlikei6 = commitlikei --max-count 6
 	commitlikei7 = commitlikei --max-count 7
-	commitlike-i = stIfiles-command selectedcommit-command --single-only commitlike ; Commit with the same commit message as the commit interactively chosen from the commits of currently modified but not staged files in the passed <range> as the base for further editing.
-	commitlikelast-i = stIfiles-command selectedcommit-command --accept-single --single-only commitlike --max-count 1	; Commit with the same commit message as the last commit of currently modified but not staged files.
+	commitlike-i = stIfiles-command selectedcommit-command --single-only -2 commitlike COMMITS ; Commit with the same commit message as the commit interactively chosen from the commits of currently modified but not staged files in the passed <range> as the base for further editing.
+	commitlikelast-i = stIfiles-command selectedcommit-command --accept-single --single-only -4 commitlike --max-count 1 COMMITS	; Commit with the same commit message as the last commit of currently modified but not staged files.
 	commitlike-i1 = commitlike-i --max-count 1
 	commitlike-i2 = commitlike-i --max-count 2
 	commitlike-i3 = commitlike-i --max-count 3
@@ -437,8 +437,8 @@
 	commitlike-i7 = commitlike-i --max-count 7
 
 	;; commitrelate: Commit with the same commit message as <commit> as the base for further editing, referencing prior <commit> (when it's too late to amend the existing commit).
-	commitrelatelast = selectedcommit-command --accept-single --single-only commitrelate --max-count 1	; Commit with the same commit message as the last commit as the base for further editing, referencing prior <commit> (when it's too late to amend the existing commit).
-	commitrelateselected = selectedcommit-command --single-only commitrelate	; Commit with the same commit message as <commit> as the base for further editing, referencing prior commit interactively chosen from the commits in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
+	commitrelatelast = selectedcommit-command --accept-single --single-only -4 commitrelate --max-count 1 COMMITS	; Commit with the same commit message as the last commit as the base for further editing, referencing prior <commit> (when it's too late to amend the existing commit).
+	commitrelateselected = selectedcommit-command --single-only -2 commitrelate COMMITS	; Commit with the same commit message as <commit> as the base for further editing, referencing prior commit interactively chosen from the commits in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
 	commitrelateselected1 = commitrelateselected --max-count 1
 	commitrelateselected2 = commitrelateselected --max-count 2
 	commitrelateselected3 = commitrelateselected --max-count 3
@@ -447,8 +447,8 @@
 	commitrelateselected6 = commitrelateselected --max-count 6
 	commitrelateselected7 = commitrelateselected --max-count 7
 	commitrelateselectedg = selectedgcommit-command --single-only commitrelate	; Commit with the same commit message as <commit> as the base for further editing, referencing prior commit interactively chosen from the commits where log messages match the specified text or /regexp/ (when it's too late or cumbersome to fixup the existing commit).
-	commitrelatest = stfiles-command selectedcommit-command --single-only commitrelate	; Commit with the same commit message as <commit> as the base for further editing, referencing prior commit interactively chosen from the commits of currently modified files in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
-	commitrelatelastst = stfiles-command selectedcommit-command --accept-single --single-only commitrelate --max-count 1	; Commit with the same commit message as the last commit of currently modified files as the base for further editing, referencing prior commit (when it's too late to amend the existing commit).
+	commitrelatest = stfiles-command selectedcommit-command --single-only -2 commitrelate COMMITS	; Commit with the same commit message as <commit> as the base for further editing, referencing prior commit interactively chosen from the commits of currently modified files in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
+	commitrelatelastst = stfiles-command selectedcommit-command --accept-single --single-only -4 commitrelate --max-count 1 COMMITS	; Commit with the same commit message as the last commit of currently modified files as the base for further editing, referencing prior commit (when it's too late to amend the existing commit).
 	commitrelatest1 = commitrelatest --max-count 1
 	commitrelatest2 = commitrelatest --max-count 2
 	commitrelatest3 = commitrelatest --max-count 3
@@ -456,8 +456,8 @@
 	commitrelatest5 = commitrelatest --max-count 5
 	commitrelatest6 = commitrelatest --max-count 6
 	commitrelatest7 = commitrelatest --max-count 7
-	commitrelatei = stifiles-command selectedcommit-command --single-only commitrelate	; Commit with the same commit message as <commit> as the base for further editing, referencing prior commit interactively chosen from the commits of currently staged files in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
-	commitrelatelasti = stifiles-command selectedcommit-command --accept-single --single-only commitrelate --max-count 1	; Commit with the same commit message as the last commit of currently staged files as the base for further editing, referencing prior commit (when it's too late to amend the existing commit).
+	commitrelatei = stifiles-command selectedcommit-command --single-only -2 commitrelate COMMITS	; Commit with the same commit message as <commit> as the base for further editing, referencing prior commit interactively chosen from the commits of currently staged files in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
+	commitrelatelasti = stifiles-command selectedcommit-command --accept-single --single-only -4 commitrelate --max-count 1 COMMITS	; Commit with the same commit message as the last commit of currently staged files as the base for further editing, referencing prior commit (when it's too late to amend the existing commit).
 	commitrelatei1 = commitrelatei --max-count 1
 	commitrelatei2 = commitrelatei --max-count 2
 	commitrelatei3 = commitrelatei --max-count 3
@@ -465,8 +465,8 @@
 	commitrelatei5 = commitrelatei --max-count 5
 	commitrelatei6 = commitrelatei --max-count 6
 	commitrelatei7 = commitrelatei --max-count 7
-	commitrelate-i = stIfiles-command selectedcommit-command --single-only commitrelate	; Commit with the same commit message as <commit> as the base for further editing, referencing prior commit interactively chosen from the commits of currently modified but not staged files in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
-	commitrelatelast-i = stIfiles-command selectedcommit-command --accept-single --single-only commitrelate --max-count 1	; Commit with the same commit message as the last commit of currently modified but not staged files as the base for further editing, referencing prior commit (when it's too late to amend the existing commit).
+	commitrelate-i = stIfiles-command selectedcommit-command --single-only -2 commitrelate COMMITS	; Commit with the same commit message as <commit> as the base for further editing, referencing prior commit interactively chosen from the commits of currently modified but not staged files in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
+	commitrelatelast-i = stIfiles-command selectedcommit-command --accept-single --single-only -4 commitrelate --max-count 1 COMMITS	; Commit with the same commit message as the last commit of currently modified but not staged files as the base for further editing, referencing prior commit (when it's too late to amend the existing commit).
 	commitrelate-i1 = commitrelate-i --max-count 1
 	commitrelate-i2 = commitrelate-i --max-count 2
 	commitrelate-i3 = commitrelate-i --max-count 3
@@ -483,8 +483,8 @@
 	reword = amendonly
 	; amendlike: Amend the same files (inside <path>) as were modified in the last commit / N'th commit / passed <commit> to the last commit (ignoring any already staged changes).
 	amenlike = amendlike --reuse-message=HEAD
-	amendlikeselected = selectedcommit-command --single-only amendlike
-	amenlikeselected = selectedcommit-command --single-only amenlike
+	amendlikeselected = selectedcommit-command --single-only -2 amendlike COMMITS
+	amenlikeselected = selectedcommit-command --single-only -2 amenlike COMMITS
 	amendlikeselected1 = amendlikeselected --max-count 1
 	amendlikeselected2 = amendlikeselected --max-count 2
 	amendlikeselected3 = amendlikeselected --max-count 3
@@ -558,7 +558,7 @@
 	; 1. git checkout --orphan gh-pages
 	; 2. git rm -rf .
 	;; detach: Detach HEAD at passed <commit> / Unassociate from the current branch without changing the current commit. Useful e.g. for separate worktrees, because they all must be on distinct branches.
-	detachselected = selectedcommit-command --single-only detach	; Detach HEAD to the commit interactively chosen from the commits in the passed <range>.
+	detachselected = selectedcommit-command --single-only -2 detach COMMITS	; Detach HEAD to the commit interactively chosen from the commits in the passed <range>.
 	detachselected1 = detachselected --max-count 1
 	detachselected2 = detachselected --max-count 2
 	detachselected3 = detachselected --max-count 3
@@ -1868,7 +1868,7 @@
 	tdrbi = today-command --no-range --one-more rebase -i
 	tdrbni = today-command --no-range --one-more rbni
 	tdmove-to-branch = today-command --no-range -- uncommit-to-branch --exclude-commit
-	tduncommit-to-branch = today-command -- selectedcommit-command --single-only uncommit-to-branch
+	tduncommit-to-branch = today-command -- selectedcommit-command --single-only -2 uncommit-to-branch COMMITS
 	tddetach = today-command --one-more detachselected
 	tdwipe = today-command --one-more wipetoselected
 	tdbase = today-command --no-range name-rev --name-only
@@ -2100,7 +2100,7 @@
 	weekrbi = week-command --no-range --one-more rebase -i
 	weekrbni = week-command --no-range --one-more rbni
 	weekmove-to-branch = week-command --no-range -- uncommit-to-branch --exclude-commit
-	weekuncommit-to-branch = week-command -- selectedcommit-command --single-only uncommit-to-branch
+	weekuncommit-to-branch = week-command -- selectedcommit-command --single-only -2 uncommit-to-branch COMMITS
 	weekdetach = week-command --one-more detachselected
 	weekwipe = week-command --one-more wipetoselected
 	weekbase = week-command --no-range name-rev --name-only
@@ -2332,7 +2332,7 @@
 	monthrbi = month-command --no-range --one-more rebase -i
 	monthrbni = month-command --no-range --one-more rbni
 	monthmove-to-branch = month-command --no-range -- uncommit-to-branch --exclude-commit
-	monthuncommit-to-branch = month-command -- selectedcommit-command --single-only uncommit-to-branch
+	monthuncommit-to-branch = month-command -- selectedcommit-command --single-only -2 uncommit-to-branch COMMITS
 	monthdetach = month-command --one-more detachselected
 	monthwipe = month-command --one-more wipetoselected
 	monthbase = month-command --no-range name-rev --name-only
@@ -2564,7 +2564,7 @@
 	yearrbi = year-command --no-range --one-more rebase -i
 	yearrbni = year-command --no-range --one-more rbni
 	yearmove-to-branch = year-command --no-range -- uncommit-to-branch --exclude-commit
-	yearuncommit-to-branch = year-command -- selectedcommit-command --single-only uncommit-to-branch
+	yearuncommit-to-branch = year-command -- selectedcommit-command --single-only -2 uncommit-to-branch COMMITS
 	yeardetach = year-command --one-more detachselected
 	yearwipe = year-command --one-more wipetoselected
 	yearbase = year-command --no-range name-rev --name-only
@@ -2796,7 +2796,7 @@
 	byrbi = byuserrange-command --no-range -3 rebase -i USERRANGE
 	byrbni = byuserrange-command --no-range -2 rbni USERRANGE
 	bymove-to-branch = byuserrange-command --no-range -3 uncommit-to-branch --exclude-commit USERRANGE
-	byuncommit-to-branch = byuserrange-command -5 selectedcommit-command --single-only --range-is-last uncommit-to-branch USERRANGE
+	byuncommit-to-branch = byuserrange-command -5 selectedcommit-command --single-only -2 --range-is-last COMMITS uncommit-to-branch USERRANGE
 	bydetach = byuserrange-command --one-more -2 detachselected USERRANGE
 	bywipe = byuserrange-command --one-more -2 wipetoselected USERRANGE
 	bybase = byuserrange-command --no-range -3 name-rev --name-only USERRANGE
@@ -3028,7 +3028,7 @@
 	msgrbi = loggrange-command --no-range -3 rebase -i LOGRANGE
 	msgrbni = loggrange-command --no-range -2 rbni LOGRANGE
 	msgmove-to-branch = loggrange-command --no-range -- -3 uncommit-to-branch --exclude-commit LOGRANGE
-	msguncommit-to-branch = loggrange-command -5 selectedcommit-command --single-only --range-is-last uncommit-to-branch LOGRANGE
+	msguncommit-to-branch = loggrange-command -5 selectedcommit-command --single-only --range-is-last -3 uncommit-to-branch LOGRANGE COMMITS
 	msgdetach = loggrange-command --one-more -2 detachselected LOGRANGE
 	msgwipe = loggrange-command --one-more -2 wipetoselected LOGRANGE
 	msgbase = loggrange-command --no-range -3 name-rev --name-only LOGRANGE
@@ -3266,7 +3266,7 @@
 	abrrbi = rev-range-this-branch --any --no-range rebase -i	; Rebase on top of the current branch.
 	abrrbni = rev-range-this-branch --any --no-range rbni
 	abrmove-to-branch = rev-range-this-branch --any --no-range -- uncommit-to-branch --exclude-commit
-	abruncommit-to-branch = rev-range-this-branch --any -- selectedcommit-command --single-only --range-is-last uncommit-to-branch
+	abruncommit-to-branch = rev-range-this-branch --any -- selectedcommit-command --single-only --range-is-last -2 uncommit-to-branch COMMITS
 	abrdetach = rev-range-this-branch --any detachselected
 	abrwipe = rev-range-this-branch --any wipetoselected
 	abrbase = rev-range-this-branch --any --no-range name-rev --name-only
@@ -3499,7 +3499,7 @@
 	bcrbi = rev-range-branchcreation --no-range rebase -i	; Rebase on top commits added to the current branch after its creation.
 	bcrbni = rev-range-branchcreation --no-range rbni
 	bcmove-to-branch = rev-range-branchcreation --no-range -- uncommit-to-branch --exclude-commit
-	bcuncommit-to-branch = rev-range-branchcreation -- selectedcommit-command --single-only --range-is-last uncommit-to-branch
+	bcuncommit-to-branch = rev-range-branchcreation -- selectedcommit-command --single-only --range-is-last -2 uncommit-to-branch COMMITS
 	bcdetach = rev-range-branchcreation detachselected
 	bcwipe = rev-range-branchcreation wipetoselected
 	bcbase = rev-range-branchcreation --no-range name-rev --name-only
@@ -3732,7 +3732,7 @@
 	brrbi = rev-range-this-branch --no-range rebase -i	; Rebase on top of the current branch.
 	brrbni = rev-range-this-branch --no-range rbni
 	brmove-to-branch = rev-range-this-branch --no-range -- uncommit-to-branch --exclude-commit
-	bruncommit-to-branch = rev-range-this-branch -- selectedcommit-command --single-only --range-is-last uncommit-to-branch
+	bruncommit-to-branch = rev-range-this-branch -- selectedcommit-command --single-only --range-is-last -2 uncommit-to-branch COMMITS
 	brdetach = rev-range-this-branch detachselected
 	brwipe = rev-range-this-branch wipetoselected
 	brbase = rev-range-this-branch --no-range name-rev --name-only
@@ -3965,7 +3965,7 @@
 	b2rrbi = rev-range-this-branch --branch-number 2 --no-range rebase -i	; Rebase on top of the current branch and preceding branches.
 	b2rrbni = rev-range-this-branch --branch-number 2 --no-range rbni
 	b2rmove-to-branch = rev-range-this-branch --branch-number 2 --no-range -- uncommit-to-branch --exclude-commit
-	b2runcommit-to-branch = rev-range-this-branch --branch-number 2 -- selectedcommit-command --single-only --range-is-last uncommit-to-branch
+	b2runcommit-to-branch = rev-range-this-branch --branch-number 2 -- selectedcommit-command --single-only --range-is-last -2 uncommit-to-branch COMMITS
 	b2rdetach = rev-range-this-branch --branch-number 2 detachselected
 	b2rwipe = rev-range-this-branch --branch-number 2 wipetoselected
 	b2rbase = rev-range-this-branch --branch-number 2 --no-range name-rev --name-only
@@ -4198,7 +4198,7 @@
 	b3rrbi = rev-range-this-branch --branch-number 3 --no-range rebase -i	; Rebase on top of the current branch and two preceding branches.
 	b3rrbni = rev-range-this-branch --branch-number 3 --no-range rbni
 	b3rmove-to-branch = rev-range-this-branch --branch-number 3 --no-range -- uncommit-to-branch --exclude-commit
-	b3runcommit-to-branch = rev-range-this-branch --branch-number 3 -- selectedcommit-command --single-only --range-is-last uncommit-to-branch
+	b3runcommit-to-branch = rev-range-this-branch --branch-number 3 -- selectedcommit-command --single-only --range-is-last -2 uncommit-to-branch COMMITS
 	b3rdetach = rev-range-this-branch --branch-number 3 detachselected
 	b3rwipe = rev-range-this-branch --branch-number 3 wipetoselected
 	b3rbase = rev-range-this-branch --branch-number 3 --no-range name-rev --name-only
@@ -4431,7 +4431,7 @@
 	bmrbi = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --no-range rebase -i
 	bmrbni = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --no-range rbni
 	bmmove-to-branch = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --no-range uncommit-to-branch --exclude-commit
-	bmuncommit-to-branch = branch-command --keep-position master-command --keep-position rev-range --revision MASTER selectedcommit-command --single-only --range-is-last uncommit-to-branch
+	bmuncommit-to-branch = branch-command --keep-position master-command --keep-position rev-range --revision MASTER selectedcommit-command --single-only --range-is-last -2 uncommit-to-branch COMMITS
 	bmdetach = branch-command --keep-position master-command --keep-position rev-range --revision MASTER detachselected
 	bmwipe = branch-command --keep-position master-command --keep-position rev-range --revision MASTER wipetoselected
 	bmbase = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --no-range name-rev --name-only
@@ -4664,7 +4664,7 @@
 	;mbrbi is a no-op, because it always yields HEAD as the starting point
 	;mbrbni is a no-op, because it always yields HEAD as the starting point
 	mbmove-to-branch = master-command --keep-position rev-range --revision HEAD --no-range uncommit-to-branch --exclude-commit
-	mbuncommit-to-branch = branch-command --keep-position master-command --keep-position rev-range --revision BRANCH --end-revision MASTER selectedcommit-command --single-only --range-is-last uncommit-to-branch
+	mbuncommit-to-branch = branch-command --keep-position master-command --keep-position rev-range --revision BRANCH --end-revision MASTER selectedcommit-command --single-only --range-is-last -2 uncommit-to-branch COMMITS
 	mbdetach = branch-command --keep-position master-command --keep-position rev-range --revision BRANCH --end-revision MASTER detachselected
 	mbwipe = branch-command --keep-position master-command --keep-position rev-range --revision BRANCH --end-revision MASTER wipetoselected
 	mbbase = master-command --keep-position rev-range --revision HEAD --no-range name-rev --name-only
@@ -4897,7 +4897,7 @@
 	bnrbi = branch-command --keep-position base-command --keep-position rev-range --revision BASE --no-range rebase -i
 	bnrbni = branch-command --keep-position base-command --keep-position rev-range --revision BASE --no-range rbni
 	bnmove-to-branch = branch-command --keep-position base-command --keep-position rev-range --revision BASE --no-range uncommit-to-branch --exclude-commit
-	bnuncommit-to-branch = branch-command --keep-position base-command --keep-position rev-range --revision BASE selectedcommit-command --single-only --range-is-last uncommit-to-branch
+	bnuncommit-to-branch = branch-command --keep-position base-command --keep-position rev-range --revision BASE selectedcommit-command --single-only --range-is-last -2 uncommit-to-branch COMMITS
 	bndetach = branch-command --keep-position base-command --keep-position rev-range --revision BASE detachselected
 	bnwipe = branch-command --keep-position base-command --keep-position rev-range --revision BASE wipetoselected
 	bnbase = branch-command --keep-position base-command --keep-position rev-range --revision BASE --no-range name-rev --name-only
@@ -5130,7 +5130,7 @@
 	;nbrbi is a no-op, because it always yields HEAD as the starting point
 	;nbrbni is a no-op, because it always yields HEAD as the starting point
 	nbmove-to-branch = base-command --keep-position rev-range --revision HEAD --no-range uncommit-to-branch --exclude-commit
-	nbuncommit-to-branch = branch-command --keep-position base-command --keep-position rev-range --revision BRANCH --end-revision BASE selectedcommit-command --single-only --range-is-last uncommit-to-branch
+	nbuncommit-to-branch = branch-command --keep-position base-command --keep-position rev-range --revision BRANCH --end-revision BASE selectedcommit-command --single-only --range-is-last -2 uncommit-to-branch COMMITS
 	nbdetach = branch-command --keep-position base-command --keep-position rev-range --revision BRANCH --end-revision BASE detachselected
 	nbwipe = branch-command --keep-position base-command --keep-position rev-range --revision BRANCH --end-revision BASE wipetoselected
 	nbbase = base-command --keep-position rev-range --revision HEAD --no-range name-rev --name-only
@@ -5363,7 +5363,7 @@
 	stablerbi = branch-command --keep-position rev-range --revision stable --no-range rebase -i
 	stablerbni = branch-command --keep-position rev-range --revision stable --no-range rbni
 	stablemove-to-branch = branch-command --keep-position rev-range --revision stable --no-range uncommit-to-branch --exclude-commit
-	stableuncommit-to-branch = branch-command --keep-position rev-range --revision stable selectedcommit-command --single-only --range-is-last uncommit-to-branch
+	stableuncommit-to-branch = branch-command --keep-position rev-range --revision stable selectedcommit-command --single-only --range-is-last -2 uncommit-to-branch COMMITS
 	stabledetach = branch-command --keep-position rev-range --revision stable detachselected
 	stablewipe = branch-command --keep-position rev-range --revision stable wipetoselected
 	stablebase = branch-command --keep-position rev-range --revision stable --no-range name-rev --name-only
@@ -5596,7 +5596,7 @@
 	ttrbi = untiltag-command --reachable-from-passed-branch --keep-position branch-command --keep-position rev-range --revision TAG --no-range rebase -i
 	ttrbni = untiltag-command --reachable-from-passed-branch --keep-position branch-command --keep-position rev-range --revision TAG --no-range rbni
 	ttmove-to-branch = untiltag-command --reachable-from-passed-branch --keep-position branch-command --keep-position rev-range --revision TAG --no-range uncommit-to-branch --exclude-commit
-	ttuncommit-to-branch = untiltag-command --reachable-from-passed-branch --keep-position branch-command --keep-position rev-range --revision TAG selectedcommit-command --single-only --range-is-last uncommit-to-branch
+	ttuncommit-to-branch = untiltag-command --reachable-from-passed-branch --keep-position branch-command --keep-position rev-range --revision TAG selectedcommit-command --single-only --range-is-last -2 uncommit-to-branch COMMITS
 	ttdetach = untiltag-command --reachable-from-passed-branch --keep-position branch-command --keep-position rev-range --revision TAG detachselected
 	ttwipe = untiltag-command --reachable-from-passed-branch --keep-position branch-command --keep-position rev-range --revision TAG wipetoselected
 	ttbase = untiltag-command --reachable-from-passed-branch --keep-position branch-command --keep-position rev-range --revision TAG --no-range name-rev --name-only
@@ -5829,7 +5829,7 @@
 	blrbi = rev-range --revision @{-1} --no-range rebase -i
 	blrbni = rev-range --revision @{-1} --no-range rbni
 	blmove-to-branch = rev-range --revision @{-1} -- uncommit-to-branch --no-range --exclude-commit
-	bluncommit-to-branch = branch-command --keep-position rev-range --revision @{-1} -- selectedcommit-command --single-only --range-is-last uncommit-to-branch
+	bluncommit-to-branch = branch-command --keep-position rev-range --revision @{-1} -- selectedcommit-command --single-only --range-is-last -2 uncommit-to-branch COMMITS
 	bldetach = branch-command --keep-position rev-range --revision @{-1} detachselected
 	blwipe = branch-command --keep-position rev-range --revision @{-1} wipetoselected
 	blbase = rev-range --revision @{-1} --no-range name-rev --name-only
@@ -6062,7 +6062,7 @@
 	b2lrbi = rev-range --revision @{-2} --no-range rebase -i
 	b2lrbni = rev-range --revision @{-2} --no-range rbni
 	b2lmove-to-branch = rev-range --revision @{-2} --no-range -- uncommit-to-branch --exclude-commit
-	b2luncommit-to-branch = branch-command --keep-position rev-range --revision @{-2} -- selectedcommit-command --single-only --range-is-last uncommit-to-branch
+	b2luncommit-to-branch = branch-command --keep-position rev-range --revision @{-2} -- selectedcommit-command --single-only --range-is-last -2 uncommit-to-branch COMMITS
 	b2ldetach = branch-command --keep-position rev-range --revision @{-2} detachselected
 	b2lwipe = branch-command --keep-position rev-range --revision @{-2} wipetoselected
 	b2lbase = rev-range --revision @{-2} --no-range name-rev --name-only
@@ -6295,7 +6295,7 @@
 	bprbi = rev-range --revision @{1} --no-range --one-more-command ^ rebase -i
 	bprbni = rev-range --revision @{1} --no-range --one-more-command ^ rbni
 	bpmove-to-branch = rev-range --revision @{1} --no-range -- uncommit-to-branch --exclude-commit
-	bpuncommit-to-branch = branch-command --keep-position rev-range --revision @{1} -- selectedcommit-command --single-only --range-is-last uncommit-to-branch
+	bpuncommit-to-branch = branch-command --keep-position rev-range --revision @{1} -- selectedcommit-command --single-only --range-is-last -2 uncommit-to-branch COMMITS
 	bpdetach = branch-command --keep-position rev-range --revision @{1} detachselected
 	bpwipe = branch-command --keep-position rev-range --revision @{1} wipetoselected
 	bpbase = rev-range --revision @{1} --no-range name-rev --name-only
@@ -6528,7 +6528,7 @@
 	b2prbi = rev-range --revision @{2} --no-range --one-more-command ^ rebase -i
 	b2prbni = rev-range --revision @{2} --no-range --one-more-command ^ rbni
 	b2pmove-to-branch = rev-range --revision @{2} --no-range -- uncommit-to-branch --exclude-commit
-	b2puncommit-to-branch = branch-command --keep-position rev-range --revision @{2} -- selectedcommit-command --single-only --range-is-last uncommit-to-branch
+	b2puncommit-to-branch = branch-command --keep-position rev-range --revision @{2} -- selectedcommit-command --single-only --range-is-last -2 uncommit-to-branch COMMITS
 	b2pdetach = branch-command --keep-position rev-range --revision @{2} detachselected
 	b2pwipe = branch-command --keep-position rev-range --revision @{2} wipetoselected
 	b2pbase = rev-range --revision @{2} --no-range name-rev --name-only
@@ -6760,7 +6760,7 @@
 	outrbi = trbi
 	outrbni = trbni
 	outmove-to-branch = trmove-to-branch
-	outuncommit-to-branch = rev-range-outgoing '' --one-more -- selectedcommit-command --single-only --range-is-last uncommit-to-branch
+	outuncommit-to-branch = rev-range-outgoing '' --one-more -- selectedcommit-command --single-only --range-is-last -2 uncommit-to-branch COMMITS
 	outdetach = rev-range-outgoing '' --one-more detachselected
 	outwipe = rev-range-outgoing '' --one-more wipetoselected
 	outbase = tracks
@@ -6961,7 +6961,7 @@
 	inrb = trb
 	inrbi = trb
 	inrbni = trbni
-	inuncommit-to-branch = rev-range-incoming '' --one-more -- selectedcommit-command --single-only --range-is-last uncommit-to-branch
+	inuncommit-to-branch = rev-range-incoming '' --one-more -- selectedcommit-command --single-only --range-is-last -2 uncommit-to-branch COMMITS
 	indetach = rev-range-incoming '' --one-more detachselected
 	inwipe = rev-range-incoming '' --one-more wipetoselected
 	inbase = tracks
@@ -7192,7 +7192,7 @@
 	ooutmove-to-branch = omove-to-branch
 	ooutrbi = orbi
 	ooutrbni = orbni
-	ooutuncommit-to-branch = rev-range-outgoing origin --one-more -- selectedcommit-command --single-only --range-is-last uncommit-to-branch
+	ooutuncommit-to-branch = rev-range-outgoing origin --one-more -- selectedcommit-command --single-only --range-is-last -2 uncommit-to-branch COMMITS
 	ooutdetach = rev-range-outgoing origin --one-more detachselected
 	ooutwipe = rev-range-outgoing origin --one-more wipetoselected
 	; ooutbase would always print "origin/<branch>".
@@ -7393,7 +7393,7 @@
 	oinrb = orb
 	oinrbi = orbi
 	oinrbni = orbni
-	oinuncommit-to-branch = rev-range-incoming origin --one-more -- selectedcommit-command --single-only --range-is-last uncommit-to-branch
+	oinuncommit-to-branch = rev-range-incoming origin --one-more -- selectedcommit-command --single-only --range-is-last -2 uncommit-to-branch COMMITS
 	oindetach = rev-range-incoming origin --one-more detachselected
 	oinwipe = rev-range-incoming origin --one-more wipetoselected
 	; oinbase would always print "origin/<branch>".
@@ -7624,7 +7624,7 @@
 	uoutrbi = urbi
 	uoutrbni = urbni
 	uoutmove-to-branch = umove-to-branch
-	uoutuncommit-to-branch = rev-range-outgoing upstream --one-more -- selectedcommit-command --single-only --range-is-last uncommit-to-branch
+	uoutuncommit-to-branch = rev-range-outgoing upstream --one-more -- selectedcommit-command --single-only --range-is-last -2 uncommit-to-branch COMMITS
 	uoutdetach = rev-range-outgoing upstream --one-more detachselected
 	uoutwipe = rev-range-outgoing upstream --one-more wipetoselected
 	; uoutbase would always print "upstream/<branch>".
@@ -7825,7 +7825,7 @@
 	uinrb = urb
 	uinrbi = urbi
 	uinrbni = urbni
-	uinuncommit-to-branch = rev-range-incoming upstream --one-more -- selectedcommit-command --single-only --range-is-last uncommit-to-branch
+	uinuncommit-to-branch = rev-range-incoming upstream --one-more -- selectedcommit-command --single-only --range-is-last -2 uncommit-to-branch COMMITS
 	uindetach = rev-range-incoming upstream --one-more detachselected
 	uinwipe = rev-range-incoming upstream --one-more wipetoselected
 	; uinbase would always print "upstream/<branch>".
@@ -9149,7 +9149,7 @@
 	uncommitselectedhunk = uncommitselected --patch
 	uncommitsh = uncommitselectedhunk
 	;; uncommit-to-branch: Undo the last commit / N commits / commits up to <commit> of the current branch, and check it out in a newly created <branch> instead.
-	uncommitselected-to-branch = selectedcommit-command --single-only uncommit-to-branch	; Undo commits of the current branch up to the commit interactively chosen from the commits in the passed <range>, and check it out in a newly created <branch> instead.
+	uncommitselected-to-branch = selectedcommit-command --single-only -2 uncommit-to-branch COMMITS	; Undo commits of the current branch up to the commit interactively chosen from the commits in the passed <range>, and check it out in a newly created <branch> instead.
 	uncommitselected1-to-branch = uncommitselected-to-branch --max-count 1
 	uncommitselected2-to-branch = uncommitselected-to-branch --max-count 2
 	uncommitselected3-to-branch = uncommitselected-to-branch --max-count 3
@@ -9162,7 +9162,7 @@
 	peel = previouscommitnumber-command reset --mixed ; Cancel the last / N commit(s) also from index; keep only the working copy. With this, you can split a single commit during rebase.
 	wipecommit = previouscommitnumber-command autostash git wipe	; Completely remove the last / N commit(s), also from working copy and index. Ensures that the current branch isn't dirty.
 	;; wipe: Reset HEAD, working copy and index [to <branch>] [<paths>...]. Ensures that the current branch isn't dirty.
-	wipetoselected = selectedcommit-command --single-only wipe	; Reset HEAD, working copy and index to the commit interactively chosen from the commits in the passed <range>.
+	wipetoselected = selectedcommit-command --single-only -2 wipe COMMITS	; Reset HEAD, working copy and index to the commit interactively chosen from the commits in the passed <range>.
 	wipetoselected1 = wipetoselected --max-count 1
 	wipetoselected2 = wipetoselected --max-count 2
 	wipetoselected3 = wipetoselected --max-count 3

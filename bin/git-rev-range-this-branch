@@ -2,19 +2,10 @@
 
 printUsage()
 {
-    cat <<HELPTEXT
-Print / execute GIT-COMMAND with the revision range that comprises the current
-branch / N previous branches; possibly including one previous commit (from which
-was branched off).
-The revision range (with --no-range, only the starting revision will be used) is
-appended at the end of GIT-COMMAND ...; with --keep-last, it is put between the
-next-to-last and last arguments.
-A different GIT-COMMAND2 can be used for the --one-more revision; with ^[1|2],
-the modifier instead is appended to the revision, and there's only one
-invocation of GIT-COMMAND.
-HELPTEXT
-    echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-n|--branch-number N] [--no-range] [-b|--branch BRANCH|--start-rev REV] [-a|--any|-r|--include-remote-refs|-t|--include-tags [...]] [--keep-last] [+1|--one-more|--one-more-command GIT-COMMAND2|^[1|2]] [--] [GIT-COMMAND ...] [-?|-h|--help]'
+    git-rev-range --help 2>&1 | sed \
+	-e '1s#^.*$#Print / execute GIT-COMMAND with the revision range that comprises the current branch / N previous branches; possibly including one previous commit (from which was branched off)#' \
+	-e '2,/^- /{ /^- /p; d; }' \
+	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ ]\+ \)*git-rev-range /\1\2'"$(basename "$1")"' /; }'
 }
 
 let branchNumber=1

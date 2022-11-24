@@ -5,20 +5,21 @@ printUsage()
 {
     cat <<HELPTEXT
 Print / execute GIT-COMMAND with a revision range starting from the passed
-REVISION; possibly including one previous commit, ending at HEAD or the passed
-END-REVISION.
-The revision range (with --no-range, only the starting revision will be used) is
-appended at the end of GIT-COMMAND ...; with --keep-last, it is put between the
-next-to-last and last arguments. Unparsed arguments starting from -- are ignored
-for this, and always put last.
+REVISION (with --no-range, only the starting revision will be used); possibly
+including one previous commit, ending at HEAD or the passed END-REVISION
+- appended
+- replacing RANGE argument(s) anywhere
+- replacing RANGE in the following GIT-COMMAND and -(N-1) arguments
+- replacing RANGE in the following +(N) arguments and appending those
+
 A different GIT-COMMAND2 can be used for the --one-more revision via
---one-more-command. The --keep-last does not apply to GIT-COMMAND2; the revision
-always comes last there. With a ^, ^1, ^2 argument to --one-more-command, the
-modifier instead is appended to the revision, and there's only one invocation of
-GIT-COMMAND, unlike with --one-more, where there are two. Some clients (like
-rbi) really need a single previous revision. On the other hand, --one-more just
-shows a single additional command, whereas --one-more-command ^ may include a
-whole set of merge commits.
+--one-more-command.
+With a ^, ^1, ^2 argument to --one-more-command, the modifier instead is
+appended to the revision, and there's only one invocation of GIT-COMMAND, unlike
+with --one-more, where there are two. Some clients (like rbi) really need a
+single previous revision. On the other hand, --one-more just shows a single
+additional command, whereas --one-more-command ^ may include a whole set of
+merge commits.
 --one-more-with-padding introduces an empty line between GIT-COMMAND and the
 one-more invocation / GIT-COMMAND2. This helps keeping the separator (vs.
 terminator) semantics of e.g. "git log". This also deals with the possible
@@ -27,11 +28,15 @@ therefore better than passing in a customized command that adds the padding
 itself.
 --one-more-only-to-terminal invokes one-more only when output is to a terminal.
 HELPTEXT
-printf 'Usage: %q %s\n' "$(basename "$1")" '-r|--revision REVISION [-e|--end-revision END-REVISION|--no-range] [--keep-last] [+1|--one-more|--one-more-command GIT-COMMAND2|^[1|2] [--one-more-with-padding] [--one-more-only-to-terminal] [--] [GIT-COMMAND ...] [-?|-h|--help]'
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '-r|--revision REVISION [-e|--end-revision END-REVISION|--no-range] [+1|--one-more|--one-more-command GIT-COMMAND2|^[1|2] [--one-more-with-padding] [--one-more-only-to-terminal] ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... RANGE ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [...]'
 }
 
 typeset -a colorArg=()
-isKeepLastArgument=
 isShowOneMore=
 showOneMoreCommand=
 isOneMorePadding=
@@ -48,14 +53,13 @@ do
 	--color)		colorArg=("$1" "$2"); shift; shift;;
 	--revision|-r)	shift; revision="$1"; shift;;
 	--end-revision|-e)	shift; endRevision="$1"; shift;;
-	--keep-last)	shift; isKeepLastArgument=t;;
 	--one-more|+1)	shift; isShowOneMore=t;;
 	--one-more-command)
 			shift
 			if [ "${1:0:1}" = '^' ]; then
-			    revisionModifier=$1
+			    revisionModifier="$1"
 			else
-			    isShowOneMore=t; showOneMoreCommand=$1
+			    isShowOneMore=t; showOneMoreCommand="$1"
 			fi
 			shift
 			;;
@@ -65,7 +69,6 @@ do
 			shift; isOneMoreOnlyToTerminal=t;;
 	--no-range)	shift; range=;;
 	--with-range)	shift; range="$1"; shift;;
-	--)		shift; break;;
 	*)		break;;
     esac
 done
@@ -123,6 +126,19 @@ getIndexOfLastOptionArg()
     echo $((i + 1))
     return 0
 }
+wrapper()
+{
+    git-wrapper "$@"
+}
+
+oneMore()
+{
+    if [ -n "$showOneMoreCommand" ]; then
+	shift
+	set -- "$showOneMoreCommand" "$@"
+    fi
+    wrapper "$@"
+}
 
 if [ ! "$(git rev-list "${revision}..${endRevision}" -- 2>/dev/null)" ] && [ "$range" ]; then
     # Resulting range is empty (but we want a range); abort. Especially with
@@ -136,23 +152,62 @@ if [ $# -eq 0 ]; then
     exit 0
 fi
 
+typeset -a countedArgs=()
+isCountedAppend=
+case "$1" in
+    +[1-9])
+	isCountedAppend=t;&
+    -[1-9])
+	typeset countedArgNum=${1#[+-]}
+	typeset countedArgNum=${1#-}
+	countedArgs=("${@:2:${countedArgNum}}")
+	set -- "${@:$((2 + countedArgNum))}"
 
-afterEndOfArgsIndex=$(getIndexOfLastOptionArg "$@") || afterEndOfArgsIndex=$(($#+1))
-endOfArgsIndex=$((afterEndOfArgsIndex-1))
-beforeEndOfArgsIndex=$((endOfArgsIndex-1))
+	executor()
+	{
+	    local wrapper="${1:?}"; shift
+	    typeset -a appendedArgs=()
+	    for arg in "${countedArgs[@]}"
+	    do
+		if [ "$arg" = 'RANGE' ]; then
+		    appendedArgs+=("${rangeArgs[@]}")
+		else
+		    appendedArgs+=("$arg")
+		fi
+	    done
 
-typeset -a preRangeFirstArg=("${showOneMoreCommand:-$1}")
-if [ $# -gt 0 -a "$isKeepLastArgument" ]; then
-    typeset -a preRangeRemainingWithLastArgs=("${@:2:$beforeEndOfArgsIndex}")
-    typeset -a preRangeArgs=("${@:1:$beforeEndOfArgsIndex}")
-    typeset -a postRangeArgs=("${@:$endOfArgsIndex}")
-    typeset -a postRangeWithLastArgs=("${@:$afterEndOfArgsIndex}")
-else
-    typeset -a preRangeRemainingWithLastArgs=("${@:2:$beforeEndOfArgsIndex}")
-    typeset -a preRangeArgs=("${@:1:$endOfArgsIndex}")
-    typeset -a postRangeArgs=("${@:$afterEndOfArgsIndex}")
-    typeset -a postRangeWithLastArgs=("${@:$afterEndOfArgsIndex}")
-fi
+	    [ "$isCountedAppend" ] \
+		&& $wrapper "$@" "${appendedArgs[@]}" \
+		|| $wrapper "${appendedArgs[@]}" "$@"
+	}
+	;;
+    --keep-position)
+	shift
+
+	executor()
+	{
+	    local wrapper="${1:?}"; shift
+	    typeset -a appendedArgs=()
+	    for arg
+	    do
+		if [ "$arg" = 'RANGE' ]; then
+		    appendedArgs+=("${rangeArgs[@]}")
+		else
+		    appendedArgs+=("$arg")
+		fi
+	    done
+
+	    $wrapper "${appendedArgs[@]}"
+	}
+	;;
+    *)
+	executor()
+	{
+	    local wrapper="${1:?}"; shift
+	    $wrapper "$@" "${rangeArgs[@]}"
+	}
+	;;
+esac
 
 potentialPadding()
 {
@@ -160,16 +215,18 @@ potentialPadding()
 }
 revRangeWithOneMore()
 {
-    if contains '--reverse' "${preRangeArgs[@]}"; then
+    if contains '--reverse' "${countedArgs[@]}" "$@"; then
 	# The (log) output is in reverse order, so the "one more" also needs to
 	# come first instead of last.
-	git-wrapper "${preRangeFirstArg[@]}" "${preRangeRemainingWithLastArgs[@]}" --max-count 1 "${colorArg[@]}" "${revision}" "${postRangeWithLastArgs[@]}" && \
-	    potentialPadding && \
-	    git-wrapper "${preRangeArgs[@]}" "${colorArg[@]}" "${revision}${range}${endRevision}" "${postRangeArgs[@]}"
+	typeset -a rangeArgs=(--max-count 1 "${colorArg[@]}" "${revision}")
+	executor oneMore "$@" \
+	    && potentialPadding \
+	    && { rangeArgs=("${colorArg[@]}" "${revision}${revisionModifier}${range}${endRevision}"); executor wrapper "$@"; }
     else
-	git-wrapper "${preRangeArgs[@]}" "${colorArg[@]}" "${revision}${range}${endRevision}" "${postRangeArgs[@]}" && \
-	    potentialPadding && \
-	    git-wrapper "${preRangeFirstArg[@]}" "${preRangeRemainingWithLastArgs[@]}" --max-count 1 "${colorArg[@]}" "${revision}" "${postRangeWithLastArgs[@]}"
+	typeset -a rangeArgs=("${colorArg[@]}" "${revision}${revisionModifier}${range}${endRevision}")
+	executor wrapper "$@" \
+	    && potentialPadding \
+	    && { rangeArgs=(--max-count 1 "${colorArg[@]}" "${revision}"); executor oneMore "$@"; }
     fi
 }
 if [ "$isShowOneMore" ] && [ ! "$isOneMoreOnlyToTerminal" -o -t 1 ]; then
@@ -180,5 +237,6 @@ if [ "$isShowOneMore" ] && [ ! "$isOneMoreOnlyToTerminal" -o -t 1 ]; then
     typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
     eval 'revRangeWithOneMore "$@"' "${pager:+|}" '"${pager[@]}"'
 else
-    exec git-wrapper "${preRangeArgs[@]}" "${colorArg[@]}" "${revision}${revisionModifier}${range}${endRevision}" "${postRangeArgs[@]}"
+    typeset -a rangeArgs=("${colorArg[@]}" "${revision}${revisionModifier}${range}${endRevision}")
+    executor wrapper "$@"
 fi

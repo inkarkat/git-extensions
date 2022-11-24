@@ -8,12 +8,13 @@ shopt -qs extglob
 : ${SHELL:=bash}
 printf -v quotedShell '%q' "$SHELL"
 
+# A --color argument is not supported.
+# Enable the user to abort the iteration via a special exit status.
+typeset -ra shellCommandWcdoArgs=(--no-git-color --abort-on 126)
 # Because of the interactive shell, we must not interfere with terminal access,
 # so no header (the shell prompt will indicate the working directory, anyway),
 # and no paging.
-# A --color argument is not supported.
-# Enable the user to abort the iteration via a special exit status.
-typeset -ra shellWcdoArgs=(--no-pager --no-header --no-git-color --abort-on 126)
+typeset -ra shellInteractiveWcdoArgs=(--no-git-color --interactive --abort-on 126)
 
 printExtendedUsage()
 {
@@ -187,32 +188,29 @@ parseCommand()
 		# Synthesized new command.
 		shift
 		wcdoArgs+=(--predicate-command 'git untracked')
-		wcdoArgs+=("${shellWcdoArgs[@]}" --command)
 		if [ $# -eq 0 ]; then
-		    wcdoArgs+=("$quotedShell -i")
+		    wcdoArgs+=("${shellInteractiveWcdoArgs[@]}" --command "$quotedShell -i")
 		    echo "Note: To abort the iteration of $GIT_DOEXTENSIONS_WHAT, use \"exit 126\"."
 		else
 		    printf -v quotedSimpleCommand '%q ' "$@"
-		    wcdoArgs+=("${quotedSimpleCommand# }")
+		    wcdoArgs+=("${shellCommandWcdoArgs[@]}" --command "${quotedSimpleCommand# }")
 		fi
 		;;
 	    dirty-sh)
 		# Synthesized new command.
 		shift
 		wcdoArgs+=(--predicate-command 'git dirty')
-		wcdoArgs+=("${shellWcdoArgs[@]}" --command)
 		if [ $# -eq 0 ]; then
-		    wcdoArgs+=("$quotedShell -i")
+		    wcdoArgs+=("${shellInteractiveWcdoArgs[@]}" --command "$quotedShell -i")
 		    echo "Note: To abort the iteration of $GIT_DOEXTENSIONS_WHAT, use \"exit 126\"."
 		else
 		    printf -v quotedSimpleCommand '%q ' "$@"
-		    wcdoArgs+=("${quotedSimpleCommand# }")
+		    wcdoArgs+=("${shellCommandWcdoArgs[@]}" --command "${quotedSimpleCommand# }")
 		fi
 		;;
 	    wips-sh)
 		# Synthesized new command.
 		shift
-		wcdoArgs+=("${shellWcdoArgs[@]}")
 		typeset -a wipsArgs=()
 		while [ $# -gt 0 ] && [[ "$1" =~ ^[+-][[:alpha:]]+$ ]]
 		do
@@ -220,18 +218,17 @@ parseCommand()
 		done
 		quotedWipsArgs=; [ ${#wipsArgs[@]} -gt 0 ] && printf -v quotedWipsArgs '%q ' "${wipsArgs[@]}"
 		if [ $# -eq 0 ]; then
-		    wcdoArgs+=(--command "git wips ${quotedWipsArgs}&& $quotedShell -i")
+		    wcdoArgs+=("${shellInteractiveWcdoArgs[@]}" --command "git wips ${quotedWipsArgs}&& $quotedShell -i")
 		    echo "Note: To abort the iteration of $GIT_DOEXTENSIONS_WHAT, use \"exit 126\"."
 		else
 		    wcdoArgs+=(--predicate-command "git wips --quiet ${quotedWipsArgs}")
 		    printf -v quotedSimpleCommand '%q ' "$@"
-		    wcdoArgs+=(--command "${quotedSimpleCommand# }")
+		    wcdoArgs+=("${shellCommandWcdoArgs[@]}" --command "${quotedSimpleCommand# }")
 		fi
 		;;
 	    uprogress-sh)
 		# Synthesized new command.
 		shift
-		wcdoArgs+=("${shellWcdoArgs[@]}")
 		typeset -a wipsArgs=()
 		while [ $# -gt 0 ] && [[ "$1" =~ ^[+-][[:alpha:]]+$ ]]
 		do
@@ -240,11 +237,11 @@ parseCommand()
 		wcdoArgs+=(--predicate-command 'git-existsremote upstream')
 		quotedWipsArgs=; [ ${#wipsArgs[@]} -gt 0 ] && printf -v quotedWipsArgs '%q ' "${wipsArgs[@]}"
 		if [ $# -eq 0 ]; then
-		    wcdoArgs+=(--command "git progresswips ${quotedWipsArgs}&& $quotedShell -i")
+		    wcdoArgs+=("${shellInteractiveWcdoArgs[@]}" --command "git progresswips ${quotedWipsArgs}&& $quotedShell -i")
 		    echo "Note: To abort the iteration of $GIT_DOEXTENSIONS_WHAT, use \"exit 126\"."
 		else
 		    printf -v quotedSimpleCommand '%q ' "$@"
-		    wcdoArgs+=(--command "${quotedSimpleCommand# }")
+		    wcdoArgs+=("${shellCommandWcdoArgs[@]}" --command "${quotedSimpleCommand# }")
 		    wcdoArgs+=(--predicate-command "git progresswips --quiet ${quotedWipsArgs}")
 		fi
 		;;
@@ -287,7 +284,7 @@ parseCommand()
 		args=("$@")
 		;;
 	    shell)
-		wcdoArgs+=("${shellWcdoArgs[@]}")
+		wcdoArgs+=("${shellInteractiveWcdoArgs[@]}")
 		# Succeed if a single working copy has WIP.
 		wcdoArgs+=(--single-success)
 		echo "Note: To abort the iteration of $GIT_DOEXTENSIONS_WHAT, use \"exit 126\"."

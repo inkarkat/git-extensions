@@ -38,19 +38,19 @@ a) from superproject: `$ hub-prtitle --as-integration-message --qualified-with-u
    paste the superproject PR reference into the description text
 b) from submodule(s): `$ hub superpr && hub pull-request`
    paste the superproject PR reference into the description text
-superproject: `$ withSeparator -c git\ bml -c hub-bmsubchanges | cb && gh pr edit`
+superproject: `$ withSeparator -c git\ boml -c hub-bomsubchanges | cb && gh pr edit`
 
 ## b) peer review of submodules (optional)
 When only one / few submodules are affected and the integration is trivial.
-a) from superproject: `$ withSeparator -c git\ bml -c git-servername\ -m | cb && hub subsamebrdo --no-git-color --interactive pull-request`
+a) from superproject: `$ withSeparator -c git\ boml -c git-servername\ -m | cb && hub subsamebrdo --no-git-color --interactive pull-request`
    paste the server into the description text
-b) from submodule(s): `$ withSeparator -c git\ bml -c git-servername\ -m | cb && hub pull-request`
+b) from submodule(s): `$ withSeparator -c git\ boml -c git-servername\ -m | cb && hub pull-request`
    paste the server into the description text
 
 ## c) peer review of superproject (optional)
 For similar, mechanical changes in all submodules that don't need to be
 reviewed separately.
-  `$ withSeparator -c git\ bml -c hub-bmsubchanges -c git-servername\ -m | cb && hub pull-request --draft`
+  `$ withSeparator -c git\ boml -c hub-bomsubchanges -c git-servername\ -m | cb && hub pull-request --draft`
   paste the submodule PR references / changes + server into the description
   text
 
@@ -58,7 +58,7 @@ reviewed separately.
 superproject: `$ git ofetch`
 Check for other open reintegrations (i.e. submodule commits on master not yet
 referenced in the superproject):
-superproject: `$ git bmsubmodules | git osuperhaspendingsubintegrations -`
+superproject: `$ git bomsubmodules | git osuperhaspendingsubintegrations -`
 superproject: `$ hub subsamebrdo --interactive reintegratetom`
 (if you want to do this submodule by submodule: `$ hub reintegratetom`)
 Note: When doing a bulk change, default check commands (that would run for each

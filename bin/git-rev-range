@@ -21,7 +21,7 @@ single previous revision. On the other hand, --one-more just shows a single
 additional command, whereas --one-more-command ^ may include a whole set of
 merge commits.
 --one-more-with-padding introduces an empty line between GIT-COMMAND and the
-one-more invocation / GIT-COMMAND2. This helps keeping the separator (vs.
+one-more-output invocation / GIT-COMMAND2. This helps keeping the separator (vs.
 terminator) semantics of e.g. "git log". This also deals with the possible
 reversal (git log --reverse), where the one-more command comes first, and is
 therefore better than passing in a customized command that adds the padding
@@ -29,7 +29,7 @@ itself.
 --one-more-only-to-terminal invokes one-more only when output is to a terminal.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '-r|--revision REVISION [-e|--end-revision END-REVISION|--no-range] [+1|--one-more|--one-more-command GIT-COMMAND2|^[1|2] [--one-more-with-padding] [--one-more-only-to-terminal] ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '-r|--revision REVISION [-e|--end-revision END-REVISION|--no-range] [+1|--one-more|--one-more-output|--one-more-command GIT-COMMAND2|^[1|2] [--one-more-with-padding] [--one-more-only-to-terminal] ... [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [...] [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... RANGE ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
@@ -38,6 +38,7 @@ HELPTEXT
 
 typeset -a colorArg=()
 isShowOneMore=
+isShowOneMoreOutput=
 showOneMoreCommand=
 isOneMorePadding=
 isOneMoreOnlyToTerminal=
@@ -54,12 +55,14 @@ do
 	--revision|-r)	shift; revision="$1"; shift;;
 	--end-revision|-e)	shift; endRevision="$1"; shift;;
 	--one-more|+1)	shift; isShowOneMore=t;;
+	--one-more-output)
+			shift; isShowOneMoreOutput=t;;
 	--one-more-command)
 			shift
 			if [ "${1:0:1}" = '^' ]; then
 			    revisionModifier="$1"
 			else
-			    isShowOneMore=t; showOneMoreCommand="$1"
+			    isShowOneMoreOutput=t; showOneMoreCommand="$1"
 			fi
 			shift
 			;;
@@ -229,7 +232,7 @@ revRangeWithOneMore()
 	    && { rangeArgs=(--max-count 1 "${colorArg[@]}" "${revision}"); executor oneMore "$@"; }
     fi
 }
-if [ "$isShowOneMore" ] && [ ! "$isOneMoreOnlyToTerminal" -o -t 1 ]; then
+if [ "$isShowOneMoreOutput" ] && [ ! "$isOneMoreOnlyToTerminal" -o -t 1 ]; then
     # Because of the piping into the pager, we need to explicitly enable color.
     # Don't do this if the user explicitly turned it off, though.
     isNeedColorArgumentWhenPiping "${colorArg[@]}" && colorArg=(--color=always)
@@ -237,6 +240,6 @@ if [ "$isShowOneMore" ] && [ ! "$isOneMoreOnlyToTerminal" -o -t 1 ]; then
     typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
     eval 'revRangeWithOneMore "$@"' "${pager:+|}" '"${pager[@]}"'
 else
-    typeset -a rangeArgs=("${colorArg[@]}" "${revision}${revisionModifier}${range}${endRevision}")
+    typeset -a rangeArgs=("${colorArg[@]}" "${revision}${revisionModifier}${isShowOneMore:+^}${range}${endRevision}")
     executor wrapper "$@"
 fi

@@ -10,9 +10,10 @@ Print the URL of the tracked branch. / Turn (remote, tracked) branch names
 printed by BRANCH-COMMAND into URLs.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[BRANCH-COMMAND [...]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--compare BRANCH] [BRANCH-COMMAND [...]] [-?|-h|--help]'
 }
 
+view=
 hasColor=; [ -t 1 ] && hasColor=t
 while [ $# -ne 0 ]
 do
@@ -33,6 +34,14 @@ do
 				    ;;
 			esac
 			shift; shift
+			;;
+	--compare)	shift
+			if [ "$HUB" ]; then
+			    view="; differences to ${1:?} from branch "
+			else
+			    view="/compare/${1:?}..."
+			fi
+			shift
 			;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
@@ -56,7 +65,9 @@ if [ ! "$hasColor" ]; then
     GIT_BRURL_BRANCH_SUFFIX=
 fi
 
-if [ "$HUB" ]; then
+if [ -n "$view" ]; then
+    :
+elif [ "$HUB" ]; then
     view='; branch '
 else
     view="/${GIT_BRURL_VIEW}/"

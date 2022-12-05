@@ -4,7 +4,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--real-branch-only] [--detached-effective-branch] [--raw] [<commit>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--real-branch-only] [--detached-effective-branch] [--raw] [--remote REMOTE] [<commit>] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -34,6 +34,7 @@ HELPDESCRIPTION
     --raw		Avoid embellishments on tags or detached commits (so
 			that the result can be passed to other Git commands as a
 			revision).
+    --remote REMOTE	Prepend REMOTE to the found branch / tag.
 HELPTEXT
 }
 
@@ -42,6 +43,7 @@ isDetachedEffectiveBranch=
 tagEmbellishment='(tag: %s)'
 detachedBranchEmbellishment='(%s)'
 detachedEmbellishment='(%s...)'
+remote=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -54,6 +56,7 @@ do
 	--detached-effective-branch)
 			shift; isDetachedEffectiveBranch=t;;
 	--raw)		shift; tagEmbellishment='%s'; detachedBranchEmbellishment='%s'; detachedEmbellishment='%s';;
+	--remote)	shift; remote="$1"; shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -68,13 +71,13 @@ case $# in
 esac
 
 if branch=$(git symbolic-ref "$commit" 2>/dev/null); then
-    printf '%s\n' "${branch##refs/heads/}"
+    printf '%s\n' "${remote}${remote:+/}${branch##refs/heads/}"
 elif [ "$isDetachedEffectiveBranch" ] && \
     effectiveBranch="$(git name-rev --name-only --exclude 'refs/tags/*' --exclude 'refs/remotes/*' "$commit" 2>/dev/null)" && \
     [ -n "$effectiveBranch" -a "$effectiveBranch" != 'undefined' ] && \
     git-existsbr "$effectiveBranch"
 then
-    printf "${detachedBranchEmbellishment}\\n" "$effectiveBranch"
+    printf "${detachedBranchEmbellishment}\\n" "${remote}${remote:+/}${effectiveBranch}"
 elif tags=$(git tag --list --points-at "$commit" 2>/dev/null) && [ "$tags" ]; then
     if [ "$isRealBranchOnly" ]; then
 	printf >&2 'ERROR: Checked out tag %s\n' "${tags//
@@ -84,10 +87,10 @@ elif tags=$(git tag --list --points-at "$commit" 2>/dev/null) && [ "$tags" ]; th
 
     if [ "$tagEmbellishment" == '%s' ]; then
 	# Only print the first tag.
-	printf "${tagEmbellishment}\\n" "${tags%%
+	printf "${tagEmbellishment}\\n" "${remote}${remote:+/}${tags%%
 *}"
     else
-	printf "${tagEmbellishment}\\n" "${tags//
+	printf "${tagEmbellishment}\\n" "${remote}${remote:+/}${tags//
 /, tag: }"
     fi
 elif detached=$(git rev-parse --short "$commit" 2>/dev/null); then
@@ -95,7 +98,7 @@ elif detached=$(git rev-parse --short "$commit" 2>/dev/null); then
 	printf >&2 'ERROR: Detached checkout of %s\n' "$detached"
 	exit 1
     fi
-    printf "${detachedEmbellishment}\\n" "$detached"
+    printf "${detachedEmbellishment}\\n" "${remote}${remote:+/}${detached}"
 else
     # Re-execute command to obtain the original error message.
     git symbolic-ref "$commit"

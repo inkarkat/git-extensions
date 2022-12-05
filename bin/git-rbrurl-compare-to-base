@@ -9,6 +9,8 @@ returned by BASE-COMMAND.
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '--remote REMOTE --base BASE-COMMIT|--base-command BASE-COMMAND [--base-to-rev] [--short[=length]] [--commit-to-rev] [COMMIT] [-?|-h|--help]'
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--remote REMOTE --range RANGE'
 }
 
 remote=
@@ -28,6 +30,17 @@ do
 	--commit-to-rev)
 			shift; isNormalizeCommitRev=t;;
 	--short*)	revParseArgs+=("$1"); shift;;
+	--range)	shift
+			if ! [[ "$1" =~ ^([^.]*)\.{2,3}([^.]*)$ ]]; then
+			    printf 'ERROR: Not a range: %s\n' "$1"
+			    echo
+			    printUsage "$0"
+			    exit 2
+			fi >&2
+			base="${BASH_REMATCH[1]}"
+			commit="${BASH_REMATCH[2]}"
+			shift
+			;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;

@@ -1,0 +1,64 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Print the URL of a compare view of HEAD (as branch name (if exists, unless
+--branch-to-rev) / the passed COMMIT to the passed BASE-COMMIT / the commit
+returned by BASE-COMMAND.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--remote REMOTE --base BASE-COMMIT|--base-command BASE-COMMAND [--base-to-rev] [--short[=length]] [--commit-to-rev] [COMMIT] [-?|-h|--help]'
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--remote REMOTE --range RANGE'
+}
+
+remote=
+commit=
+base=
+isNormalizeBaseRev=
+isNormalizeCommitRev=
+typeset -a revParseArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--remote)	shift; remote="${1:?}"; shift;;
+	--base)		shift; base="${1:?}"; shift;;
+	--base-command)	shift; base="$(git-wrapper "$1")" || exit $?; shift;;
+	--base-to-rev)	shift; isNormalizeBaseRev=t;;
+	--commit-to-rev)
+			shift; isNormalizeCommitRev=t;;
+	--short*)	revParseArgs+=("$1"); shift;;
+	--range)	shift
+			if ! [[ "$1" =~ ^([^.]*)\.{2,3}([^.]*)$ ]]; then
+			    printf 'ERROR: Not a range: %s\n' "$1"
+			    echo
+			    printUsage "$0"
+			    exit 2
+			fi >&2
+			base="${BASH_REMATCH[1]}"
+			commit="${BASH_REMATCH[2]}"
+			shift
+			;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+case $# in
+    0)	commit='HEAD';;
+    1)	commit="${1:?}"; shift;;
+    *)	printUsage "$0" >&2; exit 2;;
+esac
+
+if [ "$isNormalizeBaseRev" ]; then
+    base="$(git rev-parse "${revParseArgs[@]}" "$base")" || exit $?
+fi
+if [ "$isNormalizeCommitRev" ]; then
+    commit="$(git rev-parse "${revParseArgs[@]}" "$commit")" || exit $?
+elif [ -z "$commit" ]; then
+    commit="$(git-brname --raw)" || exit $?
+fi
+
+exec git-brurl --compare "$base" echo "${remote}/${commit}"

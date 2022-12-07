@@ -1,10 +1,11 @@
 #!/bin/bash
+shopt -qs extglob
 
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-l|--list|-u|--url] [<commit> [...]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-l|--list|-u|--url] [[HEAD] <glob>|<commit> [...]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -18,8 +19,10 @@ printLongUsage()
     # This is the long "man page" when launched with the help argument.
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
-Obtain corresponding GitHub pull request(s) that have HEAD / <commit>(s) as the
-branch's HEAD, and open in the browser / print its URL(s).
+Obtain corresponding GitHub pull request(s) that
+- have HEAD / <commit>(s) as the branch's HEAD
+- whose title matches (any of, unanchored) <glob>
+and open in the browser / print its URL(s).
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
@@ -56,6 +59,18 @@ contains()
     return 1
 }
 
+hasGlobMatch()
+{
+    local value="${1?}"; shift
+    local glob; for glob in "${globs[@]}"
+    do
+	case "$value" in
+	    *@($glob)*)	return 0;;
+	esac
+    done
+    return 1
+}
+
 list()
 {
     local i; for ((i = 0; i < ${#urls[@]}; i++))
@@ -71,20 +86,22 @@ printUrls()
 
 [ $# -gt 0 ] || set -- 'HEAD'
 typeset -a commitIds=()
+typeset -a globs=()
 for c
 do
-    commitId="$(git rev-parse "$c" 2>/dev/null)" && commitIds+=("$commitId")
+    commitId="$(git rev-parse --verify "$c" 2>/dev/null)" \
+	&& commitIds+=("$commitId") \
+	|| globs+=("$c")
 done
-[ ${#commitIds[@]} -gt 0 ] || exit 1
-
 
 typeset -a urls=() titles=()
 while IFS=$'\t' read -r prCommitId prUrl prTitle
 do
-    if contains "$prCommitId" "${commitIds[@]}"; then
-	urls+=("$prUrl")
-	titles+=("$prTitle")
-    fi
+    [ ${#commitIds[@]} -gt 0 ] && ! contains "$prCommitId" "${commitIds[@]}" && continue
+    [ ${#globs[@]} -gt 0 ] && ! hasGlobMatch "$prTitle" && continue
+
+    urls+=("$prUrl")
+    titles+=("$prTitle")
 done < <(hub pr list -f "%sH	%U	%t%n")
 
 [ ${#urls[@]} -gt 0 ] || exit 99

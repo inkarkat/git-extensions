@@ -1,0 +1,37 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Check whether the passed <branch> currently exists in ${remote:-REMOTE} (by actually
+contacting the repository).
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'REMOTE <branch> | REMOTE/<branch> [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --no-color|--color=*)
+			shift;;
+    --color)		shift; shift;;
+esac
+if [[ "$1" =~ ^([^/]+)/(.*)$ ]]; then
+    remote="${BASH_REMATCH[1]}"
+    branch="${BASH_REMATCH[2]}"
+    shift
+else
+    remote=${1:?}; shift
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			    shift;;
+	--color)		shift; shift;;
+    esac
+    branch="${1:?}"; shift
+fi
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+exec git ls-remote --heads --exit-code "$remote" "$branch" >/dev/null 2>&1

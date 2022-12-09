@@ -134,3 +134,8 @@ superproject can only reference a single commit! So, if there has been
 concurrent development and there are now two diverging references to a
 submodule, a commit that contains both changes needs to be found or created in
 the submodule itself, and the superproject can then reference that commit.
+
+Don't indiscriminately `git add --update` when there are conflicts!
+Submodules show up as `M<u>M</u>` (merged updates, but the original references are still
+checked out in the working copy), and an update would add those to the index
+and thereby revert the merged changes.

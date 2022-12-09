@@ -66,7 +66,7 @@ submodule) can be skipped via `reintegrate* --no-checks`
 ## then update integration build after submodules have been reintegrated
 0) submodule branch(es) have been fast-forwarded: no changes, no action here
 a) amends to short-lived feature: `$ git amenu && git opush -f`
-b) maintain history of how the feature grew: `$ git cu -m 'feat-4711 has been reintegrated [into submodule(s)]' && git opush`
+b) maintain history of how the feature grew: `$ git cu -m 'feat-4711 Housekeeping: Reintegrate [...] submodule(s)' && git opush`
 Note: If other changes have been reintegrated between branching off and now,
 these now show up in the diffs as well. This is okay; we're already checked
 that there were no open reintegrations that we'd take with us.
@@ -81,7 +81,7 @@ a) amends to short-lived feature:
    `$ git amenu`
    `$ git ffintegratetom --push-branch --no-delete --no-submodule-checkout --no-submodule-update --rebase-single`
 b) maintain history of how the feature grew:
-   `$ git cu`   (no-op if all submodule branch(es) have been fast-forwarded)
+   `$ git cu -m 'feat-4711 Housekeeping: Reintegrate [...] submodule(s)'`   (no-op if all submodule branch(es) have been fast-forwarded)
    `$ git ffintegratetom --push-branch --no-delete --no-submodule-checkout --no-submodule-update --no-ff`
 If the GitHub action does not trigger (if this is just a merge commit affecting
 submodule references but no actual files in the superproject), trigger it

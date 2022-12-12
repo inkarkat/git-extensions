@@ -1,24 +1,56 @@
 #!/bin/bash
 # Source: https://stackoverflow.com/a/7359782/813602
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-p|--print|-t|--print-toplevel] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 Test whether the current working copy is a submodule of another repository.
-With -p|--print, also prints the dirspec of the topmost repository root.
-HELPTEXT
+HELPDESCRIPTION
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-p|--print] [-?|-h|--help]'
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --print|-p		Also print the dirspec of the (immediate) superproject
+			repository root.
+    --print-toplevel|-t	Also print the dirspec of the topmost repository root.
+HELPTEXT
 }
 isPrint=
+isToplevel=
 case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
     --no-color|--color=*)
 			shift;;
     --color)		shift; shift;;
     --print|-p)		shift; isPrint=t;;
+    --print-toplevel|-t)
+			shift; isPrint=t; isToplevel=t;;
 esac
 
-superProjectDirspec="$(git rev-parse --show-superproject-working-tree)" || exit 3
-[ -n "$superProjectDirspec" ] || exit 1
-[ ! "$isPrint" ] || printf '%s\n' "$superProjectDirspec"
+superprojectDirspec="$(git rev-parse --show-superproject-working-tree)" || exit 3
+[ -n "$superprojectDirspec" ] || exit 1
+
+if [ "$isPrint" ]; then
+    if [ "$isToplevel" ]; then
+	cd "$superprojectDirspec" 2>/dev/null \
+	    && git-issubmodule --print-toplevel \
+	    || printf '%s\n' "$superprojectDirspec"
+    else
+	printf '%s\n' "$superprojectDirspec"
+    fi
+fi

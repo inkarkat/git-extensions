@@ -1,10 +1,11 @@
 #!/bin/bash
+set -o pipefail
 
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header] [-i|--interactive] [--separate-errors] [--no-git-color] [-c|--command "COMMANDLINE" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header] [-i|--interactive] [--separate-errors] [--no-git-color] [--super-command "COMMANDLINE"|--submodule-command "COMMANDLINE"|-c|--command "COMMANDLINE" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -60,7 +61,8 @@ errorRedir='2>&1'
 isGitColor=t
 typeset -a colorArg=()
 isNeedEval=
-typeset -a commands=()
+typeset -a superCommands=()
+typeset -a subCommands=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -72,7 +74,11 @@ do
 	--no-git-color)		shift; isGitColor=;;
 	--no-color|--color=*)	colorArg=("$1"); shift;;
 	--color)		colorArg=("$1" "$2"); shift; shift;;
-	--command|-c)	shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
+	--command|-c)	shift; superCommands+=(${superCommands:+;} "$1"); subCommands+=(${subCommands:+;} "$1"); isNeedEval=t; shift;;
+	--super-command)
+			shift; superCommands+=(${superCommands:+;} "$1"); isNeedEval=t; shift;;
+	--submodule-command)
+			shift; subCommands+=(${subCommands:+;} "$1"); isNeedEval=t; shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -132,13 +138,15 @@ if [ $# -gt 0 ]; then
 	# Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
 	# undo the effects of eval.
 	printf -v quotedSimpleCommand '%q ' "$@"
-	commands+=(${commands:+;} "${quotedSimpleCommand% }")
+	superCommands+=(${superCommands:+;} "${quotedSimpleCommand% }")
+	subCommands+=(${subCommands:+;} "${quotedSimpleCommand% }")
     else
-	commands=("${gitCommand[@]}" "$@")
+	superCommands=("${gitCommand[@]}" "$@")
+	subCommands=("${gitCommand[@]}" "$@")
     fi
 fi
-if [ ${#commands[@]} -eq 0 ]; then
-    echo 'ERROR: No COMMAND(s) specified; need to pass -c|--command "COMMANDLINE", or SIMPLECOMMAND.'
+if [ ${#superCommands[@]} -eq 0 -a ${#subCommands[@]} -eq 0 ]; then
+    echo 'ERROR: No COMMAND(s) specified; need to pass -c|--command|--super-command|--submodule-command "COMMANDLINE", or SIMPLECOMMAND.'
     echo
     printUsage "$0"
     exit 2
@@ -149,9 +157,9 @@ execute()
     [ ! "$isInteractive" ] || header "${colorArg[@]}" --id "$GIT_SUPERSUBDO_HEADER_ID" -- "$header"
 
     if [ "$isNeedEval" ]; then
-	typeset -a c=("${commands[@]}")
+	typeset -a c=("$@")
     else
-	typeset -a c=('"${commands[@]}"')
+	typeset -a c=('"$@"')
     fi
     (eval "${isHeader:+{}" "${c[@]}" "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_SUPERSUBDO_HEADER_ID' -- '$header'}")
 }
@@ -162,12 +170,16 @@ supersubdo()
     submoduleRoot="$(git root)" || exit $?
     superprojectRoot="$(git superproject)" || exit 1
 
-    cd "$submoduleRoot" || exit 3
-    header="$(git-supersubpath)"
-    execute || exit $?
+    if [ ${#subCommands[@]} -gt 0 ]; then
+	cd "$submoduleRoot" || exit 3
+	header="$(git-supersubpath)"
+	execute "${subCommands[@]}" || exit $?
+    fi
 
-    cd "$superprojectRoot" || exit 3
-    header="../$(git-wcname)"
-    execute || exit $?
+    if [ ${#superCommands[@]} -gt 0 ]; then
+	cd "$superprojectRoot" || exit 3
+	header="../$(git-wcname)"
+	execute "${superCommands[@]}" || exit $?
+    fi
 }
 eval "supersubdo ${pager:+$errorRedir |}" '"${pager[@]}"'

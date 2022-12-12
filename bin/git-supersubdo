@@ -1,0 +1,173 @@
+#!/bin/bash
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header] [-i|--interactive] [--separate-errors] [--no-git-color] [-c|--command "COMMANDLINE" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Execute "git SIMPLECOMMAND" and/or COMMANDLINE in both the current submodule and
+(if that succeeds) also in its superproject.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+Puts a header line (unless --no-header) that contains the repo name before the
+command output.
+    --no-pager		Do not page the output (so contents will scroll out of
+			view if there's too much output).
+    --no-header		Do not output the header line before command output (and
+			no separating empty line after it).
+    --interactive|-i	For use with interactive COMMANDs that query the user or
+			open an editor; combination of --no-pager --no-header${hasProgressNotification:+
+			and --progress addendum}.
+    --separate-errors	Do not combine command output and command errors into
+			one (paged) stream. Commands that just cause error
+			output won't have a header then. Error output will
+			remain on its separate file descriptor and will not be
+			paged. Useful if you want to suppress errors or handle
+			them separately.
+    --no-git-color	Do not pass a --color=... to "git SIMPLECOMMAND". (For
+			COMMANDLINE you have to insert "\${gitColorArg[@]}"
+			yourself.)
+    --command|-c CMD	Execute the passed command line. When this is a simple
+			Git command, it can also be passed as such:
+			    $(basename "$1") [...] [--] SIMPLECOMMAND
+Note: For paging and headers, this command has to control Git's color output.
+Pass --no-git-color if "git SIMPLECOMMAND" does not support the --color=...
+arguments. (For COMMANDLINE you have to insert "\${gitColorArg[@]}" yourself.)
+You can still pass --color=always if you pipe this command's output yet still
+want coloring of headers.
+HELPTEXT
+}
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+isHeader=; type -t withHeader >/dev/null && isHeader=t
+isInteractive=
+errorRedir='2>&1'
+isGitColor=t
+typeset -a colorArg=()
+isNeedEval=
+typeset -a commands=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--no-pager)		shift; pager=();;
+	--no-header)		shift; isHeader=;;
+	--interactive|-i)	shift; isInteractive=t; pager=(); isHeader=;;
+	--separate-errors)	shift; errorRedir='';;
+	--no-git-color)		shift; isGitColor=;;
+	--no-color|--color=*)	colorArg=("$1"); shift;;
+	--color)		colorArg=("$1" "$2"); shift; shift;;
+	--command|-c)	shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+typeset -a uncoloredSimpleCommand=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--no-color|--color=*)	colorArg=("$1"); shift;;
+	--color)		colorArg=("$1" "$2"); shift; shift;;
+	*)			uncoloredSimpleCommand+=("$1"); shift;;
+    esac
+done
+set -- "${uncoloredSimpleCommand[@]}"
+
+# With piping into withHeader / pager, we need to explicitly enable color for
+# Git, unless this command's output itself is redirected. Also don't do this if
+# the user explicitly turned off color.
+gitColorArg=()
+if [ -n "$pager" -o -n "$isHeader" ] && isNeedColorArgumentWhenPiping "${colorArg[@]}"; then
+    colorArg=(--color=always)	# Force for withHeader
+    [ "$isGitColor" ] && gitColorArg=(--color=always)	# Force for Git
+fi
+
+typeset -a gitCommand=(git-wrapper)
+if [ $# -gt 0 ]; then
+    if [ ${#gitColorArg[@]} -gt 0 ]; then
+	# Simply appending gitColorArg doesn't work; many Git commands have a
+	# special <path> or <commit> part at the end. Place it just behind the
+	# Git subcommand by iterating arguments in the same way as the various
+	# git-*-command metaprograms, and moving anything that is in front from
+	# $@ to gitCommand.
+	case "$1" in
+	    [^-]*-command)  gitCommand+=("$1"); shift
+			    while [ $# -ne 0 ]
+			    do
+				case "$1" in
+				    --)		break;;
+				    -*)		gitCommand+=("$1"); shift;;
+				    *)		gitCommand+=("$1"); shift; break;;
+				esac
+			    done
+			    ;;
+	    *)		    while [ $# -ne 0 ]
+			    do
+				case "$1" in
+				    -c) gitCommand+=("$1" "$2"); shift; shift;;
+				    *)	gitCommand+=("$1"); shift; break;;
+				esac
+			    done
+	esac
+	gitCommand+=("${gitColorArg[@]}")
+    fi
+
+    if [ "$isNeedEval" ]; then
+	# Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
+	# undo the effects of eval.
+	printf -v quotedSimpleCommand '%q ' "$@"
+	commands+=(${commands:+;} "${quotedSimpleCommand% }")
+    else
+	commands=("${gitCommand[@]}" "$@")
+    fi
+fi
+if [ ${#commands[@]} -eq 0 ]; then
+    echo 'ERROR: No COMMAND(s) specified; need to pass -c|--command "COMMANDLINE", or SIMPLECOMMAND.'
+    echo
+    printUsage "$0"
+    exit 2
+fi >&2
+
+execute()
+{
+    [ ! "$isInteractive" ] || header "${colorArg[@]}" --id "$GIT_SUPERSUBDO_HEADER_ID" -- "$header"
+
+    if [ "$isNeedEval" ]; then
+	typeset -a c=("${commands[@]}")
+    else
+	typeset -a c=('"${commands[@]}"')
+    fi
+    (eval "${isHeader:+{}" "${c[@]}" "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_SUPERSUBDO_HEADER_ID' -- '$header'}")
+}
+
+: ${GIT_SUPERSUBDO_HEADER_ID:="supersubdo-$$-$RANDOM"}
+supersubdo()
+{
+    submoduleRoot="$(git root)" || exit $?
+    superprojectRoot="$(git superproject)" || exit 1
+
+    cd "$submoduleRoot" || exit 3
+    header="$(git-supersubpath)"
+    execute || exit $?
+
+    cd "$superprojectRoot" || exit 3
+    header="../$(git-wcname)"
+    execute || exit $?
+}
+eval "supersubdo ${pager:+$errorRedir |}" '"${pager[@]}"'

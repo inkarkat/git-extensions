@@ -6,7 +6,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--push] [--no-delete] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] [--no-submodule-update] [-y|--yes] -b|--branch <branch> [...] | [--] <branch> [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--push] [--no-delete] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] [--ff-target-to-tracked] [--no-submodule-update] [-y|--yes] -b|--branch <branch> [...] | [--] <branch> [...] [-?|-h|--help]'
     echo
     printf 'Usage: GIT_REINTEGRATE_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" '[...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '[...] --no-checks | -c|--command "CHECK-COMMANDLINE" [-c ...] | --exec SIMPLECOMMAND [...] ; [...]'
@@ -42,6 +42,10 @@ HELPDESCRIPTION
 			repository and tracked remote.
     --rebase-single	Rebase only if it's a single non-merge commit, else
 			merge.
+    --ff-target-to-tracked
+			Automatically fast-forward the current branch to its
+			tracked remote branch if it's behind; this skips the
+			query that normally happens.
     --no-submodule-update
 			Don't automatically check out resulting submodule
 			versions.
@@ -79,6 +83,7 @@ fi
 hasMergeResolutionArg=
 isRebase=
 isRebaseSingle=
+isFastForwardToTracked=
 typeset -a branches=()
 typeset -a fastForwardArgs=()
 typeset -a mergeArgs=()
@@ -111,6 +116,8 @@ do
 			shift; hasMergeResolutionArg=t; isRebaseSingle=t;;
 	--ff|--no-ff|--ff-only)
 			hasMergeResolutionArg=t; fastForwardArgs=("$1"); shift;;
+	--ff-target-to-tracked)
+			shift; isFastForwardToTracked=t;;
 	--yes|-y)	gitRemoteMutateArgs+=("$1"); shift;;
 	--no-checks)	checkCommandArgs+=("$1"); shift; isDisableChecks=t;;
 	--command|-c)	checkCommandArgs+=("$1" "$2"); shift; checkCommands+=(${checkCommands:+&&} "$1"); shift;;
@@ -327,7 +334,7 @@ else
 
     if [ -n "$targetTracks" ] && ! git-equals HEAD "$targetTracks"; then
 	if git-ffdryrun "$targetTracks"; then
-	    if confirmFastForward; then
+	    if [ "$isFastForwardToTracked" ] || confirmFastForward; then
 		git-wrapper merge --ff-only "$targetTracks" || {
 		    status=$?
 		    echo >&2 'Fast-forwarding unexpectedly failed.'

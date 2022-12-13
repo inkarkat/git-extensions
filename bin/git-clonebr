@@ -1,9 +1,11 @@
 #!/bin/bash
 
+: ${GIT_CLONEBR_SEPARATOR=-}
+
 printUsage()
 {
     cat <<HELPTEXT
-Clone the current / passed branch by appending /1 (/2, etc.) at the end of the
+Clone the current / passed branch by appending ${GIT_CLONEBR_SEPARATOR}1 (${GIT_CLONEBR_SEPARATOR}2, etc.) at the end of the
 branch name and switch to it (unless --no-checkout is given).
 HELPTEXT
     echo
@@ -45,11 +47,11 @@ create()
 }
 
 # Handle cloning an existing clone.
-[[ "$branch" =~ ^(.+)-[[:digit:]]+$ ]] && \
+[[ "$branch" =~ ^(.+)"${GIT_CLONEBR_SEPARATOR}"[[:digit:]]+$ ]] && \
     branch="${BASH_REMATCH[1]}"
 
 let num=1
-while newBranch="${branch}-${num}" && git-existsbr "$newBranch"
+while newBranch="${branch}${GIT_CLONEBR_SEPARATOR}${num}" && git-existsbr "$newBranch"
 do
     let num+=1
 done

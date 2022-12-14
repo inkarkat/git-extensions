@@ -111,7 +111,7 @@ do
 	--no-delete)	continueArgs+=("$1"); shift; isKeepBranches=t;;
 	--push)		continueArgs+=("$1"); shift; isPush=t;;
 	--branch|-b)	shift; branches+=("$1"); shift;;
-	--rebase)	shift; hasMergeResolutionArg=t; isRebase=t;;
+	--rebase)	continueArgs+=("$1"); shift; hasMergeResolutionArg=t; isRebase=t;;
 	--rebase-single)
 			shift; hasMergeResolutionArg=t; isRebaseSingle=t;;
 	--ff|--no-ff|--ff-only)
@@ -384,7 +384,10 @@ else
 		esac
 	    fi
 	elif [ "$isRebaseSingle" ]; then
-	    canRebase && isRebase=t
+	    if canRebase; then
+		isRebase=t
+		continueArgs+=(--rebase)
+	    fi
 	fi
 
 

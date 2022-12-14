@@ -9,12 +9,13 @@ Undo the last commit / N commits / commits up to and including (unless
 created <branch> instead.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [-y|--yes] [-b|--branch <branch>] [-n N|--count N|[--exclude-commit] <commit>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [-y|--yes] [-b|--branch <branch>] [-n N|--count N|[--exclude-commit] --from <commit>|<commit>] [-?|-h|--help]'
 }
 branchName=
 isQuiet=
 isYes=
 commit=HEAD
+fromCommit=
 commitNum=1
 commitOffset=1
 while [ $# -ne 0 ]
@@ -37,17 +38,22 @@ do
 			    shift
 			    ;;
 	--exclude-commit)   shift; commitOffset=0;;
+	--from)		    shift; fromCommit="${1:?}"; shift;;
 	-*)		    { echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		    break;;
     esac
 done
-if [ $# -eq 0 ]; then
+if [ $# -eq 0 -a -z "$fromCommit" ]; then
     if [ ! "$isYes" ] && git-ismerge "$commit"; then
 	# The commit has been merged from a branch; this is dubious.
 	userBinaryChoice --question "The last commit is a merge, you should use \"git unmerge\" to undo the merge and checkout the original branch again; really move to that?" --yes-no || exit 4
     fi
 else
-    commit="$1"; shift
+    if [ -n "$fromCommit" ]; then
+	commit="$fromCommit"
+    else
+	commit="${1:?}"; shift
+    fi
 
     # Check reachability.
     if git rev-list --quiet --first-parent "${commit}.." -- 2>/dev/null; then

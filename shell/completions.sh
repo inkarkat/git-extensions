@@ -20,7 +20,8 @@ gitCompleteAs branch \
     urenamebr ulrenamebr \
     uremotebr
 
-gitCompleteAs checkout co \
+gitCompleteAs checkout co oco uco \
+    cosub ocosub ucosub \
     inout iofiles iosubmodules io ab \
     oinout oiofiles oiosubmodules oio oab \
     uinout uiofiles uiosubmodules uio uab \

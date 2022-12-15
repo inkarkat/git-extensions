@@ -22,13 +22,15 @@ superproject: `$ git ocosub feat-4711/super-cool`
 ## publish submodule changes
 a) from superproject: `$ git subsamebrdo --interactive opublish`
 b) from submodule(s): `$ git opublish`
+c) single submodule, publish superproject as well: `$ git osupersubpublish`
 
 ## create integration build
 superproject: `$ git cu && git opublish`
 
 ## update integration build after submodule work
 a) normal updates to short-lived feature: `$ git amenu && git opush -f`
-b) maintain history of how the feature grew: `$ git cu && git opush`
+b) from and push together with single submodule: `$ git osuperamensubpush`
+c) maintain history of how the feature grew: `$ git cu && git opush`
 
 ## a) peer review of superproject and submodules (optional)
 Recommended if several submodules are affected and the integration is
@@ -66,7 +68,8 @@ submodule) can be skipped via `reintegrate* --no-checks`
 ## then update integration build after submodules have been reintegrated
 0) submodule branch(es) have been fast-forwarded: no changes, no action here
 a) amends to short-lived feature: `$ git amenu && git opush -f`
-b) maintain history of how the feature grew: `$ git cu -m 'feat-4711 Housekeeping: Reintegrate [...] submodule(s)' && git opush`
+b) from and push together with single submodule: `$ git osuperamensubpush`
+c) maintain history of how the feature grew: `$ git cu -m 'feat-4711 Housekeeping: Reintegrate [...] submodule(s)' && git opush`
 Note: If other changes have been reintegrated between branching off and now,
 these now show up in the diffs as well. This is okay; we're already checked
 that there were no open reintegrations that we'd take with us.

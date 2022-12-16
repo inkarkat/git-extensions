@@ -28,9 +28,10 @@ c) single submodule, publish superproject as well: `$ git osupersubpublish`
 superproject: `$ git cu && git opublish`
 
 ## update integration build after submodule work
-a) normal updates to short-lived feature: `$ git amenu && git opush -f`
-b) from and push together with single submodule: `$ git osuperamensubpush`
-c) maintain history of how the feature grew: `$ git cu && git opush`
+a) short-lived feature: `$ git amenu && git opush -f`
+   or short `$ git amenupush`
+   or short together with and in a submodule: `$ git osuperamensubpush`
+b) superproject: maintain history of how the feature grew: `$ git cu && git opush`
 
 ## a) peer review of superproject and submodules (optional)
 Recommended if several submodules are affected and the integration is
@@ -66,10 +67,12 @@ superproject: `$ hub subsamebrdo --interactive reintegratetom`
 Note: When doing a bulk change, default check commands (that would run for each
 submodule) can be skipped via `reintegrate* --no-checks`
 ## then update integration build after submodules have been reintegrated
-0) submodule branch(es) have been fast-forwarded: no changes, no action here
-a) amends to short-lived feature: `$ git amenu && git opush -f` or shorter
-b) from single submodule: `$ git osuperamenpush`
-c) maintain history of how the feature grew: `$ git cu -m 'feat-4711 Housekeeping: Reintegrate [...] submodule(s)' && git opush`
+0) submodule branch(es) have been fast-forwarded: that creates no commit on
+   master, so no action here
+a) amends to short-lived feature: `$ git amenu && git opush -f`
+   or short `$ git amenupush`
+   or short from single submodule: `$ git osuperamenpush`
+b) maintain history of how the feature grew: `$ git cu -m 'feat-4711 Housekeeping: Reintegrate [...] submodule(s)' && git opush`
 Note: If other changes have been reintegrated between branching off and now,
 these now show up in the diffs as well. This is okay; we're already checked
 that there were no open reintegrations that we'd take with us.

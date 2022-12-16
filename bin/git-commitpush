@@ -1,0 +1,32 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Commit and push [to REMOTE].
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[REMOTE] [-f|--force] <commit-args> [...] [-?|-h|--help]'
+}
+pushCommand=push
+typeset -a pushArgs=()
+typeset -a commitArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--force|-f)	commitArgs+=("$1"); shift;;
+	origin)		shift; pushCommand=opush;;
+	upstream)	shift
+			pushCommand=upush
+			if [ "$1" = origin ]; then
+			    shift; pushCommand=uopush
+			fi
+			;;
+	--)		commitArgs+=("$1"); shift; break;;
+	*)		commitArgs+=("$1"); shift;;
+    esac
+done
+
+git-wrapper commit "${commitArgs[@]}" "$@" \
+    && git-wrapper "$pushCommand" "${pushArgs[@]}"

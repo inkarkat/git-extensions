@@ -8,7 +8,13 @@ Count the amount of commits.
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+    echo
+    cat <<HELPTEXT
+Test whether the number of commits is greater / smaller than N.
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '-g|--greater|-s|--smaller|-lt|-le|-eq|-ne|-ge|-gt N [<log-options>] [<revision range>] [[--] <path>...]'
 }
+typeset -a counter=(wc --lines)
 typeset -a logArgs=()
 while [ $# -ne 0 ]
 do
@@ -19,9 +25,12 @@ do
 	--color)	shift; shift;;
 	--pretty)	shift; shift;;
 	--pretty=*)	shift;;
+	--greater|-g|--smaller|-s|--lt|-le|-eq|-ne|-ge|-gt)
+			counter=(count "$1" "$2"); shift; shift;;
 	--)		logArgs+=("$1"); shift; break;;
 	*)		logArgs+=("$1"); shift;;
     esac
 done
 
-git log --pretty=tformat:x "${logArgs[@]}" "$@" | wc -l
+git log --pretty=tformat:x "${logArgs[@]}" "$@" \
+    | "${counter[@]}"

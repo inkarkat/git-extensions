@@ -67,8 +67,8 @@ Note: When doing a bulk change, default check commands (that would run for each
 submodule) can be skipped via `reintegrate* --no-checks`
 ## then update integration build after submodules have been reintegrated
 0) submodule branch(es) have been fast-forwarded: no changes, no action here
-a) amends to short-lived feature: `$ git amenu && git opush -f`
-b) from and push together with single submodule: `$ git osuperamensubpush`
+a) amends to short-lived feature: `$ git amenu && git opush -f` or shorter
+b) from single submodule: `$ git osuperamenpush`
 c) maintain history of how the feature grew: `$ git cu -m 'feat-4711 Housekeeping: Reintegrate [...] submodule(s)' && git opush`
 Note: If other changes have been reintegrated between branching off and now,
 these now show up in the diffs as well. This is okay; we're already checked

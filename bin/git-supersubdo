@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header] [-i|--interactive] [--separate-errors] [--no-git-color] [--super-command "COMMANDLINE"] [--submodule-command "COMMANDLINE"] [-c|--command "COMMANDLINE" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header] [-i|--interactive] [--separate-errors] [--no-git-color] [--super-command "COMMANDLINE"] [--submodule-command "COMMANDLINE"|--no-submodule-command] [-c|--command "COMMANDLINE" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -33,8 +33,7 @@ command output.
     --no-header		Do not output the header line before command output (and
 			no separating empty line after it).
     --interactive|-i	For use with interactive COMMANDs that query the user or
-			open an editor; combination of --no-pager --no-header${hasProgressNotification:+
-			and --progress addendum}.
+			open an editor; combination of --no-pager --no-header.
     --separate-errors	Do not combine command output and command errors into
 			one (paged) stream. Commands that just cause error
 			output won't have a header then. Error output will
@@ -49,6 +48,9 @@ command output.
     --submodule-command CMD
 			Execute the passed command line only for the current
 			submodule.
+    --no-submodule-command
+			Any passed command is executed for the superproject
+			only. (This is used by the git-superdo wrapper.)
     --command|-c CMD	Execute the passed command line for both submodule and
 			superproject; if special super/sub command(s) have
 			already been passed, this only applies to the other one.
@@ -69,6 +71,7 @@ errorRedir='2>&1'
 isGitColor=t
 typeset -a colorArg=()
 isNeedEval=
+isSubmoduleCommands=t
 typeset -a superCommands=()
 typeset -a subCommands=()
 while [ $# -ne 0 ]
@@ -83,7 +86,7 @@ do
 	--no-color|--color=*)	colorArg=("$1"); shift;;
 	--color)		colorArg=("$1" "$2"); shift; shift;;
 	--command|-c)	shift
-			if [ ${#superCommands[@]} -eq 0 -a ${#subCommands[@]} -gt 0 ]; then
+			if [ ${#superCommands[@]} -eq 0 -a ${#subCommands[@]} -gt 0 ] || [ ! "$isSubmoduleCommands" ]; then
 			    superCommands+=(${superCommands:+;} "$1")
 			elif [ ${#superCommands[@]} -gt 0 -a ${#subCommands[@]} -eq 0 ]; then
 			    subCommands+=(${subCommands:+;} "$1")
@@ -98,6 +101,8 @@ do
 			shift; superCommands+=(${superCommands:+;} "$1"); isNeedEval=t; shift;;
 	--submodule-command)
 			shift; subCommands+=(${subCommands:+;} "$1"); isNeedEval=t; shift;;
+	--no-submodule-command)
+			shift; isSubmoduleCommands=;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -157,7 +162,7 @@ if [ $# -gt 0 ]; then
 	# Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
 	# undo the effects of eval.
 	printf -v quotedSimpleCommand '%q ' "${gitCommand[@]}" "$@"
-	if [ ${#superCommands[@]} -eq 0 -a ${#subCommands[@]} -gt 0 ]; then
+	if [ ${#superCommands[@]} -eq 0 -a ${#subCommands[@]} -gt 0 ] || [ ! "$isSubmoduleCommands" ]; then
 	    superCommands+=(${superCommands:+;} "${quotedSimpleCommand% }")
 	elif [ ${#superCommands[@]} -gt 0 -a ${#subCommands[@]} -eq 0 ]; then
 	    subCommands+=(${subCommands:+;} "${quotedSimpleCommand% }")
@@ -165,6 +170,8 @@ if [ $# -gt 0 ]; then
 	    superCommands+=(${superCommands:+;} "${quotedSimpleCommand% }")
 	    subCommands+=(${subCommands:+;} "${quotedSimpleCommand% }")
 	fi
+    elif [ ! "$isSubmoduleCommands" ]; then
+	superCommands=("${gitCommand[@]}" "$@")
     else
 	superCommands=("${gitCommand[@]}" "$@")
 	subCommands=("${gitCommand[@]}" "$@")

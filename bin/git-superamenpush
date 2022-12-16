@@ -1,0 +1,27 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Reference this submodule's current revision and amend that to the superproject's
+last commit without re-editing the message and push it [to REMOTE].
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[REMOTE] [-?|-h|--help]'
+}
+pushCommand=push
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    origin)		shift; pushCommand=opush;;
+    upstream)		shift
+			pushCommand=upush
+			if [ "$1" = origin ]; then
+			    shift; pushCommand=uopush
+			fi
+			;;
+esac
+
+git superamen || exit $?
+
+# Note: Need to force-push the amended superproject commit.
+exec git-superdo --interactive "$pushCommand" --force "$@"

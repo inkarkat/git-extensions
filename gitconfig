@@ -528,6 +528,16 @@
 	;; brage: List branches by age (descending, starting with old branches).
 	;; brc: List local branches and their first commit ordered by date of first commit (descending, starting with old branches), as based on the current branch (brbase: as tagged or referenced anywhere in the history (also by remotes)) or the best common ancestors of all branches or the branch passed with --base <branch>. The branches can be optionally filtered by <branch-glob>.
 	;; createlocalbr: Create (and track) local branches for all remote branches (matching PATTERN).
+	;; createbranch: Create a new branch [from <start-point>] without switching to it. Enforces that such is passed.
+	createbranchselected = selectedcommit-command --single-only +1 COMMITS createbranch	; Create a new branch from the commit interactively chosen from the commits in the passed <range>.
+	createbranch1 = createbranchselected --max-count 1
+	createbranch2 = createbranchselected --max-count 2
+	createbranch3 = createbranchselected --max-count 3
+	createbranch4 = createbranchselected --max-count 4
+	createbranch5 = createbranchselected --max-count 5
+	createbranch6 = createbranchselected --max-count 6
+	createbranch7 = createbranchselected --max-count 7
+	createbranchg = selectedgcommit-command --single-only -2 createbranch COMMITS	; Create a new branch from the commit interactively chosen from the commits where log messages match the specified text or /regexp/.
 	;; clonebr: Clone the current / passed branch by appending -1 (-2, etc.) at the end of the branch name and switch to it.
 	backupbr = clonebr --no-checkout	; Clone the current / passed branch by appending -1 (-2, etc.) at the end of the branch name (but don't switch to it).
 	;; localbr: List all local / passed branches (except for the current branch and master (and base branch if defined)).
@@ -2109,6 +2119,7 @@
 	tdrbni = today-command --no-range --one-more -2 rbni TIMESPAN
 	tdmove-to-branch = today-command --no-range --one-more +1 TIMESPAN uncommit-to-branch --exclude-commit
 	tduncommit-to-branch = today-command -7 selectedcommit-command --single-only -3 uncommit-to-branch --from COMMITS TIMESPAN
+	tdcreatebranch = today-command --one-more -2 createbranchselected TIMESPAN
 	tddetach = today-command --one-more -2 detachselected TIMESPAN
 	tddetachg = today-command --one-more -2 detachselectedg TIMESPAN
 	tdwipe = today-command --one-more -2 wipetoselected TIMESPAN
@@ -2359,6 +2370,7 @@
 	weekrbni = week-command --no-range --one-more -2 rbni TIMESPAN
 	weekmove-to-branch = week-command --no-range --one-more +1 TIMESPAN uncommit-to-branch --exclude-commit
 	weekuncommit-to-branch = week-command -7 selectedcommit-command --single-only -3 uncommit-to-branch --from COMMITS TIMESPAN
+	weekcreatebranch = week-command --one-more -2 createbranchselected TIMESPAN
 	weekdetach = week-command --one-more -2 detachselected TIMESPAN
 	weekdetachg = week-command --one-more -2 detachselectedg TIMESPAN
 	weekwipe = week-command --one-more -2 wipetoselected TIMESPAN
@@ -2609,6 +2621,7 @@
 	monthrbni = month-command --no-range --one-more -2 rbni TIMESPAN
 	monthmove-to-branch = month-command --no-range --one-more +1 TIMESPAN uncommit-to-branch --exclude-commit
 	monthuncommit-to-branch = month-command -7 selectedcommit-command --single-only -3 uncommit-to-branch --from COMMITS TIMESPAN
+	monthcreatebranch = month-command --one-more -2 createbranchselected TIMESPAN
 	monthdetach = month-command --one-more -2 detachselected TIMESPAN
 	monthdetachg = month-command --one-more -2 detachselectedg TIMESPAN
 	monthwipe = month-command --one-more -2 wipetoselected TIMESPAN
@@ -2859,6 +2872,7 @@
 	yearrbni = year-command --no-range --one-more -2 rbni TIMESPAN
 	yearmove-to-branch = year-command --no-range --one-more +1 TIMESPAN uncommit-to-branch --exclude-commit
 	yearuncommit-to-branch = year-command -7 selectedcommit-command --single-only -3 uncommit-to-branch --from COMMITS TIMESPAN
+	yearcreatebranch = year-command --one-more -2 createbranchselected TIMESPAN
 	yeardetach = year-command --one-more -2 detachselected TIMESPAN
 	yeardetachg = year-command --one-more -2 detachselectedg TIMESPAN
 	yearwipe = year-command --one-more -2 wipetoselected TIMESPAN
@@ -3109,6 +3123,7 @@
 	byrbni = byuserrange-command --no-range -2 rbni USERRANGE
 	bymove-to-branch = byuserrange-command --no-range +1 USERRANGE uncommit-to-branch --exclude-commit
 	byuncommit-to-branch = byuserrange-command -8 selectedcommit-command --single-only --range-is-last -3 uncommit-to-branch --from COMMITS USERRANGE
+	bycreatebranch = byuserrange-command --one-more -2 createbranchselected USERRANGE
 	bydetach = byuserrange-command --one-more -2 detachselected USERRANGE
 	bydetachg = byuserrange-command --one-more -2 detachselectedg USERRANGE
 	bywipe = byuserrange-command --one-more -2 wipetoselected USERRANGE
@@ -3357,6 +3372,7 @@
 	msgrbni = loggrange-command --no-range -2 rbni LOGRANGE
 	msgmove-to-branch = loggrange-command --no-range +1 LOGRANGE uncommit-to-branch --exclude-commit
 	msguncommit-to-branch = loggrange-command -8 selectedcommit-command --single-only --range-is-last -3 uncommit-to-branch --from COMMITS LOGRANGE
+	msgcreatebranch = loggrange-command --one-more -2 createbranchselected LOGRANGE
 	msgdetach = loggrange-command --one-more -2 detachselected LOGRANGE
 	msgdetachg = loggrange-command --one-more -2 detachselectedg LOGRANGE
 	msgwipe = loggrange-command --one-more -2 wipetoselected LOGRANGE
@@ -3613,6 +3629,7 @@
 	abrrbni = rev-range-this-branch --any --no-range -2 rbni RANGE
 	abrmove-to-branch = rev-range-this-branch --any --no-range +1 RANGE uncommit-to-branch --exclude-commit
 	abruncommit-to-branch = rev-range-this-branch --any -- selectedcommit-command --single-only --range-is-last -3 uncommit-to-branch --from COMMITS RANGE
+	abrcreatebranch = rev-range-this-branch --any -2 createbranchselected RANGE
 	abrdetach = rev-range-this-branch --any -2 detachselected RANGE
 	abrdetachg = rev-range-this-branch --any -2 detachselectedg RANGE
 	abrwipe = rev-range-this-branch --any -2 wipetoselected RANGE
@@ -3864,6 +3881,7 @@
 	bcrbni = rev-range-branchcreation --no-range -2 rbni RANGE
 	bcmove-to-branch = rev-range-branchcreation --no-range +1 RANGE uncommit-to-branch --exclude-commit
 	bcuncommit-to-branch = rev-range-branchcreation -- selectedcommit-command --single-only --range-is-last -3 uncommit-to-branch --from COMMITS RANGE
+	bccreatebranch = rev-range-branchcreation -2 createbranchselected RANGE
 	bcdetach = rev-range-branchcreation -2 detachselected RANGE
 	bcdetachg = rev-range-branchcreation -2 detachselectedg RANGE
 	bcwipe = rev-range-branchcreation -2 wipetoselected RANGE
@@ -4115,6 +4133,7 @@
 	brrbni = rev-range-this-branch --no-range -2 rbni RANGE
 	brmove-to-branch = rev-range-this-branch --no-range +1 RANGE uncommit-to-branch --exclude-commit
 	bruncommit-to-branch = rev-range-this-branch -- selectedcommit-command --single-only --range-is-last -3 uncommit-to-branch --from COMMITS RANGE
+	brcreatebranch = rev-range-this-branch -2 createbranchselected RANGE
 	brdetach = rev-range-this-branch -2 detachselected RANGE
 	brdetachg = rev-range-this-branch -2 detachselectedg RANGE
 	brwipe = rev-range-this-branch -2 wipetoselected RANGE
@@ -4368,6 +4387,7 @@
 	b2rrbni = rev-range-this-branch --branch-number 2 --no-range -2 rbni RANGE
 	b2rmove-to-branch = rev-range-this-branch --branch-number 2 --no-range +1 RANGE uncommit-to-branch --exclude-commit
 	b2runcommit-to-branch = rev-range-this-branch --branch-number 2 -- selectedcommit-command --single-only --range-is-last -3 uncommit-to-branch --from COMMITS RANGE
+	b2rcreatebranch = rev-range-this-branch --branch-number 2 -2 createbranchselected RANGE
 	b2rdetach = rev-range-this-branch --branch-number 2 -2 detachselected RANGE
 	b2rdetachg = rev-range-this-branch --branch-number 2 -2 detachselectedg RANGE
 	b2rwipe = rev-range-this-branch --branch-number 2 -2 wipetoselected RANGE
@@ -4619,6 +4639,7 @@
 	b3rrbni = rev-range-this-branch --branch-number 3 --no-range -2 rbni RANGE
 	b3rmove-to-branch = rev-range-this-branch --branch-number 3 --no-range +1 RANGE uncommit-to-branch --exclude-commit
 	b3runcommit-to-branch = rev-range-this-branch --branch-number 3 -- selectedcommit-command --single-only --range-is-last -3 uncommit-to-branch --from COMMITS RANGE
+	b3rcreatebranch = rev-range-this-branch --branch-number 3 -2 createbranchselected RANGE
 	b3rdetach = rev-range-this-branch --branch-number 3 -2 detachselected RANGE
 	b3rdetachg = rev-range-this-branch --branch-number 3 -2 detachselectedg RANGE
 	b3rwipe = rev-range-this-branch --branch-number 3 -2 wipetoselected RANGE
@@ -4870,6 +4891,7 @@
 	bmrbni = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --no-range -2 rbni RANGE
 	bmmove-to-branch = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --no-range +1 RANGE uncommit-to-branch --exclude-commit
 	bmuncommit-to-branch = branch-command --keep-position master-command --keep-position rev-range --revision MASTER selectedcommit-command --single-only --range-is-last -3 uncommit-to-branch -from COMMITS RANGE
+	bmcreatebranch = branch-command --keep-position master-command --keep-position rev-range --revision MASTER -2 createbranchselected RANGE
 	bmdetach = branch-command --keep-position master-command --keep-position rev-range --revision MASTER -2 detachselected RANGE
 	bmdetachg = branch-command --keep-position master-command --keep-position rev-range --revision MASTER -2 detachselectedg RANGE
 	bmwipe = branch-command --keep-position master-command --keep-position rev-range --revision MASTER -2 wipetoselected RANGE
@@ -5121,6 +5143,7 @@
 	bomrbni = branch-command --keep-position master-command --keep-position rev-range --revision origin/MASTER --no-range -2 rbni RANGE
 	bommove-to-branch = branch-command --keep-position master-command --keep-position rev-range --revision origin/MASTER --no-range +1 RANGE uncommit-to-branch --exclude-commit
 	bomuncommit-to-branch = branch-command --keep-position master-command --keep-position rev-range --revision origin/MASTER selectedcommit-command --single-only --range-is-last -3 uncommit-to-branch --from COMMITS RANGE
+	bomcreatebranch = branch-command --keep-position master-command --keep-position rev-range --revision origin/MASTER -2 createbranchselected RANGE
 	bomdetach = branch-command --keep-position master-command --keep-position rev-range --revision origin/MASTER -2 detachselected RANGE
 	bomdetachg = branch-command --keep-position master-command --keep-position rev-range --revision origin/MASTER -2 detachselectedg RANGE
 	bomwipe = branch-command --keep-position master-command --keep-position rev-range --revision origin/MASTER -2 wipetoselected RANGE
@@ -5372,6 +5395,7 @@
 	;mbrbni is a no-op, because it always yields HEAD as the starting point
 	mbmove-to-branch = master-command --keep-position rev-range --revision HEAD --no-range +1 RANGE uncommit-to-branch --exclude-commit
 	mbuncommit-to-branch = branch-command --keep-position master-command --keep-position rev-range --revision BRANCH --end-revision MASTER selectedcommit-command --single-only --range-is-last -3 uncommit-to-branch --from COMMITS RANGE
+	mbcreatebranch = branch-command --keep-position master-command --keep-position rev-range --revision BRANCH --end-revision MASTER -2 createbranchselected RANGE
 	mbdetach = branch-command --keep-position master-command --keep-position rev-range --revision BRANCH --end-revision MASTER -2 detachselected RANGE
 	mbdetachg = branch-command --keep-position master-command --keep-position rev-range --revision BRANCH --end-revision MASTER -2 detachselectedg RANGE
 	mbwipe = branch-command --keep-position master-command --keep-position rev-range --revision BRANCH --end-revision MASTER -2 wipetoselected RANGE
@@ -5623,6 +5647,7 @@
 	bnrbni = branch-command --keep-position base-command --keep-position rev-range --revision BASE --no-range -2 rbni RANGE
 	bnmove-to-branch = branch-command --keep-position base-command --keep-position rev-range --revision BASE --no-range +1 RANGE uncommit-to-branch --exclude-commit
 	bnuncommit-to-branch = branch-command --keep-position base-command --keep-position rev-range --revision BASE selectedcommit-command --single-only --range-is-last -3 uncommit-to-branch --from COMMITS RANGE
+	bncreatebranch = branch-command --keep-position base-command --keep-position rev-range --revision BASE -2 createbranchselected RANGE
 	bndetach = branch-command --keep-position base-command --keep-position rev-range --revision BASE -2 detachselected RANGE
 	bndetachg = branch-command --keep-position base-command --keep-position rev-range --revision BASE -2 detachselectedg RANGE
 	bnwipe = branch-command --keep-position base-command --keep-position rev-range --revision BASE -2 wipetoselected RANGE
@@ -5874,6 +5899,7 @@
 	;nbrbni is a no-op, because it always yields HEAD as the starting point
 	nbmove-to-branch = base-command --keep-position rev-range --revision HEAD --no-range +1 RANGE uncommit-to-branch --exclude-commit
 	nbuncommit-to-branch = branch-command --keep-position base-command --keep-position rev-range --revision BRANCH --end-revision BASE selectedcommit-command --single-only --range-is-last -3 uncommit-to-branch --from COMMITS RANGE
+	nbcreatebranch = branch-command --keep-position base-command --keep-position rev-range --revision BRANCH --end-revision BASE -2 createbranchselected RANGE
 	nbdetach = branch-command --keep-position base-command --keep-position rev-range --revision BRANCH --end-revision BASE -2 detachselected RANGE
 	nbdetachg = branch-command --keep-position base-command --keep-position rev-range --revision BRANCH --end-revision BASE -2 detachselectedg RANGE
 	nbwipe = branch-command --keep-position base-command --keep-position rev-range --revision BRANCH --end-revision BASE -2 wipetoselected RANGE
@@ -6125,6 +6151,7 @@
 	stablerbni = branch-command --keep-position rev-range --revision stable --no-range -2 rbni RANGE
 	stablemove-to-branch = branch-command --keep-position rev-range --revision stable --no-range +1 RANGE uncommit-to-branch --exclude-commit
 	stableuncommit-to-branch = branch-command --keep-position rev-range --revision stable selectedcommit-command --single-only --range-is-last -3 uncommit-to-branch --from COMMITS RANGE
+	stablecreatebranch = branch-command --keep-position rev-range --revision stable -2 createbranchselected RANGE
 	stabledetach = branch-command --keep-position rev-range --revision stable -2 detachselected RANGE
 	stabledetachg = branch-command --keep-position rev-range --revision stable -2 detachselectedg RANGE
 	stablewipe = branch-command --keep-position rev-range --revision stable -2 wipetoselected RANGE
@@ -6376,6 +6403,7 @@
 	ttrbni = untiltag-command --reachable-from-passed-branch --keep-position branch-command --keep-position rev-range --revision TAG --no-range -2 rbni RANGE
 	ttmove-to-branch = untiltag-command --reachable-from-passed-branch --keep-position branch-command --keep-position rev-range --revision TAG --no-range +1 RANGE uncommit-to-branch --exclude-commit
 	ttuncommit-to-branch = untiltag-command --reachable-from-passed-branch --keep-position branch-command --keep-position rev-range --revision TAG selectedcommit-command --single-only --range-is-last -3 uncommit-to-branch --from COMMITS RANGE
+	ttcreatebranch = untiltag-command --reachable-from-passed-branch --keep-position branch-command --keep-position rev-range --revision TAG -2 createbranchselected RANGE
 	ttdetach = untiltag-command --reachable-from-passed-branch --keep-position branch-command --keep-position rev-range --revision TAG -2 detachselected RANGE
 	ttdetachg = untiltag-command --reachable-from-passed-branch --keep-position branch-command --keep-position rev-range --revision TAG -2 detachselectedg RANGE
 	ttwipe = untiltag-command --reachable-from-passed-branch --keep-position branch-command --keep-position rev-range --revision TAG -2 wipetoselected RANGE
@@ -6627,6 +6655,7 @@
 	blrbni = rev-range --revision @{-1} --no-range -2 rbni RANGE
 	blmove-to-branch = rev-range --revision @{-1} --no-range +1 RANGE uncommit-to-branch --exclude-commit
 	bluncommit-to-branch = branch-command --keep-position rev-range --revision @{-1} selectedcommit-command --single-only --range-is-last -3 uncommit-to-branch --from COMMITS RANGE
+	blcreatebranch = branch-command --keep-position rev-range --revision @{-1} -2 createbranchselected RANGE
 	bldetach = branch-command --keep-position rev-range --revision @{-1} -2 detachselected RANGE
 	bldetachg = branch-command --keep-position rev-range --revision @{-1} -2 detachselectedg RANGE
 	blwipe = branch-command --keep-position rev-range --revision @{-1} -2 wipetoselected RANGE
@@ -6878,6 +6907,7 @@
 	b2lrbni = rev-range --revision @{-2} --no-range -2 rbni RANGE
 	b2lmove-to-branch = rev-range --revision @{-2} --no-range +1 RANGE uncommit-to-branch --exclude-commit
 	b2luncommit-to-branch = branch-command --keep-position rev-range --revision @{-2} selectedcommit-command --single-only --range-is-last -3 uncommit-to-branch --from COMMITS RANGE
+	b2lcreatebranch = branch-command --keep-position rev-range --revision @{-2} -2 createbranchselected RANGE
 	b2ldetach = branch-command --keep-position rev-range --revision @{-2} -2 detachselected RANGE
 	b2ldetachg = branch-command --keep-position rev-range --revision @{-2} -2 detachselectedg RANGE
 	b2lwipe = branch-command --keep-position rev-range --revision @{-2} -2 wipetoselected RANGE
@@ -7129,6 +7159,7 @@
 	bprbni = rev-range --revision @{1} --no-range --one-more-command ^ -2 rbni RANGE
 	bpmove-to-branch = rev-range --revision @{1} --no-range +1 RANGE uncommit-to-branch --exclude-commit
 	bpuncommit-to-branch = branch-command --keep-position rev-range --revision @{1} selectedcommit-command --single-only --range-is-last -3 uncommit-to-branch --from COMMITS RANGE
+	bpcreatebranch = branch-command --keep-position rev-range --revision @{1} -2 createbranchselected RANGE
 	bpdetach = branch-command --keep-position rev-range --revision @{1} -2 detachselected RANGE
 	bpdetachg = branch-command --keep-position rev-range --revision @{1} -2 detachselectedg RANGE
 	bpwipe = branch-command --keep-position rev-range --revision @{1} -2 wipetoselected RANGE
@@ -7380,6 +7411,7 @@
 	b2prbni = rev-range --revision @{2} --no-range --one-more-command ^ -2 rbni RANGE
 	b2pmove-to-branch = rev-range --revision @{2} --no-range +1 RANGE uncommit-to-branch --exclude-commit
 	b2puncommit-to-branch = branch-command --keep-position rev-range --revision @{2} selectedcommit-command --single-only --range-is-last -3 uncommit-to-branch --from COMMITS RANGE
+	b2pcreatebranch = branch-command --keep-position rev-range --revision @{2} -2 createbranchselected RANGE
 	b2pdetach = branch-command --keep-position rev-range --revision @{2} -2 detachselected RANGE
 	b2pdetachg = branch-command --keep-position rev-range --revision @{2} -2 detachselectedg RANGE
 	b2pwipe = branch-command --keep-position rev-range --revision @{2} -2 wipetoselected RANGE
@@ -7630,6 +7662,7 @@
 	outrbni = trbni
 	outmove-to-branch = trmove-to-branch
 	outuncommit-to-branch = rev-range-outgoing '' --one-more-output -- selectedcommit-command --single-only --range-is-last -3 uncommit-to-branch --from COMMITS RANGE
+	outcreatebranch = rev-range-outgoing '' --one-more-output -2 createbranchselected RANGE
 	outdetach = rev-range-outgoing '' --one-more-output -2 detachselected RANGE
 	outdetachg = rev-range-outgoing '' --one-more-output -2 detachselectedg RANGE
 	outwipe = rev-range-outgoing '' --one-more-output -2 wipetoselected RANGE
@@ -7841,6 +7874,7 @@
 	inrbi = trb
 	inrbni = trbni
 	inuncommit-to-branch = rev-range-incoming '' --one-more-output -- selectedcommit-command --single-only --range-is-last -3 uncommit-to-branch --from COMMITS RANGE
+	increatebranch = rev-range-incoming '' --one-more-output -2 createbranchselected RANGE
 	indetach = rev-range-incoming '' --one-more-output -2 detachselected RANGE
 	indetachg = rev-range-incoming '' --one-more-output -2 detachselectedg RANGE
 	inwipe = rev-range-incoming '' --one-more-output -2 wipetoselected RANGE
@@ -8091,6 +8125,7 @@
 	ooutrbi = orbi
 	ooutrbni = orbni
 	ooutuncommit-to-branch = rev-range-outgoing origin --one-more-output -- selectedcommit-command --single-only --range-is-last -3 uncommit-to-branch --from COMMITS RANGE
+	ooutcreatebranch = rev-range-outgoing origin --one-more-output -2 createbranchselected RANGE
 	ooutdetach = rev-range-outgoing origin --one-more-output -2 detachselected RANGE
 	ooutdetachg = rev-range-outgoing origin --one-more-output -2 detachselectedg RANGE
 	ooutwipe = rev-range-outgoing origin --one-more-output -2 wipetoselected RANGE
@@ -8302,6 +8337,7 @@
 	oinrbi = orbi
 	oinrbni = orbni
 	oinuncommit-to-branch = rev-range-incoming origin --one-more-output -- selectedcommit-command --single-only --range-is-last -3 uncommit-to-branch --from COMMITS RANGE
+	oincreatebranch = rev-range-incoming origin --one-more-output -2 createbranchselected RANGE
 	oindetach = rev-range-incoming origin --one-more-output -2 detachselected RANGE
 	oindetachg = rev-range-incoming origin --one-more-output -2 detachselectedg RANGE
 	oinwipe = rev-range-incoming origin --one-more-output -2 wipetoselected RANGE
@@ -8552,6 +8588,7 @@
 	uoutrbni = urbni
 	uoutmove-to-branch = umove-to-branch
 	uoutuncommit-to-branch = rev-range-outgoing upstream --one-more-output -- selectedcommit-command --single-only --range-is-last -3 uncommit-to-branch --from COMMITS RANGE
+	uoutcreatebranch = rev-range-outgoing upstream --one-more-output -2 createbranchselected RANGE
 	uoutdetach = rev-range-outgoing upstream --one-more-output -2 detachselected RANGE
 	uoutdetachg = rev-range-outgoing upstream --one-more-output -2 detachselectedg RANGE
 	uoutwipe = rev-range-outgoing upstream --one-more-output -2 wipetoselected RANGE
@@ -8763,6 +8800,7 @@
 	uinrbi = urbi
 	uinrbni = urbni
 	uinuncommit-to-branch = rev-range-incoming upstream --one-more-output -- selectedcommit-command --single-only --range-is-last -3 uncommit-to-branch --from COMMITS RANGE
+	uincreatebranch = rev-range-incoming upstream --one-more-output -2 createbranchselected RANGE
 	uindetach = rev-range-incoming upstream --one-more-output -2 detachselected RANGE
 	uindetachg = rev-range-incoming upstream --one-more-output -2 detachselectedg RANGE
 	uinwipe = rev-range-incoming upstream --one-more-output -2 wipetoselected RANGE

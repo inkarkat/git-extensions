@@ -12,13 +12,13 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-checkout] [-f|--force] [--] [<branch>] [-?|-h|--help]'
 }
 action=checkout
-typeset -a checkoutArgs=()
+typeset -a actionArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-	--no-checkout)	shift; action=create;;
-	--force|-f)	checkoutArgs+=("$1"); shift;;
+	--no-checkout)	shift; action=createbranch;;
+	--force|-f)	actionArgs+=("$1"); shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -36,16 +36,6 @@ case $# in
 	exit 2
 esac
 
-checkout()
-{
-    exec git-wrapper checkout "${checkoutArgs[@]}" -b "$newBranch" "$branch"
-}
-
-create()
-{
-    exec git update-ref -m "Clone $newBranch from $branch" "refs/heads/$newBranch" "$branch" ''	# Note: Empty <oldvalue> ensures that the $newBranch reference doesn't exist yet.
-}
-
 # Handle cloning an existing clone.
 [[ "$branch" =~ ^(.+)"${GIT_CLONEBR_SEPARATOR}"[[:digit:]]+$ ]] && \
     branch="${BASH_REMATCH[1]}"
@@ -55,4 +45,5 @@ while newBranch="${branch}${GIT_CLONEBR_SEPARATOR}${num}" && git-existsbr "$newB
 do
     let num+=1
 done
-$action "$@"
+GIT_CREATEBRANCH_WHAT='Clone' \
+    exec git-wrapper $action "${actionArgs[@]}" -b "$newBranch" "$branch"

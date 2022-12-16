@@ -1,0 +1,59 @@
+#!/bin/bash
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header] [-i|--interactive] [--separate-errors] [--no-git-color] [-c|--command "COMMANDLINE" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Execute "git SIMPLECOMMAND" and/or COMMANDLINE in this submodule's superproject.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+Puts a header line (unless --no-header) that contains the repo name before the
+command output.
+    --no-pager		Do not page the output (so contents will scroll out of
+			view if there's too much output).
+    --no-header		Do not output the header line before command output (and
+			no separating empty line after it).
+    --interactive|-i	For use with interactive COMMANDs that query the user or
+			open an editor; combination of --no-pager --no-header.
+    --separate-errors	Do not combine command output and command errors into
+			one (paged) stream. Commands that just cause error
+			output won't have a header then. Error output will
+			remain on its separate file descriptor and will not be
+			paged. Useful if you want to suppress errors or handle
+			them separately.
+    --no-git-color	Do not pass a --color=... to "git SIMPLECOMMAND". (For
+			COMMANDLINE you have to insert "\${gitColorArg[@]}"
+			yourself.)
+    --command|-c CMD	Execute the passed command line for the superproject.
+			When this is a simple Git command, it can also be passed
+			as such:
+			    $(basename "$1") [...] [--] SIMPLECOMMAND
+Note: For paging and headers, this command has to control Git's color output.
+Pass --no-git-color if "git SIMPLECOMMAND" does not support the --color=...
+arguments. (For COMMANDLINE you have to insert "\${gitColorArg[@]}" yourself.)
+You can still pass --color=always if you pipe this command's output yet still
+want coloring of headers.
+HELPTEXT
+}
+case "$1" in
+    --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+esac
+
+exec git-supersubdo --no-submodule-command "$@"

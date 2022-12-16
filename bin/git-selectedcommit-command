@@ -38,6 +38,7 @@ if [ $# -eq 0 ]; then
 fi
 
 isCountedAppend=
+typeset -a countedAppendGitCommand=()
 case "$1" in
     +[1-9])
 	isCountedAppend=t;&
@@ -46,6 +47,10 @@ case "$1" in
 	typeset countedArgNum=${1#-}
 	typeset -a countedArgs=("${@:2:${countedArgNum}}")
 	set -- "${@:$((2 + countedArgNum))}"
+	if [ "$isCountedAppend" ]; then
+	    # Need to shift the GIT-COMMAND off to avoid that it is later parsed off as a rangeArg.
+	    countedAppendGitCommand=("$1"); shift
+	fi
 
 	executor()
 	{
@@ -60,7 +65,7 @@ case "$1" in
 	    done
 
 	    [ "$isCountedAppend" ] \
-		&& exec git-wrapper "$@" "${appendedArgs[@]}" \
+		&& exec git-wrapper "${countedAppendGitCommand[@]}" "$@" "${appendedArgs[@]}" \
 		|| exec git-wrapper "${appendedArgs[@]}" "$@"
 	}
 	;;

@@ -73,6 +73,25 @@ c) maintain history of how the feature grew: `$ git cu -m 'feat-4711 Housekeepin
 Note: If other changes have been reintegrated between branching off and now,
 these now show up in the diffs as well. This is okay; we're already checked
 that there were no open reintegrations that we'd take with us.
+
+## peer review of integration (optional)
+`$ gh pr ready`
+
+## merge the superproject
+Because of the `master` branch protection, we cannot do a local merge and push
+master; the GitHub action must have successfully built the resulting merge
+commit to accept a push. So we need to do a local rebase / merge of `master`
+onto the branch, push that, wait for the action, and then can reintegrate (or
+push the corresponding button in GitHub; both of which should be a simple
+fast-forward).
+`$ git ofetch`
+0) submodule branch(es) have just been fast-forwarded
+   `$ hub ffintegratetom`
+a) single commit and then only amends to short-lived feature:
+   `$ hub ffintegratetom --push-branch --rebase-single`
+b) separate superproject commits and/or maintain history of how the feature
+   grew: `$ hub ffintegratetom --push-branch --no-ff`
+
 ## Transactional only local merges, then remote updates in bulk at the end:
 ### Prepare transaction:
 Note: Need to do a reverse integration (i.e. master to branch) because
@@ -100,23 +119,6 @@ branch successfully, then conclude by pushing master and cleaning up with
 `$ git opush`
 `$ git oldeletelb`
 
-## peer review of integration (optional)
-`$ gh pr ready`
-
-## merge the superproject
-Because of the `master` branch protection, we cannot do a local merge and push
-master; the GitHub action must have successfully built the resulting merge
-commit to accept a push. So we need to do a local rebase / merge of `master`
-onto the branch, push that, wait for the action, and then can reintegrate (or
-push the corresponding button in GitHub; both of which should be a simple
-fast-forward).
-`$ git ofetch`
-0) submodule branch(es) have just been fast-forwarded
-   `$ hub ffintegratetom`
-a) single commit and then only amends to short-lived feature:
-   `$ hub ffintegratetom --push-branch --rebase-single`
-b) separate superproject commits and/or maintain history of how the feature
-   grew: `$ hub ffintegratetom --push-branch --no-ff`
 
 # Rules
 - When checking out branches, do so everywhere (especially both in the

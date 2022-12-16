@@ -1,0 +1,44 @@
+#!/bin/bash
+shopt -qs extglob
+
+printUsage()
+{
+    cat <<HELPTEXT
+Create a new branch [from <start-point>] without switching to it. Enforces that
+such is passed.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] -b <new-branch> [<start-point>] [-?|-h|--help]'
+}
+
+isForce=
+newBranch=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+	-b)		shift; newBranch="${1:?}"; shift;;
+	--force|-f)	shift; isForce=t;;
+	*)		break;;
+    esac
+done
+if [ -z "$newBranch" ]; then
+    echo 'ERROR: No -b <new-branch> passed.'
+    echo
+    printUsage "$0"
+    exit 2
+fi >&2
+case $# in
+    0)	commit=;;
+    1)	commit="$1"; shift;;
+    *)	printUsage "$0" >&2
+	exit 2
+esac
+
+oldValue=''	# Note: Empty <oldvalue> ensures that the $newBranch reference doesn't exist yet.
+[ "$isForce" ] && oldValue="$(git rev-parse --verify --quiet "$newBranch" 2>/dev/null)"
+
+exec git update-ref -m "${GIT_CREATEBRANCH_WHAT:-Create} $newBranch from $commit" "refs/heads/$newBranch" "$commit" "$oldValue"

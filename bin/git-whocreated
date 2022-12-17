@@ -1,0 +1,102 @@
+#!/bin/bash
+set -o pipefail
+shopt -qs extglob
+
+printUsage()
+{
+    cat <<HELPTEXT
+Show who did the initial commit for FILE(s) (grouped by author, or with
+--summary a count and percentage distribution of who contributed how many FILEs)
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-s|--summary] [<log-args> ...] [--] FILE [...] [-?|-h|--help]'
+}
+
+action=printAuthors
+typeset -a logArgs=()
+typeset -a files=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+
+	--summary|-s)	shift; action=printSummary;;
+
+	# Ignore options that influence commit formatting (we need just the
+	# author), and diff options.
+	-+([cmtpuz]))	shift;;
+	--@(abbrev-commit|no-abbrev-commit|oneline|no-notes|show-signature|relative-date|parents|children|left-right|graph|cc|patch|no-patch|raw|patch-with-raw|numstat|shortstat|summary|patch-with-stat|name-only|name-status|no-color))	shift;;
+	-[U])	shift; shift;;
+	--@(pretty|format|notes|date|unified|stat|dirstat|submodule|color|word-diff|word-diff-regex|color-words)=*)	shift;;
+	--@(pretty|format|notes|date|unified|stat|dirstat|submodule|color|word-diff|word-diff-regex|color-words))	shift; shift;;
+	--)		shift; files=("$@"); break;;
+	*)		logArgs+=("$1"); shift;;
+    esac
+done
+if [ ${#files[@]} -eq 0 ]; then
+    # No files after -- captured yet; need to investigate parsed and
+    # remaining args from behind for files.
+    logArgs+=("$@")
+    while [ ${#logArgs[@]} -ne 0 ]
+    do
+	lastArg="${logArgs[-1]}"
+	[ -e "$lastArg" ] || break
+
+	files=("$lastArg" "${files[@]}")
+	logArgs=("${logArgs[@]:0:${#logArgs[@]}-1}")
+    done
+fi
+if [ ${#files[@]} -eq 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+let commitNum=0
+typeset -A authorCommitCount=() authorFiles=()
+for filespec in "${files[@]}"
+do
+    author="$(git log --pretty='tformat:%aN' "${logArgs[@]}" -- "$filespec" | tail --lines 1)" || continue
+    [ -n "$author" ] || continue
+
+    authorFiles["$author"]+="${authorFiles["$author"]:+$'\n'}      $filespec"
+
+    if [ -z "${authorCommitCount["$author"]}" ]; then
+	authorCommitCount["$author"]=1
+    else
+	authorCommitCount["$author"]=$((${authorCommitCount["$author"]} + 1))
+    fi
+    let commitNum+=1
+done
+
+readarray -t sortedAuthors < <(
+    for author in "${!authorCommitCount[@]}"
+    do
+	printf '%d\t%s\n' "${authorCommitCount["$author"]}" "$author"
+    done \
+	| sort --field-separator $'\t' --key 1,1nr --key 2,2 \
+	| field --field-separator $'\t' --remove 1
+)
+
+printAuthors()
+{
+    local separator=
+    local author; for author in "${sortedAuthors[@]}"
+    do
+	printf '%s%s (%d):\n%s\n' "$separator" "$author" ${authorCommitCount["$author"]} "${authorFiles["$author"]}"
+	separator=$'\n'
+    done
+}
+
+printSummary()
+{
+    local author; for author in "${sortedAuthors[@]}"
+    do
+	printf '%6d %3d%%  %s\n' ${authorCommitCount["$author"]} $((100 * ${authorCommitCount["$author"]} / commitNum)) "$author"
+    done
+}
+
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+eval '$action "$@"' "${pager:+|}" '"${pager[@]}"'

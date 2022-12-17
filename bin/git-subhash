@@ -24,5 +24,16 @@ if [ $# -gt 2 ]; then
 elif [ $# -eq 2 ]; then
     ref="$1"; shift
 fi
+absoluteSubmodule="$(realpath --no-symlinks -- "${1:?}")" || exit 3
+if ! absoluteSuperprojectRoot="$(git superproject "$submodule")"; then
+    printf >&2 'ERROR: Not a submodule: %s\n' "$absoluteSubmodule"
+    exit 1
+fi
+relativeSubmodule="${absoluteSubmodule#${absoluteSuperprojectRoot}/}"
+if [ "$relativeSubmodule" = "$absoluteSubmodule" ]; then
+    printf >&2 "ERROR: Submodule '%s' is not inside superproject '%s'.\\n" "$absoluteSubmodule" "$absoluteSuperprojectRoot"
+    exit 3
+fi
 
-exec git rev-parse "${revParseArgs[@]}" "${ref}:${1:?}"
+cd "$absoluteSuperprojectRoot" || exit 3
+exec git rev-parse "${revParseArgs[@]}" "${ref}:${relativeSubmodule}"

@@ -4,9 +4,10 @@ set -e
 printUsage()
 {
     cat <<HELPTEXT
-Test whether the current working copy directly refers to a tagged commit.
+Test whether the current working copy / passed FILESPEC directly refers to a
+tagged commit.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-p|--print] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-p|--print] [FILESPEC] [-?|-h|--help]'
 }
 redir='>/dev/null 2>&1'
 case "$1" in
@@ -15,6 +16,19 @@ case "$1" in
 			shift;;
     --color)		shift; shift;;
     --print|-p)		shift; redir='2>/dev/null';;
+esac
+case $# in
+    0)	;;
+    1)	if [ -d "$1" ]; then
+	    dirspec="$1"
+	else
+	    dirspec="$(dirname -- "$1")"
+	fi
+	[ "$dirspec" = '.' ] || cd "$dirspec" || exit 3
+	;;
+    *)	printUsage "$0" >&2
+	exit 2
+	;;
 esac
 
 eval "exec git describe --tags --exact-match HEAD${redir:+ }${redir}"

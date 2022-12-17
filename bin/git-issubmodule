@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-p|--print|-t|--print-toplevel] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-p|--print|-t|--print-toplevel] [FILESPEC] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -19,7 +19,8 @@ printLongUsage()
     # This is the long "man page" when launched with the help argument.
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
-Test whether the current working copy is a submodule of another repository.
+Test whether the current working copy / passed FILESPEC is a submodule of
+another repository.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
@@ -40,6 +41,19 @@ case "$1" in
     --print|-p)		shift; isPrint=t;;
     --print-toplevel|-t)
 			shift; isPrint=t; isToplevel=t;;
+esac
+case $# in
+    0)	;;
+    1)	if [ -d "$1" ]; then
+	    dirspec="$1"
+	else
+	    dirspec="$(dirname -- "$1")"
+	fi
+	[ "$dirspec" = '.' ] || cd "$dirspec" || exit 3
+	;;
+    *)	printUsage "$0" >&2
+	exit 2
+	;;
 esac
 
 superprojectDirspec="$(git rev-parse --show-superproject-working-tree)" || exit 3

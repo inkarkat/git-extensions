@@ -3,16 +3,29 @@
 printUsage()
 {
     cat <<HELPTEXT
-Test whether the current working copy is a secondary worktree. (That is, links
-to a GIT_DIR that is shared with another working copy.)
+Test whether the current working copy / passed FILESPEC is a secondary worktree.
+(That is, links to a GIT_DIR that is shared with another working copy.)
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[FILESPEC] [-?|-h|--help]'
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
     --no-color|--color=*)
 			shift;;
     --color)		shift; shift;;
+esac
+case $# in
+    0)	;;
+    1)	if [ -d "$1" ]; then
+	    dirspec="$1"
+	else
+	    dirspec="$(dirname -- "$1")"
+	fi
+	[ "$dirspec" = '.' ] || cd "$dirspec" || exit 3
+	;;
+    *)	printUsage "$0" >&2
+	exit 2
+	;;
 esac
 
 gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit $?

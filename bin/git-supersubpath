@@ -3,20 +3,28 @@
 printUsage()
 {
     cat <<HELPTEXT
-Show the path of the current submodule as it's recorded in the superproject;
-i.e. \$sm_path.
+Show the path of the current submodule / passed [FILESPEC] as it's recorded in
+the superproject; i.e. \$sm_path.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[FILESPEC] [-?|-h|--help]'
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
-if [ $# -ne 0 ]; then
-    printUsage "$0" >&2
-    exit 2
-fi
-
+case $# in
+    0)	;;
+    1)	if [ -d "$1" ]; then
+	    dirspec="$1"
+	else
+	    dirspec="$(dirname -- "$1")"
+	fi
+	[ "$dirspec" = '.' ] || cd "$dirspec" || exit 3
+	;;
+    *)	printUsage "$0" >&2
+	exit 2
+	;;
+esac
 
 submoduleRoot="$(git root)" || exit $?
 superprojectRoot="$(git superproject)" || exit 1

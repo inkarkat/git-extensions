@@ -65,4 +65,12 @@ if [ -n "$oldOrigin" ]; then
     git remote rename origin upstream || exit $?
 fi
 
-exec git remote add -f origin "${url:?}"
+git remote add -f origin "${url:?}" || exit $?
+
+trackedBranch="$(git-tracks 2>/dev/null)"
+if [ -n "$trackedBranch" -a "${trackedBranch%%/*}" != origin ]; then
+    newTrackedBranch="origin/${trackedBranch#*/}"
+    if userBinaryChoice --introduction "The current branch currently tracks ${trackedBranch}." --question "Track $newTrackedBranch instead?" --yes-no; then
+	git track "$newTrackedBranch"
+    fi
+fi

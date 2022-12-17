@@ -51,7 +51,14 @@ do
     esac
 done
 
-git log --pretty=tformat:%s "${gitLogArgs[@]}" | awk -v what="$what" -v pattern="$pattern" -v filterPattern="$filterPattern" '
+whatdid()
+{
+    git log --pretty=tformat:%s "${gitLogArgs[@]}" \
+	| awk \
+	    -v what="$what" \
+	    -v pattern="$pattern" \
+	    -v filterPattern="$filterPattern" \
+'
 {
     commitCount += 1
     for (i = 1; i <= NF && $i ~ pattern; i++) {
@@ -85,3 +92,7 @@ END {
     }
 }
 '
+}
+
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+eval 'whatdid' "${pager:+|}" '"${pager[@]}"'

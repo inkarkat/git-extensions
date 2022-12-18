@@ -1,0 +1,127 @@
+#!/bin/bash
+set -o noglob -o pipefail
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--revision REVISION] [--author=<pattern>|--committer=<pattern> ...] [--no-range|--with-range ...] [--one-more] [--with-log-args|--with-log-args-except-last] ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... BASE ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [...]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Print / execute GIT-COMMAND with a revision range starting from the current HEAD
+/ passed REVISION to the very first commit from the passed author / committer(s)
+(or the author (+ committer if different) from the start revision)
+- appended
+- replacing USERRANGE argument(s) anywhere
+- replacing USERRANGE in the following GIT-COMMAND and -(N-1) arguments
+- replacing USERRANGE in the following +(N) arguments and appending those
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    cat <<HELPTEXT
+    --no-range	    Only use the first commit from the passed author.
+    --with-range ...
+		    Use ... instead of .. as the range specifier.
+    --one-more	    Include the commit preceding the author's first commit.
+    --with-log-args All GIT-COMMAND arguments should also be used when
+		    determining the revision range.
+    --with-log-args-except-last
+		    All GIT-COMMAND arguments expect the very last should also
+		    be used when determining the revision range.
+HELPTEXT
+}
+revision=
+range=..
+isShowOneMore=
+typeset userFilterArgs=()
+withLogArgs=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)		    shift; printLongUsage "$0"; exit 0;;
+	--revision|-r)		    shift; revision="$1"; shift;;
+	--author|--committer)	    userFilterArgs+=("$1" "$2"); shift; shift;;
+	--author=*|--committer=*)   userFilterArgs+=("$1"); shift;;
+	--no-range)		    shift; range=;;
+	--with-range)		    shift; range="$1"; shift;;
+	--one-more)		    shift; isShowOneMore=t;;
+	--with-log-args)	    shift; withLogArgs=all;;
+	--with-log-args-except-last)
+				    shift; withLogArgs=except-last;;
+	*)			    break;;
+    esac
+done
+
+isCountedAppend=
+typeset -a countedArgs=()
+case "$1" in
+    +[1-9])
+	isCountedAppend=t;&
+    -[1-9])
+	typeset countedArgNum=${1#[+-]}
+	typeset countedArgNum=${1#-}
+	countedArgs=("${@:2:${countedArgNum}}")
+	set -- "${@:$((2 + countedArgNum))}"
+
+	executor()
+	{
+	    countedArgs=("${countedArgs[@]//USERRANGE/${revisionRange}}")
+
+	    [ "$isCountedAppend" ] \
+		&& exec git-wrapper "$@" "${countedArgs[@]}" \
+		|| exec git-wrapper "${countedArgs[@]}" "$@"
+	}
+	;;
+    --keep-position)
+	shift
+	countedArgs=("$@"); set --
+
+	executor()
+	{
+	    exec git-wrapper "${countedArgs[@]//USERRANGE/${revisionRange}}"
+	}
+	;;
+    *)	countedArgs=("$@"); set --
+	executor()
+	{
+	    exec git-wrapper "${countedArgs[@]}" "$revisionRange"
+	}
+	;;
+esac
+
+if [ ${#userFilterArgs[@]} -eq 0 ]; then
+    author="$(git show --no-patch --pretty=format:'%aN <%aE>' "${revision:-HEAD}")" || exit $?
+    committer="$(git show --no-patch --pretty=format:'%cN <%cE>' "${revision:-HEAD}")" || exit $?
+    userFilterArgs+=(--author "$author")
+    [ "$author" = "$committer" ] || userFilterArgs+=(--committer "$committer")
+fi
+typeset sharedLogArgs=()
+case "$withLogArgs" in
+    all)	    sharedLogArgs+=("$@");;
+    except-last)    sharedLogArgs+=("${@:1:$(($#-1))}");;
+esac
+
+startRevision="$(git-firstcommit "${userFilterArgs[@]}" "${revision:-HEAD}" "${sharedLogArgs[@]}")" || exit $?
+revisionRange="${startRevision:?}${range:+^}${isShowOneMore:+^}${range}${range:+${revision}}"
+
+if [ ${#countedArgs[@]} -eq 0 -a $# -eq 0 ]; then
+    printf '%s\n' "$revisionRange"
+    exit 0
+else
+    executor "$@"
+fi

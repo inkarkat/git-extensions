@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--revision REVISION] [--author=<pattern>|--committer=<pattern> ...] [--no-range|--with-range ...] [--one-more] [--with-log-args|--with-log-args-except-last] ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--revision REVISION] [--author=<pattern>|--committer=<pattern> ...] [--no-range|--with-range ...] [--one-more] [--with-log-args|--with-log-args-except-last|--pass-file-args] ... [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [... --author=<pattern>|--committer=<pattern> ...] '
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... USERRANGE ... --author=<pattern>|--committer=<pattern> ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [... --author=<pattern>|--committer=<pattern> ...]'
@@ -39,17 +39,25 @@ HELPDESCRIPTION
 		    Use ... instead of .. as the range specifier.
     --one-more	    Include the commit preceding the author's first commit.
     --with-log-args All GIT-COMMAND arguments should also be used when
-		    determining the revision range.
+		    determining the revision range. FILE arguments are passed to
+		    GIT-COMMAND as well.
     --with-log-args-except-last
 		    All GIT-COMMAND arguments expect the very last should also
 		    be used when determining the revision range.
+    --pass-file-args
+		    Pass FILE arguments also to GIT-COMMAND, and not just use
+		    them to determine the revision range.
 HELPTEXT
 }
 
 # Need to parse off --author|--committer from anywhere first; these here select
 # the user and do not filter commits by author (for that we have "git logby").
+# Same for --with-log-args-except-last to determine that the last argument is
+# not a file argument.
 typeset userFilterArgs=()
+withLogArgs=
 typeset -a allargs=()
+typeset -a files=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -58,16 +66,39 @@ do
 			userFilterArgs+=("$1" "$2"); shift; shift;;
 	--author=*|--committer=*)
 			userFilterArgs+=("$1"); shift;;
-	--)		allargs+=("$1"); shift; break;;
+	--with-log-args-except-last)
+			shift; withLogArgs=except-last;;
+	--)		shift
+			if [ "$withLogArgs" = except-last ]; then
+			    allargs+=("${!#}")
+			    files=("${@:1:$(($#-1))}")
+			else
+			    files=("$@")
+			fi
+			break
+			;;
 	*)		allargs+=("$1"); shift;;
     esac
 done
-set -- "${allargs[@]}" "$@"
+if [ ${#files[@]} -eq 0 ]; then
+    # No files after -- captured yet; need to investigate parsed and
+    # remaining args from behind for files.
+    allargs+=("$@")
+    while [ ${#allargs[@]} -ne 0 ]
+    do
+	lastArg="${allargs[-1]}"
+	[ -e "$lastArg" ] || break
+
+	files=("$lastArg" "${files[@]}")
+	allargs=("${allargs[@]:0:${#allargs[@]}-1}")
+    done
+fi
+set -- "${allargs[@]}"
 
 revision=
 range=..
 isShowOneMore=
-withLogArgs=
+isPassFileArgs=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -77,11 +108,14 @@ do
 	--with-range)		    shift; range="$1"; shift;;
 	--one-more)		    shift; isShowOneMore=t;;
 	--with-log-args)	    shift; withLogArgs=all;;
-	--with-log-args-except-last)
-				    shift; withLogArgs=except-last;;
+	# --with-log-args-except-last already parsed above.
+	--pass-file-args)	    shift; isPassFileArgs=t;;
 	*)			    break;;
     esac
 done
+if [ "$isPassFileArgs" ]; then
+    set -- "$@" ${files[*]:+--} "${files[@]}"
+fi
 
 isCountedAppend=
 typeset -a countedArgs=()
@@ -128,11 +162,11 @@ if [ ${#userFilterArgs[@]} -eq 0 ]; then
 fi
 typeset sharedLogArgs=()
 case "$withLogArgs" in
-    all)	    sharedLogArgs+=("$@");;
-    except-last)    sharedLogArgs+=("${@:1:$(($#-1))}");;
+    all)	    sharedLogArgs+=("$@" ${files[*]:+--} "${files[@]}");;
+    except-last)    sharedLogArgs+=("${@:1:$(($#-1))}" ${files[*]:+--} "${files[@]}");;
 esac
 
-startRevision="$(git-firstcommit "${userFilterArgs[@]}" "${revision:-HEAD}" "${sharedLogArgs[@]}")" || exit $?
+startRevision="$(git-firstcommit "${userFilterArgs[@]}" "${revision:-HEAD}" "${sharedLogArgs[@]}" ${files[*]:+--} "${files[@]}")" || exit $?
 revisionRange="${startRevision:?}${range:+^}${isShowOneMore:+^}${range}${range:+${revision}}"
 
 if [ ${#countedArgs[@]} -eq 0 -a $# -eq 0 ]; then

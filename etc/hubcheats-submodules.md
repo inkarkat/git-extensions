@@ -47,7 +47,7 @@ superproject: `$ withSeparator -c git\ boml -c hub-bomsubchanges | cb && gh pr e
 When only one / few submodules are affected and the integration is trivial.
 a) from superproject: `$ withSeparator -c git\ boml -c git-servername\ -m | cb && hub subsamebrdo --no-git-color --interactive pull-request`
    paste the server into the description text
-b) from submodule(s): `$ withSeparator -c git\ boml -c git-servername\ -m | cb && hub pull-request`
+b) from submodule(s): `$ withSeparator -c git\ superdo\ --no-header\ boml -c git\ boml -c git-servername\ -m | cb && hub pull-request`
    paste the server into the description text
 
 ## c) peer review of superproject (optional)

@@ -53,9 +53,31 @@ do
     esac
 done
 
+convertAutoLinksToUrls()
+{
+    local gitDir; gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit 3
+    typeset -a sedArgs=()
+    while IFS=$' \t' read -r keyPrefix urlTemplate
+    do
+	literalKeyPrefix="$(printf %s "$keyPrefix" | sed -e 's/[][\$*.^#]/\\&/g')"
+	literalUrlTemplate="$urlTemplate"
+	literalUrlTemplate="${literalUrlTemplate//\\/\\\\}"
+	literalUrlTemplate="${literalUrlTemplate//&/\\&}"
+	literalUrlTemplate="${literalUrlTemplate/<num>/\\2}"
+	sedArgs+=(-e "s#\\(^\\|[[:space:](<[]\\)${literalKeyPrefix}\\([0-9]\\+\\)\\(\$\\|[])>,;[:space:]]\\)#\\1${literalUrlTemplate//#/\\#}\\3#g")
+    done < <(memoizeFile --file "${gitDir}/hub-autolinks.cache" --for 1w --tee --redirect -- hub-autolinks list)
+
+    if [ ${#sedArgs[@]} -eq 0 ]; then
+	cat
+    else
+	sed "${sedArgs[@]}"
+    fi
+}
+
 parseUrlsFromLog()
 {
     git lo "${logArgs[@]}" "$@" \
+	| convertAutoLinksToUrls \
 	| grep -o "${GIT_LOGBROWSE_URL_SCHEMES}${GIT_LOGBROWSE_URL_CHARACTERS}" \
 	| uniqueStable
 }

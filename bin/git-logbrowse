@@ -1,0 +1,97 @@
+#!/bin/bash
+set -o pipefail
+shopt -qs extglob
+
+: ${GIT_LOGBROWSE_URL_SCHEMES:='\(http\|https\|file\|ftp\)://'}
+: ${GIT_LOGBROWSE_URL_CHARACTERS:='[^][ ()<>",;]\+'}
+
+printUsage()
+{
+    cat <<HELPTEXT
+Extract URLs from log messages and open (print with -p|--print) them in the
+browser.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-p|--print] [--accept-single] [--single-only] [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+}
+openBrowser()
+{
+    if [ -n "$GIT_LOGBROWSE_BROWSER" ]; then
+	exec "$GIT_LOGBROWSE_BROWSER" "$@"
+    elif type -P browse >/dev/null; then
+	exec browse "$@"
+    elif type -P x-www-browser >/dev/null; then
+	exec x-www-browser "$@"
+    elif type -P xdg-open >/dev/null; then
+	exec xdg-open "$@"
+    else
+	echo >&2 'ERROR: Cannot find a web browser; point the GIT_LOGBROWSE_BROWSER environment variable to one.'
+	exit 5
+    fi
+}
+isPrint=
+typeset -a commandOnSelectedArgs=()
+typeset -a logArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--browse)	shift; openBrowser "$@"; exit $?;;
+	--@(accept-single|single-only))
+			commandOnSelectedArgs+=("$1"); shift;;
+	--print|-p)	shift; isPrint=t;;
+
+	# Ignore options that influence commit formatting (we need just the
+	# summary and message), and diff options.
+	-+([cmtpuz]))	shift;;
+	--@(abbrev-commit|no-abbrev-commit|oneline|no-notes|show-signature|relative-date|parents|children|left-right|graph|cc|patch|no-patch|raw|patch-with-raw|numstat|shortstat|summary|patch-with-stat|name-only|name-status|no-color))	shift;;
+	-[U])	shift; shift;;
+	--@(pretty|format|notes|date|unified|stat|dirstat|submodule|color|word-diff|word-diff-regex|color-words)=*)	shift;;
+	--@(pretty|format|notes|date|unified|stat|dirstat|submodule|color|word-diff|word-diff-regex|color-words))	shift; shift;;
+	--)		logArgs+=("$1"); shift; break;;
+	*)		logArgs+=("$1"); shift;;
+    esac
+done
+
+convertAutoLinksToUrls()
+{
+    local gitDir; gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit 3
+    typeset -a sedArgs=()
+    while IFS=$' \t' read -r keyPrefix urlTemplate
+    do
+	literalKeyPrefix="$(printf %s "$keyPrefix" | sed -e 's/[][\$*.^#]/\\&/g')"
+	literalUrlTemplate="$urlTemplate"
+	literalUrlTemplate="${literalUrlTemplate//\\/\\\\}"
+	literalUrlTemplate="${literalUrlTemplate//&/\\&}"
+	literalUrlTemplate="${literalUrlTemplate/<num>/\\2}"
+	sedArgs+=(-e "s#\\(^\\|[[:space:](<[]\\)${literalKeyPrefix}\\([0-9]\\+\\)\\(\$\\|[])>,;[:space:]]\\)#\\1${literalUrlTemplate//#/\\#}\\3#g")
+    done < <(memoizeFile --file "${gitDir}/hub-autolinks.cache" --for 1w --tee --redirect -- hub-autolinks list)
+
+    if [ ${#sedArgs[@]} -eq 0 ]; then
+	cat
+    else
+	sed "${sedArgs[@]}"
+    fi
+}
+
+parseUrlsFromLog()
+{
+    git lo "${logArgs[@]}" "$@" \
+	| convertAutoLinksToUrls \
+	| grep -o "${GIT_LOGBROWSE_URL_SCHEMES}${GIT_LOGBROWSE_URL_CHARACTERS}" \
+	| uniqueStable
+}
+
+readarray -t urls < <(parseUrlsFromLog; printf '\n%d\n' "$?")	# Exit status from the process substitution is lost; return the actual exit status via an appended additional line.
+[ ${urls[-1]} -ne 0 ] && exit ${urls[-1]}
+unset 'urls[-1]'
+[ -z "${urls[-1]}" ] && unset 'urls[-1]'
+[ ${#urls[@]} -gt 0 ] || exit 99
+
+if [ "$isPrint" ]; then
+    printf '%s\n' "${urls[@]}"
+    exit 0
+else
+    printf -v quotedScriptFilespec %q "${BASH_SOURCE[0]}"
+    exec commandOnSelected "${commandOnSelectedArgs[@]}" --command "$quotedScriptFilespec --browse" -- "${urls[@]}"
+fi

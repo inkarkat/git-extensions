@@ -34,9 +34,9 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
-    --range-is-last The last argument is the range. Use if the range looks like
-		    A..B,  not --since or --max-count, and doesn't immediately
-		    follow GIT-COMMAND.
+    --range-is-last The last (total last, or last of the -(N) / +(N)) argument
+		    is the range. Use if the range looks like A..B,  not --since
+		    or --max-count, and doesn't immediately follow GIT-COMMAND.
 HELPTEXT
 }
 isRangeLastArg=
@@ -58,6 +58,7 @@ if [ $# -eq 0 ]; then
     exit 2
 fi
 
+typeset -a rangeArgs=()
 isCountedAppend=
 typeset -a countedAppendGitCommand=()
 case "$1" in
@@ -68,6 +69,11 @@ case "$1" in
 	typeset countedArgNum=${1#-}
 	typeset -a countedArgs=("${@:2:${countedArgNum}}")
 	set -- "${@:$((2 + countedArgNum))}"
+	if [ "$isRangeLastArg" ]; then
+	    rangeArgs=("${countedArgs[$((${#countedArgs[@]}-1))]}")
+	    countedArgs=("${countedArgs[@]:0:$((${#countedArgs[@]}-1))}")
+	    isRangeLastArg=
+	fi
 	if [ "$isCountedAppend" ]; then
 	    # Need to shift the GIT-COMMAND off to avoid that it is later parsed off as a rangeArg.
 	    countedAppendGitCommand=("$1"); shift
@@ -141,12 +147,11 @@ if [ ${#files[@]} -eq 0 ]; then
 fi
 set -- "${gitCommandArgs[@]}"
 
-typeset -a rangeArgs=()
 typeset -a rangeModificationArgs=()
 if [ "$isRangeLastArg" ] && [ $# -gt 0 ]; then
     rangeArgs=("${!#}")
     set -- "${@:1:$(($#-1))}"
-else
+elif [ ${#rangeArgs[@]} -eq 0 ]; then
     while [ $# -ne 0 ]
     do
 	case "$1" in

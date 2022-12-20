@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--accept-single] [--single-only] [--range-is-last] ... --since <date>|--max-count <number>|-n <number>|<range> [<git-command-args> ...] [--] [FILE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--accept-single] [--single-only] [--range-is-last] [--pass-file-args] ... --since <date>|--max-count <number>|-n <number>|<range> [<git-command-args> ...] [--] [FILE ...] [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [GIT-COMMAND-ARGS ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... COMMITS ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
@@ -37,9 +37,13 @@ HELPDESCRIPTION
     --range-is-last The last (total last, or last of the -(N) / +(N)) argument
 		    is the range. Use if the range looks like A..B,  not --since
 		    or --max-count, and doesn't immediately follow GIT-COMMAND.
+    --pass-file-args
+		    Pass FILE arguments also to GIT-COMMAND, and not just use
+		    them to determine the commits.
 HELPTEXT
 }
 isRangeLastArg=
+isPassFileArgs=
 typeset -a commandOnSelectedArgs=()
 while [ $# -ne 0 ]
 do
@@ -49,6 +53,8 @@ do
 			commandOnSelectedArgs+=("$1"); shift;;
 	--range-is-last)
 			shift; isRangeLastArg=t;;
+	--pass-file-args)
+			shift; isPassFileArgs=t;;
 	*)		break;;
     esac
 done
@@ -189,4 +195,5 @@ elif [ $status -ne 0 ]; then
     exit $status
 fi
 
-executor "$@"
+[ "$isPassFileArgs" ] || files=()
+executor "$@" ${files:+--} "${files[@]}"

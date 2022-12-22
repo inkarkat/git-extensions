@@ -7,8 +7,9 @@ Test whether there are / list uncommitted changes, either in the working copy or
 the index.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [--] [<path> ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet|-E|--print-error] [--] [<path> ...] [-?|-h|--help]'
 }
+isPrintError=
 isQuiet=
 while [ $# -ne 0 ]
 do
@@ -17,6 +18,8 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
+	--print-error|-E)
+			shift; isPrintError=t;;
 	--quiet|-q)	shift; isQuiet=t;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
@@ -44,6 +47,9 @@ else
 	# Note: Re-execute the status command because it does not (Git version
 	# 2.39.0) support any --color=always and the captured output has no
 	# coloring.
-	[ -n "$paths" ] && runStatus "$@"
+	if [ -n "$paths" ]; then
+	    [ ! "$isPrintError" ] || echo >&2 'ERROR: working copy is still dirty; please clean up first.'
+	    runStatus "$@"
+	fi
     fi
 fi

@@ -3,21 +3,39 @@
 printUsage()
 {
     cat <<HELPTEXT
-Test whether there are uncommitted changes, either in the working copy or the
-index.
+Test whether there are / list uncommitted changes, either in the working copy or
+the index.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--] [<path> ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet|-E|--print-error [--error-message MSG]] [--] [<path> ...] [-?|-h|--help]'
 }
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
+errorMessage='ERROR: working copy is still dirty; please clean up first.'
+isPrintError=
+isQuiet=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
 			shift;;
-    --color)		shift; shift;;
-    --)			shift;;
-esac
+	--color)	shift; shift;;
+	--print-error|-E)
+			shift; isPrintError=t;;
+	--error-message)
+			shift; errorMessage="$1"; shift;;
+	--quiet|-q)	shift; isQuiet=t;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 
-if [ $# -eq 0 ]; then
+runStatus()
+{
+    git status --short --untracked-files=no -- "$@" 2>/dev/null
+}
+
+if [ "$isQuiet" ] && [ $# -eq 0 ]; then
     # An empty repository causes "git diff-index" to complain about "fatal: bad
     # revision 'HEAD'", so it would be considered dirty if we didn't check for
     # that here.
@@ -25,5 +43,13 @@ if [ $# -eq 0 ]; then
 
     ! { git update-index --refresh >/dev/null  && git diff-index --cached --quiet HEAD --; } # Note: Could use "! git-staged --quiet" here as well, but let's avoid the indirection here.
 else
-    [ "$(git status --short --untracked-files=no -- "$@" 2>/dev/null)" ]
+    paths="$(runStatus "$@")"
+    [ -n "$paths" ] || exit 1
+    [ "$isQuiet" ] && exit 0
+
+    # Note: Re-execute the status command because it does not (Git version
+    # 2.39.0) support any --color=always and the captured output has no
+    # coloring.
+    [ ! "$isPrintError" ] || printf >&2 '%s\n' "$errorMessage"
+    runStatus "$@"
 fi

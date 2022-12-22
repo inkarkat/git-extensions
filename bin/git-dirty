@@ -7,8 +7,9 @@ Test whether there are / list uncommitted changes, either in the working copy or
 the index.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet|-E|--print-error] [--] [<path> ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet|-E|--print-error [--error-message MSG]] [--] [<path> ...] [-?|-h|--help]'
 }
+errorMessage='ERROR: working copy is still dirty; please clean up first.'
 isPrintError=
 isQuiet=
 while [ $# -ne 0 ]
@@ -20,6 +21,8 @@ do
 	--color)	shift; shift;;
 	--print-error|-E)
 			shift; isPrintError=t;;
+	--error-message)
+			shift; errorMessage="$1"; shift;;
 	--quiet|-q)	shift; isQuiet=t;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
@@ -48,7 +51,7 @@ else
 	# 2.39.0) support any --color=always and the captured output has no
 	# coloring.
 	if [ -n "$paths" ]; then
-	    [ ! "$isPrintError" ] || echo >&2 'ERROR: working copy is still dirty; please clean up first.'
+	    [ ! "$isPrintError" ] || printf >&2 '%s\n' "$errorMessage"
 	    runStatus "$@"
 	fi
     fi

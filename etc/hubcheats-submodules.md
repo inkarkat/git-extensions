@@ -90,7 +90,7 @@ fast-forward).
 `$ git ofetch`
 Check that the amend of the superproject wasn't forgotten and that every
 submodule has been reintegrated already.
-`! git dirty && git bomsubmodules | git subdo --for - --predicate-command '[ "$(git brname --real-branch-only)" != main ]' --command 'git brname; false'`
+`$ ! git dirty && git bomsubmodules | acceptStatus 99 git subdo --for - --predicate-command '[ "$(git brname --real-branch-only)" != main ]' --command 'git brname; false'`
 0) submodule branch(es) have just been fast-forwarded
    `$ hub ffintegratetom`
 a) single commit and then only amends to short-lived feature:

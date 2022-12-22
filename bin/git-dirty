@@ -44,15 +44,12 @@ if [ "$isQuiet" ] && [ $# -eq 0 ]; then
     ! { git update-index --refresh >/dev/null  && git diff-index --cached --quiet HEAD --; } # Note: Could use "! git-staged --quiet" here as well, but let's avoid the indirection here.
 else
     paths="$(runStatus "$@")"
-    if [ "$isQuiet" ]; then
-	[ -n "$paths" ]
-    else
-	# Note: Re-execute the status command because it does not (Git version
-	# 2.39.0) support any --color=always and the captured output has no
-	# coloring.
-	if [ -n "$paths" ]; then
-	    [ ! "$isPrintError" ] || printf >&2 '%s\n' "$errorMessage"
-	    runStatus "$@"
-	fi
-    fi
+    [ -n "$paths" ] || exit 1
+    [ "$isQuiet" ] && exit 0
+
+    # Note: Re-execute the status command because it does not (Git version
+    # 2.39.0) support any --color=always and the captured output has no
+    # coloring.
+    [ ! "$isPrintError" ] || printf >&2 '%s\n' "$errorMessage"
+    runStatus "$@"
 fi

@@ -240,7 +240,7 @@ confirmFastForward()
 confirmMerge()
 {
     local aheadBehind="$(GIT_INOUT_INDICATOR_PREFIX='is ' GIT_INOUT_INDICATOR_SUFFIX=' vs.' git ab --indicator-only --base "$targetTracks")"
-    local choice; choice="$(userchoiceFromList --question "Your $targetBranch branch ${aheadBehind:-has diverged from} ${targetTrackedRemote}; do you want to stop here and merge that first?" --no-cancel --ignore-case -- '[Y]es' '[N]o' 'Show [C]ontext' '[S]hell')" || exit $?
+    local choice; choice="$(userchoiceFromList --keep-prompt --question "Your $targetBranch branch ${aheadBehind:-has diverged from} ${targetTrackedRemote}; do you want to stop here and merge that first?" --no-cancel --ignore-case -- '[Y]es' '[N]o' 'Show [C]ontext' '[S]hell')" || exit $?
     case "$choice" in
 	Yes) ;;
 	No) return 4;;
@@ -374,7 +374,7 @@ else
 		commitNum=$(git log --pretty=tformat:%H "HEAD..${branches[-1]}" | wc -l)
 		commitNumPlural=s; [ $commitNum -eq 1 ] && commitNumPlural=
 		branchNum=${#branches[@]}; [ $branchNum -eq 1 ] && branchNum=
-		userBinaryChoice --console --question "The $commitNum commit$commitNumPlural on the ${branchNum}${branchNum:+ }branch$branchesPlural can be fast-forwarded instead of merged. Fast-forward?" --yes-no && fastForwardArgs=(--ff-only)
+		userBinaryChoice ---keep-prompt -console --question "The $commitNum commit$commitNumPlural on the ${branchNum}${branchNum:+ }branch$branchesPlural can be fast-forwarded instead of merged. Fast-forward?" --yes-no && fastForwardArgs=(--ff-only)
 	    elif canRebase; then
 		hubNote=; if [ "$HUB" ] && [ -n "$pullRequestTitles" ]; then
 		    hubNote='Note: GitHub cannot detect the rebase and will say that the PR has been closed. If you need proper indication, please quit now and directly rebase in GitHub itself instead.'
@@ -382,7 +382,7 @@ else
 			hubNote+=" (But be aware that the CHECK-COMMAND(s) won't be executed then.)"
 		    fi
 		fi
-		choice="$(userchoiceFromList --question "The branch$branchesPlural only consist$verbPlural of a single commit. Rebase $branchesSubject instead of creating a separate merge commit?${hubNote:+$'\n'}${hubNote}" --no-cancel --ignore-case -- '[Y]es' '[N]o' '[Q]uit')" || exit $?
+		choice="$(userchoiceFromList --keep-prompt --question "The branch$branchesPlural only consist$verbPlural of a single commit. Rebase $branchesSubject instead of creating a separate merge commit?${hubNote:+$'\n'}${hubNote}" --no-cancel --ignore-case -- '[Y]es' '[N]o' '[Q]uit')" || exit $?
 		case "$choice" in
 		    Yes)
 			isRebase=t;;

@@ -45,7 +45,7 @@ if [ -n "$branchName" ]; then
     if [ "$isYes" ] || git-equals "$branchName" HEAD; then
 	: # Directly on the detached branch, go for it!
     else
-	userBinaryChoice --question "'${branchName}' contains the current revision; forward to and check out that?" --yes-no || branchName=''
+	userBinaryChoice --keep-prompt --question "'${branchName}' contains the current revision; forward to and check out that?" --yes-no || branchName=''
     fi
 fi
 if [ -z "$branchName" ]; then
@@ -56,13 +56,13 @@ if [ -z "$branchName" ]; then
     elif [ ${#containedBranches[@]} -eq 1 ]; then
 	branchName="${containedBranches[0]}"
 	if [ ! "$isYes" ]; then
-	    userBinaryChoice --question "'${branchName}' is contained in the current revision; go back and check out that?" --yes-no || exit 4
+	    userBinaryChoice --keep-prompt --question "'${branchName}' is contained in the current revision; go back and check out that?" --yes-no || exit 4
 	fi
     else
 	if [ "$isYes" ]; then
 	    echo >&2 'ERROR: Multiple contained candidate branches found.'
 	    exit 1
-	elif ! branchName="$(userchoiceFromList --question 'Choose a contained branch to go back to:' -- "${containedBranches[@]}")"; then
+	elif ! branchName="$(userchoiceFromList --keep-prompt --question 'Choose a contained branch to go back to:' -- "${containedBranches[@]}")"; then
 	    exit 4
 	fi
     fi

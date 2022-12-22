@@ -46,7 +46,7 @@ done
 if [ $# -eq 0 -a -z "$fromCommit" ]; then
     if [ ! "$isYes" ] && git-ismerge "$commit"; then
 	# The commit has been merged from a branch; this is dubious.
-	userBinaryChoice --question "The last commit is a merge, you should use \"git unmerge\" to undo the merge and checkout the original branch again; really move to that?" --yes-no || exit 4
+	userBinaryChoice --keep-prompt --question "The last commit is a merge, you should use \"git unmerge\" to undo the merge and checkout the original branch again; really move to that?" --yes-no || exit 4
     fi
 else
     if [ -n "$fromCommit" ]; then
@@ -63,7 +63,7 @@ else
 	let commitNum+=commitOffset
 	# The commit has been merged from a branch; this is dubious.
 	if [ ! "$isYes" ]; then
-	    userBinaryChoice --question "The target commit is on a side branch that was merged into the current branch; really move to that?" --yes-no || exit 4
+	    userBinaryChoice --keep-prompt --question "The target commit is on a side branch that was merged into the current branch; really move to that?" --yes-no || exit 4
 	fi
     else
 	[ "$isQuiet" ] || echo >&2 'ERROR: The target commit is not an ancestor of the current branch!'
@@ -90,7 +90,7 @@ commitNumPlural=s; [ $commitNum -eq 1 ] && commitNumPlural=
 if [ "$isYes" ]; then
     [ "$isQuiet" ] || printf >&2 'Moving %d commit%s onto %s.\n' "$commitNum" "$commitNumPlural" "$branchName"
 else
-    userBinaryChoice --question "Really move $commitNum commit${commitNumPlural} onto branch '$branchName'?" --yes-no || exit 4
+    userBinaryChoice --keep-prompt --question "Really move $commitNum commit${commitNumPlural} onto branch '$branchName'?" --yes-no || exit 4
 fi
 
 git-wrapper checkout -b "$branchName" "$branchCommit" || exit $?

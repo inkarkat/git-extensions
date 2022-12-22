@@ -194,15 +194,6 @@ do
 	*)		break;;
     esac
 done
-sourceBranch="$(git-brname --real-branch-only)" || exit $?
-if [ -z "$targetBranch" ]; then
-    echo 'ERROR: Missing <branch>.'
-    exit 2
-elif [ "$targetBranch" = "$sourceBranch" ]; then
-    printf 'ERROR: Cannot integrate %s onto itself; check out a different branch first.\n' "$targetBranch"
-    exit 2
-fi >&2
-
 if [ "${!#}" = '-' ]; then
     isCheckFromStdin=t
     set -- "${@:1:$(($#-1))}"
@@ -218,6 +209,19 @@ elif [ -n "$GIT_REINTEGRATE_CHECK_COMMAND" -a ${#checkCommands[@]} -eq 0 ]; then
     checkCommands=("$GIT_REINTEGRATE_CHECK_COMMAND")
 fi
 [ "$isDisableChecks" ] && checkCommands=()
+
+sourceBranch="$(git-brname --real-branch-only)" || exit $?
+if [ -z "$targetBranch" ]; then
+    echo 'ERROR: Missing <branch>.'
+    exit 2
+elif [ "$targetBranch" = "$sourceBranch" ]; then
+    printf 'ERROR: Cannot integrate %s onto itself; check out a different branch first.\n' "$targetBranch"
+    exit 2
+elif git-dirty; then
+    echo 'ERROR: working copy is still dirty; please clean up first.'
+    git status
+    exit 1
+fi >&2
 
 typeset -a contextShortener=(headtail --separator $'\t\t\t\t\t[...]')
 confirmFastForwardTarget()

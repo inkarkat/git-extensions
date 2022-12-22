@@ -83,9 +83,13 @@ do
     esac
 done
 if [ -z "$targetBranch" ]; then
-    echo >&2 'ERROR: Missing <branch>.'
+    echo 'ERROR: Missing <branch>.'
     exit 2
-fi
+elif git-dirty; then
+    echo 'ERROR: working copy is still dirty; please clean up first.'
+    git status
+    exit 1
+fi >&2
 
 isOnTargetBranch=; [ "$targetBranch" = "$sourceBranch" ] && isOnTargetBranch=t
 if [ "$isOnTargetBranch" ] && [ ! "$isContinue" ]; then

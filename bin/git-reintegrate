@@ -177,11 +177,15 @@ fi
 
 branches+=("$@")
 if [ ${#branches[@]} -eq 0 ]; then
-    echo >&2 'Need (at least one) <branch> to merge!'
+    echo 'Need (at least one) <branch> to merge!'
     exit 2
 elif ! git-existsbr --verbose "${branches[@]}"; then
     exit 1
-fi
+elif git-dirty; then
+    echo 'ERROR: working copy is still dirty; please clean up first.'
+    git status
+    exit 1
+fi >&2
 
 branchesPlural=es
 branchesSubject=them

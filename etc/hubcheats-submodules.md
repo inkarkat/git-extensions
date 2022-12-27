@@ -88,7 +88,7 @@ onto the branch, push that, wait for the action, and then can reintegrate (or
 push the corresponding button in GitHub; both of which should be a simple
 fast-forward).
 `$ git ofetch`
-`$ git superffintegratetom` (or do it manually:)
+`$ hub superffintegratetom` (or do it manually:)
 Check that the amend of the superproject wasn't forgotten and that every
 submodule has been reintegrated already.
 `$ ! git dirty && git bomsubmodules | acceptStatus 99 git subdo --for - --predicate-command '[ "$(git brname --real-branch-only)" != main ]' --command 'git brname; false'`

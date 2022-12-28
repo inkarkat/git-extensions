@@ -17,15 +17,15 @@ case "$1" in
     --color)		shift; shift;;
 esac
 
-gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit $?
-
-if [ -f "${gitDir}/MERGE_HEAD" ]; then
+if git-ismerging; then
     if versionCompare "$(git --version 2>/dev/null)" -lt 1.7.4 2>/dev/null; then
 	exec git reset --merge
     else
 	exec git merge --abort
     fi
-elif [ -f "${gitDir}/CHERRY_PICK_HEAD" ]; then
+elif gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit 3
+    [ -f "${gitDir:?}/CHERRY_PICK_HEAD" ]
+then
     exec git cherry-pick --abort
 else
     echo >&2 "ERROR: It appears that you're neither merging nor cherry-picking."

@@ -7,24 +7,40 @@ Keep "ours", the original one we had (ORIG_HEAD), or the one we're rebasing
 onto, in case of merge conflicts.
 Supply <paths> or use -a to apply this to all conflicted files in the index.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-a|--all] [--] [<file>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '-a|--all | [--] <path> [...] [-?|-h|--help]'
 }
-typeset -a gitCheckoutIndexArgs=()
-typeset -a gitAddArgs=()
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
+isAll=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
 			shift;;
-    --color)		shift; shift;;
-    --all|-a)		gitCheckoutIndexArgs+=("$1"); shift; gitAddArgs+=(--update);;
-esac
-if [ ${#gitCheckoutIndexArgs[@]} -eq 0 -a $# -eq 0 ]; then
-    # Alert when no file passed; git checkout then prints the unhelpful "fatal: --ours/--theirs is incompatible with switching branches"
-    printUsage "$0" >&2
+	--color)	shift; shift;;
+	--all|-a)	shift; isAll=t;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if ! git-ismerging; then
+    echo 'ERROR: Not currently merging.'
+    exit 1
+elif [ "$isAll" ]; then
+    if [ $# -gt 0 ]; then
+	printUsage "$0"
+	exit 2
+    fi
+    readarray -t files < <(git-conflicts)
+    if [ ${#files[@]} -eq 0 ]; then
+	echo 'ERROR: No conflicts.'
+	exit 99
+    fi
+    set -- "${files[@]}"
+elif [ $# -eq 0 ]; then
+    printUsage "$0"
     exit 2
-fi
+fi >&2
 
-# Prefer checkout-index over checkout --ours because it can process all
-# conflicts with --all.
-git checkout-index -f --stage=2 "${gitCheckoutIndexArgs[@]}" "$@" && \
-    git add "${gitAddArgs[@]}" "$@"
+git checkout --ours -- "$@" \
+    && git add "$@"

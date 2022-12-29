@@ -4,11 +4,20 @@ printUsage()
 {
     cat <<HELPTEXT
 Join two or more development histories together.
-Also considers submodules and automatically checks out resulting versions
-(unless --no-submodule-update is given).
+    --no-submodule-update
+			Do not consider submodules and automatically check out
+			resulting versions.
+    --ours		Force conflicting hunks to be auto-resolved cleanly by
+			favoring our version. Changes from the other tree that
+			do not conflict with our side are reflected in the merge
+			result.
+    --theirs		Force conflicting hunks to be auto-resolved cleanly by
+			favoring the other tree's version. Changes from our side
+			that do not conflict with the other tree are reflected
+			in the merge result.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-submodule-update] [<merge-args> ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-submodule-update] [--ours|--theirs] [<merge-args> ...] [-?|-h|--help]'
 }
 
 isSubmoduleUpdate=t
@@ -22,6 +31,8 @@ do
 	--color)	shift; shift;;
 	--no-submodule-update)
 			shift; isSubmoduleUpdate=;;
+	--ours)		shift; mergeArgs+=(--strategy=recursive --strategy-option=ours);;
+	--theirs)	shift; mergeArgs+=(--strategy=recursive --strategy-option=theirs);;
 	--)		mergeArgs+=("$1"); shift; break;;
 	*)		mergeArgs+=("$1"); shift;;
     esac

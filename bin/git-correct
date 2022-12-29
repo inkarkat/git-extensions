@@ -20,12 +20,21 @@ gitInWorkingCopy()
     git ${workingCopyFilespec:+inside} "$@" ${workingCopyFilespec:+-- "$workingCopyFilespec"}
 }
 
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
+isAmend=
+typeset -a commitArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
 			shift;;
-    --color)		shift; shift;;
-esac
+	--color)	shift; shift;;
+	--amend)	commitArgs+=("$1"); shift; isAmend=t;;
+	--)		commitArgs+=("$1"); shift; break;;
+	*)		commitArgs+=("$1"); shift;;
+    esac
+done
+set -- "${commitArgs[@]}" "$@"
 if [ $# -eq 0 ]; then
     echo >&2 'ERROR: Must pass <commit>!'
     exit 2
@@ -55,7 +64,16 @@ cleanup()
 
     remainingLines="$(grep -v -e "^(${GIT_CORRECT_REFERENCE_MESSAGE} [[:xdigit:]]\\+)\$")"
     remainingLines="${remainingLines%%+($'\n')}"
-} < <(gitInWorkingCopy lo1 "$commitId")
+} < <(
+    if [ "$isAmend" ]; then
+	# Use the to-be-amended message, and just add the correction commit ID
+	# references.
+	git lo1
+    else
+	# Use the original commit's message as the base for editing.
+	gitInWorkingCopy lo1 "$commitId"
+    fi
+)
 printf "%s (after %s)\\n%s\\n\\n(${GIT_CORRECT_REFERENCE_MESSAGE} %s)\\n" "$titleLine" "${repoContext}${repoContext:+}${shortCommitId}" "$remainingLines" "${repoContext}${repoContext:+}${commitId}" > "$commitMessageFilespec" || exit $?
 
 exec git-wrapper commit --edit --file "$commitMessageFilespec" "${@:1:$(($#-1))}"

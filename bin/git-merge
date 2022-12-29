@@ -15,9 +15,12 @@ Join two or more development histories together.
 			favoring the other tree's version. Changes from our side
 			that do not conflict with the other tree are reflected
 			in the merge result.
+    --record-only	No-op merge that always uses the current branch head and
+			ignores all changes from all other branches, effectively
+			just recording that a merge has happened.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-submodule-update] [--ours|--theirs] [<merge-args> ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-submodule-update] [--ours|--theirs|--record-only] [<merge-args> ...] [-?|-h|--help]'
 }
 
 isSubmoduleUpdate=t
@@ -33,6 +36,7 @@ do
 			shift; isSubmoduleUpdate=;;
 	--ours)		shift; mergeArgs+=(--strategy=recursive --strategy-option=ours);;
 	--theirs)	shift; mergeArgs+=(--strategy=recursive --strategy-option=theirs);;
+	--record-only)	shift; mergeArgs+=(--strategy=ours);;
 	--)		mergeArgs+=("$1"); shift; break;;
 	*)		mergeArgs+=("$1"); shift;;
     esac

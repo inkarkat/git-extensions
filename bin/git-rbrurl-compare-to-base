@@ -8,7 +8,7 @@ Print the URL of a compare view of HEAD (as branch name (if exists, unless
 --base-to-rev) / the commit returned by BASE-COMMAND.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '--remote REMOTE --base BASE-COMMIT|--base-command BASE-COMMAND [--base-to-rev] [--short[=length]] [--commit-to-rev] [COMMIT] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--remote REMOTE --base BASE-COMMIT|--base-command BASE-COMMAND [--base-to-rev] [--short[=length]] [--commit-to-rev] [[--commit] COMMIT] [-?|-h|--help]'
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '--remote REMOTE --range RANGE'
 }
@@ -27,6 +27,7 @@ do
 	--base)		shift; base="${1:?}"; shift;;
 	--base-command)	shift; base="$(git-wrapper "$1")" || exit $?; shift;;
 	--base-to-rev)	shift; isNormalizeBaseRev=t;;
+	--commit)	shift; commit="${1:?}"; shift;;
 	--commit-to-rev)
 			shift; isNormalizeCommitRev=t;;
 	--short*)	revParseArgs+=("$1"); shift;;
@@ -47,10 +48,18 @@ do
     esac
 done
 case $# in
-    0)	commit='HEAD';;
-    1)	commit="${1:?}"; shift;;
+    0)	;;
+    1)	if [ -n "$commit" ]; then
+	    echo 'ERROR: COMMIT already given.'
+	    echo
+	    printUsage "$0"
+	    exit 2
+	fi >&2
+	commit="${1:?}"; shift
+	;;
     *)	printUsage "$0" >&2; exit 2;;
 esac
+: ${commit:=HEAD}
 
 if [ "$isNormalizeBaseRev" ]; then
     base="$(git rev-parse "${revParseArgs[@]}" "$base")" || exit $?

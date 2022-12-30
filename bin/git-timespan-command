@@ -7,27 +7,30 @@ printUsage()
 {
     cat <<HELPTEXT
 Print / execute GIT-COMMAND with a revision range starting from the first
-revision committed ${GIT_TIMESPANCOMMAND_WHEN:-\$GIT_TIMESPANCOMMAND_TIMESPAN ago}; possibly including one previous commit
-(with --no-range, only the starting revision will be used)
+revision committed ${GIT_TIMESPANCOMMAND_WHEN:-\$GIT_TIMESPANCOMMAND_TIMESPAN ago} (starting with the current
+commit / REVISION); possibly including one previous commit (with --no-range,
+only the starting revision will be used)
 - appended
 - replacing TIMESPAN argument(s) anywhere
 - replacing TIMESPAN in the following GIT-COMMAND and -(N-1) arguments
 - replacing TIMESPAN in the following +(N) arguments and appending those
 HELPTEXT
     local requiredEnvironmentVariables; [ -n "$GIT_TIMESPANCOMMAND_TIMESPAN" ] || requiredEnvironmentVariables='GIT_TIMESPANCOMMAND_TIMESPAN=SINCE-ARG'
-    printf "Usage: ${requiredEnvironmentVariables}${requiredEnvironmentVariables:+ }%q %s\\n" "$(basename "$1")" '[--no-range|--range] [--one-more] ... [-?|-h|--help]'
+    printf "Usage: ${requiredEnvironmentVariables}${requiredEnvironmentVariables:+ }%q %s\\n" "$(basename "$1")" '[-r|--revision REVISION] [--no-range|--range] [--one-more] ... [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [...] [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... TIMESPAN ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [...]'
 }
 
+revision=
 unset isRange
 isShowOneMore=
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--revision|-r)	shift; revision="$1"; shift;;
 	--no-range)	shift; isRange=;;
 	--range)	shift; isRange=t;;
 	--one-more)	shift; isShowOneMore=t;;
@@ -45,14 +48,13 @@ fi
 
 getTimespanAgoCommit()
 {
-    local revision;
-    revision="$(git lh --since "$GIT_TIMESPANCOMMAND_TIMESPAN" | tail -n 1)" || exit $?
-    [ "$revision" ] || exit 1
-    printf %s "$revision"
+    local agoCommit; agoCommit="$(git lh --since "$GIT_TIMESPANCOMMAND_TIMESPAN" ${revision:+"$revision"} | tail -n 1)" || exit $?
+    [ -n "$agoCommit" ] || exit 1
+    printf %s "$agoCommit"
 }
 
 typeset -a rangeArgs=()
-if [ -z "${isRange+t}" ] && [ ! "$isShowOneMore" ]; then
+if [ -z "$revision" -o "$revision" = 'HEAD' ] && [ -z "${isRange+t}" ] && [ ! "$isShowOneMore" ]; then
     # For commands that don't require a range and don't require a single commit
     # (i.e. the log variants), we can directly inject the --since argument.
     rangeArgs=('--since' "$GIT_TIMESPANCOMMAND_TIMESPAN")

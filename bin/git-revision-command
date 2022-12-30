@@ -1,0 +1,70 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Execute GIT-COMMAND with the name of a passed -r|--revision REVISION (or kept as
+HEAD)
+- appended
+- replacing REVISION argument(s) anywhere
+- replacing REVISION in the following GIT-COMMAND and -(N-1) arguments
+- replacing REVISION in the following +(N) arguments and appending those
+(Like git-branch-command, but using -r|--revision instead of -b|--branch.)
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--revision REVISION] [--real-revision-name] [--] ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... REVISION ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [...]'
+}
+
+revision=
+typeset -a args=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--revision|-r)	if [ "$2" = REVISION ]; then
+			    args+=("$1" "$2"); shift; shift
+			else
+			    shift; revision="$1"; shift
+			fi
+			;;
+	--real-revision-name)
+			shift; revision="$(git-brname --raw)" || exit $?;;
+	--)		break;;
+	*)		args+=("$1"); shift;;
+    esac
+done
+set -- "${args[@]}" "$@"
+: ${revision:=HEAD}
+
+if [ $# -eq 0 ]; then
+    echo >&2 'ERROR: No GIT-COMMAND passed.'
+    exit 2
+fi
+
+isCountedAppend=
+case "$1" in
+    +[1-9])
+	isCountedAppend=t;&
+    -[1-9])
+	typeset countedArgNum=${1#[+-]}
+	typeset -a countedArgs=("${@:2:${countedArgNum}}")
+	set -- "${@:$((2 + countedArgNum))}"
+
+	countedArgs=("${countedArgs[@]//REVISION/${revision}}")
+
+	[ "$isCountedAppend" ] \
+	    && exec git-wrapper "$@" "${countedArgs[@]}" \
+	    || exec git-wrapper "${countedArgs[@]}" "$@"
+	;;
+    --keep-position)
+	shift
+	exec git-wrapper "${@//REVISION/${revision}}"
+	;;
+    *)
+	exec git-wrapper "$@" "$revision"
+	;;
+esac

@@ -179,9 +179,21 @@ if [ ${#rangeArgs[@]} -eq 0 ] && [ ! "$GIT_SELECTEDCOMMIT_NO_MANDATORY_RANGE" ];
     exit 2
 fi
 
+appendMergeIndicator()
+{
+    sed \
+	-e 's/\t[[:xdigit:]]\+\( [[:xdigit:]]\+\)\+$/ [37;44m[merge][0m/' \
+	-e 't' \
+	-e 's/\t[[:xdigit:]]\+$//' \
+
+}
+
 readarray -t commits < <(
-    eval "git ${GIT_SELECTEDCOMMIT_COMMAND:-log}" '--pretty="tformat:%H ${GIT_SELECTEDCOMMIT_COMMAND_FORMAT:-%s}" "${rangeModificationArgs[@]}" "${rangeArgs[@]}" ${files:+--} "${files[@]}"' | \
-    truncate-trailing -w | commandWithHiddenId --stdin -p -c "commandOnSelected --stdin${commandOnSelectedArgs:+ }${commandOnSelectedArgs[*]}"
+    : ${GIT_SELECTEDCOMMIT_COMMAND_FORMAT:=$'%s\t%p'}
+    mergeIndicatorCommand=; [[ "$GIT_SELECTEDCOMMIT_COMMAND_FORMAT" =~ $'\t'%p$ ]] && mergeIndicatorCommand=appendMergeIndicator
+    eval "git ${GIT_SELECTEDCOMMIT_COMMAND:-log}" '--pretty="tformat:%H $GIT_SELECTEDCOMMIT_COMMAND_FORMAT" "${rangeModificationArgs[@]}" "${rangeArgs[@]}" ${files:+--} "${files[@]}"' "${mergeIndicatorCommand:+|}$mergeIndicatorCommand" \
+	| truncate-trailing -w \
+	| commandWithHiddenId --stdin -p -c "commandOnSelected --stdin${commandOnSelectedArgs:+ }${commandOnSelectedArgs[*]}"
     printf '\n%d\n' "$?"
 )   # Exit status from the process substitution is lost; return the actual exit status via an appended additional line.
 status=${commits[-1]}

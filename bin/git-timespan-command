@@ -30,7 +30,7 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-	--revision|-r)	shift; revision="$1"; shift;;
+	--revision|-r)	shift; [ "$1" = 'HEAD' ] || revision="$1"; shift;;
 	--no-range)	shift; isRange=;;
 	--range)	shift; isRange=t;;
 	--one-more)	shift; isShowOneMore=t;;
@@ -54,12 +54,13 @@ getTimespanAgoCommit()
 }
 
 typeset -a rangeArgs=()
-if [ -z "$revision" -o "$revision" = 'HEAD' ] && [ -z "${isRange+t}" ] && [ ! "$isShowOneMore" ]; then
+if [ -z "$revision" -a -z "${isRange+t}" ] && [ ! "$isShowOneMore" ]; then
     # For commands that don't require a range and don't require a single commit
     # (i.e. the log variants), we can directly inject the --since argument.
     rangeArgs=('--since' "$GIT_TIMESPANCOMMAND_TIMESPAN")
 else
-    rangeArgs=("$(getTimespanAgoCommit)${isShowOneMore:+^}${isRange:+^..}") || exit $?
+    [ -n "$revision" ] && isRange=t
+    rangeArgs=("$(getTimespanAgoCommit)${isShowOneMore:+^}${isRange:+^..}${revision}") || exit $?
 fi
 
 isCountedAppend=

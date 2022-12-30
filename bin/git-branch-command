@@ -11,19 +11,22 @@ as HEAD)
 - replacing BRANCH in the following +(N) arguments and appending those
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-b|--branch <branch>] [--real-branch-name] [--] ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '([-b|--branch <branch>] [--real-branch-name])|(--mandatory-branch -b|--branch <branch>) [--] ... [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... BRANCH ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [...]'
 }
 
-branch='HEAD'
+isMandatoryBranch=
+branch=
 typeset -a args=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--mandatory-branch)
+			shift; isMandatoryBranch=t;;
 	--branch|-b)	shift; branch="$1"; shift;;
 	--real-branch-name)
 			shift; branch="$(git-brname --raw)" || exit $?;;
@@ -32,6 +35,13 @@ do
     esac
 done
 set -- "${args[@]}" "$@"
+if [ -z "$branch" ]; then
+    if [ "$isMandatoryBranch" ]; then
+	echo >&2 'ERROR: No -b|--branch BRANCH passed.'
+	exit 2
+    fi
+    branch='HEAD'
+fi
 
 if [ $# -eq 0 ]; then
     echo >&2 'ERROR: No GIT-COMMAND passed.'

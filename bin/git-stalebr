@@ -7,7 +7,8 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--bare] [--compare-to <branch>|<commit>|""] [-r|--remote REMOTE|-a] [-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [--] [<branch-glob> ...] [-?|-h|--help]'
+    local hubOptions=; [ "$HUB" ] && hubOptions='[--pull-requests-from-repo WORKING-COPY|[HOST/]OWNER/REPO [--pull-requests-from-repo ...]]'
+    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[--bare] [--compare-to <branch>|<commit>|""] [-r|--remote REMOTE|-a]' "${hubOptions:+ }${hubOptions}" '[-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [--] [<branch-glob> ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -40,6 +41,14 @@ HELPDESCRIPTION
 SUFFIX may be 's' for seconds (the default), 'm' for minutes, 'h' for hours, 'd'
 for days, 'w' for weeks, 'mo' for months, 'y' for years, 'g' for generations.
 HELPTEXT
+    [ "$HUB" ] && cat <<HUB-HELPTEXT
+    --pull-requests-from-repo WORKING-COPY|[HOST/]OWNER/REPO
+			Obtain pull request branches that are not stale (even if
+			older) from WORKING-COPY / the remote OWNER/REPO. Useful
+			if pull requests are opened against a superproject or if
+			the upstream isn't configured properly.
+HUB-HELPTEXT
+}
 
 typeset -a prBranchesCommand=(); [ "$HUB" ] && prBranchesCommand=(hub pr --format '%H%n')
 typeset -A prBranches=()
@@ -67,6 +76,19 @@ do
 	--compare-to)	shift; compareTo="$1"; shift;;
 	-a|-r)		branchScope+=("$1"); shift;;
 	--remote)	branchScope+=("$1" "$2"); shift; shift;;
+	--pull-requests-from-repo)
+			shift
+			if [ -d "$1" ]; then
+			    pushd "$1" >/dev/null || exit 2
+			    readPrBranches
+			    popd >/dev/null || exit 2
+			else
+			    prBranchesCommand=(gh pr list --json headRefName --template '{{range .}}{{.headRefName}}{{"\n"}}{{end}}' --repo "${1:?}")
+			    readPrBranches
+			fi
+			prBranchesCommand=()
+			shift
+			;;
 	-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt)
 			branchFilter=("$1" "$2"); shift; shift;;
 	--)		shift; break;;

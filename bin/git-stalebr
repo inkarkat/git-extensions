@@ -23,6 +23,7 @@ printLongUsage()
     cat <<HELPDESCRIPTION
 List branches that have not been updated in a while (for ${GIT_STALEBR_AGE}).
 HELPDESCRIPTION
+    [ "$HUB" ] && echo 'Excludes branches with an active PR.'
     echo
     printShortUsage "$1"
     echo
@@ -65,11 +66,20 @@ do
     esac
 done
 
+typeset -A prBranches=()
+if [ "$HUB" ]; then
+    while IFS=$'\n' read -r prBranchName
+    do
+	prBranches["$prBranchName"]=t
+    done < <(hub pr --format '%H%n')
+fi
+
 typeset -a staleBranches=()
 typeset -A staleBranchInfos=()
 while IFS=$'\n' read -r branchInfo
 do
     branchName="${branchInfo##*$'\t'}"	# If there's additional information, the branch name is the last field.
+    [ "${prBranches["$branchName"]}" ] && continue
 
     staleBranches+=("$branchName")
     staleBranchInfos["$branchName"]="$branchInfo"

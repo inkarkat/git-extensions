@@ -7,7 +7,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    local hubOptions=; [ "$HUB" ] && hubOptions='[--pull-requests-from-repo WORKING-COPY|[HOST/]OWNER/REPO [--pull-requests-from-repo ...]]'
+    local hubOptions=; [ "$HUB" ] && hubOptions='[--pull-requests-from-repo WORKING-COPY|[HOST/]OWNER/REPO [--pull-requests-from-repo ...] [--pull-requests-from-here]]'
     printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[--bare] [--compare-to <branch>|<commit>|""] [-r|--remote REMOTE|-a]' "${hubOptions:+ }${hubOptions}" '[-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [--] [<branch-glob> ...] [-?|-h|--help]'
 }
 printUsage()
@@ -47,17 +47,22 @@ HELPTEXT
 			older) from WORKING-COPY / the remote OWNER/REPO. Useful
 			if pull requests are opened against a superproject or if
 			the upstream isn't configured properly.
+    --pull-requests-from-here
+			Also obtain pull request branches from the repository
+			itself when --pull-requests-from-repo is used.
 HUB-HELPTEXT
 }
 
-typeset -a prBranchesCommand=(); [ "$HUB" ] && prBranchesCommand=(hub pr --format '%H%n')
+isReadPrBranches=; [ "$HUB" ] || isReadPrBranches=t
 typeset -A prBranches=()
 readPrBranches()
 {
+    [ $# -gt 0 ] || set -- hub pr --format '%H%n'
     while IFS=$'\n' read -r prBranchName
     do
 	prBranches["$prBranchName"]=t
-    done < <("${prBranchesCommand[@]}")
+    done < <("$@")
+    isReadPrBranches=t
 }
 
 isBare=
@@ -83,12 +88,12 @@ do
 			    readPrBranches
 			    popd >/dev/null || exit 2
 			else
-			    prBranchesCommand=(gh pr list --json headRefName --template '{{range .}}{{.headRefName}}{{"\n"}}{{end}}' --repo "${1:?}")
-			    readPrBranches
+			    readPrBranches gh pr list --json headRefName --template '{{range .}}{{.headRefName}}{{"\n"}}{{end}}' --repo "${1:?}"
 			fi
-			prBranchesCommand=()
 			shift
 			;;
+	--pull-requests-from-here)
+			shift; readPrBranches; shift;;
 	-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt)
 			branchFilter=("$1" "$2"); shift; shift;;
 	--)		shift; break;;
@@ -97,7 +102,7 @@ do
     esac
 done
 
-[ ${#prBranchesCommand[@]} -eq 0 ] || readPrBranches
+[ "$isReadPrBranches" ] || readPrBranches
 
 typeset -a staleBranches=()
 typeset -A staleBranchInfos=()

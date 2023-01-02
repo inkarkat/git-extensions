@@ -65,7 +65,15 @@ do
     esac
 done
 
-readarray -t staleBranches < <(git-brage "${additionalBranchInfoArgs[@]}" "${branchFilter[@]}" "${branchScope[@]}" "$@")
+typeset -a staleBranches=()
+typeset -A staleBranchInfos=()
+while IFS=$'\n' read -r branchInfo
+do
+    branchName="${branchInfo##*$'\t'}"	# If there's additional information, the branch name is the last field.
+
+    staleBranches+=("$branchName")
+    staleBranchInfos["$branchName"]="$branchInfo"
+done < <(git-brage "${additionalBranchInfoArgs[@]}" "${branchFilter[@]}" "${branchScope[@]}" "$@")
 [ ${#staleBranches[@]} -gt 0 ] || exit 99
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
@@ -77,19 +85,21 @@ fi
 
 embellishedStaleBranches()
 {
-    for branch in "${staleBranches[@]}"
+    for branchName in "${staleBranches[@]}"
     do
-	branchName="${branch##*$'\t'}"
 	aheadBehind="$(git ab "$branchName" "$compareTo" 2>/dev/null)"
 	[ -z "$aheadBehind" ] || aheadBehind="...${aheadBehind#*...}"
-	printf '%s%s\n' "$branch" "${aheadBehind/ /$'\t'}"
+	printf '%s%s\n' "${staleBranchInfos["$branchName"]}" "${aheadBehind/ /$'\t'}"
     done
 }
 
 staleBranches()
 {
     if [ "$isBare" ] || [ -z "$compareTo" ]; then
-	printf '%s\n' "${staleBranches[@]}"
+	for branchName in "${staleBranches[@]}"
+	do
+	    printf '%s\n' "${staleBranchInfos["$branchName"]}"
+	done
     else
 	eval 'embellishedStaleBranches' "${formatter:+|}" '"${formatter[@]}"'
     fi

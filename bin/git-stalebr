@@ -40,6 +40,15 @@ HELPDESCRIPTION
 SUFFIX may be 's' for seconds (the default), 'm' for minutes, 'h' for hours, 'd'
 for days, 'w' for weeks, 'mo' for months, 'y' for years, 'g' for generations.
 HELPTEXT
+
+typeset -a prBranchesCommand=(); [ "$HUB" ] && prBranchesCommand=(hub pr --format '%H%n')
+typeset -A prBranches=()
+readPrBranches()
+{
+    while IFS=$'\n' read -r prBranchName
+    do
+	prBranches["$prBranchName"]=t
+    done < <("${prBranchesCommand[@]}")
 }
 
 isBare=
@@ -66,13 +75,7 @@ do
     esac
 done
 
-typeset -A prBranches=()
-if [ "$HUB" ]; then
-    while IFS=$'\n' read -r prBranchName
-    do
-	prBranches["$prBranchName"]=t
-    done < <(hub pr --format '%H%n')
-fi
+[ ${#prBranchesCommand[@]} -eq 0 ] || readPrBranches
 
 typeset -a staleBranches=()
 typeset -A staleBranchInfos=()

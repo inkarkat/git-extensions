@@ -24,6 +24,12 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--remote REMOTE] obtain SETTING-NAME'
     echo
     cat <<HELPTEXT
+Set (and cache) GitHub SETTING-NAME to the current repository [in REMOTE].
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--remote REMOTE] set SETTING-NAME VALUE'
+    echo
+    cat <<HELPTEXT
 Update all cached GitHub settings / SETTING-NAME for the current repository [in REMOTE].
 HELPTEXT
     echo
@@ -142,6 +148,38 @@ obtainSetting()
 
     printf '%s\n' "$settingValue"
     return $status
+}
+
+writeSetting()
+{
+    local settingName="${1:?}"; shift
+    local settingValue="${1?}"; shift
+
+    local settingJson; settingJson="$(jo -- "$(toUnderScoreNotation "$settingName")=${settingValue}")" || exit 3
+    # The REST API uses underscore_notation, whereas the JSON query uses
+    # camelCase.
+    apiCall --method PATCH --input <(printf "%s\n" "$settingJson") >/dev/null
+}
+
+setSetting()
+{
+    local settingName="${1:?}"; shift
+    local settingValue="${1?}"; shift
+
+    writeSetting "$settingName" "$settingValue" || return $?
+
+    unset cachedSettingValue
+    cachedSettingValue="$(database --query "$settingName")"
+
+    if [ -z "${cachedSettingValue+t}" ]; then
+	printf 'New %s=%s\n' "$settingName" "$settingValue"
+    elif [ "$cachedSettingValue" != "$settingValue" ]; then
+	printf "Updated %s from '%s' to '%s'.\n" "$settingName" "$cachedSettingValue" "$settingValue"
+    else
+	return 99
+    fi
+
+    database --update "$settingName" --value "$settingValue" || return 3
 }
 
 updateAll()

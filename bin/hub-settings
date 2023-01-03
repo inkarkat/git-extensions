@@ -15,6 +15,12 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--remote REMOTE] get SETTING-NAME'
     echo
     cat <<HELPTEXT
+Obtain (and cache) GitHub SETTING-NAME for the current repository [in REMOTE].
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--remote REMOTE] obtain SETTING-NAME'
+    echo
+    cat <<HELPTEXT
 Update all cached GitHub settings / SETTING-NAME for the current repository [in REMOTE].
 HELPTEXT
     echo
@@ -42,6 +48,7 @@ do
 			remoteRepositoryArg=("$(hub-userrepo "$(git remote get-url "$remote")")") || exit $?;;
 	list)		shift; action=listSettings; break;;
 	get)		shift; action=getSetting; break;;
+	obtain)		shift; action=obtainSetting; break;;
 	update-all)	shift; action=updateAll; break;;
 	update)		shift; action=updateSetting; break;;
 	invalidate-all)	shift; action=invalidateAll; break;;
@@ -87,6 +94,18 @@ querySetting()
 }
 
 getSetting()
+{
+    local settingName="${1:?}"; shift
+    local settingValue
+
+    if settingValue="$(database --query "$settingName")"; then
+	printf '%s\n' "$settingValue"
+    else
+	obtainSetting "$settingName"
+    fi
+}
+
+obtainSetting()
 {
     local settingName="${1:?}"; shift
     local status=0 settingValue

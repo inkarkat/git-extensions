@@ -67,6 +67,8 @@ hub()
 
     typeset hubSubAlias="hub-$1-$2"
     typeset hubAlias="hub-$1"
+    typeset gitSubAlias="git-$1-$2"
+    typeset gitAlias="git-$1"
     if [ $# -eq 0 ]; then
 	HUB=t command hub "${gitConfigArgs[@]}" ${HUB_DEFAULT_COMMAND:-str}
     elif type ${BASH_VERSION:+-t} "$hubSubAlias" >/dev/null 2>&1; then
@@ -75,6 +77,12 @@ hub()
     elif type ${BASH_VERSION:+-t} "$hubAlias" >/dev/null 2>&1; then
 	shift
 	HUB=t $hubAlias "$@"
+    elif type ${BASH_VERSION:+-t} "$gitSubAlias" >/dev/null 2>&1; then
+	shift; shift
+	HUB=t $gitSubAlias "$@"
+    elif type ${BASH_VERSION:+-t} "$gitAlias" >/dev/null 2>&1; then
+	shift
+	HUB=t $gitAlias "$@"
     else
 	HUB=t command hub "${gitConfigArgs[@]}" "$@"
     fi

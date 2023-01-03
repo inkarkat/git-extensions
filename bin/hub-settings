@@ -48,13 +48,14 @@ do
 	--color)	shift; shift;;
 	--remote|-r)	shift
 			remote="${1:?}"; shift
-			remoteRepositoryArg=("$(hub-userrepo "$(git remote get-url "$remote")")") || exit $?
+			remoteRepositoryArg=("$(hub-userrepo "$(git-remote-url "$remote")")") || exit $?
 			HUB_SETTINGS_OWNER="${remoteRepositoryArg[0]%%/*}"
 			HUB_SETTINGS_REPO="${remoteRepositoryArg[0]#*/}"
 			;;
 	list)		shift; action=listSettings; break;;
 	get)		shift; action=getSetting; break;;
 	obtain)		shift; action=obtainSetting; break;;
+	set)		shift; action=setSetting; break;;
 	update-all)	shift; action=updateAll; break;;
 	update)		shift; action=updateSetting; break;;
 	invalidate-all)	shift; action=invalidateAll; break;;
@@ -111,7 +112,7 @@ querySetting()
     # XXX: gh only supports some repo settings; everything else has to be
     # queried via the REST API.
     if gh repo view --json 2>&1 | grep --quiet --fixed-strings --line-regexp "  $settingName"; then
-	gh repo view --json "$settingName" --template "{{.$settingName}}"
+	gh repo view --json "$settingName" --template "{{.$settingName}}" "${remoteRepositoryArg[@]}"
     else
 	# The REST API uses underscore_notation, whereas the JSON query uses
 	# camelCase.

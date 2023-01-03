@@ -74,7 +74,7 @@ listLabels()
     [ $# -eq 0 ] || usageError
 
     apiCall \
-	| jq -r '.[] | "#" + .color + "\t" + .name + "\t" + (.description // "(no description)")' \
+	| jq --raw-output '.[] | "#" + .color + "\t" + .name + "\t" + (.description // "(no description)")' \
 	| eval "column -s \$'\\t' -t" "${isColor:+|colorizeHex}"
 }
 
@@ -87,7 +87,7 @@ setDefaultLabels()
 	unprocessedLabels["$name"]=t
     done < <(
 	apiCall \
-	    | jq -r '.[] | .name'
+	    | jq --raw-output '.[] | .name'
     )
 
     if [ -r "$1" ]; then

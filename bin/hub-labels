@@ -5,6 +5,8 @@ readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" 
 [ -d "$scriptDir" ] || { echo >&2 "ERROR: Cannot determine script directory!"; exit 3; }
 readonly projectDir="${scriptDir}/.."
 
+: ${HUB_LABELS_OWNER:='{owner}'}
+: ${HUB_LABELS_REPO:='{repo}'}
 : ${HUB_LABELS_DEFAULT_LABEL_FILESPEC:=${projectDir}/etc/github-issue-labels.tsv}
 
 printUsage()
@@ -61,13 +63,19 @@ usageError()
     exit 2
 }
 
+unset label
+apiCall()
+{
+    hub api "$@" "repos/${HUB_LABELS_OWNER}/${HUB_LABELS_REPO}/labels${label:+/}${label}"
+}
+
 listLabels()
 {
     [ $# -eq 0 ] || usageError
 
-    hub api 'repos/{owner}/{repo}/labels' | \
-	jq -r '.[] | "#" + .color + "\t" + .name + "\t" + (.description // "(no description)")' | \
-	eval "column -s \$'\\t' -t" "${isColor:+|colorizeHex}"
+    apiCall \
+	| jq -r '.[] | "#" + .color + "\t" + .name + "\t" + (.description // "(no description)")' \
+	| eval "column -s \$'\\t' -t" "${isColor:+|colorizeHex}"
 }
 
 setDefaultLabels()
@@ -78,8 +86,8 @@ setDefaultLabels()
 	existingLabels["$name"]=t
 	unprocessedLabels["$name"]=t
     done < <(
-	hub api 'repos/{owner}/{repo}/labels' | \
-	    jq -r '.[] | .name'
+	apiCall \
+	    | jq -r '.[] | .name'
     )
 
     if [ -r "$1" ]; then
@@ -94,7 +102,7 @@ setDefaultLabels()
 
     local hasPassedLabels=
     typeset -A passedLabels=()
-    local label; for label
+    for label
     do
 	hasPassedLabels=t
 	passedLabels["$label"]=t
@@ -108,10 +116,10 @@ setDefaultLabels()
 
 	local labelJson; labelJson="$(jo -- name="$label" -s color="${color#\#}" description="$description")" || exit $?
 	if [ "${existingLabels["$label"]}" ]; then
-	    hub api --method PATCH --input <(printf "%s\n" "$labelJson") "repos/{owner}/{repo}/labels/${label}" >/dev/null <&3 && \
+	    apiCall --method PATCH --input <(printf "%s\n" "$labelJson") >/dev/null <&3 && \
 		printf 'Updated label "%s"\n' "$label"
 	else
-	    hub api --method POST --input <(printf '%s\n' "$labelJson") 'repos/{owner}/{repo}/labels' >/dev/null <&3 && \
+	    apiCall --method POST --input <(printf '%s\n' "$labelJson") >/dev/null <&3 && \
 		printf 'Added label "%s"\n' "$label"
 	fi
 	unset "unprocessedLabels[$label]"
@@ -141,7 +149,7 @@ deleteLabels()
     local status=0
     for label
     do
-	hub api --method DELETE "repos/{owner}/{repo}/labels/${label}" || status=$?
+	apiCall --method DELETE || status=$?
     done
     return $status
 }

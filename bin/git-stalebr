@@ -7,7 +7,8 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--bare] [--compare-to <branch>|<commit>|""] [-r|--remote REMOTE|-a] [-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [--] [<branch-glob> ...] [-?|-h|--help]'
+    local hubOptions=; [ "$HUB" ] && hubOptions='[--pull-requests-from-repo WORKING-COPY|[HOST/]OWNER/REPO [--pull-requests-from-repo ...] [--pull-requests-from-here]]'
+    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[--bare] [--compare-to <branch>|<commit>|""] [-r|--remote REMOTE|-a]' "${hubOptions:+ }${hubOptions}" '[-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [--] [<branch-glob> ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -23,6 +24,7 @@ printLongUsage()
     cat <<HELPDESCRIPTION
 List branches that have not been updated in a while (for ${GIT_STALEBR_AGE}).
 HELPDESCRIPTION
+    [ "$HUB" ] && echo 'Excludes branches with an active PR.'
     echo
     printShortUsage "$1"
     echo
@@ -39,6 +41,28 @@ HELPDESCRIPTION
 SUFFIX may be 's' for seconds (the default), 'm' for minutes, 'h' for hours, 'd'
 for days, 'w' for weeks, 'mo' for months, 'y' for years, 'g' for generations.
 HELPTEXT
+    [ "$HUB" ] && cat <<HUB-HELPTEXT
+    --pull-requests-from-repo WORKING-COPY|[HOST/]OWNER/REPO
+			Obtain pull request branches that are not stale (even if
+			older) from WORKING-COPY / the remote OWNER/REPO. Useful
+			if pull requests are opened against a superproject or if
+			the upstream isn't configured properly.
+    --pull-requests-from-here
+			Also obtain pull request branches from the repository
+			itself when --pull-requests-from-repo is used.
+HUB-HELPTEXT
+}
+
+isReadPrBranches=; [ "$HUB" ] || isReadPrBranches=t
+typeset -A prBranches=()
+readPrBranches()
+{
+    [ $# -gt 0 ] || set -- hub pr list --format '%H%n'
+    while IFS=$'\n' read -r prBranchName
+    do
+	prBranches["$prBranchName"]=t
+    done < <("$@")
+    isReadPrBranches=t
 }
 
 isBare=
@@ -57,6 +81,19 @@ do
 	--compare-to)	shift; compareTo="$1"; shift;;
 	-a|-r)		branchScope+=("$1"); shift;;
 	--remote)	branchScope+=("$1" "$2"); shift; shift;;
+	--pull-requests-from-repo)
+			shift
+			if [ -d "$1" ]; then
+			    pushd "$1" >/dev/null || exit 2
+			    readPrBranches
+			    popd >/dev/null || exit 2
+			else
+			    readPrBranches gh pr list --json headRefName --template '{{range .}}{{.headRefName}}{{"\n"}}{{end}}' --repo "${1:?}"
+			fi
+			shift
+			;;
+	--pull-requests-from-here)
+			shift; readPrBranches; shift;;
 	-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt)
 			branchFilter=("$1" "$2"); shift; shift;;
 	--)		shift; break;;
@@ -65,7 +102,18 @@ do
     esac
 done
 
-readarray -t staleBranches < <(git-brage "${additionalBranchInfoArgs[@]}" "${branchFilter[@]}" "${branchScope[@]}" "$@")
+[ "$isReadPrBranches" ] || readPrBranches
+
+typeset -a staleBranches=()
+typeset -A staleBranchInfos=()
+while IFS=$'\n' read -r branchInfo
+do
+    branchName="${branchInfo##*$'\t'}"	# If there's additional information, the branch name is the last field.
+    [ "${prBranches["$branchName"]}" -o "${prBranches["${branchName#*/}"]}" ] && continue
+
+    staleBranches+=("$branchName")
+    staleBranchInfos["$branchName"]="$branchInfo"
+done < <(git-brage "${additionalBranchInfoArgs[@]}" "${branchFilter[@]}" "${branchScope[@]}" "$@")
 [ ${#staleBranches[@]} -gt 0 ] || exit 99
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
@@ -77,19 +125,21 @@ fi
 
 embellishedStaleBranches()
 {
-    for branch in "${staleBranches[@]}"
+    for branchName in "${staleBranches[@]}"
     do
-	branchName="${branch##*$'\t'}"
 	aheadBehind="$(git ab "$branchName" "$compareTo" 2>/dev/null)"
 	[ -z "$aheadBehind" ] || aheadBehind="...${aheadBehind#*...}"
-	printf '%s%s\n' "$branch" "${aheadBehind/ /$'\t'}"
+	printf '%s%s\n' "${staleBranchInfos["$branchName"]}" "${aheadBehind/ /$'\t'}"
     done
 }
 
 staleBranches()
 {
     if [ "$isBare" ] || [ -z "$compareTo" ]; then
-	printf '%s\n' "${staleBranches[@]}"
+	for branchName in "${staleBranches[@]}"
+	do
+	    printf '%s\n' "${staleBranchInfos["$branchName"]}"
+	done
     else
 	eval 'embellishedStaleBranches' "${formatter:+|}" '"${formatter[@]}"'
     fi

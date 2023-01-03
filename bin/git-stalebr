@@ -8,7 +8,7 @@ printShortUsage()
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
     local hubOptions=; [ "$HUB" ] && hubOptions='[--pull-requests-from-repo WORKING-COPY|[HOST/]OWNER/REPO [--pull-requests-from-repo ...] [--pull-requests-from-here]]'
-    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[--bare] [--compare-to <branch>|<commit>|""] [-r|--remote REMOTE|-a]' "${hubOptions:+ }${hubOptions}" '[-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [--] [<branch-glob> ...] [-?|-h|--help]'
+    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[--bare] [--compare-to <branch>|<commit>|""] [-r|--remote REMOTE|-a]' "${hubOptions:+ }${hubOptions}" '[-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [--include-current] [--include-master] [--include-base] [--include-all] [--] [<branch-glob> ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -50,6 +50,9 @@ HELPTEXT
     --pull-requests-from-here
 			Also obtain pull request branches from the repository
 			itself when --pull-requests-from-repo is used.
+    --include-current --include-master --include-base --include-all
+			Include persistent branches that would normally be
+			filtered out.
 HUB-HELPTEXT
 }
 
@@ -70,6 +73,7 @@ compareTo="$(git-mbr 2>/dev/null)"
 typeset -a branchFilter=(--older "$GIT_STALEBR_AGE")
 typeset -a branchScope=()
 typeset -a additionalBranchInfoArgs=(--long)
+typeset -a persistentBranchFilters=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -79,8 +83,14 @@ do
 	--color)	shift; shift;;
 	--bare)		shift; isBare=t; additionalBranchInfoArgs=(--bare);;
 	--compare-to)	shift; compareTo="$1"; shift;;
-	-a|-r)		branchScope+=("$1"); shift;;
-	--remote)	branchScope+=("$1" "$2"); shift; shift;;
+	-a|-r)		[ "$1" = '-a' ] && gitFilterOutPersistentBranchesArgs+=(--remote '')
+			branchScope+=("$1"); shift
+			for remote in $(git remote)
+			do
+			    persistentBranchFilters+=(--remote "$remote")
+			done
+			;;
+	--remote)	branchScope+=("$1" "$2"); persistentBranchFilters+=("$1" "$2"); shift; shift;;
 	--pull-requests-from-repo)
 			shift
 			if [ -d "$1" ]; then
@@ -96,6 +106,7 @@ do
 			shift; readPrBranches; shift;;
 	-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt)
 			branchFilter=("$1" "$2"); shift; shift;;
+	--include-*)	persistentBranchFilters+=("$1"); shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -114,6 +125,9 @@ do
     staleBranches+=("$branchName")
     staleBranchInfos["$branchName"]="$branchInfo"
 done < <(git-brage "${additionalBranchInfoArgs[@]}" "${branchFilter[@]}" "${branchScope[@]}" "$@")
+[ ${#staleBranches[@]} -gt 0 ] || exit 99
+
+readarray -t staleBranches < <(printf '%s\n' "${staleBranches[@]}" | git-filter-out-persistent-branches "${persistentBranchFilters[@]}")
 [ ${#staleBranches[@]} -gt 0 ] || exit 99
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)

@@ -1,5 +1,8 @@
 #!/bin/bash
 
+: ${HUB_SETTINGS_OWNER:='{owner}'}
+: ${HUB_SETTINGS_REPO:='{repo}'}
+
 printUsage()
 {
     cat <<HELPTEXT
@@ -45,7 +48,10 @@ do
 	--color)	shift; shift;;
 	--remote|-r)	shift
 			remote="${1:?}"; shift
-			remoteRepositoryArg=("$(hub-userrepo "$(git remote get-url "$remote")")") || exit $?;;
+			remoteRepositoryArg=("$(hub-userrepo "$(git remote get-url "$remote")")") || exit $?
+			HUB_SETTINGS_OWNER="${remoteRepositoryArg[0]%%/*}"
+			HUB_SETTINGS_REPO="${remoteRepositoryArg[0]#*/}"
+			;;
 	list)		shift; action=listSettings; break;;
 	get)		shift; action=getSetting; break;;
 	obtain)		shift; action=obtainSetting; break;;
@@ -76,6 +82,17 @@ database()
     nanoDB --basedir "$gitDir" --namespace hub-settings --table "${remote:?}" "$@"
 }
 
+apiCall()
+{
+    gh api "$@" "repos/${HUB_SETTINGS_OWNER}/${HUB_SETTINGS_REPO}"
+}
+
+toUnderScoreNotation()
+{
+    local camelCaseName="${1?}"; shift
+    printf '%s\n' "$camelCaseName" | sed -e 's/[[:upper:]]/_\l&/g'
+}
+
 usageError()
 {
     printUsage "$0" >&2
@@ -98,9 +115,7 @@ querySetting()
     else
 	# The REST API uses underscore_notation, whereas the JSON query uses
 	# camelCase.
-	local underscoreSettingName; underscoreSettingName="$(printf '%s\n' "$settingName" | sed -e 's/[[:upper:]]/_\l&/g')" || exit 3
-
-	gh api --jq ".${underscoreSettingName:?}" 'repos/{owner}/{repo}'
+	apiCall --jq ".$(toUnderScoreNotation "$settingName")"
     fi
 }
 

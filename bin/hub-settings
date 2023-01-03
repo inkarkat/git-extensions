@@ -90,7 +90,18 @@ listSettings()
 querySetting()
 {
     local settingName="${1:?}"; shift
-    gh repo view --json "$settingName" --template "{{.$settingName}}"
+
+    # XXX: gh only supports some repo settings; everything else has to be
+    # queried via the REST API.
+    if gh repo view --json 2>&1 | grep --quiet --fixed-strings --line-regexp "  $settingName"; then
+	gh repo view --json "$settingName" --template "{{.$settingName}}"
+    else
+	# The REST API uses underscore_notation, whereas the JSON query uses
+	# camelCase.
+	local underscoreSettingName; underscoreSettingName="$(printf '%s\n' "$settingName" | sed -e 's/[[:upper:]]/_\l&/g')" || exit 3
+
+	gh api --jq ".${underscoreSettingName:?}" 'repos/{owner}/{repo}'
+    fi
 }
 
 getSetting()

@@ -72,18 +72,27 @@ do
     esac
 done
 
-gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit $?
+if [ -z "$remote" ]; then
+    # gh sets (single remote) / asks (multiple remotes) for the repository
+    # on the first run if none has been specified so far; this information
+    # is stored (a bit intransparenly; cp.
+    # https://github.com/cli/cli/issues/1864) in the repo's Git
+    # configuration under remote.<remote>.gh-resolved. We can query that to
+    # obtain the selected value.
+    # Source: https://github.com/cli/cli/issues/2300#issuecomment-717476725
+    remote="$(git config --local --get-regexp '\.gh-resolved$' | cut -f2 -d.)"
+    if [ -z "$remote" ]; then
+	gh repo view --json name --template '{{.name}}{{"\n"}}'	# Note: Any repo query will do.
+	remote="$(git config --local --get-regexp '\.gh-resolved$' | cut -f2 -d.)"
+    fi
+fi
 
+gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit $?
 database()
 {
     if [ -z "$remote" ]; then
-	# gh asks for the repository on the first run if none has been specified
-	# so far; this information is stored (a bit intransparenly; cp.
-	# https://github.com/cli/cli/issues/1864) in the repo's Git
-	# configuration under remote.<remote>.gh-resolved. We can query that to
-	# obtain the selected value.
-	# Source: https://github.com/cli/cli/issues/2300#issuecomment-717476725
-	remote="$(git config --local --get-regexp '\.gh-resolved$' | cut -f2 -d.)" || exit 3
+	echo >&2 'Note: Cannot obtain the configured remote; cache access disabled.'
+	return 1
     fi
 
     nanoDB --basedir "$gitDir" --namespace hub-settings --table "${remote:?}" "$@"

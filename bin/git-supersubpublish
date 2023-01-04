@@ -1,0 +1,31 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Publish this submodule's branch to REMOTE, create a commit in the superproject
+and publish its branch to REMOTE, too.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'REMOTE [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+publishCommand=
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    origin)		shift; publishCommand=opublish;;
+    upstream)		shift
+			publishCommand=upublish
+			if [ "$1" = origin ]; then
+			    shift; publishCommand=uopublish
+			fi
+			;;
+esac
+if [ $# -gt 0 -o -z "$publishCommand" ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+exec git-supersubdo --interactive "$publishCommand"

@@ -22,7 +22,7 @@ superproject: `$ git ocosub feat-4711/super-cool`
 ## publish submodule changes
 a) from superproject: `$ git subsamebrdo --interactive opublish`
 b) from submodule(s): `$ git opublish`
-c) single submodule, publish superproject as well: `$ git osupersubpublish`
+c) single submodule, [commit and] publish superproject as well: `$ git osupersubpublish`
 
 ## create integration build
 superproject: `$ git cu && git opublish`

@@ -20,6 +20,12 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" 'list BRANCH [-?|-h|--help]'
     echo
     cat <<HELPTEXT
+Check whether a branch protection rule for the passed BRANCH exists.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'exists BRANCH [-?|-h|--help]'
+    echo
+    cat <<HELPTEXT
 Set force-push protection and PR conversation resolution before merging for the
 passed BRANCH.
 HELPTEXT
@@ -42,6 +48,7 @@ do
 			shift;;
 	--color)	shift; shift;;
 	list)		shift; action=listProtection; break;;
+	exists)		shift; action=existsProtection; break;;
 	set)		shift; action=setProtection; break;;
 	delete)		shift; action=deleteProtection; break;;
 	--)		shift; break;;
@@ -90,6 +97,11 @@ listProtection()
 	    | jq --raw-output '.message'
 	return $status
     fi
+}
+
+existsProtection()
+{
+    listProtection "$@" >/dev/null || return 1
 }
 
 setProtection()

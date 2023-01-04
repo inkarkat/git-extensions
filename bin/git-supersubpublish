@@ -15,7 +15,10 @@ esac
 publishCommand=
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --superpublish)	shift; publishCommand="$1"; shift
+    --superpublish)	shift; publishCommand="$1"; shift; subPath="$1"; shift; commitMessage="$1"; shift
+			if git-dirty --quiet -- "$subPath"; then
+			    git-wrapper commit --edit --message "$commitMessage" -- "$subPath" || exit $?
+			fi
 			exec git-wrapper "$publishCommand"
 			;;
     origin)		shift; publishCommand=opublish;;
@@ -31,5 +34,7 @@ if [ $# -gt 0 -o -z "$publishCommand" ]; then
     exit 2
 fi
 
-printf -v quotedScriptFilespec %q "${BASH_SOURCE[0]}"
-exec git-supersubdo --interactive --super-command "$quotedScriptFilespec --superpublish $publishCommand" --submodule-command "$publishCommand"
+subPath="$(git-supersubpath)" || exit 3
+commitMessage="$(git boml)"
+printf -v quotedSuperCommand '%q ' "${BASH_SOURCE[0]}" --superpublish "$publishCommand" "$subPath" "$commitMessage"
+exec git-supersubdo --interactive --super-command "${quotedSuperCommand% }" --submodule-command "git-wrapper $publishCommand"

@@ -1,0 +1,40 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Publish this submodule's branch to REMOTE, create a commit in the superproject
+and publish its branch to REMOTE, too.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'REMOTE [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+publishCommand=
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --superpublish)	shift; publishCommand="$1"; shift; subPath="$1"; shift; commitMessage="$1"; shift
+			if git-dirty --quiet -- "$subPath"; then
+			    git-wrapper commit --edit --message "$commitMessage" -- "$subPath" || exit $?
+			fi
+			exec git-wrapper "$publishCommand"
+			;;
+    origin)		shift; publishCommand=opublish;;
+    upstream)		shift
+			publishCommand=upublish
+			if [ "$1" = origin ]; then
+			    shift; publishCommand=uopublish
+			fi
+			;;
+esac
+if [ $# -gt 0 -o -z "$publishCommand" ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+subPath="$(git-supersubpath)" || exit 3
+commitMessage="$(git boml)"
+printf -v quotedSuperCommand '%q ' "${BASH_SOURCE[0]}" --superpublish "$publishCommand" "$subPath" "$commitMessage"
+exec git-supersubdo --interactive --super-command "${quotedSuperCommand% }" --submodule-command "git-wrapper $publishCommand"

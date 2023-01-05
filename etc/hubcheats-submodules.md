@@ -22,7 +22,8 @@ superproject: `$ git ocosub feat-4711/super-cool`
 ## publish submodule changes
 a) from superproject: `$ git subsamebrdo --interactive opublish`
 b) from submodule(s): `$ git opublish`
-c) single submodule, [commit and] publish superproject as well: `$ git osupersubpublish`
+c) single submodule, [commit and] publish superproject as well:
+   `$ git osupersubpublish`
 
 ## create integration build
 superproject: `$ git cu && git opublish`
@@ -30,7 +31,7 @@ superproject: `$ git cu && git opublish`
 ## update integration build after submodule work
 a) short-lived feature: `$ git amenu && git opush -f`
    or short `$ git amenupush`
-   or short together with and in a submodule: `$ git osuperamensubpush`
+   or short together with and in a submodule: `$ git osuperamensubpush [-f]`
 b) superproject: maintain history of how the feature grew: `$ git cu && git opush`
 
 ## a) peer review of superproject and submodules (optional)

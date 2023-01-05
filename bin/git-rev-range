@@ -70,17 +70,17 @@ do
 			shift; isOneMorePadding=t;;
 	--one-more-only-to-terminal)
 			shift; isOneMoreOnlyToTerminal=t;;
-	--no-range)	shift; range=;;
+	--no-range)	shift; range='';;
 	--with-range)	shift; range="$1"; shift;;
 	*)		break;;
     esac
 done
-if [ ! "$revision" ]; then
+if [ -z "$revision" ]; then
     echo "ERROR: Missing REVISION!"
     echo
     printUsage "$0"
     exit 2
-elif [ ! "$range" ] && [ "$endRevision" ]; then
+elif [ -z "$range" ] && [ -n "$endRevision" ]; then
     echo "ERROR: --end-revision cannot be combined with --no-range!"
     echo
     printUsage "$0"
@@ -143,7 +143,7 @@ oneMore()
     wrapper "$@"
 }
 
-if [ ! "$(git rev-list "${revision}..${endRevision}" -- 2>/dev/null)" ] && [ "$range" ]; then
+if [ -z "$(git rev-list "${revision}..${endRevision}" -- 2>/dev/null)" ] && [ -n "$range" ]; then
     # Resulting range is empty (but we want a range); abort. Especially with
     # --one-more, we otherwise would use a single commit, and that could be
     # really confusing.
@@ -218,10 +218,12 @@ potentialPadding()
 }
 revRangeWithOneMore()
 {
+    local mergeBase; [ -n "$endRevision" ] && mergeBase="$(git merge-base "$revision" "$endRevision")"
+
     if contains '--reverse' "${countedArgs[@]}" "$@"; then
 	# The (log) output is in reverse order, so the "one more" also needs to
 	# come first instead of last.
-	typeset -a rangeArgs=(--max-count 1 "${colorArg[@]}" "${revision}")
+	typeset -a rangeArgs=(--max-count 1 "${colorArg[@]}" "${mergeBase:-$revision}")
 	executor oneMore "$@" \
 	    && potentialPadding \
 	    && { rangeArgs=("${colorArg[@]}" "${revision}${revisionModifier}${range}${endRevision}"); executor wrapper "$@"; }
@@ -229,7 +231,7 @@ revRangeWithOneMore()
 	typeset -a rangeArgs=("${colorArg[@]}" "${revision}${revisionModifier}${range}${endRevision}")
 	executor wrapper "$@" \
 	    && potentialPadding \
-	    && { rangeArgs=(--max-count 1 "${colorArg[@]}" "${revision}"); executor oneMore "$@"; }
+	    && { rangeArgs=(--max-count 1 "${colorArg[@]}" "${mergeBase:-$revision}"); executor oneMore "$@"; }
     fi
 }
 if [ "$isShowOneMoreOutput" ] && [ ! "$isOneMoreOnlyToTerminal" -o -t 1 ]; then

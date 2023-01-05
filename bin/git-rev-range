@@ -218,10 +218,12 @@ potentialPadding()
 }
 revRangeWithOneMore()
 {
+    local mergeBase; [ -n "$endRevision" ] && mergeBase="$(git merge-base "$revision" "$endRevision")"
+
     if contains '--reverse' "${countedArgs[@]}" "$@"; then
 	# The (log) output is in reverse order, so the "one more" also needs to
 	# come first instead of last.
-	typeset -a rangeArgs=(--max-count 1 "${colorArg[@]}" "${revision}")
+	typeset -a rangeArgs=(--max-count 1 "${colorArg[@]}" "${mergeBase:-$revision}")
 	executor oneMore "$@" \
 	    && potentialPadding \
 	    && { rangeArgs=("${colorArg[@]}" "${revision}${revisionModifier}${range}${endRevision}"); executor wrapper "$@"; }
@@ -229,7 +231,7 @@ revRangeWithOneMore()
 	typeset -a rangeArgs=("${colorArg[@]}" "${revision}${revisionModifier}${range}${endRevision}")
 	executor wrapper "$@" \
 	    && potentialPadding \
-	    && { rangeArgs=(--max-count 1 "${colorArg[@]}" "${revision}"); executor oneMore "$@"; }
+	    && { rangeArgs=(--max-count 1 "${colorArg[@]}" "${mergeBase:-$revision}"); executor oneMore "$@"; }
     fi
 }
 if [ "$isShowOneMoreOutput" ] && [ ! "$isOneMoreOnlyToTerminal" -o -t 1 ]; then

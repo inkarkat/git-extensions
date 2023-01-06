@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-v|--verbose] [-1|--most-only|--csv|--spark] [-c|--committer] [-e|--email] [--each-file|--each-dir [-r|--recursive] [--full]] [<revision range>] [--] [<path> ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-v|--verbose] [--csv|--spark|-n|--names-only|-1|--most-only] [-c|--committer] [-e|--email] [--each-file|--each-dir [-r|--recursive] [--full]] [<revision range>] [--] [<path> ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -29,6 +29,7 @@ HELPDESCRIPTION
     cat <<HELPTEXT
     --verbose|-v	Show details counts of commits, insertions, and
 			deletions.
+    --names-only|-n	Only show the authors that contributed (alphabetically).
     --most-only|-1	Only show the single author with the most contributions.
     --csv		Show the size of contributions and author name,
 			comma-separated.
@@ -56,8 +57,10 @@ if [ ! -t 1 ]; then
     formatter=()
 fi
 isVerbose=
+isAlphabetic=
 logFormat='%aN'
 selector=
+typeset -a postFilter=()
 eachOutputFormatArg='--spark'
 eachType=
 eachRecursion=
@@ -85,13 +88,15 @@ do
 	--committer|-c)	shift; logFormat="${logFormat//%a/%c}";;
 	--email|-e)	shift; logFormat+=' <%aE>';;
 
+	--names-only|-n)
+			shift; isAlphabetic=t; postFilter=(sed -e 's/^[[:space:]]*[[:digit:]]\+%\?[[:space:]]\+//');;
 	--spark)
 	    printf -v postSelector '%q ' fieldMap --field-separator , 2 'gensub(/^[[:digit:]]+$/, "??", 1, $fieldNr)' 2 '|nameToInitials -u' 3 '" "' 4 '" "'
 	    printf -v postSelector '%s | spark' "$postSelector"
 	    ;&	# Continue with CSV.
 	--csv)
 			shift; printf -v selector '%q ' sed -n -e '/^[[:space:]]*<none>$/d' -e 's/^[[:space:]]*\([[:digit:]]\+\)[[:space:]]\+\([^[:space:]].*\)$/\1,\2/p';;
-	--most-only|-1)	shift; selector='countFieldToPercentage 1 | head -n 1';;
+	--most-only|-1)	shift; selector='countFieldToPercentage 1 | head -n 1'; isAlphabetic=;;
 	--)		break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -111,7 +116,11 @@ fi
 
 logContributions()
 {
-    git ${GIT_WHOCONTRIBUTED_LOG_COMMAND:-log} --shortstat --pretty="format:${logFormat}" "$@" | awk -v isVerbose="$isVerbose" '
+    git ${GIT_WHOCONTRIBUTED_LOG_COMMAND:-log} --shortstat --pretty="format:${logFormat}" "$@" \
+	| awk \
+	    -v isAlphabetic="$isAlphabetic" \
+	    -v isVerbose="$isVerbose" \
+    '
     $3 == "changed," {
 	commits[author] += 1
 	if ($5 !~ "^insertion") {
@@ -127,7 +136,11 @@ logContributions()
 	return (v == 1 ? a " " : "s" (a ? a : ""))
     }
     END {
-	PROCINFO["sorted_in"] = "@val_num_desc"
+	if (isAlphabetic) {
+	    PROCINFO["sorted_in"] = "@ind_str_asc"
+	} else {
+	    PROCINFO["sorted_in"] = "@val_num_desc"
+	}
 	for (a in score) {
 	    if (isVerbose) {
 		printf "%7d %-22s: %4d commit%s %5d insertion%s %5d deletion%s\n", score[a], a, commits[a], plural(commits[a], ","), inserted[a], plural(inserted[a], ","), deleted[a], plural(deleted[a])
@@ -139,4 +152,8 @@ logContributions()
     '
 }
 
-eval 'logContributions "$@"' "${selector:+|}$selector" "${postSelector:+|}$postSelector" "${pager:+|}" '"${pager[@]}"'
+eval 'logContributions "$@"' \
+    "${selector:+|}$selector" \
+    "${postSelector:+|}$postSelector" \
+    "${postFilter:+|}" '"${postFilter[@]}"' \
+    "${pager:+|}" '"${pager[@]}"'

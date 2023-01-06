@@ -6,7 +6,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-s|--summary|-n|--names-only] [-c|--committer] [-e|--email] [<log-args> ...] [--] [FILE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-s|--summary|-n|--names-only|-1|--most-only] [-c|--committer] [-e|--email] [<log-args> ...] [--] [FILE ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -31,11 +31,13 @@ HELPDESCRIPTION
 			grouped by authors.
     --names-only|-n	Only show the authors that created files
 			(alphabetically).
+    --most-only|-1	Only show the single author with the most file creations.
 HELPTEXT
 }
 
 action=printAuthors
-typeset -a sortByCountArgs=(--key 1,1nr)
+isAlphabetic=
+isMostOnly=
 logFormat='%aN'
 typeset -a logArgs=()
 typeset -a fileArgs=()
@@ -49,7 +51,8 @@ do
 
 	--summary|-s)	shift; action=printSummary;;
 	--names-only|-n)
-			shift; action=printNamesOnly; sortByCountArgs=();;
+			shift; action=printNamesOnly; isAlphabetic=t;;
+	--most-only|-1)	shift; isMostOnly=t; [ "$action" = printAuthors ] && action=printSummary; isAlphabetic=;;
 	--committer|-c)	shift; logFormat="${logFormat//%a/%c}";;
 	--email|-e)	shift; logFormat+=' <%aE>';;
 
@@ -111,6 +114,7 @@ do
 done
 
 readarray -t sortedAuthors < <(
+    typeset -a sortByCountArgs=(--key 1,1nr); [ "$isAlphabetic" ] && sortByCountArgs=()
     for author in "${!authorCommitCount[@]}"
     do
 	printf '%d\t%s\n' "${authorCommitCount["$author"]}" "$author"
@@ -134,6 +138,7 @@ printSummary()
     local author; for author in "${sortedAuthors[@]}"
     do
 	printf '%6d %3d%%  %s\n' ${authorCommitCount["$author"]} $((100 * ${authorCommitCount["$author"]} / commitNum)) "$author"
+	[ "$isMostOnly" ] && break
     done
 }
 
@@ -142,6 +147,7 @@ printNamesOnly()
     local author; for author in "${sortedAuthors[@]}"
     do
 	printf '%s\n' "$author"
+	[ "$isMostOnly" ] && break
     done
 }
 

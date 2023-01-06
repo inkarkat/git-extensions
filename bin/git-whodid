@@ -62,7 +62,8 @@ typeset -a logArgs=()
 typeset -a shortlogOrderingArg=(--numbered)
 typeset -a shortlogArgs=()
 prettyFormat=short
-typeset -a filter=(grep -v -e '^[[:space:]]*<none>$')
+typeset -a preFilter=(grep -v -e '^[[:space:]]*<none>$')
+typeset -a postFilter=()
 selector=
 isSummary=
 typeset -a nonRecursiveArgs=()
@@ -100,14 +101,14 @@ do
 	--alphabetic|-N)
 			shift; shortlogOrderingArg=();;
 	--names-only|-n)
-	    shift; filter=(sed -e '/^[[:space:]]*<none>$/d' -e 's/^[[:space:]]*[[:digit:]]\+[[:space:]]\+//'); shortlogArgs+=(--summary); shortlogOrderingArg=();;
+	    shift; postFilter=(sed -e 's/^[[:space:]]*[[:digit:]]\+%\?[[:space:]]\+//'); shortlogArgs+=(--summary); shortlogOrderingArg=();;
 	--spark)
 	    printf -v selector '%q ' fieldMap --field-separator , 2 'gensub(/^[[:digit:]]+$/, "??", 1, $fieldNr)' 2 '|nameToInitials -u' 3 '" "' 4 '" "'
 	    printf -v selector '%s | spark' "$selector"
 	    ;&	# Continue with CSV.
 	--csv)
-	    shift; filter=(sed -n -e '/^[[:space:]]*<none>$/d' -e 's/^[[:space:]]*\([[:digit:]]\+\)[[:space:]]\+\([^[:space:]].*\)$/\1,\2/p'); shortlogArgs+=(--summary);;
-	--most-only|-1)	shift; shortlogArgs+=(--summary); isSummary=t; selector='countFieldToPercentage 1 | head -n 1';;
+	    shift; postFilter=(sed -n -e 's/^[[:space:]]*\([[:digit:]]\+%\?\)[[:space:]]\+\([^[:space:]].*\)$/\1,\2/p'); shortlogArgs+=(--summary);;
+	--most-only|-1)	shift; shortlogArgs+=(--summary); isSummary=t; selector='countFieldToPercentage 1 | head -n 1'; shortlogOrderingArg=(--numbered);;
 
 	# Ignore options that influence commit formatting (we need just the
 	# shortlog), and diff options.
@@ -134,11 +135,11 @@ fi
 
 
 [ "$isSummary" ] && [ ${#shortlogOrderingArg[@]} -gt 0 ] && \
-    filter=(sed -e '/^[[:space:]]*1[[:space:]]\+/{ $b }' -e ':loop' -e 's/^[[:space:]]*1[[:space:]]\+\(.*\)$/\1/' -e T -e 'H; $!{ N; s/.*\n//; b loop }' -e '${ g; s/^\n/  Once:\t/; s/\n/, /g }'  )
+    preFilter=(sed -e '/^[[:space:]]*1[[:space:]]\+/{ $b }' -e ':loop' -e 's/^[[:space:]]*1[[:space:]]\+\(.*\)$/\1/' -e T -e 'H; $!{ N; s/.*\n//; b loop }' -e '${ g; s/^\n/  Once:\t/; s/\n/, /g }'  )
 
 if [ ${#logArgs[@]} -eq 0 ]; then
     git shortlog "${shortlogOrderingArg[@]}" "${shortlogArgs[@]}" "$@"
 else
     git log --pretty=$prettyFormat "${logArgs[@]}" "$@" | git shortlog "${shortlogOrderingArg[@]}" "${shortlogArgs[@]}"
 fi | \
-    eval '"${filter[@]}"' "${selector:+|}$selector" "${pager:+|}" '"${pager[@]}"'
+    eval '"${preFilter[@]}"' "${selector:+|}$selector" "${postFilter:+|}" '"${postFilter[@]}"' "${pager:+|}" '"${pager[@]}"'

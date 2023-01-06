@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-1|--most-only|--csv|--spark] [--each-file|--each-dir [-r|--recursive] [--full]] [--since=<date>] [<commit>] [--] <path> [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--csv|--spark|-n|--names-only [-1|--most-only]|-1|--most-only] [-c|--committer] [-e|--email] [--each-file|--each-dir [-r|--recursive] [--full]] [--since=<date>] [<commit>] [--] <path> [...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -26,6 +26,8 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
+    --names-only|-n	Only show the authors that changed files
+			(alphabetically).
     --most-only|-1	Only show the single author with the most changed lines.
     --csv		Show the number of lines and author name,
 			comma-separated.
@@ -55,8 +57,13 @@ if [ ! -t 1 ]; then
     formatter=()
 fi
 typeset -a blameArgs=()
+isEmail=
+blameFilter='author'
 commit=
+typeset -a sorter=(sort -nr)
 selector=
+postSelector=
+typeset -a postFilter=()
 eachOutputFormatArg='--spark'
 eachType=
 eachRecursion=
@@ -81,13 +88,17 @@ do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 
+	--committer|-c)	shift; blameFilter='committer';;
+	--email|-e)	shift; isEmail=t;;
+	--names-only|-n)
+	    shift; sorter=(); postFilter=(sed -e 's/^[[:space:]]*[[:digit:]]\+%\?[[:space:]]\+//');;
 	--spark)
 	    printf -v postSelector '%q ' fieldMap --field-separator , 2 'gensub(/^[[:digit:]]+$/, "??", 1, $fieldNr)' 2 '|nameToInitials -u' 3 '" "' 4 '" "'
 	    printf -v postSelector '%s | spark' "$postSelector"
 	    ;&	# Continue with CSV.
 	--csv)
 			shift; printf -v selector '%q ' sed -n -e '/^[[:space:]]*<none>$/d' -e 's/^[[:space:]]*\([[:digit:]]\+\)[[:space:]]\+\([^[:space:]].*\)$/\1,\2/p';;
-	--most-only|-1)	shift; selector='countFieldToPercentage 1 | head -n 1';;
+	--most-only|-1)	shift; sorter=(sort -nr); selector='countFieldToPercentage 1 | head -n 1';;
 	--since)	blameArgs+=("$1" "$2"); shift; shift;;
 	--since=*)	blameArgs+=("$1"); shift;;
 
@@ -117,6 +128,10 @@ if [ -n "$eachType" ]; then
     exit $?
 fi
 
+[ "$isEmail" ] \
+    && typeset -a blameSedArgs=(-n -e "/^${blameFilter} /{ s/^${blameFilter} //; h; }" -e "/^${blameFilter}-mail /{ s/^${blameFilter}-mail //; H; g; s/\\n/ /; p; }") \
+    || typeset -a blameSedArgs=(-ne "s/^${blameFilter} //p")
+
 for filespec
 do
     if [ -d "$filespec" ]; then
@@ -124,9 +139,13 @@ do
     else
 	printf '%s\0' "$filespec"
     fi
-done | \
-    xargs --no-run-if-empty --null -n 1 git blame --line-porcelain "${blameArgs[@]}" $commit -- | \
-    sed -ne 's/^author //p' | \
-    sort | \
-    uniq -c | \
-    eval 'sort -nr' "${selector:+|}$selector" "${postSelector:+|}$postSelector" "${pager:+|}" '"${pager[@]}"'
+done \
+    | xargs --no-run-if-empty --null -n 1 git blame --line-porcelain "${blameArgs[@]}" $commit -- \
+    | sed "${blameSedArgs[@]}" \
+    | sort \
+    | eval 'uniq -c' \
+	"${sorter:+|}" '"${sorter[@]}"' \
+	"${selector:+|}$selector" \
+	"${postSelector:+|}$postSelector" \
+	"${postFilter:+|}" '"${postFilter[@]}"' \
+	"${pager:+|}" '"${pager[@]}"'

@@ -2,28 +2,59 @@
 set -o pipefail
 shopt -qs extglob globstar nullglob
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-s|--summary|-n|--names-only [-1|--most-only]|-1|--most-only] [-c|--committer] [-e|--email] [<log-args> ...] [--] [FILE ...] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
-Show who did the initial commit for FILE(s) (grouped by author, or with
---summary a count and percentage distribution of who contributed how many FILEs)
-HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Show who did the initial commit for FILE(s) grouped by author).
+HELPDESCRIPTION
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-s|--summary] [<log-args> ...] [--] [FILE ...] [-?|-h|--help]'
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --summary|-s	Only show who contributed how many files (absolute and
+			percentage distribution) for each author, not all files
+			grouped by authors.
+    --names-only|-n	Only show the authors that created files
+			(alphabetically).
+    --most-only|-1	Only show the single author with the most file creations.
+HELPTEXT
 }
 
 action=printAuthors
+isAlphabetic=
+isMostOnly=
+logFormat='%aN'
 typeset -a logArgs=()
 typeset -a fileArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
 
 	--summary|-s)	shift; action=printSummary;;
+	--names-only|-n)
+			shift; action=printNamesOnly; isAlphabetic=t;;
+	--most-only|-1)	shift; isMostOnly=t; [ "$action" = printAuthors ] && action=printSummary; isAlphabetic=;;
+	--committer|-c)	shift; logFormat="${logFormat//%a/%c}";;
+	--email|-e)	shift; logFormat+=' <%aE>';;
 
 	# Ignore options that influence commit formatting (we need just the
 	# author), and diff options.
@@ -79,15 +110,16 @@ do
 	    authorCommitCount["$author"]=$((${authorCommitCount["$author"]} + 1))
 	fi
 	let commitNum+=1
-    done < <(git log --pretty='tformat:%aN' --diff-filter=A "${logArgs[@]}" -- "$filespec")
+    done < <(git log --pretty="tformat:${logFormat}" --diff-filter=A "${logArgs[@]}" -- "$filespec")
 done
 
 readarray -t sortedAuthors < <(
+    typeset -a sortByCountArgs=(--key 1,1nr); [ "$isAlphabetic" ] && sortByCountArgs=()
     for author in "${!authorCommitCount[@]}"
     do
 	printf '%d\t%s\n' "${authorCommitCount["$author"]}" "$author"
     done \
-	| sort --field-separator $'\t' --key 1,1nr --key 2,2 \
+	| sort --field-separator $'\t' "${sortByCountArgs[@]}" --key 2,2 \
 	| field --field-separator $'\t' --remove 1
 )
 
@@ -106,6 +138,16 @@ printSummary()
     local author; for author in "${sortedAuthors[@]}"
     do
 	printf '%6d %3d%%  %s\n' ${authorCommitCount["$author"]} $((100 * ${authorCommitCount["$author"]} / commitNum)) "$author"
+	[ "$isMostOnly" ] && break
+    done
+}
+
+printNamesOnly()
+{
+    local author; for author in "${sortedAuthors[@]}"
+    do
+	printf '%s\n' "$author"
+	[ "$isMostOnly" ] && break
     done
 }
 

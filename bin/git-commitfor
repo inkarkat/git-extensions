@@ -7,7 +7,7 @@ Commit for another author whose "NAME <EMAIL@HOST>" combo is either passed or
 selected from all previous committers (via passed AUTHOR-PATTERN).
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[-|NAME <EMAIL@HOST>|'NAME <EMAIL@HOST>'|AUTHOR-PATTERN] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[-|NAME <EMAIL@HOST>|'NAME <EMAIL@HOST>'|AUTHOR-PATTERN] [<commit-args> ...] [-?|-h|--help]"
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
@@ -24,11 +24,11 @@ elif [ $# -ge 2 ] && ! [[ "$1" =~ @ ]] && [[ "$2" =~ ^[^\ ]+@[^\ ]+$ ]]; then
 else
     typeset -a candidateArgs=("$1")
 fi; shift
-author=$(git-whois --accept-unknown --select "${candidateArgs[@]}") || exit $!
+author="$(git-whois --accept-unknown --select "${candidateArgs[@]}")" || exit $?
 
-if [ ! "$author" ]; then
-    echo >&2 "ERROR: No author!"
-    exit 1
+if [ -z "$author" ]; then
+    echo >&2 'ERROR: No author.'
+    exit 4
 fi
 
 exec git-wrapper commit --author "$author" "$@"

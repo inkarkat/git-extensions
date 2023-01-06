@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-v|--verbose] [-1|--most-only|--csv|--spark] [--each-file|--each-dir [-r|--recursive] [--full]] [<revision range>] [--] [<path> ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-v|--verbose] [-1|--most-only|--csv|--spark] [-c|--committer] [-e|--email] [--each-file|--each-dir [-r|--recursive] [--full]] [<revision range>] [--] [<path> ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -56,6 +56,7 @@ if [ ! -t 1 ]; then
     formatter=()
 fi
 isVerbose=
+logFormat='%aN'
 selector=
 eachOutputFormatArg='--spark'
 eachType=
@@ -81,6 +82,8 @@ do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--verbose|-v)	shift; isVerbose=t;;
+	--committer|-c)	shift; logFormat="${logFormat//%a/%c}";;
+	--email|-e)	shift; logFormat+=' <%aE>';;
 
 	--spark)
 	    printf -v postSelector '%q ' fieldMap --field-separator , 2 'gensub(/^[[:digit:]]+$/, "??", 1, $fieldNr)' 2 '|nameToInitials -u' 3 '" "' 4 '" "'
@@ -108,7 +111,7 @@ fi
 
 logContributions()
 {
-    git ${GIT_WHOCONTRIBUTED_LOG_COMMAND:-log} --shortstat --pretty=format:%aN "$@" | awk -v isVerbose="$isVerbose" '
+    git ${GIT_WHOCONTRIBUTED_LOG_COMMAND:-log} --shortstat --pretty="format:${logFormat}" "$@" | awk -v isVerbose="$isVerbose" '
     $3 == "changed," {
 	commits[author] += 1
 	if ($5 !~ "^insertion") {

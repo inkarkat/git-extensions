@@ -9,10 +9,11 @@ Show who did the initial commit for FILE(s) (grouped by author, or with
 --summary a count and percentage distribution of who contributed how many FILEs)
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-s|--summary] [-c|--committer] [-e|--email] [<log-args> ...] [--] [FILE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-s|--summary|-n|--names-only] [-c|--committer] [-e|--email] [<log-args> ...] [--] [FILE ...] [-?|-h|--help]'
 }
 
 action=printAuthors
+typeset -a sortByCountArgs=(--key 1,1nr)
 logFormat='%aN'
 typeset -a logArgs=()
 typeset -a fileArgs=()
@@ -25,6 +26,8 @@ do
 	--color)	shift; shift;;
 
 	--summary|-s)	shift; action=printSummary;;
+	--names-only|-n)
+			shift; action=printNamesOnly; sortByCountArgs=();;
 	--committer|-c)	shift; logFormat="${logFormat//%a/%c}";;
 	--email|-e)	shift; logFormat+=' <%aE>';;
 
@@ -90,7 +93,7 @@ readarray -t sortedAuthors < <(
     do
 	printf '%d\t%s\n' "${authorCommitCount["$author"]}" "$author"
     done \
-	| sort --field-separator $'\t' --key 1,1nr --key 2,2 \
+	| sort --field-separator $'\t' "${sortByCountArgs[@]}" --key 2,2 \
 	| field --field-separator $'\t' --remove 1
 )
 
@@ -109,6 +112,14 @@ printSummary()
     local author; for author in "${sortedAuthors[@]}"
     do
 	printf '%6d %3d%%  %s\n' ${authorCommitCount["$author"]} $((100 * ${authorCommitCount["$author"]} / commitNum)) "$author"
+    done
+}
+
+printNamesOnly()
+{
+    local author; for author in "${sortedAuthors[@]}"
+    do
+	printf '%s\n' "$author"
     done
 }
 

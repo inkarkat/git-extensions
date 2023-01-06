@@ -9,10 +9,11 @@ Show who did the initial commit for FILE(s) (grouped by author, or with
 --summary a count and percentage distribution of who contributed how many FILEs)
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-s|--summary] [<log-args> ...] [--] [FILE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-s|--summary] [-c|--committer] [-e|--email] [<log-args> ...] [--] [FILE ...] [-?|-h|--help]'
 }
 
 action=printAuthors
+logFormat='%aN'
 typeset -a logArgs=()
 typeset -a fileArgs=()
 while [ $# -ne 0 ]
@@ -24,6 +25,8 @@ do
 	--color)	shift; shift;;
 
 	--summary|-s)	shift; action=printSummary;;
+	--committer|-c)	shift; logFormat="${logFormat//%a/%c}";;
+	--email|-e)	shift; logFormat+=' <%aE>';;
 
 	# Ignore options that influence commit formatting (we need just the
 	# author), and diff options.
@@ -79,7 +82,7 @@ do
 	    authorCommitCount["$author"]=$((${authorCommitCount["$author"]} + 1))
 	fi
 	let commitNum+=1
-    done < <(git log --pretty='tformat:%aN' --diff-filter=A "${logArgs[@]}" -- "$filespec")
+    done < <(git log --pretty="tformat:${logFormat}" --diff-filter=A "${logArgs[@]}" -- "$filespec")
 done
 
 readarray -t sortedAuthors < <(

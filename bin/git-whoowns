@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--csv|--spark|-n|--names-only [-1|--most-only]|-1|--most-only] [-c|--committer] [-e|--email] [--each-file|--each-dir [-r|--recursive] [--full]] [--since=<date>] [<commit>] [--] <path> [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--csv|--spark|-n|--names-only [-1|--most-only]|-1|--most-only] [-c|--committer] [-e|--email] [--each-file|--each-dir [-r|--recursive] [--full]] ([--since=<date>] [<commit>] | [<revision range>]) [--] [<path> ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -37,7 +37,9 @@ HELPDESCRIPTION
 			for each file [in <path>(s)].
     --each-dir		Show separate single authors with the most changed lines
 			for each directory [in <path>(s)].
-    --recursive|-r	Also cover files / directories in subdirectories.
+    --recursive|-r	Also separately cover files / directories in
+			subdirectories instead of just including them in the
+			tally for the directory itself.
     --full		Show the full statistics of lines per author, not just
 			the sparkline bar, also with --each-file or --each-dir.
 
@@ -104,18 +106,21 @@ do
 
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*..*)		if [ -z "$commit" -a ${#blameArgs[@]} -eq 0 ] && potentialCommit="${1##*..}" && git rev-parse --verify --quiet "${potentialCommit:-HEAD}" >/dev/null; then
+			    commit="$potentialCommit"; blameArgs+=("$1"); shift
+			else
+			    break
+			fi
+			;;
 	*)		if [ -z "$commit" ] && git rev-parse --verify --quiet "$1" >/dev/null; then
-			    commit="$1"; shift
+			    commit="$1"; blameArgs+=("$1"); shift
 			else
 			    break
 			fi
 			;;
     esac
 done
-if [ $# -eq 0 ]; then
-    printUsage "$0" >&2
-    exit 2
-fi
+[ $# -gt 0 ] || set -- .
 
 triggerEachRecursion()
 {
@@ -140,7 +145,7 @@ do
 	printf '%s\0' "$filespec"
     fi
 done \
-    | xargs --no-run-if-empty --null -n 1 git blame --line-porcelain "${blameArgs[@]}" $commit -- \
+    | xargs --no-run-if-empty --null -n 1 git blame --line-porcelain "${blameArgs[@]}" -- \
     | sed "${blameSedArgs[@]}" \
     | sort \
     | eval 'uniq -c' \

@@ -36,6 +36,7 @@ if [ ! -t 1 ]; then
     colorArg=()
     pager=()
 fi
+typeset -a args=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -44,14 +45,19 @@ do
 	--no-color|--color=*)
 			colorArg=("$1"); shift;;
 	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); shift; shift;;
-	--)		break;;
-	*)		break;;
+	--most-only|-1)	args+=("$1"); shift
+			[ -z "${HEADER_SEPARATOR+t}" -a -z "${HEADER_NEWLINE+t}" ] && \
+			    export HEADER_SEPARATOR='' HEADER_NEWLINE='\t'
+			;;
+	--)		args+=("$1"); shift; break;;
+	*)		args+=("$1"); shift;;
     esac
 done
+set -- "${args[@]}" "$@"
 
 whowhat()
 {
-    header "${colorArg[@]}" --first 'Initial creation'; git-whocreated --summary "$@"
+    header "${colorArg[@]}" --first 'Creation'; git-whocreated --summary "$@"
     header "${colorArg[@]}" 'Commit number'; git-whodid --summary "$@"
     header "${colorArg[@]}" 'Blame lines'; git-whoowns "$@"
     header "${colorArg[@]}" 'Total changes'; git-whocontributed "$@"

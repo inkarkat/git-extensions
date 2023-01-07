@@ -107,7 +107,7 @@ do
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		if [ -z "$commit" ] && git rev-parse --verify --quiet "$1" >/dev/null; then
-			    commit="$1"; shift
+			    commit="$1"; blameArgs+=("$1"); shift
 			else
 			    break
 			fi
@@ -139,7 +139,7 @@ do
 	printf '%s\0' "$filespec"
     fi
 done \
-    | xargs --no-run-if-empty --null -n 1 git blame --line-porcelain "${blameArgs[@]}" $commit -- \
+    | xargs --no-run-if-empty --null -n 1 git blame --line-porcelain "${blameArgs[@]}" -- \
     | sed "${blameSedArgs[@]}" \
     | sort \
     | eval 'uniq -c' \

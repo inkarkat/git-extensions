@@ -1,0 +1,197 @@
+#!/bin/bash
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '-t|--target-repo OTHER-REPO-PATH[/[SUBPATH]] [--copy|--move] [-r|--remote REMOTE] [--no-edit] [--creator|--did|--owner|--contributor] [--] FILE [...] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Copy FILE(s) from the current repository to OTHER-REPO-PATH (same subdir as the
+source repo when it is pointing to the repo root; to force committing to the
+target repo root append a slash to it; i.e. OTHER-REPO-PATH/) while maintaining
+the original FILE's author (by default queried from creator, most commits, most
+last changed lines, total changes) and synthesizing a commit message template
+(for each FILE separately).
+If you pass an entire subdirectory, it will be moved as one entity. Pass
+separate files if you want individual authorship and commits.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --target-repo|-t OTHER-REPO-PATH[/[SUBPATH]]
+			Copy each FILE to OTHER-REPO-PATH. When there's no
+			SUBPATH, it's put into the same subdirectory there.
+    --copy		Do not delete the original FILE(s); i.e. make this a
+			file duplication.
+    --move		Also commit the removal of the original FILE(s) (for
+			each FILE separately). By default, FILE(s) are deleted
+			but that change is not committed; you should do a
+			separate removal commit yourself after the move.
+    --remote|-r REMOTE	Include links to the GitHub REMOTE in the move commits
+			instead of just referencing the repos by working copy
+			name.
+    --no-edit		Directly commit without launching the interactive
+			editor.
+    --creator		Use the author who initially created the FILE.
+    --did		Use the author who did the most commits of the FILE.
+    --owner		Use the author who listed in most lines of a blame of
+			the FILE.
+    --contributor	Use the author who's responsible for the largest size of
+			diffs over the FILE's whole history.
+HELPTEXT
+}
+
+targetRepo=
+targetSubPath=
+actionName='Move'
+actionAlso=''
+isDelete=t
+isCommitRemoval=
+remote=
+gitCommitEditArg=(--edit)
+authorSource=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--target-repo|-t)
+			shift
+			if [ ! -d "$1" ]; then
+			    printf >&2 'ERROR: Target does not exist: %s\n' "$1"
+			    exit 2
+			fi
+			if ! targetRepo="$(cd "$1" && git root 2>/dev/null)"; then
+			    printf >&2 'ERROR: Target is not a Git working copy: %s\n' "$1"
+			    exit 2
+			fi
+			targetSubPath="$(git-relative -- "$1" 2>/dev/null)"
+			[ -z "$targetSubPath" ] && [[ ! "$1" =~ ./$ ]] && unset targetSubPath
+			shift
+			;;
+	--copy)		shift; isDelete=; actionName='Copy'; actionAlso='also';;
+	--move)		shift; isCommitRemoval=t;;
+	--remote|-r)	shift; remote="$1"; shift;;
+	--no-edit)	gitCommitEditArg=("$1"); shift;;
+	--creator)	shift; authorSource=whocreated;;
+	--did)		shift; authorSource=whodid;;
+	--owner)	shift; authorSource=whoowns;;
+	--contributor)	shift; authorSource=whocontributed;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if [ -z "$targetRepo" ]; then
+    echo 'ERROR: No -t|--target-repo OTHER-REPO-PATH[/SUBPATH] passed.'
+    echo
+    printUsage "$0"
+    exit 2
+elif [ $# -eq 0 ]; then
+    echo 'ERROR: No FILE(s) passed.'
+    echo
+    printUsage "$0"
+    exit 2
+fi >&2
+
+filemove()
+{
+    local filespec="${1:?}"; shift
+
+    if [ -n "$authorSource" ]; then
+	author="$(git-$authorSource --names-only --email --most-only -- "$filespec")" || return 3
+    else
+	readarray -t authors < <(git-whowhat --names-only --email --most-only -- "$filespec")
+	[ ${#authors[@]} -gt 0 ] || return 3
+	choice="$(
+	    USERCHOICEFROMLIST_ENTRY_PREFIX=$'\n' \
+	    USERCHOICEFROMLIST_ENTRY_SUFFIX='' \
+	    USERCHOICEFROMLIST_ENTRY_SEPARATOR=$'\n' \
+		userchoiceFromList --question "Choose author for ${filespec}:" --ignore-case -- "${authors[@]}"
+	)" || return 4
+	author="${choice#*:	}"
+    fi
+
+    local authorDate; authorDate="$(git log --max-count 1 --pretty=tformat:%ai -- "$filespec")" || return 3
+
+    local originalSubPath; originalSubPath="$(git-relative -- "$filespec")" || return 3
+
+    local originalLocation
+    if [ -n "$remote" ]; then
+	originalLocation="$(git lllhurl "$remote" -- "$filespec")" || return 3
+    else
+	originalLocation="$(git-wcname)/${originalSubPath}" || return 3
+    fi
+
+    local newLocation newRepoName	# Will be populated by fileCommit; no command substitution because of the interactive editor launch.
+    fileCommit "$originalSubPath" "$filespec" "$author" "$authorDate" "$originalLocation" || return $?
+
+    [ ! "$isDelete" ] || git rm -r -- "$filespec" || return 3
+    [ ! "$isCommitRemoval" ] || fileRemove "$filespec" "$originalLocation" "$newLocation"
+}
+
+fileCommit()
+{
+    local originalSubPath="${1?}"; shift
+    local filespec="${1:?}"; shift
+    local author="${1:?}"; shift
+    local authorDate="${1:?}"; shift
+    local originalLocation="${1:?}"; shift
+
+    if [ -n "${targetSubPath+t}" ]; then
+	# Ignore the originalSubPath, use the supplied targetSubPath.
+	targetFilepath="${targetSubPath}${targetSubPath:+/}$(basename -- "$filespec")"
+    else
+	targetFilepath="$originalSubPath"
+    fi
+    local targetFilespec="${targetRepo}/${targetFilepath}"
+    if [ -e "$targetFilespec" ]; then
+	printf >&2 'ERROR: Cannot move %s; the target already exists: %s\n' "$filespec" "$targetFilespec"
+	return 1
+    fi
+    touch-p --no-create --verbose -- "$targetFilespec" || return 3
+    cp --archive -- "$filespec" "$targetFilespec" || return 3
+
+    (cd "$targetRepo" && git-commituntracked --author "$author" --date "$authorDate" --message "$actionName $originalSubPath here
+
+Originally committed at $originalLocation" "${gitCommitEditArg[@]}" -- "$targetFilepath") || return $?
+
+    newRepoName="$(cd "$targetRepo" && git-wcname)"
+    if [ -n "$remote" ]; then
+	newLocation="$(cd "$targetRepo" && git lllhurl "$remote" -- "$targetFilepath")"
+    else
+	printf -v newLocation '%s/%s\n' "${newRepoName:-???}" "$targetFilepath"
+    fi
+
+    return 0
+}
+
+fileRemove()
+{
+    local filespec="${1:?}"; shift
+    local originalLocation="${1:?}"; shift
+    local newLocation="${1:?}"; shift
+
+    git-wrapper commit --message "$actionName $originalSubPath to ${newRepoName:-???}
+
+Now${actionAlso:+ }${actionAlso} located at $newLocation" "${gitCommitEditArg[@]}" -- "$filespec" || return $?
+}
+
+status=0
+for filespec
+do
+    filemove "$filespec" || status=$?
+done
+exit $status

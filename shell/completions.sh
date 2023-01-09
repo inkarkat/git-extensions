@@ -1,4 +1,14 @@
-#!/bin/sh source-this-script
+#!/bin/bash source-this-script
+[ "${BASH_VERSION:-}" ] || return
+
+type -t completeAsCommand >/dev/null || completeAsCommand()
+{
+    local name
+    for name
+    do
+	complete -A function -A command "$name"
+    done
+}
 
 completeAsCommand git-autostash git-inside \
     git-brrefdo git-localbrcdo git-localbrcrefdo git-localbrdo git-localbrrefdo git-rbrrefdo git-subIdo git-subdo git-subido git-substdo git-wc-with-suffix-do git-wcdo git-wcs-in-dir-do
@@ -6,7 +16,7 @@ completeAsCommand git-autostash git-inside \
 gitCompleteAs()
 {
     typeset sourceCommand="${1:?}"; shift
-    typeset cmd; for cmd
+    local cmd; for cmd
     do
 	eval "_git_${cmd}() { _git_${sourceCommand} \"\$@\"; }"
     done

@@ -2,10 +2,10 @@
 
 # Configure Git aliases for various built-in diff tools, depending on what is
 # available.
-# git diffFOO		Permanently set diff.tool to FOO.
-# git diffFOO . | ARGS	Execute remaining arguments with temporary diff.tool set to FOO.
-# git mergeFOO		Permanently set merge.tool to FOO.
-# git mergeFOO . | ARGS	Execute remaining arguments with temporary merge.tool set to FOO.
+# git diffwithFOO		Permanently set diff.tool to FOO.
+# git diffwithFOO . | ARGS	Execute remaining arguments with temporary diff.tool set to FOO.
+# git mergewithFOO		Permanently set merge.tool to FOO.
+# git mergewithFOO . | ARGS	Execute remaining arguments with temporary merge.tool set to FOO.
 # Note: This causes "error: could not lock config file
 # /home/inkarkat/.local/.gitconfig: Permission denied" when executed under a
 # different user (through withUnixhome), because git-userlocalconfig updates

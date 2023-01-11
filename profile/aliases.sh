@@ -70,3 +70,11 @@ if exists xxdiff; then
     HOME="${USER_HOME:-$HOME}" git-userlocalconfig alias.diffwithxxdiff 'customtool diff.tool xxdiff'
     HOME="${USER_HOME:-$HOME}" git-userlocalconfig alias.mergewithxxdiff 'customtool merge.tool xxdiff'
 fi
+if exists idea; then
+    HOME="${USER_HOME:-$HOME}" git-userlocalconfig difftool.idea.cmd 'idea diff "$LOCAL" "$REMOTE"'
+    HOME="${USER_HOME:-$HOME}" git-userlocalconfig mergetool.idea.cmd 'idea merge "$LOCAL" "$REMOTE" "$BASE" "$MERGED"'
+    HOME="${USER_HOME:-$HOME}" git-userlocalconfig mergetool.idea.trustExitCode true
+
+    HOME="${USER_HOME:-$HOME}" git-userlocalconfig alias.diffwithidea 'customtool diff.tool idea'
+    HOME="${USER_HOME:-$HOME}" git-userlocalconfig alias.mergewithidea 'customtool merge.tool idea'
+fi

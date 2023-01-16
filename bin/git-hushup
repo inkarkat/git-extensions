@@ -56,12 +56,19 @@ joinReferencesLines()
 	-v "remote=${remote//\\/\\\\}" \
 '
 function typeCompare(t1, t2)
+# Returns -1 if t1 +1 == t2, else -99 / 0 / 99.
 {
     if (t1 ~ /^[[:digit:]]+$/ && t2 ~ /^[[:digit:]]+$/) {
 	t1 = int(t1)
 	t2 = int(t2)
 
-	return (t1 == t2 ? 0 : t1 - t2)
+	return (t1 == t2 \
+		? 0 \
+		: (t1 < t2 \
+		    ? (t1 + 1 == t2 ? -1 : -99) \
+		    : 99 \
+		) \
+	)
     }
 
     return (t1 == t2 \
@@ -82,11 +89,23 @@ function versionCompare(i1, v1, i2, v2,       n1, a1, n2, a2, i, cmp)
 
     for (i = 1; i <= n1; ++i) {
 	cmp = typeCompare(a1[i], a2[i])
-	if (cmp != 0) return cmp
+	if (cmp != 0) {
+	    # All following tuples must match to return a -1 (subsequent value).
+	    for (++i; i <= n1; ++i) {
+		if (typeCompare(a1[i], a2[i]) != 0) {
+		    return cmp * 2  # Nope, not subsequent value.
+		}
+	    }
+	    return cmp
+	}
     }
     return 0
 }
-function join(array, start, end, sep,    result, i)
+function lastDigitCompare(v1, v2)
+{
+    return versionCompare(0, v1, 0, v2)
+}
+function join(array, start, end, sep,    result, i, range)
 {
     if (sep == "")
 	sep = " "
@@ -94,8 +113,13 @@ function join(array, start, end, sep,    result, i)
 	sep = ""
     result = array[start]
     for (i = start + 1; i <= end; i++)
-	result = result sep array[i]
-    return result
+	if (lastDigitCompare(array[i-1], array[i]) == -1) {
+	    range = ".." array[i]
+	} else {
+	    result = result range sep array[i]
+	    range = ""
+	}
+    return result range
 }
 function output(text)
 {

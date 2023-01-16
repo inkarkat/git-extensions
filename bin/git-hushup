@@ -90,6 +90,10 @@ function versionCompare(i1, v1, i2, v2,       n1, a1, n2, a2, i, cmp)
     for (i = 1; i <= n1; ++i) {
 	cmp = typeCompare(a1[i], a2[i])
 	if (cmp != 0) {
+	    if (i == 1 && cmp != -1) {
+		return cmp * 2	# First tuple should not be collected, unless it is a subsequent value.
+	    }
+
 	    # All following tuples must match to return a -1 (subsequent value).
 	    for (++i; i <= n1; ++i) {
 		if (typeCompare(a1[i], a2[i]) != 0) {
@@ -119,22 +123,54 @@ function versionRange(v1, v2,      n1, a1, n2, a2, result, i)
     }
     return result
 }
-function join(array, start, end, sep,    result, i, last, range)
+function enumerate(v1, enumerationCnt, v2,      n1, a1, n2, a2, result, i, j)
+{
+    n1 = split(v1, a1, /\./)
+    n2 = split(v2[1], a2, /\./)
+
+    for (i = 1; i <= n1; ++i) {
+	if (typeCompare(a1[i], a2[i]) == 0) {
+	    result = result (result == "" ? "" : ".") a1[i]
+	} else {
+	    result = result (result == "" ? "" : ".") "{" a1[i]
+	    for (j = 1; j <= enumerationCnt; ++j) {
+		split(v2[j], a2, /\./)
+		result = result "," a2[i]
+	    }
+	    result = result "}"
+	}
+    }
+    return result
+}
+function join(array, start, end, sep,    result, i, last, range, enumeration, enumerationCnt, cmp)
 {
     if (sep == "")
 	sep = " "
     else if (sep == SUBSEP) # magic value
 	sep = ""
     last = array[start]
-    for (i = start + 1; i <= end; i++)
-	if (lastDigitCompare(array[i-1], array[i]) == -1) {
+    for (i = start + 1; i <= end; i++) {
+	cmp = lastDigitCompare(array[i-1], array[i])
+	print "#### " array[i-1] "<" cmp ">" array[i] > "/dev/stderr"
+	if (cmp == -1 && enumerationCnt == 0) {
 	    range = array[i]
+	} else if (cmp == -99) {
+	    if (range != "") {
+		result = result versionRange(last, range) sep
+		last = array[i]
+		range = ""
+	    } else {
+		enumeration[++enumerationCnt] = array[i]
+	    }
 	} else {
-	    result = result (range == "" ? last : versionRange(last, range)) sep
-	    range = ""
+	    result = result (range == "" ? (enumerationCnt == 0 ? last : enumerate(last, enumerationCnt, enumeration)) : versionRange(last, range)) sep
 	    last = array[i]
+	    range = ""
+	    enumerationCnt = 0
+	    delete enumeration
 	}
-    return result (range == "" ? last : versionRange(last, range))
+    }
+    return result (range == "" ? (enumerationCnt == 0 ? last : enumerate(last, enumerationCnt, enumeration)) : versionRange(last, range))
 }
 function output(text)
 {

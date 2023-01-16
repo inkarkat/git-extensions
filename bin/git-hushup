@@ -105,21 +105,26 @@ function lastDigitCompare(v1, v2)
 {
     return versionCompare(0, v1, 0, v2)
 }
-function join(array, start, end, sep,    result, i, range)
+function versionRange(v1, v2)
+{
+    return "{" v1 ".." v2 "}"
+}
+function join(array, start, end, sep,    result, i, last, range)
 {
     if (sep == "")
 	sep = " "
     else if (sep == SUBSEP) # magic value
 	sep = ""
-    result = array[start]
+    last = array[start]
     for (i = start + 1; i <= end; i++)
 	if (lastDigitCompare(array[i-1], array[i]) == -1) {
-	    range = ".." array[i]
+	    range = array[i]
 	} else {
-	    result = result range sep array[i]
+	    result = result (range == "" ? last : versionRange(last, range)) sep
 	    range = ""
+	    last = array[i]
 	}
-    return result range
+    return result (range == "" ? last : versionRange(last, range))
 }
 function output(text)
 {

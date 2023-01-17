@@ -33,6 +33,22 @@ massageOutput()
 
 }
 
+suppressOnlyVersionTags()
+{
+    sed --unbuffered \
+	-e '/^From /!b' \
+	-e :loop \
+	-e N \
+	-e '/\n\(Fetching\|From\) /{
+		s/^.*\n//
+		b
+	    }' \
+	-e '/\n \* \[new tag\] \+[0-9.]\+$/!b' \
+	-e '$d' \
+	-e 'b loop' \
+
+}
+
 declutterOutput()
 {
     sed --unbuffered \
@@ -234,4 +250,4 @@ END { printJoinedReferences() }
 '
 }
 
-eval "${DEBUG:+debugtee --for git-hushup |} massageOutput | ${isFetch:+joinReferencesLines |} declutterOutput"
+eval "${DEBUG:+debugtee --for git-hushup |} massageOutput | ${isFetch:+suppressOnlyVersionTags | joinReferencesLines |} declutterOutput"

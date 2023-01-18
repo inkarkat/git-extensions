@@ -33,16 +33,11 @@ do
 	*)		break;;
     esac
 done
-if [ $# -eq 0 ]; then
-    set -- "${remote}/"
-else
-    set -- "${@/#/${remote}/}"
-fi
 
 currentBranch="$(git-remotebr "$remote" 2>/dev/null || echo "(remote branch not found)")"
 masterBranch="$(git-mbr)"
 baseBranch="$(git-nbr 2>/dev/null)"
-remoteBranch="$(git-brc --bare -r "$@" | grep -v -F --line-regexp -e "${remote}/${masterBranch}" ${baseBranch:+-e "${remote}/$baseBranch"} -e "$currentBranch" | tail -n 1)" || exit $?
+remoteBranch="$(git-rbrc "$remote" --bare "$@" | grep -v -F --line-regexp -e "${remote}/${masterBranch}" ${baseBranch:+-e "${remote}/$baseBranch"} -e "$currentBranch" | tail -n 1)" || exit $?
 if [ -z "$remoteBranch" ]; then
     # git branch does not return an error if there are no matches for the passed pattern.
     printf >&2 'ERROR: No%s branch (excluding the current %s and %s%s) found in %s.\n' "${*:+ matching}" "$currentBranch" "$masterBranch" "${baseBranch:+ and ${baseBranch}}" "$remote"

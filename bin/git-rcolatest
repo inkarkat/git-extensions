@@ -6,7 +6,8 @@ printUsage()
 {
     cat <<HELPTEXT
 Checkout the latest (by last commit age) local branch from the passed ${remote:-REMOTE}
-[matching pattern].
+[matching pattern] (except the current branch and master (and base branch if
+defined)).
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [--gui|--terminal|--none] [--submodule ignore|yes|recurse] [(--submodules|--queried-submodules) [--submodules-recursive]] [<branch-glob> ...] [-?|-h|--help]"
@@ -33,10 +34,13 @@ do
     esac
 done
 
-remoteBranch="$(git-rbr "$remote" --sort=committerdate "$@" | tail -n 1)" || exit $?
+currentBranch="$(git-remotebr "$remote" 2>/dev/null || echo "(remote branch not found)")"
+masterBranch="$(git-mbr)"
+baseBranch="$(git-nbr 2>/dev/null)"
+remoteBranch="$(${GIT_RCOLATEST_REMOTE_BRANCH_COMMAND:-git-rbr} "$remote" ${GIT_RCOLATEST_REMOTE_BRANCH_ARGUMENT:---sort=committerdate} "$@" | grep -v -F --line-regexp -e "${remote}/${masterBranch}" ${baseBranch:+-e "${remote}/$baseBranch"} -e "$currentBranch" | tail -n 1)" || exit $?
 if [ -z "$remoteBranch" ]; then
     # git branch does not return an error if there are no matches for the passed pattern.
-    printf >&2 'ERROR: No%s branch found in %s.\n' "${*:+ matching}" "$remote"
+    printf >&2 'ERROR: No%s branch (excluding the current %s and %s%s) found in %s.\n' "${*:+ matching}" "$currentBranch" "$masterBranch" "${baseBranch:+ and ${baseBranch}}" "$remote"
     exit 1
 fi
-exec git-checkout-remote-branch "${checkoutArgs[@]}" "${remoteBranch##+( )}"
+exec git-checkout-remote-branch "${checkoutArgs[@]}" "$remoteBranch"

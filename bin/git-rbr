@@ -22,6 +22,7 @@ if [ $# -eq 0 ]; then
 fi
 remote="$1"; shift
 
+typeset -a sortArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -29,6 +30,8 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
+	--sort)		sortArgs+=("$1" "$2"); shift; shift;;
+	--sort=*)	sortArgs+=("$1"); shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -36,5 +39,5 @@ do
 done
 [ $# -gt 0 ] || set -- '*'
 
-git branch --remotes --list "${@/#/${remote}${remote:+/}}" | \
+git branch "${sortArgs[@]}" --remotes --list "${@/#/${remote}${remote:+/}}" | \
     sed -e "/^ *${remote}\/HEAD -> /d" -e 's/^[[:space:]]\+//'

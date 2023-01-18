@@ -5,7 +5,7 @@ shopt -qs extglob
 printUsage()
 {
     cat <<HELPTEXT
-Checkout local branch from latest (by sort order) passed ${remote:-REMOTE}
+Checkout the latest (by last commit age) local branch from the passed ${remote:-REMOTE}
 [matching pattern].
 HELPTEXT
     echo
@@ -33,7 +33,7 @@ do
     esac
 done
 
-remoteBranch="$(git-rbr "$remote" "$@" | tail -n 1)" || exit $?
+remoteBranch="$(git-rbr "$remote" --sort=committerdate "$@" | tail -n 1)" || exit $?
 if [ -z "$remoteBranch" ]; then
     # git branch does not return an error if there are no matches for the passed pattern.
     printf >&2 'ERROR: No%s branch found in %s.\n' "${*:+ matching}" "$remote"

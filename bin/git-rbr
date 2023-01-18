@@ -21,13 +21,23 @@ if [ $# -eq 0 ]; then
     exit 2
 fi
 remote="$1"; shift
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
+
+typeset -a sortArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
 			shift;;
-    --color)		shift; shift;;
-esac
+	--color)	shift; shift;;
+	--sort)		sortArgs+=("$1" "$2"); shift; shift;;
+	--sort=*)	sortArgs+=("$1"); shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 [ $# -gt 0 ] || set -- '*'
 
-git branch -r --list "${@/#/${remote}${remote:+/}}" | \
+git branch "${sortArgs[@]}" --remotes --list "${@/#/${remote}${remote:+/}}" | \
     sed -e "/^ *${remote}\/HEAD -> /d" -e 's/^[[:space:]]\+//'

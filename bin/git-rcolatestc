@@ -10,8 +10,9 @@ was created last (except the current branch and master (and base branch if
 defined)).
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [--gui|--terminal|--none] [<branch-glob>] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [--gui|--terminal|--none] [--submodule ignore|yes|recurse] [(--submodules|--queried-submodules) [--submodules-recursive]] [<branch-glob>] [-?|-h|--help]"
 }
+
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
@@ -21,18 +22,24 @@ if [ $# -eq 0 ]; then
 fi
 remote="${1:?}"; shift
 
-logArg=
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --@(gui|terminal|none))
-			logArg="$1"; shift;;
+typeset -a checkoutArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--@(gui|terminal|none|submodules|queried-submodules|submodules-recursive))
+			checkoutArgs+=("$1"); shift;;
+	--submodule)	checkoutArgs+=("$1" "$2"); shift; shift;;
+	*)		break;;
+    esac
+done
+case $# in
+    0)	branchPattern='';;
+    1)	branchPattern="$1"; shift;;
+    *)	printUsage "$0" >&2
+	exit 2
+	;;
 esac
-if [ $# -eq 0 -o $# -gt 2 ]; then
-    echo >&2 "ERROR: Must pass REMOTE and optionally <branch-glob>."
-    exit 2
-fi
-remote=$1
-branchPattern=$2
 
 currentBranch="$(git-remotebr "$remote" 2>/dev/null || echo "(remote branch not found)")"
 masterBranch="$(git-mbr)"
@@ -43,4 +50,4 @@ if [ -z "$remoteBranch" ]; then
     printf >&2 'ERROR: No branch matching %s/%s (excluding the current %s and %s%s) found.\n' "$remote" "$branchPattern" "$currentBranch" "$masterBranch" "${baseBranch:+ and ${baseBranch}}"
     exit 1
 fi
-exec git-checkout-remote-branch "$logArg" "$remoteBranch"
+exec git-checkout-remote-branch "${checkoutArgs[@]}" "$remoteBranch"

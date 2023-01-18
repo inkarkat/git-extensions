@@ -6,7 +6,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--bare|-l|--long] [-r|-a] [-b|--base <branch>] [-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [--] [<branch-glob>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--bare|-l|--long] [-r|-a] [-b|--base <branch>] [-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [--] [<branch-glob> ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -68,12 +68,17 @@ do
 	*)		break;;
     esac
 done
-dirBranchGlob="${1//\*/*/**}"    # As we're doing file system lookup, a branch name glob needs to be converted into a directory hierarchy one in case the branch name contains slashes.
-case $locality in
-    local)  typeset -a what=("refs/heads/$1" "refs/heads/$dirBranchGlob");;
-    all)    typeset -a what=("refs/heads/$1" "refs/heads/$dirBranchGlob" "refs/remotes/$1" "refs/remotes/$dirBranchGlob");;
-    remote) typeset -a what=("refs/remotes/$1" "refs/remotes/$dirBranchGlob");;
-esac
+typeset -a what=()
+[ $# -gt 0 ] || set -- ''
+for branchGlob
+do
+    dirBranchGlob="${branchGlob//\*/*/**}"    # As we're doing file system lookup, a branch name glob needs to be converted into a directory hierarchy one in case the branch name contains slashes.
+    case $locality in
+	local)  what+=("refs/heads/$branchGlob" "refs/heads/$dirBranchGlob");;
+	all)    what+=("refs/heads/$branchGlob" "refs/heads/$dirBranchGlob" "refs/remotes/$branchGlob" "refs/remotes/$dirBranchGlob");;
+	remote) what+=("refs/remotes/$branchGlob" "refs/remotes/$dirBranchGlob");;
+    esac
+done
 
 readarray -t branches < <(git for-each-ref --format='%(refname:short)' "${what[@]}"; printf '\n%d\n' "$?")	# Exit status from the process substitution is lost; return the actual exit status via an appended additional line.
 [ ${branches[-1]} -ne 0 ] && exit ${branches[-1]}

@@ -6,7 +6,7 @@ printUsage()
 Switch to the branch [matching <glob>] that is interactively selected from existing branches.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<checkout-args> ...] [-- <glob> ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<checkout-args> ...] [-- <branch-glob> ...] [-?|-h|--help]'
 }
 
 case "$1" in
@@ -16,7 +16,7 @@ esac
 typeset -a branchGlobArgs=()
 for ((i = $#; i > 0; i--))
 do
-    if [ "${@:$i:1}" = '--' ]; then
+    if [ "${*:$i:1}" = '--' ]; then
 	branchGlobArgs=("${@:$((i+1))}")
 	set -- "${@:1:$((i-1))}"
 	break
@@ -26,5 +26,5 @@ done
 printf -v quotedCheckoutCommand '%q ' checkout "$@"
 quotedBranchGlobArgs=; [ ${#branchGlobArgs[@]} -eq 0 ] || printf -v quotedBranchGlobArgs ' %q' "${branchGlobArgs[@]}"
 
-export GIT_SELECTED_COMMAND_DEFAULT_FILES="git-localbr --include-master --include-base${quotedBranchGlobArgs}"
+export GIT_SELECTED_COMMAND_DEFAULT_FILES="git-localbr${quotedBranchGlobArgs}"
 exec git-selected-command --single-only "${quotedCheckoutCommand% }"

@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--accept-single] [--single-only] [--range-is-last] [--pass-file-args] ... --since <date>|--max-count <number>|-n <number>|<range> [<git-command-args> ...] [--] [FILE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--accept-single] [--single-only] [--range-is-last] [--pass-file-args] ... --since <date>|--max-count <number>|-n <number>|<range> [GIT-COMMAND-ARGS ...] [--] [FILE ...] [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [GIT-COMMAND-ARGS ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... COMMITS ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
@@ -26,7 +26,9 @@ printLongUsage()
 Execute GIT-COMMAND for the commit interactively chosen from the commits [that
 cover FILE ...] in the passed <range>
 - appended
-- replacing COMMITS argument(s) anywhere
+- replacing COMMITS argument(s) anywhere (note that COMMITS must not be the
+  first argument unless you also pass --range-is-last - it would be taken as the
+  range)
 - replacing COMMITS in the following GIT-COMMAND and -(N-1) arguments
 - replacing COMMITS in the following +(N) arguments and appending those
 HELPDESCRIPTION
@@ -104,6 +106,8 @@ case "$1" in
 	;;
     --keep-position)
 	shift
+	# Need to shift the GIT-COMMAND off to avoid that it is later parsed off as a rangeArg.
+	countedAppendGitCommand=("$1"); shift
 
 	executor()
 	{
@@ -117,13 +121,15 @@ case "$1" in
 		fi
 	    done
 
-	    exec git-wrapper "${appendedArgs[@]}"
+	    exec git-wrapper "${countedAppendGitCommand[@]}" "${appendedArgs[@]}"
 	}
 	;;
     *)
+	# Need to shift the GIT-COMMAND off to avoid that it is later parsed off as a rangeArg.
+	countedAppendGitCommand=("$1"); shift
 	executor()
 	{
-	    exec git-wrapper "$@" "${commits[@]}"
+	    exec git-wrapper "${countedAppendGitCommand[@]}" "$@" "${commits[@]}"
 	}
 	;;
 esac

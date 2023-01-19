@@ -1,0 +1,22 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Switch to the branch [matching <glob>] that is interactively selected from
+existing branches (ordered by date of first commit) in the passed ${remote:-REMOTE}.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [<checkout-args> ...] [-- <branch-glob> ...] [-?|-h|--help]"
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+remote="${1:?}"; shift
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+GIT_RCHECKOUTSELECTEDBRANCH_REMOTE_BRANCH_COMMAND=git-rbrc  GIT_RCHECKOUTSELECTEDBRANCH_REMOTE_BRANCH_ARGUMENT=--bare exec git-checkoutselectedbranch "$remote" "$@"

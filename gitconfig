@@ -662,6 +662,8 @@
 	;; rco: Checkout passed <branch> in <remote>; fetching if needed and ensuring that an existing tracked branch doesn't contradict the request.
 	;; rcolatest: Checkout the latest (by last commit age) local branch from the passed REMOTE [matching pattern].
 	;; rcolatestc: Checkout local branch from the passed <remote> branch [matching pattern] that was created last (except the current branch and master (and base branch if defined)).
+	;; rcheckoutselectedbranch: Switch to the branch [matching <glob>] that is interactively selected from existing branches in the passed REMOTE.
+	;; rcheckoutselectedbranchc: Switch to the branch [matching <glob>] that is interactively selected from existing branches (ordered by date of first commit) in the passed REMOTE.
 	colb = wrapper-nocolor checkout @{-1}	; Checkout last checked-out branch.
 	cosublb = wrapper-nocolor cosub @{-1}	; Checkout last checked-out branch, also eponymous local branches in submodules.
 
@@ -12350,6 +12352,12 @@
 	;; oadd: Add origin repository at URL / my GitHub clone of upstream / passed REMOTE and fetch it. Offers to rename original origin to upstream.
 	oco = rco origin ; Checkout local branch from origin.
 	ocosub = oco --submodules	; Checkout local branch from origin, also checkout eponymous remote branches in submodules.
+	ocosbr = rcheckoutselectedbranch origin
+	ocosubsbr = rcheckoutselectedbranch origin --submodules
+	ocorecentsbr = ocosbr --newer 2w
+	ocosubrecentsbr = ocorecentsbr --submodules
+	ocorecentsbrc = rcheckoutselectedbranchc origin --newer 2w
+	ocosubrecentsbrc = ocorecentsbrc --submodules
 	; No ocom.
 	oreset = rev-remote-command origin reset ; Reset my current branch to the HEAD of the corresponding / passed branch of origin. The working copy is left intact, so you can effectively rebase any outstanding differences with a follow-up commit.
 	ohardreset = oreset --hard ; Reset my current branch to the HEAD of the corresponding / passed branch of my GitHub clone.
@@ -12737,6 +12745,12 @@
 	;; uadd:	Add upstream repository and fetch it.
 	uco = rco upstream ; Checkout local branch from upstream.
 	ucosub = uco --submodules	; Checkout local branch from upstream, also checkout eponymous remote branches in submodules.
+	ucosbr = rcheckoutselectedbranch upstream
+	ucosubsbr = rcheckoutselectedbranch upstream --submodules
+	ucorecentsbr = ucosbr --newer 2w
+	ucosubrecentsbr = ucorecentsbr --submodules
+	ucorecentsbrc = rcheckoutselectedbranchc upstream --newer 2w
+	ucosubrecentsbrc = ucorecentsbrc --submodules
 	; No ucom.
 	ureset = rev-remote-command upstream reset ; Reset my current branch to the HEAD of the corresponding / passed branch of upstream. Use this after my pull requests have been accepted into upstream (but cherry-picked, in a different order, or intermingled with other requests, so that the commit history deviates from mine), but there are still pending changes. The working copy is left intact, so you can effectively rebase any outstanding differences with a follow-up commit.
 	uhardreset = ureset --hard ; Reset my current branch to the HEAD of the corresponding / passed branch of upstream.

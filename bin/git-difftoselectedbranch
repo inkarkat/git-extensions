@@ -1,0 +1,19 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Diff to the branch that is interactively selected from existing branches.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<diff-args> ...] [-?|-h|--help]'
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+printf -v quotedDiffCommand '%q ' diff "$@"
+: ${GIT_SELECTED_COMMAND_DEFAULT_FILES:='git-localbr'}
+export GIT_SELECTED_COMMAND_DEFAULT_FILES
+exec git-selected-command --single-only "${quotedDiffCommand% }"

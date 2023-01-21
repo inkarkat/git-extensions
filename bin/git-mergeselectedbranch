@@ -1,0 +1,31 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Merge the branch(es) [matching <glob>] that is interactively selected from
+existing branches.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<merge-args> ...] [-- <branch-glob> ...] [-?|-h|--help]'
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+typeset -a branchGlobArgs=()
+for ((i = $#; i > 0; i--))
+do
+    if [ "${*:$i:1}" = '--' ]; then
+	branchGlobArgs=("${@:$((i+1))}")
+	set -- "${@:1:$((i-1))}"
+	break
+    fi
+done
+
+printf -v quotedMergeCommand '%q ' merge "$@"
+quotedBranchGlobArgs=; [ ${#branchGlobArgs[@]} -eq 0 ] || printf -v quotedBranchGlobArgs ' %q' "${branchGlobArgs[@]}"
+
+export GIT_SELECTED_COMMAND_DEFAULT_FILES="git-localbr${quotedBranchGlobArgs}"
+exec git-selected-command "${quotedMergeCommand% }"

@@ -99,7 +99,7 @@ esac
 
 isContinue=
 isKeepBranches=
-isMerge=t
+isPerformTheMerge=t
 isPush=
 isPushBranch=
 typeset -a pushBranchForceArg=()
@@ -136,7 +136,7 @@ do
 	--color)	shift; shift;;
 	--continue)	shift; isContinue=t;;
 	--no-delete)	continueArgs+=("$1"); shift; isKeepBranches=t;;
-	--no-merge)	continueArgs+=("$1"); shift; isMerge=;;
+	--no-merge)	continueArgs+=("$1"); shift; isPerformTheMerge=;;
 	--push)		continueArgs+=("$1"); shift; isPush=t;;
 	--push-branch)	continueArgs+=("$1"); shift; isPushBranch=t;;
 	--force)	pushBranchForceArg=("$1"); shift;;
@@ -357,10 +357,10 @@ else
 		targetIntegrationSourceBranch="$targetTracks"
 		reintegrateArgs+=(--ff-target-to-tracked)   # Don't have git-reintegrate ask the same question again, as this is confusing.
 	    else
-		printf "Okay, I'll ${isMerge:+re}integrate ${isMerge:+into }%s locally and you'll then have to merge with %s after that.\\n" "$targetBranch" "$targetTracks"
+		printf "Okay, I'll ${isPerformTheMerge:+re}integrate ${isPerformTheMerge:+into }%s locally and you'll then have to merge with %s after that.\\n" "$targetBranch" "$targetTracks"
 	    fi
 	elif confirmUseTarget; then
-	    printf "Okay, I'll ${isMerge:+re}integrate ${isMerge:+into }%s locally and you'll then have to merge with %s after that.\\n" "$targetBranch" "$targetTracks"
+	    printf "Okay, I'll ${isPerformTheMerge:+re}integrate ${isPerformTheMerge:+into }%s locally and you'll then have to merge with %s after that.\\n" "$targetBranch" "$targetTracks"
 	else
 	    exit 4
 	fi
@@ -398,7 +398,7 @@ else
 	if [ "$isRebase" ]; then
 	    git-wrapper rebase "$targetIntegrationSourceBranch" || {
 		status=$?
-		echo >&2 "After the branch has been successfully rebased (see above), you can ${isCheckFromStdin:+run checks and }${isPushBranch:+push and }${isMerge:+fast-forward-integrate to $targetBranch and }${isPush:+push and }${isKeepBranches:+not }delete it via"
+		echo >&2 "After the branch has been successfully rebased (see above), you can ${isCheckFromStdin:+run checks and }${isPushBranch:+push and }${isPerformTheMerge:+fast-forward-integrate to $targetBranch and }${isPush:+push and }${isKeepBranches:+not }delete it via"
 		printContinueCommand
 		exit $status
 	    }
@@ -411,7 +411,7 @@ else
 	    originalCommit="$(git rev-parse HEAD)"
 	    git-wrapper merge "${fastForwardArgs[@]:---no-ff}" "${mergeMessageArgs[@]}" "${mergeNoEditMessageArgs[@]}" "${mergeArgs[@]}" "$targetIntegrationSourceBranch" || {
 		status=$?
-		echo >&2 "After the branch has been merged (see above), you can ${isCheckFromStdin:+run checks and }${isPushBranch:+push and }${isMerge:+fast-forward-integrate to $targetBranch and }${isPush:+push and }${isKeepBranches:+not }delete it via"
+		echo >&2 "After the branch has been merged (see above), you can ${isCheckFromStdin:+run checks and }${isPushBranch:+push and }${isPerformTheMerge:+fast-forward-integrate to $targetBranch and }${isPush:+push and }${isKeepBranches:+not }delete it via"
 		printContinueCommand "${gitSubmoduleUpdateCommand}${gitSubmoduleUpdateCommand:+ && }git swapmergeparents"
 		exit $status
 	    }
@@ -455,7 +455,7 @@ elif [ ${#checkCommands[@]} -gt 0 ]; then
     (eval "${checkCommands[@]}")
 fi || {
     status=$?
-    echo >&2 "Checks failed; $targetIntegrationSourceBranch has been integrated into the current branch, but the current branch has not been ${isPushBranch:+pushed and }${isMerge:+fast-forward-integrated to $targetBranch and }${isPush:+pushed or }${isKeepBranches:+not }deleted yet."
+    echo >&2 "Checks failed; $targetIntegrationSourceBranch has been integrated into the current branch, but the current branch has not been ${isPushBranch:+pushed and }${isPerformTheMerge:+fast-forward-integrated to $targetBranch and }${isPush:+pushed or }${isKeepBranches:+not }deleted yet."
     echo >&2 'Correct the problem by amending or additional commits, then invoke'
     printRestartCommand	# If the current branch has been modified, the reintegration need to be restarted to be able to fast-forward. We cannot simply continue after the original integration commit has been left behind.
     echo >&2 'to restart the fast-forwarding integration. If the checks just failed due to an external issue and you would like to try again, invoke'
@@ -467,7 +467,7 @@ status=0
 [ ! "$isPushBranch" ] || pushBranch || status=$?
 
 typeset -a reintegrateToCommand=(reintegrateto --ff-only --no-checks --branch "$targetBranch"${isPush:+ --push}${isKeepBranches:+ --no-delete} "${reintegrateArgs[@]}" "${gitRemoteMutateArgs[@]}")
-if [ "$isMerge" ]; then
+if [ "$isPerformTheMerge" ]; then
     git "${reintegrateToCommand[@]}" || status=$?
 else
     gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'

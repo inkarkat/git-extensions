@@ -6,7 +6,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--push] [--push-branch [--force]] [--no-merge] [--no-delete] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] [--no-submodule-checkout] [--no-submodule-update] [-y|--yes] -b|--branch <branch> | [--] <branch> [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--[no-]push] [--push-branch [--force]] [--no-merge] [--no-delete] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] [--no-submodule-checkout] [--no-submodule-update] [-y|--yes] -b|--branch <branch> | [--] <branch> [-?|-h|--help]'
     echo
     printf 'Usage: GIT_REINTEGRATE_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" '[...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '[...] --no-checks | -c|--command "CHECK-COMMANDLINE" [-c ...] | --exec SIMPLECOMMAND [...] ; [...]'
@@ -42,6 +42,8 @@ HELPDESCRIPTION
 			origin) before deleting the reintegrated current branch.
 			GitHub needs this to detect that the branch has been
 			merged.
+    --no-push		Don't push <branch> even when invoked as a hub command
+			(but still check pull requests etc.)
     --push-branch	Push the current branch (to the tracked remote) after
 			merging in / rebasing to <branch>. Most useful in
 			combination with --no-merge to prevent the deletion
@@ -100,15 +102,9 @@ esac
 isContinue=
 isKeepBranches=
 isPerformTheMerge=t
-isPush=
+unset isPush
 isPushBranch=
 typeset -a pushBranchForceArg=()
-if [ "$HUB" ]; then
-    # Need to push to remote first so that GitHub recognizes that the branch has
-    # been merged. If the branch is first deleted, GitHub marks a corresponding
-    # pull request as "closed".
-    isPush=t
-fi
 hasMergeResolutionArg=
 isRebase=
 isRebaseSingle=
@@ -138,6 +134,7 @@ do
 	--no-delete)	continueArgs+=("$1"); shift; isKeepBranches=t;;
 	--no-merge)	continueArgs+=("$1"); shift; isPerformTheMerge=;;
 	--push)		continueArgs+=("$1"); shift; isPush=t;;
+	--no-push)	continueArgs+=("$1"); shift; isPush=;;
 	--push-branch)	continueArgs+=("$1"); shift; isPushBranch=t;;
 	--force)	pushBranchForceArg=("$1"); shift;;
 	--branch|-b)    shift
@@ -209,6 +206,12 @@ elif [ -n "$GIT_REINTEGRATE_CHECK_COMMAND" -a ${#checkCommands[@]} -eq 0 ]; then
     checkCommands=("$GIT_REINTEGRATE_CHECK_COMMAND")
 fi
 [ "$isDisableChecks" ] && checkCommands=()
+if [ -z "${isPush+t}" -a -n "$HUB" ]; then
+    # Need to push to remote first so that GitHub recognizes that the branch has
+    # been merged. If the branch is first deleted, GitHub marks a corresponding
+    # pull request as "closed".
+    isPush=t
+fi
 
 sourceBranch="$(git-brname --real-branch-only)" || exit $?
 if [ -z "$targetBranch" ]; then

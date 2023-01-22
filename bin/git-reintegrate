@@ -280,34 +280,6 @@ printContinueCommand()
     [ "$isCheckFromStdin" ] && printf >&2 ' -'
     printf >&2 '\n'
 }
-pushit()
-{
-    local quotedTargetBranch; printf -v quotedTargetBranch %q "$targetBranch"
-    if [ -z "$targetTracks" ]; then
-	printf >&2 "ERROR: Cannot push; no upstream configured for branch '%s'\\n" "$targetBranch"
-	return 1    # Still continue with the branch deletion here, but following push errors will abort.
-    elif [ "$targetTrackedRemote" = 'origin' ]; then
-	# First push to upstream; we usually want to catch up origin to
-	# upstream, but keep it at the current state if pushing to upstream
-	# failed.
-	if git-existsbr "upstream/$targetBranch" && ! git-remote-isreadonly upstream; then
-	    git-remote-mutate upstream --message 'Push' --argument "$targetBranch" --context-command "git uoutlg --color=always --branch $quotedTargetBranch" "${gitRemoteMutateArgs[@]}" \
-		push upstream "$targetBranch" || exit $?
-	fi
-    fi
-    if [ -n "$targetTrackedRemote" ]; then
-	# Push to the tracked remote (usually origin).
-	git-remote-mutate "$targetTrackedRemote" --message 'Push' --argument "$targetBranch" --context-command "git rev-range-outgoing $targetTrackedRemote --color=always --one-more-command greyonelinelog --one-more-only-to-terminal lg --branch $quotedTargetBranch" "${gitRemoteMutateArgs[@]}" \
-	    push "$targetTrackedRemote" || exit $?
-    fi
-    if [ "$targetTrackedRemote" != 'origin' ]; then
-	# Push to origin (if it's different from the tracked remote) last.
-	if git-existsbr "origin/$targetBranch" && ! git-remote-isreadonly origin; then
-	    git-remote-mutate origin --message 'Push' --argument "$targetBranch" --context-command "git ooutlg --color=always --branch $quotedTargetBranch" "${gitRemoteMutateArgs[@]}" \
-		push origin "$targetBranch" || exit $?
-	fi
-    fi
-}
 
 targetBranch="$(git-brname --real-branch-only)" || exit $?
 targetTracks="$(git-tracks 2>/dev/null)"
@@ -454,7 +426,15 @@ fi || {
 }
 
 status=0
-[ ! "$isPush" ] || pushit || status=$?
+[ ! "$isPush" ] || hub-push-this-branch || status=$?
+case $status in
+    0)	;;
+    99) # Still continue with the branch deletion when there's no upstream
+	# configured.
+	;;
+    *)	# Any real push errors abort; don't continue with branch deletion.
+	exit $status;;
+esac
 
 [ ! "$isKeepBranches" ] || exit $status
 

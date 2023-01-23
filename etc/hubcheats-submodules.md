@@ -35,7 +35,8 @@ a) short-lived feature: `$ git amenu && git opush -f`
 b) superproject: maintain history of how the feature grew: `$ git cu && git opush`
 
 ## a) peer review of submodules (optional)
-When only one / few submodules are affected and the integration is trivial.
+When only one / few submodules are affected, changes are not related, and the
+integration is trivial.
 a) from superproject: `$ withSeparator -c git\ boml -c git-servername\ -m | cb && hub subsamebrdo --no-git-color --interactive pull-request`
    paste the server into the description text
 b) from submodule(s): `$ withSeparator -c git\ superdo\ --no-header\ boml -c git\ boml -c git-servername\ -m | cb && hub pull-request`

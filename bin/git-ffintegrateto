@@ -103,6 +103,7 @@ isContinue=
 isKeepBranches=
 isPerformTheMerge=t
 unset isPush
+typeset -a pushArg=()
 isPushBranch=
 typeset -a pushBranchForceArg=()
 hasMergeResolutionArg=
@@ -133,8 +134,8 @@ do
 	--continue)	shift; isContinue=t;;
 	--no-delete)	continueArgs+=("$1"); shift; isKeepBranches=t;;
 	--no-merge)	continueArgs+=("$1"); shift; isPerformTheMerge=;;
-	--push)		continueArgs+=("$1"); shift; isPush=t;;
-	--no-push)	continueArgs+=("$1"); shift; isPush=;;
+	--push)		continueArgs+=("$1"); pushArg=("$1"); shift; isPush=t;;
+	--no-push)	continueArgs+=("$1"); pushArg=("$1"); shift; isPush=;;
 	--push-branch)	continueArgs+=("$1"); shift; isPushBranch=t;;
 	--force)	pushBranchForceArg=("$1"); shift;;
 	--branch|-b)    shift
@@ -211,6 +212,7 @@ if [ -z "${isPush+t}" -a -n "$HUB" ]; then
     # been merged. If the branch is first deleted, GitHub marks a corresponding
     # pull request as "closed".
     isPush=t
+    pushArg=(--push)
 fi
 
 sourceBranch="$(git-brname --real-branch-only)" || exit $?
@@ -469,7 +471,7 @@ fi || {
 status=0
 [ ! "$isPushBranch" ] || pushBranch || status=$?
 
-typeset -a reintegrateToCommand=(reintegrateto --ff-only --no-checks --branch "$targetBranch"${isPush:+ --push}${isKeepBranches:+ --no-delete} "${reintegrateArgs[@]}" "${gitRemoteMutateArgs[@]}")
+typeset -a reintegrateToCommand=(reintegrateto --ff-only --no-checks --branch "$targetBranch"${isKeepBranches:+ --no-delete} "${pushArg[@]}" "${reintegrateArgs[@]}" "${gitRemoteMutateArgs[@]}")
 if [ "$isPerformTheMerge" ]; then
     git "${reintegrateToCommand[@]}" || status=$?
 else

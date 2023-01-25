@@ -6,7 +6,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--[no-]push] [--push-branch [--force] [--recurse-submodules=on-demand]] [--no-merge] [--no-delete] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] [--no-submodule-checkout] [--no-submodule-update] [-y|--yes] -b|--branch <branch> | [--] <branch> [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--[no-]push] [--push-branch [--force] [--recurse-submodules=on-demand]] [--push-submodules] [--no-merge] [--no-delete] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] [--no-submodule-checkout] [--no-submodule-update] [-y|--yes] -b|--branch <branch> | [--] <branch> [-?|-h|--help]'
     echo
     printf 'Usage: GIT_REINTEGRATE_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" '[...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '[...] --no-checks | -c|--command "CHECK-COMMANDLINE" [-c ...] | --exec SIMPLECOMMAND [...] ; [...]'
@@ -55,10 +55,14 @@ HELPDESCRIPTION
 			Also push submodules that changed in the revisions to be
 			pushed; note: this only works if the submodules are on
 			the same branch.
+    --push-submodules	Also push submodules affected by the integration;
+			required when this is a superproject and submodule
+			changes have already been reintegrated but not yet
+			pushed (because the check happens after integration of
+			the superproject).
     --no-merge		Stop short of the actual fast-forward reintegration;
 			just merge / rebase the passed <branch> to the current
 			branch and run checks.
-
     --no-delete		Don't delete the reintegrated current branch from local
 			repository and tracked remote.
     --rebase-single	Rebase only if the current branch is a single non-merge
@@ -111,6 +115,7 @@ typeset -a pushArg=()
 isPushBranch=
 typeset -a pushBranchForceArg=()
 typeset -a pushBranchArgs=()
+isPushSubmodules=
 hasMergeResolutionArg=
 isRebase=
 isRebaseSingle=
@@ -145,6 +150,8 @@ do
 	--force)	pushBranchForceArg=("$1"); shift;;
 	--recurse-submodules=*)
 			pushBranchArgs+=("$1"); shift;;
+	--push-submodules)
+			shift; isPushSubmodules=t;;
 	--branch|-b)    shift
 			if [ -n "$targetBranch" ]; then
 			    echo >&2 'ERROR: <branch> can only be passed once.'
@@ -314,6 +321,12 @@ printContinueCommand()
     [ "$isCheckFromStdin" ] && printf >&2 ' -'
     printf >&2 '\n'
 }
+
+pushSubmodules()
+{
+    git-showsubmodules "${targetBranch}..HEAD" | git-subdo --for - --interactive push-this-branch
+}
+
 pushBranch()
 {
     local sourceTracks="$(git-tracks 2>/dev/null)"
@@ -476,6 +489,7 @@ fi || {
 }
 
 status=0
+[ ! "$isPushSubmodules" ] || pushSubmodules || status=$?
 [ ! "$isPushBranch" ] || pushBranch || status=$?
 
 typeset -a reintegrateToCommand=(reintegrateto --ff-only --no-checks --branch "$targetBranch"${isKeepBranches:+ --no-delete} "${pushArg[@]}" "${reintegrateArgs[@]}" "${gitRemoteMutateArgs[@]}")

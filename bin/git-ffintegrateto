@@ -6,7 +6,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--[no-]push] [--push-branch [--force] [--recurse-submodules=on-demand]] [--push-submodules] [--no-merge] [--no-delete] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] [--no-submodule-checkout] [--no-submodule-update] [-y|--yes] -b|--branch <branch> | [--] <branch> [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--[no-]push] [--push-branch [--force] [--recurse-submodules=on-demand]] [--push-submodules] [--delete-merged-submodule-branches] [--no-merge] [--no-delete] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] [--no-submodule-checkout] [--no-submodule-update] [-y|--yes] -b|--branch <branch> | [--] <branch> [-?|-h|--help]'
     echo
     printf 'Usage: GIT_REINTEGRATE_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" '[...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '[...] --no-checks | -c|--command "CHECK-COMMANDLINE" [-c ...] | --exec SIMPLECOMMAND [...] ; [...]'
@@ -60,6 +60,9 @@ HELPDESCRIPTION
 			changes have already been reintegrated but not yet
 			pushed (because the check happens after integration of
 			the superproject).
+    --delete-merged-submodule-branches
+			Delete the merged submodule branches (after pushing) of
+			submodules affected by the integration.
     --no-merge		Stop short of the actual fast-forward reintegration;
 			just merge / rebase the passed <branch> to the current
 			branch and run checks.
@@ -116,6 +119,7 @@ isPushBranch=
 typeset -a pushBranchForceArg=()
 typeset -a pushBranchArgs=()
 isPushSubmodules=
+isDeleteMergedSubmoduleBranches=
 hasMergeResolutionArg=
 isRebase=
 isRebaseSingle=
@@ -152,6 +156,8 @@ do
 			pushBranchArgs+=("$1"); shift;;
 	--push-submodules)
 			shift; isPushSubmodules=t;;
+	--delete-merged-submodule-branches)
+			shift; isDeleteMergedSubmoduleBranches=t;;
 	--branch|-b)    shift
 			if [ -n "$targetBranch" ]; then
 			    echo >&2 'ERROR: <branch> can only be passed once.'
@@ -324,7 +330,12 @@ printContinueCommand()
 
 pushSubmodules()
 {
-    git-showsubmodules "${targetBranch}..HEAD" | git-subdo --for - --interactive push-this-branch
+    git-showsubmodules "${targetBranch}..HEAD" | git-subdo --status-99-is-noop --for - --interactive push-this-branch
+}
+
+deleteMergedSubmoduleBranches()
+{
+    git-showsubmodules "${targetBranch}..HEAD" | git-subdo --status-99-is-noop --for - --interactive delete-merged-branches "$sourceBranch"
 }
 
 pushBranch()
@@ -490,6 +501,16 @@ fi || {
 
 status=0
 [ ! "$isPushSubmodules" ] || pushSubmodules || status=$?
+case $status in
+    0)	;;
+    99) # Still continue with the submodule branch deletion when there's no
+	# upstream configured.
+	;;
+    *)	# Any real push errors abort; don't continue with branch deletion.
+	exit $status;;
+esac
+
+[ ! "$isDeleteMergedSubmoduleBranches" ] || deleteMergedSubmoduleBranches || status=$?
 [ ! "$isPushBranch" ] || pushBranch || status=$?
 
 typeset -a reintegrateToCommand=(reintegrateto --ff-only --no-checks --branch "$targetBranch"${isKeepBranches:+ --no-delete} "${pushArg[@]}" "${reintegrateArgs[@]}" "${gitRemoteMutateArgs[@]}")

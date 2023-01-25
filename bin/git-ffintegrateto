@@ -6,7 +6,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--[no-]push] [--push-branch [--force]] [--no-merge] [--no-delete] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] [--no-submodule-checkout] [--no-submodule-update] [-y|--yes] -b|--branch <branch> | [--] <branch> [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--[no-]push] [--push-branch [--force] [--recurse-submodules=on-demand]] [--no-merge] [--no-delete] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] [--no-submodule-checkout] [--no-submodule-update] [-y|--yes] -b|--branch <branch> | [--] <branch> [-?|-h|--help]'
     echo
     printf 'Usage: GIT_REINTEGRATE_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" '[...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '[...] --no-checks | -c|--command "CHECK-COMMANDLINE" [-c ...] | --exec SIMPLECOMMAND [...] ; [...]'
@@ -51,6 +51,10 @@ HELPDESCRIPTION
     --force		Force-push the current branch (when the branch has
 			diverged from the tracked remote). Implied by
 			--rebase|--rebase-single.
+    --recurse-submodules=on-demand
+			Also push submodules that changed in the revisions to be
+			pushed; note: this only works if the submodules are on
+			the same branch.
     --no-merge		Stop short of the actual fast-forward reintegration;
 			just merge / rebase the passed <branch> to the current
 			branch and run checks.
@@ -106,6 +110,7 @@ unset isPush
 typeset -a pushArg=()
 isPushBranch=
 typeset -a pushBranchForceArg=()
+typeset -a pushBranchArgs=()
 hasMergeResolutionArg=
 isRebase=
 isRebaseSingle=
@@ -138,6 +143,8 @@ do
 	--no-push)	continueArgs+=("$1"); pushArg=("$1"); shift; isPush=;;
 	--push-branch)	continueArgs+=("$1"); shift; isPushBranch=t;;
 	--force)	pushBranchForceArg=("$1"); shift;;
+	--recurse-submodules=*)
+			pushBranchArgs+=("$1"); shift;;
 	--branch|-b)    shift
 			if [ -n "$targetBranch" ]; then
 			    echo >&2 'ERROR: <branch> can only be passed once.'
@@ -320,7 +327,7 @@ pushBranch()
     local quotedSourceBranch; printf -v quotedSourceBranch %q "$sourceBranch"
     # Push to the tracked remote (usually origin).
     git-remote-mutate "$sourceTrackedRemote" --message 'Push' --argument "$sourceBranch" --context-command "git rev-range-outgoing $sourceTrackedRemote --color=always --one-more-command greyonelinelog --one-more-only-to-terminal lg --branch $quotedSourceBranch" "${gitRemoteMutateArgs[@]}" \
-	push "${pushBranchForceArg[@]}" "$sourceTrackedRemote" || exit $?
+	push "${pushBranchForceArg[@]}" "${pushBranchArgs[@]}" "$sourceTrackedRemote" || exit $?
 }
 
 targetTracks="$(git-tracks "$targetBranch" 2>/dev/null)"

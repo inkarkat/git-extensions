@@ -351,7 +351,7 @@ pushBranch()
     local quotedSourceBranch; printf -v quotedSourceBranch %q "$sourceBranch"
     # Push to the tracked remote (usually origin).
     git-remote-mutate "$sourceTrackedRemote" --message 'Push' --argument "$sourceBranch" --context-command "git rev-range-outgoing $sourceTrackedRemote --color=always --one-more-command greyonelinelog --one-more-only-to-terminal lg --branch $quotedSourceBranch" "${gitRemoteMutateArgs[@]}" \
-	push "${pushBranchForceArg[@]}" "${pushBranchArgs[@]}" "$sourceTrackedRemote" || exit $?
+	push "${pushBranchForceArg[@]}" "${pushBranchArgs[@]}" "$sourceTrackedRemote" || return $?
 }
 
 targetTracks="$(git-tracks "$targetBranch" 2>/dev/null)"
@@ -511,15 +511,29 @@ case $status in
 esac
 
 [ ! "$isDeleteMergedSubmoduleBranches" ] || deleteMergedSubmoduleBranches || status=$?
-[ ! "$isPushBranch" ] || pushBranch || status=$?
+case $status in
+    0)	;;
+    99) # Still continue with the branch push when there's no upstream
+	# configured.
+	;;
+    *)	# Any real deletion errors abort; don't continue with branch push.
+	exit $status;;
+esac
+
+[ ! "$isPushBranch" ] || pushBranch || {
+    status=$?
+    echo >&2 'Push of the current branch failed; correct the problem and push yourself.'
+    # Turn an automatic reintegration into the echoing of the command.
+    isPerformTheMerge=
+    exit $status
+}
 
 typeset -a reintegrateToCommand=(reintegrateto --ff-only --no-checks --branch "$targetBranch"${isKeepBranches:+ --no-delete} "${pushArg[@]}" "${reintegrateArgs[@]}" "${gitRemoteMutateArgs[@]}")
 if [ "$isPerformTheMerge" ]; then
-    git "${reintegrateToCommand[@]}" || status=$?
+    git "${reintegrateToCommand[@]}"
 else
     gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
     printf 'You can fast-forward-integrate the current %s into %s via:\n$ %s' "$sourceBranch" "$targetBranch" "$gitCommand"
     printf >&2 ' %q' "${reintegrateToCommand[@]}"
     printf '\n'
 fi
-exit $status

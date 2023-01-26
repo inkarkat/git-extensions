@@ -43,9 +43,10 @@ do
     fi
 done
 
-printf -v quotedCheckoutCommand '%q ' checkout "$@"
+printf -v quotedCheckoutCommand '%q ' rco "$remote" "$@"
 quotedBranchArgs=; [ ${#branchArgs[@]} -eq 0 ] || printf -v quotedBranchArgs ' %q' "${branchArgs[@]}"
 quotedBranchGlobArgs=; [ ${#branchGlobArgs[@]} -eq 0 ] || printf -v quotedBranchGlobArgs ' %q' "${branchGlobArgs[@]}"
 
 export GIT_SELECTED_COMMAND_DEFAULT_FILES="${GIT_RCHECKOUTSELECTEDBRANCH_REMOTE_BRANCH_COMMAND:-git-rbr} $remote ${GIT_RCHECKOUTSELECTEDBRANCH_REMOTE_BRANCH_ARGUMENT:---sort=committerdate}${quotedBranchArgs}${quotedBranchGlobArgs}"
+export GIT_CHECKOUT_SUBMODULES_COMMAND=subcoremotebr
 exec git-selected-command --single-only "${quotedCheckoutCommand% }"

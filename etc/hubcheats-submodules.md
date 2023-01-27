@@ -62,7 +62,7 @@ superproject: `$ withSeparator -c git\ boml -c hub-bomsubchanges | cb && gh pr e
 superproject: `$ git ofetchup-hushed`
 Check for other open reintegrations (i.e. submodule commits on master not yet
 referenced in the superproject):
-superproject: `$ git bomsubmodules | git osuperhaspendingsubintegrations -`
+superproject: `$ git bomsubmodules | negateThis git osuperhaspendingsubintegrations -`
 superproject: `$ hub subsamebrdo --interactive reintegratetom`
 (if you want to do this submodule by submodule: `$ hub reintegratetom`)
 Note: When doing a bulk change, default check commands (that would run for each

@@ -1,9 +1,8 @@
 # Feature development
 superproject: `$ git com && git oup`
-(directly from another feature: `$ git ofetch` and then using `git omco -b`
-instead of `git mco -b` in the following step)
+(directly from another feature: `$ git ofetchup-hushed`)
 ## a) start top-down
-superproject: Create a branch: `$ git mco -b feat-4711/super-cool`
+superproject: Create a branch: `$ git omco -b feat-4711/super-cool`
 submodules: a) Create branches prior to changes:
 	       `$ c ReLogic git omco -b feat-4711/super-cool`
 	       `$ git subconewbr --query|SUBMODULE1 SUBMODULE2`
@@ -13,7 +12,7 @@ submodules: b) Create branches after uncommitted changes:
 	       `$ git subdo --dirty --untracked omco -b feat-4711/super-cool`
 ## b) start bottom-up
 submodule(s): Create branch: `$ git omco -b feat-4711/super-cool`
-superproject: Create branch: `$ git mco -b $(git substdo --interactive brname | sort -u | singleLineOrSuppressAndError)`
+superproject: Create branch: `$ git omco -b $(git substdo --interactive brname | sort -u | singleLineOrSuppressAndError)`
 ## c) continue from elsewhere:
 superproject: `$ git ocosub feat-4711/super-cool`
 (or with querying: `$ git oco --queried-submodules feat-4711/super-cool`)
@@ -60,7 +59,7 @@ b) from submodule(s): `$ hub superpr && hub pull-request`
 superproject: `$ withSeparator -c git\ boml -c hub-bomsubchanges | cb && gh pr edit`
 
 ## integrate submodule changes first
-superproject: `$ git ofetch`
+superproject: `$ git ofetchup-hushed`
 Check for other open reintegrations (i.e. submodule commits on master not yet
 referenced in the superproject):
 superproject: `$ git bomsubmodules | git osuperhaspendingsubintegrations -`

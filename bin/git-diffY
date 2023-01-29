@@ -5,10 +5,16 @@ set -o pipefail
 : ${GIT_DIFFY_FILE_SUFFIX=[0m}
 
 # Highlight diff output if available.
-hasColorDiff=
-type -t colordiff >/dev/null && [ -t 1 ] && hasColorDiff=t
+hasColorDiff=; type -t colordiff >/dev/null && [ -t 1 ] && hasColorDiff=t
+
+hasDelta()
+{
+    type -t delta >/dev/null \
+	&& [ "$(git config --get core.pager)" = 'delta' ]
+}
 
 isAsDiffTool=
+isSuppressCommonLines=
 typeset -a allargs=()
 typeset -a diffArgs=()
 while [ $# -gt 0 ]
@@ -26,7 +32,7 @@ do
 	    hasColorDiff=t
 	    ;;
 	--suppress-common-lines)
-	    diffArgs+=("$1"); shift;;
+	    diffArgs+=("$1"); shift; isSuppressCommonLines=t;;
 	*)
 	    allargs+=("$1")
 	    shift
@@ -41,6 +47,13 @@ if [ "$isAsDiffTool" ]; then
 	exit 2
     fi
 
+    if [ "$isSuppressCommonLines" ] && hasDelta; then
+	# Note: delta would launch "git diff" internally, resulting in endless
+	# recursion. Supply a unified diff to it to avoid that.
+	diff -u "$@" | delta --side-by-side
+	exit 0	# Need to return success to avoid that Git complains that the "external tool died".
+    fi
+
     root="$(git root)"
     absoluteLastArg="$(readlink -nf -- "${!#}")"
     printf "%s%${COLUMNS:+-${COLUMNS}}s%s\\n" "$GIT_DIFFY_FILE_PREFIX" "${absoluteLastArg#${root}/}:" "$GIT_DIFFY_FILE_SUFFIX"
@@ -48,6 +61,9 @@ if [ "$isAsDiffTool" ]; then
     ${hasColorDiff:+color}diff ${hasColorDiff:+--difftype=diffy} --side-by-side --ignore-all-space ${COLUMNS:+--width $COLUMNS} "${diffArgs[@]}" "$@"
     exit 0	# Need to return success to avoid that Git complains that the "external tool died".
 else
+    [ "$isSuppressCommonLines" ] && hasDelta \
+	&& exec git -c 'delta.side-by-side=true' diff "$@"
+
     colorArg=--color=always; [ "$hasColorDiff" ] || colorArg=--no-color
 
     typeset -a pager=("${PAGER:-less}" --quit-on-intr --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()

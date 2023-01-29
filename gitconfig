@@ -823,6 +823,7 @@
 	mdstabyeach = master-command -2  logstabyeach ..MASTER
 	mdl = master-command -2 dl ..MASTER
 	mdt = master-command -2 difftool ..MASTER
+	mdb = master-command -2 db ..MASTER
 	mdw = master-command -2 dw ..MASTER
 	mdc = master-command -2 dc ..MASTER
 	mda = master-command -2 da ..MASTER
@@ -887,6 +888,7 @@
 	ndstabyeach = base-command -2 logstabyeach ..BASE
 	ndl = base-command -2 dl ..BASE
 	ndt = base-command -2 difftool ..BASE
+	ndb = base-command -2 db ..BASE
 	ndw = base-command -2 dw ..BASE
 	ndc = base-command -2 dc ..BASE
 	nda = base-command -2 da ..BASE
@@ -1174,14 +1176,13 @@
 	dt = difftool
 	dts = difftoolselected
 
+	;; db: bare / basic diff without diff beautification (through delta)
 	;; diffc: context diff; can also be used as a difftool
 	diffy = diffY --suppress-common-lines	; side-by-side diff; can also be used as a difftool
 	;; diffY: side-by-side diff of the complete files; can also be used as a difftool
 	diffwithdiffc = customtool diff.tool diffc
 	diffwithdiffy = customtool diff.tool diffy
 	diffwithdiff-y = customtool diff.tool diffY
-	db = diff -w	; ignore all "blanks" whitespace changes
-	dbl = dl -w
 	dw = -c color.diff.old=red\\ reverse -c color.diff.new=green\\ reverse diff --color-words	; use word-based (not line-based) diff granularity
 	dc = -c color.diff.old=red\\ reverse -c color.diff.new=green\\ reverse diff --color-words --word-diff-regex=.	; use character-based diff granularity
 	da = -c color.diff.old=red\\ reverse -c color.diff.new=green\\ reverse diff --color-words --word-diff-regex=(^|[^[:alnum:]_])[[:alnum:]_]+([^[:alnum:]_]|$)|[^[:space:]]	; use alnum-based diff granularity
@@ -1399,6 +1400,20 @@
 	dttoselectedz = dttoselected --max-count 100
 	dttoselectedcommitref = selectedref-command --commits-only --single-only -2 difftool COMMITS
 	dttolastcommitref = lastcommitref-command -2 difftool COMMITS
+
+	dbtoselected = selectedcommit-command --single-only -2 db COMMITS
+	dbtoselected1 = dbtoselected --max-count 1
+	dbtoselected2 = dbtoselected --max-count 2
+	dbtoselected3 = dbtoselected --max-count 3
+	dbtoselected4 = dbtoselected --max-count 4
+	dbtoselected5 = dbtoselected --max-count 5
+	dbtoselected6 = dbtoselected --max-count 6
+	dbtoselected7 = dbtoselected --max-count 7
+	dbtoselectedx = dbtoselected --max-count 12
+	dbtoselectedq = dbtoselected --max-count 25
+	dbtoselectedz = dbtoselected --max-count 100
+	dbtoselectedcommitref = selectedref-command --commits-only --single-only -2 db COMMITS
+	dbtolastcommitref = lastcommitref-command -2 db COMMITS
 
 	dwtoselected = selectedcommit-command --single-only -2 dw COMMITS
 	dwtoselected1 = dwtoselected --max-count 1
@@ -1678,7 +1693,7 @@
 	whereintroducedtouchedtag = whereintroducedchangetag --more
 
 
-	lc = whatchanged -m -p ; Logs together with diff between commits.
+	lc = -c delta.commit-decoration-style=ol whatchanged -m -p ; Logs together with diff between commits.
 	lc1 = lc --max-count 1
 	lc2 = lc --max-count 2
 	lc3 = lc --max-count 3
@@ -1689,7 +1704,7 @@
 	lcx = lc --max-count 12
 	lcq = lc --max-count 25
 	lcz = lc --max-count 100
-	lcf = whatchanged -m --first-parent -p ; Logs together with diff between commits, but only from the "main branch" perspective, skipping commits that come from merged branches. This makes sense only when following a strict policy of merging all topic branches when staying on a single integration branch.
+	lcf = -c delta.commit-decoration-style=ol whatchanged -m --first-parent -p ; Logs together with diff between commits, but only from the "main branch" perspective, skipping commits that come from merged branches. This makes sense only when following a strict policy of merging all topic branches when staying on a single integration branch.
 	;; lcl: Show separate log and diff of each commit (instead of concatenating all commits), paged through with less. Limit the number of commits via -<number> / -n <number> / --max-count <number> if the default of 20 isn't right.
 	lcl1 = lcl --max-count 1
 	lcl2 = lcl --max-count 2
@@ -1724,6 +1739,7 @@
 	lcrl = lcl --submodule=diff ; Logs together with diff between commits including submodules, each commit (as a set of main repo and submodules; use lcl + sublcl for finer granularity) separately, paged through with less.
 	;; show: Log together with diff for a particular commit; like lc but will not log further commits.
 	;; showl: Show separate log together with diff of each passed revision (instead of concatenating all commits), paged through with less.
+	;; showb: Show separate log together with bare / basic diff without diff beautification (through delta).
 	showw = -c color.diff.old=red\\ reverse -c color.diff.new=green\\ reverse wrapper show --color-words	; use word-based (not line-based) diff granularity
 	showc = -c color.diff.old=red\\ reverse -c color.diff.new=green\\ reverse wrapper show --color-words --word-diff-regex=.	; use character-based diff granularity
 	showa = -c color.diff.old=red\\ reverse -c color.diff.new=green\\ reverse wrapper show --color-words --word-diff-regex=(^|[^[:alnum:]_])[[:alnum:]_]+([^[:alnum:]_]|$)|[^[:space:]]	; use alnum-based diff granularity
@@ -2587,6 +2603,7 @@
 	tddstabyeach = revision-command --keep-position today-command --revision REVISION -2 logstabyeach TIMESPAN
 	tddl = revision-command --keep-position today-command --revision REVISION --no-range -2 diffuntill TIMESPAN ; Show all changes from today in a big diffs, separately for each changed file.
 	tddt = revision-command --keep-position today-command --revision REVISION --no-range -2 difftooluntil TIMESPAN
+	tddb = revision-command --keep-position today-command --revision REVISION --no-range -2 diffuntilb TIMESPAN
 	tddw = revision-command --keep-position today-command --revision REVISION --no-range -2 diffuntilw TIMESPAN
 	tddc = revision-command --keep-position today-command --revision REVISION --no-range -2 diffuntilc TIMESPAN
 	tdda = revision-command --keep-position today-command --revision REVISION --no-range -2 diffuntila TIMESPAN
@@ -2854,6 +2871,7 @@
 	weekdstabyeach = revision-command --keep-position week-command --revision REVISION -2 logstabyeach TIMESPAN
 	weekdl = revision-command --keep-position week-command --revision REVISION --no-range -2 diffuntill TIMESPAN ; Show all changes from the last seven days in a big diffs, separately for each changed file.
 	weekdt = revision-command --keep-position week-command --revision REVISION --no-range -2 difftooluntil TIMESPAN
+	weekdb = revision-command --keep-position week-command --revision REVISION --no-range -2 diffuntilb TIMESPAN
 	weekdw = revision-command --keep-position week-command --revision REVISION --no-range -2 diffuntilw TIMESPAN
 	weekdc = revision-command --keep-position week-command --revision REVISION --no-range -2 diffuntilc TIMESPAN
 	weekda = revision-command --keep-position week-command --revision REVISION --no-range -2 diffuntila TIMESPAN
@@ -3121,6 +3139,7 @@
 	monthdstabyeach = revision-command --keep-position month-command --revision REVISION -2 logstabyeach TIMESPAN
 	monthdl = revision-command --keep-position month-command --revision REVISION --no-range -2 diffuntill TIMESPAN ; Show all changes from the last 30/31 days in a big diffs, separately for each changed file.
 	monthdt = revision-command --keep-position month-command --revision REVISION --no-range -2 difftooluntil TIMESPAN
+	monthdb = revision-command --keep-position month-command --revision REVISION --no-range -2 diffuntilb TIMESPAN
 	monthdw = revision-command --keep-position month-command --revision REVISION --no-range -2 diffuntilw TIMESPAN
 	monthdc = revision-command --keep-position month-command --revision REVISION --no-range -2 diffuntilc TIMESPAN
 	monthda = revision-command --keep-position month-command --revision REVISION --no-range -2 diffuntila TIMESPAN
@@ -3388,6 +3407,7 @@
 	yeardstabyeach = revision-command --keep-position year-command --revision REVISION -2 logstabyeach TIMESPAN
 	yeardl = revision-command --keep-position year-command --revision REVISION --no-range -2 diffuntill TIMESPAN ; Show all changes from the last 365 days in a big diffs, separately for each changed file.
 	yeardt = revision-command --keep-position year-command --revision REVISION --no-range -2 difftooluntil TIMESPAN
+	yeardb = revision-command --keep-position year-command --revision REVISION --no-range -2 diffuntilb TIMESPAN
 	yeardw = revision-command --keep-position year-command --revision REVISION --no-range -2 diffuntilw TIMESPAN
 	yeardc = revision-command --keep-position year-command --revision REVISION --no-range -2 diffuntilc TIMESPAN
 	yearda = revision-command --keep-position year-command --revision REVISION --no-range -2 diffuntila TIMESPAN
@@ -3655,6 +3675,7 @@
 	sincebydstabyeach = sinceby-command --with-log-args -2 logstabyeach USERRANGE
 	sincebydl = sinceby-command --with-log-args --with-range ... -2 dl USERRANGE
 	sincebydt = sinceby-command --with-log-args --with-range ... -2 difftool USERRANGE
+	sincebydb = sinceby-command --with-log-args --with-range ... -2 db USERRANGE
 	sincebydw = sinceby-command --with-log-args --with-range ... -2 dw USERRANGE
 	sincebydc = sinceby-command --with-log-args --with-range ... -2 dc USERRANGE
 	sincebyda = sinceby-command --with-log-args --with-range ... -2 da USERRANGE
@@ -3922,6 +3943,7 @@
 	sincemedstabyeach = mine-command -2 sinceby-command ME --with-log-args -2 logstabyeach USERRANGE
 	sincemedl = mine-command -2 sinceby-command ME --with-log-args --with-range ... -2 dl USERRANGE
 	sincemedt = mine-command -2 sinceby-command ME --with-log-args --with-range ... -2 difftool USERRANGE
+	sincemedb = mine-command -2 sinceby-command ME --with-log-args --with-range ... -2 db USERRANGE
 	sincemedw = mine-command -2 sinceby-command ME --with-log-args --with-range ... -2 dw USERRANGE
 	sincemedc = mine-command -2 sinceby-command ME --with-log-args --with-range ... -2 dc USERRANGE
 	sincemeda = mine-command -2 sinceby-command ME --with-log-args --with-range ... -2 da USERRANGE
@@ -4189,6 +4211,7 @@
 	bydstabyeach = byuserrange-command --with-log-args -2 logstabyeach USERRANGE
 	bydl = byuserrange-command --with-log-args --with-range ... -2 dl USERRANGE
 	bydt = byuserrange-command --with-log-args --with-range ... -2 difftool USERRANGE
+	bydb = byuserrange-command --with-log-args --with-range ... -2 db USERRANGE
 	bydw = byuserrange-command --with-log-args --with-range ... -2 dw USERRANGE
 	bydc = byuserrange-command --with-log-args --with-range ... -2 dc USERRANGE
 	byda = byuserrange-command --with-log-args --with-range ... -2 da USERRANGE
@@ -4456,6 +4479,7 @@
 	msgdstabyeach = loggrange-command --with-log-args -2 logstabyeach LOGRANGE
 	msgdl = loggrange-command --with-log-args --with-range ... -2 dl LOGRANGE
 	msgdt = loggrange-command --with-log-args --with-range ... -2 difftool LOGRANGE
+	msgdb = loggrange-command --with-log-args --with-range ... -2 db LOGRANGE
 	msgdw = loggrange-command --with-log-args --with-range ... -2 dw LOGRANGE
 	msgdc = loggrange-command --with-log-args --with-range ... -2 dc LOGRANGE
 	msgda = loggrange-command --with-log-args --with-range ... -2 da LOGRANGE
@@ -4728,6 +4752,7 @@
 	abrdstabyeach = rev-range-this-branch --any -2 logstabyeach RANGE
 	abrdl = rev-range-this-branch --any --with-range ... -2 dl RANGE
 	abrdt = rev-range-this-branch --any --with-range ... -2 difftool RANGE
+	abrdb = rev-range-this-branch --any --with-range ... -2 db RANGE
 	abrdw = rev-range-this-branch --any --with-range ... -2 dw RANGE
 	abrdc = rev-range-this-branch --any --with-range ... -2 dc RANGE
 	abrda = rev-range-this-branch --any --with-range ... -2 da RANGE
@@ -4996,6 +5021,7 @@
 	bcdstabyeach = rev-range-branchcreation -2 logstabyeach RANGE
 	bcdl = rev-range-branchcreation --with-range ... -2 dl RANGE
 	bcdt = rev-range-branchcreation --with-range ... -2 difftool RANGE
+	bcdb = rev-range-branchcreation --with-range ... -2 db RANGE
 	bcdw = rev-range-branchcreation --with-range ... -2 dw RANGE
 	bcdc = rev-range-branchcreation --with-range ... -2 dc RANGE
 	bcda = rev-range-branchcreation --with-range ... -2 da RANGE
@@ -5264,6 +5290,7 @@
 	brdstabyeach = rev-range-this-branch -2 logstabyeach RANGE
 	brdl = rev-range-this-branch --with-range ... -2 dl RANGE
 	brdt = rev-range-this-branch --with-range ... -2 difftool RANGE
+	brdb = rev-range-this-branch --with-range ... -2 db RANGE
 	brdw = rev-range-this-branch --with-range ... -2 dw RANGE
 	brdc = rev-range-this-branch --with-range ... -2 dc RANGE
 	brda = rev-range-this-branch --with-range ... -2 da RANGE
@@ -5532,6 +5559,7 @@
 	b2rdstabyeach = rev-range-this-branch --branch-number 2 -2 logstabyeach RANGE
 	b2rdl = rev-range-this-branch --branch-number 2 --with-range ... -2 dl RANGE
 	b2rdt = rev-range-this-branch --branch-number 2 --with-range ... -2 difftool RANGE
+	b2rdb = rev-range-this-branch --branch-number 2 --with-range ... -2 db RANGE
 	b2rdw = rev-range-this-branch --branch-number 2 --with-range ... -2 dw RANGE
 	b2rdc = rev-range-this-branch --branch-number 2 --with-range ... -2 dc RANGE
 	b2rda = rev-range-this-branch --branch-number 2 --with-range ... -2 da RANGE
@@ -5800,6 +5828,7 @@
 	b3rdstabyeach = rev-range-this-branch --branch-number 3 -2 logstabyeach RANGE
 	b3rdl = rev-range-this-branch --branch-number 3 --with-range ... -2 dl RANGE
 	b3rdt = rev-range-this-branch --branch-number 3 --with-range ... -2 difftool RANGE
+	b3rdb = rev-range-this-branch --branch-number 3 --with-range ... -2 db RANGE
 	b3rdw = rev-range-this-branch --branch-number 3 --with-range ... -2 dw RANGE
 	b3rdc = rev-range-this-branch --branch-number 3 --with-range ... -2 dc RANGE
 	b3rda = rev-range-this-branch --branch-number 3 --with-range ... -2 da RANGE
@@ -6068,6 +6097,7 @@
 	tobdstabyeach = branch-command --mandatory-branch --keep-position rev-range --revision BRANCH -2 logstabyeach RANGE
 	tobdl = branch-command --mandatory-branch --keep-position rev-range --revision BRANCH --with-range ... -2 dl RANGE
 	tobdt = branch-command --mandatory-branch --keep-position rev-range --revision BRANCH --with-range ... -2 difftool RANGE
+	tobdb = branch-command --mandatory-branch --keep-position rev-range --revision BRANCH --with-range ... -2 db RANGE
 	tobdw = branch-command --mandatory-branch --keep-position rev-range --revision BRANCH --with-range ... -2 dw RANGE
 	tobdc = branch-command --mandatory-branch --keep-position rev-range --revision BRANCH --with-range ... -2 dc RANGE
 	tobda = branch-command --mandatory-branch --keep-position rev-range --revision BRANCH --with-range ... -2 da RANGE
@@ -6336,6 +6366,7 @@
 	bmdstabyeach = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --end-revision BRANCH -2 logstabyeach RANGE
 	bmdl = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --end-revision BRANCH --with-range ... -2 dl RANGE
 	bmdt = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --end-revision BRANCH --with-range ... -2 difftool RANGE
+	bmdb = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --end-revision BRANCH --with-range ... -2 db RANGE
 	bmdw = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --end-revision BRANCH --with-range ... -2 dw RANGE
 	bmdc = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --end-revision BRANCH --with-range ... -2 dc RANGE
 	bmda = branch-command --keep-position master-command --keep-position rev-range --revision MASTER --end-revision BRANCH --with-range ... -2 da RANGE
@@ -6604,6 +6635,7 @@
 	bomdstabyeach = branch-command --keep-position master-command --keep-position rev-range --revision origin/MASTER --end-revision BRANCH -2 logstabyeach RANGE
 	bomdl = branch-command --keep-position master-command --keep-position rev-range --revision origin/MASTER --end-revision BRANCH --with-range ... -2 dl RANGE
 	bomdt = branch-command --keep-position master-command --keep-position rev-range --revision origin/MASTER --end-revision BRANCH --with-range ... -2 difftool RANGE
+	bomdb = branch-command --keep-position master-command --keep-position rev-range --revision origin/MASTER --end-revision BRANCH --with-range ... -2 db RANGE
 	bomdw = branch-command --keep-position master-command --keep-position rev-range --revision origin/MASTER --end-revision BRANCH --with-range ... -2 dw RANGE
 	bomdc = branch-command --keep-position master-command --keep-position rev-range --revision origin/MASTER --end-revision BRANCH --with-range ... -2 dc RANGE
 	bomda = branch-command --keep-position master-command --keep-position rev-range --revision origin/MASTER --end-revision BRANCH --with-range ... -2 da RANGE
@@ -6872,6 +6904,7 @@
 	mbdstabyeach = branch-command --keep-position master-command --keep-position rev-range --revision BRANCH --end-revision MASTER -2 logstabyeach RANGE
 	mbdl = branch-command --keep-position master-command --keep-position rev-range --revision BRANCH --end-revision MASTER --with-range ... -2 dl RANGE
 	mbdt = branch-command --keep-position master-command --keep-position rev-range --revision BRANCH --end-revision MASTER --with-range ... -2 difftool RANGE
+	mbdb = branch-command --keep-position master-command --keep-position rev-range --revision BRANCH --end-revision MASTER --with-range ... -2 db RANGE
 	mbdw = branch-command --keep-position master-command --keep-position rev-range --revision BRANCH --end-revision MASTER --with-range ... -2 dw RANGE
 	mbdc = branch-command --keep-position master-command --keep-position rev-range --revision BRANCH --end-revision MASTER --with-range ... -2 dc RANGE
 	mbda = branch-command --keep-position master-command --keep-position rev-range --revision BRANCH --end-revision MASTER --with-range ... -2 da RANGE
@@ -7140,6 +7173,7 @@
 	ombdstabyeach = branch-command --keep-position master-command --keep-position rev-range --revision BRANCH --end-revision origin/MASTER -2 logstabyeach RANGE
 	ombdl = branch-command --keep-position master-command --keep-position rev-range --revision BRANCH --end-revision origin/MASTER --with-range ... -2 dl RANGE
 	ombdt = branch-command --keep-position master-command --keep-position rev-range --revision BRANCH --end-revision origin/MASTER --with-range ... -2 difftool RANGE
+	ombdb = branch-command --keep-position master-command --keep-position rev-range --revision BRANCH --end-revision origin/MASTER --with-range ... -2 db RANGE
 	ombdw = branch-command --keep-position master-command --keep-position rev-range --revision BRANCH --end-revision origin/MASTER --with-range ... -2 dw RANGE
 	ombdc = branch-command --keep-position master-command --keep-position rev-range --revision BRANCH --end-revision origin/MASTER --with-range ... -2 dc RANGE
 	ombda = branch-command --keep-position master-command --keep-position rev-range --revision BRANCH --end-revision origin/MASTER --with-range ... -2 da RANGE
@@ -7408,6 +7442,7 @@
 	bndstabyeach = branch-command --keep-position base-command --keep-position rev-range --revision BASE --end-revision BRANCH -2 logstabyeach RANGE
 	bndl = branch-command --keep-position base-command --keep-position rev-range --revision BASE --end-revision BRANCH --with-range ... -2 dl RANGE
 	bndt = branch-command --keep-position base-command --keep-position rev-range --revision BASE --end-revision BRANCH --with-range ... -2 difftool RANGE
+	bndb = branch-command --keep-position base-command --keep-position rev-range --revision BASE --end-revision BRANCH --with-range ... -2 db RANGE
 	bndw = branch-command --keep-position base-command --keep-position rev-range --revision BASE --end-revision BRANCH --with-range ... -2 dw RANGE
 	bndc = branch-command --keep-position base-command --keep-position rev-range --revision BASE --end-revision BRANCH --with-range ... -2 dc RANGE
 	bnda = branch-command --keep-position base-command --keep-position rev-range --revision BASE --end-revision BRANCH --with-range ... -2 da RANGE
@@ -7676,6 +7711,7 @@
 	nbdstabyeach = branch-command --keep-position base-command --keep-position rev-range --revision BRANCH --end-revision BASE -2 logstabyeach RANGE
 	nbdl = branch-command --keep-position base-command --keep-position rev-range --revision BRANCH --end-revision BASE --with-range ... -2 dl RANGE
 	nbdt = branch-command --keep-position base-command --keep-position rev-range --revision BRANCH --end-revision BASE --with-range ... -2 difftool RANGE
+	nbdb = branch-command --keep-position base-command --keep-position rev-range --revision BRANCH --end-revision BASE --with-range ... -2 db RANGE
 	nbdw = branch-command --keep-position base-command --keep-position rev-range --revision BRANCH --end-revision BASE --with-range ... -2 dw RANGE
 	nbdc = branch-command --keep-position base-command --keep-position rev-range --revision BRANCH --end-revision BASE --with-range ... -2 dc RANGE
 	nbda = branch-command --keep-position base-command --keep-position rev-range --revision BRANCH --end-revision BASE --with-range ... -2 da RANGE
@@ -7944,6 +7980,7 @@
 	onbdstabyeach = branch-command --keep-position base-command --keep-position rev-range --revision BRANCH --end-revision origin/BASE -2 logstabyeach RANGE
 	onbdl = branch-command --keep-position base-command --keep-position rev-range --revision BRANCH --end-revision origin/BASE --with-range ... -2 dl RANGE
 	onbdt = branch-command --keep-position base-command --keep-position rev-range --revision BRANCH --end-revision origin/BASE --with-range ... -2 difftool RANGE
+	onbdb = branch-command --keep-position base-command --keep-position rev-range --revision BRANCH --end-revision origin/BASE --with-range ... -2 db RANGE
 	onbdw = branch-command --keep-position base-command --keep-position rev-range --revision BRANCH --end-revision origin/BASE --with-range ... -2 dw RANGE
 	onbdc = branch-command --keep-position base-command --keep-position rev-range --revision BRANCH --end-revision origin/BASE --with-range ... -2 dc RANGE
 	onbda = branch-command --keep-position base-command --keep-position rev-range --revision BRANCH --end-revision origin/BASE --with-range ... -2 da RANGE
@@ -8212,6 +8249,7 @@
 	stabledstabyeach = branch-command --keep-position rev-range --revision stable --end-revision BRANCH -2 logstabyeach RANGE
 	stabledl = branch-command --keep-position rev-range --revision stable --end-revision BRANCH --with-range ... -2 dl RANGE
 	stabledt = branch-command --keep-position rev-range --revision stable --end-revision BRANCH --with-range ... -2 difftool RANGE
+	stabledb = branch-command --keep-position rev-range --revision stable --end-revision BRANCH --with-range ... -2 db RANGE
 	stabledw = branch-command --keep-position rev-range --revision stable --end-revision BRANCH --with-range ... -2 dw RANGE
 	stabledc = branch-command --keep-position rev-range --revision stable --end-revision BRANCH --with-range ... -2 dc RANGE
 	stableda = branch-command --keep-position rev-range --revision stable --end-revision BRANCH --with-range ... -2 da RANGE
@@ -8480,6 +8518,7 @@
 	ttdstabyeach = untiltag-command --reachable-from-passed-branch --keep-position branch-command --keep-position rev-range --revision TAG --end-revision BRANCH -2 logstabyeach RANGE
 	ttdl = untiltag-command --reachable-from-passed-branch --keep-position branch-command --keep-position rev-range --revision TAG --end-revision BRANCH --with-range ... -2 dl RANGE
 	ttdt = untiltag-command --reachable-from-passed-branch --keep-position branch-command --keep-position rev-range --revision TAG --end-revision BRANCH --with-range ... -2 difftool RANGE
+	ttdb = untiltag-command --reachable-from-passed-branch --keep-position branch-command --keep-position rev-range --revision TAG --end-revision BRANCH --with-range ... -2 db RANGE
 	ttdw = untiltag-command --reachable-from-passed-branch --keep-position branch-command --keep-position rev-range --revision TAG --end-revision BRANCH --with-range ... -2 dw RANGE
 	ttdc = untiltag-command --reachable-from-passed-branch --keep-position branch-command --keep-position rev-range --revision TAG --end-revision BRANCH --with-range ... -2 dc RANGE
 	ttda = untiltag-command --reachable-from-passed-branch --keep-position branch-command --keep-position rev-range --revision TAG --end-revision BRANCH --with-range ... -2 da RANGE
@@ -8748,6 +8787,7 @@
 	bldstabyeach = branch-command --keep-position rev-range --revision @{-1} --end-revision BRANCH -2 logstabyeach RANGE
 	bldl = branch-command --keep-position rev-range --revision @{-1} --end-revision BRANCH --with-range ... -2 dl RANGE
 	bldt = branch-command --keep-position rev-range --revision @{-1} --end-revision BRANCH --with-range ... -2 difftool RANGE
+	bldb = branch-command --keep-position rev-range --revision @{-1} --end-revision BRANCH --with-range ... -2 db RANGE
 	bldw = branch-command --keep-position rev-range --revision @{-1} --end-revision BRANCH --with-range ... -2 dw RANGE
 	bldc = branch-command --keep-position rev-range --revision @{-1} --end-revision BRANCH --with-range ... -2 dc RANGE
 	blda = branch-command --keep-position rev-range --revision @{-1} --end-revision BRANCH --with-range ... -2 da RANGE
@@ -9016,6 +9056,7 @@
 	b2ldstabyeach = branch-command --keep-position rev-range --revision @{-2} --end-revision BRANCH -2 logstabyeach RANGE
 	b2ldl = branch-command --keep-position rev-range --revision @{-2} --end-revision BRANCH --with-range ... -2 dl RANGE
 	b2ldt = branch-command --keep-position rev-range --revision @{-2} --end-revision BRANCH --with-range ... -2 difftool RANGE
+	b2ldb = branch-command --keep-position rev-range --revision @{-2} --end-revision BRANCH --with-range ... -2 db RANGE
 	b2ldw = branch-command --keep-position rev-range --revision @{-2} --end-revision BRANCH --with-range ... -2 dw RANGE
 	b2ldc = branch-command --keep-position rev-range --revision @{-2} --end-revision BRANCH --with-range ... -2 dc RANGE
 	b2lda = branch-command --keep-position rev-range --revision @{-2} --end-revision BRANCH --with-range ... -2 da RANGE
@@ -9284,6 +9325,7 @@
 	bpdstabyeach = branch-command --keep-position rev-range --revision @{1} --end-revision BRANCH -2 logstabyeach RANGE
 	bpdl = branch-command --keep-position rev-range --revision @{1} --end-revision BRANCH --with-range ... -2 dl RANGE
 	bpdt = branch-command --keep-position rev-range --revision @{1} --end-revision BRANCH --with-range ... -2 difftool RANGE
+	bpdb = branch-command --keep-position rev-range --revision @{1} --end-revision BRANCH --with-range ... -2 db RANGE
 	bpdw = branch-command --keep-position rev-range --revision @{1} --end-revision BRANCH --with-range ... -2 dw RANGE
 	bpdc = branch-command --keep-position rev-range --revision @{1} --end-revision BRANCH --with-range ... -2 dc RANGE
 	bpda = branch-command --keep-position rev-range --revision @{1} --end-revision BRANCH --with-range ... -2 da RANGE
@@ -9552,6 +9594,7 @@
 	b2pdstabyeach = branch-command --keep-position rev-range --revision @{2} --end-revision BRANCH -2 logstabyeach RANGE
 	b2pdl = branch-command --keep-position rev-range --revision @{2} --end-revision BRANCH --with-range ... -2 dl RANGE
 	b2pdt = branch-command --keep-position rev-range --revision @{2} --end-revision BRANCH --with-range ... -2 difftool RANGE
+	b2pdb = branch-command --keep-position rev-range --revision @{2} --end-revision BRANCH --with-range ... -2 db RANGE
 	b2pdw = branch-command --keep-position rev-range --revision @{2} --end-revision BRANCH --with-range ... -2 dw RANGE
 	b2pdc = branch-command --keep-position rev-range --revision @{2} --end-revision BRANCH --with-range ... -2 dc RANGE
 	b2pda = branch-command --keep-position rev-range --revision @{2} --end-revision BRANCH --with-range ... -2 da RANGE
@@ -9820,6 +9863,7 @@
 	outdstabyeach = rev-range-outgoing '' -2 logstabyeach RANGE
 	outdl = rev-range-outgoing '' --with-range ... -2 dl RANGE
 	outdt = rev-range-outgoing '' --with-range ... -2 difftool RANGE
+	outdb = rev-range-outgoing '' --with-range ... -2 db RANGE
 	outdw = rev-range-outgoing '' --with-range ... -2 dw RANGE
 	outdc = rev-range-outgoing '' --with-range ... -2 dc RANGE
 	outda = rev-range-outgoing '' --with-range ... -2 da RANGE
@@ -10087,6 +10131,7 @@
 	indstabyeach = rev-range-incoming '' -2 logstabyeach RANGE
 	indl = rev-range-incoming '' --with-range ... -2 dl RANGE
 	indt = rev-range-incoming '' --with-range ... -2 difftool RANGE
+	indb = rev-range-incoming '' --with-range ... -2 db RANGE
 	indw = rev-range-incoming '' --with-range ... -2 dw RANGE
 	indc = rev-range-incoming '' --with-range ... -2 dc RANGE
 	inda = rev-range-incoming '' --with-range ... -2 da RANGE
@@ -10310,6 +10355,7 @@
 	ooutdstabyeach = rev-range-outgoing origin -2 logstabyeach RANGE
 	ooutdl = rev-range-outgoing origin --with-range ... -2 dl RANGE
 	ooutdt = rev-range-outgoing origin --with-range ... -2 difftool RANGE
+	ooutdb = rev-range-outgoing origin --with-range ... -2 db RANGE
 	ooutdw = rev-range-outgoing origin --with-range ... -2 dw RANGE
 	ooutdc = rev-range-outgoing origin --with-range ... -2 dc RANGE
 	ooutda = rev-range-outgoing origin --with-range ... -2 da RANGE
@@ -10575,6 +10621,7 @@
 	oindstabyeach = rev-range-incoming origin -2 logstabyeach RANGE
 	oindl = rev-range-incoming origin --with-range ... -2 dl RANGE
 	oindt = rev-range-incoming origin --with-range ... -2 difftool RANGE
+	oindb = rev-range-incoming origin --with-range ... -2 db RANGE
 	oindw = rev-range-incoming origin --with-range ... -2 dw RANGE
 	oindc = rev-range-incoming origin --with-range ... -2 dc RANGE
 	oinda = rev-range-incoming origin --with-range ... -2 da RANGE
@@ -10796,6 +10843,7 @@
 	uoutdstabyeach = rev-range-outgoing upstream -2 logstabyeach RANGE
 	uoutdl = rev-range-outgoing upstream --with-range ... -2 dl RANGE
 	uoutdt = rev-range-outgoing upstream --with-range ... -2 difftool RANGE
+	uoutdb = rev-range-outgoing upstream --with-range ... -2 db RANGE
 	uoutdw = rev-range-outgoing upstream --with-range ... -2 dw RANGE
 	uoutdc = rev-range-outgoing upstream --with-range ... -2 dc RANGE
 	uoutda = rev-range-outgoing upstream --with-range ... -2 da RANGE
@@ -11061,6 +11109,7 @@
 	uindstabyeach = rev-range-incoming upstream -2 logstabyeach RANGE
 	uindl = rev-range-incoming upstream --with-range ... -2 dl RANGE
 	uindt = rev-range-incoming upstream --with-range ... -2 difftool RANGE
+	uindb = rev-range-incoming upstream --with-range ... -2 db RANGE
 	uindw = rev-range-incoming upstream --with-range ... -2 dw RANGE
 	uindc = rev-range-incoming upstream --with-range ... -2 dc RANGE
 	uinda = rev-range-incoming upstream --with-range ... -2 da RANGE
@@ -11282,6 +11331,7 @@
 	lbrdstabyeach = localbrrefdo-wrapper rev-range-this-branch --branch {} -2 logstabyeach RANGE
 	lbrdl = localbrrefdo-wrapper rev-range-this-branch --branch {} --with-range ... -2 dl RANGE
 	lbrdt = localbrrefdo-wrapper --no-git-color rev-range-this-branch --branch {} --with-range ... -2 difftool RANGE
+	lbrdb = localbrrefdo-wrapper rev-range-this-branch --branch {} --with-range ... -2 db RANGE
 	lbrdw = localbrrefdo-wrapper rev-range-this-branch --branch {} --with-range ... -2 dw RANGE
 	lbrdc = localbrrefdo-wrapper rev-range-this-branch --branch {} --with-range ... -2 dc RANGE
 	lbrda = localbrrefdo-wrapper rev-range-this-branch --branch {} --with-range ... -2 da RANGE
@@ -11505,6 +11555,7 @@
 	lbmdstabyeach = localbrrefdo-wrapper master-command --keep-position rev-range --revision MASTER --end-revision {} -2 logstabyeach RANGE
 	lbmdl = localbrrefdo-wrapper master-command --keep-position rev-range --revision MASTER --end-revision {} --with-range ... -2 dl RANGE
 	lbmdt = localbrrefdo-wrapper --no-git-color master-command --keep-position rev-range --revision MASTER --end-revision {} --with-range ... -2 difftool RANGE
+	lbmdb = localbrrefdo-wrapper master-command --keep-position rev-range --revision MASTER --end-revision {} --with-range ... -2 db RANGE
 	lbmdw = localbrrefdo-wrapper master-command --keep-position rev-range --revision MASTER --end-revision {} --with-range ... -2 dw RANGE
 	lbmdc = localbrrefdo-wrapper master-command --keep-position rev-range --revision MASTER --end-revision {} --with-range ... -2 dc RANGE
 	lbmda = localbrrefdo-wrapper master-command --keep-position rev-range --revision MASTER --end-revision {} --with-range ... -2 da RANGE
@@ -11728,6 +11779,7 @@
 	obrdstabyeach = rbrrefdo-wrapper origin rev-range-this-branch --branch {} --any -2 logstabyeach RANGE
 	obrdl = rbrrefdo-wrapper origin rev-range-this-branch --branch {} --any --with-range ... -2 dl RANGE
 	obrdt = rbrrefdo-wrapper origin --no-git-color rev-range-this-branch --branch {} --any --with-range ... -2 difftool RANGE
+	obrdb = rbrrefdo-wrapper origin rev-range-this-branch --branch {} --any --with-range ... -2 db RANGE
 	obrdw = rbrrefdo-wrapper origin rev-range-this-branch --branch {} --any --with-range ... -2 dw RANGE
 	obrdc = rbrrefdo-wrapper origin rev-range-this-branch --branch {} --any --with-range ... -2 dc RANGE
 	obrda = rbrrefdo-wrapper origin rev-range-this-branch --branch {} --any --with-range ... -2 da RANGE
@@ -11951,6 +12003,7 @@
 	obmdstabyeach = rbrrefdo-wrapper origin master-command --keep-position rev-range --revision MASTER --end-revision {} -2 logstabyeach RANGE
 	obmdl = rbrrefdo-wrapper origin master-command --keep-position rev-range --revision MASTER --end-revision {} --with-range ... -2 dl RANGE
 	obmdt = rbrrefdo-wrapper origin --no-git-color master-command --keep-position rev-range --revision MASTER --end-revision {} --with-range ... -2 difftool RANGE
+	obmdb = rbrrefdo-wrapper origin master-command --keep-position rev-range --revision MASTER --end-revision {} --with-range ... -2 db RANGE
 	obmdw = rbrrefdo-wrapper origin master-command --keep-position rev-range --revision MASTER --end-revision {} --with-range ... -2 dw RANGE
 	obmdc = rbrrefdo-wrapper origin master-command --keep-position rev-range --revision MASTER --end-revision {} --with-range ... -2 dc RANGE
 	obmda = rbrrefdo-wrapper origin master-command --keep-position rev-range --revision MASTER --end-revision {} --with-range ... -2 da RANGE
@@ -12174,6 +12227,7 @@
 	ubrdstabyeach = rbrrefdo-wrapper upstream rev-range-this-branch --branch {} --any -2 logstabyeach RANGE
 	ubrdl = rbrrefdo-wrapper upstream rev-range-this-branch --branch {} --any --with-range ... -2 dl RANGE
 	ubrdt = rbrrefdo-wrapper upstream --no-git-color rev-range-this-branch --branch {} --any --with-range ... -2 difftool RANGE
+	ubrdb = rbrrefdo-wrapper upstream rev-range-this-branch --branch {} --any --with-range ... -2 db RANGE
 	ubrdw = rbrrefdo-wrapper upstream rev-range-this-branch --branch {} --any --with-range ... -2 dw RANGE
 	ubrdc = rbrrefdo-wrapper upstream rev-range-this-branch --branch {} --any --with-range ... -2 dc RANGE
 	ubrda = rbrrefdo-wrapper upstream rev-range-this-branch --branch {} --any --with-range ... -2 da RANGE
@@ -12397,6 +12451,7 @@
 	ubmdstabyeach = rbrrefdo-wrapper upstream master-command --keep-position rev-range --revision MASTER --end-revision {} -2 logstabyeach RANGE
 	ubmdl = rbrrefdo-wrapper upstream master-command --keep-position rev-range --revision MASTER --end-revision {} --with-range ... -2 dl RANGE
 	ubmdt = rbrrefdo-wrapper upstream --no-git-color master-command --keep-position rev-range --revision MASTER --end-revision {} --with-range ... -2 difftool RANGE
+	ubmdb = rbrrefdo-wrapper upstream master-command --keep-position rev-range --revision MASTER --end-revision {} --with-range ... -2 db RANGE
 	ubmdw = rbrrefdo-wrapper upstream master-command --keep-position rev-range --revision MASTER --end-revision {} --with-range ... -2 dw RANGE
 	ubmdc = rbrrefdo-wrapper upstream master-command --keep-position rev-range --revision MASTER --end-revision {} --with-range ... -2 dc RANGE
 	ubmda = rbrrefdo-wrapper upstream master-command --keep-position rev-range --revision MASTER --end-revision {} --with-range ... -2 da RANGE

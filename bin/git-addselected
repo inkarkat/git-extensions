@@ -6,17 +6,24 @@ printUsage()
 Interactively select (from modified files or passed list of files) files (or
 directly pass N, M, ... selections) to stage by number.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[N [M ...]] [--] [FILE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [N [M ...]] [--] [FILE ...] [-?|-h|--help]'
 }
 
 addCommand='add'
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
 			shift;;
-    --color)		shift; shift;;
-    --edit|--patch)	addCommand+=" $1"; shift;;
-esac
+	--color)	shift; shift;;
+	--edit|--patch)	addCommand+=" $1"; shift;;
+	--force|-f)	addCommand+=" $1"; shift;;
+	--)		break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 
 export GIT_SELECTED_COMMAND_DEFAULT_FILES='git ls-files --modified --'
 exec git-selected-command --filter '' "$addCommand" "$@"

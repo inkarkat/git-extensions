@@ -7,9 +7,13 @@ Execute GIT-COMMAND with default ALIAS-PROVIDED-ARGUMENT(s) and -- or
 USER-PROVIDED-ARGUMENT(s), if provided by the user.
 HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" 'SEP GIT-COMMAND ALIAS-PROVIDED-ARGUMENT [...] SEP [USER-PROVIDED-ARGUMENT ...] [-?|-h|--help]'
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--with-files SEP GIT-COMMAND ALIAS-PROVIDED-ARGUMENT [...] SEP FILE [...] [USER-PROVIDED-ARGUMENT ...] [-?|-h|--help]'
 }
+isWithFiles=
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --with-files)	shift; isWithFiles=t;;
 esac
 
 sep="${1:?}"; shift
@@ -26,6 +30,13 @@ do
     gitCommand+=("$1"); shift
 done
 shift
+typeset -a files=()
+if [ "$isWithFiles" ]; then
+    while [ -e "$1" ]
+    do
+	files+=("$1"); shift
+    done
+fi
 
 [ $# -eq 0 ] && set -- --
-exec git-wrapper "${gitCommand[@]}" "$@"
+exec git-wrapper "${gitCommand[@]}" ${files[*]:+--} "${files[@]}" "$@"

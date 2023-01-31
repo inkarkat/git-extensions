@@ -10,7 +10,7 @@ This can be useful if tagging and development are done on separate branches, but
 you want to find out which commits that changed a file were in a release.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--full-decorations] [<log-options>] [<revision range>] [--] <path> [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--full-decorations] [--commit-log-args <log-options> [...] ;] [<log-options>] [<revision range>] [--] <path> [...] [-?|-h|--help]'
     echo
     cat <<HELPTEXT
 One-line author, date, tags and commit summary for commits that are decorated
@@ -27,6 +27,7 @@ recolorDecorationsSedCommand='s#\x1b\[[0-9:;]*[mK]##g; s#\[\(.*\)\]#[1;31m\1
 filter=filterDecorationsAndCommits
 isDecorationsOnly=
 typeset -a gitLogArgs=()
+typeset -a gitCommitLogArgs=()
 typeset -a gitGraphLogArg=()
 typeset -a files=()
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
@@ -62,6 +63,23 @@ do
 			shift; isDecorationsOnly=t; filter=filterDecorations;;
 
 	--graph)	gitGraphLogArg=("$1"); shift;;
+	--commit-log-args)
+			shift
+			while [ $# -gt 0 -a "$1" != ';' ]
+			do
+			    gitCommitLogArgs+=("$1")
+			    shift
+			done
+			if [ $# -eq 0 ]; then
+			    echo 'ERROR: --commit-log-args must be concluded with ;!'; echo; printUsage "$0"
+			    exit 2
+			fi >&2
+			shift
+			if [ ${#gitCommitLogArgs[@]} -eq 0 ]; then
+			    echo 'ERROR: --commit-log-args must be followed by at least one <log-options>.'; echo; printUsage "$0"
+			    exit 2
+			fi >&2
+			;;
 	--)		shift; files=("$@"); break;;
 	*)		gitLogArgs+=("$1"); shift;;
     esac
@@ -174,7 +192,7 @@ if [ ${#removeArgs[@]} -gt 0 ]; then
 fi
 
 if [ ! "$isDecorationsOnly" ]; then
-    readarray -t commits < <(git log --pretty=tformat:%h "${gitLogArgs[@]}" -- "${files[@]}")
+    readarray -t commits < <(git log --pretty=tformat:%h "${gitCommitLogArgs[@]}" "${gitLogArgs[@]}" -- "${files[@]}")
     if [ ${#commits[@]} -eq 0 ]; then
 	echo >&2 'No commits found.'
 	exit 1

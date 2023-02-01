@@ -500,9 +500,10 @@ fi || {
 }
 
 status=0
+didVisitSubmodules=
 [ ! "$isPushSubmodules" ] || pushSubmodules || status=$?
 case $status in
-    0)	;;
+    0)	didVisitSubmodules=t;;
     99) # Still continue with the submodule branch deletion when there's no
 	# upstream configured.
 	;;
@@ -512,13 +513,15 @@ esac
 
 [ ! "$isDeleteMergedSubmoduleBranches" ] || deleteMergedSubmoduleBranches || status=$?
 case $status in
-    0)	;;
+    0)	didVisitSubmodules=t;;
     99) # Still continue with the branch push when there's no upstream
 	# configured.
 	;;
     *)	# Any real deletion errors abort; don't continue with branch push.
 	exit $status;;
 esac
+
+[ ! "$didVisitSubmodules" ] || header "$(git-wcname)"
 
 [ ! "$isPushBranch" ] || pushBranch || {
     status=$?

@@ -1,0 +1,34 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Remove path(s) from version control and add them to gitignore.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r] [--] <path> [...] [-?|-h|--help]'
+}
+typeset -a removeArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	-r)		removeArgs+=("$1"); shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if [ $# -eq 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+status=0
+for filespec
+do
+    git remove "${removeArgs[@]}" -- "$filespec" \
+	&& printf '%s\n' "$filespec" >> .gitignore \
+	|| status=$?
+done
+exit $status

@@ -1,0 +1,21 @@
+#!/bin/bash
+# Source: https://stackoverflow.com/a/21477287/813602
+
+printUsage()
+{
+    cat <<HELPTEXT
+Remove file(s) from version control that are now gitignored.
+This keeps the file(s) for me, but deletes them for anyone else when they pull.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--] [<path> ...] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --)			shift;;
+esac
+
+readarray -t files < <(git ls-files --ignored --cached --exclude-from .gitignore -- "$@")
+[ ${#files[@]} -gt 0 ] || exit 99
+
+exec git remove -- "${files[@]}"

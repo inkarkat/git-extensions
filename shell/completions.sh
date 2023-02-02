@@ -38,4 +38,10 @@ gitCompleteAs checkout co oco uco \
     ominout omiofiles omiosubmodules omio omab \
     uminout umiofiles umiosubmodules umio umab
 
+gitCompleteAs merge \
+    mergeo merget mergerecordonly mergedryrun mergeto mergeselectedbranch mergesbr mergedryrunsbr mergedryrunselectedbranch \
+    fast-forward ff ffto \
+    noff noffto \
+    reintegrate reintegrateto reintegratetoselected ffintegrateto ffintegratetoselected
+
 unset -f gitCompleteAs

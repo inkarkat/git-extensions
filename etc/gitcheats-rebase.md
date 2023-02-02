@@ -60,6 +60,14 @@ It may help to have both our and their changes separately:
 `$ git lc master`
 `$ git lc`
 
+# problems?
+* When the upstream branch has been rebased (and merged) since branching off,
+  Git may complain loudly:
+> warning: skipped previously applied commit
+> hint: use --reapply-cherry-picks to include skipped commits
+  and show unexpected conflicts.
+  Use `$ git rebase --fork-point <upstream>` then to find a closer ancestor.
+
 # getting out
 
 `$ git rbq` # Cancels the whole rebase and returns to the original state.

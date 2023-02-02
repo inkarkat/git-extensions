@@ -6,7 +6,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--push] [--push-branch [--force]] [--no-merge] [--no-delete] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] [--no-submodule-checkout] [--no-submodule-update] [-y|--yes] -b|--branch <branch> | [--] <branch> [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--[no-]push] [--push-branch [--force] [--recurse-submodules=on-demand]] [--push-submodules] [--delete-merged-submodule-branches] [--no-merge] [--no-delete] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] [--no-submodule-checkout] [--no-submodule-update] [-y|--yes] -b|--branch <branch> | [--] <branch> [-?|-h|--help]'
     echo
     printf 'Usage: GIT_REINTEGRATE_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" '[...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '[...] --no-checks | -c|--command "CHECK-COMMANDLINE" [-c ...] | --exec SIMPLECOMMAND [...] ; [...]'
@@ -42,6 +42,8 @@ HELPDESCRIPTION
 			origin) before deleting the reintegrated current branch.
 			GitHub needs this to detect that the branch has been
 			merged.
+    --no-push		Don't push <branch> even when invoked as a hub command
+			(but still check pull requests etc.)
     --push-branch	Push the current branch (to the tracked remote) after
 			merging in / rebasing to <branch>. Most useful in
 			combination with --no-merge to prevent the deletion
@@ -49,10 +51,21 @@ HELPDESCRIPTION
     --force		Force-push the current branch (when the branch has
 			diverged from the tracked remote). Implied by
 			--rebase|--rebase-single.
+    --recurse-submodules=on-demand
+			Also push submodules that changed in the revisions to be
+			pushed; note: this only works if the submodules are on
+			the same branch.
+    --push-submodules	Also push submodules affected by the integration;
+			required when this is a superproject and submodule
+			changes have already been reintegrated but not yet
+			pushed (because the check happens after integration of
+			the superproject).
+    --delete-merged-submodule-branches
+			Delete the merged submodule branches (after pushing) of
+			submodules affected by the integration.
     --no-merge		Stop short of the actual fast-forward reintegration;
 			just merge / rebase the passed <branch> to the current
 			branch and run checks.
-
     --no-delete		Don't delete the reintegrated current branch from local
 			repository and tracked remote.
     --rebase-single	Rebase only if the current branch is a single non-merge
@@ -100,15 +113,13 @@ esac
 isContinue=
 isKeepBranches=
 isPerformTheMerge=t
-isPush=
+unset isPush
+typeset -a pushArg=()
 isPushBranch=
 typeset -a pushBranchForceArg=()
-if [ "$HUB" ]; then
-    # Need to push to remote first so that GitHub recognizes that the branch has
-    # been merged. If the branch is first deleted, GitHub marks a corresponding
-    # pull request as "closed".
-    isPush=t
-fi
+typeset -a pushBranchArgs=()
+isPushSubmodules=
+isDeleteMergedSubmoduleBranches=
 hasMergeResolutionArg=
 isRebase=
 isRebaseSingle=
@@ -137,9 +148,16 @@ do
 	--continue)	shift; isContinue=t;;
 	--no-delete)	continueArgs+=("$1"); shift; isKeepBranches=t;;
 	--no-merge)	continueArgs+=("$1"); shift; isPerformTheMerge=;;
-	--push)		continueArgs+=("$1"); shift; isPush=t;;
+	--push)		continueArgs+=("$1"); pushArg=("$1"); shift; isPush=t;;
+	--no-push)	continueArgs+=("$1"); pushArg=("$1"); shift; isPush=;;
 	--push-branch)	continueArgs+=("$1"); shift; isPushBranch=t;;
 	--force)	pushBranchForceArg=("$1"); shift;;
+	--recurse-submodules=*)
+			pushBranchArgs+=("$1"); shift;;
+	--push-submodules)
+			shift; isPushSubmodules=t;;
+	--delete-merged-submodule-branches)
+			shift; isDeleteMergedSubmoduleBranches=t;;
 	--branch|-b)    shift
 			if [ -n "$targetBranch" ]; then
 			    echo >&2 'ERROR: <branch> can only be passed once.'
@@ -209,6 +227,13 @@ elif [ -n "$GIT_REINTEGRATE_CHECK_COMMAND" -a ${#checkCommands[@]} -eq 0 ]; then
     checkCommands=("$GIT_REINTEGRATE_CHECK_COMMAND")
 fi
 [ "$isDisableChecks" ] && checkCommands=()
+if [ -z "${isPush+t}" -a -n "$HUB" ]; then
+    # Need to push to remote first so that GitHub recognizes that the branch has
+    # been merged. If the branch is first deleted, GitHub marks a corresponding
+    # pull request as "closed".
+    isPush=t
+    pushArg=(--push)
+fi
 
 sourceBranch="$(git-brname --real-branch-only)" || exit $?
 if [ -z "$targetBranch" ]; then
@@ -302,6 +327,17 @@ printContinueCommand()
     [ "$isCheckFromStdin" ] && printf >&2 ' -'
     printf >&2 '\n'
 }
+
+pushSubmodules()
+{
+    git-showsubmodules "${targetBranch}..HEAD" | git-subdo --status-99-is-noop --for - --interactive push-this-branch
+}
+
+deleteMergedSubmoduleBranches()
+{
+    git-showsubmodules "${targetBranch}..HEAD" | git-subdo --status-99-is-noop --for - --interactive delete-merged-branches "$sourceBranch"
+}
+
 pushBranch()
 {
     local sourceTracks="$(git-tracks 2>/dev/null)"
@@ -315,7 +351,7 @@ pushBranch()
     local quotedSourceBranch; printf -v quotedSourceBranch %q "$sourceBranch"
     # Push to the tracked remote (usually origin).
     git-remote-mutate "$sourceTrackedRemote" --message 'Push' --argument "$sourceBranch" --context-command "git rev-range-outgoing $sourceTrackedRemote --color=always --one-more-command greyonelinelog --one-more-only-to-terminal lg --branch $quotedSourceBranch" "${gitRemoteMutateArgs[@]}" \
-	push "${pushBranchForceArg[@]}" "$sourceTrackedRemote" || exit $?
+	push "${pushBranchForceArg[@]}" "${pushBranchArgs[@]}" "$sourceTrackedRemote" || return $?
 }
 
 targetTracks="$(git-tracks "$targetBranch" 2>/dev/null)"
@@ -464,15 +500,43 @@ fi || {
 }
 
 status=0
-[ ! "$isPushBranch" ] || pushBranch || status=$?
+didVisitSubmodules=
+[ ! "$isPushSubmodules" ] || pushSubmodules || status=$?
+case $status in
+    0)	didVisitSubmodules=t;;
+    99) # Still continue with the submodule branch deletion when there's no
+	# upstream configured.
+	;;
+    *)	# Any real push errors abort; don't continue with branch deletion.
+	exit $status;;
+esac
 
-typeset -a reintegrateToCommand=(reintegrateto --ff-only --no-checks --branch "$targetBranch"${isPush:+ --push}${isKeepBranches:+ --no-delete} "${reintegrateArgs[@]}" "${gitRemoteMutateArgs[@]}")
+[ ! "$isDeleteMergedSubmoduleBranches" ] || deleteMergedSubmoduleBranches || status=$?
+case $status in
+    0)	didVisitSubmodules=t;;
+    99) # Still continue with the branch push when there's no upstream
+	# configured.
+	;;
+    *)	# Any real deletion errors abort; don't continue with branch push.
+	exit $status;;
+esac
+
+[ ! "$didVisitSubmodules" ] || header "$(git-wcname)"
+
+[ ! "$isPushBranch" ] || pushBranch || {
+    status=$?
+    echo >&2 'Push of the current branch failed; correct the problem and push yourself.'
+    # Turn an automatic reintegration into the echoing of the command.
+    isPerformTheMerge=
+    exit $status
+}
+
+typeset -a reintegrateToCommand=(reintegrateto --ff-only --no-checks --branch "$targetBranch"${isKeepBranches:+ --no-delete} "${pushArg[@]}" "${reintegrateArgs[@]}" "${gitRemoteMutateArgs[@]}")
 if [ "$isPerformTheMerge" ]; then
-    git "${reintegrateToCommand[@]}" || status=$?
+    git "${reintegrateToCommand[@]}"
 else
     gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
     printf 'You can fast-forward-integrate the current %s into %s via:\n$ %s' "$sourceBranch" "$targetBranch" "$gitCommand"
     printf >&2 ' %q' "${reintegrateToCommand[@]}"
     printf '\n'
 fi
-exit $status

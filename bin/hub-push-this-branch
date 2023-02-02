@@ -1,0 +1,51 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Push the current branch to all of: upstream (if writeable) / tracked remote /
+origin (in an order that makes sense).
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --no-color|--color=*)
+			shift;;
+    --color)		shift; shift;;
+esac
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+targetBranch="$(git-brname --real-branch-only)" || exit $?
+targetTracks="$(git-tracks 2>/dev/null)"
+targetTrackedRemote="${targetTracks%%/*}"
+
+printf -v quotedTargetBranch %q "$targetBranch"
+if [ -z "$targetTracks" ]; then
+    printf >&2 "ERROR: Cannot push; no upstream configured for branch '%s'\\n" "$targetBranch"
+    exit 99
+elif [ "$targetTrackedRemote" = 'origin' ]; then
+    # First push to upstream; we usually want to catch up origin to
+    # upstream, but keep it at the current state if pushing to upstream
+    # failed.
+    if git-existsbr "upstream/$targetBranch" && ! git-remote-isreadonly upstream; then
+	git-remote-mutate upstream --message 'Push' --argument "$targetBranch" --context-command "git uoutlg --color=always --branch $quotedTargetBranch" "${gitRemoteMutateArgs[@]}" \
+	    push upstream "$targetBranch" || exit $?
+    fi
+fi
+if [ -n "$targetTrackedRemote" ]; then
+    # Push to the tracked remote (usually origin).
+    git-remote-mutate "$targetTrackedRemote" --message 'Push' --argument "$targetBranch" --context-command "git rev-range-outgoing $targetTrackedRemote --color=always --one-more-command greyonelinelog --one-more-only-to-terminal lg --branch $quotedTargetBranch" "${gitRemoteMutateArgs[@]}" \
+	push "$targetTrackedRemote" || exit $?
+fi
+if [ "$targetTrackedRemote" != 'origin' ]; then
+    # Push to origin (if it's different from the tracked remote) last.
+    if git-existsbr "origin/$targetBranch" && ! git-remote-isreadonly origin; then
+	git-remote-mutate origin --message 'Push' --argument "$targetBranch" --context-command "git ooutlg --color=always --branch $quotedTargetBranch" "${gitRemoteMutateArgs[@]}" \
+	    push origin "$targetBranch" || exit $?
+    fi
+fi

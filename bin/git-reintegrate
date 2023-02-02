@@ -6,7 +6,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--push] [--no-delete] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] [--ff-target-to-tracked] [--no-submodule-update] [-y|--yes] -b|--branch <branch> [...] | [--] <branch> [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--[no-]push] [--no-delete] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] [--ff-target-to-tracked] [--no-submodule-update] [-y|--yes] -b|--branch <branch> [...] | [--] <branch> [...] [-?|-h|--help]'
     echo
     printf 'Usage: GIT_REINTEGRATE_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" '[...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '[...] --no-checks | -c|--command "CHECK-COMMANDLINE" [-c ...] | --exec SIMPLECOMMAND [...] ; [...]'
@@ -38,6 +38,8 @@ HELPDESCRIPTION
 			remote, origin) before deleting the reintegrated
 			branch(es). GitHub needs this to detect that the branch
 			has been merged.
+    --no-push		Don't push the current branch even when invoked as a hub
+			command (but still check pull requests etc.)
     --no-delete		Don't delete the reintegrated branch(es) from local
 			repository and tracked remote.
     --rebase-single	Rebase only if it's a single non-merge commit, else
@@ -73,13 +75,7 @@ HELPTEXT
 
 isContinue=
 isKeepBranches=
-isPush=
-if [ "$HUB" ]; then
-    # Need to push to remote first so that GitHub recognizes that the branch has
-    # been merged. If the branch is first deleted, GitHub marks a corresponding
-    # pull request as "closed".
-    isPush=t
-fi
+unset isPush
 hasMergeResolutionArg=
 isRebase=
 isRebaseSingle=
@@ -110,6 +106,7 @@ do
 	--continue)	shift; isContinue=t;;
 	--no-delete)	continueArgs+=("$1"); shift; isKeepBranches=t;;
 	--push)		continueArgs+=("$1"); shift; isPush=t;;
+	--no-push)	continueArgs+=("$1"); shift; isPush=;;
 	--branch|-b)	shift; branches+=("$1"); shift;;
 	--rebase)	continueArgs+=("$1"); shift; hasMergeResolutionArg=t; isRebase=t;;
 	--rebase-single)
@@ -172,6 +169,12 @@ if [ "$isCheckFromStdin" ]; then
     fi >&2
 elif [ -n "$GIT_REINTEGRATE_CHECK_COMMAND" -a ${#checkCommands[@]} -eq 0 ]; then
     checkCommands=("$GIT_REINTEGRATE_CHECK_COMMAND")
+fi
+if [ -z "${isPush+t}" -a -n "$HUB" ]; then
+    # Need to push to remote first so that GitHub recognizes that the branch has
+    # been merged. If the branch is first deleted, GitHub marks a corresponding
+    # pull request as "closed".
+    isPush=t
 fi
 [ "$isDisableChecks" ] && checkCommands=()
 
@@ -276,44 +279,6 @@ printContinueCommand()
     printf >&2 -- ' --branch %q'  "${branches[@]}"
     [ "$isCheckFromStdin" ] && printf >&2 ' -'
     printf >&2 '\n'
-}
-pushit()
-{
-    local quotedTargetBranch; printf -v quotedTargetBranch %q "$targetBranch"
-    if [ -z "$targetTracks" ]; then
-	printf >&2 "ERROR: Cannot push; no upstream configured for branch '%s'\\n" "$targetBranch"
-	return 1    # Still continue with the branch deletion here, but following push errors will abort.
-    elif [ "$targetTrackedRemote" = 'origin' ]; then
-	# First push to upstream; we usually want to catch up origin to
-	# upstream, but keep it at the current state if pushing to upstream
-	# failed.
-	if git-existsbr "upstream/$targetBranch" && ! git-remote-isreadonly upstream; then
-	    git-remote-mutate upstream --message 'Push' --argument "$targetBranch" --context-command "git uoutlg --color=always --branch $quotedTargetBranch" "${gitRemoteMutateArgs[@]}" \
-		push upstream "$targetBranch" || exit $?
-	fi
-    fi
-    if [ -n "$targetTrackedRemote" ]; then
-	# Push to the tracked remote (usually origin).
-	git-remote-mutate "$targetTrackedRemote" --message 'Push' --argument "$targetBranch" --context-command "git rev-range-outgoing $targetTrackedRemote --color=always --one-more-command greyonelinelog --one-more-only-to-terminal lg --branch $quotedTargetBranch" "${gitRemoteMutateArgs[@]}" \
-	    push "$targetTrackedRemote" || exit $?
-    fi
-    if [ "$targetTrackedRemote" != 'origin' ]; then
-	# Push to origin (if it's different from the tracked remote) last.
-	if git-existsbr "origin/$targetBranch" && ! git-remote-isreadonly origin; then
-	    git-remote-mutate origin --message 'Push' --argument "$targetBranch" --context-command "git ooutlg --color=always --branch $quotedTargetBranch" "${gitRemoteMutateArgs[@]}" \
-		push origin "$targetBranch" || exit $?
-	fi
-    fi
-}
-hasBranchBeenAutoDeletedOnMerge()
-{
-    local trackedRemote="${1:?}"; shift
-    local branch="${1:?}"; shift
-
-    [ "$(hub-settings --remote "$trackedRemote" get deleteBranchOnMerge 2>/dev/null)" = 'true' ] || return 1
-    RETRY_SUCCEED_VERB='got auto-deleted' RETRY_FAIL_VERB='still exists' RETRY_ABORT_VERB='did not get auto-deleted' \
-	retry --silent-command --command-name 'The remote branch' --verbose-or-none --interval 2 --abort-timeout 20 \
-	    negateThis git-existsremotebr "$trackedRemote" "$branch"
 }
 
 targetBranch="$(git-brname --real-branch-only)" || exit $?
@@ -461,24 +426,17 @@ fi || {
 }
 
 status=0
-[ ! "$isPush" ] || pushit || status=$?
+[ ! "$isPush" ] || hub-push-this-branch || status=$?
+case $status in
+    0)	;;
+    99) # Still continue with the branch deletion when there's no upstream
+	# configured.
+	;;
+    *)	# Any real push errors abort; don't continue with branch deletion.
+	exit $status;;
+esac
 
 [ ! "$isKeepBranches" ] || exit $status
 
-for branch in "${branches[@]}"
-do
-    tracks="$(git-tracks "$branch" 2>/dev/null)"
-    trackedRemote="${tracks%%/*}"
-    typeset -a rldeletebrArgs=()
-    if [ -z "$trackedRemote" ]; then
-	trackedRemote='origin'
-	rldeletebrArgs=(--ignore-missing-in-origin)
-    fi
-    if hasBranchBeenAutoDeletedOnMerge "$trackedRemote" "$branch"; then
-	printf >&2 "Note: GitHub already has automatically deleted the merged branch '%s' in %s.\\n" "$branch" "$trackedRemote"
-	git-deletebr --force "$branch"	# Need force here because without a pull the local repository is not aware of the remote branch deletion and would complain about it not being fully merged.
-    else
-	git-rldeletebr "$trackedRemote" "${rldeletebrArgs[@]}" "$branch"
-    fi || status=$?
-done
+hub-delete-merged-branches "${branches[@]}" || status=$?
 exit $status

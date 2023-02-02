@@ -1,0 +1,51 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Rebase the branch [matching <glob>] that is interactively selected from existing
+branches in the passed ${remote:-REMOTE}.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [<rebase-args> ...] [-- <branch-glob> ...] [-?|-h|--help]"
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+remote="${1:?}"; shift
+
+typeset -a rebaseArgs=()
+typeset -a branchArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+	--sort)		branchArgs+=("$1" "$2"); shift; shift;;
+	--sort=*)	branchArgs+=("$1"); shift;;
+	-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt)
+			branchArgs+=("$1" "$2"); shift; shift;;
+	--)		break;;
+	*)		rebaseArgs+=("$1"); shift;;
+    esac
+done
+set -- "${rebaseArgs[@]}" "$@"
+typeset -a branchGlobArgs=()
+for ((i = $#; i > 0; i--))
+do
+    if [ "${*:$i:1}" = '--' ]; then
+	branchGlobArgs=("${@:$((i+1))}")
+	set -- "${@:1:$((i-1))}"
+	break
+    fi
+done
+
+printf -v quotedRebaseCommand '%q ' ${GIT_RREBASESELECTEDBRANCH_REBASE_COMMAND:-rebase} "$@"
+quotedBranchArgs=; [ ${#branchArgs[@]} -eq 0 ] || printf -v quotedBranchArgs ' %q' "${branchArgs[@]}"
+quotedBranchGlobArgs=; [ ${#branchGlobArgs[@]} -eq 0 ] || printf -v quotedBranchGlobArgs ' %q' "${branchGlobArgs[@]}"
+
+export GIT_SELECTED_COMMAND_DEFAULT_FILES="${GIT_RREBASESELECTEDBRANCH_REMOTE_BRANCH_COMMAND:-git-rbr} $remote ${GIT_RREBASESELECTEDBRANCH_REMOTE_BRANCH_ARGUMENT:---sort=committerdate}${quotedBranchArgs}${quotedBranchGlobArgs}"
+exec git-selected-command --single-only "${quotedRebaseCommand% }"

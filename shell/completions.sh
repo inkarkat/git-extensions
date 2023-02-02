@@ -44,4 +44,8 @@ gitCompleteAs merge \
     noff noffto \
     reintegrate reintegrateto reintegratetoselected ffintegrateto ffintegratetoselected
 
+gitCompleteAs rebase \
+    rb rbi mrb nrb \
+    rebaseselectedbranch rbsbr
+
 unset -f gitCompleteAs

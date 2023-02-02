@@ -7,10 +7,11 @@ printUsage()
 Check out a (new or existing) branch. Enforces that such is passed.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [--gui|--terminal|--none] -b <branch>|-B <branch> [(--submodules|--queried-submodules) [--submodules-recursive]] [CHECKOUT-ARGS ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [--gui|--terminal|--none] -b|-B (<newbranch>|OLD=NEW|^=PREFIX|+=SUFFIX) [...] [(--submodules|--queried-submodules) [--submodules-recursive]] [CHECKOUT-ARGS ...] [-?|-h|--help]'
 }
 
-typeset -a branchArgs=()
+branchOption=
+typeset -a branches=()
 typeset -a checkoutArgs=()
 logArg=
 while [ $# -ne 0 ]
@@ -20,7 +21,7 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
-	-[bB])		branchArgs+=("$1" "$2"); shift; shift;;
+	-[bB])		branchOption="$1"; shift; branches+=("$1"); shift;;
 	--submodules|--queried-submodules)
 			checkoutArgs+=("$1"); shift;;
 	--@(gui|terminal|none))
@@ -28,15 +29,19 @@ do
 	*)		break;;
     esac
 done
-if [ ${#branchArgs[@]} -eq 0 ]; then
+if [ -z "$branchOption" ]; then
     echo 'ERROR: No -b|-B <branch> passed.'
     echo
     printUsage "$0"
     exit 2
 fi >&2
 
+oldBranch="$(git-brname --real-branch-only)" || exit $?
+newBranch="$(replaceWith -- "$oldBranch" "${branches[@]}" 2>/dev/null || printf %s "${branches[0]}")"
+[ "$oldBranch" != "$newBranch" ] || exit 4
+
 if [ $# -eq 0 -o -z "$logArg" -o "$logArg" = --none ]; then
-    exec git-wrapper checkout "${checkoutArgs[@]}" "${branchArgs[@]}" "$@"
+    exec git-wrapper checkout "${checkoutArgs[@]}" "${branchOption:?}" "${newBranch:?}" "$@"
 else
-    exec git-logdelta $logArg -- checkout "${checkoutArgs[@]}" "${branchArgs[@]}" "$@"
+    exec git-logdelta $logArg -- checkout "${checkoutArgs[@]}" "${branchOption:?}" "${newBranch:?}" "$@"
 fi

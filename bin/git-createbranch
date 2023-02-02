@@ -8,11 +8,11 @@ Create a new branch [from <start-point>] without switching to it. Enforces that
 such is passed.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] -b|-B|--branch <new-branch> [<start-point>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] -b|-B|--branch (<newbranch>|OLD=NEW|^=PREFIX|+=SUFFIX) [...] [<start-point>] [-?|-h|--help]'
 }
 
 isForce=
-newBranch=
+typeset -a branches=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -20,25 +20,43 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
-	--branch|-b|-B)	shift; newBranch="${1:?}"; shift;;
+	--branch|-[bB])	shift; branches+=("$1"); shift;;
 	--force|-f)	shift; isForce=t;;
 	*)		break;;
     esac
 done
-if [ -z "$newBranch" ]; then
-    echo 'ERROR: No -b <new-branch> passed.'
+if [ ${#branches[@]} -eq 0 ]; then
+    echo 'ERROR: No -b|-B|--branch (<newbranch>|OLD=NEW|^=PREFIX|+=SUFFIX) passed.'
     echo
     printUsage "$0"
     exit 2
 fi >&2
+
+oldBranch=
 case $# in
-    0)	commit=;;
-    1)	commit="$1"; shift;;
+    0)	commit=
+	oldBranch="$(git-brname --real-branch-only)" || exit $?
+	;;
+    1)	commit="$1"; shift
+	if git-existsbr "$commit"; then
+	    oldBranch="$commit"
+	elif [ ${#branches[@]} -gt 1 ]; then
+	    echo >&2 'ERROR: Cannot base new branch on a <start-point> that is not a branch.'
+	    exit 2
+	fi
+	;;
     *)	printUsage "$0" >&2
 	exit 2
 esac
 
-oldValue=''	# Note: Empty <oldvalue> ensures that the $newBranch reference doesn't exist yet.
-[ "$isForce" ] && oldValue="$(git rev-parse --verify --quiet "$newBranch" 2>/dev/null)"
+if [ -n "$oldBranch" ]; then
+    newBranch="$(replaceWith -- "$oldBranch" "${branches[@]}" 2>/dev/null || printf %s "${branches[0]}")"
+    [ "$oldBranch" != "$newBranch" ] || exit 4
+else
+    newBranch="${branches[0]}"
+fi
 
-exec git update-ref -m "${GIT_CREATEBRANCH_WHAT:-Create} $newBranch from $commit" "refs/heads/$newBranch" "$commit" "$oldValue"
+oldValue=''	# Note: Empty <oldvalue> ensures that the $newBranch reference doesn't exist yet.
+[ "$isForce" ] && oldValue="$(git rev-parse --verify --quiet "${newBranch:?}" 2>/dev/null)"
+
+exec git update-ref -m "${GIT_CREATEBRANCH_WHAT:-Create} $newBranch from $commit" "refs/heads/${newBranch:?}" "$commit" "$oldValue"

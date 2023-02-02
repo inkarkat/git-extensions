@@ -6,7 +6,7 @@ printUsage()
 Rename the current branch / <oldbranch> to <newbranch>.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[--] [<oldbranch>] <newbranch>|(OLD=NEW ^=PREFIX +=SUFFIX [...]) [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[--] [<oldbranch>] <newbranch>|(OLD=NEW|^=PREFIX|+=SUFFIX [...]) [-?|-h|--help]"
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
@@ -15,15 +15,17 @@ case "$1" in
     --color)		shift; shift;;
     --)			shift;;
 esac
-if [ $# -eq 0 ]; then
-    echo >&2 'Need <newbranch> target!'
-    exit 2
-fi
 if git-existsbr "$1"; then
     oldBranch="$1"; shift
 else
     oldBranch="$(git-brname --real-branch-only)" || exit $?
 fi
+if [ $# -eq 0 ]; then
+    echo >&2 'Need <newbranch> target!'
+    exit 2
+fi
+
 newBranch="$(replaceWith -- "$oldBranch" "$@" 2>/dev/null || printf %s "$1")"
+[ "$oldBranch" != "$newBranch" ] || exit 4
 
 exec git branch -m "${oldBranch:?}" "${newBranch:?}"

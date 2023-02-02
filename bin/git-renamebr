@@ -15,15 +15,16 @@ case "$1" in
     --color)		shift; shift;;
     --)			shift;;
 esac
-if [ $# -eq 0 ]; then
-    echo >&2 'Need <newbranch> target!'
-    exit 2
-fi
 if git-existsbr "$1"; then
     oldBranch="$1"; shift
 else
     oldBranch="$(git-brname --real-branch-only)" || exit $?
 fi
+if [ $# -eq 0 ]; then
+    echo >&2 'Need <newbranch> target!'
+    exit 2
+fi
+
 newBranch="$(replaceWith -- "$oldBranch" "$@" 2>/dev/null || printf %s "$1")"
 
 exec git branch -m "${oldBranch:?}" "${newBranch:?}"

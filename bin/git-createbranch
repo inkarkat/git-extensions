@@ -12,7 +12,7 @@ HELPTEXT
 }
 
 isForce=
-newBranch=
+typeset -a branches=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -20,17 +20,18 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
-	--branch|-b|-B)	shift; newBranch="${1:?}"; shift;;
+	--branch|-[bB])	shift; branches+=("$1"); shift;;
 	--force|-f)	shift; isForce=t;;
 	*)		break;;
     esac
 done
-if [ -z "$newBranch" ]; then
+if [ ${#branches[@]} -eq 0 ]; then
     echo 'ERROR: No -b <new-branch> passed.'
     echo
     printUsage "$0"
     exit 2
 fi >&2
+newBranch="${branches[0]}"
 case $# in
     0)	commit=;;
     1)	commit="$1"; shift;;
@@ -39,6 +40,6 @@ case $# in
 esac
 
 oldValue=''	# Note: Empty <oldvalue> ensures that the $newBranch reference doesn't exist yet.
-[ "$isForce" ] && oldValue="$(git rev-parse --verify --quiet "$newBranch" 2>/dev/null)"
+[ "$isForce" ] && oldValue="$(git rev-parse --verify --quiet "${newBranch:?}" 2>/dev/null)"
 
-exec git update-ref -m "${GIT_CREATEBRANCH_WHAT:-Create} $newBranch from $commit" "refs/heads/$newBranch" "$commit" "$oldValue"
+exec git update-ref -m "${GIT_CREATEBRANCH_WHAT:-Create} $newBranch from $commit" "refs/heads/${newBranch:?}" "$commit" "$oldValue"

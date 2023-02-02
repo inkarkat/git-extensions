@@ -49,10 +49,13 @@ g) `fixup` to merge a commit with the previous one and discard the log message.
 # during a rebase
 
 1. Resolve the conflicted files; `$ git conflicts` tells them (again)
-   To completely override upstream's changes, we have to use _theirs_ (from the
+2a.`$ git mt` launches your merge tool of choice (set via `$ git mergewith*`;
+   or use `$git mergewith* .|FILE` to once merge all conflicts / FILE(s) with
+   that tool)
+2b.To completely override upstream's changes, we have to use _theirs_ (from the
    branch being rebased, i.e. `$ git cot`), not _ours_; this is unintuitive!
-2. `$ git add` # after the conflicts have been resolved
-3. `$ git rbc`
+   `$ git add` # after the conflicts have been resolved
+4. `$ git rbc`
 It may help to have both our and their changes separately:
 `$ git lc master`
 `$ git lc`

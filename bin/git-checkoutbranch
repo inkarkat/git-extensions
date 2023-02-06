@@ -36,9 +36,12 @@ if [ -z "$branchOption" ]; then
     exit 2
 fi >&2
 
-oldBranch="$(git-brname --real-branch-only)" || exit $?
-newBranch="$(replaceWith -- "$oldBranch" "${branches[@]}" 2>/dev/null || printf %s "${branches[0]}")"
-[ "$oldBranch" != "$newBranch" ] || exit 4
+if oldBranch="$(git-brname --real-branch-only 2>/dev/null)"; then
+    newBranch="$(replaceWith -- "$oldBranch" "${branches[@]}" 2>/dev/null || printf %s "${branches[0]}")"
+    [ "$oldBranch" != "$newBranch" ] || exit 4
+else
+    newBranch="${branches[0]}"
+fi
 
 if [ $# -eq 0 -o -z "$logArg" -o "$logArg" = --none ]; then
     exec git-wrapper checkout "${checkoutArgs[@]}" "${branchOption:?}" "${newBranch:?}" "$@"

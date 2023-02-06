@@ -6,7 +6,12 @@ printUsage()
 {
     cat <<HELPTEXT
 Merge / rebase the current branch of a superproject + submodule(s) to the master
-branch.
+branch via a reverse integration of the superproject; i.e. master is merged /
+rebased to the current branch first so that the reintegration is a simple
+fast-forward.
+Performs additional sanity checks and chooses the right arguments based on
+whether this is a short-lived feature with a single superproject commit or full
+history exists.
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
@@ -102,7 +107,24 @@ reintegrateSubmodule()
 
 reintegrateSuperproject()
 {
-    "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--interactive} superffintegratetom --push-submodules --delete-merged-submodule-branches || exit $?
+    git-dirty --print-error --error-message 'ERROR: The superproject working copy is still dirty.' \
+	&& exit 1
+
+    case $(git bomcount) in
+	0)  echo >&2 'ERROR: Expected at least one commit in the superproject on the branch, but none found.'
+	    exit 3
+	    ;;
+	1)  echo "Rebasing the single superproject commit on top of ${masterBranch}."
+	    typeset -a ffintegratetoArgs=(--push-branch --rebase-single)
+	    ;;
+	*)  # Disallow fast-forward to have a merge commit that maintains the history of
+	    # how the feature grew.
+	    echo "Maintaing the history of how the feature grew via a merge to ${masterBranch}."
+	    typeset -a ffintegratetoArgs=(--push-branch --no-ff)
+	    ;;
+    esac
+
+    exec git-ffintegrateto --branch "$masterBranch" "${ffintegratetoArgs[@]}" --push-submodules --delete-merged-submodule-branches "$@"
 }
 
 $action "$@"

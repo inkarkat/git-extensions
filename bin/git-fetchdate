@@ -6,7 +6,7 @@ printUsage()
 Show when REMOTE(s) were last fetched.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-m|--message MESSAGE] [--absolute|-a|--epoch| -n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [REMOTE [...]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-m|--message MESSAGE] [--absolute|-a|--epoch] [-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [[-r|--remote] REMOTE [...]] [-?|-h|--help]'
 }
 
 database()
@@ -19,6 +19,7 @@ message=
 isAbsolute=
 isEpoch=
 typeset -a parseAgeArgs=()
+typeset -a remotes=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -42,19 +43,18 @@ do
 			;;
 	-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt)
 			parseAgeArgs=("$1" "$2"); shift; shift;;
+	--remote|-r)	shift; remotes+=("$1"); shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
-	*)		break;;
+	*)		remotes+=("$1"); shift;;
     esac
 done
-if [ $# -eq 0 ]; then
+if [ ${#remotes[@]} -eq 0 ]; then
     readarray -t remotes < <(git remote)
     if [ ${#remotes[@]} -eq 0 ]; then
 	echo >&2 'ERROR: No remotes.'
 	exit 1
     fi
-
-    set -- "${remotes[@]}"
 fi
 
 printPrefix()
@@ -87,7 +87,7 @@ processRemote()
 
 isPrependRemote=t; [ $# -eq 1 ] && isPrependRemote=
 status=0
-for remote
+for remote in "${remotes[@]}"
 do
     processRemote "$remote" || status=$?
 done

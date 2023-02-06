@@ -15,7 +15,7 @@ database()
     executionMarker --basedir "$gitDir" --group fetches "$@"
 }
 
-message=
+unset message
 isAbsolute=
 isEpoch=
 typeset -a parseAgeArgs=()
@@ -67,9 +67,8 @@ processRemote()
 {
     local remote="${1:?}"; shift
 
-    if [ ${#parseAgeArgs[@]} -gt 0 ]; then
-	epoch="$(database --time "$remote")" || epoch=0
-	parseAge "${parseAgeArgs[@]}" "@$epoch" || exit $?
+    if [ ${#parseAgeArgs[@]} -gt 0 -a -z "${message+t}" ]; then
+	:
     elif [ ! "$isAbsolute" ]  && [ ! "$isEpoch" ]; then
 	age="$(database --query "$remote" --get-diff '%R')" || return $?
 	printPrefix
@@ -82,6 +81,10 @@ processRemote()
 	else
 	    date --date "@$epoch"
 	fi
+    fi
+    if [ ${#parseAgeArgs[@]} -gt 0 ]; then
+	epoch="$(database --time "$remote")" || epoch=0
+	parseAge "${parseAgeArgs[@]}" "@$epoch" || exit $?
     fi
 }
 

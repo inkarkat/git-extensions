@@ -111,6 +111,17 @@ elif [ $# -eq 0 ]; then
     exit 2
 fi >&2
 
+if [ "$HUB" ] && [ -z "$remote" ]; then
+    readarray -t remotes < <(git remote)
+    case ${#remotes[@]} in
+	0)  ;;
+	1)  remote="${remotes[0]}";;
+	*)  echo >&2 'ERROR: Multiple remotes exist; unable to pick a default. Pass --remote REMOTE to select one.'
+	    exit 2
+	    ;;
+    esac
+fi
+
 filemove()
 {
     local filespec="${1:?}"; shift

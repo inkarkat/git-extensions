@@ -1,0 +1,135 @@
+#!/bin/bash
+
+: ${GITSUPERSUBREINTEGRATETOM_RECENT_FETCH_AGE:=15m}
+
+printUsage()
+{
+    cat <<HELPTEXT
+Merge / rebase the current branch of a superproject + submodule(s) to the master
+branch via a reverse integration of the superproject; i.e. master is merged /
+rebased to the current branch first so that the reintegration is a simple
+fast-forward.
+Performs additional sanity checks and chooses the right arguments based on
+whether this is a short-lived feature with a single superproject commit or full
+history exists.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+    echo
+    printf 'Usage: GIT_REINTEGRATE_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" '[...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[...] --no-checks | -c|--command "CHECK-COMMANDLINE" [-c ...] | --exec SIMPLECOMMAND [...] ; [...]'
+    printf 'Usage: echo CHECK-COMMANDLINES | %q %s\n' "$(basename "$1")" '[...] [--bare|[--initial-status NUM] [--trailing-prompt|--no-trailing-prompt] [--no-output-no-prompt] [--no-output-no-error] [--emulate-prompt]] [--no-success-no-count|--no-count-on N] [--exit-on-success|--exit-on-failure|--exit-on NUM] [--worst-status] [--comment COMMENT] [--summarize-failed ERROR-TEXT [--summarize-failed-separator SEP]] -'
+    printf 'Usage: %q %s - <<EOF\n  CHECK-COMMANDLINE\n...\nEOF\n' "$(basename "$1")" '[...]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+isInSubmodule=
+typeset -a superprojectExecutor=()
+typeset -a submoduleExecutor=(hub subsamebrdo)
+goToSubmodule() { :; }
+if git issubmodule; then
+    isInSubmodule=t
+    superprojectExecutor=(hub superdo)
+    submoduleExecutor=()
+    goToSubmodule()
+    {
+	local superprojectRoot; superprojectRoot="$(git superproject)" || exit 3
+	cd "$superprojectRoot" || exit 3
+	header "$(git-wcname)"
+    }
+elif ! git hassubmodules; then
+    echo >&2 'ERROR: This is a standalone repository that neither has submodules nor is included in a superproject.'
+    exit 2
+fi
+
+readarray -t affectedSubmodules < <("${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} bomsubmodules)
+if [ ${#affectedSubmodules[@]} -eq 0 ]; then
+    echo >&2 'ERROR: Expected at least one affected submodule in the commits on the branch, but none found.'
+    exit 3
+fi
+
+masterBranch="$(git-mbr)" || exit 3
+readarray -t unintegratedSubmodules < <("${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} subdo --no-header --no-pager --for "${affectedSubmodules[@]}" \; --predicate-command "branch=\$(git brname --real-branch-only 2>/dev/null) && [ \"\$branch\" != $masterBranch ]")
+if [ ${#unintegratedSubmodules[@]} -eq 0 ]; then
+    if [ ${#affectedSubmodules[@]} -eq 1 ]; then
+	echo 'The single submodule has been reintegrated already; now integrating the superproject.'
+    else
+	printf 'All %d submodules have been reintegrated already; now integrating the superproject.\n' ${#affectedSubmodules[@]}
+    fi
+    action=reintegrateSuperproject
+else
+    if [ ${#affectedSubmodules[@]} -eq 1 ]; then
+	if [ "$isInSubmodule" ]; then
+	    echo 'Integrating this single submodule.'
+	else
+	    echo 'Integrating the single submodule.'
+	fi
+    elif [ ${#unintegratedSubmodules[@]} -eq 1 ]; then
+	printf 'Integrating the last submodule (of %d).\n' ${#affectedSubmodules[@]}
+    else
+	printf 'Integrating submodule %d of %d.\n' $((${#affectedSubmodules[@]} - ${#unintegratedSubmodules[@]} + 1)) ${#affectedSubmodules[@]}
+    fi
+    action=reintegrateSubmodule
+fi
+
+if "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} ofetchdate -gt "$GITSUPERSUBREINTEGRATETOM_RECENT_FETCH_AGE" --message 'Last fetched'; then
+    echo 'Fetching origin first...'
+    "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} ofetchup-hushed
+fi
+
+reintegrateSubmodule()
+{
+    "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} --command 'git bomsubmodules | negateThis git osuperhaspendingsubintegrations -' || exit $?
+
+    "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--interactive} reintegratetom --no-push --no-delete --no-checks || exit $?
+
+    # Remaining steps happen in the superproject.
+    goToSubmodule
+
+    case $(git bomcount) in
+	0)  echo >&2 'ERROR: Expected at least one commit in the superproject on the branch, but none found.'
+	    exit 3
+	    ;;
+	1)  echo 'Amending reintegrated submodule(s) to the single superproject commit.'
+	    git amenu || exit $?
+	    ;;
+	*)  local submoduleCnt=$((${#affectedSubmodules[@]} - ${#unintegratedSubmodules[@]} + 1))
+	    if [ $submoduleCnt -eq 1 ]; then
+		local affectedSubmodulesPlural=s; [ ${#affectedSubmodules[@]} -eq 1 ] && affectedSubmodulesPlural=
+		local commitMessage; printf -v commitMessage 'Housekeeping: Reintegrate submodule%s %s' "$affectedSubmodulesPlural" "$(joinBy ', ' "${affectedSubmodules[@]}")"
+		git cu --edit --message "$commitMessage" || exit $?
+	    else
+		printf 'Amending the %d. reintegrated submodule to the previous superproject commit.\n' "$submoduleCnt"
+		git amenu || exit $?
+	    fi
+	    ;;
+    esac
+}
+
+reintegrateSuperproject()
+{
+    goToSubmodule
+
+    git-dirty --print-error --error-message 'ERROR: The superproject working copy is still dirty.' \
+	&& exit 1
+
+    case $(git bomcount) in
+	0)  echo >&2 'ERROR: Expected at least one commit in the superproject on the branch, but none found.'
+	    exit 3
+	    ;;
+	1)  echo "Rebasing the single superproject commit on top of ${masterBranch}."
+	    typeset -a ffintegratetoArgs=(--push-branch --rebase-single)
+	    ;;
+	*)  # Disallow fast-forward to have a merge commit that maintains the history of
+	    # how the feature grew.
+	    echo "Maintaing the history of how the feature grew via a merge to ${masterBranch}."
+	    typeset -a ffintegratetoArgs=(--push-branch --no-ff)
+	    ;;
+    esac
+
+    exec git-ffintegrateto --branch "$masterBranch" "${ffintegratetoArgs[@]}" --push-submodules --delete-merged-submodule-branches "$@"
+}
+
+$action "$@"

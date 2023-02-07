@@ -85,6 +85,17 @@ do
 	--spark|--most-only|-1)
 			eachOutputFormatArg="$1";;
 	--full)		shift; : ${HEADER_NEWLINE=$'\n'}; export HEADER_NEWLINE; eachOutputFormatArg=''; continue;;
+
+	--blame)	shift
+			commit="$1"; shift
+			filespec="${!#}"
+			if [ -z "$commit" -a ! -e "$filespec" ]; then
+			    # Default to the checked-in HEAD commit if the file
+			    # has been removed from the working copy.
+			    set -- HEAD "$@"
+			fi
+			exec git blame --line-porcelain "$@"
+			;;
     esac
 
     case "$1" in
@@ -145,7 +156,7 @@ do
 	printf '%s\0' "$filespec"
     fi
 done \
-    | xargs --no-run-if-empty --null -n 1 git blame --line-porcelain "${blameArgs[@]}" -- \
+    | xargs --no-run-if-empty --null -n 1 "${BASH_SOURCE[0]}" --blame "$commit" "${blameArgs[@]}" -- \
     | sed "${blameSedArgs[@]}" \
     | sort \
     | eval 'uniq -c' \

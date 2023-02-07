@@ -181,9 +181,14 @@ fileCommit()
 
     moveFile "$filespec" "${targetRepo}/${targetFilepath}" || return $?
 
-    (cd "$targetRepo" && git-commituntracked --author "$author" --date "$authorDate" --message "$actionName $originalSubPath here
+    (
+	cd "$targetRepo" || exit $?
+	commitCommand=commituntracked; git-iscontrolled -- "$targetFilepath" && commitCommand=commit
 
-Originally committed at $originalLocation" "${gitCommitEditArg[@]}" -- "$targetFilepath") || return $?
+	git-wrapper "$commitCommand" --author "$author" --date "$authorDate" --message "$actionName $originalSubPath here
+
+Originally committed at $originalLocation" "${gitCommitEditArg[@]}" -- "$targetFilepath"
+    ) || return $?
 
     newRepoName="$(cd "$targetRepo" && git-wcname)"
     if [ -n "$remote" ]; then

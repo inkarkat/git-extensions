@@ -56,6 +56,8 @@ listFiles()
 	if [ -d "$arg" ]; then
 	    find "$arg" ${minDepth:+-mindepth $minDepth} ${maxDepth:+-maxdepth $maxDepth} -name .git -prune -o -type d -print \
 		&& find "$arg" ${maxDepth:+-maxdepth 1} -name .git -prune -o -type f -print
+	elif [ -e "$arg" ] || [ -n "$(git-stfiles -- "$arg" 2>/dev/null)" ] ; then
+	    printf '%s\n' "$arg"
 	else
 	    find "$arg" ${maxDepth:+-maxdepth 0} -name .git -prune -o -type f -print
 	fi
@@ -98,7 +100,7 @@ gitLs()
 	if [ "$isNeedLog" ]; then
 	    # Optimization: git ls-files can sort out untracked files much faster
 	    # than git log.
-	    git ls-files --error-unmatch -- "$filespec" >/dev/null 2>/dev/null || continue
+	    git ls-files --error-unmatch -- "$filespec" >/dev/null 2>/dev/null || [ -n "$(git-stfiles -- "$filespec" 2>/dev/null)" ] || continue
 
 	    filespecSuffix=
 	    if [ -d "$filespec" ]; then
@@ -118,7 +120,7 @@ gitLs()
 	    elif [ "$isOnly" = directories ]; then
 		continue
 	    else
-		eval 'git ls-files --error-unmatch -- "$filespec" 2>/dev/null' "${prefix:+| prefix "$prefix"}"
+		eval 'git ls-files --error-unmatch -- "$filespec" 2>/dev/null || git-stfiles -- "$filespec" 2>/dev/null' "${prefix:+| prefix "$prefix"}"
 	    fi
 	fi
     done

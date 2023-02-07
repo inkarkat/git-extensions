@@ -4,7 +4,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '-t|--target-repo OTHER-REPO-PATH[/[SUBPATH]] [--copy|--move] [-r|--remote REMOTE] [--no-edit] [--creator|--did|--owner|--contributor] [--] FILE [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '-t|--target-repo OTHER-REPO-PATH[/[SUBPATH]] [--copy|--move] [--record-only] [-r|--remote REMOTE] [--no-edit] [--creator|--did|--owner|--contributor] [--] FILE [...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -40,6 +40,9 @@ HELPDESCRIPTION
 			each FILE separately). By default, FILE(s) are deleted
 			but that change is not committed; you should do a
 			separate removal commit yourself after the move.
+    --record-only	Accept an existing target file as a copy or move that
+			has already happened and just commit (and delete the
+			original). Don't fail if FILE has already been removed.
     --remote|-r REMOTE	Include links to the GitHub REMOTE in the move commits
 			instead of just referencing the repos by working copy
 			name.
@@ -60,6 +63,7 @@ actionName='Move'
 actionAlso=''
 isDelete=t
 isCommitRemoval=
+isRecordOnly=
 remote=
 gitCommitEditArg=(--edit)
 authorSource=
@@ -83,6 +87,7 @@ do
 			;;
 	--copy)		shift; isDelete=; actionName='Copy'; actionAlso='also';;
 	--move)		shift; isCommitRemoval=t;;
+	--record-only)	shift; isRecordOnly=t;;
 	--remote|-r)	shift; remote="$1"; shift;;
 	--no-edit)	gitCommitEditArg=("$1"); shift;;
 	--creator)	shift; authorSource=whocreated;;
@@ -105,6 +110,17 @@ elif [ $# -eq 0 ]; then
     printUsage "$0"
     exit 2
 fi >&2
+
+if [ "$HUB" ] && [ -z "$remote" ]; then
+    readarray -t remotes < <(git remote)
+    case ${#remotes[@]} in
+	0)  ;;
+	1)  remote="${remotes[0]}";;
+	*)  echo >&2 'ERROR: Multiple remotes exist; unable to pick a default. Pass --remote REMOTE to select one.'
+	    exit 2
+	    ;;
+    esac
+fi
 
 filemove()
 {
@@ -138,8 +154,33 @@ filemove()
     local newLocation newRepoName	# Will be populated by fileCommit; no command substitution because of the interactive editor launch.
     fileCommit "$originalSubPath" "$filespec" "$author" "$authorDate" "$originalLocation" || return $?
 
-    [ ! "$isDelete" ] || git rm -r -- "$filespec" || return 3
+    if [ "$isDelete" ]; then
+	if [ "$isRecordOnly" ]; then
+	    git rm -r -- "$filespec" 2>/dev/null \
+		|| printf >&2 'Note: The source has already been deleted: %s\n' "$filespec"
+	else
+	    git rm -r -- "$filespec" || return 3
+	fi
+    fi
+
     [ ! "$isCommitRemoval" ] || fileRemove "$filespec" "$originalLocation" "$newLocation"
+}
+
+moveFile()
+{
+    local sourceFilespec="${1:?}"; shift
+    local targetFilespec="${1:?}"; shift
+    if [ -e "$targetFilespec" ]; then
+	if [ "$isRecordOnly" ]; then
+	    printf >&2 'Note: Do not %s %s; the target already exists: %s\n' "${actionName,,}" "$sourceFilespec" "$targetFilespec"
+	    return 0
+	else
+	    printf >&2 'ERROR: Cannot %s %s; the target already exists: %s\nPass --record-only to skip the %s itself.\n' "${actionName,,}" "$sourceFilespec" "$targetFilespec" "${actionName,,}"
+	    return 1
+	fi
+    fi
+    touch-p --no-create --verbose -- "$targetFilespec" || return 3
+    cp --archive -- "$sourceFilespec" "$targetFilespec" || return 3
 }
 
 fileCommit()
@@ -152,21 +193,21 @@ fileCommit()
 
     if [ -n "${targetSubPath+t}" ]; then
 	# Ignore the originalSubPath, use the supplied targetSubPath.
-	targetFilepath="${targetSubPath}${targetSubPath:+/}$(basename -- "$filespec")"
+	targetFilepath="${targetSubPath%/}${targetSubPath:+/}$(basename -- "$filespec")"
     else
 	targetFilepath="$originalSubPath"
     fi
-    local targetFilespec="${targetRepo}/${targetFilepath}"
-    if [ -e "$targetFilespec" ]; then
-	printf >&2 'ERROR: Cannot move %s; the target already exists: %s\n' "$filespec" "$targetFilespec"
-	return 1
-    fi
-    touch-p --no-create --verbose -- "$targetFilespec" || return 3
-    cp --archive -- "$filespec" "$targetFilespec" || return 3
 
-    (cd "$targetRepo" && git-commituntracked --author "$author" --date "$authorDate" --message "$actionName $originalSubPath here
+    moveFile "$filespec" "${targetRepo}/${targetFilepath}" || return $?
 
-Originally committed at $originalLocation" "${gitCommitEditArg[@]}" -- "$targetFilepath") || return $?
+    (
+	cd "$targetRepo" || exit $?
+	commitCommand=commituntracked; git-iscontrolled -- "$targetFilepath" && commitCommand=commit
+
+	git-wrapper "$commitCommand" --author "$author" --date "$authorDate" --message "$actionName $originalSubPath here
+
+Originally committed at $originalLocation" "${gitCommitEditArg[@]}" -- "$targetFilepath"
+    ) || return $?
 
     newRepoName="$(cd "$targetRepo" && git-wcname)"
     if [ -n "$remote" ]; then

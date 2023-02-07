@@ -42,7 +42,7 @@ HELPDESCRIPTION
 			separate removal commit yourself after the move.
     --record-only	Accept an existing target file as a copy or move that
 			has already happened and just commit (and delete the
-			original).
+			original). Don't fail if FILE has already been removed.
     --remote|-r REMOTE	Include links to the GitHub REMOTE in the move commits
 			instead of just referencing the repos by working copy
 			name.
@@ -143,7 +143,15 @@ filemove()
     local newLocation newRepoName	# Will be populated by fileCommit; no command substitution because of the interactive editor launch.
     fileCommit "$originalSubPath" "$filespec" "$author" "$authorDate" "$originalLocation" || return $?
 
-    [ ! "$isDelete" ] || git rm -r -- "$filespec" || return 3
+    if [ "$isDelete" ]; then
+	if [ "$isRecordOnly" ]; then
+	    git rm -r -- "$filespec" 2>/dev/null \
+		|| printf >&2 'Note: The source has already been deleted: %s\n' "$filespec"
+	else
+	    git rm -r -- "$filespec" || return 3
+	fi
+    fi
+
     [ ! "$isCommitRemoval" ] || fileRemove "$filespec" "$originalLocation" "$newLocation"
 }
 

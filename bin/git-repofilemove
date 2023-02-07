@@ -142,6 +142,18 @@ filemove()
     [ ! "$isCommitRemoval" ] || fileRemove "$filespec" "$originalLocation" "$newLocation"
 }
 
+moveFile()
+{
+    local sourceFilespec="${1:?}"; shift
+    local targetFilespec="${1:?}"; shift
+    if [ -e "$targetFilespec" ]; then
+	printf >&2 'ERROR: Cannot move %s; the target already exists: %s\n' "$sourceFilespec" "$targetFilespec"
+	return 1
+    fi
+    touch-p --no-create --verbose -- "$targetFilespec" || return 3
+    cp --archive -- "$sourceFilespec" "$targetFilespec" || return 3
+}
+
 fileCommit()
 {
     local originalSubPath="${1?}"; shift
@@ -156,13 +168,8 @@ fileCommit()
     else
 	targetFilepath="$originalSubPath"
     fi
-    local targetFilespec="${targetRepo}/${targetFilepath}"
-    if [ -e "$targetFilespec" ]; then
-	printf >&2 'ERROR: Cannot move %s; the target already exists: %s\n' "$filespec" "$targetFilespec"
-	return 1
-    fi
-    touch-p --no-create --verbose -- "$targetFilespec" || return 3
-    cp --archive -- "$filespec" "$targetFilespec" || return 3
+
+    moveFile "$filespec" "${targetRepo}/${targetFilepath}" || return $?
 
     (cd "$targetRepo" && git-commituntracked --author "$author" --date "$authorDate" --message "$actionName $originalSubPath here
 

@@ -5,6 +5,7 @@ shopt -qs extglob
 : ${GIT_SUBCOBR_COLOR_ACTION=[1m}
 : ${GIT_SUBCOBR_COLOR_SKIP=[9m}
 : ${GIT_SUBCOBR_COLOR_ERROR=[31m}
+: ${GIT_SUBCOBR_COLOR_ZEBRA=[48;5;255m}
 : ${GIT_SUBCOBR_COLOR_RESET=[0m}
 
 printShortUsage()
@@ -295,7 +296,7 @@ checkoutExistingRemote()
     if git-existsbr "$remoteBranch"; then
 	git-wrapper checkout $forceArg --track -B "$branch" "$remoteBranch"
     else
-	printf >&2 '%sSkipping; no remote branch %s%s' "$GIT_SUBCOBR_COLOR_SKIP" "$remoteBranch" "$GIT_SUBCOBR_COLOR_RESET"
+	printf >&2 '%sSkipping; no remote branch %s%s\n' "$GIT_SUBCOBR_COLOR_SKIP" "$remoteBranch" "$GIT_SUBCOBR_COLOR_RESET"
     fi
 }
 
@@ -331,6 +332,20 @@ update()
     [ -z "$record" ] || git-logdelta $logArg $logRecursionArg --from-record "$record"
 }
 
+isZebra=
+zebraToggle()
+{
+    [ -n "$GIT_SUBCOBR_COLOR_ZEBRA" ] || return
+
+    if [ "$isZebra" ]; then
+	isZebra=
+	printf %s "${GIT_SUBCOBR_COLOR_RESET}[0K" # Clear to end of line because Git command output has introduced a newline, and without the clear everything in the following line that is not overwritten by the following message will keep the zebra background.
+    else
+	isZebra=t
+	printf %s "$GIT_SUBCOBR_COLOR_ZEBRA"
+    fi
+}
+
 unset currentBranchName
 let submoduleWidth=0
 typeset -A submoduleBranches=()
@@ -359,6 +374,8 @@ do
 
     case "$action" in
 	status)
+	    zebraToggle
+
 	    if [ "${uninitializedSubmodules["$submodule"]}" ]; then
 		printPrefixed "$GIT_SUBCOBR_COLOR_ERROR" "hasn't been initialized yet"
 		status=1
@@ -415,6 +432,8 @@ do
 		printf "%s hasn't been initialized yet\\n" "${prefix}${submodule}"
 		exit 1
 	    fi
+
+	    zebraToggle
 	    ;;
 	*)  printf >&2 'ASSERT: Invalid action: %s\n' "$action"; exit 3;;
     esac

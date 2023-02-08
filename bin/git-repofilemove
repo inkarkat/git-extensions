@@ -4,7 +4,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '-t|--target-repo OTHER-REPO-PATH[/[SUBPATH]] [--copy|--move] [--record-only] [-r|--remote REMOTE] [--no-edit] [--creator|--did|--owner|--contributor|--who-what] [--] FILE [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '-t|--target-repo OTHER-REPO-PATH[/[SUBPATH]] [--copy|--move] [--record-only] [-r|--remote REMOTE] [--no-edit] [--creator|--did|--owner|--contributor|--who-what] [--follow] [--] FILE [...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -71,6 +71,7 @@ gitCommitEditArg=(--edit)
 authorSource=whodid
 isChoose=t
 isMostOnly=
+typeset -a followArg=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -99,6 +100,7 @@ do
 	--owner)	shift; authorSource=whoowns; isChoose=; isMostOnly=t;;
 	--contributor)	shift; authorSource=whocontributed; isChoose=; isMostOnly=t;;
 	--who-what)	shift; authorSource=whowhat; isMostOnly=t;;
+	--follow)	followArg+=("$1"); shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -131,7 +133,7 @@ filemove()
 {
     local filespec="${1:?}"; shift
 
-    readarray -t authors < <(git-$authorSource --names-only --email ${isMostOnly:+--most-only} -- "$filespec")
+    readarray -t authors < <(git-$authorSource --names-only --email ${isMostOnly:+--most-only} "${followArg[@]}" -- "$filespec")
     [ ${#authors[@]} -gt 0 ] || return 3
 
     if [ "$isChoose" ]; then

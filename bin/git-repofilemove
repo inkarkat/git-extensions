@@ -4,7 +4,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '-t|--target-repo OTHER-REPO-PATH[/[SUBPATH]] [--copy|--move] [--record-only] [-r|--remote REMOTE] [--no-edit] [--creator|--did|--owner|--contributor] [--] FILE [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '-t|--target-repo OTHER-REPO-PATH[/[SUBPATH]] [--copy|--move] [--record-only] [-r|--remote REMOTE] [--no-edit] [--creator|--did|--owner|--contributor|--who-what] [--follow] [--] FILE [...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -21,9 +21,8 @@ printLongUsage()
 Copy FILE(s) from the current repository to OTHER-REPO-PATH (same subdir as the
 source repo when it is pointing to the repo root; to force committing to the
 target repo root append a slash to it; i.e. OTHER-REPO-PATH/) while maintaining
-the original FILE's author (by default queried from creator, most commits, most
-last changed lines, total changes) and synthesizing a commit message template
-(for each FILE separately).
+the original FILE's author (by default queried from all authors) and
+synthesizing a commit message template (for each FILE separately).
 If you pass an entire subdirectory, it will be moved as one entity. Pass
 separate files if you want individual authorship and commits.
 HELPDESCRIPTION
@@ -54,6 +53,9 @@ HELPDESCRIPTION
 			the FILE.
     --contributor	Use the author who's responsible for the largest size of
 			diffs over the FILE's whole history.
+    --who-what		Choose from the author(s) who created / did the most
+			commits / is listed in most lines / is responsible for
+			the largest size of FILE.
 HELPTEXT
 }
 
@@ -66,7 +68,10 @@ isCommitRemoval=
 isRecordOnly=
 remote=
 gitCommitEditArg=(--edit)
-authorSource=
+authorSource=whodid
+isChoose=t
+isMostOnly=
+typeset -a followArg=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -90,10 +95,12 @@ do
 	--record-only)	shift; isRecordOnly=t;;
 	--remote|-r)	shift; remote="$1"; shift;;
 	--no-edit)	gitCommitEditArg=("$1"); shift;;
-	--creator)	shift; authorSource=whocreated;;
-	--did)		shift; authorSource=whodid;;
-	--owner)	shift; authorSource=whoowns;;
-	--contributor)	shift; authorSource=whocontributed;;
+	--creator)	shift; authorSource=whocreated; isChoose=; isMostOnly=t;;
+	--did)		shift; authorSource=whodid; isChoose=; isMostOnly=t;;
+	--owner)	shift; authorSource=whoowns; isChoose=; isMostOnly=t;;
+	--contributor)	shift; authorSource=whocontributed; isChoose=; isMostOnly=t;;
+	--who-what)	shift; authorSource=whowhat; isMostOnly=t;;
+	--follow)	followArg+=("$1"); shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -126,18 +133,19 @@ filemove()
 {
     local filespec="${1:?}"; shift
 
-    if [ -n "$authorSource" ]; then
-	author="$(git-$authorSource --names-only --email --most-only -- "$filespec")" || return 3
-    else
-	readarray -t authors < <(git-whowhat --names-only --email --most-only -- "$filespec")
-	[ ${#authors[@]} -gt 0 ] || return 3
+    readarray -t authors < <(git-$authorSource --names-only --email ${isMostOnly:+--most-only} "${followArg[@]}" -- "$filespec")
+    [ ${#authors[@]} -gt 0 ] || return 3
+
+    if [ "$isChoose" ]; then
 	choice="$(
 	    USERCHOICEFROMLIST_ENTRY_PREFIX=$'\n' \
 	    USERCHOICEFROMLIST_ENTRY_SUFFIX='' \
 	    USERCHOICEFROMLIST_ENTRY_SEPARATOR=$'\n' \
 		userchoiceFromList --question "Choose author for ${filespec}:" --ignore-case -- "${authors[@]}"
 	)" || return 4
-	author="${choice#*:	}"
+	author="${choice#*:	}"  # Cutting off the prefix only applies to whowhat, but shouldn't matter for the others.
+    else
+	author="${authors[0]}"
     fi
 
     local authorDate; authorDate="$(git log --max-count 1 --pretty=tformat:%ai -- "$filespec")" || return 3

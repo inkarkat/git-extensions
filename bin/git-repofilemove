@@ -163,7 +163,7 @@ filemove()
 	fi
     fi
 
-    [ ! "$isCommitRemoval" ] || fileRemove "$filespec" "$originalLocation" "$newLocation"
+    fileRemove "$filespec" "$originalLocation" "$newLocation"
 }
 
 moveFile()
@@ -225,9 +225,15 @@ fileRemove()
     local originalLocation="${1:?}"; shift
     local newLocation="${1:?}"; shift
 
-    git-wrapper commit --message "$actionName $originalSubPath to ${newRepoName:-???}
+    local commitMessage="$actionName $originalSubPath to ${newRepoName:-???}
 
-Now${actionAlso:+ }${actionAlso} located at $newLocation" "${gitCommitEditArg[@]}" -- "$filespec" || return $?
+Now${actionAlso:+ }${actionAlso} located at $newLocation"
+
+    if [ "$isCommitRemoval" ]; then
+	git-wrapper commit --message "$commitMessage" "${gitCommitEditArg[@]}" -- "$filespec" || return $?
+    else
+	printf '%s\n' "$commitMessage"
+    fi
 }
 
 status=0

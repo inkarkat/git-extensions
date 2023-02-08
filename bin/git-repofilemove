@@ -4,7 +4,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '-t|--target-repo OTHER-REPO-PATH[/[SUBPATH]] [--copy|--move] [--record-only] [-r|--remote REMOTE] [--no-edit] [--creator|--did|--owner|--contributor] [--] FILE [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '-t|--target-repo OTHER-REPO-PATH[/[SUBPATH]] [--copy|--move] [--record-only] [-r|--remote REMOTE] [--no-edit] [--creator|--did|--owner|--contributor|--who-what] [--] FILE [...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -54,6 +54,9 @@ HELPDESCRIPTION
 			the FILE.
     --contributor	Use the author who's responsible for the largest size of
 			diffs over the FILE's whole history.
+    --who-what		Choose from the author(s) who created / did the most
+			commits / is listed in most lines / is responsible for
+			the largest size of FILE.
 HELPTEXT
 }
 
@@ -94,6 +97,7 @@ do
 	--did)		shift; authorSource=whodid;;
 	--owner)	shift; authorSource=whoowns;;
 	--contributor)	shift; authorSource=whocontributed;;
+	--who-what)	shift; authorSource=whowhat;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -126,9 +130,7 @@ filemove()
 {
     local filespec="${1:?}"; shift
 
-    if [ -n "$authorSource" ]; then
-	author="$(git-$authorSource --names-only --email --most-only -- "$filespec")" || return 3
-    else
+    if [ "$authorSource" = whowhat ]; then
 	readarray -t authors < <(git-whowhat --names-only --email --most-only -- "$filespec")
 	[ ${#authors[@]} -gt 0 ] || return 3
 	choice="$(
@@ -138,6 +140,8 @@ filemove()
 		userchoiceFromList --question "Choose author for ${filespec}:" --ignore-case -- "${authors[@]}"
 	)" || return 4
 	author="${choice#*:	}"
+    elif [ -n "$authorSource" ]; then
+	author="$(git-$authorSource --names-only --email --most-only -- "$filespec")" || return 3
     fi
 
     local authorDate; authorDate="$(git log --max-count 1 --pretty=tformat:%ai -- "$filespec")" || return 3

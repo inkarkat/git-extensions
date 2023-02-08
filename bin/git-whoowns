@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--csv|--spark|-n|--names-only [-1|--most-only]|-1|--most-only] [-c|--committer] [-e|--email] [--each-file|--each-dir [-r|--recursive] [--full]] ([--since=<date>] [<commit>] | [<revision range>]) [--] [<path> ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--csv|--spark|-n|--names-only [-1|--most-only]|-1|--most-only] [-c|--committer] [-e|--email] [--each-file|--each-dir [-r|--recursive] [--full]] [-N|--alphabetic] ([--since=<date>] [<commit>] | [<revision range>]) [--] [<path> ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -26,8 +26,8 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
-    --names-only|-n	Only show the authors that changed files
-			(alphabetically).
+    --names-only|-n	Only show the authors that changed files.
+    --alphabetic|-N	Output sorted by author instead of changed lines.
     --most-only|-1	Only show the single author with the most changed lines.
     --csv		Show the number of lines and author name,
 			comma-separated.
@@ -103,12 +103,14 @@ do
 
 	--committer|-c)	shift; blameFilter='committer';;
 	--email|-e)	shift; isEmail=t;;
+	--alphabetic|-N)
+			shift; sorter=();;
 	--names-only|-n)
-	    shift; sorter=(); postFilter=(sed -e 's/^[[:space:]]*[[:digit:]]\+%\?[[:space:]]\+//');;
+			shift; postFilter=(sed -e 's/^[[:space:]]*[[:digit:]]\+%\?[[:space:]]\+//');;
 	--spark)
-	    printf -v postSelector '%q ' fieldMap --field-separator , 2 'gensub(/^[[:digit:]]+$/, "??", 1, $fieldNr)' 2 '|nameToInitials -u' 3 '" "' 4 '" "'
-	    printf -v postSelector '%s | spark' "$postSelector"
-	    ;&	# Continue with CSV.
+			printf -v postSelector '%q ' fieldMap --field-separator , 2 'gensub(/^[[:digit:]]+$/, "??", 1, $fieldNr)' 2 '|nameToInitials -u' 3 '" "' 4 '" "'
+			printf -v postSelector '%s | spark' "$postSelector"
+			;&	# Continue with CSV.
 	--csv)
 			shift; printf -v selector '%q ' sed -n -e '/^[[:space:]]*<none>$/d' -e 's/^[[:space:]]*\([[:digit:]]\+\)[[:space:]]\+\([^[:space:]].*\)$/\1,\2/p';;
 	--most-only|-1)	shift; sorter=(sort -nr); selector='countFieldToPercentage 1 | head -n 1';;

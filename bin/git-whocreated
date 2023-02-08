@@ -6,7 +6,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-s|--summary|-n|--names-only [-1|--most-only]|-1|--most-only] [-c|--committer] [-e|--email] [<log-args> ...] [--] [FILE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-s|--summary|-n|--names-only [-1|--most-only]|-1|--most-only] [-c|--committer] [-e|--email] [-N|--alphabetic] [<log-args> ...] [--] [FILE ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -31,6 +31,8 @@ HELPDESCRIPTION
 			grouped by authors.
     --names-only|-n	Only show the authors that created files
 			(alphabetically).
+    --alphabetic|-N	Output sorted by author instead of who created the most
+			files.
     --most-only|-1	Only show the single author with the most file creations.
 HELPTEXT
 }
@@ -50,8 +52,10 @@ do
 	--color)	shift; shift;;
 
 	--summary|-s)	shift; action=printSummary;;
+	--alphabetic|-N)
+			shift; isAlphabetic=t;;
 	--names-only|-n)
-			shift; action=printNamesOnly; isAlphabetic=t;;
+			shift; action=printNamesOnly;;
 	--most-only|-1)	shift; isMostOnly=t; [ "$action" = printAuthors ] && action=printSummary; isAlphabetic=;;
 	--committer|-c)	shift; logFormat="${logFormat//%a/%c}";;
 	--email|-e)	shift; logFormat+=' <%aE>';;

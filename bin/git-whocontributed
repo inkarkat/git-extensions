@@ -6,7 +6,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-v|--verbose] [--csv|--spark|-n|--names-only [-1|--most-only]|-1|--most-only] [-c|--committer] [-e|--email] [--each-file|--each-dir [-r|--recursive] [--full]] [<log-args> ...] [--] [<path> ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-v|--verbose] [--csv|--spark|-n|--names-only [-1|--most-only]|-1|--most-only] [-c|--committer] [-e|--email] [--each-file|--each-dir [-r|--recursive] [--full]] [-N|--alphabetic] [<log-args> ...] [--] [<path> ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -30,7 +30,8 @@ HELPDESCRIPTION
     cat <<HELPTEXT
     --verbose|-v	Show details counts of commits, insertions, and
 			deletions.
-    --names-only|-n	Only show the authors that contributed (alphabetically).
+    --names-only|-n	Only show the authors that contributed.
+    --alphabetic|-N	Output sorted by author instead of contributions.
     --most-only|-1	Only show the single author with the most contributions.
     --csv		Show the size of contributions and author name,
 			comma-separated.
@@ -91,8 +92,10 @@ do
 	--committer|-c)	shift; logFormat="${logFormat//%a/%c}";;
 	--email|-e)	shift; logFormat+=' <%aE>';;
 
+	--alphabetic|-N)
+			shift; isAlphabetic=t;;
 	--names-only|-n)
-			shift; isAlphabetic=t; postFilter=(sed -e 's/^[[:space:]]*[[:digit:]]\+%\?[[:space:]]\+//');;
+			shift; postFilter=(sed -e 's/^[[:space:]]*[[:digit:]]\+%\?[[:space:]]\+//');;
 	--spark)
 	    printf -v postSelector '%q ' fieldMap --field-separator , 2 'gensub(/^[[:digit:]]+$/, "??", 1, $fieldNr)' 2 '|nameToInitials -u' 3 '" "' 4 '" "'
 	    printf -v postSelector '%s | spark' "$postSelector"

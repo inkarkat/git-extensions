@@ -4,14 +4,15 @@ set -o noglob
 printUsage()
 {
     cat <<HELPTEXT
-Execute GIT-COMMAND with the files modified in the last commit
+Execute GIT-COMMAND with the files modified in the last commit / passed
+-r|--revision REVISION
 - appended
 - replacing FILES argument(s) anywhere
 - replacing FILES in the following GIT-COMMAND and -(N-1) arguments
 - replacing FILES in the following +(N) arguments and appending those
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-c ...] GIT-COMMAND [GIT-COMMAND-ARGS ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-c ...] GIT-COMMAND [...] [-r|--revision REVISION] [...] [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-option-name] --keep-position GIT-COMMAND [... FILES ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-option-name] [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-option-name] [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [...]'
@@ -20,12 +21,25 @@ case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
 
+commit='HEAD'
+typeset -a args=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--revision|-r)	shift; commit="$1"; shift;;
+	--)		args+=("$1"); shift; break;;
+	*)		args+=("$1"); shift;;
+    esac
+done
+set -- "${args[@]}" "$@"
+
 if [ $# -eq 0 ]; then
     echo >&2 'ERROR: No GIT-COMMAND passed.'
     exit 2
 fi
 
-readarray -t files < <(eval "${GIT_LASTFILES_COMMAND:-git-showfiles}"; printf '\n%d\n' "$?")	# Exit status from the process substitution is lost; return the actual exit status via an appended additional line.
+readarray -t files < <(eval "${GIT_LASTFILES_COMMAND:-git-showfiles}" '"$commit"'; printf '\n%d\n' "$?")	# Exit status from the process substitution is lost; return the actual exit status via an appended additional line.
 [ ${files[-1]} -ne 0 ] && exit ${files[-1]}
 unset "files[$((${#files[@]}-1))]"
 [ -z "${files[-1]}" ] && unset "files[$((${#files[@]}-1))]"

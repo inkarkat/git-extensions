@@ -1,6 +1,4 @@
 #!/bin/bash
-set -o pipefail
-shopt -qs extglob globstar nullglob
 
 printShortUsage()
 {
@@ -36,127 +34,8 @@ HELPDESCRIPTION
 HELPTEXT
 }
 
-action=printAuthors
-isAlphabetic=
-isMostOnly=
-logFormat='%aN'
-typeset -a logArgs=()
-typeset -a fileArgs=()
-while [ $# -ne 0 ]
-do
-    case "$1" in
-	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
-	--no-color|--color=*)
-			shift;;
-	--color)	shift; shift;;
+case "$1" in
+    --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+esac
 
-	--summary|-s)	shift; action=printSummary;;
-	--alphabetic|-N)
-			shift; isAlphabetic=t;;
-	--names-only|-n)
-			shift; action=printNamesOnly;;
-	--most-only|-1)	shift; isMostOnly=t; [ "$action" = printAuthors ] && action=printSummary; isAlphabetic=;;
-	--committer|-c)	shift; logFormat="${logFormat//%a/%c}";;
-	--email|-e)	shift; logFormat+=' <%aE>';;
-
-	# Ignore options that influence commit formatting (we need just the
-	# author), and diff options.
-	-+([cmtpuz]))	shift;;
-	--@(abbrev-commit|no-abbrev-commit|oneline|no-notes|show-signature|relative-date|parents|children|left-right|graph|cc|patch|no-patch|raw|patch-with-raw|numstat|shortstat|summary|patch-with-stat|name-only|name-status|no-color))	shift;;
-	-[U])	shift; shift;;
-	--@(pretty|format|notes|date|unified|stat|dirstat|submodule|color|word-diff|word-diff-regex|color-words)=*)	shift;;
-	--@(pretty|format|notes|date|unified|stat|dirstat|submodule|color|word-diff|word-diff-regex|color-words))	shift; shift;;
-	--)		shift; fileArgs=("$@"); break;;
-	*)		logArgs+=("$1"); shift;;
-    esac
-done
-if [ ${#fileArgs[@]} -eq 0 ]; then
-    # No files after -- captured yet; need to investigate parsed and
-    # remaining args from behind for files.
-    logArgs+=("$@")
-    while [ ${#logArgs[@]} -ne 0 ]
-    do
-	lastArg="${logArgs[-1]}"
-	[ -e "$lastArg" ] || break
-
-	fileArgs=("$lastArg" "${fileArgs[@]}")
-	logArgs=("${logArgs[@]:0:${#logArgs[@]}-1}")
-    done
-fi
-[ ${#fileArgs[@]} -gt 0 ] || fileArgs=(.)
-
-typeset -a files=()
-for arg in "${fileArgs[@]}"
-do
-    if [ -d "$arg" ]; then
-	files+=("${arg%/}"/**)
-    else
-	files+=("$arg")
-    fi
-done
-
-let commitNum=0
-typeset -A authorCommitCount=() authorFiles=()
-for filespec in "${files[@]}"
-do
-    [ -d "$filespec" ] && continue  # Directories have been expanded already; skip them as they would count any file addition inside them.
-
-    while IFS=$'\t' read -r author
-    do
-	[ -n "$author" ] || continue
-
-	authorFiles["$author"]+="${authorFiles["$author"]:+$'\n'}      ${filespec#./}"
-
-	if [ -z "${authorCommitCount["$author"]}" ]; then
-	    authorCommitCount["$author"]=1
-	else
-	    authorCommitCount["$author"]=$((${authorCommitCount["$author"]} + 1))
-	fi
-	let commitNum+=1
-    done < <(git log --pretty="tformat:${logFormat}" --diff-filter=A "${logArgs[@]}" -- "$filespec")
-done
-
-readarray -t sortedAuthors < <(
-    typeset -a sortByCountArgs=(--key 1,1nr); [ "$isAlphabetic" ] && sortByCountArgs=()
-    for author in "${!authorCommitCount[@]}"
-    do
-	printf '%d\t%s\n' "${authorCommitCount["$author"]}" "$author"
-    done \
-	| sort --field-separator $'\t' "${sortByCountArgs[@]}" --key 2,2 \
-	| field --field-separator $'\t' --remove 1
-)
-
-printAuthors()
-{
-    local separator=
-    local author; for author in "${sortedAuthors[@]}"
-    do
-	printf '%s%s (%d):\n%s\n' "$separator" "$author" ${authorCommitCount["$author"]} "${authorFiles["$author"]}"
-	separator=$'\n'
-    done
-}
-
-printSummary()
-{
-    local author; for author in "${sortedAuthors[@]}"
-    do
-	if [ "$isMostOnly" ]; then
-	    printf '%4d%% %s\n' $((100 * ${authorCommitCount["$author"]} / commitNum)) "$author"
-	    break
-	else
-	    printf '%6d %3d%%  %s\n' ${authorCommitCount["$author"]} $((100 * ${authorCommitCount["$author"]} / commitNum)) "$author"
-	fi
-    done
-}
-
-printNamesOnly()
-{
-    local author; for author in "${sortedAuthors[@]}"
-    do
-	printf '%s\n' "$author"
-	[ "$isMostOnly" ] && break
-    done
-}
-
-typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
-eval '$action "$@"' "${pager:+|}" '"${pager[@]}"'
+exec git-whologged --diff-filter=A "$@"

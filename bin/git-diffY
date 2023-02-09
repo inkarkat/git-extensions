@@ -13,6 +13,7 @@ hasDelta()
 	&& [ "$(git config --get core.pager)" = 'delta' ]
 }
 
+isColor=; [ -t 1 ] && isColor=t
 isAsDiffTool=
 isSuppressCommonLines=
 typeset -a allargs=()
@@ -23,12 +24,14 @@ do
 	--as-difftool) shift; isAsDiffTool=t;;
 	--no-color|--color=never)
 	    shift
+	    isColor=
 	    hasColorDiff=
 	    GIT_DIFFY_FILE_PREFIX=
 	    GIT_DIFFY_FILE_SUFFIX=
 	    ;;
 	--color|--color=always)
 	    shift
+	    isColor=t
 	    hasColorDiff=t
 	    ;;
 	--suppress-common-lines)
@@ -61,11 +64,27 @@ if [ "$isAsDiffTool" ]; then
     ${hasColorDiff:+color}diff ${hasColorDiff:+--difftype=diffy} --side-by-side --ignore-all-space ${COLUMNS:+--width $COLUMNS} "${diffArgs[@]}" "$@"
     exit 0	# Need to return success to avoid that Git complains that the "external tool died".
 else
-    [ "$isSuppressCommonLines" ] && hasDelta \
-	&& exec git -c 'delta.side-by-side=true' diff "$@"
+    typeset -a gitPagerArgs=()
+    if [ "$isSuppressCommonLines" ] && hasDelta; then
+	if [ "$isColor" ]; then
+	    if [ -t 1 ]; then
+		exec git -c 'delta.side-by-side=true' diff "$@"
+	    else
+		# If the output of the git process is not a tty then git just
+		# completely ignores its core.pager setting (and therefore
+		# delta); cp.
+		# https://github.com/dandavison/delta/issues/101#issuecomment-593214649.
+		# Thus, we need to pipe through delta ourselves.
+		git diff "$@" | delta --side-by-side
+		exit $?
+	    fi
+	else
+	    gitPagerArgs=(-c core.pager=)
+	fi
+    fi
 
     colorArg=--color=always; [ "$hasColorDiff" ] || colorArg=--no-color
 
     typeset -a pager=("${PAGER:-less}" --quit-on-intr --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
-    eval 'git difftool --no-prompt --extcmd="git-diffY --as-difftool $colorArg${diffArgs:+ }${diffArgs[*]}" "$@"' "${pager:+|}" '"${pager[@]}"'
+    eval 'git "${gitPagerArgs[@]}" difftool --no-prompt --extcmd="git-diffY --as-difftool $colorArg${diffArgs:+ }${diffArgs[*]}" "$@"' "${pager:+|}" '"${pager[@]}"'
 fi

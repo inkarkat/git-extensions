@@ -1,4 +1,6 @@
 #!/bin/bash
+set -o pipefail
+shopt -qs extglob globstar nullglob
 
 printShortUsage()
 {
@@ -18,19 +20,19 @@ printLongUsage()
     # This is the long "man page" when launched with the help argument.
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
-Show who did the initial commit for FILE(s) grouped by author.
+Show who last committed FILE(s) grouped by author.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
-    --summary|-s	Only show who contributed how many files (absolute and
-			percentage distribution) for each author, not all files
-			grouped by authors.
-    --names-only|-n	Only show the authors that created files.
-    --alphabetic|-N	Output sorted by author instead of who created the most
-			files.
-    --most-only|-1	Only show the single author with the most file creations.
+    --summary|-s	Only show who last committed how many files (absolute
+			and percentage distribution) for each author, not all
+			files grouped by authors.
+    --names-only|-n	Only show the authors that committed files.
+    --alphabetic|-N	Output sorted by author instead of who committed the
+			most files.
+    --most-only|-1	Only show the single author with the most last commits.
 HELPTEXT
 }
 
@@ -38,4 +40,4 @@ case "$1" in
     --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 esac
 
-exec git-whologged --diff-filter=A "$@"
+exec git-whologged --max-count 1  "$@"

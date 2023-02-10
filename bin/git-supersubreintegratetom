@@ -64,11 +64,15 @@ masterBranch="$(git-mbr)" || exit 3
 typeset -a unintegratedSubmodules=()
 checkForUnintegratedSubmodules()
 {
+    printf 'Checking for unintegrating submodules...'
+
     readarray -t unintegratedSubmodules < <(
 	"${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} \
 	    subdo --no-header --no-pager --for "${affectedSubmodules[@]}" \; \
 		--predicate-command "branch=\$(git brname --real-branch-only 2>/dev/null) && [ \"\$branch\" != $masterBranch ]"
     )
+
+    [ ${#unintegratedSubmodules[@]} -eq 0 ] || echo 'DONE.' # "If there are none, "No such submodules found." has already been printed.
 }
 checkForUnintegratedSubmodules
 if [ ${#unintegratedSubmodules[@]} -eq 0 ]; then
@@ -102,6 +106,7 @@ fi
 if "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} ofetchdate -gt "$GITSUPERSUBREINTEGRATETOM_RECENT_FETCH_AGE" --message 'Last fetched'; then
     echo 'Fetching origin first...'
     "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} ofetchup-hushed
+    echo
 fi
 
 reintegrateSubmodule()
@@ -133,6 +138,7 @@ reintegrateSubmodule()
 	    ;;
     esac
 
+    echo
     checkForUnintegratedSubmodules
     if [ ${#unintegratedSubmodules[@]} -gt 0 ]; then
 	unintegratedSubmodulesPlural=s; [ ${#unintegratedSubmodules[@]} -eq 1 ] && unintegratedSubmodulesPlural=

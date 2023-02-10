@@ -288,9 +288,9 @@ targetTrackedRemote="${targetTracks%%/*}"
 gitSubmoduleUpdateCommand=; git hassubmodules && gitSubmoduleUpdateCommand='git subwipe'
 
 if [ "$isContinue" ]; then
-    joinBy --prefix 'Finalizing reintegration of ' --last-separator ' and ' ', ' "${branches[@]}" 2>/dev/null
+    joinBy --prefix 'Finalizing reintegration of ' --suffix $'\n' --last-separator ' and ' ', ' "${branches[@]}" 2>/dev/null
 else
-    joinBy --prefix 'Reintegrating ' --last-separator ' and ' ', ' "${branches[@]}" 2>/dev/null
+    joinBy --prefix 'Reintegrating ' --suffix $'\n' --last-separator ' and ' ', ' "${branches[@]}" 2>/dev/null
 
     # Ensure that the branch(es) are good for merging.
     git-mergecheck "${branches[@]}" || exit $?
@@ -426,7 +426,10 @@ fi || {
 }
 
 status=0
-[ ! "$isPush" ] || hub-push-this-branch || status=$?
+if [ "$isPush" ]; then
+    printf '\Pushing merged branch%s\n' "$branchesPlural"
+    hub-push-this-branch || status=$?
+fi
 case $status in
     0)	;;
     99) # Still continue with the branch deletion when there's no upstream
@@ -438,5 +441,8 @@ esac
 
 [ ! "$isKeepBranches" ] || exit $status
 
+printf '\nDeleting merged branch%s\n' "$branchesPlural"
 hub-delete-merged-branches "${branches[@]}" || status=$?
+
+printf '\n✓ Branch%s completely reintegrated.\n' "$branchesPlural"
 exit $status

@@ -59,6 +59,9 @@ b) from submodule(s): `$ hub superpr && hub pull-request`
 superproject: `$ withSeparator -c git\ boml -c hub-bomsubchanges | cb && gh pr edit`
 
 ## integrate submodule changes first
+Check comments / approvals on PRs:
+`$ hub subsamebrdo --include-superproject browse-pr --list`
+
 `$ hub supersubreintegratetom`
 
 ## peer review of integration (optional)

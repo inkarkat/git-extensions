@@ -1,14 +1,17 @@
 #!/bin/bash
 set -o pipefail
 
+: ${GIT_HUSHUP_PROGRESS_SINK=addendum}
+
 printUsage()
 {
     cat <<HELPTEXT
 Remove some not so important lines from git pull / fetch, and declutter the output.
 HELPTEXT
-    printf 'Usage: git pull|fetch [...] | %q %s\n' "$(basename "$1")" '[--fetch] <remote> [-?|-h|--help]'
+    printf 'Usage: git pull|fetch [...] | [GIT_HUSHUP_PROGRESS_SINK=SINK] %q %s\n' "$(basename "$1")" '[--fetch] <remote> [-?|-h|--help]'
 }
-isFetch=; git hassubmodules && isFetch=t    # Submodules can lead to fetches, so we need to enable fetch processing by default.
+isFetch=
+hasProgressSink=
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
     --no-color|--color=*)
@@ -17,6 +20,14 @@ case "$1" in
     --fetch)		shift; isFetch=t;;
 esac
 remote="${1:?}"; shift
+
+if git hassubmodules; then
+    action='Pulling'; [ "$isFetch" ] && action='Fetching'
+    hasProgressSink=t
+    exec 3> >(progressNotification --to "$GIT_HUSHUP_PROGRESS_SINK" --prepend-count 'submodule' --initial-report "$action $(git-wcname)" 2>/dev/null)
+
+    isFetch=t    # Submodules can lead to fetches, so we need to enable fetch processing by default.
+fi
 
 massageOutput()
 {
@@ -29,6 +40,17 @@ massageOutput()
 	-e "/\\(^\\|\\n\\|\\r\\|\\[K\\)Successfully rebased and updated \\(detached HEAD\\|refs\\/heads\\/${masterBranch}\\)\\.\$/d" \
 	-e '/Auto packing the repository in background for optimum performance\.$/d' \
 	-e '/See "git help gc" for manual housekeeping\.$/d' \
+
+}
+
+submoduleProgress()
+{
+    sed --unbuffered \
+	-e h \
+	-e 's/^Fetching submodule /Fetching /' \
+	-e T \
+	-e 'w /dev/fd/3' \
+	-e 'g' \
 
 }
 
@@ -249,4 +271,4 @@ END { printJoinedReferences() }
 '
 }
 
-eval "${DEBUG:+debugtee --for git-hushup |} massageOutput | ${isFetch:+suppressOnlyVersionTags | joinReferencesLines |} declutterOutput"
+eval "${DEBUG:+debugtee --for git-hushup |} massageOutput | ${hasProgressSink:+submoduleProgress | }${isFetch:+suppressOnlyVersionTags | joinReferencesLines | }declutterOutput"

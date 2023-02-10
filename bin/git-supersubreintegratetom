@@ -88,7 +88,13 @@ else
     elif [ ${#unintegratedSubmodules[@]} -eq 1 ]; then
 	printf 'Integrating the last submodule (of %d).\n' ${#affectedSubmodules[@]}
     else
-	printf 'Integrating submodule %d of %d.\n' $((${#affectedSubmodules[@]} - ${#unintegratedSubmodules[@]} + 1)) ${#affectedSubmodules[@]}
+	if [ "$isInSubmodule" ]; then
+	    printf 'Integrating submodule %d of %d.\n' $((${#affectedSubmodules[@]} - ${#unintegratedSubmodules[@]} + 1)) ${#affectedSubmodules[@]}
+	elif [ ${#affectedSubmodules[@]} -eq ${#unintegratedSubmodules[@]} ]; then
+	    printf 'Integrating all %d submodules.\n' ${#affectedSubmodules[@]}
+	else
+	    printf 'Integrating the remaining %d of %d submodules.\n' ${#unintegratedSubmodules[@]} ${#affectedSubmodules[@]}
+	fi
     fi
     action=reintegrateSubmodule
 fi

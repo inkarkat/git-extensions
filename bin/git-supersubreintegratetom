@@ -126,6 +126,21 @@ reintegrateSubmodule()
 	    fi
 	    ;;
     esac
+
+    checkForUnintegratedSubmodules
+    if [ ${#unintegratedSubmodules[@]} -gt 0 ]; then
+	unintegratedSubmodulesPlural=s; [ ${#unintegratedSubmodules[@]} -eq 1 ] && unintegratedSubmodulesPlural=
+	printf '%s more submodule%s to reintegrate: %s\n' ${#unintegratedSubmodules[@]} "$unintegratedSubmodulesPlural" "$(joinBy ', ' "${unintegratedSubmodules[@]}")"
+	exit 0
+    elif userBinaryChoice --keep-prompt --question 'Reintegrate the superproject now?' --yes-no; then
+	reintegrateSuperproject "$@"
+    else
+	local gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
+	local -r scriptName="$(basename -- "${BASH_SOURCE[0]}")"
+	printf 'Continue with the reintegration of the superproject via $ %s %q' "$gitCommand" "${scriptName#git-}"
+	[ $# -eq 0 ] || printf ' %q' "$@"
+	printf '\n'
+    fi
 }
 
 reintegrateSuperproject()

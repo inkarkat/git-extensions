@@ -28,12 +28,12 @@ esac
 isInSubmodule=
 typeset -a superprojectExecutor=()
 typeset -a submoduleExecutor=(hub subsamebrdo)
-goToSubmodule() { :; }
+goToSuperproject() { :; }
 if git issubmodule; then
     isInSubmodule=t
     superprojectExecutor=(hub superdo)
     submoduleExecutor=()
-    goToSubmodule()
+    goToSuperproject()
     {
 	local superprojectRoot; superprojectRoot="$(git superproject)" || exit 3
 	cd "$superprojectRoot" || exit 3
@@ -87,7 +87,7 @@ reintegrateSubmodule()
     "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--interactive} reintegratetom --no-push --no-delete --no-checks || exit $?
 
     # Remaining steps happen in the superproject.
-    goToSubmodule
+    goToSuperproject
 
     case $(git bomcount) in
 	0)  echo >&2 'ERROR: Expected at least one commit in the superproject on the branch, but none found.'
@@ -111,7 +111,7 @@ reintegrateSubmodule()
 
 reintegrateSuperproject()
 {
-    goToSubmodule
+    goToSuperproject
 
     git-dirty --print-error --error-message 'ERROR: The superproject working copy is still dirty.' \
 	&& exit 1

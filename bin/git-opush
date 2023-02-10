@@ -31,12 +31,16 @@ set -- "${pushArgs[@]}" "$@"
 
 branch="${!#}"
 quotedBranch=
-git-existsbr "$branch" && printf -v quotedBranch %q "$branch"
+if git-existsbr "$branch"; then
+    printf -v quotedBranch %q "$branch"
+else
+    branch="$(git brname --real-branch-only 2>/dev/null)"
+fi
 if [ "$isForce" ]; then
     contextCommand="git oinout --color=always${quotedBranch:+ }${quotedBranch}"
 else
     contextCommand="git ooutlg --color=always${quotedBranch:+ --branch $quotedBranch}"
 fi
 
-exec git-remote-mutate origin --message 'Push' --context-command "$contextCommand" "${gitRemoteMutateArgs[@]}" \
+exec git-remote-mutate origin --message "${isForce:+Force-}Push" --argument "${branch:-$*} to origin" --context-command "$contextCommand" "${gitRemoteMutateArgs[@]}" \
     push origin "$@"

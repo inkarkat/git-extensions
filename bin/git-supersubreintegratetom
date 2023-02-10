@@ -28,20 +28,30 @@ esac
 isInSubmodule=
 typeset -a superprojectExecutor=()
 typeset -a submoduleExecutor=(hub subsamebrdo)
-goToSubmodule() { :; }
+goToSuperproject() { :; }
 if git issubmodule; then
     isInSubmodule=t
     superprojectExecutor=(hub superdo)
     submoduleExecutor=()
-    goToSubmodule()
+    goToSuperproject()
     {
 	local superprojectRoot; superprojectRoot="$(git superproject)" || exit 3
 	cd "$superprojectRoot" || exit 3
-	header "$(git-wcname)"
+	header "../$(git-wcname)"
+
+	isInSubmodule=
+	superprojectExecutor=()
+	submoduleExecutor=(hub subsamebrdo)
+	goToSuperproject() { :; }
     }
 elif ! git hassubmodules; then
     echo >&2 'ERROR: This is a standalone repository that neither has submodules nor is included in a superproject.'
     exit 2
+else
+    goToSuperproject()
+    {
+	header "$(git-wcname)"
+    }
 fi
 
 readarray -t affectedSubmodules < <("${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} bomsubmodules)
@@ -51,7 +61,20 @@ if [ ${#affectedSubmodules[@]} -eq 0 ]; then
 fi
 
 masterBranch="$(git-mbr)" || exit 3
-readarray -t unintegratedSubmodules < <("${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} subdo --no-header --no-pager --for "${affectedSubmodules[@]}" \; --predicate-command "branch=\$(git brname --real-branch-only 2>/dev/null) && [ \"\$branch\" != $masterBranch ]")
+typeset -a unintegratedSubmodules=()
+checkForUnintegratedSubmodules()
+{
+    printf 'Checking for unintegrating submodules...'
+
+    readarray -t unintegratedSubmodules < <(
+	"${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} \
+	    subdo --no-header --no-pager --for "${affectedSubmodules[@]}" \; \
+		--predicate-command "branch=\$(git brname --real-branch-only 2>/dev/null) && [ \"\$branch\" != $masterBranch ]"
+    )
+
+    [ ${#unintegratedSubmodules[@]} -eq 0 ] || echo 'DONE.' # "If there are none, "No such submodules found." has already been printed.
+}
+checkForUnintegratedSubmodules
 if [ ${#unintegratedSubmodules[@]} -eq 0 ]; then
     if [ ${#affectedSubmodules[@]} -eq 1 ]; then
 	echo 'The single submodule has been reintegrated already; now integrating the superproject.'
@@ -69,7 +92,13 @@ else
     elif [ ${#unintegratedSubmodules[@]} -eq 1 ]; then
 	printf 'Integrating the last submodule (of %d).\n' ${#affectedSubmodules[@]}
     else
-	printf 'Integrating submodule %d of %d.\n' $((${#affectedSubmodules[@]} - ${#unintegratedSubmodules[@]} + 1)) ${#affectedSubmodules[@]}
+	if [ "$isInSubmodule" ]; then
+	    printf 'Integrating submodule %d of %d.\n' $((${#affectedSubmodules[@]} - ${#unintegratedSubmodules[@]} + 1)) ${#affectedSubmodules[@]}
+	elif [ ${#affectedSubmodules[@]} -eq ${#unintegratedSubmodules[@]} ]; then
+	    printf 'Integrating all %d submodules.\n' ${#affectedSubmodules[@]}
+	else
+	    printf 'Integrating the remaining %d of %d submodules.\n' ${#unintegratedSubmodules[@]} ${#affectedSubmodules[@]}
+	fi
     fi
     action=reintegrateSubmodule
 fi
@@ -77,16 +106,18 @@ fi
 if "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} ofetchdate -gt "$GITSUPERSUBREINTEGRATETOM_RECENT_FETCH_AGE" --message 'Last fetched'; then
     echo 'Fetching origin first...'
     "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} ofetchup-hushed
+    echo
 fi
 
 reintegrateSubmodule()
 {
-    "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} --command 'git bomsubmodules | negateThis git osuperhaspendingsubintegrations -' || exit $?
+    "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} bomsubmodules \
+	| negateThis git osuperhaspendingsubintegrations - || exit $?
 
     "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--interactive} reintegratetom --no-push --no-delete --no-checks || exit $?
 
     # Remaining steps happen in the superproject.
-    goToSubmodule
+    goToSuperproject
 
     case $(git bomcount) in
 	0)  echo >&2 'ERROR: Expected at least one commit in the superproject on the branch, but none found.'
@@ -106,11 +137,27 @@ reintegrateSubmodule()
 	    fi
 	    ;;
     esac
+
+    echo
+    checkForUnintegratedSubmodules
+    if [ ${#unintegratedSubmodules[@]} -gt 0 ]; then
+	unintegratedSubmodulesPlural=s; [ ${#unintegratedSubmodules[@]} -eq 1 ] && unintegratedSubmodulesPlural=
+	printf '%s more submodule%s to reintegrate: %s\n' ${#unintegratedSubmodules[@]} "$unintegratedSubmodulesPlural" "$(joinBy ', ' "${unintegratedSubmodules[@]}")"
+	exit 0
+    elif userBinaryChoice --keep-prompt --question 'Reintegrate the superproject now?' --yes-no; then
+	reintegrateSuperproject "$@"
+    else
+	local gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
+	local -r scriptName="$(basename -- "${BASH_SOURCE[0]}")"
+	printf 'Continue with the reintegration of the superproject via $ %s %q' "$gitCommand" "${scriptName#git-}"
+	[ $# -eq 0 ] || printf ' %q' "$@"
+	printf '\n'
+    fi
 }
 
 reintegrateSuperproject()
 {
-    goToSubmodule
+    goToSuperproject
 
     git-dirty --print-error --error-message 'ERROR: The superproject working copy is still dirty.' \
 	&& exit 1
@@ -129,7 +176,8 @@ reintegrateSuperproject()
 	    ;;
     esac
 
-    exec git-ffintegrateto --branch "$masterBranch" "${ffintegratetoArgs[@]}" --push-submodules --delete-merged-submodule-branches "$@"
+    GIT_REINTEGRATE_PRE_PUSH_COMMAND="echo 'Note: Wait for a GitHub action to validate the build on the branch before pushing.'" \
+	exec git-ffintegrateto --branch "$masterBranch" "${ffintegratetoArgs[@]}" --push-submodules --delete-merged-submodule-branches "$@"
 }
 
 $action "$@"

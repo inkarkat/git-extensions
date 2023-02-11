@@ -1,0 +1,24 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Open a pull request for the current submodule / for all submodules that are on
+the same branch as the superproject.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+if git issubmodule; then
+    withSeparator --command 'git boml' --command 'git-servername --message' \
+	| clipboard --verbose || exit $?
+    hub subsamebrdo --no-git--commandolor --interactive pull-request
+else
+    withSeparator --command 'git superdo --no-header boml' --command 'git boml' --command 'git-servername --message' \
+	| clipboard --verbose || exit $?
+    hub pull-request
+fi

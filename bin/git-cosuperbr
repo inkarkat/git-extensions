@@ -1,0 +1,35 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Check out a (new or existing) branch with the same (or modified) name as the
+superproject's current branch.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [--gui|--terminal|--none] [-b|-B (OLD=NEW|^=PREFIX|+=SUFFIX) [...]] [(--submodules|--queried-submodules) [--submodules-recursive]] [CHECKOUT-ARGS ...] [-?|-h|--help]'
+}
+
+typeset -a branches=()
+typeset -a checkoutbranchArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	-[bB])		shift; branches+=("$1"); shift;;
+	--)		checkoutbranchArgs+=("$1"); shift; break;;
+	*)		checkoutbranchArgs+=("$1"); shift;;
+    esac
+done
+set -- "${checkoutbranchArgs[@]}" "$@"
+
+superprojectRoot="$(git superproject)" || exit 1
+superprojectBranch="$(cd "$superprojectRoot" && git-brname --real-branch-only)" || exit $?
+
+if [ ${#branches[@]} -gt 0 ]; then
+    newBranch="$(replaceWith -- "$superprojectBranch" "${branches[@]}" 2>/dev/null)" || exit $?
+else
+    newBranch="$superprojectBranch"
+fi
+
+exec git-checkoutbranch -B "$newBranch" "$@"

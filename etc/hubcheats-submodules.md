@@ -28,10 +28,14 @@ c) single submodule, [commit and] publish superproject as well:
 superproject: `$ git cu && git opublish`
 
 ## update integration build after submodule work
-a) short-lived feature: `$ git amenu && git opush -f`
+a) short-lived feature without API changes: `$ git amenu && git opush -f`
    or short `$ git amenupush`
    or short together with and in a submodule: `$ git osuperamensubpush [-f]`
-b) superproject: maintain history of how the feature grew: `$ git cu && git opush`
+b) before API changes in each submodule:
+   `$ git superamen` # Amend the last compatible revision.
+   `$ git commit ...`
+   superproject: `$ git cu && git opush`
+c) superproject: maintain history of how the feature grew: `$ git cu && git opush`
 
 ## a) peer review of submodules (optional)
 When only one / few submodules are affected, changes are not related, and the
@@ -73,10 +77,10 @@ submodule changes must be pushed so that the superproject can reference them,
 but should not be visible on master yet. --no-merge stops short of the actual
 reintegration.
 `$ git subsamebrdo --interactive ffintegratetom --push-branch --no-merge --no-checks`
-a) amends to short-lived feature:
+a) amends to short-lived feature without API changes:
    `$ git amenu`
    `$ git ffintegratetom --push-branch --no-delete --no-submodule-checkout --no-submodule-update --rebase-single`
-b) maintain history of how the feature grew:
+b) across-submodule API changes / maintain history of how the feature grew:
    `$ git cu -m 'feat-4711 Housekeeping: Reintegrate [...] submodule(s)'`   (no-op if all submodule branch(es) have been fast-forwarded)
    `$ git ffintegratetom --push-branch --no-delete --no-submodule-checkout --no-submodule-update --no-ff`
 If the GitHub action does not trigger (if this is just a merge commit affecting

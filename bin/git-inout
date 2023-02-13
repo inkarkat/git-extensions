@@ -203,26 +203,34 @@ inout()
 	fi
     done < <(git log --pretty='tformat:%aN %aE %at %s' "$otherRev..$baseRev")
 
-    typeset -a incoming=() outgoing=() rebased=()
+    typeset -a incoming=() outgoing=() rebasedIncoming=() rebasedOutgoing=()
     count=0; while IFS=$'\n' read -r line
     do
 	let count+=1
+	# Just record the first field (commit hash) for the incoming rebased
+	# commits - the author date and subject itself are identical and need
+	# not be shown twice.
 	[ "${incomingRebasedIndices[$count]}" ] \
-	    || incoming+=("$line")  # Drop the incoming rebased commit.
+	    && rebasedIncoming+=("${line%% *}") \
+	    || incoming+=("$line")
     done < <($inoutLogAction "$baseRev" "$otherRev")
     count=0; while IFS=$'\n' read -r line
     do
 	let count+=1
 	[ "${outgoingRebasedIndices[$count]}" ] \
-	    && rebased+=("$line") \
+	    && rebasedOutgoing+=("$line") \
 	    || outgoing+=("$line")
     done < <($inoutLogAction "$otherRev" "$baseRev")
 
     local status=1
     local padding=''
-    if [ ${#rebased[@]} -gt 0 ]; then
+    if [ ${#rebasedOutgoing[@]} -gt 0 ]; then
 	printf '%srebased %s <-> %s:%s\n' "$GIT_INOUT_COLOR_TITLE" "${otherName:-$otherRev}" "${baseName:-$baseRev}" "$GIT_INOUT_COLOR_RESET"
-	printf '%s\n' "${rebased[@]}"
+	# Only take the commit hash from the incoming and the full onelinelog line from the outgoing.
+	local i; for ((i = 0; i < ${#rebasedOutgoing[@]}; i++))
+	do
+	    printf '%s / %s\n' "${rebasedIncoming[$i]}" "${rebasedOutgoing[$i]}"
+	done
 	status=0
 	padding=$'\n'
     fi

@@ -170,7 +170,7 @@ onemore()
 	onelinelog "${colorArg[@]}"
 }
 
-inout()
+inoutPlain()
 {
     local status=1
     local padding=$'\n'
@@ -185,9 +185,65 @@ inout()
     return $status
 }
 
+inout()
+{
+    typeset -A incomingKeys=()
+    local count=0 line; while IFS=$'\n' read -r line
+    do
+	incomingKeys["$line"]=$((++count))
+    done < <(git log --pretty='tformat:%aN %aE %at %s' "$baseRev..$otherRev")
+
+    typeset -A incomingRebasedIndices=() outgoingRebasedIndices=()
+    count=0; while IFS=$'\n' read -r line
+    do
+	let count+=1
+	if [ "${incomingKeys["$line"]}" ]; then
+	    incomingRebasedIndices["${incomingKeys["$line"]}"]=t
+	    outgoingRebasedIndices[$count]=t
+	fi
+    done < <(git log --pretty='tformat:%aN %aE %at %s' "$otherRev..$baseRev")
+
+    typeset -a incoming=() outgoing=() rebased=()
+    count=0; while IFS=$'\n' read -r line
+    do
+	let count+=1
+	[ "${incomingRebasedIndices[$count]}" ] \
+	    || incoming+=("$line")  # Drop the incoming rebased commit.
+    done < <($inoutLogAction "$baseRev" "$otherRev")
+    count=0; while IFS=$'\n' read -r line
+    do
+	let count+=1
+	[ "${outgoingRebasedIndices[$count]}" ] \
+	    && rebased+=("$line") \
+	    || outgoing+=("$line")
+    done < <($inoutLogAction "$otherRev" "$baseRev")
+
+    local status=1
+    local padding=''
+    if [ ${#rebased[@]} -gt 0 ]; then
+	printf '%srebased %s <-> %s:%s\n' "$GIT_INOUT_COLOR_TITLE" "${otherName:-$otherRev}" "${baseName:-$baseRev}" "$GIT_INOUT_COLOR_RESET"
+	printf '%s\n' "${rebased[@]}"
+	status=0
+	padding=$'\n'
+    fi
+    if [ ${#incoming[@]} -gt 0 ]; then
+	printf '%s%sincoming %s -> %s:%s\n' "$padding" "$GIT_INOUT_COLOR_TITLE" "${otherName:-$otherRev}" "${baseName:-$baseRev}" "$GIT_INOUT_COLOR_RESET"
+	printf '%s\n' "${incoming[@]}"
+	status=0
+	padding=$'\n'
+    fi
+    if [ ${#outgoing[@]} -gt 0 ]; then
+	printf '%s%soutgoing %s -> %s:%s\n' "$padding" "$GIT_INOUT_COLOR_TITLE" "${baseName:-$baseRev}" "${otherName:-$otherRev}" "$GIT_INOUT_COLOR_RESET"
+	printf '%s\n' "${outgoing[@]}"
+	status=0
+    fi
+
+    return $status
+}
+
 inoutStat()
 {
-    typeset -a incoming outgoing symbols
+    typeset -a incoming=() outgoing=() symbols=()
     readarray -t incoming < <(git log --pretty=$'tformat:%ct\t'"${GIT_INOUT_COLOR_IN}i${GIT_INOUT_COLOR_RESET}" "$baseRev..$otherRev")
     readarray -t outgoing < <(git log --pretty=$'tformat:%ct\t'"${GIT_INOUT_COLOR_OUT}o${GIT_INOUT_COLOR_RESET}" "$otherRev..$baseRev")
     readarray -t symbols < <(printf '%s\n' "${incoming[@]}" "${outgoing[@]}" | sort -n | cut -f2-)
@@ -258,7 +314,7 @@ isBehind()
 
 showfiles()
 {
-    typeset -a incoming outgoing
+    typeset -a incoming=() outgoing=()
     readarray -t incoming < <($filesSourceCommand "$baseRev..$otherRev")
     readarray -t outgoing < <($filesSourceCommand "$otherRev..$baseRev")
 

@@ -11,7 +11,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--one-more|--stat|--ahead-behind [--indicator-only]|--is-ahead|--is-behind|--files|--submodules] [--ignore-nonexisting] [<remote>|(<branch>|<commit> [<other-branch>|<other-commit>])] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--one-more|--no-rebase-detection [--one-more]|--stat|--ahead-behind [--indicator-only]|--is-ahead|--is-behind|--files|--submodules] [--ignore-nonexisting] [<remote>|(<branch>|<commit> [<other-branch>|<other-commit>])] [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '[...]  [--base <remote>|(--base <branch>|--base <commit> [<other-branch>|<other-commit>])]'
 }
 printUsage()
@@ -36,6 +36,10 @@ HELPDESCRIPTION
     cat <<HELPTEXT
     --one-more		Show one more commit (greyed out) beyond the incoming /
 			outgoing ones.
+    --no-rebase-detection
+			Do not detect rebased commits that have identical author
+			names + email + date + commit summary, but simply list
+			rebased commits under both incoming and outgoing.
     --stat		Just print a one-line summary of chronological changes;
 			from oldest commit to newest, every commit is
 			represented by either ${GIT_INOUT_COLOR_IN}i${GIT_INOUT_COLOR_RESET} or ${GIT_INOUT_COLOR_OUT}o${GIT_INOUT_COLOR_RESET}.
@@ -88,6 +92,8 @@ do
 			shift
 			;;
 	--one-more)	shift; inoutLogAction=onemore;;
+	--no-rebase-detection)
+			shift; action=inoutPlain;;
 	--stat)		shift; action=inoutStat;;
 	--ahead-behind)	shift; action=aheadBehind;;
 	--is-ahead)	shift; action=isAhead; pager=();;

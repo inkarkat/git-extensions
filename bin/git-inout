@@ -11,7 +11,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--one-more|--stat|--ahead-behind [--indicator-only]|--is-ahead|--is-behind|--files|--submodules] [--ignore-nonexisting] [<remote>|(<branch>|<commit> [<other-branch>|<other-commit>])] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--one-more|--no-rebase-detection [--one-more]|--stat|--ahead-behind [--indicator-only]|--is-ahead|--is-behind|--files|--submodules] [--ignore-nonexisting] [<remote>|(<branch>|<commit> [<other-branch>|<other-commit>])] [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '[...]  [--base <remote>|(--base <branch>|--base <commit> [<other-branch>|<other-commit>])]'
 }
 printUsage()
@@ -36,6 +36,10 @@ HELPDESCRIPTION
     cat <<HELPTEXT
     --one-more		Show one more commit (greyed out) beyond the incoming /
 			outgoing ones.
+    --no-rebase-detection
+			Do not detect rebased commits that have identical author
+			names + email + date + commit summary, but simply list
+			rebased commits under both incoming and outgoing.
     --stat		Just print a one-line summary of chronological changes;
 			from oldest commit to newest, every commit is
 			represented by either ${GIT_INOUT_COLOR_IN}i${GIT_INOUT_COLOR_RESET} or ${GIT_INOUT_COLOR_OUT}o${GIT_INOUT_COLOR_RESET}.
@@ -88,6 +92,8 @@ do
 			shift
 			;;
 	--one-more)	shift; inoutLogAction=onemore;;
+	--no-rebase-detection)
+			shift; action=inoutPlain;;
 	--stat)		shift; action=inoutStat;;
 	--ahead-behind)	shift; action=aheadBehind;;
 	--is-ahead)	shift; action=isAhead; pager=();;
@@ -170,7 +176,7 @@ onemore()
 	onelinelog "${colorArg[@]}"
 }
 
-inout()
+inoutPlain()
 {
     local status=1
     local padding=$'\n'
@@ -185,9 +191,73 @@ inout()
     return $status
 }
 
+inout()
+{
+    typeset -A incomingKeys=()
+    local count=0 line; while IFS=$'\n' read -r line
+    do
+	incomingKeys["$line"]=$((++count))
+    done < <(git log --pretty='tformat:%aN %aE %at %s' "$baseRev..$otherRev")
+
+    typeset -A incomingRebasedIndices=() outgoingRebasedIndices=()
+    count=0; while IFS=$'\n' read -r line
+    do
+	let count+=1
+	if [ "${incomingKeys["$line"]}" ]; then
+	    incomingRebasedIndices["${incomingKeys["$line"]}"]=t
+	    outgoingRebasedIndices[$count]=t
+	fi
+    done < <(git log --pretty='tformat:%aN %aE %at %s' "$otherRev..$baseRev")
+
+    typeset -a incoming=() outgoing=() rebasedIncoming=() rebasedOutgoing=()
+    count=0; while IFS=$'\n' read -r line
+    do
+	let count+=1
+	# Just record the first field (commit hash) for the incoming rebased
+	# commits - the author date and subject itself are identical and need
+	# not be shown twice.
+	[ "${incomingRebasedIndices[$count]}" ] \
+	    && rebasedIncoming+=("${line%% *}") \
+	    || incoming+=("$line")
+    done < <($inoutLogAction "$baseRev" "$otherRev")
+    count=0; while IFS=$'\n' read -r line
+    do
+	let count+=1
+	[ "${outgoingRebasedIndices[$count]}" ] \
+	    && rebasedOutgoing+=("$line") \
+	    || outgoing+=("$line")
+    done < <($inoutLogAction "$otherRev" "$baseRev")
+
+    local status=1
+    local padding=''
+    if [ ${#rebasedOutgoing[@]} -gt 0 ]; then
+	printf '%srebased %s <-> %s:%s\n' "$GIT_INOUT_COLOR_TITLE" "${otherName:-$otherRev}" "${baseName:-$baseRev}" "$GIT_INOUT_COLOR_RESET"
+	# Only take the commit hash from the incoming and the full onelinelog line from the outgoing.
+	local i; for ((i = 0; i < ${#rebasedOutgoing[@]}; i++))
+	do
+	    printf '%s / %s\n' "${rebasedIncoming[$i]}" "${rebasedOutgoing[$i]}"
+	done
+	status=0
+	padding=$'\n'
+    fi
+    if [ ${#incoming[@]} -gt 0 ]; then
+	printf '%s%sincoming %s -> %s:%s\n' "$padding" "$GIT_INOUT_COLOR_TITLE" "${otherName:-$otherRev}" "${baseName:-$baseRev}" "$GIT_INOUT_COLOR_RESET"
+	printf '%s\n' "${incoming[@]}"
+	status=0
+	padding=$'\n'
+    fi
+    if [ ${#outgoing[@]} -gt 0 ]; then
+	printf '%s%soutgoing %s -> %s:%s\n' "$padding" "$GIT_INOUT_COLOR_TITLE" "${baseName:-$baseRev}" "${otherName:-$otherRev}" "$GIT_INOUT_COLOR_RESET"
+	printf '%s\n' "${outgoing[@]}"
+	status=0
+    fi
+
+    return $status
+}
+
 inoutStat()
 {
-    typeset -a incoming outgoing symbols
+    typeset -a incoming=() outgoing=() symbols=()
     readarray -t incoming < <(git log --pretty=$'tformat:%ct\t'"${GIT_INOUT_COLOR_IN}i${GIT_INOUT_COLOR_RESET}" "$baseRev..$otherRev")
     readarray -t outgoing < <(git log --pretty=$'tformat:%ct\t'"${GIT_INOUT_COLOR_OUT}o${GIT_INOUT_COLOR_RESET}" "$otherRev..$baseRev")
     readarray -t symbols < <(printf '%s\n' "${incoming[@]}" "${outgoing[@]}" | sort -n | cut -f2-)
@@ -258,7 +328,7 @@ isBehind()
 
 showfiles()
 {
-    typeset -a incoming outgoing
+    typeset -a incoming=() outgoing=()
     readarray -t incoming < <($filesSourceCommand "$baseRev..$otherRev")
     readarray -t outgoing < <($filesSourceCommand "$otherRev..$baseRev")
 

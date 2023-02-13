@@ -1,0 +1,29 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Use binary search to find the commit that introduced a bug on the the current
+branch, skipping commits that come from merged branches.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-checkout] [<bad> [<good>...]] [--] [<paths>...] [-?|-h|--help]'
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --no-color|--color=*)
+			shift;;
+    --color)		shift; shift;;
+esac
+typeset -a reportOnlyArg=()
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --report-only)	reportOnlyArg=("$1"); shift;;
+esac
+subcommand="$1"; shift
+typeset -a firstParentArg=()
+case "$subcommand" in
+    start)  firstParentArg=(--first-parent);;
+esac
+exec git-wrapper bisect "${reportOnlyArg[@]}" "$subcommand" "${firstParentArg[@]}" "$@"

@@ -1,6 +1,6 @@
 # Feature development
 superproject: `$ git com && git oup`
-(directly from another feature: `$ git ofetchup-hushed`)
+(directly from another feature: `$ git ofetchonly-hushed`)
 ## a) start top-down
 superproject: Create a branch: `$ git omco -b feat-4711/super-cool`
 submodules: a) Create branches prior to changes:

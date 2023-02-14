@@ -24,7 +24,7 @@ b) from submodule(s): `$ hub superpr && hub pull-request`
 superproject: `$ withSeparator -c git\ boml -c hub-bomsubchanges | cb && gh pr edit`
 
 ## integrate submodule changes first
-superproject: `$ git ofetchup-hushed`
+superproject: `$ git ofetchonly-hushed`
 Check for other open reintegrations (i.e. submodule commits on master not yet
 referenced in the superproject):
 superproject: `$ git bomsubmodules | negateThis git osuperhaspendingsubintegrations -`

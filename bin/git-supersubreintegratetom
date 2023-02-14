@@ -105,7 +105,7 @@ fi
 
 if "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} ofetchdate -gt "$GIT_SUPERSUBREINTEGRATETOM_RECENT_FETCH_AGE" --message 'Last fetched'; then
     echo 'Fetching origin first...'
-    "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} ofetchup-hushed
+    "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} ofetchonly-hushed
     echo
 fi
 
@@ -123,17 +123,25 @@ reintegrateSubmodule()
 	0)  echo >&2 'ERROR: Expected at least one commit in the superproject on the branch, but none found.'
 	    exit 3
 	    ;;
-	1)  echo 'Amending reintegrated submodule(s) to the single superproject commit.'
-	    git amenu || exit $?
+	1)  if git-dirty; then
+		echo 'Amending reintegrated submodule(s) to the single superproject commit.'
+		git amenu || exit $?
+	    else
+		echo 'The reintegrated submodule(s) have been fast-forwarded; nothing to amend.'
+	    fi
 	    ;;
 	*)  local submoduleCnt=$((${#affectedSubmodules[@]} - ${#unintegratedSubmodules[@]} + 1))
-	    if [ $submoduleCnt -eq 1 ]; then
-		local affectedSubmodulesPlural=s; [ ${#affectedSubmodules[@]} -eq 1 ] && affectedSubmodulesPlural=
-		local commitMessage; printf -v commitMessage 'Housekeeping: Reintegrate submodule%s %s' "$affectedSubmodulesPlural" "$(joinBy ', ' "${affectedSubmodules[@]}")"
-		git cu --edit --message "$commitMessage" || exit $?
+	    if git-dirty; then
+		if [ $submoduleCnt -eq 1 ]; then
+		    local affectedSubmodulesPlural=s; [ ${#affectedSubmodules[@]} -eq 1 ] && affectedSubmodulesPlural=
+		    local commitMessage; printf -v commitMessage 'Housekeeping: Reintegrate submodule%s %s' "$affectedSubmodulesPlural" "$(joinBy ', ' "${affectedSubmodules[@]}")"
+		    git cu --edit --message "$commitMessage" || exit $?
+		else
+		    printf 'Amending the %d. reintegrated submodule to the previous superproject commit.\n' "$submoduleCnt"
+		    git amenu || exit $?
+		fi
 	    else
-		printf 'Amending the %d. reintegrated submodule to the previous superproject commit.\n' "$submoduleCnt"
-		git amenu || exit $?
+		printf 'This (%d.) reintegrated submodule has been fast-forwarded; nothing to amend.' "$submoduleCnt"
 	    fi
 	    ;;
     esac

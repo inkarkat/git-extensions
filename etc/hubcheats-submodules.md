@@ -54,7 +54,7 @@ non-trivial / covers multiple responsibilities.
 
 ## integrate submodule changes first
 Check comments / approvals on PRs:
-`$ hub subsamebrdo --include-superproject browse-pr --list`
+`$ hub subsamebrdo --single-success --include-superproject browse-pr --list`
 
 `$ hub supersubreintegratetom`
 

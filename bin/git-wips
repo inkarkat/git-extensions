@@ -65,7 +65,8 @@ deselected (from all checks on offer) via -name.
 - incoming: where the current branch misses commits that have been fetched and
 	    exist in origin
 - fallenbehind:
-	    differences in the changelog document exist in upstream
+	    differences in the changelog document (to the same remote branch or
+	    else master) exist in upstream
 - behind:   where the current branch misses commits that have been fetched and
 	    exist in upstream
 - behindtags:
@@ -215,12 +216,12 @@ printChangelogDifferences()
 	[ ${#changelogs[@]} -gt 0 ] && changelogFilespec="${changelogs[0]}" || return 1
     fi
 
-    local remoteBranch; remoteBranch="$(git-remotebr upstream 2>/dev/null)" || return 1
+    local remoteBranch; remoteBranch="$(git-remotebr upstream 2>/dev/null || git-master-command -2 echo upstream/MASTER)" || return 1
     git diff -R "${colorArg[@]}" "$remoteBranch" -- "$changelogFilespec" | outputAndPrintf 'Behind changes in upstream:\n'
     return ${PIPESTATUS[-1]}
 }
 considerCheck fallenbehind && \
-    if git existsremote upstream && git remotebr upstream >/dev/null 2>&1 && printChangelogDifferences; then positiveCheck; fi
+    if git existsremote upstream && printChangelogDifferences; then positiveCheck; fi
 
 printBehindCommits()
 {

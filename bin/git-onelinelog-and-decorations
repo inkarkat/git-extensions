@@ -4,13 +4,15 @@ shopt -qs extglob
 printUsage()
 {
     cat <<HELPTEXT
-One-line author, date, tags and commit summary for files in <path>, plus any ref
-names, also of commits not covered.
+One-line author, date, tags and commit summary for files in <path> and/or for
+commits addressed by --commit-log-args <log-options>, plus any ref names, also
+of commits not covered.
 This can be useful if tagging and development are done on separate branches, but
 you want to find out which commits that changed a file were in a release.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--full-decorations] [--commit-log-args <log-options> [...] ;] [<log-options>] [<revision range>] [--] <path> [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--full-decorations] [--commit-log-args <log-options> [...] ;] [<log-options>] [<revision range>] [--] <path> [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--full-decorations] --commit-log-args <log-options> [...] ; [<log-options>] [<revision range>] [--] [<path> [...]]'
     echo
     cat <<HELPTEXT
 One-line author, date, tags and commit summary for commits that are decorated
@@ -97,8 +99,8 @@ if [ ${#files[@]} -eq 0 ]; then
 	gitLogArgs=("${gitLogArgs[@]:0:${#gitLogArgs[@]}-1}")
     done
 fi
-if [ ${#files} -eq 0 ] && [ ! "$isDecorationsOnly" ]; then
-    echo 'ERROR: No <path> passed.'
+if [ ${#files} -eq 0 -a ${#gitCommitLogArgs[@]} -eq 0 ] && [ ! "$isDecorationsOnly" ]; then
+    echo 'ERROR: Neither --commit-log-args <log-options> nor <path> passed.'
     echo
     printUsage "$0"
     exit 2

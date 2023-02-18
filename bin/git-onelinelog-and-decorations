@@ -1,23 +1,53 @@
 #!/bin/bash
 shopt -qs extglob
 
-printUsage()
+printShortUsage()
 {
-    cat <<HELPTEXT
-One-line author, date, tags and commit summary for files in <path>, plus any ref
-names, also of commits not covered.
-This can be useful if tagging and development are done on separate branches, but
-you want to find out which commits that changed a file were in a release.
-HELPTEXT
-    echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--full-decorations] [--commit-log-args <log-options> [...] ;] [<log-options>] [<revision range>] [--] <path> [...] [-?|-h|--help]'
-    echo
-    cat <<HELPTEXT
-One-line author, date, tags and commit summary for commits that are decorated
-with any ref names. Other (not tagged, not tip of a branch) commits are omitted.
-HELPTEXT
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--full-decorations] [--commit-log-args <log-options> [...] ;] [<log-options>] [<revision range>] [--] <path> [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--full-decorations] --commit-log-args <log-options> [...] ; [<log-options>] [<revision range>] [--] [<path> ...]'
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '--only-decorations [<log-options>] [<revision range>] [--] [<path> ...] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+One-line author, date, tags and commit summary for files in <path> and/or for
+commits addressed by --commit-log-args <log-options>, plus any ref names, also
+of commits not covered.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --full-decorations	Show all commits with decorations between addressed
+			commits; by default, only one preceding and succeeding
+			commit with decorations is shown around addressed
+			commit(s), with [...] indicating that decorated commits
+			have been dropped.
+    --only-decorations	Only show commits that are decorated with any ref names.
+			Other (not tagged, not tip of a branch) commits are
+			omitted.
+    --commit-log-args <log-options> [...] ;
+			These log options are only used for filtering the
+			non-decorated commits, as an alternative or supplement
+			to filtering by <path>.
+
+This can be useful if tagging and development are done on separate branches, but
+you want to find out which commits that changed a file were in a release.
+Or to find out when a particular set of commits (e.g. by one author, done to one
+subdir) happened related to releases.
+HELPTEXT
 }
 unset decorationsFilterSedCommandSymbol
 decorationsFilterSedCommandPrefix='s/^\([^\n]\+\)\n.*\n\([^\n]\+\)$/\1'
@@ -40,7 +70,7 @@ fi
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 
 	--no-color|--color=never)
 			isColor=; shift;;
@@ -97,8 +127,8 @@ if [ ${#files[@]} -eq 0 ]; then
 	gitLogArgs=("${gitLogArgs[@]:0:${#gitLogArgs[@]}-1}")
     done
 fi
-if [ ${#files} -eq 0 ] && [ ! "$isDecorationsOnly" ]; then
-    echo 'ERROR: No <path> passed.'
+if [ ${#files} -eq 0 -a ${#gitCommitLogArgs[@]} -eq 0 ] && [ ! "$isDecorationsOnly" ]; then
+    echo 'ERROR: Neither --commit-log-args <log-options> nor <path> passed.'
     echo
     printUsage "$0"
     exit 2

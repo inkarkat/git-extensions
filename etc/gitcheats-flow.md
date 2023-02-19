@@ -18,8 +18,8 @@ Branch name for "next release" development: master
 
 vimdev: `$ runVimTests tests/[all.suite]`
 `$ git release start 1.00`
-Inspect changed files list with `$ git showfiles stable..`
-Check changelog with `$ git lg stable..`
+Inspect changed files list with `$ git stablefiles`
+Check changelog with `$ git stablelg`
 vimdev: Update changelog (at least with release date) in `doc/*.txt` and do `:UpdateHelpAsReadme`
 `$ git release commit` (`$ git cu -m 'Release 1.00'`)
 vimdev: First GitHub release (of a small plugin):

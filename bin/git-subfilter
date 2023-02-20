@@ -6,10 +6,11 @@ printUsage()
 Filter the list of files for submodules.
 HELPTEXT
     echo
-    printf 'Usage: git showfiles|... | %q %s\n' "$(basename "$1")" '[-v|--invert-match] [-?|-h|--help]'
+    printf 'Usage: git showfiles|... | %q %s\n' "$(basename "$1")" '[-v|--invert-match] [-r|--revision REVISION] [-?|-h|--help]'
 }
 
 typeset -a grepArgs=()
+revision=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -19,6 +20,7 @@ do
 	--color)	shift; shift;;
 	--invert-match|-v)
 			grepArgs+=("$1"); shift;;
+	--revision|-r)	shift; revision="$1"; shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -29,4 +31,4 @@ if [ $# -ne 0 ]; then
     exit 2
 fi
 
-exec grep "${grepArgs[@]}" --fixed-strings --line-regexp --file <(git-sublist)
+exec grep "${grepArgs[@]}" --fixed-strings --line-regexp --file <(git-sublist ${revision:+--revision "$revision"})

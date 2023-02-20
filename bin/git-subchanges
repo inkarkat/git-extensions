@@ -107,11 +107,14 @@ done
 if [ ${#submodules[@]} -eq 0 ]; then
     typeset -a submoduleList=()
     typeset -A submoduleDict=()
+    # Take the submodule list from the end of the <range>.
+    submoduleRevision="$(git log --pretty=tformat:%H --max-count 1)" || exit 3
+    git-equals "$submoduleRevision" HEAD && submoduleRevision=''
     while IFS=$'\n' read -r name
     do
 	submoduleList+=("$name")
 	submoduleDict["$name"]=t
-    done < <(git-sublist)
+    done < <(git-sublist ${submoduleRevision:+--revision "$submoduleRevision"})
 
     # No submodules after -- captured yet; need to investigate parsed and
     # remaining args from behind for submodules.

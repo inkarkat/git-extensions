@@ -19,8 +19,10 @@ printLongUsage()
     # This is the long "man page" when launched with the help argument.
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
-Execute "git SIMPLECOMMAND" and/or COMMANDLINE in both the current submodule and
-(if that succeeds) also in its superproject.
+Execute "git SIMPLECOMMAND" and/or COMMANDLINE in both the current submodule (if
+in one) and (if that succeeds) also in its superproject, or in all submodules
+that are on the same branch as the superproject (if not in a submodule) and (if
+that succeeds) also in the current project.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
@@ -74,14 +76,15 @@ isNeedEval=
 isSubmoduleCommands=t
 typeset -a superCommands=()
 typeset -a subCommands=()
+typeset -a subdoArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--no-pager)		shift; pager=();;
-	--no-header)		shift; isHeader=;;
-	--interactive|-i)	shift; isInteractive=t; pager=(); isHeader=;;
-	--separate-errors)	shift; errorRedir='';;
+	--no-header)		subdoArgs+=("$1"); shift; isHeader=;;
+	--interactive|-i)	subdoArgs+=("$1"); shift; isInteractive=t; pager=(); isHeader=;;
+	--separate-errors)	subdoArgs+=("$1"); shift; errorRedir='';;
 	--no-git-color)		shift; isGitColor=;;
 	--no-color|--color=*)	colorArg=("$1"); shift;;
 	--color)		colorArg=("$1" "$2"); shift; shift;;
@@ -183,6 +186,9 @@ if [ ${#superCommands[@]} -eq 0 -a ${#subCommands[@]} -eq 0 ]; then
     printUsage "$0"
     exit 2
 fi >&2
+git issubmodule \
+    && action=fromSubmodule \
+    || action=fromSuperproject
 
 execute()
 {
@@ -197,10 +203,11 @@ execute()
 }
 
 : ${GIT_SUPERSUBDO_HEADER_ID:="supersubdo-$$-$RANDOM"}
-supersubdo()
+
+fromSubmodule()
 {
     submoduleRoot="$(git root)" || exit $?
-    superprojectRoot="$(git superproject)" || exit 1
+    superprojectRoot="$(git superproject)" || exit 3
 
     if [ ${#subCommands[@]} -gt 0 ]; then
 	cd "$submoduleRoot" || exit 3
@@ -214,4 +221,22 @@ supersubdo()
 	execute "${superCommands[@]}" || exit $?
     fi
 }
-eval "supersubdo ${pager:+$errorRedir |}" '"${pager[@]}"'
+
+fromSuperproject()
+{
+    if [ ${#subCommands[@]} -gt 0 ]; then
+	local subdoCommand; [ "$isNeedEval" ] \
+	    && subdoCommand="${subCommands[*]} " \
+	    || printf -v subdoCommand '%q ' "${subCommands[@]}"
+
+	GIT_SUBDO_HEADER_ID="$GIT_SUPERSUBDO_HEADER_ID" \
+	    git subsamebrdo --no-pager "${colorArg[@]}" "${subdoArgs[@]}" --command "${subdoCommand% }" || exit $?
+    fi
+
+    if [ ${#superCommands[@]} -gt 0 ]; then
+	header="$(git-wcname)"
+	execute "${superCommands[@]}" || exit $?
+    fi
+}
+
+eval "\$action ${pager:+$errorRedir |}" '"${pager[@]}"'

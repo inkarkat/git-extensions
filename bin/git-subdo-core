@@ -6,7 +6,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: [GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES=99] %q %s%s %s\n' "$(basename "$1")" '[-R|--no-recurse] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success|--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [<revision-range>] [--since <date>] [--after <date>] [--for -|--for SUBMODULE [...] ;] [--include-superproject] [[--not] -P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]'
+    printf 'Usage: [GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES=99] %q %s%s %s\n' "$(basename "$1")" '[--recursive] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success|--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [<revision-range>] [--since <date>] [--after <date>] [--for -|--for SUBMODULE [...] ;] [--include-superproject] [[--not] -P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -29,8 +29,9 @@ HELPDESCRIPTION
     cat <<HELPTEXT
 Puts a header line (unless --no-header) that contains the submodule name before
 the command output.
-    --no-recurse|-R	Do not recurse into submodules of submodules; just
-			process the direct submodules of the current repo.
+    --recursive		Do recurse into submodules of submodules; like
+			"git submodule foreach", this just processes the direct
+			submodules of the current repo by default.
     --no-pager		Do not page the output (so contents will scroll out of
 			view if there's too much output).
     --no-header		Do not output the header line before command output (and
@@ -105,7 +106,7 @@ obtainSubmodulesFromRange()
 }
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
-typeset -a submoduleRecurseArg=(--recursive)
+typeset -a submoduleRecurseArg=()
 typeset -a submoduleArgs=()
 typeset -A submodules=()
 abortStatus=
@@ -135,7 +136,7 @@ do
 	--predicate-command|-P)	shift; predicateCommands+=(${predicateCommands:+&&} "$1"); shift;;
 	--not)			predicateInversionArg="$1"; shift; predicateComparison=-ne;;
 	--command|-c)		shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
-	--no-recurse|-R)	shift; submoduleRecurseArg=();;
+	--recursive)		shift; submoduleRecurseArg=(--recursive);;
 	--no-pager)		shift; pager=();;
 	--no-header)		shift; isHeader=;;
 	--progress)		shift; progressSink="$1"; shift;;

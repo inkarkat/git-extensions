@@ -53,7 +53,7 @@ if [ "$isAsDiffTool" ]; then
     if [ "$isSuppressCommonLines" ] && hasDelta; then
 	# Note: delta would launch "git diff" internally, resulting in endless
 	# recursion. Supply a unified diff to it to avoid that.
-	diff -u "$@" | delta --side-by-side
+	diff -u "$@" | delta --side-by-side --tabs=4
 	exit 0	# Need to return success to avoid that Git complains that the "external tool died".
     fi
 
@@ -68,14 +68,14 @@ else
     if [ "$isSuppressCommonLines" ] && hasDelta; then
 	if [ "$isColor" ]; then
 	    if [ -t 1 ]; then
-		exec git -c 'delta.side-by-side=true' diff "$@"
+		exec git -c 'delta.side-by-side=true' -c 'delta.tabs=4' diff "$@"
 	    else
 		# If the output of the git process is not a tty then git just
 		# completely ignores its core.pager setting (and therefore
 		# delta); cp.
 		# https://github.com/dandavison/delta/issues/101#issuecomment-593214649.
 		# Thus, we need to pipe through delta ourselves.
-		git diff "$@" | delta --side-by-side
+		git diff "$@" | delta --side-by-side --tabs=4
 		exit $?
 	    fi
 	else

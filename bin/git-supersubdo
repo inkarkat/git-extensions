@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header] [-i|--interactive] [--separate-errors] [--no-git-color] [--super-command "COMMANDLINE"] [--submodule-command "COMMANDLINE"|--no-submodule-command] [-c|--command "COMMANDLINE" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header] [-i|--interactive] [--separate-errors] [--no-git-color] [--super-command "COMMANDLINE"] [--submodule-command "COMMANDLINE"|--no-submodule-command] [<subdo-args> ...] [-c|--command "COMMANDLINE" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -85,6 +85,27 @@ do
 	--no-header)		subdoArgs+=("$1"); shift; isHeader=;;
 	--interactive|-i)	subdoArgs+=("$1"); shift; isInteractive=t; pager=(); isHeader=;;
 	--separate-errors)	subdoArgs+=("$1"); shift; errorRedir='';;
+	--abort-on-failure|--single-success|--status-99-is-noop|--not|--recursive|*..*)
+				subdoArgs+=("$1"); shift;;
+	--abort-on|-X|--predicate-command|-P|--progress|--since|--after)
+				subdoArgs+=("$1" "$2"); shift; shift;;
+	--for)			subdoArgs+=("$1"); shift
+				if [ "$1" = - ]; then
+				    subdoArgs+=("$1"); shift
+				else
+				    while [ $# -gt 0 -a "$1" != ';' ]
+				    do
+					subdoArgs+=("$1")
+					shift
+				    done
+				    if [ $# -eq 0 ]; then
+					echo 'ERROR: --for must be concluded with ;!'; echo; printUsage "$0"
+					exit 2
+				    fi >&2
+				    subdoArgs+=("$1")
+				    shift
+				fi
+				;;
 	--no-git-color)		shift; isGitColor=;;
 	--no-color|--color=*)	colorArg=("$1"); shift;;
 	--color)		colorArg=("$1" "$2"); shift; shift;;

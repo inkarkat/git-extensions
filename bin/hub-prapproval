@@ -1,0 +1,82 @@
+#!/bin/bash
+set -o pipefail
+# Source: https://stackoverflow.com/a/55302221/813602
+# Source: https://stackoverflow.com/a/54334467/813602
+
+: ${HUB_PRAPPROVAL_OWNER:='{owner}'}
+: ${HUB_PRAPPROVAL_REPO:='{repo}'}
+: ${HUB_PRAPPROVAL_COLOR_APPROVED=[37;42m}
+: ${HUB_PRAPPROVAL_COLOR_COMMENTED=[37;44m}
+: ${HUB_PRAPPROVAL_COLOR_CHANGES_REQUESTED=[37;41m}
+: ${HUB_PRAPPROVAL_COLOR_RESET=[0m}
+
+printUsage()
+{
+    cat <<HELPTEXT
+Obtain corresponding GitHub pull request(s) with #ID / that have HEAD /
+<commit>(s) as the branch's HEAD, and print its review comments and approvals.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[#ID|<commit> [...]] [-?|-h|--help]'
+}
+
+isColor=; [ -t 1 ] && isColor=t
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --no-color|--color=never)
+			isColor=; shift;;
+    --color=always)	isColor=t; shift;;
+    --color=auto)	shift;;
+    --color)		case "$2" in
+			    always) isColor=t;;
+			    never)  isColor=;;
+			    auto)   ;;
+			    *)	    echo >&2 "ERROR: Invalid --color arg: $2"
+				    echo >&2
+				    printUsage "$0" >&2
+				    exit 2
+				    ;;
+			esac
+			shift; shift
+			;;
+esac
+[ "$isColor" ] || unset "${!HUB_PRAPPROVAL_COLOR_@}"
+
+apiCall()
+{
+    local prId="${1:?}"; shift
+    hub api "$@" "repos/${HUB_PRAPPROVAL_OWNER}/${HUB_PRAPPROVAL_REPO}/pulls/${prId:?}/reviews" \
+	| jq --raw-output '.[] | .user.login + "\t" + '"if .state == \"APPROVED\" then \"${HUB_PRAPPROVAL_COLOR_APPROVED}APPROVED${HUB_PRAPPROVAL_COLOR_RESET}\" elif .state == \"COMMENTED\" then \"${HUB_PRAPPROVAL_COLOR_COMMENTED}COMMENTED${HUB_PRAPPROVAL_COLOR_RESET}\" elif .state == \"CHANGES_REQUESTED\" then \"${HUB_PRAPPROVAL_COLOR_CHANGES_REQUESTED}CHANGES_REQUESTED${HUB_PRAPPROVAL_COLOR_RESET}\" else .state end"' + "\t" + .submitted_at + if .body == "" then "" else "\n" + .body | gsub("(\r?\n)+$"; "") end' \
+	| reldate --delta-each --within all
+}
+
+[ $# -gt 0 ] || set -- 'HEAD'
+typeset -a commitIds=()
+typeset -a identifiers=()
+for arg
+do
+    if [[ "$arg" =~ ^#[[:digit:]]+$ ]]; then
+	identifiers+=("${arg#\#}")
+    else
+	commitId="$(git rev-parse "$arg" 2>/dev/null)" && commitIds+=("$commitId")
+    fi
+done
+[ ${#commitIds[@]} -gt 0 -o ${#identifiers[@]} -gt 0 ] || exit 1
+
+
+if [ ${#commitIds[@]} -gt 0 ]; then
+    while IFS=$'\t' read -r prCommitId prIdentifier
+    do
+	if contains "$prCommitId" "${commitIds[@]}"; then
+	    identifiers+=("$prIdentifier")
+	fi
+    done < <(hub pr list -f "%sH	%I%n")
+fi
+[ ${#identifiers[@]} -gt 0 ] || exit 1
+
+status=0
+for id in "${identifiers[@]}"
+do
+    apiCall "$id" || status=$?
+done
+exit $status

@@ -8,7 +8,7 @@ printShortUsage()
     # skim the long one.
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--[no-]push] [--push-branch [--force] [--recurse-submodules=on-demand]] [--push-submodules] [--delete-merged-submodule-branches] [--no-merge] [--no-delete] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] [--no-submodule-checkout] [--no-submodule-update] [-y|--yes] -b|--branch <branch> | [--] <branch> [-?|-h|--help]'
     echo
-    printf 'Usage: GIT_REINTEGRATE_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" '[...]'
+    printf 'Usage: GIT_REINTEGRATE_CHECK_COMMAND=CMD|GIT_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" '[...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '[...] --no-checks | -c|--command "CHECK-COMMANDLINE" [-c ...] | --exec SIMPLECOMMAND [...] ; [...]'
     printf 'Usage: echo CHECK-COMMANDLINES | %q %s\n' "$(basename "$1")" '[...] [--bare|[--initial-status NUM] [--trailing-prompt|--no-trailing-prompt] [--no-output-no-prompt] [--no-output-no-error] [--emulate-prompt]] [--no-success-no-count|--no-count-on N] [--exit-on-success|--exit-on-failure|--exit-on NUM] [--worst-status] [--comment COMMENT] [--summarize-failed ERROR-TEXT [--summarize-failed-separator SEP]] -'
     printf 'Usage: %q %s - <<EOF\n  CHECK-COMMANDLINE\n...\nEOF\n' "$(basename "$1")" '[...]'
@@ -77,7 +77,8 @@ HELPDESCRIPTION
 			Don't automatically check out resulting submodule
 			versions (after the fast-forward; the merge / rebase
 			will update submodules).
-    --no-checks		Don't run any default \$GIT_REINTEGRATE_CHECK_COMMAND.
+    --no-checks		Don't run any default \$GIT_REINTEGRATE_CHECK_COMMAND /
+			\$GIT_CHECK_COMMAND.
     --yes		Don't query for confirmation of remote mutations.
     --bare		    Do not print a status line before and after
 			    launching the COMMAND.
@@ -225,6 +226,10 @@ if [ "$isCheckFromStdin" ]; then
     fi >&2
 elif [ -n "$GIT_REINTEGRATE_CHECK_COMMAND" -a ${#checkCommands[@]} -eq 0 ]; then
     checkCommands=("$GIT_REINTEGRATE_CHECK_COMMAND")
+elif [ -n "$GIT_CHECK_COMMAND" -a ${#checkCommands[@]} -eq 0 ]; then
+    checkCommands=("$GIT_CHECK_COMMAND")
+else
+    echo 'No checks to run.'
 fi
 [ "$isDisableChecks" ] && checkCommands=()
 if [ -z "${isPush+t}" -a -n "$HUB" ]; then

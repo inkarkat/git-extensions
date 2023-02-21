@@ -348,6 +348,9 @@ pushBranch()
 	return 1    # Still continue with the branch deletion here, but following push errors will abort.
     fi
 
+    printf '\nPushing %s that got %s integrated into it:\n' "$sourceBranch" "$targetBranch"
+    [ ! "$didVisitSubmodules" ] || { header "$(git-wcname)"; didVisitSubmodules=; }
+
     [ "$isRebase" ] && pushBranchForceArg=(--force) # Need to force-push when rebasing the current branch on top of <branch>.
     local sourceTrackedRemote="${sourceTracks%%/*}"
     local quotedSourceBranch; printf -v quotedSourceBranch %q "$sourceBranch"
@@ -523,8 +526,6 @@ case $status in
 	exit $status;;
 esac
 
-[ ! "$didVisitSubmodules" ] || header "$(git-wcname)"
-
 [ ! "$isPushBranch" ] || pushBranch || {
     status=$?
     echo >&2 'Push of the current branch failed; correct the problem and push yourself.'
@@ -532,6 +533,8 @@ esac
     isPerformTheMerge=
     exit $status
 }
+
+[ "$didVisitSubmodules" ] && header "$(git-wcname)" || echo
 
 typeset -a reintegrateToCommand=(reintegrateto --ff-only --no-checks --branch "$targetBranch"${isKeepBranches:+ --no-delete} "${pushArg[@]}" "${reintegrateArgs[@]}" "${gitRemoteMutateArgs[@]}")
 if [ "$isPerformTheMerge" ]; then

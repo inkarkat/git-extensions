@@ -6,18 +6,29 @@ printUsage()
 Filter the list of files for submodules.
 HELPTEXT
     echo
-    printf 'Usage: git showfiles|... | %q %s\n' "$(basename "$1")" '[-v|--invert-match] [-?|-h|--help]'
+    printf 'Usage: git showfiles|... | %q %s\n' "$(basename "$1")" '[-v|--invert-match] [-r|--revision REVISION] [-?|-h|--help]'
 }
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
-			shift;;
-    --color)		shift; shift;;
-esac
-typeset -a grepArgs=()
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --invert-match|-v)	grepArgs+=("$1"); shift;;
-esac
 
-exec grep "${grepArgs[@]}" --fixed-strings --line-regexp --file <(git sublist)
+typeset -a grepArgs=()
+revision=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+	--invert-match|-v)
+			grepArgs+=("$1"); shift;;
+	--revision|-r)	shift; revision="$1"; shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+exec grep "${grepArgs[@]}" --fixed-strings --line-regexp --file <(git-sublist ${revision:+--revision "$revision"})

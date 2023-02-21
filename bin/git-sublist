@@ -1,0 +1,32 @@
+#!/bin/bash
+set -o pipefail
+
+printUsage()
+{
+    cat <<HELPTEXT
+Show a list of all (initialized and at least once updated) submodules.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--revision REVISION] [-?|-h|--help]'
+}
+
+revision=
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --no-color|--color=*)
+			shift;;
+    --color)		shift; shift;;
+    --revision|-r)	shift; revision="$1"; shift;;
+esac
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+if [ -z "$revision" -o "$revision" = HEAD ]; then
+    exec git submodule foreach --quiet 'echo $sm_path'
+else
+    git config --blob "${revision}:.gitmodules" --get-regexp '^submodule\..*\.path$' \
+	| sed -e 's/^.*\.path //' \
+	| sort
+fi

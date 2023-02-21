@@ -43,43 +43,6 @@ HELPDESCRIPTION
 			  renders that itself).
 HELPTEXT
 }
-typeset -a gitCommandArgs=()
-typeset -a submodules=()
-while [ $# -ne 0 ]
-do
-    case "$1" in
-	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
-	--)		shift; submodules=("$@"); break;;
-	*)		gitCommandArgs+=("$1"); shift;;
-    esac
-done
-if [ ${#submodules[@]} -eq 0 ]; then
-    typeset -a submoduleList=()
-    typeset -A submoduleDict=()
-    while IFS=$'\n' read -r name
-    do
-	submoduleList+=("$name")
-	submoduleDict["$name"]=t
-    done < <(git sublist)
-
-    # No submodules after -- captured yet; need to investigate parsed and
-    # remaining args from behind for submodules.
-    gitCommandArgs+=("$@")
-    while [ ${#gitCommandArgs[@]} -ne 0 ]
-    do
-	lastArg="${gitCommandArgs[-1]}"
-	[ "${submoduleDict["$lastArg"]}" ] || break
-
-	submodules=("$lastArg" "${submodules[@]}")
-	gitCommandArgs=("${gitCommandArgs[@]:0:${#gitCommandArgs[@]}-1}")
-    done
-
-    if [ ${#submodules[@]} -eq 0 ]; then
-	# No submodules passed - iterate over all submodules.
-	submodules=("${submoduleList[@]}")
-    fi
-fi
-set -- "${gitCommandArgs[@]}"
 
 hasColor=t
 typeset -a colorArg=(--color=always)
@@ -96,10 +59,11 @@ logPostProcessor=
 prTitlePostProcessor=
 typeset -a rangeArgs=()
 typeset -a rangeModificationArgs=()
+typeset -a submodules=()
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--color=auto)	shift;;
 	--no-color|--color=never)
 			colorArg=("$1"); shift; hasColor=;;
@@ -131,6 +95,7 @@ do
 	--max-count=*|-+([0-9]))
 			rangeArgs+=("$1"); shift;;
 	--follow)	rangeModificationArgs+=("$1"); shift;;
+	--)		shift; submodules=("$@"); break;;
 	*)		if [ ${#rangeArgs[@]} -eq 0 ]; then
 			    rangeArgs+=("$1"); shift
 			else
@@ -139,6 +104,35 @@ do
 			;;
     esac
 done
+if [ ${#submodules[@]} -eq 0 ]; then
+    typeset -a submoduleList=()
+    typeset -A submoduleDict=()
+    # Take the submodule list from the end of the <range>.
+    submoduleRevision="$(git log --pretty=tformat:%H --max-count 1)" || exit 3
+    git-equals "$submoduleRevision" HEAD && submoduleRevision=''
+    while IFS=$'\n' read -r name
+    do
+	submoduleList+=("$name")
+	submoduleDict["$name"]=t
+    done < <(git-sublist ${submoduleRevision:+--revision "$submoduleRevision"})
+
+    # No submodules after -- captured yet; need to investigate parsed and
+    # remaining args from behind for submodules.
+    while [ $# -gt 0 ]
+    do
+	lastArg="${!#}"
+	[ -e "$lastArg" ] || break
+
+	submodules=("$lastArg" "${submodules[@]}")
+	set -- "${@:1:$(($#-1))}"
+    done
+
+    if [ ${#submodules[@]} -eq 0 ]; then
+	# No submodules passed - iterate over all submodules.
+	submodules=("${submoduleList[@]}")
+    fi
+fi
+
 if [ ${#rangeArgs[@]} -eq 0 ]; then
     echo 'ERROR: Need <range>.'
     exit 2

@@ -38,7 +38,7 @@ listSubmodules()
     if [ -z "$revision" -o "$revision" = HEAD ]; then
 	exec git submodule foreach --quiet 'echo $sm_path'
     else
-	git config --blob "${revision}:.gitmodules" --get-regexp '^submodule\..*\.path$' \
+	git config --blob "${revision}:.gitmodules" --get-regexp '^submodule\..*\.path$' 2>/dev/null \
 	    | sed -e 's/^.*\.path //' \
 	    | sort
     fi
@@ -54,7 +54,19 @@ listOneLevel()
 		(cd "$submodule" && exec "${BASH_SOURCE[0]}" --recursive --prefix "${submodule}/")
 	    done < <(listSubmodules "$@")
 	else
-	    :
+	    local submodule; while IFS=$'\n' read -r submodule
+	    do
+		printf '%s\n' "$submodule"
+
+		local subhash
+		if subhash="$(git-subhash "$revision" "$submodule" 2>/dev/null)" \
+		    && [ -d "$submodule" ]
+		then
+		    (cd "$submodule" && exec "${BASH_SOURCE[0]}" --revision "${subhash:?}" --recursive --prefix "${submodule}/")
+		else
+		    printf >&2 'ERROR: Cannot revisit submodule %s%s in revision %s; it does not exist any longer.\n' "$prefix" "$submodule" "$subhash"
+		fi
+	    done < <(listSubmodules "$@")
 	fi
     else
 	listSubmodules "$@"

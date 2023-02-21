@@ -13975,6 +13975,7 @@
 	;; ocreatelocalbr: Create (and track) local branches for all branches in origin (matching PATTERN).
 	oprune = rprune origin	; Remove old local branches that do not exist in origin any more.
 	oprunesub = subdo-core --include-superproject oprune	; Remove old local branches that do not exist in origin any more, also in submodules.
+	oprunesubr = subdo-core --recursive --include-superproject oprune
 	ofetch = wrapper-nocolor fetch origin ; Get changes done to my GitHub clone through another Git repository, e.g. from another system. Use this, followed by git owipe, when origin has been reset (e.g. to an updated upstream).
 	ofetchonly = fetchonly origin; Only fetch in my GitHub clone changes (no update of local branches) and show a log of the changes.
 	;; ofetchonly-hushed: Only fetch changes in my GitHub clone (no update of local branches) and show a log of the changes, suppressing standard fetch information and messages when there are no changes in origin. Useful when updating many repositories e.g. with git-wcdo.
@@ -14369,6 +14370,7 @@
 	;; No ucreatelocalbr.
 	uprune = rprune upstream	; Remove old local branches that do not exist in upstream any more.
 	uprunesub = subdo-core --include-superproject uprune	; Remove old local branches that do not exist in upstream any more, also in submodules.
+	uprunesubr = subdo-core --recursive --include-superproject uprune
 	ufetch = wrapper-nocolor fetch upstream	; Get upstream changes.
 	ufetchonly = fetchonly upstream; Only fetch upstream changes (no update of local branches) and show a log of the changes.
 	;; ufetchonly-hushed: Only fetch upstream changes (no update of local branches) and show a log of the changes, suppressing standard fetch information and messages when there are no changes in upstream. Useful when updating many repositories e.g. with git-wcdo.
@@ -14802,9 +14804,13 @@
 	superproject = issubmodule --print	; Show root dir of the Git superproject (or fail if not in a submodule).
 	;; subdo-core: Execute "git SIMPLECOMMAND" and/or COMMANDLINE in each Git submodule. An alternative to "git submodule foreach".
 	;; subdo: Execute "git SIMPLECOMMAND" and/or COMMANDLINE in each Git submodule, with special synthesized commands.
+	subdor = subdo --recursive
 	subsamebrdo = subdo --same-branch	; Execute "git SIMPLECOMMAND" and/or COMMANDLINE in each Git submodule that is on the same branch as the superproject.
+	subsamebrdor = subsamebrdo --recursive
 	subdirtydo = subdo --dirty	; Execute "git SIMPLECOMMAND" and/or COMMANDLINE in each Git submodule that contains modified content.
+	subdirtydor = subdirtydo --recursive
 	subuntrackeddo = subdo --untracked	; Execute "git SIMPLECOMMAND" and/or COMMANDLINE in each Git submodule that contains new files not yet added to version control (and not covered by the ignore patterns).
+	subuntrackeddor = subuntrackeddo --recursive
 	;; subst: Show a list of submodules that are modified but not committed in the superproject.
 	;; subi: Show a list of submodules that are currently staged in the superproject.
 	;; sub-i: Show a list of submodules that are currently modified but not staged in the superproject.
@@ -14845,28 +14851,50 @@
 
 	;; showsubmodules: Show only the submodules that were modified in the passed commit or commit range.
 	showsubdo = "files-command --source-command showsubmodules --keep-position subdo --for FILES ;"
+	showsubdor = showsubdo --recursive
 
 	subinout = subdo inout
+	subinoutr = subdo --recursive inout
 	subiofiles = subdo inout --files
+	subiofilesr = subdo --recursive inout --files
 	subiosubmodules = subdo inout --submodules
+	subiosubmodulesr = subdo --recursive inout --submodules
 	subio = subdo io
+	subior = subdo --recursive io
 	subab = subdo ab
+	subabr = subdo --recursive ab
 	;; subbrinout: For each submodule, show incoming and outgoing commit logs between the current revision and the local tracking branch (as per .gitmodules submodule.<name>.branch configuration; if such branch exists).
+	subbrinoutr = subbrinout --recursive
 	subbriofiles = subbrinout --files
+	subbriofilesr = subbrinoutr --files
 	subbriosubmodules = subbrinout --submodules
+	subbriosubmodulesr = subbrinoutr --submodules
 	subbrio = subbrinout --stat
+	subbrior = subbrinoutr --stat
 	;; subtinout: For each submodule, show incoming and outgoing commit logs between the current revision and the tracked remote branch (as per .gitmodules submodule.<name>.branch configuration).
+	subtinoutr = subtinout --recursive
 	subtio = subtinout --stat
+	subtior = subtinoutr --stat
 	subminout = subdo master-command inout
+	subminoutr = subdo --recursive master-command inout
 	submiofiles = subdo master-command inout --files
+	submiofilesr = subdo --recursive master-command inout --files
 	submiosubmodules = subdo master-command inout --submodules
+	submiosubmodulesr = subdo --recursive master-command inout --submodules
 	submio = subdo master-command io
+	submior = subdo --recursive master-command io
 	submab = subdo master-command ab
+	submabr = subdo --recursive master-command ab
 	subninout = subdo base-command inout
+	subninoutr = subdo --recursive base-command inout
 	subniofiles = subdo base-command inout --files
+	subniofilesr = subdo --recursive base-command inout --files
 	subniosubmodules = subdo base-command inout --submodules
+	subniosubmodulesr = subdo --recursive base-command inout --submodules
 	subnio = subdo base-command io
+	subnior = subdo --recursive base-command io
 	subnab = subdo base-command ab
+	subnabr = subdo --recursive base-command ab
 
 	;; sublist: Show a list of all (initialized and at least once updated) submodules.
 	sublistr = sublist --recursive ; Show a list of all (initialized and at least once updated) submodules, also nested within submodules.

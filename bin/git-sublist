@@ -7,26 +7,58 @@ printUsage()
 Show a list of all (initialized and at least once updated) submodules.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--revision REVISION] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--recursive] [-r|--revision REVISION] [-?|-h|--help]'
 }
 
 revision=
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
+isRecursive=
+prefix=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
 			shift;;
-    --color)		shift; shift;;
-    --revision|-r)	shift; revision="$1"; shift;;
-esac
+	--color)	shift; shift;;
+	--revision|-r)	shift; revision="$1"; shift;;
+	--recursive)	shift; isRecursive=t;;
+	--prefix)	shift; prefix="${prefix}$1"; shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 if [ $# -ne 0 ]; then
     printUsage "$0" >&2
     exit 2
 fi
 
-if [ -z "$revision" -o "$revision" = HEAD ]; then
-    exec git submodule foreach --quiet 'echo $sm_path'
-else
-    git config --blob "${revision}:.gitmodules" --get-regexp '^submodule\..*\.path$' \
-	| sed -e 's/^.*\.path //' \
-	| sort
-fi
+listSubmodules()
+{
+    if [ -z "$revision" -o "$revision" = HEAD ]; then
+	exec git submodule foreach --quiet 'echo $sm_path'
+    else
+	git config --blob "${revision}:.gitmodules" --get-regexp '^submodule\..*\.path$' \
+	    | sed -e 's/^.*\.path //' \
+	    | sort
+    fi
+}
+
+listOneLevel()
+{
+    if [ "$isRecursive" ]; then
+	if [ -z "$revision" -o "$revision" = HEAD ]; then
+	    local submodule; while IFS=$'\n' read -r submodule
+	    do
+		printf '%s\n' "$submodule"
+		(cd "$submodule" && exec "${BASH_SOURCE[0]}" --recursive --prefix "${submodule}/")
+	    done < <(listSubmodules "$@")
+	else
+	    :
+	fi
+    else
+	listSubmodules "$@"
+    fi
+}
+
+eval 'listOneLevel "$@"' "${prefix:+| prefix "$prefix"}"

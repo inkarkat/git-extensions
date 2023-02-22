@@ -7,7 +7,7 @@ printShortUsage()
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
-    printf 'Usage: GIT_REINTEGRATE_CHECK_COMMAND=CMD|GIT_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" '[--same-branch] [...]'
+    printf 'Usage: GIT_REINTEGRATE_CHECK_COMMAND=CMD|GIT_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" '[--same-branch|--for -|--for SUBMODULE [...] ;] [...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '[...] --no-checks | -c|--command "CHECK-COMMANDLINE" [-c ...] | --exec SIMPLECOMMAND [...] ; [...]'
     printf 'Usage: echo CHECK-COMMANDLINES | %q %s\n' "$(basename "$1")" '[...] [--bare|[--initial-status NUM] [--trailing-prompt|--no-trailing-prompt] [--no-output-no-prompt] [--no-output-no-error] [--emulate-prompt]] [--no-success-no-count|--no-count-on N] [--exit-on-success|--exit-on-failure|--exit-on NUM] [--worst-status] [--comment COMMENT] [--summarize-failed ERROR-TEXT [--summarize-failed-separator SEP]] -'
     printf 'Usage: %q %s - <<EOF\n  CHECK-COMMANDLINE\n...\nEOF\n' "$(basename "$1")" '[...]'
@@ -40,10 +40,16 @@ HELPDESCRIPTION
 			superproject. By default, covers submodules that are
 			modified in the superproject's current branch to master
 			in my GitHub clone.
+    --for SUBMODULE [...] ;
+			Only consider the following SUBMODULE(s); i.e. all
+			following arguments until an argument consisting of ';'
+			is encountered.
+    --for -		Only consider the SUBMODULE(s) read from stdin.
 For all other arguments see ffintegrateto.
 HELPTEXT
 }
 
+typeset -a affectedSubmodules=()
 typeset -a affectedSubmoduleSourceCommand=(bomsubmodules)
 typeset -a reintegrateArgs=()
 while [ $# -ne 0 ]
@@ -51,6 +57,30 @@ do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--same-branch)	shift; affectedSubmoduleSourceCommand=(subsamebrdo);;
+	--for)		shift
+			if [ "$1" = - ]; then
+			    shift
+			    while IFS=$'\n' read -r line
+			    do
+				affectedSubmodules+=("$line")
+			    done
+			else
+			    while [ $# -gt 0 -a "$1" != ';' ]
+			    do
+				affectedSubmodules+=("$1")
+				shift
+			    done
+			    if [ $# -eq 0 ]; then
+				echo 'ERROR: --for must be concluded with ;!'; echo; printUsage "$0"
+				exit 2
+			    fi >&2
+			    shift   # the ;
+			fi
+			if [ ${#affectedSubmodules[@]} -eq 0 ]; then
+			    echo >&2 'ERROR: Expected at least one submodule, but none was passed.'
+			    exit 2
+			fi
+			;;
 	--)		reintegrateArgs+=("$1"); shift; break;;
 	*)		reintegrateArgs+=("$1"); shift;;
     esac
@@ -84,7 +114,8 @@ else
     }
 fi
 
-readarray -t affectedSubmodules < <("${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} "${affectedSubmoduleSourceCommand[@]}")
+[ -n "${affectedSubmodules+t}" ] \
+    || readarray -t affectedSubmodules < <("${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} "${affectedSubmoduleSourceCommand[@]}")
 if [ ${#affectedSubmodules[@]} -eq 0 ]; then
     echo >&2 'ERROR: Expected at least one affected submodule in the commits on the branch, but none found.'
     exit 3

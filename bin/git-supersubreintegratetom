@@ -2,9 +2,28 @@
 
 : ${GIT_SUPERSUBREINTEGRATETOM_RECENT_FETCH_AGE:=15m}
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+    printf 'Usage: GIT_REINTEGRATE_CHECK_COMMAND=CMD|GIT_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" '[...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[...] --no-checks | -c|--command "CHECK-COMMANDLINE" [-c ...] | --exec SIMPLECOMMAND [...] ; [...]'
+    printf 'Usage: echo CHECK-COMMANDLINES | %q %s\n' "$(basename "$1")" '[...] [--bare|[--initial-status NUM] [--trailing-prompt|--no-trailing-prompt] [--no-output-no-prompt] [--no-output-no-error] [--emulate-prompt]] [--no-success-no-count|--no-count-on N] [--exit-on-success|--exit-on-failure|--exit-on NUM] [--worst-status] [--comment COMMENT] [--summarize-failed ERROR-TEXT [--summarize-failed-separator SEP]] -'
+    printf 'Usage: %q %s - <<EOF\n  CHECK-COMMANDLINE\n...\nEOF\n' "$(basename "$1")" '[...]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 Merge / rebase the current branch of a superproject + submodule(s) to the master
 branch via a reverse integration of the superproject; i.e. master is merged /
 rebased to the current branch first so that the reintegration is a simple
@@ -12,17 +31,16 @@ fast-forward.
 Performs additional sanity checks and chooses the right arguments based on
 whether this is a short-lived feature with a single superproject commit or full
 history exists.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+For all other arguments see ffintegrateto.
 HELPTEXT
-    echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
-    echo
-    printf 'Usage: GIT_REINTEGRATE_CHECK_COMMAND=CMD|GIT_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" '[...]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[...] --no-checks | -c|--command "CHECK-COMMANDLINE" [-c ...] | --exec SIMPLECOMMAND [...] ; [...]'
-    printf 'Usage: echo CHECK-COMMANDLINES | %q %s\n' "$(basename "$1")" '[...] [--bare|[--initial-status NUM] [--trailing-prompt|--no-trailing-prompt] [--no-output-no-prompt] [--no-output-no-error] [--emulate-prompt]] [--no-success-no-count|--no-count-on N] [--exit-on-success|--exit-on-failure|--exit-on NUM] [--worst-status] [--comment COMMENT] [--summarize-failed ERROR-TEXT [--summarize-failed-separator SEP]] -'
-    printf 'Usage: %q %s - <<EOF\n  CHECK-COMMANDLINE\n...\nEOF\n' "$(basename "$1")" '[...]'
 }
 case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 esac
 
 isInSubmodule=
@@ -82,8 +100,14 @@ if [ ${#unintegratedSubmodules[@]} -eq 0 ]; then
 	printf 'All %d submodules have been reintegrated already; now integrating the superproject.\n' ${#affectedSubmodules[@]}
     fi
     action=reintegrateSuperproject
+
+    if [ "$HUB" ] && hub-prapproval; then
+	userBinaryChoice --keep-prompt --console --question 'Really reintegrate the superproject?' --yes-no || exit 4
+    fi
 else
+    afffectedSubmodulesPlural=s
     if [ ${#affectedSubmodules[@]} -eq 1 ]; then
+	afffectedSubmodulesPlural=
 	if [ "$isInSubmodule" ]; then
 	    echo 'Integrating this single submodule.'
 	else
@@ -101,6 +125,13 @@ else
 	fi
     fi
     action=reintegrateSubmodule
+
+    if [ "$HUB" ] && "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--single-success --include-superproject} prapproval; then
+	[ "$isInSubmodule" ] \
+	    && question='Really integrate this submodule?' \
+	    || question="Really integrate ${#affectedSubmodules[@]} submodule$affectedSubmodulesPlural"
+	userBinaryChoice --keep-prompt --console --question "$question" --yes-no || exit 4
+    fi
 fi
 
 if "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} ofetchdate -gt "$GIT_SUPERSUBREINTEGRATETOM_RECENT_FETCH_AGE" --message 'Last fetched'; then

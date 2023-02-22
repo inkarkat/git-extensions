@@ -53,9 +53,7 @@ non-trivial / covers multiple responsibilities.
 `$ hub supersubpull-request`
 
 ## integrate submodule changes first
-Check comments / approvals on PRs:
-`$ hub subsamebrdo --single-success --include-superproject prapproval`
-
+superproject (will integrate all affected submodules) / each submodule:
 `$ hub supersubreintegratetom`
 
 ## peer review of integration (optional)

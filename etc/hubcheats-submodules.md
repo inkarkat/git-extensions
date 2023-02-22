@@ -19,10 +19,10 @@ superproject: `$ git ocosub feat-4711/super-cool`
 (or separately for superproject and submodules: `$ git oco feat-4711/super-cool && $ git subcoremotebr --query|--all`
 
 ## publish submodule changes
-a) from superproject: `$ git subsamebrdo --interactive opublish`
-b) from submodule(s): `$ git opublish`
-c) single submodule, [commit and] publish superproject as well:
+a) from superproject or submodule, [commit and] publish superproject as well:
    `$ git osupersubpublish`
+b) from superproject: `$ git subsamebrdo --interactive opublish`
+c) from submodule(s): `$ git opublish`
 
 ## create integration build
 superproject: `$ git cu && git opublish`

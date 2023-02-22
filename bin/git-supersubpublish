@@ -3,8 +3,9 @@
 printUsage()
 {
     cat <<HELPTEXT
-Publish this submodule's branch to REMOTE, create a commit in the superproject
-and publish its branch to REMOTE, too.
+Publish this submodule's branch to REMOTE (when in a submodule) / publish all
+dirty submodules (when in the superproject), and create a commit in the
+superproject and publish its branch to REMOTE, too.
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" 'REMOTE [-?|-h|--help]'
@@ -15,9 +16,9 @@ esac
 publishCommand=
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --superpublish)	shift; publishCommand="$1"; shift; subPath="$1"; shift; commitMessage="$1"; shift
-			if git-dirty --quiet -- "$subPath"; then
-			    git-wrapper commit --edit --message "$commitMessage" -- "$subPath" || exit $?
+    --superpublish)	shift; publishCommand="$1"; shift; commitMessage="$1"; shift
+			if git-dirty --quiet -- "$@"; then
+			    git-wrapper commit --edit --message "$commitMessage" -- "$@" || exit $?
 			fi
 			exec git-wrapper "$publishCommand"
 			;;
@@ -34,7 +35,18 @@ if [ $# -gt 0 -o -z "$publishCommand" ]; then
     exit 2
 fi
 
-subPath="$(git-supersubpath)" || exit 3
-commitMessage="$(git boml)"
-printf -v quotedSuperCommand '%q ' "${BASH_SOURCE[0]}" --superpublish "$publishCommand" "$subPath" "$commitMessage"
+typeset -a subPaths=()
+if subPaths=("$(git-supersubpath)"); then
+    commitMessage="$(git boml)"
+else
+    readarray -t subPaths < <(git subst)
+    if [ ${#subPaths[@]} -eq 0 ]; then
+	echo >&2 'ERROR: No affected submodules found.'
+	exit 3
+    fi
+
+    commitMessage="$(git subsamebrdo --no-header boml)"
+fi
+
+printf -v quotedSuperCommand '%q ' "${BASH_SOURCE[0]}" --superpublish "$publishCommand" "$commitMessage" "${subPaths[@]}"
 exec git-supersubdo --interactive --super-command "${quotedSuperCommand% }" --submodule-command "git-wrapper $publishCommand"

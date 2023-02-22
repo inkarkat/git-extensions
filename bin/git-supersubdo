@@ -245,17 +245,19 @@ fromSubmodule()
 
 fromSuperproject()
 {
+    local superprojectName="$(git-wcname)"
     if [ ${#subCommands[@]} -gt 0 ]; then
 	local subdoCommand; [ "$isNeedEval" ] \
 	    && subdoCommand="${subCommands[*]} " \
 	    || printf -v subdoCommand '%q ' "${subCommands[@]}"
 
+	HEADER_PREFIX+="${superprojectName}/" \
 	GIT_SUBDO_HEADER_ID="$GIT_SUPERSUBDO_HEADER_ID" \
 	    git subsamebrdo --no-pager "${colorArg[@]}" "${subdoArgs[@]}" --command "${subdoCommand% }" || exit $?
     fi
 
     if [ ${#superCommands[@]} -gt 0 ]; then
-	header="$(git-wcname)"
+	header="$superprojectName"
 	execute "${superCommands[@]}" || exit $?
     fi
 }

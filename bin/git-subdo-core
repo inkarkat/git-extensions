@@ -269,7 +269,8 @@ if [ ${#submoduleEnvironments[@]} -eq 0 ]; then
     exit ${GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES:-99}
 fi
 if [ "$isIncludeSuperproject" ]; then
-    printf -v superprojectEnvironment '%s=%q; ' dirspec "${PWD:?}" name 'superproject' sm_path '.' displaypath "../$(git-wcname)" sha1 "$(git rev-parse HEAD)" toplevel "${PWD:?}" predicateOutput ''
+    superprojectName="$(git-wcname)"
+    printf -v superprojectEnvironment '%s=%q; ' dirspec "${PWD:?}" name 'superproject' sm_path '.' displaypath '' sha1 "$(git rev-parse HEAD)" toplevel "${PWD:?}" predicateOutput ''
     submoduleEnvironments=("$superprojectEnvironment" "${submoduleEnvironments[@]}")
 fi
 
@@ -305,15 +306,16 @@ subdo()
 	    status=1; continue
 	fi
 
-	reportProgress "${displaypath:?}"
-	[ ! "$isInteractive" ] || header "${colorArg[@]}" --id "$GIT_SUBDO_HEADER_ID" -- "${displaypath:?}"
+	local header="${isIncludeSuperproject:+${superprojectName}${displaypath:+/}}${displaypath?}"
+	reportProgress "${header:?}"
+	[ ! "$isInteractive" ] || header "${colorArg[@]}" --id "$GIT_SUBDO_HEADER_ID" -- "${header:?}"
 
 	if [ "$isNeedEval" ]; then
 	    typeset -a c=("${commands[@]}")
 	else
 	    typeset -a c=('"${commands[@]}"')
 	fi
-	(eval "${isHeader:+{}" ${predicateOutput:+printf %s\\\\n \"\$predicateOutput\"; }"${c[@]}" "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_SUBDO_HEADER_ID' -- '${displaypath:?}'}")
+	(eval "${isHeader:+{}" ${predicateOutput:+printf %s\\\\n \"\$predicateOutput\"; }"${c[@]}" "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_SUBDO_HEADER_ID' -- '${header:?}'}")
 	local newStatus=$?
 
 	abortIfDesired $newStatus

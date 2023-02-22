@@ -53,12 +53,10 @@ set -- "${reintegrateArgs[@]}" "$@"
 
 isInSubmodule=
 typeset -a superprojectExecutor=()
-typeset -a submoduleExecutor=(hub subsamebrdo)
 goToSuperproject() { :; }
 if git issubmodule; then
     isInSubmodule=t
-    superprojectExecutor=(hub superdo)
-    submoduleExecutor=()
+    superprojectExecutor=(git superdo)
     goToSuperproject()
     {
 	local superprojectRoot; superprojectRoot="$(git superproject)" || exit 3
@@ -85,6 +83,8 @@ if [ ${#affectedSubmodules[@]} -eq 0 ]; then
     echo >&2 'ERROR: Expected at least one affected submodule in the commits on the branch, but none found.'
     exit 3
 fi
+
+typeset -a submoduleExecutor=(); [ "$isInSubmodule" ] || submoduleExecutor=(hub subsamebrdo)
 
 masterBranch="$(git-mbr)" || exit 3
 typeset -a unintegratedSubmodules=()

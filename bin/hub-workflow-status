@@ -1,0 +1,121 @@
+#!/bin/bash
+set -o pipefail
+
+: ${HUB_WORKFLOWSTATUS_OWNER:='{owner}'}
+: ${HUB_WORKFLOWSTATUS_REPO:='{repo}'}
+readonly WORKFLOW_ID_CONFIG_KEY=github.workflow-id
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: [HUB_WORKFLOWSTATUS_WORKFLOW_ID=WORKFLOW_ID|WORKFLOW_FILENAME] %q %s\n' "$(basename "$1")" '[--id WORKFLOW_ID|WORKFLOW_FILENAME] [-u|--user USER] [-b|--branch BRANCH] [-r|--revision REVISION] [-l|--latest] [--is STATE [--is ...]] [-q|--quiet] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Print / check the status of a GitHub workflow.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --id WORKFLOW_ID|WORKFLOW_FILENAME
+			The ID of the workflow. You can also pass the workflow
+			file name. If not specified, will use the
+			${WORKFLOW_ID_CONFIG_KEY} config setting.
+    --user|-u USER	Limit to workflow runs of USER.
+    --branch|-b BRANCH	Limit to workflow runs associated with BRANCH.
+    --revision|-r REVISION
+			Limit to workflow runs that build REVISION.
+    --latest|-l		Only print / consider the last status.
+    --is STATE		Fail unless one / the status is STATE.
+    --quiet|-q		Don't print the status.
+
+EXIT STATUS:
+    0	Complete success.
+    1	--is STATE given but the STATE wasn't seen.
+    2	Bad invocation, wrong or missing command-line arguments.
+    3	Internal error or failed assertion.
+HELPTEXT
+}
+
+workflowId="${HUB_WORKFLOWSTATUS_WORKFLOW_ID}"
+typeset -a queryArgs=()
+preAction=
+action=list
+compareAction=
+typeset -a acceptedStates=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--id)		shift; workflowId="${1:?}"; shift;;
+
+	--user|-u)	shift; queryArgs+=(--field "actor=${1:?}"); shift;;
+	--branch|-b)	shift; queryArgs+=(--field "branch=${1:?}"); shift;;
+	--revision|-r)	shift; commitId="$(git-commitid -- "${1:?}")" || exit 2; queryArgs+=(--field "head_sha=$commitId"); shift;;
+
+	--latest|-l)	shift; preAction='filterLatest';;
+	--is)		shift; acceptedStates+=("${1:?}"); shift; compareAction=compareState;;
+	--quiet|-q)	shift; action='';;
+
+	--)		shift; break;;
+	*)		break;;
+    esac
+done
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+if [ -z "$workflowId" ]; then
+    workflowId="$(git config --get "$WORKFLOW_ID_CONFIG_KEY")"
+    if [ -z "$workflowId" ]; then
+	echo >&2 "ERROR: No workflow specified (via --idWORKFLOW_ID|WORKFLOW_FILENAME, \$HUB_WORKFLOWSTATUS_WORKFLOW_ID, or the $WORKFLOW_ID_CONFIG_KEY configuration)."
+	exit 2
+    fi
+fi
+
+apiCall()
+{
+    hub api -XGET "${queryArgs[@]}" "/repos/${HUB_WORKFLOWSTATUS_OWNER}/${HUB_WORKFLOWSTATUS_REPO}/actions/workflows/${workflowId}/runs" \
+	| jq --raw-output '.workflow_runs | .[] | (.run_number | tostring) + "\t" + .status + "\t" + .updated_at' \
+	| sort --field-separator $'\n' --numeric-sort --key=1,1 \
+	|| exit 3
+}
+
+filterLatest()
+{
+    tail -n 1
+}
+
+compareState()
+{
+    local runNumber statusValue timestamp isFound=
+    while IFS=$'\t' read -r runNumber statusValue timestamp
+    do
+	printf '%s\t%s\t%s\n' "$runNumber" "$statusValue" "$timestamp"
+	contains "$statusValue" "${acceptedStates[@]}" && isFound=t
+    done
+    [ "$isFound" ]
+}
+
+list()
+{
+    field --field-separator $'\t' --remove 1 \
+	| tac \
+	| reldate --delta-each --within all \
+	| column -s $'\t' -t \
+	| tac
+}
+
+eval 'apiCall "$@"' "${preAction:+|}$preAction" "${compareAction:+|}$compareAction" "${action:+|}${action:->/dev/null}"

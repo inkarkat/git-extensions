@@ -12,6 +12,8 @@ printShortUsage()
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
     printf 'Usage: [HUB_WORKFLOWSTATUS_WORKFLOW_ID=WORKFLOW_ID|WORKFLOW_FILENAME] %q %s\n' "$(basename "$1")" '[--id WORKFLOW_ID|WORKFLOW_FILENAME] [-u|--user USER] [-b|--branch BRANCH] [-r|--revision REVISION] [-l|--latest] [--is STATE [--is ...] [--wait WHAT] [-q|--quiet] [-?|-h|--help]'
+    echo
+    printf 'Usage: [HUB_WORKFLOWSTATUS_WORKFLOW_ID=WORKFLOW_ID|WORKFLOW_FILENAME] %q %s\n' "$(basename "$1")" '--has-workflow [--id WORKFLOW_ID|WORKFLOW_FILENAME]'
 }
 printUsage()
 {
@@ -44,6 +46,8 @@ HELPDESCRIPTION
     --wait WHAT		Block and repeatedly check whether STATE has been
 			reached.
     --quiet|-q		Don't print the status.
+    --has-workflow	Just (silently) check whether a workflow ID has been
+			configured or passed.
 
 EXIT STATUS:
     0	Complete success.
@@ -54,6 +58,7 @@ EXIT STATUS:
 HELPTEXT
 }
 
+isWorkflowCheck=
 workflowId="${HUB_WORKFLOWSTATUS_WORKFLOW_ID}"
 typeset -a queryArgs=()
 preAction=
@@ -67,7 +72,8 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
-	--id)		recursiveArgs+=("$1" "$2"); shift; workflowId="${1:?}"; shift;;
+	--has-workflow)	shift; isWorkflowCheck=t;;
+	--id)		recursiveArgs+=("$1" "$2"); shift; workflowId="${1?}"; shift;;
 
 	--user|-u)	recursiveArgs+=("$1" "$2"); shift; queryArgs+=(--field "actor=${1:?}"); shift;;
 	--branch|-b)	recursiveArgs+=("$1" "$2"); shift; queryArgs+=(--field "branch=${1:?}"); shift;;
@@ -89,8 +95,11 @@ fi
 if [ -z "$workflowId" ]; then
     workflowId="$(git config --get "$WORKFLOW_ID_CONFIG_KEY")"
     if [ -z "$workflowId" ]; then
+	[ "$isWorkflowCheck" ] && exit 1
 	echo >&2 "ERROR: No workflow specified (via --idWORKFLOW_ID|WORKFLOW_FILENAME, \$HUB_WORKFLOWSTATUS_WORKFLOW_ID, or the $WORKFLOW_ID_CONFIG_KEY configuration)."
 	exit 2
+    elif [ "$isWorkflowCheck" ]; then
+	exit 0
     fi
 fi
 

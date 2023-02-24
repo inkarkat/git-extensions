@@ -49,14 +49,14 @@ if [ ${#stfiles[@]} -eq 0 ]; then
     exit 1
 fi
 
-TMPDIR="$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || { dirspec="${TEMP:-/tmp}/$(basename -- "$0").$$$RANDOM"; mkdir -p -- "$dirspec" && printf %s "$dirspec"; })" || exit $?
-[ "$DEBUG" ] || trap 'rm -rf "$TMPDIR" 2>/dev/null' EXIT
+tempDirspec="$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || { dirspec="${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM"; mkdir -p -- "$dirspec" && printf %s "$dirspec"; })" || exit $?
+[ "$DEBUG" ] || trap 'rm -rf "$tempDirspec" 2>/dev/null' EXIT
 
 status=0
 typeset -a patches=()
 for filespec in "${stfiles[@]}"
 do
-    patchFilespec="${TMPDIR}/${filespec//\//_}${GIT_STFILESL_EXTENSION-.patch}"
+    patchFilespec="${tempDirspec}/${filespec//\//_}${GIT_STFILESL_EXTENSION-.patch}"
     git $GIT_STFILESL_COMMAND "${args[@]}" -- "$filespec" > "$patchFilespec" || status=$?
     [ -s "$patchFilespec" ] && patches+=("$patchFilespec")
 done

@@ -37,8 +37,8 @@ containsGlob()
     return 1
 }
 
-TMPDIR="$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || { dirspec="${TEMP:-/tmp}/$(basename -- "$0").$$$RANDOM"; mkdir -p -- "$dirspec" && printf %s "$dirspec"; })" || exit $?
-[ "$DEBUG" ] || trap 'rm -rf "$TMPDIR" 2>/dev/null' EXIT
+tempDirspec="$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || { dirspec="${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM"; mkdir -p -- "$dirspec" && printf %s "$dirspec"; })" || exit $?
+[ "$DEBUG" ] || trap 'rm -rf "$tempDirspec" 2>/dev/null' EXIT
 
 typeset -a limitRevisionsArgs=()
 if ! containsGlob '-+([0-9])' "$@" && ! contains '-n' "$@" && ! contains '--max-count' "$@"; then
@@ -49,11 +49,11 @@ if ! containsGlob '-+([0-9])' "$@" && ! contains '-n' "$@" && ! contains '--max-
     fi
 fi
 
-{ git ${GIT_LCL_COMMAND:-lc} "${limitRevisionsArgs[@]}" "$@" | csplit --elide-empty-files --prefix "${TMPDIR}/log" --digits 4 - '/^commit [0-9a-fA-F]\+\( (from [0-9a-fA-F]\+)\)\?$/' '{*}' >/dev/null; } || exit $?
+{ git ${GIT_LCL_COMMAND:-lc} "${limitRevisionsArgs[@]}" "$@" | csplit --elide-empty-files --prefix "${tempDirspec}/log" --digits 4 - '/^commit [0-9a-fA-F]\+\( (from [0-9a-fA-F]\+)\)\?$/' '{*}' >/dev/null; } || exit $?
 
 if ! isColorOffArgument "$@"; then
-    pipethrough --piped -- colordiff --color=yes -- "${TMPDIR}"/log* 2>/dev/null
+    pipethrough --piped -- colordiff --color=yes -- "${tempDirspec}"/log* 2>/dev/null
 fi
 
 [ "$PAGER" = smartless ] && PAGER=less	# smartless does not page small outputs that fit the terminal, but we explicitly want to page through each date range separately.
-"${PAGER:-less}" --RAW-CONTROL-CHARS "${TMPDIR}"/log*
+"${PAGER:-less}" --RAW-CONTROL-CHARS "${tempDirspec}"/log*

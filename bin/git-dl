@@ -27,15 +27,15 @@ contains()
     return 1
 }
 
-TMPDIR="$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || { dirspec="${TEMP:-/tmp}/$(basename -- "$0").$$$RANDOM"; mkdir -p -- "$dirspec" && printf %s "$dirspec"; })" || exit $?
-[ "$DEBUG" ] || trap 'rm -rf "$TMPDIR" 2>/dev/null' EXIT
+tempDirspec="$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || { dirspec="${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM"; mkdir -p -- "$dirspec" && printf %s "$dirspec"; })" || exit $?
+[ "$DEBUG" ] || trap 'rm -rf "$tempDirspec" 2>/dev/null' EXIT
 
-TMPFILE="${TMPDIR}/input"   # splitdiff cannot directly read from stdin ("-" is taken literally).
+TMPFILE="${tempDirspec}/input"   # splitdiff cannot directly read from stdin ("-" is taken literally).
 git ${GIT_DL_DIFFCOMMAND:-diff} "$@" > "$TMPFILE" || exit $?
-splitdiff -D "$TMPDIR" -d -a -p 1 "$TMPFILE" >/dev/null || exit $?
+splitdiff -D "$tempDirspec" -d -a -p 1 "$TMPFILE" >/dev/null || exit $?
 rm -f "$TMPFILE" 2>/dev/null
 
-typeset -a patches=("${TMPDIR}"/*.patch)
+typeset -a patches=("${tempDirspec}"/*.patch)
 [ ${#patches[@]} -gt 0 ] || exit 1
 
 if ! isColorOffArgument "$@"; then

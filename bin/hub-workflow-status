@@ -1,0 +1,147 @@
+#!/bin/bash
+set -o pipefail
+
+: ${HUB_WORKFLOWSTATUS_OWNER:='{owner}'}
+: ${HUB_WORKFLOWSTATUS_REPO:='{repo}'}
+: ${HUB_WORKFLOWSTATUS_WAIT_INTERVAL:=20s}
+: ${HUB_WORKFLOWSTATUS_WAIT_TIMEOUT:=20m}
+readonly WORKFLOW_ID_CONFIG_KEY=github.workflow-id
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: [HUB_WORKFLOWSTATUS_WORKFLOW_ID=WORKFLOW_ID|WORKFLOW_FILENAME] %q %s\n' "$(basename "$1")" '[--id WORKFLOW_ID|WORKFLOW_FILENAME] [-u|--user USER] [-b|--branch BRANCH] [-r|--revision REVISION] [-l|--latest] [--is STATE [--is ...] [--wait WHAT] [-q|--quiet] [-?|-h|--help]'
+    echo
+    printf 'Usage: [HUB_WORKFLOWSTATUS_WORKFLOW_ID=WORKFLOW_ID|WORKFLOW_FILENAME] %q %s\n' "$(basename "$1")" '--has-workflow [--id WORKFLOW_ID|WORKFLOW_FILENAME]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Print / check the status of a GitHub workflow.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --id WORKFLOW_ID|WORKFLOW_FILENAME
+			The ID of the workflow. You can also pass the workflow
+			file name. If not specified, will use the
+			${WORKFLOW_ID_CONFIG_KEY} config setting.
+    --user|-u USER	Limit to workflow runs of USER.
+    --branch|-b BRANCH	Limit to workflow runs associated with BRANCH.
+    --revision|-r REVISION
+			Limit to workflow runs that build REVISION.
+    --latest|-l		Only print / consider the last status.
+    --is STATE		Fail unless one / the status is STATE.
+    --wait WHAT		Block and repeatedly check whether STATE has been
+			reached.
+    --quiet|-q		Don't print the status.
+    --has-workflow	Just (silently) check whether a workflow ID has been
+			configured or passed.
+
+EXIT STATUS:
+    0	Complete success.
+    1	--is STATE given but the STATE wasn't seen.
+    2	Bad invocation, wrong or missing command-line arguments.
+    3	Internal error or failed assertion.
+    126	STATE has not been reached within the wait time.
+HELPTEXT
+}
+
+isWorkflowCheck=
+workflowId="${HUB_WORKFLOWSTATUS_WORKFLOW_ID}"
+typeset -a queryArgs=()
+preAction=
+action=list
+compareAction=
+typeset -a acceptedStates=()
+isWait=
+waitWhat=
+typeset -a recursiveArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--has-workflow)	shift; isWorkflowCheck=t;;
+	--id)		recursiveArgs+=("$1" "$2"); shift; workflowId="${1?}"; shift;;
+
+	--user|-u)	recursiveArgs+=("$1" "$2"); shift; queryArgs+=(--field "actor=${1:?}"); shift;;
+	--branch|-b)	recursiveArgs+=("$1" "$2"); shift; queryArgs+=(--field "branch=${1:?}"); shift;;
+	--revision|-r)	recursiveArgs+=("$1" "$2"); shift; commitId="$(git-commitid -- "${1:?}")" || exit 2; queryArgs+=(--field "head_sha=$commitId"); shift;;
+
+	--latest|-l)	recursiveArgs+=("$1"); shift; preAction='filterLatest';;
+	--is)		recursiveArgs+=("$1" "$2"); shift; acceptedStates+=("${1:?}"); shift; compareAction=compareState;;
+	--wait)		shift; waitWhat="$1"; shift; isWait=t;;
+	--quiet|-q)	recursiveArgs+=("$1"); shift; action='';;
+
+	--)		recursiveArgs+=("$1"); shift; break;;
+	*)		break;;
+    esac
+done
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+if [ -z "$workflowId" ]; then
+    workflowId="$(git config --get "$WORKFLOW_ID_CONFIG_KEY")"
+    if [ -z "$workflowId" ]; then
+	[ "$isWorkflowCheck" ] && exit 1
+	echo >&2 "ERROR: No workflow specified (via --idWORKFLOW_ID|WORKFLOW_FILENAME, \$HUB_WORKFLOWSTATUS_WORKFLOW_ID, or the $WORKFLOW_ID_CONFIG_KEY configuration)."
+	exit 2
+    elif [ "$isWorkflowCheck" ]; then
+	exit 0
+    fi
+fi
+
+if [ "$isWait" ]; then
+    verb="$(joinBy ' or ' "${acceptedStates[@]}")"
+    RETRY_SUCCEED_VERB="got $verb" RETRY_FAIL_VERB="still is not $verb" RETRY_ABORT_VERB="did not become $verb" \
+	retry --silent-command --command-name "${waitWhat:-The workflow action}" ${action:+--verbose-or-none} --interval "$HUB_WORKFLOWSTATUS_WAIT_INTERVAL" --abort-timeout "$HUB_WORKFLOWSTATUS_WAIT_TIMEOUT" \
+	    "${BASH_SOURCE[0]}" --quiet "${recursiveArgs[@]}" "$@"
+    exit $?
+fi
+
+apiCall()
+{
+    hub api -XGET "${queryArgs[@]}" "/repos/${HUB_WORKFLOWSTATUS_OWNER}/${HUB_WORKFLOWSTATUS_REPO}/actions/workflows/${workflowId}/runs" \
+	| jq --raw-output '.workflow_runs | .[] | (.run_number | tostring) + "\t" + .status + "\t" + .updated_at + (if .run_attempt > 1 then "\t(" + .run_attempt + ")" else "" end) + "\t" + .html_url' \
+	| sort --field-separator $'\n' --numeric-sort --key=1,1 \
+	|| exit 3
+}
+
+filterLatest()
+{
+    tail -n 1
+}
+
+compareState()
+{
+    local runNumber statusValue timestamp isFound=
+    while IFS=$'\t' read -r runNumber statusValue timestamp
+    do
+	printf '%s\t%s\t%s\n' "$runNumber" "$statusValue" "$timestamp"
+	contains "$statusValue" "${acceptedStates[@]}" && isFound=t
+    done
+    [ "$isFound" ]
+}
+
+list()
+{
+    field --field-separator $'\t' --remove 1 \
+	| tac \
+	| reldate --delta-each --within all \
+	| column -s $'\t' -t \
+	| tac
+}
+
+eval 'apiCall "$@"' "${preAction:+|}$preAction" "${compareAction:+|}$compareAction" "${action:+|}${action:->/dev/null}"

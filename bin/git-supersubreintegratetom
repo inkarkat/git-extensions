@@ -260,8 +260,15 @@ reintegrateSuperproject()
 	    ;;
     esac
 
-    GIT_REINTEGRATE_PRE_PUSH_COMMAND="echo 'Note: Wait for a GitHub action to validate the build on the branch before pushing.'" \
-	exec git-ffintegrateto --branch "$masterBranch" "${ffintegratetoArgs[@]}" --push-submodules --delete-merged-submodule-branches "$@"
+    if hub-workflow-status --has-workflow; then
+	if [ "$HUB" ]; then
+	    export GIT_REINTEGRATE_PRE_PUSH_COMMAND="hub-workflow-status --revision HEAD --is completed --wait 'The fast-forward-integrated branch build'"
+	else
+	    export GIT_REINTEGRATE_PRE_PUSH_COMMAND="echo 'Note: Wait for a GitHub action to validate the build on the branch before pushing.'"
+	fi
+    fi
+
+    exec git-ffintegrateto --branch "$masterBranch" "${ffintegratetoArgs[@]}" --push-submodules --delete-merged-submodule-branches "$@"
 }
 
 $action "$@"

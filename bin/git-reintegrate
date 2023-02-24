@@ -71,6 +71,12 @@ HELPDESCRIPTION
     --comment COMMENT
     --summarize-failed ERROR-TEXT
     --summarize-failed-separator SEP
+The answers to some questions can be preconfigured via these boolean config
+settings:
+- reintegrate.fastforward-single    fast-forward a single commit
+- reintegrate.fastforward	    fast-forward multiple commits
+- reintegrate.rebase-single	    rebase a single commit instead of creating a
+				    merge commit
 HELPTEXT
 }
 
@@ -342,7 +348,11 @@ else
 		commitNum=$(git log --pretty=tformat:%H "HEAD..${branches[-1]}" | wc -l)
 		commitNumPlural=s; [ $commitNum -eq 1 ] && commitNumPlural=
 		branchNum=${#branches[@]}; [ $branchNum -eq 1 ] && branchNum=
-		userBinaryChoice --keep-prompt --console --question "The $commitNum commit$commitNumPlural on the ${branchNum}${branchNum:+ }branch$branchesPlural can be fast-forwarded instead of merged. Fast-forward?" --yes-no && fastForwardArgs=(--ff-only)
+		if choice="$(git config --type bool --get "$([ $commitNum -eq 1 ] && echo 'reintegrate.fastforward-single' || printf 'reintegrate.fastforward')")"; then
+		    [ "$choice" = true ]
+		else
+		    userBinaryChoice --keep-prompt --console --question "The $commitNum commit$commitNumPlural on the ${branchNum}${branchNum:+ }branch$branchesPlural can be fast-forwarded instead of merged. Fast-forward?" --yes-no
+		fi && fastForwardArgs=(--ff-only)
 	    elif canRebase; then
 		hubNote=; if [ "$HUB" ] && [ -n "$pullRequestTitles" ]; then
 		    hubNote='Note: GitHub cannot detect the rebase and will say that the PR has been closed. If you need proper indication, please quit now and directly rebase in GitHub itself instead.'
@@ -350,9 +360,10 @@ else
 			hubNote+=" (But be aware that the CHECK-COMMAND(s) won't be executed then.)"
 		    fi
 		fi
-		choice="$(userchoiceFromList --keep-prompt --question "The branch$branchesPlural only consist$verbPlural of a single commit. Rebase $branchesSubject instead of creating a separate merge commit?${hubNote:+$'\n'}${hubNote}" --no-cancel --ignore-case -- '[Y]es' '[N]o' '[Q]uit')" || exit $?
+		choice="$(git config --type bool --get reintegrate.rebase-single)" \
+		    || choice="$(userchoiceFromList --keep-prompt --question "The branch$branchesPlural only consist$verbPlural of a single commit. Rebase $branchesSubject instead of creating a separate merge commit?${hubNote:+$'\n'}${hubNote}" --no-cancel --ignore-case -- '[Y]es' '[N]o' '[Q]uit')" || exit $?
 		case "$choice" in
-		    Yes)
+		    true|Yes)
 			isRebase=t;;
 		    Quit)
 			if [ -n "$hubNote" ]; then

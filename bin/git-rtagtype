@@ -7,36 +7,38 @@ printUsage()
 List all / only those tags of the passed (annotated or lightweight) type in ${remote:-REMOTE}.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} all|annotated|lightweight [-l|--list <pattern>] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} all|annotated|lightweight [[-l|--list] <pattern>] [-?|-h|--help]"
 }
 case "$1" in
-    --help|-h|-\?)  shift; printUsage "$0"; exit 0;;
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
     --no-color|--color=*)
 			shift;;
     --color)		shift; shift;;
 esac
 remote="${1:?}"; shift
 case "$1" in
-    --help|-h|-\?)  shift; printUsage "$0"; exit 0;;
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
     --no-color|--color=*)
 			shift;;
     --color)		shift; shift;;
-    all)	    tagType=all;;
-    annotated)	    tagType=tag;;
-    lightweight)    tagType=commit;;
-    *)		    printf >&2 'ERROR: Invalid tag type %s; must be either all, annotated, or lightweight.\n' "$1"; exit 2;;
+    all)		tagType=all;;
+    annotated)		tagType=tag;;
+    lightweight)	tagType=commit;;
+    *)			printf >&2 'ERROR: Invalid tag type %s; must be either all, annotated, or lightweight.\n' "$1"; exit 2;;
 esac; shift
-case "$1" in
-    --help|-h|-\?)  shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
-			shift;;
-    --color)		shift; shift;;
-esac
-
 filter=
 pattern=
 case "$1" in
-    --list|-l)	    shift; filter='matcher'; pattern="$1"; shift;;
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --no-color|--color=*)
+			shift;;
+    --color)		shift; shift;;
+    --list|-l)		shift; filter='matcher'; pattern="$1"; shift;;
+esac
+case $# in
+    0)	;;
+    1)	filter='matcher'; pattern="$1"; shift;;
+    *)	printUsage "$0" >&2; exit 2;;
 esac
 
 matcher()
@@ -50,7 +52,7 @@ matcher()
 }
 tagtype()
 {
-    git ls-remote --tags "$remote" | \
+    git ls-remote --tags --sort=version:refname "$remote" | \
 	awk -v tagType="$tagType" '
 $2 ~ /^refs\/tags\// {
     tag = substr($2, 11)
@@ -78,4 +80,6 @@ END {
 }
 '
 }
-eval 'tagtype' "${filter:+|} $filter"
+
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+eval 'tagtype' "${filter:+|} $filter" "${pager:+|}" '"${pager[@]}"'

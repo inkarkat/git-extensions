@@ -10,7 +10,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[-q|--quiet] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success|--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [--interrupt-on-failure|--interrupt-on EXIT_STATUS] [--continue|--abort|--stashed] [--include-current] [--include-master] [--include-base] [--include-all] [--branches "<branch1> ..."] [--detach] [-B N|--max-branch N] [[--not]-P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...]] [-?|-h|--help]'
+    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[-q|--quiet] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success] [--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [--interrupt-on-failure|--interrupt-on EXIT_STATUS] [--continue|--abort|--stashed] [--include-current] [--include-master] [--include-base] [--include-all] [--branches "<branch1> ..."] [--detach] [-B N|--max-branch N] [[--not]-P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -392,11 +392,12 @@ localbrdo()
 	abortIfDesired $newStatus
 	interruptIfDesired $newStatus
 
+	[ $newStatus -eq 0 ] && isSuccess=t
 	if [ "$isStatus99Noop" ]; then
 	    status=$(status99Reduction "$status" $newStatus)
 	else
 	    case $newStatus in
-		0)  isSuccess=t; : ${status:=0};;
+		0)  : ${status:=0};;
 		*)  status=$newStatus;;
 	    esac
 	fi
@@ -405,8 +406,8 @@ localbrdo()
     [ "$isQuiet" ] || echo >&2 'All local branches have been iterated over.'
     restoreOriginalBranch || status=$?
 
-    if [ "$isSingleSuccess" ]; then
-	[ "$isSuccess" ]
+    if [ "$isSingleSuccess" ] && [ "$isSuccess" ]; then
+	return 0
     else
 	return ${status:-99}
     fi

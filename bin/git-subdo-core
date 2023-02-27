@@ -6,7 +6,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: [GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES=99] %q %s%s %s\n' "$(basename "$1")" '[--recursive] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success|--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [<revision-range>] [--since <date>] [--after <date>] [--for -|--for SUBMODULE [...] ;] [--include-superproject] [[--not] -P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]'
+    printf 'Usage: [GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES=99] %q %s%s %s\n' "$(basename "$1")" '[--recursive] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success] [--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [<revision-range>] [--since <date>] [--after <date>] [--for -|--for SUBMODULE [...] ;] [--include-superproject] [[--not] -P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -320,18 +320,19 @@ subdo()
 
 	abortIfDesired $newStatus
 
+	[ $newStatus -eq 0 ] && isSuccess=t
 	if [ "$isStatus99Noop" ]; then
 	    status=$(status99Reduction "$status" $newStatus)
 	else
 	    case $newStatus in
-		0)  isSuccess=t; : ${status:=0};;
+		0)  : ${status:=0};;
 		*)  status=$newStatus;;
 	    esac
 	fi
     done
 
-    if [ "$isSingleSuccess" ]; then
-	[ "$isSuccess" ]
+    if [ "$isSingleSuccess" ] && [ "$isSuccess" ]; then
+	return 0
     else
 	return ${status:-${GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES:-99}}
     fi

@@ -7,7 +7,7 @@ printUsage()
 List all / only those tags of the passed (annotated or lightweight) type in ${remote:-REMOTE}.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} all|annotated|lightweight [-l|--list <pattern>] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} all|annotated|lightweight [[-l|--list] <pattern>] [-?|-h|--help]"
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
@@ -34,6 +34,11 @@ case "$1" in
 			shift;;
     --color)		shift; shift;;
     --list|-l)		shift; filter='matcher'; pattern="$1"; shift;;
+esac
+case $# in
+    0)	;;
+    1)	filter='matcher'; pattern="$1"; shift;;
+    *)	printUsage "$0" >&2; exit 2;;
 esac
 
 matcher()

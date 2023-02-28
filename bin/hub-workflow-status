@@ -105,9 +105,9 @@ fi
 
 if [ "$isWait" ]; then
     verb="$(joinBy ' or ' "${acceptedStates[@]}")"
-    RETRY_SUCCEED_VERB="got $verb" RETRY_FAIL_VERB="still is not $verb" RETRY_ABORT_VERB="did not become $verb" \
-	retry --silent-command --command-name "${waitWhat:-The workflow action}" ${action:+--verbose-or-none} --interval "$HUB_WORKFLOWSTATUS_WAIT_INTERVAL" --abort-timeout "$HUB_WORKFLOWSTATUS_WAIT_TIMEOUT" \
-	    "${BASH_SOURCE[0]}" --quiet "${recursiveArgs[@]}" "$@"
+    RETRY_SUCCEED_VERB="got $verb" RETRY_FAIL_VERB="still is not ${verb}${action:+: %OUTPUT%}" RETRY_ABORT_VERB="did not become ${verb}${action:+: %OUTPUT%}" \
+	retry --silent-command --command-name "${waitWhat:-The workflow action}" ${action:+--verbose-or-none --verbose-output} --interval "$HUB_WORKFLOWSTATUS_WAIT_INTERVAL" --abort-timeout "$HUB_WORKFLOWSTATUS_WAIT_TIMEOUT" \
+	    "${BASH_SOURCE[0]}" "${recursiveArgs[@]}" "$@"
     exit $?
 fi
 
@@ -116,7 +116,7 @@ apiCall()
     hub api -XGET "${queryArgs[@]}" "/repos/${HUB_WORKFLOWSTATUS_OWNER}/${HUB_WORKFLOWSTATUS_REPO}/actions/workflows/${workflowId}/runs" \
 	| jq --raw-output '.workflow_runs | try .[] | (.run_number | tostring) + "\t" + .status + "\t" + .updated_at + (if .run_attempt > 1 then "\t(" + .run_attempt + ")" else "" end) + "\t" + .html_url' \
 	| sort --field-separator $'\n' --numeric-sort --key=1,1 \
-	|| exit 3
+	    || exit 3
 }
 
 filterLatest()

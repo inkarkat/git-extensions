@@ -44,7 +44,9 @@ HELPDESCRIPTION
     --latest|-l		Only print / consider the last status.
     --is STATE		Fail unless one / the status is STATE.
     --wait WHAT		Block and repeatedly check whether STATE has been
-			reached.
+			reached. It's recommended to combine this with --latest
+			(or at least use --quiet to avoid printing all
+			statuses).
     --quiet|-q		Don't print the status.
     --has-workflow	Just (silently) check whether a workflow ID has been
 			configured or passed.
@@ -96,7 +98,7 @@ if [ -z "$workflowId" ]; then
     workflowId="$(git config --get "$WORKFLOW_ID_CONFIG_KEY")"
     if [ -z "$workflowId" ]; then
 	[ "$isWorkflowCheck" ] && exit 1
-	echo >&2 "ERROR: No workflow specified (via --idWORKFLOW_ID|WORKFLOW_FILENAME, \$HUB_WORKFLOWSTATUS_WORKFLOW_ID, or the $WORKFLOW_ID_CONFIG_KEY configuration)."
+	echo >&2 "ERROR: No workflow specified (via --id WORKFLOW_ID|WORKFLOW_FILENAME, \$HUB_WORKFLOWSTATUS_WORKFLOW_ID, or the $WORKFLOW_ID_CONFIG_KEY configuration)."
 	exit 2
     elif [ "$isWorkflowCheck" ]; then
 	exit 0
@@ -105,18 +107,18 @@ fi
 
 if [ "$isWait" ]; then
     verb="$(joinBy ' or ' "${acceptedStates[@]}")"
-    RETRY_SUCCEED_VERB="got $verb" RETRY_FAIL_VERB="still is not $verb" RETRY_ABORT_VERB="did not become $verb" \
-	retry --silent-command --command-name "${waitWhat:-The workflow action}" ${action:+--verbose-or-none} --interval "$HUB_WORKFLOWSTATUS_WAIT_INTERVAL" --abort-timeout "$HUB_WORKFLOWSTATUS_WAIT_TIMEOUT" \
-	    "${BASH_SOURCE[0]}" --quiet "${recursiveArgs[@]}" "$@"
+    RETRY_SUCCEED_VERB="got $verb" RETRY_FAIL_VERB="still is not ${verb}${action:+: %OUTPUT%}" RETRY_ABORT_VERB="did not become ${verb}${action:+: %OUTPUT%}" \
+	retry --silent-command --command-name "${waitWhat:-The workflow action}" ${action:+--verbose-or-none --verbose-output} --interval "$HUB_WORKFLOWSTATUS_WAIT_INTERVAL" --abort-timeout "$HUB_WORKFLOWSTATUS_WAIT_TIMEOUT" \
+	    "${BASH_SOURCE[0]}" "${recursiveArgs[@]}" "$@"
     exit $?
 fi
 
 apiCall()
 {
     hub api -XGET "${queryArgs[@]}" "/repos/${HUB_WORKFLOWSTATUS_OWNER}/${HUB_WORKFLOWSTATUS_REPO}/actions/workflows/${workflowId}/runs" \
-	| jq --raw-output '.workflow_runs | .[] | (.run_number | tostring) + "\t" + .status + "\t" + .updated_at + (if .run_attempt > 1 then "\t(" + .run_attempt + ")" else "" end) + "\t" + .html_url' \
+	| jq --raw-output '.workflow_runs | try .[] | (.run_number | tostring) + "\t" + .status + "\t" + .updated_at + (if .run_attempt > 1 then "\t(" + .run_attempt + ")" else "" end) + "\t" + .html_url' \
 	| sort --field-separator $'\n' --numeric-sort --key=1,1 \
-	|| exit 3
+	    || exit 3
 }
 
 filterLatest()

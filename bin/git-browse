@@ -1,0 +1,30 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Open the passed URL(s) / URL shortcut files in the default browser.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'URL|URL-FILE [...] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+if [ $# -eq 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+if [ -n "$GIT_BROWSE_BROWSER" ]; then
+    exec "$GIT_BROWSE_BROWSER" "$@"
+elif type -P browse >/dev/null; then
+    exec browse "$@"
+elif type -P x-www-browser >/dev/null; then
+    exec x-www-browser "$@"
+elif type -P xdg-open >/dev/null; then
+    exec xdg-open "$@"
+else
+    echo >&2 'ERROR: Cannot find a web browser; point the GIT_BROWSE_BROWSER environment variable to one.'
+    exit 3
+fi

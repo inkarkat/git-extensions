@@ -13,7 +13,7 @@ printShortUsage()
     # skim the long one.
     printf 'Usage: [HUB_WORKFLOWSTATUS_WORKFLOW_ID=WORKFLOW_ID|WORKFLOW_FILENAME] %q %s\n' "$(basename "$1")" '[--id WORKFLOW_ID|WORKFLOW_FILENAME] [-u|--user USER] [-b|--branch BRANCH] [-r|--revision REVISION] [-l|--latest] [--is STATE [--is ...] [--wait WHAT] [-q|--quiet] [-?|-h|--help]'
     echo
-    printf 'Usage: [HUB_WORKFLOWSTATUS_WORKFLOW_ID=WORKFLOW_ID|WORKFLOW_FILENAME] %q %s\n' "$(basename "$1")" '[--id WORKFLOW_ID|WORKFLOW_FILENAME] [-u|--user USER] [-b|--branch BRANCH] [-r|--revision REVISION] [-l|--latest] --url'
+    printf 'Usage: [HUB_WORKFLOWSTATUS_WORKFLOW_ID=WORKFLOW_ID|WORKFLOW_FILENAME] %q %s\n' "$(basename "$1")" '[--id WORKFLOW_ID|WORKFLOW_FILENAME] [-u|--user USER] [-b|--branch BRANCH] [-r|--revision REVISION] [-l|--latest] --browse|--url'
     echo
     printf 'Usage: [HUB_WORKFLOWSTATUS_WORKFLOW_ID=WORKFLOW_ID|WORKFLOW_FILENAME] %q %s\n' "$(basename "$1")" '--has-workflow [--id WORKFLOW_ID|WORKFLOW_FILENAME]'
 }
@@ -49,6 +49,8 @@ HELPDESCRIPTION
 			reached. It's recommended to combine this with --latest
 			(or at least use --quiet to avoid printing all
 			statuses).
+    --browse		Open the URL(s) of the workflow status page(s) in a
+			browser.
     --url		Only print the URL(s) of the workflow status page(s).
     --quiet|-q		Don't print the status.
     --has-workflow	Just (silently) check whether a workflow ID has been
@@ -89,6 +91,7 @@ do
 	--wait)		shift; waitWhat="$1"; shift; isWait=t;;
 	--quiet|-q)	recursiveArgs+=("$1"); shift; action='';;
 
+	--browse)	shift; action=browseUrl;;
 	--url)		shift; action=printUrl;;
 	--)		recursiveArgs+=("$1"); shift; break;;
 	*)		break;;
@@ -153,6 +156,13 @@ list()
 printUrl()
 {
     field --field-separator $'\t' -1
+}
+
+browseUrl()
+{
+    readarray -t urls < <(printUrl)
+    [ ${#urls[@]} -gt 0 ] || exit 1
+    exec git-browse "${urls[@]}"
 }
 
 eval 'apiCall "$@"' "${preAction:+|}$preAction" "${compareAction:+|}$compareAction" "${action:+|}${action:->/dev/null}"

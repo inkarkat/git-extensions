@@ -23,18 +23,25 @@ if git issubmodule; then
     {
 	cd "$submoduleRoot" || exit 3
 	header "$(git-wcname)"
-	message="$(hub-superpr)" || exit $?
+	message="$(withSeparator \
+	    --command hub-superpr \
+	    --command 'git bomlog --pretty=format:%B' \
+	)" || exit $?
+
 	hub pull-request --message "$message" --edit
     }
 else
     handleSubmodules()
     {
 	message="$(hub-prtitle --as-integration-message --qualified-with-userrepo)" || return $?
-	hub-subsamebrdo --no-git-color --interactive pull-request --message "$message" --edit
+	hub-subsamebrdo --no-git-color --interactive --command "logs=\"\$(git bomlog --pretty=format:%B)\"; hub pull-request --message \"\$message\"\$'\\n'\"\$logs\" --edit"
     }
 fi
 
-message="$(git-servername --message)" || exit $?
+message="$(withSeparator \
+    --command 'git-servername --message' \
+    --command 'git bomlog --pretty=format:%B' \
+)" || exit $?
 hub pull-request --draft --message "$message" --edit || exit $?
 
 handleSubmodules || exit $?

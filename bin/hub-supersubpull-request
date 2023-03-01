@@ -23,19 +23,19 @@ if git issubmodule; then
     {
 	cd "$submoduleRoot" || exit 3
 	header "$(git-wcname)"
-	hub-superpr | clipboard --verbose || return $?
-	hub pull-request
+	message="$(hub-superpr)" || exit $?
+	hub pull-request --message "$message" --edit
     }
 else
     handleSubmodules()
     {
-	hub-prtitle --as-integration-message --qualified-with-userrepo | clipboard --verbose || return $?
-	hub-subsamebrdo --no-git-color --interactive pull-request
+	message="$(hub-prtitle --as-integration-message --qualified-with-userrepo)" || return $?
+	hub-subsamebrdo --no-git-color --interactive pull-request --message "$message" --edit
     }
 fi
 
-git-servername --message | clipboard --verbose || exit $?
-hub pull-request --draft
+message="$(git-servername --message)" || exit $?
+hub pull-request --draft --message "$message" --edit || exit $?
 
 handleSubmodules || exit $?
 

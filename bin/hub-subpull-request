@@ -14,16 +14,18 @@ case "$1" in
 esac
 
 if git issubmodule; then
-    withSeparator \
+    message="$(withSeparator \
 	--command 'git superdo --no-header boml' \
 	--command 'git boml' \
 	--command 'git-servername --message' \
-	    | clipboard --verbose || exit $?
-    hub pull-request
+    )" || exit $?
+
+    hub pull-request --message "$message" --edit
 else
-    withSeparator \
+    message="$(withSeparator \
 	--command 'git boml' \
 	--command 'git-servername --message' \
-	    | clipboard --verbose || exit $?
-    hub subsamebrdo --no-git-color --interactive pull-request
+    )" || exit $?
+
+    hub subsamebrdo --no-git-color --interactive pull-request --message "$message" --edit
 fi

@@ -14,21 +14,6 @@ HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-p|--print] [--accept-single] [--single-only] [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
 }
-openBrowser()
-{
-    if [ -n "$GIT_LOGBROWSE_BROWSER" ]; then
-	exec "$GIT_LOGBROWSE_BROWSER" "$@"
-    elif type -P browse >/dev/null; then
-	exec browse "$@"
-    elif type -P x-www-browser >/dev/null; then
-	exec x-www-browser "$@"
-    elif type -P xdg-open >/dev/null; then
-	exec xdg-open "$@"
-    else
-	echo >&2 'ERROR: Cannot find a web browser; point the GIT_LOGBROWSE_BROWSER environment variable to one.'
-	exit 5
-    fi
-}
 isPrint=
 typeset -a commandOnSelectedArgs=()
 typeset -a logArgs=()
@@ -36,7 +21,6 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-	--browse)	shift; openBrowser "$@"; exit $?;;
 	--@(accept-single|single-only))
 			commandOnSelectedArgs+=("$1"); shift;;
 	--print|-p)	shift; isPrint=t;;
@@ -92,6 +76,5 @@ if [ "$isPrint" ]; then
     printf '%s\n' "${urls[@]}"
     exit 0
 else
-    printf -v quotedScriptFilespec %q "${BASH_SOURCE[0]}"
-    exec commandOnSelected "${commandOnSelectedArgs[@]}" --command "$quotedScriptFilespec --browse" -- "${urls[@]}"
+    exec commandOnSelected "${commandOnSelectedArgs[@]}" --command 'git-browse' -- "${urls[@]}"
 fi

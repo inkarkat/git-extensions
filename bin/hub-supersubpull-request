@@ -46,8 +46,10 @@ hub pull-request --draft --message "$message" --edit || exit $?
 
 handleSubmodules || exit $?
 
-withSeparator \
-    --command 'git boml' \
-    --command hub-bomsubchanges \
-	| clipboard --verbose || exit $?
-gh pr edit
+tempedit \
+    --sink-exec gh pr edit --body-file {} \; \
+    -- withSeparator \
+	--command 'hub pr list -f "%b"' \
+	--command 'git boml' \
+	--command hub-bomsubchanges \
+

@@ -18,11 +18,18 @@ if git issubmodule; then
     header "../$(git-wcname)"
 fi
 
+typeset -a submoduleMessageCommands=(--command hub-bomsubchanges)
+typeset -a submodulePullRequestArgs=(--draft)
+if ! git bomsubmodules >/dev/null; then
+    submoduleMessageCommands=()
+    submodulePullRequestArgs=()
+fi
+
 message="$(withSeparator \
     --command 'git boml' \
-    --command hub-bomsubchanges \
+    "${submoduleMessageCommands[@]}" \
     --command 'git-servername --message' \
     --command 'git bomlog --pretty=format:%B' \
 )" || exit $?
 
-hub pull-request --draft --message "$message" --edit
+hub pull-request "${submodulePullRequestArgs[@]}" --message "$message" --edit

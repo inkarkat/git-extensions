@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--accept-single] [--single-only] [--range-is-last] [--pass-file-args] ... --since <date>|--max-count <number>|-n <number>|<range> [GIT-COMMAND-ARGS ...] [--] [FILE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--accept-single] [--single-only] [--range-is-last] [--pass-file-args] [--allow-outside-workingcopy] ... --since <date>|--max-count <number>|-n <number>|<range> [GIT-COMMAND-ARGS ...] [--] [FILE ...] [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [GIT-COMMAND-ARGS ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... COMMITS ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
@@ -42,10 +42,15 @@ HELPDESCRIPTION
     --pass-file-args
 		    Pass FILE arguments also to GIT-COMMAND, and not just use
 		    them to determine the commits.
+    --allow-outside-workingcopy
+		    Use git-inside to also resolve commits from outside the
+		    current working copy. If --pass-file-args is also passed,
+		    GIT-COMMAND must be able to deal with those files, too.
 HELPTEXT
 }
 isRangeLastArg=
 isPassFileArgs=
+isAllowOutsideWorkingCopy=
 typeset -a commandOnSelectedArgs=()
 while [ $# -ne 0 ]
 do
@@ -57,6 +62,8 @@ do
 			shift; isRangeLastArg=t;;
 	--pass-file-args)
 			shift; isPassFileArgs=t;;
+	--allow-outside-workingcopy)
+			shift; isAllowOutsideWorkingCopy=t;;
 	*)		break;;
     esac
 done
@@ -197,7 +204,7 @@ appendMergeIndicator()
 readarray -t commits < <(
     : ${GIT_SELECTEDCOMMIT_COMMAND_FORMAT:=$'%s\t%p'}
     mergeIndicatorCommand=; [[ "$GIT_SELECTEDCOMMIT_COMMAND_FORMAT" =~ $'\t'%p$ ]] && mergeIndicatorCommand=appendMergeIndicator
-    eval "git ${GIT_SELECTEDCOMMIT_COMMAND:-log}" '--pretty="tformat:%H $GIT_SELECTEDCOMMIT_COMMAND_FORMAT" "${rangeModificationArgs[@]}" "${rangeArgs[@]}" ${files:+--} "${files[@]}"' "${mergeIndicatorCommand:+|}$mergeIndicatorCommand" \
+    eval "git${files:+${isAllowOutsideWorkingCopy:+-inside}} ${GIT_SELECTEDCOMMIT_COMMAND:-log}" '--pretty="tformat:%H $GIT_SELECTEDCOMMIT_COMMAND_FORMAT" "${rangeModificationArgs[@]}" "${rangeArgs[@]}" ${files:+${isAllowOutsideWorkingCopy:+\$FILE }--} "${files[@]}"' "${mergeIndicatorCommand:+|}$mergeIndicatorCommand" \
 	| truncate-trailing -w \
 	| commandWithHiddenId --stdin -p -c "commandOnSelected --stdin${commandOnSelectedArgs:+ }${commandOnSelectedArgs[*]}"
     printf '\n%d\n' "$?"

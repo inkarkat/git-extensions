@@ -11,7 +11,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: [HUB_WORKFLOWSTATUS_WORKFLOW_ID=WORKFLOW_ID|WORKFLOW_FILENAME] %q %s\n' "$(basename "$1")" '[--id WORKFLOW_ID|WORKFLOW_FILENAME] [-u|--user USER] [-b|--branch BRANCH] [-r|--revision REVISION] [-l|--latest] [--is STATE [--is ...] [--wait WHAT|-W|--wait-for-completion] [-q|--quiet] [-?|-h|--help]'
+    printf 'Usage: [HUB_WORKFLOWSTATUS_WORKFLOW_ID=WORKFLOW_ID|WORKFLOW_FILENAME] %q %s\n' "$(basename "$1")" '[--id WORKFLOW_ID|WORKFLOW_FILENAME] [-u|--user USER] [-b|--branch BRANCH] [-r|--revision REVISION] [-l|--latest] [--is STATE [--is ...] [--print-all]] [--wait WHAT|-W|--wait-for-completion] [-q|--quiet] [-?|-h|--help]'
     echo
     printf 'Usage: [HUB_WORKFLOWSTATUS_WORKFLOW_ID=WORKFLOW_ID|WORKFLOW_FILENAME] %q %s\n' "$(basename "$1")" '[--id WORKFLOW_ID|WORKFLOW_FILENAME] [-u|--user USER] [-b|--branch BRANCH] [-r|--revision REVISION] [-l|--latest] --browse|--url|--raw'
     echo
@@ -44,7 +44,9 @@ HELPDESCRIPTION
     --revision|-r REVISION
 			Limit to workflow runs that build REVISION.
     --latest|-l		Only print / consider the last status.
-    --is STATE		Fail unless one / the status is STATE.
+    --is STATE		Only print if one / the status is STATE; else fail.
+    --print-all		A match of STATE only determines the exit status but
+			does not drop non-matching workflows from the output.
     --wait WHAT		Block and repeatedly check whether STATE has been
 			reached. It's recommended to combine this with --latest
 			(or at least use --quiet to avoid printing all
@@ -80,6 +82,7 @@ compareAction=
 typeset -a acceptedStates=()
 isWait=
 waitWhat=
+isFiltering=t
 typeset -a recursiveArgs=()
 while [ $# -ne 0 ]
 do
@@ -97,6 +100,7 @@ do
 	--wait)		shift; waitWhat="$1"; shift; isWait=t;;
 	--wait-for-completion|-W)
 			shift; set -- "$@" --latest --is completed --wait 'The workflow';;
+	--print-all)	shift; isFiltering=;;
 	--quiet|-q)	recursiveArgs+=("$1"); shift; action='';;
 	--raw)		recursiveArgs+=("$1"); shift; parser=''; action=cat;;
 
@@ -132,7 +136,7 @@ if [ "$isWait" ]; then
     verb="$(joinBy ' or ' "${acceptedStates[@]}")"
     RETRY_SUCCEED_VERB="got $verb" RETRY_FAIL_VERB="still is not ${verb}${action:+: %OUTPUT%}" RETRY_ABORT_VERB="did not become ${verb}${action:+: %OUTPUT%}" \
 	retry --silent-command --command-name "${waitWhat:-The workflow action}" ${action:+--verbose-or-none --verbose-output} --interval "$HUB_WORKFLOWSTATUS_WAIT_INTERVAL" --abort-timeout "$HUB_WORKFLOWSTATUS_WAIT_TIMEOUT" \
-	    "${BASH_SOURCE[0]}" "${recursiveArgs[@]}" "$@"
+	    "${BASH_SOURCE[0]}" --print-all "${recursiveArgs[@]}" "$@"
     exit $?
 fi
 
@@ -158,8 +162,12 @@ compareState()
     local runNumber statusValue timestamp isFound=
     while IFS=$'\t' read -r runNumber statusValue conclusionValue timestamp
     do
+	if contains "$statusValue" "${acceptedStates[@]}"; then
+	    isFound=t
+	elif [ "$isFiltering" ]; then
+	    continue
+	fi
 	printf '%s\t%s\t%s\t%s\n' "$runNumber" "$statusValue" "$conclusionValue" "$timestamp"
-	contains "$statusValue" "${acceptedStates[@]}" && isFound=t
     done
     [ "$isFound" ]
 }

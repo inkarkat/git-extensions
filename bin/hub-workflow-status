@@ -11,9 +11,9 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: [HUB_WORKFLOWSTATUS_WORKFLOW_ID=WORKFLOW_ID|WORKFLOW_FILENAME] %q %s\n' "$(basename "$1")" '[--id WORKFLOW_ID|WORKFLOW_FILENAME] [-u|--user USER] [-b|--branch BRANCH] [-r|--revision REVISION] [-l|--latest] [--is STATE [--is ...] [--wait WHAT] [-q|--quiet] [-?|-h|--help]'
+    printf 'Usage: [HUB_WORKFLOWSTATUS_WORKFLOW_ID=WORKFLOW_ID|WORKFLOW_FILENAME] %q %s\n' "$(basename "$1")" '[--id WORKFLOW_ID|WORKFLOW_FILENAME] [-u|--user USER] [-b|--branch BRANCH] [-r|--revision REVISION] [-l|--latest] [--is STATE [--is ...] [--print-all]] [--concluded CONCLUSION [--concluded ...] [--print-all]] [--wait WHAT|-W|--wait-for-completion] [-q|--quiet] [-?|-h|--help]'
     echo
-    printf 'Usage: [HUB_WORKFLOWSTATUS_WORKFLOW_ID=WORKFLOW_ID|WORKFLOW_FILENAME] %q %s\n' "$(basename "$1")" '[--id WORKFLOW_ID|WORKFLOW_FILENAME] [-u|--user USER] [-b|--branch BRANCH] [-r|--revision REVISION] [-l|--latest] --browse|--url'
+    printf 'Usage: [HUB_WORKFLOWSTATUS_WORKFLOW_ID=WORKFLOW_ID|WORKFLOW_FILENAME] %q %s\n' "$(basename "$1")" '[--id WORKFLOW_ID|WORKFLOW_FILENAME] [-u|--user USER] [-b|--branch BRANCH] [-r|--revision REVISION] [-l|--latest] --browse|--url|--raw'
     echo
     printf 'Usage: [HUB_WORKFLOWSTATUS_WORKFLOW_ID=WORKFLOW_ID|WORKFLOW_FILENAME] %q %s\n' "$(basename "$1")" '--has-workflow [--id WORKFLOW_ID|WORKFLOW_FILENAME]'
 }
@@ -44,14 +44,25 @@ HELPDESCRIPTION
     --revision|-r REVISION
 			Limit to workflow runs that build REVISION.
     --latest|-l		Only print / consider the last status.
-    --is STATE		Fail unless one / the status is STATE.
+    --is STATE		Only print if one / the status is STATE; else fail.
+    --concluded CONCLUSION
+			Only print if one / the workflow concluded with
+			CONCLUSION; else fail.
+    --print-all		A match of STATE / CONCLUSION only determines the exit
+			status but does not drop non-matching workflows from the
+			output.
     --wait WHAT		Block and repeatedly check whether STATE has been
 			reached. It's recommended to combine this with --latest
 			(or at least use --quiet to avoid printing all
 			statuses).
+    --wait-for-completion|-W
+			Block and repeatedly check whether the last workflow has
+			completed. Equivalent to:
+			--latest --is completed --wait 'The workflow'
     --browse		Open the URL(s) of the workflow status page(s) in a
 			browser.
     --url		Only print the URL(s) of the workflow status page(s).
+    --raw		Print the raw JSON response.
     --quiet|-q		Don't print the status.
     --has-workflow	Just (silently) check whether a workflow ID has been
 			configured or passed.
@@ -68,12 +79,15 @@ HELPTEXT
 isWorkflowCheck=
 workflowId="${HUB_WORKFLOWSTATUS_WORKFLOW_ID}"
 typeset -a queryArgs=()
+parser=parseResponse
 preAction=
 action=list
 compareAction=
 typeset -a acceptedStates=()
+typeset -a acceptedConclusions=()
 isWait=
 waitWhat=
+isFiltering=t
 typeset -a recursiveArgs=()
 while [ $# -ne 0 ]
 do
@@ -87,9 +101,14 @@ do
 	--revision|-r)	recursiveArgs+=("$1" "$2"); shift; commitId="$(git-commitid -- "${1:?}")" || exit 2; queryArgs+=(--field "head_sha=$commitId"); shift;;
 
 	--latest|-l)	recursiveArgs+=("$1"); shift; preAction='filterLatest';;
-	--is)		recursiveArgs+=("$1" "$2"); shift; acceptedStates+=("${1:?}"); shift; compareAction=compareState;;
+	--is)		recursiveArgs+=("$1" "$2"); shift; acceptedStates+=("${1:?}"); shift; compareAction+=${compareAction:+|}compareState;;
+	--concluded)	recursiveArgs+=("$1" "$2"); shift; acceptedConclusions+=("${1:?}"); shift; compareAction+=${compareAction:+|}compareConclusion;;
 	--wait)		shift; waitWhat="$1"; shift; isWait=t;;
+	--wait-for-completion|-W)
+			shift; set -- "$@" --latest --is completed --wait 'The workflow';;
+	--print-all)	shift; isFiltering=;;
 	--quiet|-q)	recursiveArgs+=("$1"); shift; action='';;
+	--raw)		recursiveArgs+=("$1"); shift; parser=''; action=cat;;
 
 	--browse)	shift; action=browseUrl;;
 	--url)		shift; action=printUrl;;
@@ -113,17 +132,28 @@ if [ -z "$workflowId" ]; then
 fi
 
 if [ "$isWait" ]; then
+    if [ ${#acceptedStates[@]} -eq 0 ]; then
+	echo 'ERROR: Need --is STATE to wait for.'
+	echo
+	printUsage "$0"
+	exit 2
+    fi >&2
+
     verb="$(joinBy ' or ' "${acceptedStates[@]}")"
     RETRY_SUCCEED_VERB="got $verb" RETRY_FAIL_VERB="still is not ${verb}${action:+: %OUTPUT%}" RETRY_ABORT_VERB="did not become ${verb}${action:+: %OUTPUT%}" \
 	retry --silent-command --command-name "${waitWhat:-The workflow action}" ${action:+--verbose-or-none --verbose-output} --interval "$HUB_WORKFLOWSTATUS_WAIT_INTERVAL" --abort-timeout "$HUB_WORKFLOWSTATUS_WAIT_TIMEOUT" \
-	    "${BASH_SOURCE[0]}" "${recursiveArgs[@]}" "$@"
+	    "${BASH_SOURCE[0]}" --print-all "${recursiveArgs[@]}" "$@"
     exit $?
 fi
 
 apiCall()
 {
-    hub api -XGET "${queryArgs[@]}" "/repos/${HUB_WORKFLOWSTATUS_OWNER}/${HUB_WORKFLOWSTATUS_REPO}/actions/workflows/${workflowId}/runs" \
-	| jq --raw-output '.workflow_runs | try .[] | (.run_number | tostring) + "\t" + .status + "\t" + .updated_at + (if .run_attempt > 1 then "\t(" + .run_attempt + ")" else "" end) + "\t" + .html_url' \
+    hub api -XGET "${queryArgs[@]}" "/repos/${HUB_WORKFLOWSTATUS_OWNER}/${HUB_WORKFLOWSTATUS_REPO}/actions/workflows/${workflowId}/runs" || exit 3
+}
+
+parseResponse()
+{
+    jq --raw-output '.workflow_runs | try .[] | (.run_number | tostring) + "\t" + .status + "\t" + .conclusion + "\t" + .updated_at + (if .run_attempt > 1 then "\t(" + (.run_attempt | tostring) + ")" else "\t" end) + "\t" + .html_url' \
 	| sort --field-separator $'\n' --numeric-sort --key=1,1 \
 	    || exit 3
 }
@@ -136,10 +166,29 @@ filterLatest()
 compareState()
 {
     local runNumber statusValue timestamp isFound=
-    while IFS=$'\t' read -r runNumber statusValue timestamp
+    while IFS=$'\t' read -r runNumber statusValue conclusionValue timestamp
     do
-	printf '%s\t%s\t%s\n' "$runNumber" "$statusValue" "$timestamp"
-	contains "$statusValue" "${acceptedStates[@]}" && isFound=t
+	if contains "$statusValue" "${acceptedStates[@]}"; then
+	    isFound=t
+	elif [ "$isFiltering" ]; then
+	    continue
+	fi
+	printf '%s\t%s\t%s\t%s\n' "$runNumber" "$statusValue" "$conclusionValue" "$timestamp"
+    done
+    [ "$isFound" ]
+}
+
+compareConclusion()
+{
+    local runNumber statusValue timestamp isFound=
+    while IFS=$'\t' read -r runNumber statusValue conclusionValue timestamp
+    do
+	if contains "$conclusionValue" "${acceptedConclusions[@]}"; then
+	    isFound=t
+	elif [ "$isFiltering" ]; then
+	    continue
+	fi
+	printf '%s\t%s\t%s\t%s\n' "$runNumber" "$statusValue" "$conclusionValue" "$timestamp"
     done
     [ "$isFound" ]
 }
@@ -165,4 +214,4 @@ browseUrl()
     exec git-browse "${urls[@]}"
 }
 
-eval 'apiCall "$@"' "${preAction:+|}$preAction" "${compareAction:+|}$compareAction" "${action:+|}${action:->/dev/null}"
+eval 'apiCall "$@"' "${parser:+|}$parser" "${preAction:+|}$preAction" "${compareAction:+|}$compareAction" "${action:+|}${action:->/dev/null}"

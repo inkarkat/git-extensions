@@ -13,7 +13,7 @@ printShortUsage()
     # skim the long one.
     printf 'Usage: [HUB_WORKFLOWSTATUS_WORKFLOW_ID=WORKFLOW_ID|WORKFLOW_FILENAME] %q %s\n' "$(basename "$1")" '[--id WORKFLOW_ID|WORKFLOW_FILENAME] [-u|--user USER] [-b|--branch BRANCH] [-r|--revision REVISION] [-l|--latest] [--is STATE [--is ...] [--wait WHAT|-W|--wait-for-completion] [-q|--quiet] [-?|-h|--help]'
     echo
-    printf 'Usage: [HUB_WORKFLOWSTATUS_WORKFLOW_ID=WORKFLOW_ID|WORKFLOW_FILENAME] %q %s\n' "$(basename "$1")" '[--id WORKFLOW_ID|WORKFLOW_FILENAME] [-u|--user USER] [-b|--branch BRANCH] [-r|--revision REVISION] [-l|--latest] --browse|--url'
+    printf 'Usage: [HUB_WORKFLOWSTATUS_WORKFLOW_ID=WORKFLOW_ID|WORKFLOW_FILENAME] %q %s\n' "$(basename "$1")" '[--id WORKFLOW_ID|WORKFLOW_FILENAME] [-u|--user USER] [-b|--branch BRANCH] [-r|--revision REVISION] [-l|--latest] --browse|--url|--raw'
     echo
     printf 'Usage: [HUB_WORKFLOWSTATUS_WORKFLOW_ID=WORKFLOW_ID|WORKFLOW_FILENAME] %q %s\n' "$(basename "$1")" '--has-workflow [--id WORKFLOW_ID|WORKFLOW_FILENAME]'
 }
@@ -56,6 +56,7 @@ HELPDESCRIPTION
     --browse		Open the URL(s) of the workflow status page(s) in a
 			browser.
     --url		Only print the URL(s) of the workflow status page(s).
+    --raw		Print the raw JSON response.
     --quiet|-q		Don't print the status.
     --has-workflow	Just (silently) check whether a workflow ID has been
 			configured or passed.
@@ -97,6 +98,7 @@ do
 	--wait-for-completion|-W)
 			shift; set -- "$@" --latest --is completed --wait 'The workflow';;
 	--quiet|-q)	recursiveArgs+=("$1"); shift; action='';;
+	--raw)		recursiveArgs+=("$1"); shift; parser=''; action=cat;;
 
 	--browse)	shift; action=browseUrl;;
 	--url)		shift; action=printUrl;;

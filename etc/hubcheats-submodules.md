@@ -66,7 +66,9 @@ commit to accept a push. So we need to do a local rebase / merge of `master`
 onto the branch, push that, wait for the action, and then can reintegrate (or
 push the corresponding button in GitHub; both of which should be a simple
 fast-forward).
-`$ hub supersubreintegratetom`
+a) `$ hub supersubreintegratetom`
+b) just the superproject, no submodules involved:
+  `$ GIT_REINTEGRATE_PRE_PUSH_COMMAND='hub-workflow-status -r HEAD -W' hub ffintegratetom --push-branch --no-ff`
 
 ## Transactional only local merges, then remote updates in bulk at the end:
 ### Prepare transaction:

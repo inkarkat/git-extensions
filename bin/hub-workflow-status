@@ -11,7 +11,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: [HUB_WORKFLOWSTATUS_WORKFLOW_ID=WORKFLOW_ID|WORKFLOW_FILENAME] %q %s\n' "$(basename "$1")" '[--id WORKFLOW_ID|WORKFLOW_FILENAME] [-u|--user USER] [-b|--branch BRANCH] [-r|--revision REVISION] [-l|--latest] [--is STATE [--is ...] [--wait WHAT] [-q|--quiet] [-?|-h|--help]'
+    printf 'Usage: [HUB_WORKFLOWSTATUS_WORKFLOW_ID=WORKFLOW_ID|WORKFLOW_FILENAME] %q %s\n' "$(basename "$1")" '[--id WORKFLOW_ID|WORKFLOW_FILENAME] [-u|--user USER] [-b|--branch BRANCH] [-r|--revision REVISION] [-l|--latest] [--is STATE [--is ...] [--wait WHAT|-W|--wait-for-completion] [-q|--quiet] [-?|-h|--help]'
     echo
     printf 'Usage: [HUB_WORKFLOWSTATUS_WORKFLOW_ID=WORKFLOW_ID|WORKFLOW_FILENAME] %q %s\n' "$(basename "$1")" '[--id WORKFLOW_ID|WORKFLOW_FILENAME] [-u|--user USER] [-b|--branch BRANCH] [-r|--revision REVISION] [-l|--latest] --browse|--url'
     echo
@@ -49,6 +49,10 @@ HELPDESCRIPTION
 			reached. It's recommended to combine this with --latest
 			(or at least use --quiet to avoid printing all
 			statuses).
+    --wait-for-completion|-W
+			Block and repeatedly check whether the last workflow has
+			completed. Equivalent to:
+			--latest --is completed --wait 'The workflow'
     --browse		Open the URL(s) of the workflow status page(s) in a
 			browser.
     --url		Only print the URL(s) of the workflow status page(s).
@@ -89,6 +93,8 @@ do
 	--latest|-l)	recursiveArgs+=("$1"); shift; preAction='filterLatest';;
 	--is)		recursiveArgs+=("$1" "$2"); shift; acceptedStates+=("${1:?}"); shift; compareAction=compareState;;
 	--wait)		shift; waitWhat="$1"; shift; isWait=t;;
+	--wait-for-completion|-W)
+			shift; set -- "$@" --latest --is completed --wait 'The workflow';;
 	--quiet|-q)	recursiveArgs+=("$1"); shift; action='';;
 
 	--browse)	shift; action=browseUrl;;

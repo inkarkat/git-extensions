@@ -72,6 +72,7 @@ HELPTEXT
 isWorkflowCheck=
 workflowId="${HUB_WORKFLOWSTATUS_WORKFLOW_ID}"
 typeset -a queryArgs=()
+parser=parseResponse
 preAction=
 action=list
 compareAction=
@@ -128,8 +129,12 @@ fi
 
 apiCall()
 {
-    hub api -XGET "${queryArgs[@]}" "/repos/${HUB_WORKFLOWSTATUS_OWNER}/${HUB_WORKFLOWSTATUS_REPO}/actions/workflows/${workflowId}/runs" \
-	| jq --raw-output '.workflow_runs | try .[] | (.run_number | tostring) + "\t" + .status + "\t" + .updated_at + (if .run_attempt > 1 then "\t(" + .run_attempt + ")" else "" end) + "\t" + .html_url' \
+    hub api -XGET "${queryArgs[@]}" "/repos/${HUB_WORKFLOWSTATUS_OWNER}/${HUB_WORKFLOWSTATUS_REPO}/actions/workflows/${workflowId}/runs" || exit 3
+}
+
+parseResponse()
+{
+    jq --raw-output '.workflow_runs | try .[] | (.run_number | tostring) + "\t" + .status + "\t" + .updated_at + (if .run_attempt > 1 then "\t(" + .run_attempt + ")" else "" end) + "\t" + .html_url' \
 	| sort --field-separator $'\n' --numeric-sort --key=1,1 \
 	    || exit 3
 }
@@ -171,4 +176,4 @@ browseUrl()
     exec git-browse "${urls[@]}"
 }
 
-eval 'apiCall "$@"' "${preAction:+|}$preAction" "${compareAction:+|}$compareAction" "${action:+|}${action:->/dev/null}"
+eval 'apiCall "$@"' "${parser:+|}$parser" "${preAction:+|}$preAction" "${compareAction:+|}$compareAction" "${action:+|}${action:->/dev/null}"

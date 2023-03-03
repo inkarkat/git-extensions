@@ -53,3 +53,5 @@ a) single commit and then only amends to short-lived feature:
    `$ GIT_REINTEGRATE_PRE_PUSH_COMMAND='hub-workflow-status -r HEAD -W' hub ffintegratetom --push-submodules --delete-merged-submodule-branches --push-branch --rebase-single`
 b) separate superproject commits and/or maintain history of how the feature
    grew: `$ GIT_REINTEGRATE_PRE_PUSH_COMMAND='hub-workflow-status -r HEAD -W' hub ffintegratetom --push-submodules --delete-merged-submodule-branches --push-branch --no-ff`
+c) just the superproject, no submodules involved:
+  `$ GIT_REINTEGRATE_PRE_PUSH_COMMAND='hub-workflow-status -r HEAD -W' hub ffintegratetom --push-branch --no-ff`

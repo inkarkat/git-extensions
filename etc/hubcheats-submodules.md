@@ -68,7 +68,7 @@ push the corresponding button in GitHub; both of which should be a simple
 fast-forward).
 a) `$ hub supersubreintegratetom`
 b) just the superproject, no submodules involved:
-  `$ GIT_REINTEGRATE_PRE_PUSH_COMMAND='hub-workflow-status -r HEAD -W' hub ffintegratetom --push-branch --no-ff`
+  `$ hub superonlyreintegratetom`
 
 ## Transactional only local merges, then remote updates in bulk at the end:
 ### Prepare transaction:

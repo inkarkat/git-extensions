@@ -1,0 +1,85 @@
+#!/bin/bash
+set -o pipefail
+
+: ${GIT_SUPERONLYREINTEGRATETOM_RECENT_FETCH_AGE:=15m}
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+    printf 'Usage: GIT_REINTEGRATE_CHECK_COMMAND=CMD|GIT_CHECK_COMMAND=CMD %q\n' "$(basename "$1")"
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[...] --no-checks | -c|--command "CHECK-COMMANDLINE" [-c ...] | --exec SIMPLECOMMAND [...] ; [...]'
+    printf 'Usage: echo CHECK-COMMANDLINES | %q %s\n' "$(basename "$1")" '[...] [--bare|[--initial-status NUM] [--trailing-prompt|--no-trailing-prompt] [--no-output-no-prompt] [--no-output-no-error] [--emulate-prompt]] [--no-success-no-count|--no-count-on N] [--exit-on-success|--exit-on-failure|--exit-on NUM] [--worst-status] [--comment COMMENT] [--summarize-failed ERROR-TEXT [--summarize-failed-separator SEP]] -'
+    printf 'Usage: %q %s - <<EOF\n  CHECK-COMMANDLINE\n...\nEOF\n' "$(basename "$1")" '[...]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Merge / rebase the current branch of the superproject (without affected
+submodules) to the master branch via a reverse integration of the superproject;
+i.e. master is merged / rebased to the current branch first so that the
+reintegration is a simple fast-forward.
+Performs additional sanity checks and chooses the right arguments based on
+whether this is a short-lived feature with a single superproject commit or full
+history exists.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+For all arguments see ffintegrateto.
+HELPTEXT
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+esac
+
+git bomsubmodules | outputAndPrintf --stderr 'Submodule(s) have been changed on the current branch; use git supersubreintegratetom instead:\n' && exit 1
+
+git subsamebrdo | outputAndPrintf 'Note: Submodule(s) exist that are on the same branch as the current one:\n' \
+    && ! userBinaryChoice --keep-prompt --console --question 'Really reintegrate the superproject?' --yes-no && exit 4
+
+if git ofetchdate -gt "$GIT_SUPERONLYREINTEGRATETOM_RECENT_FETCH_AGE" --message 'Last fetched'; then
+    echo 'Fetching origin first...'
+    git ofetchonly-hushed
+    echo
+fi
+
+git-dirty --print-error --error-message 'ERROR: The superproject working copy is still dirty.' \
+    && exit 1
+
+masterBranch="$(git-mbr)" || exit 3
+case $(git bomcount) in
+    0)  echo >&2 'ERROR: Expected at least one commit in the superproject on the branch, but none found.'
+	exit 3
+	;;
+    1)  echo "Rebasing the single superproject commit on top of ${masterBranch}."
+	typeset -a ffintegratetoArgs=(--push-branch --rebase-single)
+	;;
+    *)  # Disallow fast-forward to have a merge commit that maintains the history of
+	# how the feature grew.
+	echo "Maintaing the history of how the feature grew via a merge to ${masterBranch}."
+	typeset -a ffintegratetoArgs=(--push-branch --no-ff)
+	;;
+esac
+
+if hub-workflow-status --has-workflow; then
+    if [ "$HUB" ]; then
+	export GIT_REINTEGRATE_PRE_PUSH_COMMAND="printf '\nWaiting for the GitHub action to validate the build on the branch before pushing.\n'; hub-workflow-status --revision HEAD --latest --is completed --wait 'The fast-forward-integrated branch build'"
+    else
+	export GIT_REINTEGRATE_PRE_PUSH_COMMAND="printf '\nNote: Wait for the GitHub action to validate the build on the branch before pushing.\n'"
+    fi
+fi
+
+exec git-ffintegrateto --branch "$masterBranch" "${ffintegratetoArgs[@]}" "$@"

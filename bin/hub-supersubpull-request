@@ -23,24 +23,33 @@ if git issubmodule; then
     {
 	cd "$submoduleRoot" || exit 3
 	header "$(git-wcname)"
-	hub-superpr | clipboard --verbose || return $?
-	hub pull-request
+	message="$(withSeparator \
+	    --command hub-superpr \
+	    --command 'git bomlog --pretty=format:%B' \
+	)" || exit $?
+
+	hub pull-request --message "$message" --edit
     }
 else
     handleSubmodules()
     {
-	hub-prtitle --as-integration-message --qualified-with-userrepo | clipboard --verbose || return $?
-	hub-subsamebrdo --no-git-color --interactive pull-request
+	message="$(hub-prtitle --as-integration-message --qualified-with-userrepo)" || return $?
+	hub-subsamebrdo --no-git-color --interactive --command "logs=\"\$(git bomlog --pretty=format:%B)\"; hub pull-request --message \"\$message\"\$'\\n'\"\$logs\" --edit"
     }
 fi
 
-git-servername --message | clipboard --verbose || exit $?
-hub pull-request --draft
+message="$(withSeparator \
+    --command 'git-servername --message' \
+    --command 'git bomlog --pretty=format:%B' \
+)" || exit $?
+hub pull-request --draft --message "$message" --edit || exit $?
 
 handleSubmodules || exit $?
 
-withSeparator \
-    --command 'git boml' \
-    --command hub-bomsubchanges \
-	| clipboard --verbose || exit $?
-gh pr edit
+tempedit \
+    --sink-exec gh pr edit --body-file {} \; \
+    -- withSeparator \
+	--command 'hub pr list -f "%b"' \
+	--command 'git boml' \
+	--command hub-bomsubchanges \
+

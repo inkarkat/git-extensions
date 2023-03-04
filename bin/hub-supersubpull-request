@@ -28,13 +28,13 @@ if git issubmodule; then
 	    --command 'git bomlog --pretty=format:%B' \
 	)" || exit $?
 
-	hub pull-request --message "$message" --edit
+	hub-wrapper pull-request --message "$message" --edit
     }
 else
     handleSubmodules()
     {
 	message="$(hub-prtitle --as-integration-message --qualified-with-userrepo)" || return $?
-	hub-subsamebrdo --no-git-color --interactive --command "logs=\"\$(git bomlog --pretty=format:%B)\"; hub pull-request --message \"\$message\"\$'\\n'\"\$logs\" --edit"
+	hub-subsamebrdo --no-git-color --interactive --command "logs=\"\$(git bomlog --pretty=format:%B)\"; hub-wrapper pull-request --message \"\$message\"\$'\\n'\"\$logs\" --edit"
     }
 fi
 
@@ -42,7 +42,7 @@ message="$(withSeparator \
     --command 'git-servername --message' \
     --command 'git bomlog --pretty=format:%B' \
 )" || exit $?
-hub pull-request --draft --message "$message" --edit || exit $?
+hub-wrapper pull-request --draft --message "$message" --edit || exit $?
 
 handleSubmodules || exit $?
 

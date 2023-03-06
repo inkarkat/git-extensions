@@ -77,7 +77,7 @@ hub()
     elif type ${BASH_VERSION:+-t} "$hubAlias" >/dev/null 2>&1; then
 	shift
 	HUB=t $hubAlias "$@"
-    elif contains "$1" api browse ci-status compare create delete fork gist issue pr pull-request release sync; then
+    elif contains "$1" am apply checkout cherry-pick clone fetch init merge push remote submodule alias api browse ci-status compare create delete fork gist issue pr pull-request release sync; then
 	# Built-in hub commands need to have precedence over git-alias with the same name (e.g. "hub browse" over git-browse).
 	HUB=t command hub "${gitConfigArgs[@]}" "$@"
     elif type ${BASH_VERSION:+-t} "$gitSubAlias" >/dev/null 2>&1; then

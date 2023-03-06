@@ -1,0 +1,56 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Show root dir of this Git working copy.
+HELPTEXT
+    echo
+    printf 'Usage: root=$(%q)\n' "$(basename "$1")"
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '-c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...] [-?|-h|--help]'
+    cat <<HELPTEXT
+Execute "git SIMPLECOMMAND" and/or COMMANDLINE (which probably contains Git
+command(s)) in the root directory of this Git working copy.
+HELPTEXT
+}
+
+isNeedEval=
+typeset -a commands=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--command|-c)	shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+readonly gitCommand='git-wrapper'
+if [ $# -ne 0 ]; then
+    if [ "$isNeedEval" ]; then
+	# Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
+	# undo the effects of eval.
+	printf -v quotedSimpleCommand '%q ' "$gitCommand" "$@"
+	commands+=(${commands:+;} "${quotedSimpleCommand% }")
+    else
+	commands=("$gitCommand" "$@")
+    fi
+fi
+root="$(git rev-parse --show-toplevel)" || exit 3
+
+if [ ${#commands[@]} -eq 0 ]; then
+    printf '%s\n' "$root"
+    exit 0
+fi
+
+if ! cd "$root" 2>/dev/null; then
+    printf >&2 'ERROR: Cannot chdir to %s!\n' "$root"
+    exit 3
+fi
+if [ "$isNeedEval" ]; then
+    eval "${commands[@]}"
+else
+    exec "${commands[@]}"
+fi

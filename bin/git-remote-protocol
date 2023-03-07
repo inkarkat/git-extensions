@@ -1,0 +1,94 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Change the protocol for remote <name> to either https or git.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--set|--push|--fetch https|git [--...] [--] <name> [-?|-h|--help]'
+}
+
+protocol=
+pushProtocol=
+fetchProtocol=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--set)		shift; protocol="${1:?}"; shift;;
+	--push)		shift; pushProtocol="${1:?}"; shift;;
+	--fetch)	shift; fetchProtocol="${1:?}"; shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if [ $# -eq 0 ]; then
+    echo 'ERROR: No remote <name> passed.'
+    echo
+    printUsage "$0"
+    exit 2
+elif [ $# -gt 1 ]; then
+    echo 'ERROR: More than one remote <name> passed.'
+    echo
+    printUsage "$0"
+    exit 2
+elif [ -z "$protocol" -a -z "$pushProtocol" -a -z "$fetchProtocol" ]; then
+    echo 'ERROR: No protocol passed.'
+    echo
+    printUsage "$0"
+    exit 2
+fi >&2
+name="${1:?}"; shift
+
+fetchUrl="$(git remote get-url "$name")" || exit $?
+pushUrl="$(git remote get-url --push "$name")" || exit $?
+
+tohttps()
+{
+    local url="${1:?}"; shift
+    case "$url" in
+	*://*)
+	    ;;
+	git@*)
+	    url="${url#git@}"
+	    url="https://${url/:/\/}"
+	    ;;
+    esac
+    printf %s "$url"
+}
+
+togit()
+{
+    local url="${1:?}"; shift
+    case "$url" in
+	*://*)
+	    url="git@${url#*://}"
+	    ;;
+	git@*)
+	    ;;
+    esac
+    printf %s "$url"
+}
+
+changeProtocol()
+{
+    local targetProtocol="${1:?}"; shift
+    local url="${1:?}"; shift
+
+    to$targetProtocol "$url"
+}
+
+status=0
+if [ -n "$protocol" ]; then
+    git remote set-url --push "$name" "$(changeProtocol "$protocol" "$pushUrl")" || status=$?
+    git remote set-url "$name" "$(changeProtocol "$protocol" "$fetchUrl")" || status=$?
+fi
+if [ -n "$fetchProtocol" ]; then
+    git remote set-url "$name" "$(changeProtocol "$fetchProtocol" "$fetchUrl")" || status=$?
+fi
+if [ -n "$pushProtocol" ]; then
+    git remote set-url --push "$name" "$(changeProtocol "$pushProtocol" "$pushUrl")" || status=$?
+fi
+exit $status

@@ -1,0 +1,27 @@
+#!/bin/bash
+
+typeset -a fetchArgs=()
+typeset -a remotes=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	*)		fetchArgs+=("$1")
+			git-existsremote -- "$1" && remotes+=("$1")
+			shift
+			;;
+    esac
+done
+
+# I only use hub fetch for remotes of contributors, to directly check out and
+# edit pull requests. For that to work, I need to fetch via HTTPS but push via
+# Git protocol. Since hub fetch only allows to specify one protocol, let's
+# retroactively change the push one later.
+HUB_PROTOCOL=https hub fetch "${fetchArgs[@]}" "$@" || exit $?
+
+status=0
+for remote in "${remotes[@]}"
+do
+    git-remote-protocol --push git -- "$remote" || status=$?
+done
+exit $status

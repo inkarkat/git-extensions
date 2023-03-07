@@ -5,6 +5,13 @@ set -o pipefail
 : ${HUB_WORKFLOWSTATUS_REPO:='{repo}'}
 : ${HUB_WORKFLOWSTATUS_WAIT_INTERVAL:=20s}
 : ${HUB_WORKFLOWSTATUS_WAIT_TIMEOUT:=20m}
+: ${HUB_WORKFLOWSTATUS_COLOR_STATUS_COMPLETED=[37m}
+: ${HUB_WORKFLOWSTATUS_COLOR_STATUS_IN_PROGRESS=[1;34m}
+: ${HUB_WORKFLOWSTATUS_COLOR_STATUS_SCHEDULED=[36m}
+: ${HUB_WORKFLOWSTATUS_COLOR_COMPLETED_SUCCESS=[37;42m}
+: ${HUB_WORKFLOWSTATUS_COLOR_COMPLETED_CANCELLED=[37;40m}
+: ${HUB_WORKFLOWSTATUS_COLOR_COMPLETED_FAILURE=[37;41m}
+: ${HUB_WORKFLOWSTATUS_COLOR_RESET=[0m}
 readonly WORKFLOW_ID_CONFIG_KEY=github.workflow-id
 
 printShortUsage()
@@ -210,10 +217,27 @@ compareConclusion()
     [ "$isFound" ]
 }
 
+colorize()
+{
+    fieldMap --field-separator $'\t' \
+	-v "statusCompleted=${HUB_WORKFLOWSTATUS_COLOR_STATUS_COMPLETED//\\/\\\\}" \
+	-v "statusInProgress=${HUB_WORKFLOWSTATUS_COLOR_STATUS_IN_PROGRESS//\\/\\\\}" \
+	-v "statusScheduled=${HUB_WORKFLOWSTATUS_COLOR_STATUS_SCHEDULED//\\/\\\\}" \
+	-v "completedSuccess=${HUB_WORKFLOWSTATUS_COLOR_COMPLETED_SUCCESS//\\/\\\\}" \
+	-v "completedCancelled=${HUB_WORKFLOWSTATUS_COLOR_COMPLETED_CANCELLED//\\/\\\\}" \
+	-v "completedFailure=${HUB_WORKFLOWSTATUS_COLOR_COMPLETED_FAILURE//\\/\\\\}" \
+	-v "reset=${HUB_WORKFLOWSTATUS_COLOR_RESET//\\/\\\\}" \
+	--function 'colorizeStatus(status) { switch (status) { case "completed": return statusCompleted; case "in_progress": return statusInProgress; case "scheduled": return statusScheduled; } }' \
+	--function 'colorizeCompleted(completed) { switch (completed) { case "success": return completedSuccess; case "cancelled": return completedCancelled; case "failure": return completedFailure; } }' \
+	1 'colorizeStatus($fieldNr) $fieldNr reset' \
+	2 'colorizeCompleted($fieldNr) $fieldNr reset' \
+
+}
+
 list()
 {
     field --field-separator $'\t' --remove 1 \
-	| tac \
+	| eval tac "${isColor:+| colorize}" \
 	| reldate --delta-each --within all \
 	| column -s $'\t' -t -n \
 	| tac

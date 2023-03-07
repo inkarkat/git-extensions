@@ -76,6 +76,7 @@ EXIT STATUS:
 HELPTEXT
 }
 
+isColor=; [ -t 1 ] && isColor=t
 isWorkflowCheck=
 workflowId="${HUB_WORKFLOWSTATUS_WORKFLOW_ID}"
 typeset -a queryArgs=()
@@ -93,6 +94,22 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--no-color|--color=never)
+			recursiveArgs+=("$1"); isColor=; shift;;
+	--color=always)	recursiveArgs+=("$1"); isColor=t; shift;;
+	--color=auto)	recursiveArgs+=("$1"); shift;;
+	--color)	recursiveArgs+=("$1" "$2"); case "$2" in
+			    always) isColor=t;;
+			    never)  isColor=;;
+			    auto)   ;;
+			    *)	    echo >&2 "ERROR: Invalid --color arg: $2"
+				    echo >&2
+				    printUsage "$0" >&2
+				    exit 2
+				    ;;
+			esac
+			shift; shift
+			;;
 	--has-workflow)	shift; isWorkflowCheck=t;;
 	--id)		recursiveArgs+=("$1" "$2"); shift; workflowId="${1?}"; shift;;
 

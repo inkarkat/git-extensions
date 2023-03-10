@@ -4,8 +4,10 @@ set -o pipefail
 printUsage()
 {
     cat <<HELPTEXT
-Show a list of submodules whose references are currently modified but not staged
-in the superproject.
+Show a list of submodules that are modified (not just submodule references, also
+uncommitted modifications in the submodule) but not committed in the
+superproject.
+Like stfiles but only submodules. Same as the combination of subst and subdirty.
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--] [<path>...] [-?|-h|--help]'
@@ -23,6 +25,7 @@ esac
 #             a space.
 # "S<c><m><u>" when the entry is a submodule.
 # <c> is "C" if the commit changed; otherwise ".".
-# Example: 1 .M SC.. 160000 160000 160000 13d84782fc3bba6a483ab9304dc520e3b6368613 13d84782fc3bba6a483ab9304dc520e3b6368613 submodule
+# Note: For staged changes, the <c> flag is cleared, for unstaged ones set.
+# Example: 1 MM SC.. 160000 160000 160000 13d84782fc3bba6a483ab9304dc520e3b6368613 13d84782fc3bba6a483ab9304dc520e3b6368613 submodule
 git status --porcelain=2 --untracked-files=no --ignore-submodules=none --no-renames "$@" | \
-    sed -ne 's/^1 .M SC.. [[:digit:]]\+ [[:digit:]]\+ [[:digit:]]\+ [[:xdigit:]]\+ [[:xdigit:]]\+ \(.*\)$/\1/p'
+    sed -ne 's/^1 \(M. S...\|.M SC..\|.. S.M.\) [[:digit:]]\+ [[:digit:]]\+ [[:digit:]]\+ [[:xdigit:]]\+ [[:xdigit:]]\+ \(.*\)$/\2/p'

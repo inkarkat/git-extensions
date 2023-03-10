@@ -100,8 +100,8 @@ do
 	# So, the symmetric one is ... for log, but .. for diff, and the one
 	# that excludes changes from the first is .. for log but ... for diff.
 	# WTF.
-	*...*)		logRange=("$1"); diffRange="${1/.../..}"; shift;;
-	*..*)		logRange=("$1"); diffRange="${1/../...}"; shift;;
+	*...*)		logRange=("$1"); range='..'; diffRange="${1/.../$range}"; shift;;
+	*..*)		logRange=("$1"); range='...';  diffRange="${1/../$range}"; shift;;
 
 	--)		break;;
 	*)		allargs+=("$1"); shift;;
@@ -114,7 +114,7 @@ if [ "$isIncludeIntermediate" ]; then
     git-log --pretty='format:' "${gitNameStatusArg[@]}" "${renameArgs[@]}" "${statusFilterArg[@]}" "${allargs[@]}" "${logRange[@]}" "$@"
 elif [ -n "$diffRange" ]; then
     # Source: http://stackoverflow.com/a/1552353/813602
-    git diff "${gitNameStatusArg[@]}" "${renameArgs[@]}" "${statusFilterArg[@]}" "${allargs[@]}" "$diffRange" "$@"
+    GIT_LOGLIMITTORANGECOMMAND_RANGE="$range" git-loglimit-to-range-command diff "${gitNameStatusArg[@]}" "${renameArgs[@]}" "${statusFilterArg[@]}" "${allargs[@]}" "$logRange" "$@"
 else
     git-loglimit-to-range-command show --pretty='format:' "${gitNameStatusArg[@]}" "${renameArgs[@]}" "${statusFilterArg[@]}" "${allargs[@]}" "${logRange[@]}" "$@"
 fi | eval "$filter ${filter:+|} $sorter | sed -e '/^\$/d'" "${pager:+|}" '"${pager[@]}"'

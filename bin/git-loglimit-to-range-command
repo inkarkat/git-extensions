@@ -5,11 +5,11 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--file-args-limit|--file-args-passed] ... [--since <date>|--author <author>|--max-count <number>|-n <number>|COMMIT-LIMITING-ARGS] [...] [GIT-COMMAND-ARGS ...] [--] [FILE ...] [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [GIT-COMMAND-ARGS ... --since <date>|--author <author>|--max-count <number>|-n <number>|COMMIT-LIMITING-ARGS ...]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... LIMITRANGE ... --since <date>|--author <author>|--max-count <number>|-n <number>|COMMIT-LIMITING-ARGS ...]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [... --since <date>|--author <author>|--max-count <number>|-n <number>|COMMIT-LIMITING-ARGS ...]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [... --since <date>|--author <author>|--max-count <number>|-n <number>|COMMIT-LIMITING-ARGS ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--file-args-limit|--file-args-passed] ... [<since>..<until>|--since <date>|--author <author>|--max-count <number>|-n <number>|COMMIT-LIMITING-ARGS] [...] [GIT-COMMAND-ARGS ...] [--] [FILE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [GIT-COMMAND-ARGS ... <since>..<until>|--since <date>|--author <author>|--max-count <number>|-n <number>|COMMIT-LIMITING-ARGS ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... LIMITRANGE ... <since>..<until>|--since <date>|--author <author>|--max-count <number>|-n <number>|COMMIT-LIMITING-ARGS ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [... <since>..<until>|--since <date>|--author <author>|--max-count <number>|-n <number>|COMMIT-LIMITING-ARGS ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [... <since>..<until>|--since <date>|--author <author>|--max-count <number>|-n <number>|COMMIT-LIMITING-ARGS ...]'
 }
 printUsage()
 {
@@ -42,6 +42,7 @@ HELPDESCRIPTION
 		    determine the range.
 HELPTEXT
 }
+typeset -a limitRange=()
 typeset -a limitRangeArgs=()
 typeset -a args=()
 isRangeLastArg=
@@ -56,6 +57,7 @@ do
 	--file-args-passed)
 			shift; limitFileArgs=;;
 
+	*..*)		limitRange=("$1"); shift;;
 	-+([0-9iEFP]))	limitRangeArgs+=("$1"); shift;;
 	--@(all-match|invert-grep|regexp-ignore-case|basic-regexp|extended-regexp|fixed-strings|perl-regexp|remove-empty|merges|no-merges|no-min-parents|no-max-parents|first-parent|exclude-first-parent-only|not|left-only|right-only))
 			limitRangeArgs+=("$1"); shift;;
@@ -172,7 +174,6 @@ if [ ${#files[@]} -eq 0 ]; then
 fi
 set -- "${gitCommandArgs[@]}"
 
-typeset -a limitRange=()
 if [ ${#limitRangeArgs[@]} -gt 0 ]; then
     typeset -a limitFiles=(); [ "$limitFileArgs" ] && limitFiles=("${files[@]}")
     r1=
@@ -181,7 +182,7 @@ if [ ${#limitRangeArgs[@]} -gt 0 ]; then
     do
 	r1="$commit"
 	[ -n "$r2" ] || r2="$commit"
-    done < <(git log --pretty=tformat:%H "${limitRangeArgs[@]}" -- "${limitFiles[@]}")
+    done < <(git log --pretty=tformat:%H "${limitRange[@]}" "${limitRangeArgs[@]}" -- "${limitFiles[@]}")
 
     if [ -z "$r1" ]; then
 	echo >&2 'ERROR: No range available.'

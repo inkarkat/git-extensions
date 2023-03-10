@@ -193,11 +193,12 @@ inoutPlain()
 
 inout()
 {
+    local -r deduplicateFormat='%aN %aE %at %s'
     typeset -A incomingKeys=()
     local count=0 line; while IFS=$'\n' read -r line
     do
 	incomingKeys["$line"]=$((++count))
-    done < <(git log --pretty='tformat:%aN %aE %at %s' "$baseRev..$otherRev")
+    done < <(git log --pretty="tformat:$deduplicateFormat" "$baseRev..$otherRev")
 
     typeset -A incomingRebasedIndices=() outgoingRebasedIndices=()
     count=0; while IFS=$'\n' read -r line
@@ -207,7 +208,7 @@ inout()
 	    incomingRebasedIndices["${incomingKeys["$line"]}"]=t
 	    outgoingRebasedIndices[$count]=t
 	fi
-    done < <(git log --pretty='tformat:%aN %aE %at %s' "$otherRev..$baseRev")
+    done < <(git log --pretty="tformat:$deduplicateFormat" "$otherRev..$baseRev")
 
     typeset -a incoming=() outgoing=() rebasedIncoming=() rebasedOutgoing=()
     count=0; while IFS=$'\n' read -r line

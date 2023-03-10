@@ -1,6 +1,8 @@
 #!/bin/bash
 shopt -qs extglob
 
+: ${GIT_LOGLIMITTORANGECOMMAND_RANGE:=..}
+
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
@@ -57,7 +59,7 @@ do
 	--file-args-passed)
 			shift; limitFileArgs=;;
 
-	*..*)		limitRange=("$1"); shift;;
+	*..*)		limitRange=("${1/.+(.)/$GIT_LOGLIMITTORANGECOMMAND_RANGE}"); shift;;
 	-+([0-9iEFP]))	limitRangeArgs+=("$1"); shift;;
 	--@(all-match|invert-grep|regexp-ignore-case|basic-regexp|extended-regexp|fixed-strings|perl-regexp|remove-empty|merges|no-merges|no-min-parents|no-max-parents|first-parent|exclude-first-parent-only|not|left-only|right-only))
 			limitRangeArgs+=("$1"); shift;;
@@ -188,7 +190,7 @@ if [ ${#limitRangeArgs[@]} -gt 0 ]; then
 	echo >&2 'ERROR: No range available.'
 	exit 1
     fi
-    limitRange=("${r1}^..${r2}")
+    limitRange=("${r1}^${GIT_LOGLIMITTORANGECOMMAND_RANGE}${r2}")
 fi
 
 [ "$passFileArgs" ] || files=()

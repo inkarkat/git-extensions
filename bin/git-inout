@@ -193,24 +193,29 @@ inoutPlain()
 
 inout()
 {
-    local -r deduplicateFormat='%aN %aE %at %s'
-    typeset -A incomingKeys=()
+    local -r deduplicateFormat='%at %aN %aE %s'
+    typeset -A incomingRebasedKeys=() incomingReworkedKeys=()
     local count=0 line; while IFS=$'\n' read -r line
     do
-	incomingKeys["$line"]=$((++count))
+	let count+=1
+	incomingRebasedKeys["$line"]=$count
+	incomingReworkedKeys["${line#* }"]=$count
     done < <(git log --pretty="tformat:$deduplicateFormat" "$baseRev..$otherRev")
 
-    typeset -A incomingRebasedIndices=() outgoingRebasedIndices=()
+    typeset -A incomingRebasedIndices=() outgoingRebasedIndices=() incomingReworkedIndices=() outgoingReworkedIndices=()
     count=0; while IFS=$'\n' read -r line
     do
 	let count+=1
-	if [ "${incomingKeys["$line"]}" ]; then
-	    incomingRebasedIndices["${incomingKeys["$line"]}"]=t
+	if [ "${incomingRebasedKeys["$line"]}" ]; then
+	    incomingRebasedIndices["${incomingRebasedKeys["$line"]}"]=t
 	    outgoingRebasedIndices[$count]=t
+	elif [ "${incomingReworkedKeys["${line#* }"]}" ]; then
+	    incomingReworkedIndices["${incomingReworkedKeys["${line#* }"]}"]=t
+	    outgoingReworkedIndices[$count]=t
 	fi
     done < <(git log --pretty="tformat:$deduplicateFormat" "$otherRev..$baseRev")
 
-    typeset -a incoming=() outgoing=() rebasedIncoming=() rebasedOutgoing=()
+    typeset -a incoming=() outgoing=() rebasedIncoming=() rebasedOutgoing=() reworkedIncoming=() reworkedOutgoing=()
     count=0; while IFS=$'\n' read -r line
     do
 	let count+=1
@@ -219,6 +224,8 @@ inout()
 	# not be shown twice.
 	if [ "${incomingRebasedIndices[$count]}" ]; then
 	    rebasedIncoming+=("${line%% *}")
+	elif [ "${incomingReworkedIndices[$count]}" ]; then
+	    reworkedIncoming+=("${line%% *}")
 	else
 	    incoming+=("$line")
 	fi
@@ -228,6 +235,8 @@ inout()
 	let count+=1
 	if [ "${outgoingRebasedIndices[$count]}" ]; then
 	    rebasedOutgoing+=("$line")
+	elif [ "${outgoingReworkedIndices[$count]}" ]; then
+	    reworkedOutgoing+=("$line")
 	else
 	    outgoing+=("$line")
 	fi
@@ -236,11 +245,21 @@ inout()
     local status=1
     local padding=''
     if [ ${#rebasedOutgoing[@]} -gt 0 ]; then
-	printf '%srebased %s <-> %s:%s\n' "$GIT_INOUT_COLOR_TITLE" "${otherName:-$otherRev}" "${baseName:-$baseRev}" "$GIT_INOUT_COLOR_RESET"
+	printf '%s%srebased %s <-> %s:%s\n' "$padding" "$GIT_INOUT_COLOR_TITLE" "${otherName:-$otherRev}" "${baseName:-$baseRev}" "$GIT_INOUT_COLOR_RESET"
 	# Only take the commit hash from the incoming and the full onelinelog line from the outgoing.
 	local i; for ((i = 0; i < ${#rebasedOutgoing[@]}; i++))
 	do
 	    printf '%s / %s\n' "${rebasedIncoming[$i]}" "${rebasedOutgoing[$i]}"
+	done
+	status=0
+	padding=$'\n'
+    fi
+    if [ ${#reworkedOutgoing[@]} -gt 0 ]; then
+	printf '%s%sreworked %s <-> %s:%s\n' "$padding" "$GIT_INOUT_COLOR_TITLE" "${otherName:-$otherRev}" "${baseName:-$baseRev}" "$GIT_INOUT_COLOR_RESET"
+	# Only take the commit hash from the incoming and the full onelinelog line from the outgoing.
+	local i; for ((i = 0; i < ${#reworkedOutgoing[@]}; i++))
+	do
+	    printf '%s / %s\n' "${reworkedIncoming[$i]}" "${reworkedOutgoing[$i]}"
 	done
 	status=0
 	padding=$'\n'

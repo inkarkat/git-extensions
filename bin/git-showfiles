@@ -9,7 +9,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--cached|--intermediate] [-s|--status [--[no-]renames] [-M<n>|--find-renames[=<n>]] [-C<n>|--find-copies[=<n>]|--find-copies-harder] ([-a|--added] [-c|--copied] [-d|--deleted] [-m|--modified] [-r|--renamed] [-t|--retyped] ... | [-A|--not-added] [-C|--not-copied] [-D|--not-deleted] [-M|--not-modified] [-R|--not-renamed] [-T|--not-retyped] ...) [<since>..<until>] [[--] <path>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--cached|--intermediate] [-s|--status [--[no-]renames] [-M<n>|--find-renames[=<n>]] [-C<n>|--find-copies[=<n>]|--find-copies-harder] ([-a|--added] [-c|--copied] [-d|--deleted] [-m|--modified] [-r|--renamed] [-t|--retyped] ... | [-A|--not-added] [-C|--not-copied] [-D|--not-deleted] [-M|--not-modified] [-R|--not-renamed] [-T|--not-retyped] ...) [<since>..<until>|--since <date>|--max-count <number>|-n <number>|COMMIT-LIMITING-ARGS] [[--] <path>...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -100,8 +100,8 @@ do
 	# So, the symmetric one is ... for log, but .. for diff, and the one
 	# that excludes changes from the first is .. for log but ... for diff.
 	# WTF.
-	*...*)		logRange=("$1"); diffRange="${1/.../..}"; shift;;
-	*..*)		logRange=("$1"); diffRange="${1/../...}"; shift;;
+	*...*)		logRange=("$1"); range='..'; diffRange="${1/.../$range}"; shift;;
+	*..*)		logRange=("$1"); range='...';  diffRange="${1/../$range}"; shift;;
 
 	--)		break;;
 	*)		allargs+=("$1"); shift;;
@@ -114,7 +114,7 @@ if [ "$isIncludeIntermediate" ]; then
     git-log --pretty='format:' "${gitNameStatusArg[@]}" "${renameArgs[@]}" "${statusFilterArg[@]}" "${allargs[@]}" "${logRange[@]}" "$@"
 elif [ -n "$diffRange" ]; then
     # Source: http://stackoverflow.com/a/1552353/813602
-    git diff "${gitNameStatusArg[@]}" "${renameArgs[@]}" "${statusFilterArg[@]}" "${allargs[@]}" "$diffRange" "$@"
+    GIT_LOGLIMITTORANGECOMMAND_RANGE="$range" git-loglimit-to-range-command -2 diff LIMITRANGE "${gitNameStatusArg[@]}" "${renameArgs[@]}" "${statusFilterArg[@]}" "${allargs[@]}" "$logRange" "$@"
 else
-    git-wrapper show --pretty='format:' "${gitNameStatusArg[@]}" "${renameArgs[@]}" "${statusFilterArg[@]}" "${allargs[@]}" "${logRange[@]}" "$@"
+    git-loglimit-to-range-command -2 show LIMITRANGE --pretty='format:' "${gitNameStatusArg[@]}" "${renameArgs[@]}" "${statusFilterArg[@]}" "${allargs[@]}" "${logRange[@]}" "$@"
 fi | eval "$filter ${filter:+|} $sorter | sed -e '/^\$/d'" "${pager:+|}" '"${pager[@]}"'

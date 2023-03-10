@@ -217,16 +217,20 @@ inout()
 	# Just record the first field (commit hash) for the incoming rebased
 	# commits - the author date and subject itself are identical and need
 	# not be shown twice.
-	[ "${incomingRebasedIndices[$count]}" ] \
-	    && rebasedIncoming+=("${line%% *}") \
-	    || incoming+=("$line")
+	if [ "${incomingRebasedIndices[$count]}" ]; then
+	    rebasedIncoming+=("${line%% *}")
+	else
+	    incoming+=("$line")
+	fi
     done < <($inoutLogAction "$baseRev" "$otherRev")
     count=0; while IFS=$'\n' read -r line
     do
 	let count+=1
-	[ "${outgoingRebasedIndices[$count]}" ] \
-	    && rebasedOutgoing+=("$line") \
-	    || outgoing+=("$line")
+	if [ "${outgoingRebasedIndices[$count]}" ]; then
+	    rebasedOutgoing+=("$line")
+	else
+	    outgoing+=("$line")
+	fi
     done < <($inoutLogAction "$otherRev" "$baseRev")
 
     local status=1

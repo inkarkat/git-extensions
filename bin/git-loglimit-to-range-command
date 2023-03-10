@@ -1,0 +1,194 @@
+#!/bin/bash
+shopt -qs extglob
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--file-args-limit|--file-args-passed] ... [--since <date>|--author <author>|--max-count <number>|-n <number>|COMMIT-LIMITING-ARGS] [...] [GIT-COMMAND-ARGS ...] [--] [FILE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [GIT-COMMAND-ARGS ... --since <date>|--author <author>|--max-count <number>|-n <number>|COMMIT-LIMITING-ARGS ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... LIMITRANGE ... --since <date>|--author <author>|--max-count <number>|-n <number>|COMMIT-LIMITING-ARGS ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [... --since <date>|--author <author>|--max-count <number>|-n <number>|COMMIT-LIMITING-ARGS ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [... --since <date>|--author <author>|--max-count <number>|-n <number>|COMMIT-LIMITING-ARGS ...]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Determine the commit range from the passed COMMIT-LIMITING-ARGS and
+execute GIT-COMMAND with that range
+- appended
+- replacing LIMITRANGE argument(s) anywhere
+- replacing LIMITRANGE in the following GIT-COMMAND and -(N-1) arguments
+- replacing LIMITRANGE in the following +(N) arguments and appending those
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --file-args-limit
+		    Only use FILE arguments to determine the range, don't pass
+		    them to GIT-COMMAND.
+    --file-args-passed
+		    Only pass FILE arguments to GIT-COMMAND, don't use them to
+		    determine the range.
+HELPTEXT
+}
+typeset -a limitRangeArgs=()
+typeset -a args=()
+isRangeLastArg=
+limitFileArgs=t
+passFileArgs=t
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--file-args-limit)
+			shift; passFileArgs=;;
+	--file-args-passed)
+			shift; limitFileArgs=;;
+
+	-+([0-9iEFP]))	limitRangeArgs+=("$1"); shift;;
+	--@(all-match|invert-grep|regexp-ignore-case|basic-regexp|extended-regexp|fixed-strings|perl-regexp|remove-empty|merges|no-merges|no-min-parents|no-max-parents|first-parent|exclude-first-parent-only|not|left-only|right-only))
+			limitRangeArgs+=("$1"); shift;;
+	-[n])		limitRangeArgs+=("$1" "$2"); shift; shift;;
+	--@(max-count|skip|since|after|since-as-filter|until|before|author|committer|grep-reflog|grep|min-parents|max-parents)=*)
+			limitRangeArgs+=("$1"); shift;;
+	--@(max-count|skip|since|after|since-as-filter|until|before|author|committer|grep-reflog|grep|min-parents|max-parents))
+			limitRangeArgs+=("$1" "$2"); shift; shift;;
+
+	--)		break;;
+	*)		args+=("$1"); shift;;
+    esac
+done
+set -- "${args[@]}" "$@"
+if [ ! "$passFileArgs" ] && [ ! "$limitFileArgs" ]; then
+    echo 'ERROR: Cannot pass both --file-args-limit and --file-args-passed.'
+    echo
+    printUsage "$0"
+    exit 2
+fi >&2
+
+[ $# -gt 0 ] || set -- echo
+
+typeset -a rangeArgs=()
+isCountedAppend=
+typeset -a countedAppendGitCommand=()
+case "$1" in
+    +[1-9])
+	isCountedAppend=t;&
+    -[1-9])
+	typeset countedArgNum=${1#[+-]}
+	typeset countedArgNum=${1#-}
+	typeset -a countedArgs=("${@:2:${countedArgNum}}")
+	set -- "${@:$((2 + countedArgNum))}"
+	if [ "$isRangeLastArg" ]; then
+	    rangeArgs=("${countedArgs[$((${#countedArgs[@]}-1))]}")
+	    countedArgs=("${countedArgs[@]:0:$((${#countedArgs[@]}-1))}")
+	    isRangeLastArg=
+	fi
+	if [ "$isCountedAppend" ]; then
+	    # Need to shift the GIT-COMMAND off to avoid that it is later parsed off as a rangeArg.
+	    countedAppendGitCommand=("$1"); shift
+	fi
+
+	executor()
+	{
+	    typeset -a appendedArgs=()
+	    for arg in "${countedArgs[@]}"
+	    do
+		if [ "$arg" = 'LIMITRANGE' ]; then
+		    appendedArgs+=("${limitRange[@]}")
+		else
+		    appendedArgs+=("$arg")
+		fi
+	    done
+
+	    [ "$isCountedAppend" ] \
+		&& exec git-wrapper "${countedAppendGitCommand[@]}" "$@" "${appendedArgs[@]}" \
+		|| exec git-wrapper "${appendedArgs[@]}" "$@"
+	}
+	;;
+    --keep-position)
+	shift
+	# Need to shift the GIT-COMMAND off to avoid that it is later parsed off as a rangeArg.
+	countedAppendGitCommand=("$1"); shift
+
+	executor()
+	{
+	    typeset -a appendedArgs=()
+	    for arg
+	    do
+		if [ "$arg" = 'LIMITRANGE' ]; then
+		    appendedArgs+=("${limitRange[@]}")
+		else
+		    appendedArgs+=("$arg")
+		fi
+	    done
+
+	    exec git-wrapper "${countedAppendGitCommand[@]}" "${appendedArgs[@]}"
+	}
+	;;
+    *)
+	# Need to shift the GIT-COMMAND off to avoid that it is later parsed off as a rangeArg.
+	countedAppendGitCommand=("$1"); shift
+	executor()
+	{
+	    exec git-wrapper "${countedAppendGitCommand[@]}" "$@" "${limitRange[@]}"
+	}
+	;;
+esac
+
+typeset -a gitCommandArgs=()
+typeset -a files=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--)		shift; files=("$@"); break;;
+	*)		gitCommandArgs+=("$1"); shift;;
+    esac
+done
+if [ ${#files[@]} -eq 0 ]; then
+    # No files after -- captured yet; need to investigate parsed and
+    # remaining args from behind for files.
+    gitCommandArgs+=("$@")
+    while [ ${#gitCommandArgs[@]} -ne 0 ]
+    do
+	lastArg="${gitCommandArgs[-1]}"
+	[ -e "$lastArg" ] || break
+
+	files=("$lastArg" "${files[@]}")
+	gitCommandArgs=("${gitCommandArgs[@]:0:${#gitCommandArgs[@]}-1}")
+    done
+fi
+set -- "${gitCommandArgs[@]}"
+
+typeset -a limitRange=()
+if [ ${#limitRangeArgs[@]} -gt 0 ]; then
+    typeset -a limitFiles=(); [ "$limitFileArgs" ] && limitFiles=("${files[@]}")
+    r1=
+    r2=
+    while IFS=$'\n' read -r commit
+    do
+	r1="$commit"
+	[ -n "$r2" ] || r2="$commit"
+    done < <(git log --pretty=tformat:%H "${limitRangeArgs[@]}" -- "${limitFiles[@]}")
+
+    if [ -z "$r1" ]; then
+	echo >&2 'ERROR: No range available.'
+	exit 1
+    fi
+    limitRange=("${r1}^..${r2}")
+fi
+
+[ "$passFileArgs" ] || files=()
+executor "$@" ${files:+--} "${files[@]}"

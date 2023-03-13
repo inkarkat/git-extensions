@@ -1,4 +1,5 @@
 #!/bin/bash
+shopt -qs extglob
 
 printUsage()
 {
@@ -26,6 +27,7 @@ if git issubmodule; then
 	message="$(withSeparator \
 	    --command hub-superpr \
 	    --command 'git bomlog --pretty=format:%B' \
+		| markdownEscape
 	)" || exit $?
 
 	hub-wrapper pull-request --message "$message" --edit
@@ -33,7 +35,7 @@ if git issubmodule; then
 else
     handleSubmodules()
     {
-	message="$(hub-prtitle --as-integration-message --qualified-with-userrepo)" || return $?
+	message="$(hub-prtitle --as-integration-message --qualified-with-userrepo | markdownEscape)" || return $?
 	hub-subsamebrdo --no-git-color --interactive --command "logs=\"\$(git bomlog --pretty=format:%B)\"; hub-wrapper pull-request --message \"\$message\"\$'\\n'\"\$logs\" --edit"
     }
 fi
@@ -41,6 +43,7 @@ fi
 message="$(withSeparator \
     --command 'git-servername --message' \
     --command 'git bomlog --pretty=format:%B' \
+	| markdownEscape
 )" || exit $?
 hub-wrapper pull-request --draft --message "$message" --edit || exit $?
 
@@ -48,8 +51,9 @@ handleSubmodules || exit $?
 
 tempedit \
     --sink-exec gh pr edit --body-file {} \; \
-    -- withSeparator \
-	--command 'hub pr list -f "%b"' \
-	--command 'git boml' \
-	--command hub-bomsubchanges \
+    -- pipelineBuilder --reverse --command markdownEscape \
+	-- withSeparator \
+	    --command 'hub pr list -f "%b"' \
+	    --command 'git boml' \
+	    --command hub-bomsubchanges \
 

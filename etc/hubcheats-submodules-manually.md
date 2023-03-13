@@ -17,7 +17,7 @@ reviewed separately.
 Recommended if several submodules are affected and the integration is
 non-trivial / covers multiple responsibilities.
 superproject: `git-servername -m | cb && hub pull-request --draft`
-a) from superproject: `$ hub-prtitle --as-integration-message --qualified-with-userrepo | cb && hub subsamebrdo --no-git-color --interactive pull-request`
+a) from superproject: `$ hub integrationpr && hub subsamebrdo --no-git-color --interactive pull-request`
    paste the superproject PR reference into the description text
 b) from submodule(s): `$ hub superpr && hub pull-request`
    paste the superproject PR reference into the description text

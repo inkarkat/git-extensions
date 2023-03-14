@@ -6,47 +6,71 @@ printUsage()
     cat <<HELPTEXT
 List only those tags of the passed (annotated or lightweight) type.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'annotated|lightweight [[-l|--list] <pattern>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'all|annotated|lightweight [-v|--verbose [-v]] [[-l|--list] <pattern>] [-?|-h|--help]'
 }
 
+tagType=
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
     --no-color|--color=*)
 			shift;;
     --color)		shift; shift;;
+    all)		;;
     annotated)		tagType=tag;;
     lightweight)	tagType=commit;;
     *)			printf >&2 'ERROR: Invalid tag type %s; must be either annotated or lightweight.\n' "$1"; exit 2;;
 esac; shift
 
-filter=
+verboseFormat=
 pattern=
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
 			shift;;
-    --color)		shift; shift;;
-    --list|-l)		shift; filter='matcher'; pattern="$1"; shift;;
-esac
+	--color)	shift; shift;;
+	--verbose|-v)	shift
+			if [ -z "$verboseFormat" ]; then
+			    verboseFormat='%(contents:subject)'
+			else
+			    verboseFormat='%(contents:lines=99)' # XXX: %(contents) always adds a newline at the end, but mostly tags just have a subject and no body, so this would add a lot of empty lines for nothing. Cp. https://stackoverflow.com/a/26366791/813602
+			fi
+			;;
+	--list|-l)	shift; pattern="$1"; shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 case $# in
     0)	;;
-    1)	filter='matcher'; pattern="$1"; shift;;
+    1)	pattern="$1"; shift;;
     *)	printUsage "$0" >&2; exit 2;;
 esac
 
-matcher()
+patternMatcher()
 {
-    while IFS=$'\n' read -r line
+    while IFS=$'\t' read -r tagName remainder
     do
-	case "$line" in
-	    $pattern) printf '%s\n' "$line";;
+	case "$tagName" in
+	    $pattern) printf '%s%s\n' "$tagName" "${remainder:+$'\t'}${remainder}";;
 	esac
     done
 }
-tagtype()
+
+tagList()
 {
-    git for-each-ref --sort=version:refname refs/tags | awk -v tagType="$tagType" '$2 == tagType { print gensub(/^refs\/tags\//, "", 1, $3); }'
+    git for-each-ref --format "${tagType:+%(objecttype)$'\t'}%(refname:strip=2)${verboseFormat:+$'\t'}${verboseFormat}" --sort=version:refname refs/tags
+}
+
+tagTypeFilter()
+{
+    awk --field-separator $'\t' -v tagType="$tagType" '$1 == tagType { print $2; }'
 }
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
-eval 'tagtype' "${filter:+|} $filter" "${pager:+|}" '"${pager[@]}"'
+eval tagList \
+    "${tagType:+| tagTypeFilter}" \
+    "${pattern:+| patternMatcher}" \
+    "${pager:+|}" '"${pager[@]}"'

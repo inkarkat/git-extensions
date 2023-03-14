@@ -6,7 +6,7 @@ printUsage()
     cat <<HELPTEXT
 List only those tags of the passed (annotated or lightweight) type.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'annotated|lightweight [[-l|--list] <pattern>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'all|annotated|lightweight [[-l|--list] <pattern>] [-?|-h|--help]'
 }
 
 case "$1" in
@@ -14,6 +14,7 @@ case "$1" in
     --no-color|--color=*)
 			shift;;
     --color)		shift; shift;;
+    all)		tagType=all;;
     annotated)		tagType=tag;;
     lightweight)	tagType=commit;;
     *)			printf >&2 'ERROR: Invalid tag type %s; must be either annotated or lightweight.\n' "$1"; exit 2;;
@@ -45,7 +46,7 @@ matcher()
 }
 tagtype()
 {
-    git for-each-ref --sort=version:refname refs/tags | awk -v tagType="$tagType" '$2 == tagType { print gensub(/^refs\/tags\//, "", 1, $3); }'
+    git for-each-ref --sort=version:refname refs/tags | awk -v tagType="$tagType" 'tagType == "all" || $2 == tagType { print gensub(/^refs\/tags\//, "", 1, $3); }'
 }
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()

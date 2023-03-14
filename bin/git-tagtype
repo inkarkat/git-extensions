@@ -9,12 +9,13 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" 'all|annotated|lightweight [[-l|--list] <pattern>] [-?|-h|--help]'
 }
 
+tagType=
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
     --no-color|--color=*)
 			shift;;
     --color)		shift; shift;;
-    all)		tagType=all;;
+    all)		;;
     annotated)		tagType=tag;;
     lightweight)	tagType=commit;;
     *)			printf >&2 'ERROR: Invalid tag type %s; must be either annotated or lightweight.\n' "$1"; exit 2;;
@@ -46,13 +47,16 @@ patternMatcher()
 
 tagList()
 {
-    git for-each-ref --format '%(refname:strip=2) %(objecttype)' --sort=version:refname refs/tags
+    git for-each-ref --format "${tagType:+%(objecttype)$'\t'}%(refname:strip=2)" --sort=version:refname refs/tags
 }
 
 tagTypeFilter()
 {
-    awk -v tagType="$tagType" 'tagType == "all" || $2 == tagType { print $1; }'
+    awk --field-separator $'\t' -v tagType="$tagType" '$1 == tagType { print $2; }'
 }
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
-eval 'tagList | tagTypeFilter' "${pattern:+| patternMatcher}" "${pager:+|}" '"${pager[@]}"'
+eval tagList \
+    "${tagType:+| tagTypeFilter}" \
+    "${pattern:+| patternMatcher}" \
+    "${pager:+|}" '"${pager[@]}"'

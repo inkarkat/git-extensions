@@ -6,7 +6,7 @@ printUsage()
     cat <<HELPTEXT
 List only those tags of the passed (annotated or lightweight) type.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'all|annotated|lightweight [-v|--verbose] [[-l|--list] <pattern>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'all|annotated|lightweight [-v|--verbose [-v]] [[-l|--list] <pattern>] [-?|-h|--help]'
 }
 
 tagType=
@@ -21,7 +21,7 @@ case "$1" in
     *)			printf >&2 'ERROR: Invalid tag type %s; must be either annotated or lightweight.\n' "$1"; exit 2;;
 esac; shift
 
-isVerbose=
+verboseFormat=
 pattern=
 while [ $# -ne 0 ]
 do
@@ -30,7 +30,13 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
-	--verbose|-v)	shift; isVerbose=t;;
+	--verbose|-v)	shift
+			if [ -z "$verboseFormat" ]; then
+			    verboseFormat='%(contents:subject)'
+			else
+			    verboseFormat='%(contents:lines=99)' # XXX: %(contents) always adds a newline at the end, but mostly tags just have a subject and no body, so this would add a lot of empty lines for nothing. Cp. https://stackoverflow.com/a/26366791/813602
+			fi
+			;;
 	--list|-l)	shift; pattern="$1"; shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
@@ -55,7 +61,7 @@ patternMatcher()
 
 tagList()
 {
-    git for-each-ref --format "${tagType:+%(objecttype)$'\t'}%(refname:strip=2)${isVerbose:+$'\t'%(contents:subject)}" --sort=version:refname refs/tags
+    git for-each-ref --format "${tagType:+%(objecttype)$'\t'}%(refname:strip=2)${verboseFormat:+$'\t'}${verboseFormat}" --sort=version:refname refs/tags
 }
 
 tagTypeFilter()

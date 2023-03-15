@@ -42,7 +42,17 @@ if [ ${#paths[@]} -eq 0 ]; then
 fi
 
 readarray -t untrackedFilespecs < <(git ls-files -o --exclude-standard -- "${paths[@]}")
-[ ${#untrackedFilespecs[@]} -gt 0 ]  || exit 1
+isAlreadyAdded=
+if [ ${#untrackedFilespecs[@]} -eq 0 ]; then
+    if git diff --quiet --staged --diff-filter=a \
+	&& readarray -t untrackedFilespecs < <(git diff --name-only --staged --diff-filter=A) \
+	&& [ ${#untrackedFilespecs[@]} -gt 0 ]
+    then
+	isAlreadyAdded=t
+    else
+	exit 1
+    fi
+fi
 
 # "git commit -- <pathspec>" only works with files already under version control
 # - we have to go through the index for untracked files.
@@ -50,7 +60,7 @@ restoreIndex()
 {
     git stash pop --index && echo "Recreated index." || exit $?
 }
-if git-staged --quiet; then
+if [ ! "$isAlreadyAdded" ] && git-staged --quiet; then
     git-stashi || exit $?
     trap restoreIndex EXIT
 fi
@@ -61,5 +71,5 @@ if [ ${#mergeMessageArgs[@]} -eq 0 ]; then
     mergeMessageArgs=(--message "$(printf '%s\n' "${untrackedFilespecs[@]}" | linesToArg basename | uniqueStable | joinBy --prefix 'Add ' --truncate-after 7 - ', ')")
 fi
 
-git add "${untrackedFilespecs[@]}" \
+[ "$isAlreadyAdded" ] || git add "${untrackedFilespecs[@]}" \
     && git-wrapper commit $mergeEditMessageArg "${mergeMessageArgs[@]}"  "${gitCommitArgs[@]}"

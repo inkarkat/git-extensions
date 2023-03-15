@@ -61,7 +61,8 @@ patternMatcher()
 
 tagList()
 {
-    git for-each-ref --format "${tagType:+%(objecttype)$'\t'}%(refname:strip=2)${verboseFormat:+$'\t'%(committername)%(taggername)$'\t'}${verboseFormat}" --sort=version:refname refs/tags
+    local verboseType; [ -n "$tagType" ] || verboseType='%(objecttype)'
+    git for-each-ref --format "${tagType:+%(objecttype)$'\t'}%(refname:strip=2)${verboseFormat:+${verboseType:+$'\t'$verboseType}$'\t'%(committername)%(taggername)$'\t'}${verboseFormat}" --sort=version:refname refs/tags
     # Note: There is %(creator) that resolves to either %(committer) or
     # %(tagger) depending on the tag type, but that one unfortunately does not
     # support the appendices ("name"). But as only one of them is set, a simple

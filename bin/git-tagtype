@@ -61,16 +61,29 @@ patternMatcher()
 
 tagList()
 {
-    git for-each-ref --format "${tagType:+%(objecttype)$'\t'}%(refname:strip=2)${verboseFormat:+$'\t'}${verboseFormat}" --sort=version:refname refs/tags
+    local verboseType; [ -n "$tagType" ] || verboseType='%(objecttype)'
+    git for-each-ref --format "${tagType:+%(objecttype)$'\t'}%(refname:strip=2)${verboseFormat:+${verboseType:+$'\t'$verboseType}$'\t'%(committername)%(taggername)$'\t'}${verboseFormat}" --sort=version:refname refs/tags
+    # Note: There is %(creator) that resolves to either %(committer) or
+    # %(tagger) depending on the tag type, but that one unfortunately does not
+    # support the appendices ("name"). But as only one of them is set, a simple
+    # concatenation will do for us.
 }
 
 tagTypeFilter()
 {
-    awk --field-separator $'\t' -v tagType="$tagType" '$1 == tagType { print $2; }'
+    awk --field-separator $'\t' -v tagType="$tagType" 'BEGIN { OFS="\t"; } $1 == tagType { $1 = ""; sub(OFS, ""); print; }'
 }
 
-typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+typeset -a formatter=(column -s $'\t' -t -n --keep-empty-lines)
+if [ ! -t 1 ]; then
+    pager=()
+    formatter=()
+fi
+[ -n "$verboseFormat" ] || formatter=()	# We only need formatting with verbose output.
+
 eval tagList \
     "${tagType:+| tagTypeFilter}" \
     "${pattern:+| patternMatcher}" \
+    "${formatter:+|}" '"${formatter[@]}"' \
     "${pager:+|}" '"${pager[@]}"'

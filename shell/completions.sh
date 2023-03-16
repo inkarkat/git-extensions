@@ -49,3 +49,20 @@ gitCompleteAs rebase \
     rebaseselectedbranch rbsbr
 
 unset -f gitCompleteAs
+
+
+_git_cheat()
+{
+    local IFS=$'\n'
+    COMPREPLY=()
+    local gitCommand="${COMP_WORDS[0]}"; gitCommand="${gitCommand%-cheat}"
+    local cur="${COMP_WORDS[COMP_CWORD]}"
+
+    readarray -t COMPREPLY < <(
+	command cd "$(dirname -- "$(command -v git-cheat)" 2>/dev/null)/../etc" \
+	    && readarray -t files < <(find . -type f -name "${gitCommand}cheats-*.md" | sed -e 's#^\./[^-]\+-\(.*\)\.md$#\1#') \
+	    && compgen -W "${files[*]}" -- "$cur"
+    )
+    [ ${#COMPREPLY[@]} -gt 0 ] && readarray -t COMPREPLY < <(printf "%q\n" "${COMPREPLY[@]}")
+}
+complete -F _git_cheat git-cheat hub-cheat

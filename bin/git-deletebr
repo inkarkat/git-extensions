@@ -7,7 +7,7 @@ Delete branch; use oldeletebr to remove the branch in origin, too (and odeletebr
 to just delete it in origin).
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [-y|--yes] [--] <branch> ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [-y|--yes] [--] [<branch> ...] [-?|-h|--help]'
 }
 
 typeset -a forceArgs=()
@@ -27,8 +27,9 @@ do
     esac
 done
 if [ $# -eq 0 ]; then
-    printUsage "$0" >&2
-    exit 2
+    branch="$(git-brname --real-branch-only)" || exit $?
+    git-detach || exit $?
+    set -- "$branch"
 fi
 
 deleteRemoteBranches()

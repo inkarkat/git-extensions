@@ -19,7 +19,7 @@ if git issubmodule; then
     header "../$(git-wcname)"
 fi
 
-typeset -a submoduleMessageCommands=(--command hub-bomsubchanges)
+typeset -a submoduleMessageCommands=(--command 'hub-bomsubchanges | markdownEscape')
 typeset -a submodulePullRequestArgs=(--draft)
 if ! git bomsubmodules >/dev/null; then
     submoduleMessageCommands=()
@@ -27,11 +27,10 @@ if ! git bomsubmodules >/dev/null; then
 fi
 
 message="$(withSeparator \
-    --command 'git boml' \
+    --command 'git boml | markdownEscape' \
     "${submoduleMessageCommands[@]}" \
     --command 'git-servername --message' \
-    --command 'git bomlog --pretty=format:%B' \
-	| markdownEscape
+    --command 'git bomlog --pretty=format:%B | markdownEscape' \
 )" || exit $?
 
 hub-wrapper pull-request "${submodulePullRequestArgs[@]}" --message "$message" --edit

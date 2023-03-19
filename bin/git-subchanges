@@ -9,7 +9,9 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '--since <date>|--max-count <number>|-n <number>|<range> [--include-pull-requests [-Q|--qualified-with-userrepo]] [--as markdown] [<log-args> ...] [--] [SUBMODULE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--since <date>|--max-count <number>|-n <number>|<range> [--include-pull-requests|--only-pull-requests [-Q|--qualified-with-userrepo]] [--as markdown] [<log-args> ...] [--] [SUBMODULE ...] [-?|-h|--help]'
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--only-pull-requests [-Q|--qualified-with-userrepo]] [--as markdown] [--] [SUBMODULE ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -34,6 +36,10 @@ HELPDESCRIPTION
 			If there's a pull request for the HEAD of a changed
 			submodule, just include the pull request's title instead
 			of the log of changes.
+    --only-pull-requests
+			If there's a pull request for the HEAD of a (changed if
+			there's a <range> passed, else any) submodule, log the
+			pull request's title, else log nothing.
     --qualified-with-userrepo|-Q
 			Put the USER/REPO in front of the pull request number.
     --as markdown	Render as (GitHub-flavored) Markdown:
@@ -44,6 +50,7 @@ HELPDESCRIPTION
 HELPTEXT
 }
 
+action=obtainChanges
 hasColor=t
 typeset -a colorArg=(--color=always)
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
@@ -53,6 +60,7 @@ if [ ! -t 1 ]; then
     pager=()
 fi
 isIncludePullRequests=
+isOnlyPullRequests=
 typeset -a prTitleArgs=()
 isQualifiedWithUserRepo=
 logPostProcessor=
@@ -73,6 +81,8 @@ do
 
 	--include-pull-requests)
 			shift; isIncludePullRequests=t;;
+	--only-pull-requests)
+			shift; isIncludePullRequests=t; isOnlyPullRequests=t;;
 	--qualified-with-userrepo|-Q)
 			prTitleArgs+=("$1"); shift; isQualifiedWithUserRepo=t;;
 	--as)		shift
@@ -134,9 +144,15 @@ if [ ${#submodules[@]} -eq 0 ]; then
 fi
 
 if [ ${#rangeArgs[@]} -eq 0 ]; then
-    echo 'ERROR: Need <range>.'
-    exit 2
-elif [ ${#submodules[@]} -eq 0 ]; then
+    if [ "$isOnlyPullRequests" ]; then
+	# Just look at the HEADs of the submodules.
+	action=obtainPullRequests
+    else
+	echo 'ERROR: Need <range>.'
+	exit 2
+    fi
+fi
+if [ ${#submodules[@]} -eq 0 ]; then
     echo >&2 'No submodules.'
     exit 99
 fi >&2
@@ -180,6 +196,8 @@ obtainChanges()
 	    if [ -n "$logOutput" ]; then
 		if [ "$isIncludePullRequests" ] && prTitleOutput="$(cd "$submodule" && eval '{ printf "  "; hub-prtitle "${prTitleArgs[@]}"; }' "${prTitlePostProcessor:+|}$prTitlePostProcessor")"; then
 		    logOutput="${logOutput%%$'\n'*}"$'\n'"${hasColor:+$GIT_SUBCHANGES_PRCOLOR_PREFIX}${prTitleOutput}${hasColor:+$GIT_SUBCHANGES_PRCOLOR_SUFFIX}"
+		elif [ "$isOnlyPullRequests" ]; then
+		    continue
 		fi
 
 		printf '%s%s\n' "$separator" "$logOutput"
@@ -192,4 +210,28 @@ obtainChanges()
     return ${status:-99}
 }
 
-eval 'obtainChanges "$@"' "${pager:+|}" '"${pager[@]}"'
+obtainPullRequests()
+{
+    local separator status='' submodule prTitleOutput
+    for submodule in "${submodules[@]}"
+    do
+	if prTitleOutput="$(cd "$submodule" && eval '{ printf "  "; hub-prtitle "${prTitleArgs[@]}"; }' "${prTitlePostProcessor:+|}$prTitlePostProcessor")"; then
+	    : ${status:=0}
+	    if [ "$isQualifiedWithUserRepo" ]; then
+		local userRepo="$(
+		    cd "$submodule" || exit $?
+		    userRepo="$(hub-userrepo)" || exit $?
+		    commit="$(git rev-parse --short HEAD)" || exit $?
+		    printf '%s@%s\n' "$userRepo" "$commit"
+		)"
+	    fi
+	    printf '%s%s:\n%s%s%s\n' "$separator" "${userRepo:-$submodule}" "${hasColor:+$GIT_SUBCHANGES_PRCOLOR_PREFIX}" "$prTitleOutput" "${hasColor:+$GIT_SUBCHANGES_PRCOLOR_SUFFIX}"
+	    separator=$'\n'
+	else
+	    status=$?
+	fi
+    done
+    return ${status:-99}
+}
+
+eval '$action "$@"' "${pager:+|}" '"${pager[@]}"'

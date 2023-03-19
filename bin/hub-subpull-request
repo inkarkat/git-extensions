@@ -14,14 +14,30 @@ superMessage=
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
     --super-message)	shift; superMessage="${1:?}"; shift;;
+    --existing-pull-requests)
+			shift
+			readarray -t submodules < <(git subsamebrdo --no-header)
+			[ ${#submodules[@]} -eq 0 ] || git-subchanges --no-color --only-pull-requests --qualified-with-userrepo --as markdown -- "${submodules[@]}"
+			exit 0
+			;;
 esac
 
 if [ -n "$superMessage" ] || git issubmodule; then
     [ -n "$superMessage" ] || superMessage="$(git superdo --no-header boml | markdownEscape)" || exit $?
 
+    # Do this for each submodule, even if invoked in the superproject, as each
+    # submodule iteration adds a pull request.
+    existingPullRequests="$(git superdo --no-header subpull-request --existing-pull-requests)"
+    typeset -a existingPullRequestsCommand=()
+    if [ -n "$existingPullRequests" ]; then
+	printf -v echoExistingPullRequests 'printf %%s\\\\n%%s\\\\n %q %q' 'Related pull requests:' "$existingPullRequests"
+	existingPullRequestsCommand=(--command "$echoExistingPullRequests")
+    fi
+
     message="$(withSeparator \
 	--command 'git boml | markdownEscape' \
 	--command 'git-servername --message' \
+	"${existingPullRequestsCommand[@]}" \
 	--command 'git bomlog --pretty=format:%B | markdownEscape' \
     )" || exit $?
 

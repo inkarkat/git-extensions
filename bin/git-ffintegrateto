@@ -379,6 +379,7 @@ else
     # will look as if $sourceBranch got merged into $targetBranch.
     branchMergeMessage="Merge branch '${sourceBranch}'"
     [ "$(git-mbr)" = "$targetBranch" ] || branchMergeMessage+=" into $targetBranch"
+    branchMergeMessage+=$'\n'"# via fast-forward integration to $targetBranch"
 
     # Ensure that the current branch is good for merging.
     git-mergecheck --merge-to "$targetBranch" || exit $?
@@ -402,6 +403,14 @@ else
 	    if confirmFastForwardTarget; then
 		targetIntegrationSourceBranch="$targetTracks"
 		reintegrateArgs+=(--ff-target-to-tracked)   # Don't have git-reintegrate ask the same question again, as this is confusing.
+
+		# Update the merge message template, too. (But only if the
+		# message is edited, as comments are only ignored then, but
+		# included as-is on a direct commit.)
+		if [ ${#mergeNoEditMessageArgs[@]} -eq 0 ]; then
+		    branchMergeMessage="${branchMergeMessage/%# via fast-forward integration to $targetBranch/\# via fast-forward integration to $targetTracks}"
+		    mergeMessageArgs=("${mergeMessageArgs[@]/%# via fast-forward integration to $targetBranch/\# via fast-forward integration to $targetTracks}")
+		fi
 	    else
 		printf "Okay, I'll ${isPerformTheMerge:+re}integrate ${isPerformTheMerge:+into }%s locally and you'll then have to merge with %s after that.\\n" "$targetBranch" "$targetTracks"
 	    fi

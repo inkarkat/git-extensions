@@ -1,0 +1,38 @@
+#!/bin/bash
+set -o pipefail
+
+printUsage()
+{
+    cat <<HELPTEXT
+Show a list of submodules that are modified (not just submodule references, also
+uncommitted and unstaged modifications in the submodule) but not staged or
+committed in the superproject.
+Like stIfiles but only submodules, and also ignores submodules with only staged
+changes.
+In contrast, subI just checks the submodule's reference in the superproject.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--] [<path>...] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --no-color|--color=*)
+			shift;;
+    --color)		shift; shift;;
+esac
+
+# <XY>        A 2 character field containing the staged and
+#             unstaged XY values described in the short format,
+#             with unchanged indicated by a "." rather than
+#             a space.
+# "S<c><m><u>" when the entry is a submodule.
+# <c> is "C" if the commit changed; otherwise ".".
+# Note: For staged changes, the <c> flag is cleared, for unstaged ones set.
+# Example: 1 MM SC.. 160000 160000 160000 13d84782fc3bba6a483ab9304dc520e3b6368613 13d84782fc3bba6a483ab9304dc520e3b6368613 submodule
+readarray -t submodules < <(git status --porcelain=2 --untracked-files=no --ignore-submodules=none --no-renames "$@" \
+    | sed -ne 's/^1 \(.M SC..\|.. S.M.\) [[:digit:]]\+ [[:digit:]]\+ [[:digit:]]\+ [[:xdigit:]]\+ [[:xdigit:]]\+ \(.*\)$/\2/p')
+[ ${#submodules[@]} -gt 0 ] || exit 0
+
+# The modified submodules may have staged or unstaged changes; we need to
+# inspect each submodule to filter out those that just have staged changes.
+GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES=0 exec git-subdo-core --no-pager --no-header --for "${submodules[@]}" \; --predicate-command 'test -n "$(git-stIfiles)"' --single-success

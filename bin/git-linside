@@ -1,0 +1,20 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+One-line Git command(s) that print the corresponding commit message from
+anywhere else (via git inside). Can be used to reuse a commit message in another
+repository (by replacing "inside log1" with commitlike or commitidentical).
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--foo bar] [--] [FILE ...] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+root="$(git rev-parse --show-toplevel)" || exit $?
+root="${root/#${HOME}\//~\/}"
+
+exec git log --pretty=format:"$ git inside log1 %h -- ${root//%/%%} # %s" "$@"

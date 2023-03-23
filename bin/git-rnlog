@@ -12,6 +12,7 @@ Because commit limiting is done before commit ordering, you cannot do this via
 git log --reverse --max-count <number>. Also, skipping in combination with
 filtering of diffs (-S<string>, -G<regex>) doesn't work as expected.
 HELPTEXT
+    echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '-<number>|-n <number>|--max-count=<number> [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
 }
 
@@ -54,7 +55,7 @@ do
 	*)		gitArgs+=("$1"); shift;;
     esac
 done
-if [ ! "$number" ]; then
+if [ -z "$number" ]; then
     echo >&2 'ERROR: No -<number>|-n <number>|--max-count=<number> passed.'
     exit 2
 fi
@@ -73,7 +74,7 @@ logWithCalculatedSkip()
 }
 getRevisions()
 {
-    if ! [ -n "${SPONGE+t}" ]; then type -t sponge >/dev/null && SPONGE='sponge'; fi
+    if [ -z "${SPONGE+t}" ]; then which sponge >/dev/null 2>&1 && SPONGE='sponge'; fi
 
     eval 'git log --pretty=tformat:%H "${gitArgs[@]}" "$@"' "${SPONGE:+|}$SPONGE"
 }
@@ -88,11 +89,12 @@ logEachIndividually()
     if [ $argSkip -eq 0 ]; then
 	getRevisions "$@"
     else
-	getRevisions "$@" | \
-	    tail -n "+$((argSkip + 1))"
-    fi | \
-	head -n "$number" | \
-	xargs --no-run-if-empty --delimiter '\n' -I '{}' "$scriptFilespec" --call "${GIT_RNLOG_COMMAND:-log}" --max-count 1 "${colorArg[@]}" "${gitPrettyArg[@]}" "${gitArgs[@]}" '{}' "$@"
+	getRevisions "$@" \
+	    | tail -n "+$((argSkip + 1))"
+    fi \
+	| head -n $number \
+	| xargs --no-run-if-empty --delimiter '\n' -I '{}' "$scriptFilespec" --call \
+	    "${GIT_RNLOG_COMMAND:-log}" --max-count 1 "${colorArg[@]}" "${gitPrettyArg[@]}" "${gitArgs[@]}" '{}' "$@"
 }
 if [ -n "$isReverse" -o $argSkip -ne 0 ] && [ "$isDiffFilter" ]; then
     # Because of the piping into the pager, we need to explicitly enable color.

@@ -1,0 +1,85 @@
+#!/bin/bash
+set -o pipefail
+shopt -qs extglob
+
+printUsage()
+{
+    cat <<HELPTEXT
+Show commit logs with inverted commit-limiting arguments (but the actual
+<revision-range> and <path>), applying skips and number counting after filtering
+or reversing (like git rnlog).
+Some commit-limiting arguments have natural opposites (--since / --until) or
+inversions (--invert-grep), but others (e.g. --author, --committer) have not.
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+}
+
+if [ "$1" = '--call' ]; then
+    appendSeparatorIfMultiLineOutput()
+    {
+	awk '
+NR > 1 { isMultiLine = 1 }
+{ print }
+END { if (isMultiLine) print "" }
+'
+    }
+
+    shift
+    git-wrapper "$@" | appendSeparatorIfMultiLineOutput
+    exit $?
+fi
+
+typeset -a gitArgs=()
+typeset -a gitPrettyArg=()
+number=
+skip=0
+typeset -a limitRangeArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--pretty=*)	gitPrettyArg=("$1"); shift;;
+
+	--max-count)	shift; number="${1:?}"; shift;;
+	--max-count=*)	number="${1#--max-count=}"; shift;;
+	-n)		shift; number="${1:?}"; shift;;
+	-+([0-9]))	number="${1#-}"; shift;;
+
+	--skip)		shift; skip="${1:?}"; shift;;
+	--skip=*)	skip="${1#--skip=}"; shift;;
+
+	-+([iEFP]))	limitRangeArgs+=("$1"); shift;;
+	--@(all-match|invert-grep|regexp-ignore-case|basic-regexp|extended-regexp|fixed-strings|perl-regexp|remove-empty|merges|no-merges|no-min-parents|no-max-parents|first-parent|exclude-first-parent-only|not|left-only|right-only))
+			limitRangeArgs+=("$1"); shift;;
+	-[n])		limitRangeArgs+=("$1" "$2"); shift; shift;;
+	--@(max-count|since|after|since-as-filter|until|before|author|committer|grep-reflog|grep|min-parents|max-parents)=*)
+			limitRangeArgs+=("$1"); shift;;
+	--@(max-count|since|after|since-as-filter|until|before|author|committer|grep-reflog|grep|min-parents|max-parents))
+			limitRangeArgs+=("$1" "$2"); shift; shift;;
+
+	--)		break;;
+	*)		gitArgs+=("$1"); shift;;
+    esac
+done
+
+getRevisions()
+{
+    # Inversion works by subtracting the limited log from the full log.
+    git log --pretty=tformat:%H "${gitArgs[@]}" "$@" \
+	| grep --fixed-strings --line-regexp --invert-match --file <(git log --pretty=tformat:%H "${limitRangeArgs[@]}" "${gitArgs[@]}" "$@")
+}
+logEachIndividually()
+{
+    readonly scriptFilespec="${BASH_SOURCE[0]}"
+
+    eval 'getRevisions "$@"' "${skip:+| tail -n +$((skip + 1))}" "${number:+| head -n $number}" \
+	| xargs --no-run-if-empty --delimiter '\n' -I '{}' "$scriptFilespec" --call \
+	    "${GIT_INVLOG_COMMAND:-log}" --max-count 1 "${colorArg[@]}" "${gitPrettyArg[@]}" "${gitArgs[@]}" '{}' "$@"
+}
+
+# Because of the piping into the pager, we need to explicitly enable color.
+# Don't do this if the user explicitly turned it off, though.
+typeset -a colorArg=(); isNeedColorArgumentWhenPiping "${gitArgs[@]}" && colorArg=(--color=always) || colorArg=()
+
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+eval 'logEachIndividually "$@"' "${pager:+|}" '"${pager[@]}"'

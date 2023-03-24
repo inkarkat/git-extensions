@@ -66,3 +66,31 @@ _git_cheat()
     [ ${#COMPREPLY[@]} -gt 0 ] && readarray -t COMPREPLY < <(printf "%q\n" "${COMPREPLY[@]}")
 }
 complete -F _git_cheat git-cheat hub-cheat
+
+_hub_complete()
+{
+    local IFS=$'\n'
+    typeset -a aliases=(); readarray -t aliases < <(compgen -A command -- 'hub-' 2>/dev/null)
+    aliases=("${aliases[@]/#hub-/}")
+
+    if [ $COMP_CWORD -ge 2 ] && contains "${COMP_WORDS[1]% }" "${aliases[@]}"; then
+	local hubAlias="_hub_${COMP_WORDS[1]//-/_}"
+	# Completing an alias; delegate to its custom completion function (if
+	# available)
+	if type -t "${hubAlias% }" >/dev/null; then
+	    COMP_WORDS=("hub-${COMP_WORDS[1]% }" "${COMP_WORDS[@]:2}")
+	    let COMP_CWORD-=1
+	    "${hubAlias% }" "${COMP_WORDS[0]}" "${COMP_WORDS[COMP_CWORD]}" "${COMP_WORDS[COMP_CWORD-1]}"
+	    return $?
+	fi
+    fi
+
+    __git_wrap__git_main "$@"
+
+    if [ $COMP_CWORD -eq 1 ]; then
+	# Also offer aliases (hub-aliasname, callable via my hub wrapper
+	# function as hub aliasname).
+	readarray -O ${#COMPREPLY[@]} -t COMPREPLY < <(compgen -W "${aliases[*]}" -X "!${2}*")
+    fi
+}
+complete -F _hub_complete hub

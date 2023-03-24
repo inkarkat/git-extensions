@@ -1,0 +1,37 @@
+#!/bin/bash
+set -e
+
+printUsage()
+{
+    cat <<HELPTEXT
+Undo the archiving of my GitHub clone (i.e. make it writeable again). Re-adds
+the the origin remote if missing.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --no-color|--color=*)
+			shift;;
+    --color)		shift; shift;;
+esac
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+git existsremote origin || git oadd || exit $?
+
+if ! hub-isarchived; then
+    echo >&2 'This repository has not been archived.'
+    exit 99
+fi
+
+me="$(git me-in-github)"
+# XXX: gh does not understand {repo} here.
+#exec gh repo unarchive "${me:?}/{repo}" --yes
+
+repo="$(git remote get-url origin)" || exit 3
+[[ "$repo" =~ [:/]"$me"/([^/]+)\.git$ ]] || exit 3
+repo="${BASH_REMATCH[1]}"
+exec gh repo unarchive "${me:?}/${repo}" --yes

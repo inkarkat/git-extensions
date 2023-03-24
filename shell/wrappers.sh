@@ -31,10 +31,10 @@ git()
 	command git "${gitConfigArgs[@]}" ${GIT_DEFAULT_COMMAND:-str}
     elif type ${BASH_VERSION:+-t} "$gitSubAlias" >/dev/null 2>&1; then
 	shift; shift
-	$gitSubAlias "$@"
+	eval $gitSubAlias '"$@"'	# Need eval for shell aliases.
     elif type ${BASH_VERSION:+-t} "$gitAlias" >/dev/null 2>&1; then
 	shift
-	$gitAlias "$@"
+	eval $gitAlias '"$@"'	# Need eval for shell aliases.
     else
 	case "$1" in
 	    [!-]*[A-Z]*)
@@ -73,10 +73,10 @@ hub()
 	HUB=t command hub "${gitConfigArgs[@]}" ${HUB_DEFAULT_COMMAND:-str}
     elif type ${BASH_VERSION:+-t} "$hubSubAlias" >/dev/null 2>&1; then
 	shift; shift
-	HUB=t $hubSubAlias "$@"
+	HUB=t eval $hubSubAlias '"$@"'	# Need eval for shell aliases.
     elif type ${BASH_VERSION:+-t} "$hubAlias" >/dev/null 2>&1; then
 	shift
-	HUB=t $hubAlias "$@"
+	HUB=t eval $hubAlias '"$@"'	# Need eval for shell aliases.
     elif contains "$1" am apply checkout cherry-pick clone fetch init merge push remote submodule alias api browse ci-status compare create delete fork gist issue pr pull-request release sync; then
 	# Built-in hub commands need to have precedence over git-alias with the same name (e.g. "hub browse" over git-browse).
 	HUB=t command hub "${gitConfigArgs[@]}" "$@"
@@ -85,7 +85,7 @@ hub()
 	HUB=t $gitSubAlias "$@"
     elif type ${BASH_VERSION:+-t} "$gitAlias" >/dev/null 2>&1; then
 	shift
-	HUB=t $gitAlias "$@"
+	HUB=t eval $gitAlias '"$@"'	# Need eval for shell aliases.
     else
 	HUB=t command hub "${gitConfigArgs[@]}" "$@"
     fi

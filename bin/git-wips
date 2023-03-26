@@ -6,6 +6,8 @@ shopt -qs nullglob
 : ${GIT_WIPS_UPSTREAM_BRANCHES_IGNORE_PATTERN=''}   # Upstream branches that are not considered as merge targets for origin branches in +unmergeddownstream check.
 : ${GIT_WIPS_CHANGELOG_FILENAME:=CHANGELOG.md}	# Filename of a changelog file in the repository root or one subdirectory below.
 
+readonly EXCLUDED_TAGS_CONFIG_KEY='uptodate.excludedTags'
+
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
@@ -72,9 +74,9 @@ deselected (from all checks on offer) via -name.
 - behindtags:
 	    where the working copy has checked out a tag and there are upstream
 	    branch(es) that have more recent tags
-	    You can ignore certain tag patterns via the wips.excludedTags
+	    You can ignore certain tag patterns via the $EXCLUDED_TAGS_CONFIG_KEY
 	    (multi-valued) config key:
-	    $ git config --add wips.excludedTags TAGNAME-*
+	    $ git config --add $EXCLUDED_TAGS_CONFIG_KEY TAGNAME-*
 - wipcommit:where the last commit had "WIP:" in the message summary
 - nonmaster:a branch different from the master branch (or the base branch if
 	    defined) is checked out
@@ -238,7 +240,7 @@ printBehindTags()
 {
     local tagName="${1:?}"; shift
 
-    typeset -a excludedTagsArgs=(); readarray -t excludedTagsArgs < <(git config --get-all wips.excludedTags)
+    typeset -a excludedTagsArgs=(); readarray -t excludedTagsArgs < <(git config --get-all "$EXCLUDED_TAGS_CONFIG_KEY")
 
     GIT_BRREFDO_BRANCH_COMMAND='git ubr' git-brrefdo --no-header --no-pager -- lgtaggeduntiltag --tag "$tagName" "${excludedTagsArgs[@]/#/--decorate-refs-exclude=refs/tags/}" "${colorArg[@]}" --branch {} | \
 		uniqueStable | outputAndPrintf 'Behind these tags in upstream:\n'

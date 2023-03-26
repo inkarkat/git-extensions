@@ -1,5 +1,6 @@
 #!/bin/bash
 # Source: https://stackoverflow.com/a/25109122/813602
+set -o pipefail
 
 printUsage()
 {
@@ -20,18 +21,17 @@ esac
 
 if [ $# -gt 0 ]; then
     case "$1" in
-	*/*)	remoteBranch=$1;;
+	*/*)	remoteBranch="$1";;
 	*)	remoteBranch="${1}/$(git-brname --real-branch-only)" || exit $?;;
     esac
     if ! git-existsbr "$remoteBranch"; then
 	printf >&2 'ERROR: remote branch %s does not exist!\n' "$remoteBranch"
-	exit 1
+	exit 99
     fi
 else
-    remoteBranch=$(git-tracks) || exit $?
+    remoteBranch="$(git-tracks)" || exit $?
 fi
 
-set -o pipefail
 remoteRev="$(git ls-remote "${remoteBranch%%/*}" "${remoteBranch#*/}" | cut -f1)" || exit 2
 localRev="$(git rev-parse HEAD)"
 if [ "$localRev" = "$remoteRev" ]; then

@@ -20,7 +20,11 @@ case "$1" in
     --quiet|-q)		shift; isQuiet=t;;
 esac
 case $# in
-    0)	remoteBranch="$(git-tracks)" || exit $?;;
+    0)	if ! remoteBranch="$(git-tracks)"; then
+	    echo >&2 'ERROR: Not tracking a remote branch!'
+	    exit 99
+	fi
+	;;
     1)	case "$1" in
 	    */*)    remoteBranch="$1";;
 	    *)	    remoteBranch="${1}/$(git-brname --real-branch-only)" || exit $?;;

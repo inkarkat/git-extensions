@@ -1,5 +1,6 @@
 #!/bin/bash
 # Source: https://stackoverflow.com/a/25109122/813602
+set -o pipefail
 
 printUsage()
 {
@@ -8,35 +9,39 @@ Check remote whether the current branch is on the same commit as the tracked
 remote branch / passed remote (or whether a fetch / push is needed).
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<remote>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [<remote>] [-?|-h|--help]'
 }
+isQuiet=
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
     --no-color|--color=*)
 			shift;;
     --color)		shift; shift;;
+    --quiet|-q)		shift; isQuiet=t;;
+esac
+case $# in
+    0)	if ! remoteBranch="$(git-tracks)"; then
+	    echo >&2 'ERROR: Not tracking a remote branch!'
+	    exit 99
+	fi
+	;;
+    1)	case "$1" in
+	    */*)    remoteBranch="$1";;
+	    *)	    remoteBranch="${1}/$(git-brname --real-branch-only)" || exit $?;;
+	esac
+	if ! git-existsbr "$remoteBranch"; then
+	    printf >&2 'ERROR: remote branch %s does not exist!\n' "$remoteBranch"
+	    exit 99
+	fi
+	;;
+    *)	printUsage "$0" >&2; exit 2;;
 esac
 
-
-if [ $# -gt 0 ]; then
-    case "$1" in
-	*/*)	remoteBranch=$1;;
-	*)	remoteBranch="${1}/$(git-brname --real-branch-only)" || exit $?;;
-    esac
-    if ! git-existsbr "$remoteBranch"; then
-	printf >&2 'ERROR: remote branch %s does not exist!\n' "$remoteBranch"
-	exit 1
-    fi
-else
-    remoteBranch=$(git-tracks) || exit $?
-fi
-
-set -o pipefail
 remoteRev="$(git ls-remote "${remoteBranch%%/*}" "${remoteBranch#*/}" | cut -f1)" || exit 2
 localRev="$(git rev-parse HEAD)"
 if [ "$localRev" = "$remoteRev" ]; then
-    printf '%s\n' "up to date"
+    [ "$isQuiet" ] || echo 'up to date'
 else
-    printf '%s\n' "not up to date"
+    [ "$isQuiet" ] || printf 'not up to date: %s -> %s\n' "$localRev" "$remoteRev"
     exit 1
 fi

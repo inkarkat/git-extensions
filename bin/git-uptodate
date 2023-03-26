@@ -19,20 +19,19 @@ case "$1" in
     --color)		shift; shift;;
     --quiet|-q)		shift; isQuiet=t;;
 esac
-
-
-if [ $# -gt 0 ]; then
-    case "$1" in
-	*/*)	remoteBranch="$1";;
-	*)	remoteBranch="${1}/$(git-brname --real-branch-only)" || exit $?;;
-    esac
-    if ! git-existsbr "$remoteBranch"; then
-	printf >&2 'ERROR: remote branch %s does not exist!\n' "$remoteBranch"
-	exit 99
-    fi
-else
-    remoteBranch="$(git-tracks)" || exit $?
-fi
+case $# in
+    0)	remoteBranch="$(git-tracks)" || exit $?;;
+    1)	case "$1" in
+	    */*)    remoteBranch="$1";;
+	    *)	    remoteBranch="${1}/$(git-brname --real-branch-only)" || exit $?;;
+	esac
+	if ! git-existsbr "$remoteBranch"; then
+	    printf >&2 'ERROR: remote branch %s does not exist!\n' "$remoteBranch"
+	    exit 99
+	fi
+	;;
+    *)	printUsage "$0" >&2; exit 2;;
+esac
 
 remoteRev="$(git ls-remote "${remoteBranch%%/*}" "${remoteBranch#*/}" | cut -f1)" || exit 2
 localRev="$(git rev-parse HEAD)"

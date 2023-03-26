@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} all|annotated|lightweight [[--not] [-l|--list] <pattern>] [--sort-by-age] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} all|annotated|lightweight [[-l|--list] <pattern> [...]] [-e|--exclude <pattern> [-e ...]] [--sort-by-age] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -25,7 +25,8 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
-    --not		Only print tags not matching <pattern>.
+    --exclude|-e <pattern>
+			Only print tags not matching <pattern>.
     --sort-by-age	Sort by tag date (ascending, oldest first) instead of
 			the default version number sorting.
 HELPTEXT
@@ -48,8 +49,8 @@ case "$1" in
     *)			printf >&2 'ERROR: Invalid tag type %s; must be either all, annotated, or lightweight.\n' "$1"; exit 2;;
 esac; shift
 filter=
-isInvertedMatch=
-pattern=
+typeset -a patterns=()
+typeset -a excludedPatterns=()
 sortField='version:refname'
 while [ $# -ne 0 ]
 do
@@ -58,26 +59,43 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
-	--not)		shift; isInvertedMatch=t;;
-	--list|-l)	shift; filter='matcher'; pattern="$1"; shift;;
+	--list|-l)	shift; filter='matcher'; patterns+=("$1"); shift;;
+
+	--exclude|-e)	shift; filter='matcher'; excludedPatterns+=("${1:?}"); shift;;
+	--exclude=*)	excludedPatterns+=("${1#--exclude=}"); shift; filter='matcher';;
+	-e*)		excludedPatterns+=("${1#-e}"); shift; filter='matcher';;
+
 	--sort-by-age)	shift; sortField='creatordate';;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
     esac
 done
-case $# in
-    0)	;;
-    1)	filter='matcher'; pattern="$1"; shift;;
-    *)	printUsage "$0" >&2; exit 2;;
-esac
+if [ $# -gt 0 ]; then
+    filter='matcher'; patterns+=("$@"); set --
+fi
 
 matcher()
 {
-    while IFS=$'\n' read -r line
+    local tagName pattern
+    while IFS=$'\n' read -r tagName
     do
-	case "$line" in
-	    $pattern)	[ "$isInvertedMatch" ] || printf '%s\n' "$line";;
-	    *)		[ "$isInvertedMatch" ] && printf '%s\n' "$line";;
-	esac
+	for pattern in "${excludedPatterns[@]}"
+	do
+	    case "$tagName" in
+		$pattern)   continue 2;;
+	    esac
+	done
+	if [ ${#patterns[@]} -eq 0 ]; then
+	    printf '%s\n' "$tagName"
+	else
+	    for pattern in "${patterns[@]}"
+	    do
+		case "$tagName" in
+		    $pattern)   printf '%s\n' "$tagName"; continue;;
+		esac
+	    done
+	fi
     done
 }
 tagtype()
@@ -112,4 +130,6 @@ END {
 }
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
-eval 'tagtype' "${filter:+|} $filter" "${pager:+|}" '"${pager[@]}"'
+eval tagtype \
+    "${filter:+|} $filter" \
+    "${pager:+|}" '"${pager[@]}"'

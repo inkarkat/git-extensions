@@ -1,23 +1,43 @@
 #!/bin/bash
 set -o pipefail
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} all|annotated|lightweight [[-l|--list] <pattern>] [--sort-by-age] [-?|-h|--help]"
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 List all / only those tags of the passed (annotated or lightweight) type in ${remote:-REMOTE}.
-HELPTEXT
+HELPDESCRIPTION
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} all|annotated|lightweight [[-l|--list] <pattern>] [-?|-h|--help]"
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --sort-by-age	Sort by tag date (ascending, oldest first) instead of
+			the default version number sorting.
+HELPTEXT
 }
 case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
     --no-color|--color=*)
 			shift;;
     --color)		shift; shift;;
 esac
 remote="${1:?}"; shift
 case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
     --no-color|--color=*)
 			shift;;
     --color)		shift; shift;;
@@ -28,12 +48,14 @@ case "$1" in
 esac; shift
 filter=
 pattern=
+sortField='version:refname'
 case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
     --no-color|--color=*)
 			shift;;
     --color)		shift; shift;;
     --list|-l)		shift; filter='matcher'; pattern="$1"; shift;;
+    --sort-by-age)	shift; sortField='creatordate';;
 esac
 case $# in
     0)	;;
@@ -52,7 +74,7 @@ matcher()
 }
 tagtype()
 {
-    git ls-remote --tags --sort=version:refname "$remote" | \
+    git ls-remote --tags --sort="$sortField" "$remote" | \
 	awk -v tagType="$tagType" '
 $2 ~ /^refs\/tags\// {
     tag = substr($2, 11)

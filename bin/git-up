@@ -1,13 +1,17 @@
 #!/bin/bash
 shopt -qs extglob
 
+: ${GIT_UP_PREFER_DETACHED_TAG_OVER_BRANCH:=}	# When the detached working copy both refers to a tag and a local branch, checkout the newest tag instead of forwarding the corresponding branch.
+
+readonly EXCLUDED_TAGS_CONFIG_KEY='uptodate.excludedTags'
+
 # Source:
 #   https://stackoverflow.com/questions/30208928/can-git-pull-automatically-stash-and-pop-pending-changes
 #   https://github.com/aanand/git-up
 
 printUsage()
 {
-    local action='Pull and rebase'
+    local action='Pull (current branch; when detached and not dirty a corresponding branch (or the base / master branch), or if a detached tag checkout the newest tag) and rebase'
     if [ "$GIT_UP_NO_UPDATE" ]; then
 	action='Only fetch changes (no update of local branches)'
     elif [ "$GIT_UP_FETCH" ]; then
@@ -26,11 +30,20 @@ HELPTEXT
 getDetachedBranch()
 {
     # On a detached checkout, use a branch that coincides with the detached
-    # commit (assuming that there's only one), and fall back to the base /
-    # master branch.
-    git-brname --detached-effective-branch --real-branch-only --raw 2>/dev/null || \
-	git-nbr 2>/dev/null || \
-	    git-mbr 2>/dev/null
+    # commit (assuming that there's only one) and has a corresponding remote
+    # branch.
+    local branch
+    if branch="$(git-brname --detached-effective-branch --real-branch-only --raw 2>/dev/null)" \
+	&& git-existsbr "${remote}/${branch}"
+    then
+	printf '%s\n' "$branch"
+    fi
+}
+getFallbackBranch()
+{
+    # Fall back to the base / master branch.
+    git-nbr 2>/dev/null \
+	|| git-mbr 2>/dev/null
 }
 
 getRemoteBranch()
@@ -92,11 +105,23 @@ else
 	    logDeltaArgs=(--none)
 	fi
     elif git-isdetached; then
-	if branch="$(getDetachedBranch)"; then
-	    logDeltaArgs+=(--branch "${remote}/${branch}")
-	else
-	    [ "${logDeltaArgs[*]}" = '--none' ] || echo >&2 "Warning: Detached working copy, and could not determine base / master ${remote:-REMOTE} branch, no logging possible."
-	    logDeltaArgs=(--none)
+	tagName="$(git istagged --print)"
+	branch="$(getDetachedBranch)"
+
+	# For a checked-out tag, the default delta handling will already log the
+	# difference between the tags; no special action necessary.
+	# For a detached branch, we want to log the changes on the corresponding
+	# remote branch, or the base / master fallback branch.
+	if { [ -n "$tagName" -a -n "$branch" ] && [ ! "$GIT_UP_PREFER_DETACHED_TAG_OVER_BRANCH" ]; } \
+	    || [ -z "$tagName" ]
+	then
+	    [ -n "$branch" ] || branch="$(getFallbackBranch)"   # Only consider the fallback branches here so that a tag takes precedence.
+	    if git-existsbr "${remote}/${branch}"; then
+		logDeltaArgs+=(--branch "${remote}/${branch}")
+	    else
+		[ "${logDeltaArgs[*]}" = '--none' ] || echo >&2 "Warning: Detached working copy, and could not determine base / master ${remote:-REMOTE} branch, no logging possible."
+		logDeltaArgs=(--none)
+	    fi
 	fi
     fi
 
@@ -135,24 +160,52 @@ elif [ "$GIT_UP_REBASE" ]; then
     remoteBranch="$(getRemoteBranch "$@")" || exit $?
     git-wrapper "${gitAutoStashGitArg[@]}" rebase "${gitAutoStashPullOrRebaseArg[@]}" "${gitRebaseMergesArg[@]}" "${@:1:$(($#-1))}" "$remoteBranch" || exit $?
 elif git-isdetached; then
-    # Checkout (and keep detached) a corresponding branch (or the base / master branch).
-    branch="$(getDetachedBranch)" && git-existsbr "${remote}/${branch}" || exit $?
-    if ! git-equals "${remote}/${branch}" HEAD; then
+    tagName="$(git istagged --print)"
+    branch="$(getDetachedBranch)"
+
+    if { [ -n "$tagName" -a -n "$branch" ] && [ "$GIT_UP_PREFER_DETACHED_TAG_OVER_BRANCH" ]; } \
+	|| { [ -n "$tagName" ] && [ -z "$branch" ]; }
+    then
 	if git-dirty --quiet; then
 	    echo >&2 'Note: Not touching a dirty detached checkout.'
 	else
-	    # Try to fast-forward the corresponding branch; if it's already
-	    # checked out in a different worktree (i.e. checkout fails), just
-	    # forward the detached HEAD.
-	    if git checkout "${branch}" >/dev/null 2>&1; then
-		if git ff "${remote}/${branch}"; then
-		    printf '\nForwarded detached %s branch.\n' "$branch"
-		    git checkout --detach
-		else	# Error case
+	    # Checkout the most recent tag.
+	    typeset -a excludedTagsArgs=(); readarray -t excludedTagsArgs < <(git config --get-all "$EXCLUDED_TAGS_CONFIG_KEY")
+	    newTagName='' isFoundCurrentTag=
+	    while IFS=$'\n' read -r availableTagName
+	    do
+		[ "$tagName" = "$availableTagName" ] && isFoundCurrentTag=t
+		[ "$isFoundCurrentTag" ] && newTagName="$availableTagName"	# The latest tag wins.
+	    done < <(git tagtype all "${excludedTagsArgs[@]/#/--exclude=}" --sort-by-age)
+	    if [ ! "$isFoundCurrentTag" ]; then
+		printf >&2 "ERROR: Couldn't locate current tag '%s'.\\n" "$tagName"
+		# Note: Ignore this; don't abort.
+	    elif ! git-equals "$tagName" "${newTagName:?}"; then
+		git checkout --detach "$newTagName" \
+		    && printf '\nForwarded detached tag %s to newest available %stag %s\n' "$tagName" "${GIT_UP_FETCH:+$remote }" "$newTagName"
+	    fi
+	fi
+    else
+	[ -n "$branch" ] || branch="$(getFallbackBranch)"   # Only consider the fallback branches here so that a tag takes precedence.
+
+	if [ -n "$branch" ] && ! git-equals "${remote}/${branch}" HEAD; then
+	    # Checkout (and keep detached) a corresponding branch (or the base / master branch).
+	    if git-dirty --quiet; then
+		echo >&2 'Note: Not touching a dirty detached checkout.'
+	    else
+		# Try to fast-forward the corresponding branch; if it's already
+		# checked out in a different worktree (i.e. checkout fails), just
+		# forward the detached HEAD.
+		if git checkout "${branch}" >/dev/null 2>&1; then
+		    if git ff "${remote}/${branch}"; then
+			printf '\nForwarded detached %s branch.\n' "$branch"
+			git checkout --detach
+		    else    # Error case
+			git checkout --detach "${remote}/${branch}"
+		    fi
+		else
 		    git checkout --detach "${remote}/${branch}"
 		fi
-	    else
-		git checkout --detach "${remote}/${branch}"
 	    fi
 	fi
     fi

@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} all|annotated|lightweight [[-l|--list] <pattern>] [--sort-by-age] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} all|annotated|lightweight [[--not] [-l|--list] <pattern>] [--sort-by-age] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -25,6 +25,7 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
+    --not		Only print tags not matching <pattern>.
     --sort-by-age	Sort by tag date (ascending, oldest first) instead of
 			the default version number sorting.
 HELPTEXT
@@ -47,16 +48,22 @@ case "$1" in
     *)			printf >&2 'ERROR: Invalid tag type %s; must be either all, annotated, or lightweight.\n' "$1"; exit 2;;
 esac; shift
 filter=
+isInvertedMatch=
 pattern=
 sortField='version:refname'
-case "$1" in
-    --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
-    --no-color|--color=*)
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--no-color|--color=*)
 			shift;;
-    --color)		shift; shift;;
-    --list|-l)		shift; filter='matcher'; pattern="$1"; shift;;
-    --sort-by-age)	shift; sortField='creatordate';;
-esac
+	--color)	shift; shift;;
+	--not)		shift; isInvertedMatch=t;;
+	--list|-l)	shift; filter='matcher'; pattern="$1"; shift;;
+	--sort-by-age)	shift; sortField='creatordate';;
+	*)		break;;
+    esac
+done
 case $# in
     0)	;;
     1)	filter='matcher'; pattern="$1"; shift;;
@@ -68,7 +75,8 @@ matcher()
     while IFS=$'\n' read -r line
     do
 	case "$line" in
-	    $pattern) printf '%s\n' "$line";;
+	    $pattern)	[ "$isInvertedMatch" ] || printf '%s\n' "$line";;
+	    *)		[ "$isInvertedMatch" ] && printf '%s\n' "$line";;
 	esac
     done
 }

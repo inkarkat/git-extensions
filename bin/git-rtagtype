@@ -1,23 +1,46 @@
 #!/bin/bash
 set -o pipefail
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} all|annotated|lightweight [[-l|--list] <pattern> [...]] [-e|--exclude <pattern> [-e ...]] [--sort-by-age] [-?|-h|--help]"
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 List all / only those tags of the passed (annotated or lightweight) type in ${remote:-REMOTE}.
-HELPTEXT
+HELPDESCRIPTION
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} all|annotated|lightweight [[-l|--list] <pattern>] [-?|-h|--help]"
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --exclude|-e <pattern>
+			Only print tags not matching <pattern>.
+    --sort-by-age	Sort by tag date (ascending, oldest first) instead of
+			the default version number sorting. Note: Corresponding
+			commits must have been fetched already for this to work.
+HELPTEXT
 }
 case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
     --no-color|--color=*)
 			shift;;
     --color)		shift; shift;;
 esac
 remote="${1:?}"; shift
 case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
     --no-color|--color=*)
 			shift;;
     --color)		shift; shift;;
@@ -27,32 +50,56 @@ case "$1" in
     *)			printf >&2 'ERROR: Invalid tag type %s; must be either all, annotated, or lightweight.\n' "$1"; exit 2;;
 esac; shift
 filter=
-pattern=
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
+typeset -a patterns=()
+typeset -a excludedPatterns=()
+sortField='version:refname'
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--no-color|--color=*)
 			shift;;
-    --color)		shift; shift;;
-    --list|-l)		shift; filter='matcher'; pattern="$1"; shift;;
-esac
-case $# in
-    0)	;;
-    1)	filter='matcher'; pattern="$1"; shift;;
-    *)	printUsage "$0" >&2; exit 2;;
-esac
+	--color)	shift; shift;;
+	--list|-l)	shift; filter='matcher'; patterns+=("$1"); shift;;
+
+	--exclude|-e)	shift; filter='matcher'; excludedPatterns+=("${1:?}"); shift;;
+	--exclude=*)	excludedPatterns+=("${1#--exclude=}"); shift; filter='matcher';;
+	-e*)		excludedPatterns+=("${1#-e}"); shift; filter='matcher';;
+
+	--sort-by-age)	shift; sortField='creatordate';;
+	*)		break;;
+    esac
+done
+if [ $# -gt 0 ]; then
+    filter='matcher'; patterns+=("$@"); set --
+fi
 
 matcher()
 {
-    while IFS=$'\n' read -r line
+    local tagName pattern
+    while IFS=$'\n' read -r tagName
     do
-	case "$line" in
-	    $pattern) printf '%s\n' "$line";;
-	esac
+	for pattern in "${excludedPatterns[@]}"
+	do
+	    case "$tagName" in
+		$pattern)   continue 2;;
+	    esac
+	done
+	if [ ${#patterns[@]} -eq 0 ]; then
+	    printf '%s\n' "$tagName"
+	else
+	    for pattern in "${patterns[@]}"
+	    do
+		case "$tagName" in
+		    $pattern)   printf '%s\n' "$tagName"; continue;;
+		esac
+	    done
+	fi
     done
 }
 tagtype()
 {
-    git ls-remote --tags --sort=version:refname "$remote" | \
+    git ls-remote --tags --sort="$sortField" "$remote" | \
 	awk -v tagType="$tagType" '
 $2 ~ /^refs\/tags\// {
     tag = substr($2, 11)
@@ -82,4 +129,6 @@ END {
 }
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
-eval 'tagtype' "${filter:+|} $filter" "${pager:+|}" '"${pager[@]}"'
+eval tagtype \
+    "${filter:+|} $filter" \
+    "${pager:+|}" '"${pager[@]}"'

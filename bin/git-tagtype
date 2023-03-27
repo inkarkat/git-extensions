@@ -1,17 +1,40 @@
 #!/bin/bash
 set -o pipefail
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'all|annotated|lightweight [-v|--verbose [-v]] [[-l|--list] <pattern> [...]] [-e|--exclude <pattern> [-e ...]] [--sort-by-age] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 List only those tags of the passed (annotated or lightweight) type.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --exclude|-e <pattern>
+			Only print tags not matching <pattern>.
+    --sort-by-age	Sort by tag date (ascending, oldest first) instead of
+			the default version number sorting.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'all|annotated|lightweight [-v|--verbose [-v]] [[-l|--list] <pattern>] [-?|-h|--help]'
 }
 
 tagType=
 case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
     --no-color|--color=*)
 			shift;;
     --color)		shift; shift;;
@@ -22,11 +45,14 @@ case "$1" in
 esac; shift
 
 verboseFormat=
-pattern=
+filter=
+typeset -a patterns=()
+typeset -a excludedPatterns=()
+sortField='version:refname'
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
@@ -37,32 +63,50 @@ do
 			    verboseFormat='%(contents:lines=99)' # XXX: %(contents) always adds a newline at the end, but mostly tags just have a subject and no body, so this would add a lot of empty lines for nothing. Cp. https://stackoverflow.com/a/26366791/813602
 			fi
 			;;
-	--list|-l)	shift; pattern="$1"; shift;;
+	--list|-l)	shift; filter='matcher'; patterns+=("$1"); shift;;
+
+	--exclude|-e)	shift; filter='matcher'; excludedPatterns+=("${1:?}"); shift;;
+	--exclude=*)	excludedPatterns+=("${1#--exclude=}"); shift; filter='matcher';;
+	-e*)		excludedPatterns+=("${1#-e}"); shift; filter='matcher';;
+
+	--sort-by-age)	shift; sortField='creatordate';;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
     esac
 done
-case $# in
-    0)	;;
-    1)	pattern="$1"; shift;;
-    *)	printUsage "$0" >&2; exit 2;;
-esac
+if [ $# -gt 0 ]; then
+    filter='matcher'; patterns+=("$@"); set --
+fi
 
-patternMatcher()
+matcher()
 {
+    local tagName remainder pattern
     while IFS=$'\t' read -r tagName remainder
     do
-	case "$tagName" in
-	    $pattern) printf '%s%s\n' "$tagName" "${remainder:+$'\t'}${remainder}";;
-	esac
+	for pattern in "${excludedPatterns[@]}"
+	do
+	    case "$tagName" in
+		$pattern)   continue 2;;
+	    esac
+	done
+	if [ ${#patterns[@]} -eq 0 ]; then
+	    printf '%s%s\n' "$tagName" "${remainder:+$'\t'}${remainder}"
+	else
+	    for pattern in "${patterns[@]}"
+	    do
+		case "$tagName" in
+		    $pattern)   printf '%s%s\n' "$tagName" "${remainder:+$'\t'}${remainder}"; continue;;
+		esac
+	    done
+	fi
     done
 }
 
 tagList()
 {
     local verboseType; [ -n "$tagType" ] || verboseType='%(objecttype)'
-    git for-each-ref --format "${tagType:+%(objecttype)$'\t'}%(refname:strip=2)${verboseFormat:+${verboseType:+$'\t'$verboseType}$'\t'%(committername)%(taggername)$'\t'}${verboseFormat}" --sort=version:refname refs/tags
+    git for-each-ref --format "${tagType:+%(objecttype)$'\t'}%(refname:strip=2)${verboseFormat:+${verboseType:+$'\t'$verboseType}$'\t'%(committername)%(taggername)$'\t'}${verboseFormat}" --sort="$sortField" refs/tags
     # Note: There is %(creator) that resolves to either %(committer) or
     # %(tagger) depending on the tag type, but that one unfortunately does not
     # support the appendices ("name"). But as only one of them is set, a simple
@@ -75,7 +119,7 @@ tagTypeFilter()
 }
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
-typeset -a formatter=(column -s $'\t' -t --keep-empty-lines)
+typeset -a formatter=(column -s $'\t' -t)
 if [ ! -t 1 ]; then
     pager=()
     formatter=()
@@ -84,6 +128,6 @@ fi
 
 eval tagList \
     "${tagType:+| tagTypeFilter}" \
-    "${pattern:+| patternMatcher}" \
+    "${filter:+|} $filter" \
     "${formatter:+|}" '"${formatter[@]}"' \
     "${pager:+|}" '"${pager[@]}"'

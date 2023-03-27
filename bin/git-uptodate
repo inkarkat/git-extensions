@@ -2,14 +2,18 @@
 # Source: https://stackoverflow.com/a/25109122/813602
 set -o pipefail
 
+readonly EXCLUDED_TAGS_CONFIG_KEY='uptodate.excludedTags'
+
 printUsage()
 {
     cat <<HELPTEXT
 Check remote whether the current branch is on the same commit as the tracked
 remote branch / passed remote (or whether a fetch / push is needed).
+Check remote whether there are tags with higher version numbers than the
+currently checked out tag.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [<remote>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [<remote>[/<branch>]] [-?|-h|--help]'
 }
 isQuiet=
 case "$1" in
@@ -19,27 +23,78 @@ case "$1" in
     --color)		shift; shift;;
     --quiet|-q)		shift; isQuiet=t;;
 esac
-case $# in
-    0)	if ! remoteBranch="$(git-tracks)"; then
-	    echo >&2 'ERROR: Not tracking a remote branch!'
-	    exit 99
-	fi
-	;;
-    1)	case "$1" in
-	    */*)    remoteBranch="$1";;
-	    *)	    remoteBranch="${1}/$(git-brname --real-branch-only)" || exit $?;;
-	esac
-	if ! git-existsbr "$remoteBranch"; then
-	    printf >&2 'ERROR: remote branch %s does not exist!\n' "$remoteBranch"
-	    exit 99
-	fi
-	;;
-    *)	printUsage "$0" >&2; exit 2;;
-esac
 
-remoteRev="$(git ls-remote "${remoteBranch%%/*}" "${remoteBranch#*/}" | cut -f1)" || exit 2
-localRev="$(git rev-parse HEAD)"
-if [ "$localRev" = "$remoteRev" ]; then
+checkBranch()
+{
+    case $# in
+	0)  if ! remoteBranch="$(git-tracks)"; then
+		echo >&2 'ERROR: Not tracking a remote branch!'
+		exit 99
+	    fi
+	    ;;
+	1)  case "$1" in
+		*/*)    remoteBranch="$1";;
+		*)	remoteBranch="${1}/${branchName}" || exit $?;;
+	    esac
+	    if ! git-existsbr "$remoteBranch"; then
+		printf >&2 'ERROR: Remote branch %s does not exist.\n' "$remoteBranch"
+		exit 99
+	    fi
+	    ;;
+	*)  printUsage "$0" >&2; exit 2;;
+    esac
+
+    remoteRev="$(git ls-remote "${remoteBranch%%/*}" "${remoteBranch#*/}" | cut -f1)" || exit 2
+    localRev="$(git rev-parse HEAD)"
+}
+
+checkTag()
+{
+    case $# in
+	0)  readarray -t remotes < <(git remote)
+	    case ${#remotes[@]} in
+		0)	printf >&2 'ERROR: No remotes.\n'; exit 99;;
+		1)	remote="${remotes[0]}";;
+		*)	printf >&2 'ERROR: Multiple remotes: %s\n' "$(joinBy ', ' "${remotes[@]}")"; exit 2;;
+	    esac
+	    ;;
+	1)  case "$1" in
+		*/*)    remote="${1%%/*}";;
+		*)	remote="${1:?}";;
+	    esac
+	    if ! git-existsremote "$remote"; then
+		printf >&2 'ERROR: Remote %s does not exist.\n' "$remote"
+		exit 99
+	    fi
+	    ;;
+	*)  printUsage "$0" >&2; exit 2;;
+    esac
+
+    typeset -a excludedTagsArgs=(); readarray -t excludedTagsArgs < <(git config --get-all "$EXCLUDED_TAGS_CONFIG_KEY")
+    local remoteRev='' isFoundCurrentTag=
+    while IFS=$'\n' read -r remoteTagName
+    do
+	[ "$tagName" = "$remoteTagName" ] && isFoundCurrentTag=t
+	[ "$isFoundCurrentTag" ] && remoteRev="$remoteTagName"	# The latest tag wins.
+    done < <(git rtagtype "$remote" all "${excludedTagsArgs[@]/#/--exclude=}")
+    if [ ! "$isFoundCurrentTag" ]; then
+	printf >&2 "ERROR: Couldn't locate current tag '%s' in %s tags.\\n" "$tagName" "$remote"
+	exit 3
+    fi
+
+    localRev="$tagName"
+}
+
+
+if ! branchName="$(git-brname --real-branch-only 2>/dev/null)" \
+    && tagName="$(git istagged --print)"
+then
+    checkTag "$@"
+else
+    checkBranch "$@"
+fi
+
+if git-equals "$localRev" "$remoteRev"; then
     [ "$isQuiet" ] || echo 'up to date'
 else
     [ "$isQuiet" ] || printf 'not up to date: %s -> %s\n' "$localRev" "$remoteRev"

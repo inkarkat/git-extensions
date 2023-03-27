@@ -2,6 +2,7 @@
 shopt -qs extglob
 
 : ${GIT_UP_PREFER_DETACHED_TAG_OVER_BRANCH:=}	# When the detached working copy both refers to a tag and a local branch, checkout the newest tag instead of forwarding the corresponding branch.
+: ${GIT_UP_PREFER_LATEST_TAG_OVER_HIGHEST_VERSION:=}	# Use creation date ordering for remote tags instead of the default version-sorting.
 
 readonly EXCLUDED_TAGS_CONFIG_KEY='uptodate.excludedTags'
 
@@ -11,7 +12,7 @@ readonly EXCLUDED_TAGS_CONFIG_KEY='uptodate.excludedTags'
 
 printUsage()
 {
-    local action='Pull (current branch; when detached and not dirty a corresponding branch (or the base / master branch), or if a detached tag checkout the newest tag) and rebase'
+    local action='Pull (current branch; when detached and not dirty a corresponding branch (or the base / master branch), or if a detached tag checkout the tag with the highest version number / newest) and rebase'
     if [ "$GIT_UP_NO_UPDATE" ]; then
 	action='Only fetch changes (no update of local branches)'
     elif [ "$GIT_UP_FETCH" ]; then
@@ -169,20 +170,21 @@ elif git-isdetached; then
 	if git-dirty --quiet; then
 	    echo >&2 'Note: Not touching a dirty detached checkout.'
 	else
-	    # Checkout the most recent tag.
+	    # Checkout the tag with the highest version number / newest tag.
 	    typeset -a excludedTagsArgs=(); readarray -t excludedTagsArgs < <(git config --get-all "$EXCLUDED_TAGS_CONFIG_KEY")
 	    newTagName='' isFoundCurrentTag=
 	    while IFS=$'\n' read -r availableTagName
 	    do
 		[ "$tagName" = "$availableTagName" ] && isFoundCurrentTag=t
-		[ "$isFoundCurrentTag" ] && newTagName="$availableTagName"	# The latest tag wins.
-	    done < <(git tagtype all "${excludedTagsArgs[@]/#/--exclude=}" --sort-by-age)
+		[ "$isFoundCurrentTag" ] && newTagName="$availableTagName"	# The last tag (with the highest version number / newest) wins.
+	    done < <(git tagtype all "${excludedTagsArgs[@]/#/--exclude=}" ${GIT_UP_PREFER_LATEST_TAG_OVER_HIGHEST_VERSION:+--sort-by-age})
 	    if [ ! "$isFoundCurrentTag" ]; then
 		printf >&2 "ERROR: Couldn't locate current tag '%s'.\\n" "$tagName"
 		# Note: Ignore this; don't abort.
 	    elif ! git-equals "$tagName" "${newTagName:?}"; then
+		whatTag='highest available version'; [ "$GIT_UP_PREFER_LATEST_TAG_OVER_HIGHEST_VERSION" ] && whatTag='newest available'
 		git checkout --detach "$newTagName" \
-		    && printf '\nForwarded detached tag %s to newest available %stag %s\n' "$tagName" "${GIT_UP_FETCH:+$remote }" "$newTagName"
+		    && printf '\nForwarded detached tag %s to %s %stag %s\n' "$tagName" "$whatTag" "${GIT_UP_FETCH:+$remote }" "$newTagName"
 	    fi
 	fi
     else

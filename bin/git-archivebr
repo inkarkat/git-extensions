@@ -11,11 +11,12 @@ Use this to remove old branches that have been fully merged. If not incorporated
 (e.g. an abandoned experiment), pass -f to force archiving.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [-y|--yes] [-m <msg>|--message=<msg>|-F <file>|--file=<file>] [--] [<remote>/]<branch> [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [-y|--yes] [-m <msg>|--message=<msg>|-F <file>|--file=<file>] [-k|--keep-branch] [--] [<remote>/]<branch> [...] [-?|-h|--help]'
 }
 
 branchDeleteOption=-d
 isForce=
+isKeepBranch=
 typeset -a gitTagArgs=()
 typeset -a gitRemoteMutateArgs=()
 while [ $# -ne 0 ]
@@ -31,6 +32,8 @@ do
 			gitTagArgs+=("$1" "$2"); shift; shift;;
 	--@(message|file)=*)
 			gitTagArgs+=("$1"); shift;;
+	--keep-branch|-k)
+			shift; isKeepBranch=t;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -90,6 +93,8 @@ done
 [ ${#remoteTags[@]} -eq 0 ] || git-remote-mutate "$remote" --message 'Create tag(s)' --arguments "${remoteTags[@]}" \; "${gitRemoteMutateArgs[@]}" \
     push ${isForce:+--force} "$remote" "${remoteTags[@]/#/refs/tags/}" || exit $?
 
+
+[ "$isKeepBranch" ] && exit $status
 # Note: Process all passed branches in one fell swoop; this avoid re-querying
 # (on push) the remote repository credentials for each branch. When one branch
 # is invalid, an error is returned, but following (valid) branches are still

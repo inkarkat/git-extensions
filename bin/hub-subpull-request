@@ -10,25 +10,39 @@ HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
 }
+superMessage=
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --super-message)	shift; superMessage="${1:?}"; shift;;
+    --existing-pull-requests)
+			shift
+			readarray -t submodules < <(git subsamebrdo --no-header)
+			[ ${#submodules[@]} -eq 0 ] || git-subchanges --no-color --only-pull-requests --qualified-with-userrepo --as markdown -- "${submodules[@]}"
+			exit 0
+			;;
 esac
 
-if git issubmodule; then
+if [ -n "$superMessage" ] || git issubmodule; then
+    [ -n "$superMessage" ] || superMessage="$(git superdo --no-header boml | markdownEscape)" || exit $?
+
+    # Do this for each submodule, even if invoked in the superproject, as each
+    # submodule iteration adds a pull request.
+    existingPullRequests="$(git superdo --no-header subpull-request --existing-pull-requests)"
+    typeset -a existingPullRequestsCommand=()
+    if [ -n "$existingPullRequests" ]; then
+	printf -v echoExistingPullRequests 'printf %%s\\\\n%%s\\\\n %q %q' 'Related pull requests:' "$existingPullRequests"
+	existingPullRequestsCommand=(--command "$echoExistingPullRequests")
+    fi
+
     message="$(withSeparator \
-	--command 'git superdo --no-header boml | markdownEscape' \
 	--command 'git boml | markdownEscape' \
 	--command 'git-servername --message' \
-	--command 'git bomlog --pretty=format:%B | markdownEscape' \
+	"${existingPullRequestsCommand[@]}" \
+	--command 'git bomlog --pretty=format:%B --reverse | markdownEscape' \
     )" || exit $?
 
-    exec hub-wrapper pull-request --message "$message" --edit
+    exec hub-wrapper pull-request --message "${superMessage:+$'\n\n'}$message" --edit
 else
-    message="$(withSeparator \
-	--command 'git boml | markdownEscape' \
-	--command 'git-servername --message' \
-	--command 'git bomlog --pretty=format:%B | markdownEscape' \
-    )" || exit $?
-
-    exec hub-wrapper subsamebrdo --no-git-color --interactive pull-request --message "$message" --edit
+    superMessage="$(git boml | markdownEscape)" || exit $?
+    exec hub-wrapper subsamebrdo --no-git-color --interactive subpull-request --super-message "$superMessage"
 fi

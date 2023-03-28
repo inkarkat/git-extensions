@@ -5,13 +5,13 @@ shopt -qs extglob
 printUsage()
 {
     cat <<HELPTEXT
-Tag <branch>(es), then delete it from the local repository (as well as origin if
-it exists, and a passed <remote>, too).
+Tag <branch>, then delete it from the local repository (as well as origin if it
+exists, and a passed <remote>, too).
 Use this to remove old branches that have been fully merged. If not incorporated
 (e.g. an abandoned experiment), pass -f to force archiving.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [-y|--yes] [-m <msg>|--message=<msg>|-F <file>|--file=<file>] [-k|--keep-branch] [--] [<remote>/]<branch> [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [-y|--yes] [-m <msg>|--message=<msg>|-F <file>|--file=<file>] [-k|--keep-branch] [--] [[<remote>/]<branch>] [...] [-?|-h|--help]'
 }
 
 branchDeleteOption=-d
@@ -40,8 +40,9 @@ do
     esac
 done
 if [ $# -eq 0 ]; then
-    echo >&2 'Need <branch> to archive!'
-    exit 2
+    branch="$(git-brname --real-branch-only)" || exit $?
+    [ "$isKeepBranch" ] || git-detach || exit $?
+    set -- "$branch"
 fi
 
 status=0

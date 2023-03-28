@@ -1,11 +1,13 @@
 #!/bin/bash
 shopt -qs extglob
 
+hasProgressNotification=; type -t progressNotification >/dev/null && hasProgressNotification=t
+
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--revision REVISION|-C|--revision-exec GIT-COMMAND [...] ;|-c|--revision-command COMMANDLINE] [-a|--all] [<since>..<until>|--since <date>|--max-count <number>|-n <number>|COMMIT-LIMITING-ARGS] [--pretty[=<format>]] [-b|--branch BRANCH] [--for -|--for SUBMODULE [...] ;] [-?|-h|--help]'
+    printf 'Usage: %q %s%s\n' "$(basename "$1")" "${hasProgressNotification:+[--progress SINK] }" '[-r|--revision REVISION|-C|--revision-exec GIT-COMMAND [...] ;|-c|--revision-command COMMANDLINE] [-a|--all] [<since>..<until>|--since <date>|--max-count <number>|-n <number>|COMMIT-LIMITING-ARGS] [--pretty[=<format>]] [-b|--branch BRANCH] [--for -|--for SUBMODULE [...] ;] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -35,7 +37,10 @@ HELPDESCRIPTION
 			that is used.
     --revision-command|-c COMMANDLINE
 			Execute COMMANDLINE in each submodule to obtain the
-			revision that is used.
+			revision that is used.${hasProgressNotification:+
+    --progress SINK	Report the current FILE through one of the SINKs of the
+			progressNotification command.
+    --no-progress	Turn off progress reporting (default to $progressSink).}
     --all|-a		Don't stop at the first superproject commit that
 			references the submodule, but list all commits that do
 			so (within the passed range).
@@ -67,6 +72,7 @@ HELPTEXT
     printf '%q %s\n' "$(basename "$1")" '-b feat/42 -C bmbase \;'
 }
 
+progressSink=addendum
 isAll=
 branch=
 revision=
@@ -79,6 +85,8 @@ do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 
+	--progress)	shift; progressSink="$1"; shift;;
+	--no-progress)	shift; progressSink='';;
 	--all|-a)	shift; isAll=t;;
 	--branch|-b)	shift; branch="${1:?}"; shift;;
 	--revision|-r)	shift; revision="${1:?}"; shift;;
@@ -173,10 +181,22 @@ if [ ${#submoduleCommits[@]} -eq 0 ]; then
     exit 99
 fi >&2
 
+if [ "$hasProgressNotification" ] && [ -n "$progressSink" ]; then
+    exec 3> >(progressNotification --to "$progressSink" --initial-delay 2 2>/dev/null)
 
-while IFS=$'\n' read -r superprojectCommit
+    reportProgress()
+    {
+	trap 'reportProgress() { :; }; trap PIPE' PIPE
+	printf '%s\n' "$*" >&3 2>/dev/null  # Silence "printf: write error: Broken pipe"
+    }
+else
+    reportProgress() { :; }
+fi
+
+while IFS=$'\t' read -r superprojectCommit progressInformation
 do
-    # echo >&2 "**** Checking $superprojectCommit"
+    reportProgress "$progressInformation"
+
     for submodule in "${!submoduleCommits[@]}"
     do
 	[ "${submoduleCommits["$submodule"]}" = "$(git-subhash "$superprojectCommit" "$submodule")" ] \
@@ -191,4 +211,5 @@ do
     fi
 
     [ "$isAll" ] || exit 0
-done < <(git log --pretty=tformat:%H "${limitRangeArgs[@]}")
+done < <(git log --pretty=$'tformat:%H\t%cs (%cr) %D' "${limitRangeArgs[@]}")
+exit 1

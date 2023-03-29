@@ -386,14 +386,20 @@ else
 
     if [ -n "$HUB" ] && [ ! "$isRebase" ] && [ ${#mergeNoEditMessageArgs[@]} -eq 0 ]; then
 	# Try to obtain corresponding pull request based on current branch's
-	# HEAD commits and seed the merge message with it / them (as the PR
-	# title already summarizes the changeset and makes for a great merge
-	# title). This saves the user from opening the PR and copy-and-pasting
-	# it.
+	# HEAD commits (both local and remote if different (this can happen if a
+	# submodule has been reintegrated as a separate commit because of
+	# maintaining the history)) and seed the merge message with it / them
+	# (as the PR title already summarizes the changeset and makes for a
+	# great merge title). This saves the user from opening the PR and
+	# copy-and-pasting it.
 	typeset -a prefixCommands=()
 	type -t timeout >/dev/null && prefixCommands=(timeout 10 "${prefixCommands[@]}")
 	type -t invocationMessage >/dev/null && prefixCommands=(invocationMessage --message 'Searching for PR...' --success FOUND --fail NONE -- "${prefixCommands[@]}")
-	pullRequestTitles="$("${prefixCommands[@]}" hub-prtitle --as-merge-message)"
+
+	typeset -a suffixArguments=(); [ -n "$targetTracks" ] && ! git-equals "$targetBranch" "$targetTracks" \
+	    && suffixArguments=(HEAD "$targetBranch")
+
+	pullRequestTitles="$("${prefixCommands[@]}" hub-prtitle --as-merge-message "${suffixArguments[@]}")"
 	[ -n "$pullRequestTitles" ] && mergeMessageArgs+=(--message "$pullRequestTitles"$'\n\n'"$branchMergeMessage" --edit)
     fi
 

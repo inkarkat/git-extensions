@@ -1,0 +1,215 @@
+#!/bin/bash
+shopt -qs extglob
+
+hasProgressNotification=; type -t progressNotification >/dev/null && hasProgressNotification=t
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s%s\n' "$(basename "$1")" "${hasProgressNotification:+[--progress SINK] }" '[-r|--revision REVISION|-C|--revision-exec GIT-COMMAND [...] ;|-c|--revision-command COMMANDLINE] [-a|--all] [<since>..<until>|--since <date>|--max-count <number>|-n <number>|COMMIT-LIMITING-ARGS] [--pretty[=<format>]] [-b|--branch BRANCH] [--for -|--for SUBMODULE [...] ;] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Find the latest commit in the current superproject that references the current
+commit of all submodules / of the passed SUBMODULE(s) [that are on BRANCH].
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --revision|-r REVISION
+			Use REVISION instead of the submodule's HEAD.
+    --revision-exec|-C GIT-COMMAND [...] ;
+			Execute GIT-COMMAND (comprised of all following
+			arguments until an argument consisting of ';' is
+			encountered) in each submodule to obtain the revision
+			that is used.
+    --revision-command|-c COMMANDLINE
+			Execute COMMANDLINE in each submodule to obtain the
+			revision that is used.${hasProgressNotification:+
+    --progress SINK	Report the current FILE through one of the SINKs of the
+			progressNotification command.
+    --no-progress	Turn off progress reporting (default to $progressSink).}
+    --all|-a		Don't stop at the first superproject commit that
+			references the submodule, but list all commits that do
+			so (within the passed range).
+    <since>..<until>|--since <date>|--max-count <number>|-n <number>|COMMIT-LIMITING-ARGS
+			Limit the range of superproject commits that are
+			searched.
+    --pretty[=<format>]	Override the default: one-line topology, author, date,
+			tags and commit summary output format when output is to
+			the terminal, just commit hash if not.
+    --branch|-b BRANCH	Only consider submodules that have BRANCH checked out.
+    --for SUBMODULE [...] ;
+			Only consider the following SUBMODULE(s); i.e. all
+			following arguments until an argument consisting of ';'
+			is encountered.
+    --for -		Only consider the SUBMODULE(s) read from stdin.
+
+EXIT STATUS:
+    0	Complete success.
+    1	Failed to locate a commit that references the submodule(s) [within the
+	COMMIT-LIMITING-ARGS]
+    2	Bad invocation, wrong or missing command-line arguments.
+    3	Internal error or failed assertion.
+    99	No submodule(s) passed or found.
+
+Example:
+Find the latest superproject commit from which the submodules for feature 42
+have been branched off of master.
+HELPTEXT
+    printf '%q %s\n' "$(basename "$1")" '-b feat/42 -C bmbase \;'
+}
+
+progressSink=addendum
+isAll=
+branch=
+revision=
+typeset -a commands=()
+typeset -a limitRangeArgs=()
+typeset -a prettyArgs=()
+typeset -a subdoArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+
+	--progress)	shift; progressSink="$1"; shift;;
+	--no-progress)	shift; progressSink='';;
+	--all|-a)	shift; isAll=t;;
+	--branch|-b)	shift; branch="${1:?}"; shift;;
+	--revision|-r)	shift; revision="${1:?}"; shift;;
+	--revision-command|-c)
+			shift; commands+=(${commands:+;} "${1?}"); shift;;
+	--revision-exec)
+			shift
+			cmd='git-wrapper'
+			while [ $# -gt 0 -a "$1" != ';' ]
+			do
+			    printf -v quotedArg '%q' "$1"
+			    cmd="${cmd}${cmd:+ }${quotedArg}"
+			    shift
+			done
+			if [ $# -eq 0 ]; then
+			    echo 'ERROR: --revision-exec command must be concluded with ;!'; echo; printUsage "$0"
+			    exit 2
+			fi >&2
+			shift
+			commands+=(${commands:+;} "$cmd")
+			;;
+
+	*..?(.)*)	limitRangeArgs+=("$1"); shift;;
+	-+([iEFP]))	limitRangeArgs+=("$1"); shift;;
+	--@(all-match|invert-grep|regexp-ignore-case|basic-regexp|extended-regexp|fixed-strings|perl-regexp|remove-empty|merges|no-merges|no-min-parents|no-max-parents|first-parent|exclude-first-parent-only|not|left-only|right-only))
+			limitRangeArgs+=("$1"); shift;;
+	-[n])		limitRangeArgs+=("$1" "$2"); shift; shift;;
+	--@(max-count|skip|since|after|since-as-filter|until|before|author|committer|grep-reflog|grep|min-parents|max-parents)=*)
+			limitRangeArgs+=("$1"); shift;;
+	--@(max-count|skip|since|after|since-as-filter|until|before|author|committer|grep-reflog|grep|min-parents|max-parents))
+			limitRangeArgs+=("$1" "$2"); shift; shift;;
+
+	--pretty)	prettyArgs=("$1" "$2"); shift; shift;;
+	--pretty=*)	prettyArgs=("$1"); shift;;
+
+	--for)		subdoArgs+=("$1"); shift
+			if [ "$1" = - ]; then
+			    subdoArgs+=("$1"); shift
+			else
+			    while [ $# -gt 0 -a "$1" != ';' ]
+			    do
+				subdoArgs+=("$1")
+				shift
+			    done
+			    if [ $# -eq 0 ]; then
+				echo 'ERROR: --for must be concluded with ;!'; echo; printUsage "$0"
+				exit 2
+			    fi >&2
+			    subdoArgs+=("$1")
+			    shift
+			fi
+			;;
+
+	--)		shift; break;;
+	-)		break;; # For supporting special - FILE without prior --
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if [ -n "$revision" -a ${#commands[@]} -gt 0 ]; then
+    echo 'ERROR: Cannot combine --revision with --revision-exec or --revision-command.'
+    echo
+    printUsage "$0"
+    exit 2
+fi
+
+if [ -n "$branch" ]; then
+    printf -v sameBranchPredicateCommand '[ "$(git-brname --real-branch-only 2>/dev/null)" = %q ]' "$branch"
+    subdoArgs+=(--predicate-command "$sameBranchPredicateCommand")
+fi
+if [ ${#commands[@]} -gt 0 ]; then
+    # Parse the result of the revision command to be sure it's a full commit
+    # hash (so we can a simple string compare later) and to show any errors.
+    commands=("git rev-parse \"\$(${commands[*]})\"")
+elif [ -n "$revision" ]; then
+    printf -v quotedRevision '%q' "$revision"
+    commands=("git rev-parse $quotedRevision")
+else
+    commands=('git rev-parse HEAD')
+fi
+
+
+typeset -A submoduleCommits=()
+while IFS=$'\t' read -r submodule commit
+do
+    [ -n "$submodule" -a -n "$commit" ] \
+	&& submoduleCommits["$submodule"]="$commit"
+done < <(git-subdo-core --no-header --no-pager --separate-errors "${subdoArgs[@]}" --command 'printf %s\\t "$sm_path"' --command "${commands[*]}")
+
+if [ ${#submoduleCommits[@]} -eq 0 ]; then
+    echo 'No SUBMODULE(s).'
+    exit 99
+fi >&2
+
+if [ "$hasProgressNotification" ] && [ -n "$progressSink" ]; then
+    exec 3> >(progressNotification --to "$progressSink" --initial-delay 2 2>/dev/null)
+
+    reportProgress()
+    {
+	trap 'reportProgress() { :; }; trap PIPE' PIPE
+	printf '%s\n' "$*" >&3 2>/dev/null  # Silence "printf: write error: Broken pipe"
+    }
+else
+    reportProgress() { :; }
+fi
+
+while IFS=$'\t' read -r superprojectCommit progressInformation
+do
+    reportProgress "$progressInformation"
+
+    for submodule in "${!submoduleCommits[@]}"
+    do
+	[ "${submoduleCommits["$submodule"]}" = "$(git-subhash "$superprojectCommit" "$submodule")" ] \
+	    || continue 2
+    done
+
+    # Success; all submodule references are equal to the commits of the submodule.
+    if [ ${#prettyArgs[@]} -eq 0 ]; then
+	git-onelinelog --max-count 1 "$superprojectCommit" --
+    else
+	git-log "${prettyArgs[@]}" --max-count 1 "$superprojectCommit" --
+    fi
+
+    [ "$isAll" ] || exit 0
+done < <(git log --pretty=$'tformat:%H\t%cs (%cr) %D' "${limitRangeArgs[@]}")
+exit 1

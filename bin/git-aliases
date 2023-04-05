@@ -68,8 +68,16 @@ printAliases()
 		    s/=[ \t][^;]*[ \t];[ \t]*/\n/;
 		    p
 		}'
-    fi \
-	| sed -e 's/^\(\[01m[^ ]\+\)-\([[:lower:]]\)\(\(do\|[^[:lower:]].*\)\?\[0m\)/\1\u\2\3/'	# Translate "-x" to "X" to correctly render aliases with uppercase letters.
+    fi
 }
 
-eval 'extractAliases | printAliases "$@"' "${pager:+|}" '"${pager[@]}"'
+translateUppercaseAlias()
+{
+    # Translate "-x" to "X" to correctly render aliases with uppercase letters.
+    sed -e 's/^\(\[01m[^ ]\+\)-\([[:lower:]]\)\(\(do\|[^[:lower:]].*\)\?\[0m\)/\1\u\2\3/'
+}
+
+extractAliases \
+    | printAliases "$@" \
+    | eval 'translateUppercaseAlias' \
+    "${pager:+|}" '"${pager[@]}"'

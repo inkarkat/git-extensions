@@ -25,9 +25,8 @@ if git issubmodule; then
 	cd "$submoduleRoot" || exit 3
 	header "$(git-wcname)"
 	message="$(withSeparator \
-	    --command hub-superpr \
+	    --command 'hub-superpr | markdownEscape' \
 	    --command 'git bomlog --pretty=format:%B --reverse' \
-		| markdownEscape
 	)" || exit $?
 
 	hub-wrapper pull-request --message "$message" --edit
@@ -36,7 +35,7 @@ else
     handleSubmodules()
     {
 	message="$(hub-prtitle --as-integration-message --qualified-with-userrepo | markdownEscape)" || return $?
-	hub-subsamebrdo --no-git-color --interactive --command "logs=\"\$(git bomlog --pretty=format:%B --reverse)\"; hub-wrapper pull-request --message \"\$message\"\$'\\n'\"\$logs\" --edit"
+	hub subsamebrdo --no-git-color --interactive --command "logs=\"\$(git bomlog --pretty=format:%B --reverse)\"; hub-wrapper pull-request --message \"\$message\"\$'\\n'\"\$logs\" --edit"
     }
 fi
 
@@ -44,14 +43,16 @@ message="$(withSeparator \
     --command 'git-servername --message' \
     --command 'git bomlog --pretty=format:%B --reverse | markdownEscape' \
 )" || exit $?
-hub-wrapper pull-request --draft --message "$message" --edit || exit $?
+hub-wrapper pull-request --draft --message "$message" --edit \
+    || userBinaryChoice --keep-prompt --console --question 'The superproject pull-request failed / was aborted; do you still want to continue with the submodules?' --yes-no \
+    || exit 4
 
 handleSubmodules || exit $?
 
 exec tempedit \
     --sink-exec gh pr edit --body-file {} \; \
     -- withSeparator \
-	--command 'hub pr list -f "%b" | markdownEscape' \
+	--command 'hub pr show -f "%b"' \
 	--command 'git boml | markdownEscape' \
 	--command hub-bomsubchanges \
 

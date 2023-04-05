@@ -25,9 +25,8 @@ if git issubmodule; then
 	cd "$submoduleRoot" || exit 3
 	header "$(git-wcname)"
 	message="$(withSeparator \
-	    --command hub-superpr \
+	    --command 'hub-superpr | markdownEscape' \
 	    --command 'git bomlog --pretty=format:%B --reverse' \
-		| markdownEscape
 	)" || exit $?
 
 	hub-wrapper pull-request --message "$message" --edit
@@ -53,7 +52,7 @@ handleSubmodules || exit $?
 exec tempedit \
     --sink-exec gh pr edit --body-file {} \; \
     -- withSeparator \
-	--command 'hub pr show -f "%b" | markdownEscape' \
+	--command 'hub pr show -f "%b"' \
 	--command 'git boml | markdownEscape' \
 	--command hub-bomsubchanges \
 

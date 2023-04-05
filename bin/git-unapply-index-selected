@@ -1,0 +1,19 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Interactively select (from staged files or passed list of files) files (or
+directly pass N, M, ... selections) and drop the staged changes from the working
+copy; i.e. revert the changes that are in the index in the working copy.
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[N [M ...]] [--] [FILE ...] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --no-color|--color=*)
+			shift;;
+    --color)		shift; shift;;
+esac
+
+GIT_SELECTED_COMMAND_DEFAULT_FILES='git-staged --' exec git-selected-command --filter '' "root unapply-index" "$@"

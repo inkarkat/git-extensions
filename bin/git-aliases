@@ -3,7 +3,7 @@
 readonly scriptDir=$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)
 [ -d "$scriptDir" ] || { echo >&2 "ERROR: Cannot determine script directory!"; exit 3; }
 readonly projectDir="${scriptDir}/.."
-readonly gitConfig="${projectDir}/gitconfig"
+typeset -a gitConfigs=("${projectDir}"/gitconfig*)
 
 printUsage()
 {
@@ -21,30 +21,36 @@ case "$1" in
 esac
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 
+extractAliases()
+{
+    # Push the current section name onto the hold space and check this for every
+    # encountered config line.
+    sed -n \
+	-e '/^\[.\+\]/{ h; b; }' \
+	-e 'x; /^\[alias\]/!{ x; b; }' \
+	-e 'x
+	    # Remove indent.
+	    s/^[ \t]*//
+	    p
+	' \
+	"${gitConfigs[@]}"
+}
+
 printAliases()
 {
     if [ $# -eq 0 ]; then
-	sed \
-	    -e '
-		/^\[alias\]/,/^\[/{
-		    /^\[alias\]/d;
-		    /^\[/Q;
+	sed -e '{
+		# Keep special comments, and break keyword and explanation into
+		# separate lines.
+		s/^;; \([^ \t]\+\):[ \t]\+\(.*\)/\1\n\t\2/
 
-		    # Remove indent.
-		    s/^[ \t]*//;
+		# Remove all other comment lines.
+		/^;/d;
 
-		    # Keep special comments, and break keyword and explanation into
-		    # separate lines.
-		    s/^;; \([^ \t]\+\):[ \t]\+\(.*\)/\1\n\t\2/
-
-		    # Remove all other comment lines.
-		    /^;/d;
-
-		    # Break alias definition and alias comment into separate lines.
-		    s/[ \t]=[ \t][^;]*[ \t];[ \t]*/\n\t/;
-		    b
-		}' \
-	    "$gitConfig" \
+		# Break alias definition and alias comment into separate lines.
+		s/[ \t]=[ \t][^;]*[ \t];[ \t]*/\n\t/;
+		b
+	    }' \
 	    | sed -e '/^\t/!s/[^=]*/[01m&[0m/' -e '/^\t/s/^\t//'
     else
 	local aliasName="$1"
@@ -54,26 +60,16 @@ printAliases()
 	fi
 
 	sed -n \
-	    -e '
-		/^\[alias\]/,/^\[/{
-		    /^\[alias\]/d;
-		    /^\[/Q;
-
-		    # Remove indent.
-		    s/^[ \t]*//;
-
-
-		    /^;; \('"$aliasName"'[^:]*\):[ \t]\+/{
-			s/^;; \([^:]\+\):[ \t]\+\(.*\)/[01m\1[0m\n\2/p
-		    }
-		    /^'"$aliasName"'[^=]*=[ \t]/{
-			s/[^=]*/[01m&[0m/
-			s/=[ \t][^;]*[ \t];[ \t]*/\n/;
-			p
-		    }
-		}' \
-	    "$gitConfig"
-    fi | sed -e 's/^\(\[01m[^ ]\+\)-\([[:lower:]]\)\(\(do\|[^[:lower:]].*\)\?\[0m\)/\1\u\2\3/'	# Translate "-x" to "X" to correctly render aliases with uppercase letters.
+	    -e '/^;; \('"$aliasName"'[^:]*\):[ \t]\+/{
+		    s/^;; \([^:]\+\):[ \t]\+\(.*\)/[01m\1[0m\n\2/p
+		}
+		/^'"$aliasName"'[^=]*=[ \t]/{
+		    s/[^=]*/[01m&[0m/
+		    s/=[ \t][^;]*[ \t];[ \t]*/\n/;
+		    p
+		}'
+    fi \
+	| sed -e 's/^\(\[01m[^ ]\+\)-\([[:lower:]]\)\(\(do\|[^[:lower:]].*\)\?\[0m\)/\1\u\2\3/'	# Translate "-x" to "X" to correctly render aliases with uppercase letters.
 }
 
-eval 'printAliases "$@"' "${pager:+|}" '"${pager[@]}"'
+eval 'extractAliases | printAliases "$@"' "${pager:+|}" '"${pager[@]}"'

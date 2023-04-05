@@ -1,0 +1,66 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Execute GIT-COMMAND with the commit preceding HEAD / preceding a passed
+--commit COMMIT
+- appended
+- replacing PREVIOUSCOMMIT argument(s) anywhere
+- replacing PREVIOUSCOMMIT in the following GIT-COMMAND and -(N-1) arguments
+- replacing PREVIOUSCOMMIT in the following +(N) arguments and appending those
+(Like git-branch-command, but using -r|--commit instead of -b|--branch.)
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--commit COMMIT] [--real-revision-name] [--] ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [... [--commit COMMIT] [--real-revision-name] ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... PREVIOUSCOMMIT ... [--commit COMMIT] [--real-revision-name] ... ]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [... [--commit COMMIT] [--real-revision-name] ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [... [--commit COMMIT] [--real-revision-name] ...]'
+}
+
+commit='HEAD^'
+isRealRevision=
+typeset -a args=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--commit)	shift; commit="${1:?}^"; shift;;
+	--real-revision-name)
+			shift; isRealRevision=t;;
+	--)		break;;
+	*)		args+=("$1"); shift;;
+    esac
+done
+set -- "${args[@]}" "$@"
+[ ! "$isRealRevision" ] || commit="$(git rev-parse "${commit}^{commit}")" || exit $?
+
+if [ $# -eq 0 ]; then
+    echo >&2 'ERROR: No GIT-COMMAND passed.'
+    exit 2
+fi
+
+isCountedAppend=
+case "$1" in
+    +[1-9])
+	isCountedAppend=t;&
+    -[1-9])
+	typeset countedArgNum=${1#[+-]}
+	typeset -a countedArgs=("${@:2:${countedArgNum}}")
+	set -- "${@:$((2 + countedArgNum))}"
+
+	countedArgs=("${countedArgs[@]//PREVIOUSCOMMIT/${commit}}")
+
+	[ "$isCountedAppend" ] \
+	    && exec git-wrapper "$@" "${countedArgs[@]}" \
+	    || exec git-wrapper "${countedArgs[@]}" "$@"
+	;;
+    --keep-position)
+	shift
+	exec git-wrapper "${@//PREVIOUSCOMMIT/${commit}}"
+	;;
+    *)
+	exec git-wrapper "$@" "$commit"
+	;;
+esac

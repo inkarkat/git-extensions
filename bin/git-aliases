@@ -38,37 +38,38 @@ extractAliases()
 
 printAliases()
 {
-    if [ $# -eq 0 ]; then
-	sed -e '{
-		# Keep special comments, and break keyword and explanation into
-		# separate lines.
-		s/^;; \([^ \t]\+\):[ \t]\+\(.*\)/\1\n\t\2/
+    sed -e '{
+	    # Keep special comments, and break keyword and explanation into
+	    # separate lines.
+	    s/^;; \([^ \t]\+\):[ \t]\+\(.*\)/\1\n\t\2/
 
-		# Remove all other comment lines.
-		/^;/d;
+	    # Remove all other comment lines.
+	    /^;/d;
 
-		# Break alias definition and alias comment into separate lines.
-		s/[ \t]=[ \t][^;]*[ \t];[ \t]*/\n\t/;
-		b
-	    }' \
-	    | sed -e '/^\t/!s/[^=]*/[01m&[0m/' -e '/^\t/s/^\t//'
-    else
-	local aliasName="$1"
-	if [[ "$aliasName" =~ ^[^-].*[[:upper:]] ]]; then
-	    # Translate "X" to "-x" to enable looking up aliases with uppercase letters.
-	    aliasName="$(echo "$aliasName" | sed -e 's/[[:upper:]]/-\l\0/g')"
-	fi
+	    # Break alias definition and alias comment into separate lines.
+	    s/[ \t]=[ \t][^;]*[ \t];[ \t]*/\n\t/;
+	    b
+	}' \
+	| sed -e '/^\t/!s/[^=]*/[01m&[0m/' -e '/^\t/s/^\t//'
+}
 
-	sed -n \
-	    -e '/^;; \('"$aliasName"'[^:]*\):[ \t]\+/{
-		    s/^;; \([^:]\+\):[ \t]\+\(.*\)/[01m\1[0m\n\2/p
-		}
-		/^'"$aliasName"'[^=]*=[ \t]/{
-		    s/[^=]*/[01m&[0m/
-		    s/=[ \t][^;]*[ \t];[ \t]*/\n/;
-		    p
-		}'
+printFoundAliases()
+{
+    local aliasName="${1:?}"
+    if [[ "$aliasName" =~ ^[^-].*[[:upper:]] ]]; then
+	# Translate "X" to "-x" to enable looking up aliases with uppercase letters.
+	aliasName="$(echo "$aliasName" | sed -e 's/[[:upper:]]/-\l\0/g')"
     fi
+
+    sed -n \
+	-e '/^;; \('"$aliasName"'[^:]*\):[ \t]\+/{
+		s/^;; \([^:]\+\):[ \t]\+\(.*\)/[01m\1[0m\n\2/p
+	    }
+	    /^'"$aliasName"'[^=]*=[ \t]/{
+		s/[^=]*/[01m&[0m/
+		s/=[ \t][^;]*[ \t];[ \t]*/\n/;
+		p
+	    }'
 }
 
 translateUppercaseAlias()
@@ -78,6 +79,6 @@ translateUppercaseAlias()
 }
 
 extractAliases \
-    | printAliases "$@" \
+    | print${*+Found}Aliases "$@" \
     | eval 'translateUppercaseAlias' \
     "${pager:+|}" '"${pager[@]}"'

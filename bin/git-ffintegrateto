@@ -241,6 +241,7 @@ if [ -z "${isPush+t}" -a -n "$HUB" ]; then
 fi
 
 sourceBranch="$(git-brname --real-branch-only)" || exit $?
+sourceTracks="$(git-tracks 2>/dev/null)"
 if [ -z "$targetBranch" ]; then
     echo 'ERROR: Missing <branch>.'
     exit 2
@@ -347,7 +348,6 @@ deleteMergedSubmoduleBranches()
 
 pushBranch()
 {
-    local sourceTracks="$(git-tracks 2>/dev/null)"
     if [ -z "$sourceTracks" ]; then
 	printf >&2 "ERROR: Cannot push; no upstream configured for the current branch '%s'\\n" "$sourceBranch"
 	return 1    # Still continue with the branch deletion here, but following push errors will abort.
@@ -396,8 +396,8 @@ else
 	type -t timeout >/dev/null && prefixCommands=(timeout 10 "${prefixCommands[@]}")
 	type -t invocationMessage >/dev/null && prefixCommands=(invocationMessage --message 'Searching for PR...' --success FOUND --fail NONE -- "${prefixCommands[@]}")
 
-	typeset -a suffixArguments=(); [ -n "$targetTracks" ] && ! git-equals "$targetBranch" "$targetTracks" \
-	    && suffixArguments=(HEAD "$targetBranch")
+	typeset -a suffixArguments=(); [ -n "$sourceTracks" ] && ! git-equals "$sourceBranch" "$sourceTracks" \
+	    && suffixArguments=(HEAD "$sourceBranch")
 
 	pullRequestTitles="$("${prefixCommands[@]}" hub-prtitle --as-merge-message "${suffixArguments[@]}")"
 	[ -n "$pullRequestTitles" ] && mergeMessageArgs+=(--message "$pullRequestTitles"$'\n\n'"$branchMergeMessage" --edit)

@@ -1,0 +1,62 @@
+#!/bin/bash
+set -o pipefail
+
+printUsage()
+{
+    cat <<HELPTEXT
+Log together with just the modified file followed by the "TEXT" portion(s) of
+patch hunk headers of the diff for a particular commit. Condenses identical
+"TEXT" portions of hunks and completely omits logs that have no "TEXT" portion.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[options] <object> <object> [...] [-?|-h|--help]'
+}
+
+typeset -a allargs=()
+typeset -a colorArg=(--color=always)
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+if [ ! -t 1 ]; then
+    colorArg=()
+    pager=()
+fi
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--color=auto)	shift;;
+	--no-color|--color=*)
+			colorArg=("$1"); shift;;
+	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); shift; shift;;
+	--)		break;;
+	*)		allargs+=("$1"); shift;;
+    esac
+done
+set -- "${allargs[@]}" "$@"
+
+showh()
+{
+    local isFirst=t status=0 object; for object
+    do
+	local hunkHeaders; hunkHeaders="$(
+	    git-wrapper show --no-color --pretty= "$object" \
+		| sed -n \
+		    -e '/^--- /{ N; /\n+++ /{ s/^[^\n]*\n//; s#^+++ \([biw]/\)\?##; h; }; }' \
+		    -e 't next' -e :next \
+		    -e 's/^@@ .* @@ \(.\+\)$/\1/' \
+		    -e T \
+		    -e 'G; s#^\([^\n\]*\)\n\([^\n]*\)$#\2: \1#; p' \
+		| uniqueStable
+	    )" || status=$?
+
+	    if [ -n "$hunkHeaders" ]; then
+		[ "$isFirst" ] || printf '\n'; isFirst=
+
+		git show --no-patch "${colorArg[@]}" "$object" \
+		    && printf '\n%s\n' "$hunkHeaders" \
+		    || status=$?
+	    fi
+    done
+    return $status
+}
+
+eval 'showh "$@"' "${pager:+|}" '"${pager[@]}"'

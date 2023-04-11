@@ -1,6 +1,12 @@
 #!/bin/bash
 set -o pipefail
 
+: ${GIT_SHOWH_COLOR_FILE=[36m}
+: ${GIT_SHOWH_COLOR_HUNK=[0m}
+: ${GIT_SHOWH_COLOR_SEPARATOR=[38;5;245m}
+: ${GIT_SHOWH_FILE_HUNK_SEPARATOR=: }
+: ${GIT_SHOWH_COLOR_RESET=[0m}
+
 printUsage()
 {
     cat <<HELPTEXT
@@ -13,9 +19,11 @@ HELPTEXT
 }
 
 typeset -a allargs=()
+isColor=t
 typeset -a colorArg=(--color=always)
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
 if [ ! -t 1 ]; then
+    isColor=
     colorArg=()
     pager=()
 fi
@@ -23,15 +31,17 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-	--color=auto)	shift;;
-	--no-color|--color=*)
-			colorArg=("$1"); shift;;
-	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); shift; shift;;
+	--no-color|--color=never)
+			colorArg=("$1"); shift; isColor=;;
+	--color=always)	colorArg=("$1"); shift; isColor=t;;
+	--color=*)	colorArg=("$1"); shift;;
+	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); case "$2" in never) isColor=;; always) isColor=t;; esac; shift; shift;;
 	--)		break;;
 	*)		allargs+=("$1"); shift;;
     esac
 done
 set -- "${allargs[@]}" "$@"
+[ "$isColor" ] || unset "${!GIT_SHOWH_COLOR_@}"
 
 showh()
 {
@@ -44,7 +54,7 @@ showh()
 		    -e 't next' -e :next \
 		    -e 's/^@@ .* @@ \(.\+\)$/\1/' \
 		    -e T \
-		    -e 'G; s#^\([^\n\]*\)\n\([^\n]*\)$#\2: \1#; p' \
+		    -e 'G; s#^\([^\n\]*\)\n\([^\n]*\)$#'"${GIT_SHOWH_COLOR_FILE}\\2${GIT_SHOWH_COLOR_RESET}${GIT_SHOWH_COLOR_SEPARATOR}${GIT_SHOWH_FILE_HUNK_SEPARATOR}${GIT_SHOWH_COLOR_RESET}${GIT_SHOWH_COLOR_HUNK}\\1${GIT_SHOWH_COLOR_RESET}"'#; p' \
 		| uniqueStable
 	    )" || status=$?
 

@@ -15,10 +15,11 @@ patch hunk headers of the diff for a particular commit. Condenses identical
 "TEXT" portions of hunks and completely omits logs that have no "TEXT" portion.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[options] <object> <object> [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[options] <object> <object> [...] [[--] <path>...] [-?|-h|--help]'
 }
 
-typeset -a allargs=()
+typeset -a objects=()
+typeset -a files=()
 isColor=t
 typeset -a colorArg=(--color=always)
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
@@ -36,19 +37,32 @@ do
 	--color=always)	colorArg=("$1"); shift; isColor=t;;
 	--color=*)	colorArg=("$1"); shift;;
 	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); case "$2" in never) isColor=;; always) isColor=t;; esac; shift; shift;;
-	--)		break;;
-	*)		allargs+=("$1"); shift;;
+	--)		shift; files=("$@"); break;;
+	*)		objects+=("$1"); shift;;
     esac
 done
-set -- "${allargs[@]}" "$@"
+if [ ${#files[@]} -eq 0 ]; then
+    # No files after -- captured yet; need to investigate parsed and
+    # remaining args from behind for files.
+    objects+=("$@")
+    while [ ${#objects[@]} -ne 0 ]
+    do
+	lastArg="${objects[-1]}"
+	[ -e "$lastArg" ] || break
+
+	files=("$lastArg" "${files[@]}")
+	objects=("${objects[@]:0:${#objects[@]}-1}")
+    done
+fi
+[ ${#objects[@]} -gt 0 ] || objects=(HEAD)
 [ "$isColor" ] || unset "${!GIT_SHOWH_COLOR_@}"
 
 showh()
 {
-    local isFirst=t status=0 object; for object
+    local isFirst=t status=0 object; for object in "${objects[@]}"
     do
 	local hunkHeaders; hunkHeaders="$(
-	    git-wrapper show --no-color --pretty= "$object" \
+	    git-wrapper log --patch --max-count 1 --no-color --pretty= "$object" ${files[*]:+--} "${files[@]}" \
 		| sed -n \
 		    -e '/^--- /{ N; /\n+++ /{ s/^[^\n]*\n//; s#^+++ \([biw]/\)\?##; h; }; }' \
 		    -e 't next' -e :next \
@@ -69,4 +83,4 @@ showh()
     return $status
 }
 
-eval 'showh "$@"' "${pager:+|}" '"${pager[@]}"'
+eval showh "${pager:+|}" '"${pager[@]}"'

@@ -12,7 +12,8 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[LOG-ARGS ...] [<revision range>] [[--] <path>...] [-?|-h|--help]'
 }
 
-typeset -a allargs=()
+typeset -a logArgs=()
+typeset -a files=()
 typeset -a colorArg=(--color=always)
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
 if [ ! -t 1 ]; then
@@ -27,16 +28,31 @@ do
 	--no-color|--color=*)
 			colorArg=("$1"); shift;;
 	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); shift; shift;;
-	--)		break;;
-	*)		allargs+=("$1"); shift;;
+	--)		shift; files=("$@"); break;;
+	*)		logArgs+=("$1"); shift;;
     esac
 done
-set -- "${allargs[@]}" "$@"
+if [ ${#files[@]} -eq 0 ]; then
+    # No files after -- captured yet; need to investigate parsed and
+    # remaining args from behind for files.
+    logArgs+=("$@")
+    while [ ${#logArgs[@]} -ne 0 ]
+    do
+	lastArg="${logArgs[-1]}"
+	[ -e "$lastArg" ] || break
+
+	files=("$lastArg" "${files[@]}")
+	logArgs=("${logArgs[@]:0:${#logArgs[@]}-1}")
+    done
+fi
+
+typeset -a enumeratorCommand=(git-showh "${colorArg[@]}")
+[ ${#files[@]} -eq 0 ] || enumeratorCommand=(placeholderArguments --exec "${enumeratorCommand[@]}" {} -- "${files[@]}" \;)
 
 lch()
 {
-    git log --pretty=tformat:%H "$@" \
-	| xargs --no-run-if-empty --delimiter '\n' git-showh "${colorArg[@]}"
+    git log --pretty=tformat:%H "${logArgs[@]}" ${files[*]:+--} "${files[@]}" \
+	| xargs --no-run-if-empty --delimiter '\n' "${enumeratorCommand[@]}"
 }
 
-eval 'lch "$@"' "${pager:+|}" '"${pager[@]}"'
+eval lch "${pager:+|}" '"${pager[@]}"'

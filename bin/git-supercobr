@@ -3,9 +3,9 @@
 printUsage()
 {
     cat <<HELPTEXT
-Check out a (new or existing) branch with the same (or modified) name as the
-superproject's current branch.
-Like supercobr from the other direction.
+Check out a (new or existing) branch in the superproject with the same (or
+modified) name as this submodule's current branch.
+Like cosuperbr from the other direction.
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [--gui|--terminal|--none] [-b|-B (OLD=NEW|^=PREFIX|+=SUFFIX) [...]] [(--submodules|--queried-submodules) [--submodules-recursive]] [CHECKOUT-ARGS ...] [-?|-h|--help]'
@@ -24,13 +24,12 @@ do
 done
 set -- "${checkoutbranchArgs[@]}" "$@"
 
-superprojectRoot="$(git superproject)" || exit 1
-superprojectBranch="$(cd "$superprojectRoot" && git-brname --real-branch-only)" || exit $?
+submoduleBranch="$(git-brname --real-branch-only)" || exit $?
 
 if [ ${#branches[@]} -gt 0 ]; then
-    newBranch="$(replaceWith -- "$superprojectBranch" "${branches[@]}" 2>/dev/null)" || exit $?
+    newBranch="$(replaceWith -- "$submoduleBranch" "${branches[@]}" 2>/dev/null)" || exit $?
 else
-    newBranch="$superprojectBranch"
+    newBranch="$submoduleBranch"
 fi
 
-exec git-checkoutbranch -B "$newBranch" "$@"
+exec git-superdo checkoutbranch -B "$newBranch" "$@"

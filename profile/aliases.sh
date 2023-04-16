@@ -1,5 +1,7 @@
 #!/bin/sh source-this-script
 
+[ -w ~/.local/.gitconfig -o -w ~/.local -o -w ~ ] || return
+
 # Configure Git aliases for various built-in diff tools, depending on what is
 # available.
 # git diffwithFOO		Permanently set diff.tool to FOO.

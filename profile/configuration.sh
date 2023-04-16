@@ -1,5 +1,7 @@
 #!/bin/sh source-this-script
 
+[ -w ~/.local/.gitconfig -o -w ~/.local -o -w ~ ] || return
+
 # Configure the pager to base tabstops on column 2, as the first column in diff
 # output is added (for the +/- prefix). With that, there won't be a discrepancy
 # in indenting between changed and context lines any longer (as long as the

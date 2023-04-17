@@ -3,9 +3,10 @@
 printUsage()
 {
     cat <<HELPTEXT
-Publish this submodule's branch to REMOTE (when in a submodule) / publish all
-dirty submodules (when in the superproject), and create a commit in the
-superproject and publish its branch to REMOTE, too.
+Publish this submodule's branch to REMOTE when in a submodule / when in the
+superproject: publish all dirty submodules / all submodules that are on the same
+branch, and (if necessary) create a commit in the superproject and publish its
+branch to REMOTE, too.
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" 'REMOTE [-?|-h|--help]'
@@ -17,7 +18,7 @@ publishCommand=
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
     --superpublish)	shift; publishCommand="$1"; shift; commitMessage="$1"; shift
-			if git-dirty --quiet -- "$@"; then
+			if git-dirty --ignore-submodules=dirty --quiet -- "$@"; then
 			    git-wrapper commit --edit --message "$commitMessage" -- "$@" || exit $?
 			fi
 			exec git-wrapper "$publishCommand"
@@ -40,8 +41,9 @@ if subPaths=("$(git-supersubpath)"); then
     commitMessage="$(git boml)"
 else
     readarray -t subPaths < <(git subst)
+    [ ${#subPaths[@]} -gt 0 ] || readarray -t subPaths < <(git subsamebrdo)
     if [ ${#subPaths[@]} -eq 0 ]; then
-	echo >&2 'ERROR: No affected submodules found.'
+	echo >&2 'ERROR: No dirty submodules or submodules on the same branch found.'
 	exit 3
     fi
 

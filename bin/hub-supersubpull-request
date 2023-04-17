@@ -50,9 +50,11 @@ hub-wrapper pull-request --draft --message "$message" --edit \
 handleSubmodules || exit $?
 
 exec tempedit \
-    --sink-exec gh pr edit --body-file {} \; \
+    --basename PULLREQ_EDITMSG \
+    --sink-exec sed -e 1d -e '2{/^$/d}' -- {} \; \
+    --sink-exec gh pr edit --body-file - \; \
     -- withSeparator \
-	--command 'hub pr show -f "%b"' \
+	--command 'hub pr show -f "%t (← do not edit here)%n%n%b"' \
 	--command 'git boml | markdownEscape' \
 	--command hub-bomsubchanges \
 

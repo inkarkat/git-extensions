@@ -7,8 +7,10 @@ Test whether there are / list uncommitted changes, either in the working copy or
 the index.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet|-E|--print-error [--error-message MSG]] [--] [<path> ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet|-E|--print-error [--error-message MSG]] [--ignore-submodules[=<when>]] [--] [<path> ...] [-?|-h|--help]'
 }
+
+typeset -a statusArgs=()
 errorMessage='ERROR: working copy is still dirty; please clean up first.'
 isPrintError=
 isQuiet=
@@ -24,6 +26,10 @@ do
 	--error-message)
 			shift; errorMessage="$1"; shift;;
 	--quiet|-q)	shift; isQuiet=t;;
+
+	--ignore-submodules|--ignore-submodules=*)
+			statusArgs+=("$1"); shift;;
+
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -32,10 +38,10 @@ done
 
 runStatus()
 {
-    git status --short --untracked-files=no -- "$@" 2>/dev/null
+    git status --short --untracked-files=no "${statusArgs[@]}" -- "$@" 2>/dev/null
 }
 
-if [ "$isQuiet" ] && [ $# -eq 0 ]; then
+if [ "$isQuiet" ] && [ $# -eq 0 -a ${#statusArgs[@]} -eq 0 ]; then
     # An empty repository causes "git diff-index" to complain about "fatal: bad
     # revision 'HEAD'", so it would be considered dirty if we didn't check for
     # that here.

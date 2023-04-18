@@ -371,20 +371,39 @@ else
 		    userBinaryChoice --keep-prompt --console --question "The $commitNum commit$commitNumPlural on the ${branchNum}${branchNum:+ }branch$branchesPlural can be fast-forwarded instead of merged. Fast-forward?" --yes-no
 		fi && fastForwardArgs=(--ff-only)
 	    elif canRebase; then
-		hubNote=; if [ "$HUB" ] && [ -n "$pullRequestTitles" ]; then
-		    hubNote='Note: GitHub cannot detect the rebase and will say that the PR has been closed. If you need proper indication, please quit now and directly rebase in GitHub itself instead.'
+		typeset -a hubAdditionalOption=(); hubNote=
+		if [ "$HUB" ] && [ -n "$pullRequestTitles" ]; then
+		    readarray -t pullRequestUrls < <("${prefixCommands[@]}" hub-prtitle --url "${branches[@]}")
+		    hubAdditionalOption=('[P]ull')
+		    hubNote="Note: GitHub cannot detect the rebase and will say that the PR has been closed. If you need proper indication, please directly rebase in GitHub itself ($(joinBy ' ' "${pullRequestUrls[@]}") now and choose "${hubAdditionalOption[@]}" then."
 		    if [ "$isCheckFromStdin" ] || [  ${#checkCommands[@]} -gt 0 ]; then
-			hubNote+=" (But be aware that the CHECK-COMMAND(s) won't be executed then.)"
+			hubNote+=" (But be aware that the CHECK-COMMAND(s) will only be executed after the rebase then, so either an additional commit or $targetTrackedRemote history rewrite would be necessary to fix any problems.)"
 		    fi
 		fi
 		if choice="$(git config --type bool --get reintegrate.rebase-single)"; then
 		    choiceEvaluate reintegrate.rebase-single "The single commit on the ${branchNum}${branchNum:+ }branch$branchesPlural will be" "rebased instead of merged" "merged, not rebased"
 		else
-		    choice="$(userchoiceFromList --keep-prompt --question "The branch$branchesPlural only consist$verbPlural of a single commit. Rebase $branchesSubject instead of creating a separate merge commit?${hubNote:+$'\n'}${hubNote}" --no-cancel --ignore-case -- '[Y]es' '[N]o' '[Q]uit')" || exit $?
+		    choice="$(userchoiceFromList --keep-prompt --question "The branch$branchesPlural only consist$verbPlural of a single commit. Rebase $branchesSubject instead of creating a separate merge commit?${hubNote:+$'\n'}${hubNote}" --no-cancel --ignore-case -- '[Y]es' '[N]o' "${hubAdditionalOption[@]}" '[Q]uit')" || exit $?
 		fi
 		case "$choice" in
 		    true|Yes)
 			isRebase=t;;
+		    Pull)
+			prePullCommit="$(git rev-parse HEAD)"
+			git-wrapper pull "$targetTrackedRemote" || {
+			    status=$?
+			    echo >&2 'Looks like the pull failed. You can try again via'
+			    printContinueCommand
+			    exit $status
+			}
+			if git-equals "$prePullCommit" HEAD; then
+			    echo >&2 'Nothing got pulled. You can try again via'
+			    printContinueCommand
+			    exit 99
+			fi
+			isContinue=t	# Don't do any merge or rebase here.
+			isPush=	# Skip pushing; we've just pulled.
+			;;
 		    Quit)
 			if [ -n "$hubNote" ]; then
 			    echo "After rebasing in GitHub, you can delete the branch$branchesPlural via:"
@@ -404,7 +423,9 @@ else
 	fi
 
 
-	if [ "$isRebase" ]; then
+	if [ "$isContinue" ]; then
+	    :
+	elif [ "$isRebase" ]; then
 	    origRef="$(git-orig-ref)" || exit $?
 
 	    for branch in "${branches[@]}"

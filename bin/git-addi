@@ -16,7 +16,12 @@ case "$1" in
     --color)		shift; shift;;
 esac
 
-readarray -t stagedFilespecs < <(git-staged "$@")
+typeset -a stagedFilespecs=()
+while IFS=$'\n' read -r filespec
+do
+    [ -r "$filespec" ] && stagedFilespecs+=("$filespec")
+done < <(git-staged "$@")
 [ ${#stagedFilespecs[@]} -gt 0 ] || exit 99
+
 git add "${stagedFilespecs[@]}" \
     && git status -sb

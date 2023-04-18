@@ -16,6 +16,12 @@ case "$1" in
     --color)		shift; shift;;
 esac
 
-git-staged "$@" | \
-    xargs --no-run-if-empty --delimiter '\n' git add && \
-	git status -sb
+typeset -a stagedFilespecs=()
+while IFS=$'\n' read -r filespec
+do
+    [ -r "$filespec" ] && stagedFilespecs+=("$filespec")
+done < <(git-staged "$@")
+[ ${#stagedFilespecs[@]} -gt 0 ] || exit 99
+
+git add "${stagedFilespecs[@]}" \
+    && git status -sb

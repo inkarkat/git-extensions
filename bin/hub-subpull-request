@@ -14,10 +14,12 @@ superMessage=
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
     --super-message)	shift; superMessage="${1:?}"; shift;;
-    --existing-pull-requests)
+    --existing-changes)
 			shift
+			currentSubmodule="${1?}"; shift
 			readarray -t submodules < <(git subsamebrdo --no-header)
-			[ ${#submodules[@]} -eq 0 ] || git-subchanges --no-color --only-pull-requests --qualified-with-userrepo --as markdown -- "${submodules[@]}"
+			[ ${#submodules[@]} -eq 0 ] && exit 0
+			hub-bomsubchanges --no-color --qualified-with-userrepo --as markdown ${currentSubmodule:+--exclude-submodule "$currentSubmodule"} "${submodules[@]}"
 			exit 0
 			;;
 esac
@@ -27,17 +29,18 @@ if [ -n "$superMessage" ] || git issubmodule; then
 
     # Do this for each submodule, even if invoked in the superproject, as each
     # submodule iteration adds a pull request.
-    existingPullRequests="$(git superdo --no-header subpull-request --existing-pull-requests)"
-    typeset -a existingPullRequestsCommand=()
-    if [ -n "$existingPullRequests" ]; then
-	printf -v echoExistingPullRequests 'printf %%s\\\\n%%s\\\\n %q %q' 'Related pull requests:' "$existingPullRequests"
-	existingPullRequestsCommand=(--command "$echoExistingPullRequests")
+    currentSubmodule="$(git-supersubpath)" || exit $?
+    existingChanges="$(git superdo --no-header subpull-request --existing-changes "$currentSubmodule")"
+    typeset -a existingChangesCommand=()
+    if [ -n "$existingChanges" ]; then
+	printf -v echoExistingChanges 'printf %%s\\\\n%%s\\\\n %q %q' 'Related changes:' "$existingChanges"
+	existingChangesCommand=(--command "$echoExistingChanges")
     fi
 
     message="$(withSeparator \
 	--command 'git boml | markdownEscape' \
+	"${existingChangesCommand[@]}" \
 	--command 'git-servername --message' \
-	"${existingPullRequestsCommand[@]}" \
 	--command 'git bomlog --pretty=format:%B --reverse | markdownEscape' \
     )" || exit $?
 

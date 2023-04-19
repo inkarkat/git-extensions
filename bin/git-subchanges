@@ -9,7 +9,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '--since <date>|--max-count <number>|-n <number>|<range> [--include-pull-requests|--only-pull-requests [-Q|--qualified-with-userrepo]] [--as markdown] [<log-args> ...] [--] [SUBMODULE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--since <date>|--max-count <number>|-n <number>|<range> [--include-pull-requests|--only-pull-requests [-Q|--qualified-with-userrepo]] [--as markdown] [--exclude-submodule SUBMODULE [...]] [<log-args> ...] [--] [SUBMODULE ...] [-?|-h|--help]'
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '--only-pull-requests [-Q|--qualified-with-userrepo]] [--as markdown] [--] [SUBMODULE ...] [-?|-h|--help]'
 }
@@ -47,6 +47,9 @@ HELPDESCRIPTION
 			- Convert the log lines to list items.
 			- Drop the pull request title if qualified (GitHub
 			  renders that itself).
+    --exclude-submodule SUBMODULE
+			Do not log changes in SUBMODULE; ignore it as if it
+			didn't exist.
 HELPTEXT
 }
 
@@ -68,6 +71,7 @@ prTitlePostProcessor=
 typeset -a rangeArgs=()
 typeset -a rangeModificationArgs=()
 typeset -a submodules=()
+typeset -A excludedSubmodules=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -105,6 +109,8 @@ do
 	--max-count=*|-+([0-9]))
 			rangeArgs+=("$1"); shift;;
 	--follow)	rangeModificationArgs+=("$1"); shift;;
+	--exclude-submodule)
+			shift; excludedSubmodules["${1:?}"]=t; shift;;
 	--)		shift; submodules=("$@"); break;;
 	*)		if [ ${#rangeArgs[@]} -eq 0 ]; then
 			    rangeArgs+=("$1"); shift
@@ -152,6 +158,16 @@ if [ ${#rangeArgs[@]} -eq 0 ]; then
 	exit 2
     fi
 fi
+
+if [ ${#excludedSubmodules[@]} -gt 0 ]; then
+    typeset -a temp=()
+    for submodule in "${submodules[@]}"
+    do
+	[ "${excludedSubmodules["$submodule"]}" ] || temp+=("$submodule")
+    done
+    submodules=("${temp[@]}")
+fi
+
 if [ ${#submodules[@]} -eq 0 ]; then
     echo >&2 'No submodules.'
     exit 99

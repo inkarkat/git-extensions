@@ -1,4 +1,5 @@
 #!/bin/bash
+set -o pipefail
 
 printUsage()
 {
@@ -31,15 +32,24 @@ fi >&2
 
 existsBranch()
 {
+    local branchCnt=0 branch
     for branch
     do
 	# First check whether any valid ref is passed.
-	git rev-parse --verify --quiet "$branch" >/dev/null || return 1
+	git rev-parse --verify --quiet "$branch" >/dev/null || continue
 
 	# Then verify that a branch with that name exists (and it isn't a tag or
 	# raw commit).
-	[ "$(git branch --list --all "$branch")" ] || return 1
+	[ "$(git branch --list --all "$branch")" ] && let branchCnt+=1
     done
+
+    if [ $branchCnt -eq $# ]; then
+	return 0
+    elif [ $branchCnt -eq 0 ]; then
+	return 99
+    else
+	return 1
+    fi
 }
 printInvalidBranches()
 {

@@ -20,11 +20,16 @@ if [ $# -ne 0 ]; then
     exit 2
 fi
 
+if git-isdetached; then
+    echo >&2 'ERROR: Detached working copy; cannot push.'
+    exit 99
+fi
+
 targetBranch="$(git-brname --real-branch-only)" || exit $?
 targetTracks="$(git-tracks 2>/dev/null)"
 targetTrackedRemote="${targetTracks%%/*}"
-
 printf -v quotedTargetBranch %q "$targetBranch"
+
 if [ -z "$targetTracks" ]; then
     printf >&2 "ERROR: Cannot push; no upstream configured for branch '%s'\\n" "$targetBranch"
     exit 99

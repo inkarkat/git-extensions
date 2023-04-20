@@ -1,21 +1,52 @@
 #!/bin/bash
+set -o pipefail
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-v|--verbose] [--] [<remote>/]<branch> [...] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 Check whether [all of] the passed [<remote>/]<branch> exists.
-With -v|--verbose, print any invalid branches.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --verbose|-v	Print any invalid branches.
+
+EXIT STATUS:
+    0	All passed branch(es) exist.
+    1	Some branch(es) do not exist.
+    99	None of the passed branch(es) exist.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-v|--verbose] [<remote>/]<branch> [...] [-?|-h|--help]'
 }
 isVerbose=
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--no-color|--color=*)
 			shift;;
-    --color)		shift; shift;;
-    --verbose|-v)	shift; isVerbose=t;;
-esac
+	--color)	shift; shift;;
+	--verbose|-v)	shift; isVerbose=t;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 if [ $# -eq 0 ]; then
     echo 'ERROR: No <branch> passed.'
     echo
@@ -25,15 +56,24 @@ fi >&2
 
 existsBranch()
 {
+    local branchCnt=0 branch
     for branch
     do
 	# First check whether any valid ref is passed.
-	git rev-parse --verify --quiet "$branch" >/dev/null || return 1
+	git rev-parse --verify --quiet "$branch" >/dev/null || continue
 
 	# Then verify that a branch with that name exists (and it isn't a tag or
 	# raw commit).
-	[ "$(git branch --list --all "$branch")" ] || return 1
+	[ "$(git branch --list --all "$branch")" ] && let branchCnt+=1
     done
+
+    if [ $branchCnt -eq $# ]; then
+	return 0
+    elif [ $branchCnt -eq 0 ]; then
+	return 99
+    else
+	return 1
+    fi
 }
 printInvalidBranches()
 {

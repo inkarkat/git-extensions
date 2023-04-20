@@ -1,14 +1,44 @@
 #!/bin/bash
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [-f|--force] [-i|--ignore-missing-in-${remote}] [-I|--ignore-missing-local] [-y|--yes] [--] <branch> [...] [-?|-h|--help]"
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 Delete <branch> from the local repository as well as ${remote:-REMOTE}.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --force|-f		Allow deleting the branch irrespective of its merged
+			status, or whether it even points to a valid commit.
+    --ignore-missing-in-${remote}|-i
+			No error if a branch does not exist in ${remote:-REMOTE}.
+    --ignore-missing-local|-I
+			No error if there's no local branch.
+EXIT STATUS:
+    0	Complete success.
+    1	Failed to delete some branch(es).
+    2	Bad invocation, wrong or missing command-line arguments.
+    99	Missing branches are ignored and nothing got deleted.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [-f|--force] [-i|--ignore-missing-in-${remote}] [-y|--yes] [--] <branch> [...] [-?|-h|--help]"
 }
 case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
     --no-color|--color=*)
 			shift;;
     --color)		shift; shift;;
@@ -17,18 +47,22 @@ remote="${1:?}"; shift
 
 branchDeleteOption=-d
 isIgnoreMissingInRemote=
+isIgnoreMissingLocal=
 typeset -a gitRemoteMutateArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
 	-f|--force)	shift; branchDeleteOption=-D;;
 	--ignore-missing-in-${remote}|-i)
 			shift; isIgnoreMissingInRemote=t;;
+	--ignore-missing-local|-I)
+			shift; isIgnoreMissingLocal=t;;
 	--yes|-y)	gitRemoteMutateArgs+=("$1"); shift;;
+	--)		shift; break;;
 	*)		break;;
     esac
 done
@@ -42,20 +76,27 @@ fi >&2
 
 # Need to determine remote branch names before deleting the local branches.
 if [ "$isIgnoreMissingInRemote" ]; then
-    readarray -t remoteBranches < <(git-remotebr "$remote" "$@" 2>/dev/null)
+    readarray -t remoteBranches < <(git-remotebr "$remote" -- "$@" 2>/dev/null)
 else
-    readarray -t remoteBranches < <(git-remotebr "$remote" "$@")
+    readarray -t remoteBranches < <(git-remotebr "$remote" -- "$@")
 fi
 
 # Note: Process all passed branches in one fell swoop; this avoid re-querying
 # (on push) the remote repository credentials for each branch. When one branch
 # is invalid, an error is returned, but following (valid) branches are still
 # processed: just as we'd like.
-status=0
+remoteStatus=0
 
-# If not all branches have remotes in $remote, this is a failure of this
-# command; the branch(es) have already been printed to stderr by git-remotebr.
-[ ! "$isIgnoreMissingInRemote" -a ${#remoteBranches[@]} -lt $# ] && status=1
+if [ "$isIgnoreMissingInRemote" ]; then
+    # Status is 99 if all remote branches are missing (and the user chose to
+    # ignore this).
+    [ ${#remoteBranches[@]} -eq 0 ] && remoteStatus=99
+elif [ ${#remoteBranches[@]} -lt $# ]; then
+    # If not all branches have remotes in $remote, this is a failure of this
+    # command; the branch(es) have already been printed to stderr by
+    # git-remotebr.
+    remoteStatus=1
+fi
 
 # Remove remote branches first; else, we might get Git errors about unmerged
 # changes:
@@ -71,9 +112,22 @@ status=0
 # again.
 if [ ${#remoteBranches[@]} -gt 0 ]; then
     git-remote-mutate "$remote" --message 'Delete branch(es)' --arguments "${remoteBranches[@]#${remote}/}" \; "${gitRemoteMutateArgs[@]}" \
-	push "$remote" --delete "${remoteBranches[@]#${remote}/}" || status=$?
+	push "$remote" --delete "${remoteBranches[@]#${remote}/}" || remoteStatus=$?
 fi
 
-git branch $branchDeleteOption "$@" || status=$?
 
-exit $status
+# Remove local branches.
+if [ "$isIgnoreMissingLocal" ]; then
+    typeset -a existingBranches=()
+    for branch
+    do
+	git-existsbr -- "$branch" && existingBranches+=("$branch")
+    done
+    [ ${#existingBranches[@]} -gt 0 ] \
+	|| exit $(status99Reduction $remoteStatus 99)
+
+    set -- "${existingBranches[@]}"
+fi
+
+git branch $branchDeleteOption -- "$@"; localStatus=$?
+exit $(status99Reduction $remoteStatus $localStatus)

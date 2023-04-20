@@ -177,14 +177,14 @@ getSubmoduleStatus()
     (
 	cd "$submodule" || exit 3
 
-	if git-existsbr "${submoduleBranches["$submodule"]}"; then
+	if git-existsbr -- "${submoduleBranches["$submodule"]}"; then
 	    hasLocalBranch=t
 	    remote="$(git-trackedremote "${submoduleBranches["$submodule"]}" 2>/dev/null)" || remote='origin'
 	else
 	    hasLocalBranch=
 	    remote='origin'
 	fi
-	hasRemoteBranch=; git-existsbr "${remote:?}/${submoduleBranches["$submodule"]}" && hasRemoteBranch=t
+	hasRemoteBranch=; git-existsbr -- "${remote:?}/${submoduleBranches["$submodule"]}" && hasRemoteBranch=t
 
 	[ "$isPrependAdditionalInformation" ] && printf '%s\n' "$hasLocalBranch" "$hasRemoteBranch"
 
@@ -263,7 +263,7 @@ checkoutNew()
     # As we don't have a local branch yet, that's origin for sure.
     local remoteBranch="origin/$branch"
 
-    if git-existsbr "$remoteBranch"; then
+    if git-existsbr -- "$remoteBranch"; then
 	git-wrapper checkout $forceArg --track -b "$branch" "$remoteBranch"
     else
 	git-wrapper checkout $forceArg -b "$branch"
@@ -283,7 +283,7 @@ checkoutStartPoint()
 checkoutExistingLocal()
 {
     local branch="${1:?}"; shift
-    if git-existsbr "$branch"; then
+    if git-existsbr -- "$branch"; then
 	git-wrapper checkout $forceArg "$branch"
     else
 	printf >&2 '%sSkipping; no local branch %s%s\n' "$GIT_SUBCOBR_COLOR_SKIP" "$branch" "$GIT_SUBCOBR_COLOR_RESET"
@@ -294,7 +294,7 @@ checkoutExistingRemote()
 {
     local branch="${1:?}"; shift
     local remoteBranch="origin/$branch"
-    if git-existsbr "$remoteBranch"; then
+    if git-existsbr -- "$remoteBranch"; then
 	git-wrapper checkout $forceArg --track -B "$branch" "$remoteBranch"
     else
 	printf >&2 '%sSkipping; no remote branch %s%s\n' "$GIT_SUBCOBR_COLOR_SKIP" "$remoteBranch" "$GIT_SUBCOBR_COLOR_RESET"
@@ -304,7 +304,7 @@ checkoutExistingRemote()
 checkoutCreate()
 {
     local branch="${1:?}"; shift
-    if git-existsbr "$branch"; then
+    if git-existsbr -- "$branch"; then
 	git-wrapper checkout $forceArg "$branch"
     else
 	checkoutNew "$branch"
@@ -322,7 +322,7 @@ update()
     if [ "$(git-brname --real-branch-only 2>/dev/null)" = "$branch" ]; then
 	# Already on that branch, reset it.
 	git reset ${forceArg:+--hard} "${remote}/${branch}" || return $?
-    elif git-existsbr "$branch"; then
+    elif git-existsbr -- "$branch"; then
 	# Reset and check out the branch to the revision of the tracked branch.
 	git-wrapper checkout $forceArg -B "$branch" "${remote}/${branch}" || return $?
     else

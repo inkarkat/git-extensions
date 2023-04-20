@@ -43,7 +43,7 @@ esac
 
 if ! originBranch="$(git-tracks "$commit" 2>/dev/null)"; then
     originBranch="${origin}/$(git name-rev --name-only "$commit")"
-    if ! git-existsbr "$originBranch"; then
+    if ! git-existsbr -- "$originBranch"; then
 	printf >&2 'ERROR: %s does not track a branch and no corresponding %s branch exists.\n' "$commit" "$origin"
 	exit 1
     fi
@@ -51,7 +51,7 @@ fi
 if [ "${originBranch%%/*}" != "$origin" ]; then
     otherBranch="${originBranch%%/*}"
     originBranch="${origin}/${originBranch#*/}"
-    if ! git-existsbr "$originBranch"; then
+    if ! git-existsbr -- "$originBranch"; then
 	printf >&2 'ERROR: %s tracks %s and no corresponding %s branch exists.\n' "$commit" "$otherBranch" "$origin"
 	exit 1
     fi
@@ -151,7 +151,7 @@ fi
 localCommitDelta="$(gitLh "${originBranch}${backlog}..${commit}" 2>/dev/null | wc -l)" || exit $?
 if [ $localCommitDelta -gt 0 ]; then
     localCommitDeltaPlural=s; [ $localCommitDelta -eq 1 ] && localCommitDeltaPlural=
-    localIsBranch=; git-existsbr "$commit" && localIsBranch=branch
+    localIsBranch=; git-existsbr -- "$commit" && localIsBranch=branch
 
     printf >&2 "Warning: %s is %d commit%s behind the local %s${localIsBranch:+ }${localIsBranch}.\\n" "${originBranch}${backlog}" "$localCommitDelta" "$localCommitDeltaPlural" "$commit"
 fi

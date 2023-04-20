@@ -35,7 +35,7 @@ getDetachedBranch()
     # branch.
     local branch
     if branch="$(git-brname --detached-effective-branch --real-branch-only --raw 2>/dev/null)" \
-	&& git-existsbr "${remote}/${branch}"
+	&& git-existsbr -- "${remote}/${branch}"
     then
 	printf '%s\n' "$branch"
     fi
@@ -49,7 +49,7 @@ getFallbackBranch()
 
 getRemoteBranch()
 {
-    if [ $# -gt 0 ] && git-existsbr "${!#}"; then
+    if [ $# -gt 0 ] && git-existsbr -- "${!#}"; then
 	git-remotebr "${remote:?}" "${!#}"
     else
 	git-remotebr "${remote:?}"
@@ -117,7 +117,7 @@ else
 	    || [ -z "$tagName" ]
 	then
 	    [ -n "$branch" ] || branch="$(getFallbackBranch)"   # Only consider the fallback branches here so that a tag takes precedence.
-	    if git-existsbr "${remote}/${branch}"; then
+	    if git-existsbr -- "${remote}/${branch}"; then
 		logDeltaArgs+=(--branch "${remote}/${branch}")
 	    else
 		[ "${logDeltaArgs[*]}" = '--none' ] || echo >&2 "Warning: Detached working copy, and could not determine base / master ${remote:-REMOTE} branch, no logging possible."

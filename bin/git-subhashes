@@ -1,0 +1,49 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Show a list of commit IDs recorded in the superproject [in <ref>], for all
+submodules.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--recursive] [<ref>] [-?|-h|--help]'
+}
+
+ref=
+typeset -a recursiveArg=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+
+	--recursive)	recursiveArg=("$1"); shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		if [ -z "$ref" ]; then
+			    ref="${1:?}"; shift
+			fi
+			break
+			;;
+    esac
+done
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+# Optimization for when no <ref> is passed.
+[ -z "$ref" ] && exec git submodule foreach "${recursiveArg[@]}" --quiet 'echo $sha1 $sm_path'
+
+readarray -t submodules < <(git-sublist "${recursiveArg[@]}" --revision "$ref")
+[ ${#submodules[@]} -gt 0 ] || exit 99
+status=0
+for submodule in "${submodules[@]}"
+do
+    subhash="$(git-subhash "$ref" "$submodule")" || status=$?
+    printf '%s %s\n' "$subhash" "$submodule"
+done
+exit $status

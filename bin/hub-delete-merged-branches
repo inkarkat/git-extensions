@@ -31,7 +31,7 @@ hasBranchBeenAutoDeletedOnMerge()
 	    negateThis git-existsremotebr "$trackedRemote" "$branch"
 }
 
-status=0
+status=99
 for branch
 do
     tracks="$(git-tracks "$branch" 2>/dev/null)"
@@ -45,12 +45,14 @@ do
 	printf >&2 "Note: GitHub already has automatically deleted the merged branch '%s' in %s.\\n" "$branch" "$trackedRemote"
 	if git-existsbr "$branch"; then
 	    git-deletebr --force "$branch"	# Need force here because without a pull the local repository is not aware of the remote branch deletion and would complain about it not being fully merged.
+	    status=$(status99Reduction "$status" $?)
 	else
 	    printf >&2 "Note: The local branch '%s' already got deleted.\\n" "$branch"
-	    [ $status -eq 0 ] && status=99
+	    status=$(status99Reduction "$status" 99)
 	fi
     else
 	git-rldeletebr "$trackedRemote" "${rldeletebrArgs[@]}" "$branch"
-    fi || status=$?
+	status=$(status99Reduction "$status" $?)
+    fi
 done
 exit $status

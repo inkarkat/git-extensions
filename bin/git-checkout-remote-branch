@@ -16,6 +16,7 @@ HELPTEXT
 logArg=
 submoduleHandling=recurse
 typeset -a logDeltaArgs=(--submodule recurse)
+isDetachedCheckout=
 typeset -a checkoutArgs=()
 while [ $# -ne 0 ]
 do
@@ -31,6 +32,7 @@ do
 			shift; shift
 			;;
 	--)		checkoutArgs+=("$1"); shift; break;;
+	--detach)	checkoutArgs+=("$1"); shift; isDetachedCheckout=t;;
 	*)		checkoutArgs+=("$1"); shift;;
     esac
 done
@@ -79,7 +81,8 @@ if git-existsbr -- "$branch"; then
 
     [ "$logArg" = --none ] || record="$(git-logdelta $logArg "${logDeltaArgs[@]}" --branch "$branch" --record)"
 
-    git-wrapper checkout "$@" -B "$branch" "$remoteBranch" || exit $?
+    typeset -a branchArgs=(-B "$branch"); [ "$isDetachedCheckout" ] && branchArgs=()
+    git-wrapper checkout "$@" "${branchArgs[@]}" "$remoteBranch" || exit $?
 else
     if [ "$logArg" != --none ]; then
 	# Show the log of the entire branch as this is a new local checkout.
@@ -87,7 +90,8 @@ else
 	[ -n "$branchBase" ] && record="$(git-logdelta $logArg "${logDeltaArgs[@]}" --branch "$branchBase" --record)"
     fi
 
-    git-wrapper checkout "$@" --track -b "$branch" "$remoteBranch" || exit $?
+    typeset -a branchArgs=(--track -b "$branch"); [ "$isDetachedCheckout" ] && branchArgs=()
+    git-wrapper checkout "$@" "${branchArgs[@]}" "$remoteBranch" || exit $?
 fi
 [ -z "$record" ] || git-logdelta $logArg "${logDeltaArgs[@]}" --from-record "$record"
 [ "$submoduleHandling" = ignore ] || ! GIT_SUBMODULEUNINITIALIZED_MESSAGE='Warning: Uninitialized submodule(s) found:' git-submodule-uninitialized --print --recursive

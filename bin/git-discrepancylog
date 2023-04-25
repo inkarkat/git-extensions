@@ -7,23 +7,32 @@ Print only those log entries where two commit attributes (basically either
 author vs. committer or the corresponding dates, indicating amends or rebases)
 are not identical.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '--field1 FIELD1 --field2 FIELD2 [LOG-ARGUMENTS ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--field1 FIELD1 --field2 FIELD2 [--field3 FIELD3 --field4 FIELD4] [LOG-ARGUMENTS ...] [-?|-h|--help]'
 }
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 field1=
 field2=
+field3=
+field4=
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--field1)	shift; field1="$1"; shift;;
 	--field2)	shift; field2="$1"; shift;;
+	--field3)	shift; field3="$1"; shift;;
+	--field4)	shift; field4="$1"; shift;;
 	*)		break;;
     esac
 done
 if [ -z "$field1" -o -z "$field2" ]; then
     echo 'ERROR: Must pass both fields.'
+    echo
+    printUsage "$0"
+    exit 2
+elif [ -n "${field3}${field4}" -a \( -z "$field3" -o -z "$field4" \) ]; then
+    echo 'ERROR: Must pass both additional fields.'
     echo
     printUsage "$0"
     exit 2
@@ -47,10 +56,14 @@ typeset -a colorArg=(); isNeedColorArgumentWhenPiping "${preRangeArgs[@]}" && co
 discrepancyLog()
 {
     git-log "${colorArg[@]}" "$@" \
-	| awk -v field1="$field1" -v field2="$field2" \
+	| awk \
+	    -v field1="$field1" \
+	    -v field2="$field2" \
+	    -v field3="$field3" \
+	    -v field4="$field4" \
 '
 function printPreviousEntry() {
-    if (value1 != value2 ) {
+    if (value1 != value2 || value3 != value4) {
 	print entry
     }
     entry = ""
@@ -72,6 +85,8 @@ function getFollowingFields()
 }
 $1 == field1 { value1 = getFollowingFields() }
 $1 == field2 { value2 = getFollowingFields() }
+$1 == field3 { value3 = getFollowingFields() }
+$1 == field4 { value4 = getFollowingFields() }
 END {
     printPreviousEntry()
 }

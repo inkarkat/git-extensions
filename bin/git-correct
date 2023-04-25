@@ -2,6 +2,7 @@
 shopt -qs extglob
 
 : ${GIT_CORRECT_REFERENCE_MESSAGE:=This corrects commit}
+: ${GIT_CORRECT_REFERENCE_REFERRER:=after}
 
 printUsage()
 {
@@ -60,7 +61,7 @@ cleanup()
 [ "$DEBUG" ] || trap 'cleanup' EXIT
 {
     IFS=$'\n' read -r titleLine
-    titleLine="${titleLine% (after ?(+([^ ])@)+([0-9A-Fa-f]))}"
+    titleLine="${titleLine% (${GIT_CORRECT_REFERENCE_REFERRER}${GIT_CORRECT_REFERENCE_REFERRER:+ }?(+([^ ])@)+([0-9A-Fa-f]))}"
 
     remainingLines="$(grep -v -e "^(${GIT_CORRECT_REFERENCE_MESSAGE} [[:xdigit:]]\\+)\$")"
     remainingLines="${remainingLines%%+($'\n')}"
@@ -74,6 +75,12 @@ cleanup()
 	gitInWorkingCopy lo1 "$commitId"
     fi
 )
-printf "%s (after %s)\\n%s\\n\\n(${GIT_CORRECT_REFERENCE_MESSAGE} %s)\\n" "$titleLine" "${repoContext}${repoContext:+}${shortCommitId}" "$remainingLines" "${repoContext}${repoContext:+}${commitId}" > "$commitMessageFilespec" || exit $?
+printf "%s (%s%s)\\n%s\\n\\n(${GIT_CORRECT_REFERENCE_MESSAGE} %s)\\n" \
+    "$titleLine" \
+    "${GIT_CORRECT_REFERENCE_REFERRER}${GIT_CORRECT_REFERENCE_REFERRER:+ }" \
+    "${repoContext}${repoContext:+@}${shortCommitId}" \
+    "$remainingLines" \
+    "${repoContext}${repoContext:+@}${commitId}" \
+    > "$commitMessageFilespec" || exit $?
 
 exec git-wrapper commit --edit --file "$commitMessageFilespec" "${@:1:$(($#-1))}"

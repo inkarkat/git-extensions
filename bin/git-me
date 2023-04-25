@@ -1,0 +1,53 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Show my Git user configuration (in the context of the current repository).
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-e|--email|-f|--full|--github|-w|--whoami] [-?|-h|--help]'
+}
+
+typeset -a action=(git config --get user.name)
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+
+	--email|-e)	shift; action=(git config --get user.email);;
+	--full|-f)	shift; action=(getFull);;
+	--github)	shift; action=(git me-in-github);;
+	--whoami|-w)	shift; action=(getAll);;
+
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+getAll()
+{
+    local username="$("${BASH_SOURCE[0]}")"
+    local email="$("${BASH_SOURCE[0]}" --email)"
+    local github="$("${BASH_SOURCE[0]}" --github)"
+
+    printf '%s <%s> → %s in GitHub\n' "${username:-UNDEFINED}" "${email:-EMAIL NOT SET}" "${github:-NOT}"
+}
+
+getFull()
+{
+    local username="$("${BASH_SOURCE[0]}")"
+    local email="$("${BASH_SOURCE[0]}" --email)"
+
+    printf "%s${email:+ <}%s${email:+>}\\n" "$username" "$email"
+}
+
+"${action[@]}" "$@"

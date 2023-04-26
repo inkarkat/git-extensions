@@ -1,0 +1,39 @@
+#!/bin/bash
+set -o pipefail
+shopt -qs extglob
+
+printUsage()
+{
+    cat <<HELPTEXT
+Checkout the latest (by last commit age) local branch [matching pattern] (except
+the current branch and master (and base branch if defined)).
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [--gui|--terminal|--none] [--submodule ignore|yes|recurse] [(--submodules|--queried-submodules) [--submodules-recursive]] [--detach] [-f|--force] [<branch-glob> ...] [-?|-h|--help]"
+}
+
+typeset -a checkoutArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	-[f])		checkoutArgs+=("$1"); shift;;
+	--@(detach|force|gui|terminal|none|submodules|queried-submodules|submodules-recursive))
+			checkoutArgs+=("$1"); shift;;
+	--submodule)	checkoutArgs+=("$1" "$2"); shift; shift;;
+	*)		break;;
+    esac
+done
+
+branch="$(
+    ${GIT_COLATEST_BRANCH_COMMAND:-git-localbr} ${GIT_COLATEST_BRANCH_ARGUMENT} "$@" \
+	| tail -n 1
+)" || exit $?
+if [ -z "$branch" ]; then
+    # git branch does not return an error if there are no matches for the passed pattern.
+    baseBranch="$(git-nbr 2>/dev/null)"
+    printf >&2 'ERROR: No%s branch (excluding the current %s and %s%s) found.\n' \
+	"${*:+ matching}" "$(git-brname --real-branch-only 2>/dev/null || echo '(no local branch)')" "$(git-mbr)" "${baseBranch:+ and ${baseBranch}}"
+    exit 1
+fi
+exec git-wrapper checkout "${checkoutArgs[@]}" "$branch"

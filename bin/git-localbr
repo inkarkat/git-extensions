@@ -2,35 +2,62 @@
 set -o pipefail
 shopt -qs extglob
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--include-current] [--include-master] [--include-base] [--include-all] [-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [--] [<branch-glob> ...] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 List all local (sorted by last commit age (descending, starting with branches
-that haven't been updated recently)) / branches matching <glob> (except for the
-current branch and master (and base branch if defined)).
+that haven't been updated recently)) (except for the current branch and master
+(and base branch if defined)).
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    -n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]
+			Only print those branches that match the age comparison.
+SUFFIX may be 's' for seconds (the default), 'm' for minutes, 'h' for hours, 'd'
+for days, 'w' for weeks, 'mo' for months, 'y' for years, 'g' for generations.
+    <branch-glob>	Only consider branches that match <branch-glob>.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--include-current] [--include-master] [--include-base] [--include-all] [--] [<glob> ...] [-?|-h|--help]'
 }
 
 typeset -a branchFilters=()
+typeset -a filterAction=(sed -e 's/^[^\t]*\t//')
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	    shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--no-color|--color=*)
-			    shift;;
-	--color)	    shift; shift;;
-	--include-*)	    branchFilters+=("$1"); shift;;
-	--)		    shift; break;;
-	-*)		    { echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
-	*)		    break;;
+			shift;;
+	--color)	shift; shift;;
+	--include-*)	branchFilters+=("$1"); shift;;
+	-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt)
+			filterAction=(filterAge --field-separator $'\t' "$1" "$2"); shift; shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
     esac
 done
 
 getBranches()
 {
     typeset -a localBranches=()
-    readarray -t localBranches < <(git for-each-ref --sort=committerdate --format='%(refname:short)' refs/heads/)
+    readarray -t localBranches < <(git for-each-ref --sort=committerdate --format=$'%(committerdate:unix)\t%(refname:short)' refs/heads/)
     [ ${#localBranches[@]} -gt 0 ] || return 1
 
     if [ $# -gt 0 ]; then
@@ -58,5 +85,6 @@ getBranches()
     fi
 }
 
-getBranches "$@" | \
-    git-filter-out-persistent-branches "${branchFilters[@]}"
+getBranches "$@" \
+    | "${filterAction[@]}" \
+    | git-filter-out-persistent-branches "${branchFilters[@]}"

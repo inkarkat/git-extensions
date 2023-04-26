@@ -751,7 +751,7 @@
 	createbrg = selectedgcommit-command --single-only -2 createbr COMMITS	; Create a new branch from the commit interactively chosen from the commits where log messages match the specified text or /regexp/.
 	;; clonebr: Clone the current / passed branch by appending -1 (-2, etc.) at the end of the branch name and switch to it.
 	backupbr = clonebr --no-checkout	; Clone the current / passed branch by appending -1 (-2, etc.) at the end of the branch name (but don't switch to it).
-	;; localbr: List all local / passed branches (except for the current branch and master (and base branch if defined)).
+	;; localbr: List all local (sorted by last commit age (descending, starting with branches that haven't been updated recently)) (except for the current branch and master (and base branch if defined)).
 	localbrurl = brurl localbr	; List urls of all local / passed branches (except for the current branch and master (and base branch if defined)).
 	;; localbrdo: Check out all / the last committed N local branches (except for the current branch and master (and base branch if defined)) one by one and execute COMMAND (or drop back to the shell) for each).
 	;; localbrcdo: Check out all / the last N local branches (except for the current branch and master (and base branch if defined)) ordered by date of first commit and execute COMMAND (or drop back to the shell) for each).
@@ -812,6 +812,13 @@
 	;; checkoutselectedbranch: Switch to the branch that is interactively selected from existing branches.
 	cosbr = checkoutselectedbranch
 	cosubsbr = checkoutselectedbranch --submodules
+	corecentsbr = cosbr --newer 2w
+	cosubrecentsbr = corecentsbr --submodules
+	corecentsbrc = checkoutselectedbranchc origin --newer 2w
+	cosubrecentsbrc = corecentsbrc --submodules
+	;; colatest: Checkout the latest (by last commit age) local branch [matching pattern] (except the current branch and master (and base branch if defined)).
+	;; colatestc: Checkout the local branch [matching pattern] that was created last (except the current branch and master (and base branch if defined)).
+
 	;; checkout-remote-branch: Checkout passed <remote-branch>, resetting an existing local branch to the remote, tracking it if it doesn't yet exist locally, and ensuring that an existing tracked branch doesn't contradict the request.
 	;; rco: Checkout passed <branch> in <remote>; fetching if needed and ensuring that an existing tracked branch doesn't contradict the request.
 	;; rcolatest: Checkout the latest (by last commit age) local branch from the passed REMOTE [matching pattern].
@@ -3424,10 +3431,6 @@
 	ostalebr = stalebr --remote origin	; List branches in my GitHub clone that have not been updated in a while.
 	oarchiveselectedbr = rarchiveselectedbr origin	; Archive selected branches in my GitHub clone.
 	oarchivestalebr = archivestalebr --remote origin	; Archive branches in my GitHub clone that have not been updated in a while.
-	ocolatest = rcolatest origin ; Checkout the latest (by last commit age) local branch in my GitHub clone [matching pattern].
-	ocolatestc = rcolatestc origin ; Checkout local branch from my GitHub clone's branch [matching pattern] that was created last (except the current branch and master (and base branch if defined)).
-	ocosublatest = ocolatest --submodules
-	ocosublatestc = ocolatestc --submodules
 	opicks = rev-remote-command origin cherrypicks -v --abbrev=7 ; See which changes from the current branch are already present in my GitHub clone.
 	;; ocreatelocalbr: Create (and track) local branches for all branches in origin (matching PATTERN).
 	oprune = rprune origin	; Remove old local branches that do not exist in origin any more.
@@ -3518,10 +3521,15 @@
 	ocosubrecentsbr = ocorecentsbr --submodules
 	ocorecentsbrc = rcheckoutselectedbranchc origin --newer 2w
 	ocosubrecentsbrc = ocorecentsbrc --submodules
+	ocolatest = rcolatest origin ; Checkout a local branch from the latest (by last commit age) branch in my GitHub clone [matching pattern].
+	ocolatestc = rcolatestc origin ; Checkout a local branch from my GitHub clone's branch [matching pattern] that was created last (except the current branch and master (and base branch if defined)).
+	ocosublatest = ocolatest --submodules
+	ocosublatestc = ocolatestc --submodules
 	odetach = oco --detach	; Detach HEAD at the local branch from origin.
 	odetachsbr = ocosbr --detach
 	odetachrecentsbr = ocorecentsbr --detach
 	odetachrecentsbrc = ocorecentsbrc --detach
+	odetachlatest = rcolatest origin --detach ; Detach HEAD at the latest (by last commit age) branch in my GitHub clone [matching pattern].
 	; No ocom.
 	oreset = rev-remote-command origin reset ; Reset my current branch to the HEAD of the corresponding / passed branch of origin. The working copy is left intact, so you can effectively rebase any outstanding differences with a follow-up commit.
 	ohardreset = oreset --hard ; Reset my current branch to the HEAD of the corresponding / passed branch of my GitHub clone.
@@ -3579,10 +3587,6 @@
 	ustalebr = stalebr --remote upstream	; List branches in upstream that have not been updated in a while.
 	uarchiveselectedbr = rarchiveselectedbr upstream	; Archive selected branches in upstream.
 	uarchivestalebr = archivestalebr --remote upstream	; Archive branches in upstream that have not been updated in a while.
-	ucolatest = rcolatest upstream ; Checkout the latest (by last commit age) local branch from upstream [matching pattern].
-	ucolatestc = rcolatestc upstream ; Checkout local branch from the upstream branch [matching pattern] that was created last (except the current branch and master (and base branch if defined)).
-	ucosublatest = ucolatest --submodules
-	ucosublatestc = ucolatestc --submodules
 	upicks = rev-remote-command upstream cherrypicks -v --abbrev=7 ; See which changes from the current branch are already present upstream.
 	;; No ucreatelocalbr.
 	uprune = rprune upstream	; Remove old local branches that do not exist in upstream any more.
@@ -3676,6 +3680,10 @@
 	ucosubrecentsbr = ucorecentsbr --submodules
 	ucorecentsbrc = rcheckoutselectedbranchc upstream --newer 2w
 	ucosubrecentsbrc = ucorecentsbrc --submodules
+	ucolatest = rcolatest upstream ; Checkout a local branch from the latest (by last commit age) branch in upstream [matching pattern].
+	ucolatestc = rcolatestc upstream ; Checkout a local branch from upstream's branch [matching pattern] that was created last (except the current branch and master (and base branch if defined)).
+	ucosublatest = ucolatest --submodules
+	ucosublatestc = ucolatestc --submodules
 	udetach = uco upstream --detach	; Detach HEAD at the local branch from upstream.
 	udetachsbr = ucosbr --detach
 	udetachrecentsbr = ucorecentsbr --detach

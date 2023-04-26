@@ -10,10 +10,24 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[<checkout-args> ...] [-- <branch-glob> ...] [-?|-h|--help]'
 }
 
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-esac
-
+typeset -a checkoutArgs=()
+typeset -a branchArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+	--sort)		branchArgs+=("$1" "$2"); shift; shift;;
+	--sort=*)	branchArgs+=("$1"); shift;;
+	-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt)
+			branchArgs+=("$1" "$2"); shift; shift;;
+	--)		break;;
+	*)		checkoutArgs+=("$1"); shift;;
+    esac
+done
+set -- "${checkoutArgs[@]}" "$@"
 typeset -a branchGlobArgs=()
 for ((i = $#; i > 0; i--))
 do
@@ -25,7 +39,8 @@ do
 done
 
 printf -v quotedCheckoutCommand '%q ' checkout "$@"
+quotedBranchArgs=; [ ${#branchArgs[@]} -eq 0 ] || printf -v quotedBranchArgs ' %q' "${branchArgs[@]}"
 quotedBranchGlobArgs=; [ ${#branchGlobArgs[@]} -eq 0 ] || printf -v quotedBranchGlobArgs ' %q' "${branchGlobArgs[@]}"
 
-export GIT_SELECTED_COMMAND_DEFAULT_FILES="git-localbr${quotedBranchGlobArgs}"
+export GIT_SELECTED_COMMAND_DEFAULT_FILES="${GIT_CHECKOUTSELECTEDBRANCH_BRANCH_COMMAND:-git-localbr}${GIT_CHECKOUTSELECTEDBRANCH_BRANCH_ARGUMENT:+ }${GIT_CHECKOUTSELECTEDBRANCH_BRANCH_ARGUMENT}${quotedBranchArgs}${quotedBranchGlobArgs}${GIT_CHECKOUTSELECTEDBRANCH_BRANCH_FILTERCOMMAND:+ | }${GIT_CHECKOUTSELECTEDBRANCH_BRANCH_FILTERCOMMAND}"
 exec git-selected-command --single-only "${quotedCheckoutCommand% }"

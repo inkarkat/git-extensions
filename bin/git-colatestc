@@ -1,0 +1,18 @@
+#!/bin/bash
+set -o pipefail
+shopt -qs extglob
+
+printUsage()
+{
+    cat <<HELPTEXT
+Checkout the local branch [matching pattern] that was created last (except the
+current branch and master (and base branch if defined)).
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [--gui|--terminal|--none] [--submodule ignore|yes|recurse] [(--submodules|--queried-submodules) [--submodules-recursive]] [--detach] [-f|--force] [<branch-glob> ...] [-?|-h|--help]"
+}
+
+GIT_COLATEST_BRANCH_COMMAND=git-brc \
+GIT_COLATEST_BRANCH_ARGUMENT='--bare' \
+GIT_COLATEST_BRANCH_FILTERCOMMAND='git-filter-out-persistent-branches' \
+    exec git-colatest "$@"

@@ -10,10 +10,12 @@ be rewritten any more] fixup / amend / squash commit(s) to, well, incorporate
 the fixes / rewordings / squash the commits into the current branch.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '-<number>|-n <number>|--max-count=<number> [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '-<number>|-n <number>|--max-count=<number> [<log-options>] [<revision-range>] [[--] <path>...] [-?|-h|--help]'
 }
 
 typeset -a gitArgs=()
+typeset -a rangeArg=()
+rangeStart=
 number=
 while [ $# -ne 0 ]
 do
@@ -27,12 +29,13 @@ do
 	-n)		shift; number="${1:?}"; shift;;
 	-+([0-9]))	number="${1#-}"; shift;;
 	--)		break;;
+	*..?(.)*)       rangeArg=("$1"); rangeStart="${1%..*}.."; shift;;
 	*)		gitArgs+=("$1"); shift;;
     esac
 done
 
 IFS=$'\t' read -r lastCommit originalMessage < <(
-    git log --pretty='tformat:%H %s' "${gitArgs[@]}" "$@" | \
+    git log --pretty='tformat:%H %s' "${gitArgs[@]}" "${rangeArg[@]}" "$@" | \
 	sed -n -e 's/^\([[:xdigit:]]\+\) \(amend\|fixup\|squash\)! \(.*\)$/\1\t\3/p' | \
 	eval "${number:+sed -n -e "1,${number}p" | }" 'sed -n -e \$p'
 )
@@ -41,7 +44,7 @@ if [ -z "$lastCommit" -o -z "$originalMessage" ]; then
     exit 1
 fi
 
-lastFixupCommit="$(git log --pretty='tformat:%H' --max-count 1 --grep "$originalMessage" --fixed-strings "${lastCommit}^" "${gitArgs[@]}" "$@")"
+lastFixupCommit="$(git log --pretty='tformat:%H' --max-count 1 --grep "$originalMessage" --fixed-strings "${rangeStart}${lastCommit}^" "${gitArgs[@]}" "$@")"
 if [ -z "$lastFixupCommit" ]; then
     printf >&2 'ERROR: Could not find the original commit prior to %s with message: %s\n' "$lastCommit" "$originalMessage"
     exit 1

@@ -10,6 +10,14 @@ setMasterBranchConfiguration()
 {
     git config --local "$GIT_CONFIG_KEY" "${1:?}"
 }
+getMasterBranch()
+{
+    # If the repository is git-flow enabled, the "develop" branch configuration
+    # corresponds to what I consider the master branch.
+    # Else, fall back to my explicit configuration.
+    git config --get gitflow.branch.develop 2>/dev/null \
+	|| getConfiguredMasterBranch
+}
 
 printUsage()
 {
@@ -24,6 +32,12 @@ Set the name of the default branch to NAME.
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '--set NAME'
+    echo
+    cat <<HELPTEXT
+Get the name of the default branch (without determining it if missing).
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--get'
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
@@ -31,46 +45,40 @@ case "$1" in
 			shift;;
     --color)		shift; shift;;
     --set)		shift; setMasterBranchConfiguration "${1:?}"; exit $?;;
+    --get)		shift; getMasterBranch; exit $?;;
 esac
 
 
-# If the repository is git-flow enabled, the "develop" branch configuration
-# corresponds to what I consider the master branch.
-masterBranch="$(git config --get gitflow.branch.develop 2>/dev/null)"
+masterBranch="$(getMasterBranch)"
 if [ -z "$masterBranch" ]; then
-    # Try looking up the cached branch first.
-    masterBranch="$(getConfiguredMasterBranch)"
+    for remote in upstream origin
+    do
+	git-existsremote "$remote" || continue
 
-    if [ -z "$masterBranch" ]; then
-	for remote in upstream origin
-	do
-	    git-existsremote "$remote" || continue
+	masterBranch="$(git remote show "$remote" | sed -ne 's/^[[:space:]]*HEAD branch: //p')"
+	if [ -n "$masterBranch" ]; then
+	    # Cache the information in a custom Git configuration, as this
+	    # remote lookup is costly.
+	    setMasterBranchConfiguration "$masterBranch"
 
-	    masterBranch="$(git remote show "$remote" | sed -ne 's/^[[:space:]]*HEAD branch: //p')"
-	    if [ -n "$masterBranch" ]; then
-		# Cache the information in a custom Git configuration, as this
-		# remote lookup is costly.
-		setMasterBranchConfiguration "$masterBranch"
-
-		break
-	    fi
-	done
-    fi
-    if [ -z "$masterBranch" ]; then
-	for candidateBranch in master main
-	do
-	    if git-existsbr -- "$candidateBranch"; then
-		printf >&2 'Note: The name of the master branch could not be determined; defaulting to "%s".\n' "$candidateBranch"
-		masterBranch="$candidateBranch"
-		setMasterBranchConfiguration "$masterBranch"
-		break
-	    fi
-	done
-	if [ -z "$masterBranch" ]; then
-	    echo >&2 'ERROR: The name of the master branch could not be determined.'
-	    exit 1
+	    break
 	fi
-    fi
+    done
+fi
+if [ -z "$masterBranch" ]; then
+    for candidateBranch in master main
+    do
+	if git-existsbr -- "$candidateBranch"; then
+	    printf >&2 'Note: The name of the master branch could not be determined; defaulting to "%s".\n' "$candidateBranch"
+	    masterBranch="$candidateBranch"
+	    setMasterBranchConfiguration "$masterBranch"
+	    break
+	fi
+    done
+fi
+if [ -z "$masterBranch" ]; then
+    echo >&2 'ERROR: The name of the master branch could not be determined.'
+    exit 1
 fi
 
 printf '%s\n' "$masterBranch"

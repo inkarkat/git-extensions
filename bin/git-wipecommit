@@ -1,14 +1,42 @@
 #!/bin/bash
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-n N|--count N|-r|--revision REVISION] [--first-parent|--unmerge|--parent-number N] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 Completely remove the last / N commit(s) / REVISION, also from working copy and
-index. If a merge commit is wiped, asks which merge parent to pick up.
+index.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --count|-n N	Remove the N'th previous commit.
+    --revision|-r REVISION
+			Remove REVISION.
+    --first-parent	When removing a merge commit, pick the first parent;
+			i.e. completely drop any merged branch(es).
+    --unmerge		When removing a merge commit, pick the second / ask
+			which merged branch to pick.
+    --parent-number N	When removing a merge commit, pick the N'th merge parent
+			commit.
+If a merge commit is wiped, asks which merge parent to pick up.
 Ensures that the current branch isn't dirty.
 HELPTEXT
-    echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-n N|--count N|-r|--revision REVISION] [--first-parent|--unmerge|--parent-number N] [-?|-h|--help]'
 }
 
 commit='HEAD'

@@ -3,17 +3,32 @@
 printUsage()
 {
     cat <<HELPTEXT
-Completely remove the last / N commit(s), also from working copy and index.
+Completely remove the last / N commit(s) / REVISION, also from working copy and
+index.
 Ensures that the current branch isn't dirty.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-n N|--count N] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-n N|--count N|-r|--revision REVISION] [-?|-h|--help]'
 }
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
-			shift;;
-    --color)		shift; shift;;
-esac
 
-exec git-previouscommitnumber-command autostash git wipe "$@"
+commit='HEAD~1'
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--count|-n)	shift
+			if ! [[ "$1" =~ ^[0-9]+$ ]]; then
+			    printUsage "$0" >&2
+			    exit 2
+			fi
+			commit="HEAD~$1"
+			shift
+			;;
+	--revision|-r)	shift; commit="${1:?}~1"; shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+
+exec git-autostash git-wipe "$commit"

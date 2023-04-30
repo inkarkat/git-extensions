@@ -14,6 +14,7 @@ HELPTEXT
 
 commit=
 typeset -a commitArgs=()
+unset files
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -29,7 +30,7 @@ do
 			commit="HEAD~$(($1 - 1))"
 			shift
 			;;
-	--)		shift; files=("$@"); break;;
+	--)		shift; typeset -a files=("$@"); break;;
 	-*)		commitArgs+=("$1"); shift;;
 	*)		if [ -z "$commit" ]; then
 			    commit="$1"
@@ -39,9 +40,10 @@ do
 			;;
     esac
 done
-if [ ${#files[@]} -eq 0 ]; then
+if [ -z "${files+t}" ]; then
     # No files after -- captured yet; need to investigate parsed and
     # remaining args from behind for files.
+    typeset -a files=()
     commitArgs+=("$@")
     while [ ${#commitArgs[@]} -ne 0 ]
     do

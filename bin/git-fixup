@@ -9,7 +9,7 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--amend|--reword] [--rebase] [<commit-arguments> ...] <ref>|:/<pattern> [--] [<path> ...] [-?|-h|--help]'
 }
 typeset -a gitCommitArgs=()
-typeset -a files=()
+unset files
 fixupType=
 isRebase=
 while [ $# -ne 0 ]
@@ -22,13 +22,14 @@ do
 	--amend|--reword)
 			fixupType="${1#--}"; shift;;
 	--rebase)	shift; isRebase=t;;
-	--)		gitCommitArgs+=("$1"); shift; files=("$@"); break;;
+	--)		gitCommitArgs+=("$1"); shift; typeset -a files=("$@"); break;;
 	*)		gitCommitArgs+=("$1"); shift;;
     esac
 done
-if [ ${#files[@]} -eq 0 ]; then
+if [ -z "${files+t}" ]; then
     # No files after -- captured yet; need to investigate parsed and
     # remaining args from behind for files.
+    typeset -a files=()
     gitCommitArgs+=("$@")
     while [ ${#gitCommitArgs[@]} -ne 0 ]
     do

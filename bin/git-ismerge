@@ -1,4 +1,5 @@
 #!/bin/bash
+set -o pipefail
 
 printUsage()
 {
@@ -8,16 +9,45 @@ Test whether the last commit / <commit> has been created by a merge.
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--single-branch] [<commit>] [-?|-h|--help]'
+    echo
+    cat <<HELPTEXT
+Print all parent commits of the last commit / <commit>.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--print] [<commit>] [-?|-h|--help]'
 }
-typeset -a compareArgs=(-gt 0)
+typeset -a countArg=(--count)
+typeset -a compareArgs=(-gt 1)
+action=countParents
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
     --no-color|--color=*)
 			shift;;
     --color)		shift; shift;;
-    --single-branch)	shift; compareArgs=(-eq 1);;
+    --single-branch)	shift; compareArgs=(-eq 2);;
+    --print|-p)		shift; countArg=(); action=printParents;;
 esac
-[ $# -eq 0 ] && set -- HEAD
+case $# in
+    0)	commit=HEAD;;
+    1)	commit="$1"; shift;;
+    *)	printUsage "$0" >&2; exit 2;;
+esac
 
-mergeCount="$(git rev-list --no-walk --count --merges "$@")" || exit $?
-[ ${mergeCount:-0} "${compareArgs[@]}" ]
+getParents()
+{
+    git rev-list --no-walk "${countArg[@]}" "${commit}^@"
+}
+
+countParents()
+{
+    mergeCount="$(getParents)" || exit $?	# The ^@ suffix means "all parents".
+    [ ${mergeCount:-0} "${compareArgs[@]}" ]
+}
+
+printParents()
+{
+    getParents \
+	| tac	# XXX: The merges are listed in reversed order; i.e. the first parent comes last.
+}
+
+$action

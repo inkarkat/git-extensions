@@ -42,7 +42,7 @@ isAlphabetic=
 isMostOnly=
 logFormat='%aN'
 typeset -a logArgs=()
-typeset -a fileArgs=()
+unset fileArgs
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -67,13 +67,14 @@ do
 	-[U])	shift; shift;;
 	--@(pretty|format|notes|date|unified|stat|dirstat|submodule|color|word-diff|word-diff-regex|color-words)=*)	shift;;
 	--@(pretty|format|notes|date|unified|stat|dirstat|submodule|color|word-diff|word-diff-regex|color-words))	shift; shift;;
-	--)		shift; fileArgs=("$@"); break;;
+	--)		shift; typeset -a fileArgs=("$@"); break;;
 	*)		logArgs+=("$1"); shift;;
     esac
 done
-if [ ${#fileArgs[@]} -eq 0 ]; then
+if [ -z "${fileArgs+t}" ]; then
     # No files after -- captured yet; need to investigate parsed and
     # remaining args from behind for files.
+    typeset -a fileArgs=()
     logArgs+=("$@")
     while [ ${#logArgs[@]} -ne 0 ]
     do

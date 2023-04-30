@@ -59,7 +59,7 @@ isDecorationsOnly=
 typeset -a gitLogArgs=()
 typeset -a gitCommitLogArgs=()
 typeset -a gitGraphLogArg=()
-typeset -a files=()
+unset files
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
 isColor=
 if [ -t 1 ]; then
@@ -110,13 +110,14 @@ do
 			    exit 2
 			fi >&2
 			;;
-	--)		shift; files=("$@"); break;;
+	--)		shift; typeset -a files=("$@"); break;;
 	*)		gitLogArgs+=("$1"); shift;;
     esac
 done
-if [ ${#files[@]} -eq 0 ]; then
+if [ -z "${files+t}" ]; then
     # No files after -- captured yet; need to investigate parsed and
     # remaining args from behind for files.
+    typeset -a files=()
     gitLogArgs+=("$@")
     while [ ${#gitLogArgs[@]} -ne 0 ]
     do

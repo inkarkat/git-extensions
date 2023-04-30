@@ -11,7 +11,7 @@ HELPTEXT
 typeset -a gitCommitArgs=()
 typeset -a mergeMessageArgs=()
 mergeEditMessageArg=
-typeset -a paths=()
+unset paths
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -23,13 +23,14 @@ do
 			mergeMessageArgs+=("$1" "$2"); shift; shift;;
 	--edit|-e|--no-edit)
 			mergeEditMessageArg="$1"; shift;;
-	--)		gitCommitArgs+=("$1"); shift; paths=("$@"); break;;
+	--)		gitCommitArgs+=("$1"); shift; typeset -a paths=("$@"); break;;
 	*)		gitCommitArgs+=("$1"); shift;;
     esac
 done
-if [ ${#paths[@]} -eq 0 ]; then
+if [ -z "${paths+t}" ]; then
     # No files after -- captured yet; need to investigate parsed and
     # remaining args from behind for files.
+    typeset -a paths=()
     gitCommitArgs+=("$@")
     while [ ${#gitCommitArgs[@]} -ne 0 ]
     do

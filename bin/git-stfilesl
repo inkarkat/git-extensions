@@ -15,18 +15,19 @@ HELPTEXT
     printf 'Usage: git %ql %s\n' "$GIT_STFILESL_COMMAND" "[${GIT_STFILESL_COMMAND^^}-OPTIONS ...] [--] [<path>...] [-?|-h|--help]"
 }
 typeset -a args=()
-typeset -a paths=()
+unset paths
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-	--)		args+=("$1"); shift; paths=("$@"); break;;
+	--)		args+=("$1"); shift; typeset -a paths=("$@"); break;;
 	*)		args+=("$1"); shift;;
     esac
 done
-if [ ${#paths[@]} -eq 0 ]; then
+if [ -z "${paths+t}" ]; then
     # No files after -- captured yet; need to investigate parsed and
     # remaining args from behind for files.
+    typeset -a paths=()
     args+=("$@")
     while [ ${#args[@]} -ne 0 ]
     do

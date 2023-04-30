@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--last-only] [--accept-single] [--single-only] [--range-is-last] [--pass-file-args] [--allow-outside-workingcopy] ... --since <date>|--max-count <number>|-n <number>|<range> [GIT-COMMAND-ARGS ...] [--] [FILE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--last-only] [--accept-single] [--single-only] [--range-is-last] [--pass-file-args] [--allow-outside-workingcopy] ... --since <date>|--max-count <number>|-n <number>|<range>|--range <range> [--range ...] [GIT-COMMAND-ARGS ...] [--] [FILE ...] [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [GIT-COMMAND-ARGS ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... COMMITS ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
@@ -146,18 +146,19 @@ case "$1" in
 esac
 
 typeset -a gitCommandArgs=()
-typeset -a files=()
+unset files
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
-	--)		shift; files=("$@"); break;;
+	--)		shift; typeset -a files=("$@"); break;;
 	*)		gitCommandArgs+=("$1"); shift;;
     esac
 done
-if [ ${#files[@]} -eq 0 ]; then
+if [ -z "${files+t}" ]; then
     # No files after -- captured yet; need to investigate parsed and
     # remaining args from behind for files.
+    typeset -a files=()
     gitCommandArgs+=("$@")
     while [ ${#gitCommandArgs[@]} -ne 0 ]
     do
@@ -182,6 +183,8 @@ elif [ ${#rangeArgs[@]} -eq 0 ]; then
 	    --max-count|-n) rangeArgs+=("$1" "$2"); shift; shift;;
 	    --max-count=*|-+([0-9]))
 			    rangeArgs+=("$1"); shift;;
+	    --range)	    shift; rangeArgs+=("$1"); shift;;
+	    --range=*)	    rangeArgs+=("${1#--range=}"); shift;;
 	    --follow)	    rangeModificationArgs+=("$1"); shift;;
 	    *)		    if [ ${#rangeArgs[@]} -eq 0 ]; then
 				rangeArgs+=("$1"); shift

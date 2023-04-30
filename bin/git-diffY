@@ -86,5 +86,7 @@ else
     colorArg=--color=always; [ "$hasColorDiff" ] || colorArg=--no-color
 
     typeset -a pager=("${PAGER:-less}" --quit-on-intr --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
-    eval 'git "${gitPagerArgs[@]}" difftool --no-prompt --extcmd="git-diffY --as-difftool $colorArg${diffArgs:+ }${diffArgs[*]}" "$@"' "${pager:+|}" '"${pager[@]}"'
+    readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
+    eval "git \"\${gitPagerArgs[@]}\" difftool --no-prompt --extcmd=\"$scriptName --as-difftool \$colorArg\${diffArgs:+ }\${diffArgs[*]}\" \"\$@\"" \
+	"${pager:+|}" '"${pager[@]}"'
 fi

@@ -192,6 +192,11 @@ if [ ${#rangeArgs[@]} -eq 0 ] && [ ! "$GIT_SELECTEDCOMMIT_NO_MANDATORY_RANGE" ];
     exit 2
 fi
 
+commitSource()
+{
+    eval "git${files:+${isAllowOutsideWorkingCopy:+-inside}} ${GIT_SELECTEDCOMMIT_COMMAND:-log}" '"$@" "${rangeModificationArgs[@]}" "${rangeArgs[@]}" ${files:+${isAllowOutsideWorkingCopy:+\$FILE }--} "${files[@]}"'
+}
+
 appendMergeIndicator()
 {
     sed \
@@ -204,7 +209,8 @@ appendMergeIndicator()
 readarray -t commits < <(
     : ${GIT_SELECTEDCOMMIT_COMMAND_FORMAT:=$'%s\t%p'}
     mergeIndicatorCommand=; [[ "$GIT_SELECTEDCOMMIT_COMMAND_FORMAT" =~ $'\t'%p$ ]] && mergeIndicatorCommand=appendMergeIndicator
-    eval "git${files:+${isAllowOutsideWorkingCopy:+-inside}} ${GIT_SELECTEDCOMMIT_COMMAND:-log}" '--pretty="tformat:%H $GIT_SELECTEDCOMMIT_COMMAND_FORMAT" "${rangeModificationArgs[@]}" "${rangeArgs[@]}" ${files:+${isAllowOutsideWorkingCopy:+\$FILE }--} "${files[@]}"' "${mergeIndicatorCommand:+|}$mergeIndicatorCommand" \
+    commitSource --pretty="tformat:%H $GIT_SELECTEDCOMMIT_COMMAND_FORMAT" \
+	"${mergeIndicatorCommand:+|}$mergeIndicatorCommand" \
 	| truncate-trailing -w \
 	| commandWithHiddenId --stdin -p -c "commandOnSelected --stdin${commandOnSelectedArgs:+ }${commandOnSelectedArgs[*]}"
     printf '\n%d\n' "$?"

@@ -57,8 +57,13 @@ if [ ${#rangeArgs[@]} -eq 0 ]; then
     exit 2
 fi
 
+commitSource()
+{
+    git log "$@" "${rangeModificationArgs[@]}" "${rangeArgs[@]}" ${files:+--} "${files[@]}"
+}
+
 readarray -t commits < <(
-    git log --pretty='tformat:%H %s' "${rangeModificationArgs[@]}" "${rangeArgs[@]}" ${files:+--} "${files[@]}" \
+    commitSource --pretty='tformat:%H %s' \
 	| truncate-trailing -w \
 	| commandWithHiddenId --stdin -p -c 'commandOnSelected --stdin'
     printf '\n%d\n' "$?"

@@ -4,14 +4,14 @@ printUsage()
 {
     cat <<HELPTEXT
 Completely remove the last / N commit(s) / REVISION, also from working copy and
-index.
+index. If a merge commit is wiped, asks which merge parent to pick up.
 Ensures that the current branch isn't dirty.
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-n N|--count N|-r|--revision REVISION] [-?|-h|--help]'
 }
 
-commit='HEAD~1'
+commit='HEAD'
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -21,14 +21,29 @@ do
 			    printUsage "$0" >&2
 			    exit 2
 			fi
-			commit="HEAD~$1"
+			commit="HEAD~$(($1 - 1))"
 			shift
 			;;
-	--revision|-r)	shift; commit="${1:?}~1"; shift;;
+	--revision|-r)	shift; commit="${1:?}"; shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
     esac
 done
 
-exec git-autostash git-wipe "$commit"
+readarray -t parentCommits < <(git-ismerge --print "$commit"; printf '\n%d\n' "$?")	# Exit status from the process substitution is lost; return the actual exit status via an appended additional line.
+[ ${parentCommits[-1]} -ne 0 ] && exit ${parentCommits[-1]}
+unset 'parentCommits[-1]'; [ -z "${parentCommits[-1]}" ] && unset 'parentCommits[-1]'
+
+case ${#parentCommits[@]} in
+    0)	echo 'ERROR: Cannot wipe the root commit.'; exit 1;;
+    1)	wipeCommit="${parentCommits[0]}";;
+    *)	echo >&2 "You're wiping a merge commit:"
+	git log1 "$commit"
+	printf >&2 '\nPlease select the desired merge parent commit:\n'
+	GIT_SELECTEDCOMMIT_COMMAND='show --no-patch' \
+	    exec git-selectedcommit-command --single-only autostash "${parentCommits[@]/#/--range=}" git-wipe
+	;;
+esac
+
+exec git-autostash git-wipe "$wipeCommit"

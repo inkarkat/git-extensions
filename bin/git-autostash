@@ -4,16 +4,13 @@
 printUsage()
 {
     cat <<HELPTEXT
-Automatically create a temporary stash before executing COMMAND (which probably
-contains Git command(s)), and apply and remove the stash after that operation
-ends. This means that you can run Git commands that otherwise would complain on
-a dirty worktree.
+Automatically create a temporary stash before executing "git SIMPLECOMMAND"
+and/or COMMANDLINE (which probably contains Git command(s)), and apply and
+remove the stash after that operation ends. This means that you can run Git
+commands that otherwise would complain on a dirty worktree.
 Note: Autostashes will include both staged and unstaged changes, but everything
 will land in the working copy afterwards. The index is needed to resolve any
 conflicts from applying the stash, anyway.
-
---command|-c CMD	The command line to be executed. When this is a simple
-			command, it can also be passed as such.
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-u|--include-untracked] [-a|--all] -c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...] [-?|-h|--help]'
@@ -36,14 +33,15 @@ do
 	*)  break;;
     esac
 done
+readonly gitCommand='git-wrapper'
 if [ $# -ne 0 ]; then
     if [ "$isNeedEval" ]; then
 	# Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
 	# undo the effects of eval.
-	printf -v quotedSimpleCommand '%q ' "$@"
+	printf -v quotedSimpleCommand '%q ' "$gitCommand" "$@"
 	commands+=(${commands:+;} "${quotedSimpleCommand% }")
     else
-	commands=("$@")
+	commands=("$gitCommand" "$@")
     fi
 fi
 if [ ${#commands[@]} -eq 0 ]; then

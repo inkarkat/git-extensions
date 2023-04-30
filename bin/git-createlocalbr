@@ -1,6 +1,5 @@
 #!/bin/bash
 
-readonly scriptFilespec="${BASH_SOURCE[0]}"
 printUsage()
 {
     cat <<HELPTEXT
@@ -15,7 +14,9 @@ case "$1" in
 			shift;;
     --color)		shift; shift;;
     --stashed)		shift;;
-    *)			exec git-autostash "$scriptFilespec" --stashed "$@";;
+    *)			readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
+			exec git-autostash "${scriptName#git-}" --stashed "$@"
+			;;
 esac
 
 isQuiet=

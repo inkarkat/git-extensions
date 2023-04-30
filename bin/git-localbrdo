@@ -2,8 +2,6 @@
 set -o pipefail
 shopt -qs extglob
 
-readonly scriptFilespec="${BASH_SOURCE[0]}"
-
 hasProgressNotification=; type -t progressNotification >/dev/null && hasProgressNotification=t
 
 printShortUsage()
@@ -215,7 +213,8 @@ if [ $# -gt 0 ]; then
 fi
 
 if [ ! "$isStashed" -a -z "$iterationAction" -a ${#commands[@]} -gt 0 ]; then
-    exec git-autostash "$scriptFilespec" --stashed "${args[@]}"
+    readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
+    exec git-autostash "${scriptName#git-}" --stashed "${args[@]}"
 fi
 
 gitDir="$(git rev-parse --git-dir)" || exit 3

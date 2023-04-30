@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--accept-single] [--single-only] [--range-is-last] [--pass-file-args] [--allow-outside-workingcopy] ... --since <date>|--max-count <number>|-n <number>|<range> [GIT-COMMAND-ARGS ...] [--] [FILE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--last-only] [--accept-single] [--single-only] [--range-is-last] [--pass-file-args] [--allow-outside-workingcopy] ... --since <date>|--max-count <number>|-n <number>|<range> [GIT-COMMAND-ARGS ...] [--] [FILE ...] [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [GIT-COMMAND-ARGS ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... COMMITS ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
@@ -23,8 +23,8 @@ printLongUsage()
     # This is the long "man page" when launched with the help argument.
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
-Execute GIT-COMMAND for the commit interactively chosen from the commits [that
-cover FILE ...] in the passed <range>
+Execute GIT-COMMAND for the commit interactively chosen / last commit from the
+commits [that cover FILE ...] in the passed <range>
 - appended
 - replacing COMMITS argument(s) anywhere (note that COMMITS must not be the
   first argument unless you also pass --range-is-last - it would be taken as the
@@ -36,6 +36,7 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
+    --last-only	    Choose the last commit in the range without querying.
     --range-is-last The last (total last, or last of the -(N) / +(N)) argument
 		    is the range. Use if the range looks like A..B,  not --since
 		    or --max-count, and doesn't immediately follow GIT-COMMAND.
@@ -48,6 +49,8 @@ HELPDESCRIPTION
 		    GIT-COMMAND must be able to deal with those files, too.
 HELPTEXT
 }
+
+action=getSelected
 isRangeLastArg=
 isPassFileArgs=
 isAllowOutsideWorkingCopy=
@@ -56,6 +59,7 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--last-only)	shift; action=getLast;;
 	--accept-single|--single-only)
 			commandOnSelectedArgs+=("$1"); shift;;
 	--range-is-last)
@@ -192,6 +196,11 @@ if [ ${#rangeArgs[@]} -eq 0 ] && [ ! "$GIT_SELECTEDCOMMIT_NO_MANDATORY_RANGE" ];
     exit 2
 fi
 
+commitSource()
+{
+    eval "git${files:+${isAllowOutsideWorkingCopy:+-inside}} ${GIT_SELECTEDCOMMIT_COMMAND:-log}" '"$@" "${rangeModificationArgs[@]}" "${rangeArgs[@]}" ${files:+${isAllowOutsideWorkingCopy:+\$FILE }--} "${files[@]}"'
+}
+
 appendMergeIndicator()
 {
     sed \
@@ -201,24 +210,40 @@ appendMergeIndicator()
 
 }
 
-readarray -t commits < <(
-    : ${GIT_SELECTEDCOMMIT_COMMAND_FORMAT:=$'%s\t%p'}
-    mergeIndicatorCommand=; [[ "$GIT_SELECTEDCOMMIT_COMMAND_FORMAT" =~ $'\t'%p$ ]] && mergeIndicatorCommand=appendMergeIndicator
-    eval "git${files:+${isAllowOutsideWorkingCopy:+-inside}} ${GIT_SELECTEDCOMMIT_COMMAND:-log}" '--pretty="tformat:%H $GIT_SELECTEDCOMMIT_COMMAND_FORMAT" "${rangeModificationArgs[@]}" "${rangeArgs[@]}" ${files:+${isAllowOutsideWorkingCopy:+\$FILE }--} "${files[@]}"' "${mergeIndicatorCommand:+|}$mergeIndicatorCommand" \
-	| truncate-trailing -w \
-	| commandWithHiddenId --stdin -p -c "commandOnSelected --stdin${commandOnSelectedArgs:+ }${commandOnSelectedArgs[*]}"
-    printf '\n%d\n' "$?"
-)   # Exit status from the process substitution is lost; return the actual exit status via an appended additional line.
-status=${commits[-1]}
-unset 'commits[-1]'
-[ -z "${commits[-1]}" ] && unset 'commits[-1]'
+typeset -a commits=()
+getSelected()
+{
+    readarray -t commits < <(
+	: ${GIT_SELECTEDCOMMIT_COMMAND_FORMAT:=$'%s\t%p'}
+	mergeIndicatorCommand=; [[ "$GIT_SELECTEDCOMMIT_COMMAND_FORMAT" =~ $'\t'%p$ ]] && mergeIndicatorCommand=appendMergeIndicator
+	commitSource --pretty="tformat:%H $GIT_SELECTEDCOMMIT_COMMAND_FORMAT" \
+	    | eval 'truncate-trailing -w' \
+	    "${mergeIndicatorCommand:+|}$mergeIndicatorCommand" \
+	    | commandWithHiddenId --stdin -p -c "commandOnSelected --stdin${commandOnSelectedArgs:+ }${commandOnSelectedArgs[*]}"
+	printf '\n%d\n' "$?"
+    )   # Exit status from the process substitution is lost; return the actual exit status via an appended additional line.
+    status=${commits[-1]}
+    unset 'commits[-1]'
+    [ -z "${commits[-1]}" ] && unset 'commits[-1]'
 
-if [ $status -eq 124 ]; then
-    echo >&2 'ERROR: No commits available.'
-    exit 1
-elif [ $status -ne 0 ]; then
-    exit $status
-fi
+    if [ $status -eq 124 ]; then
+	echo >&2 'ERROR: No commits available.'
+	return 1
+    elif [ $status -ne 0 ]; then
+	return $status
+    fi
+}
 
+getLast()
+{
+    readarray -t commits < <(commitSource --pretty='tformat:%H')
+    if [ ${#commits[@]} -eq 0 ]; then
+	echo >&2 'ERROR: No commits available.'
+	return 1
+    fi
+    commits=("${commits[$((${#commits[@]}-1))]}")
+}
+
+$action || exit $?
 [ "$isPassFileArgs" ] || files=()
 executor "$@" ${files:+--} "${files[@]}"

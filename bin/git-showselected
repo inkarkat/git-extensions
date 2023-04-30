@@ -1,21 +1,46 @@
 #!/bin/bash
+set -o pipefail
 shopt -qs extglob
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--last-only] [--pass-file-args] --since <date>|--max-count <number>|-n <number>|<range> [<show-args> ...] [--] [FILE ...] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
-Log together with diff [for FILE(s)] for the commit interactively chosen from
-the commits [that cover FILE ...] in the passed <range>.
-HELPTEXT
-    echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '--since <date>|--max-count <number>|-n <number>|<range> [<show-args> ...] [--] [FILE ...] [-?|-h|--help]'
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
 }
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Log together with diff [for FILE(s)] for the commit interactively chosen / last
+commit from the commits [that cover FILE ...] in the passed <range>.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --last-only	    Choose the last commit in the range without querying.
+    --pass-file-args
+		    Pass FILE arguments also to git show, and not just use them
+		    to determine the commits. I.e. also limit the diff to the
+		    passed FILE(s).
+HELPTEXT
+}
+
 typeset -a gitCommandArgs=()
 typeset -a files=()
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--)		shift; files=("$@"); break;;
 	*)		gitCommandArgs+=("$1"); shift;;
     esac
@@ -35,11 +60,16 @@ if [ ${#files[@]} -eq 0 ]; then
 fi
 set -- "${gitCommandArgs[@]}"
 
+action=getSelected
+isPassFileArgs=
 typeset -a rangeArgs=()
 typeset -a rangeModificationArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
+	--last-only)	shift; action=getLast;;
+	--pass-file-args)
+			shift; isPassFileArgs=t;;
 	--since)	rangeArgs+=("$1" "$2"); shift; shift;;
 	--max-count|-n)	rangeArgs+=("$1" "$2"); shift; shift;;
 	--max-count=*|-+([0-9]))
@@ -57,21 +87,42 @@ if [ ${#rangeArgs[@]} -eq 0 ]; then
     exit 2
 fi
 
-readarray -t commits < <(
-    git log --pretty='tformat:%H %s' "${rangeModificationArgs[@]}" "${rangeArgs[@]}" ${files:+--} "${files[@]}" \
-	| truncate-trailing -w \
-	| commandWithHiddenId --stdin -p -c 'commandOnSelected --stdin'
-    printf '\n%d\n' "$?"
-)   # Exit status from the process substitution is lost; return the actual exit status via an appended additional line.
-status=${commits[-1]}
-unset 'commits[-1]'
-[ -z "${commits[-1]}" ] && unset 'commits[-1]'
+commitSource()
+{
+    git log "$@" "${rangeModificationArgs[@]}" "${rangeArgs[@]}" ${files:+--} "${files[@]}"
+}
 
-if [ $status -eq 124 ]; then
-    echo >&2 'ERROR: No commits available.'
-    exit 1
-elif [ $status -ne 0 ]; then
-    exit $status
-fi
+typeset -a commits=()
+getSelected()
+{
+    readarray -t commits < <(
+	commitSource --pretty='tformat:%H %s' \
+	    | truncate-trailing -w \
+	    | commandWithHiddenId --stdin -p -c 'commandOnSelected --stdin'
+	printf '\n%d\n' "$?"
+    )   # Exit status from the process substitution is lost; return the actual exit status via an appended additional line.
+    local status=${commits[-1]}
+    unset 'commits[-1]'
+    [ -z "${commits[-1]}" ] && unset 'commits[-1]'
 
+    if [ $status -eq 124 ]; then
+	echo >&2 'ERROR: No commits available.'
+	return 1
+    elif [ $status -ne 0 ]; then
+	return $status
+    fi
+}
+
+getLast()
+{
+    readarray -t commits < <(commitSource --pretty='tformat:%H')
+    if [ ${#commits[@]} -eq 0 ]; then
+	echo >&2 'ERROR: No commits available.'
+	return 1
+    fi
+    commits=("${commits[$((${#commits[@]}-1))]}")
+}
+
+$action || exit $?
+[ "$isPassFileArgs" ] || files=()
 exec git-wrapper ${GIT_SHOWSELECTED_COMMAND:-show} "$@" "${commits[@]}" ${files:+--} "${files[@]}"

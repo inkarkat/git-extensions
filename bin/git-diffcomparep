@@ -25,7 +25,7 @@ typeset -a gitCommandArgs=()
 typeset -a gitCommonDiffArgs=()
 typeset -a gitDiffArgs=()
 typeset -a gitDiffPredArgs=()
-typeset -a paths=()
+unset paths
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -39,7 +39,7 @@ do
 	--count|-n)	gitDiffPredArgs+=("$1" "$2"); shift; shift;;
 	--count=*)	gitDiffPredArgs+=("$1"); shift;;
 	-+([0-9]))	gitDiffPredArgs+=("$1"); shift;;
-	--)		shift; paths=("$@"); break;;
+	--)		shift; typeset -a paths=("$@"); break;;
 	-*)		gitCommonDiffArgs+=("$1"); shift;;
 	*)		if [ -z "$revision" ] && [ ! -e "$1" ] && git-commitid "$1" --no-quiet --no-error; then
 			    # Take the first argument as a commit specification
@@ -53,9 +53,10 @@ do
 			;;
     esac
 done
-if [ ${#paths[@]} -eq 0 ]; then
+if [ -z "${paths+t}" ]; then
     # No files after -- captured yet; need to investigate parsed and
     # remaining args from behind for files.
+    typeset -a paths=()
     gitCommonDiffArgs+=("$@")
     while [ ${#gitCommonDiffArgs[@]} -ne 0 ]
     do

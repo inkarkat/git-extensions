@@ -146,18 +146,19 @@ case "$1" in
 esac
 
 typeset -a gitCommandArgs=()
-typeset -a files=()
+unset files
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
-	--)		shift; files=("$@"); break;;
+	--)		shift; typeset -a files=("$@"); break;;
 	*)		gitCommandArgs+=("$1"); shift;;
     esac
 done
-if [ ${#files[@]} -eq 0 ]; then
+if [ -z "${files+t}" ]; then
     # No files after -- captured yet; need to investigate parsed and
     # remaining args from behind for files.
+    typeset -a files=()
     gitCommandArgs+=("$@")
     while [ ${#gitCommandArgs[@]} -ne 0 ]
     do

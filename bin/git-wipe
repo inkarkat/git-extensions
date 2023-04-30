@@ -16,7 +16,7 @@ HELPTEXT
 isForce=
 typeset -a gitArgs=()
 logArg=
-typeset -a paths=()
+unset paths
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -27,15 +27,16 @@ do
 	--force|-f)	shift; isForce=t;;
 	--@(gui|terminal|none))
 			logArg="$1"; shift;;
-	--)		shift; paths=("$@"); break;;
+	--)		shift; typeset -a paths=("$@"); break;;
 	*)		gitArgs+=("$1"); shift;;
     esac
 done
 # DWIM here: Allow both git wipe FILE1 ... and git wipe <commit> FILE1 ... by
 # checking whether the arguments exist as files.
-if [ ${#paths[@]} -eq 0 ]; then
+if [ -z "${paths+t}" ]; then
     # No files after -- captured yet; need to investigate parsed and
     # remaining args from behind for files.
+    typeset -a paths=()
     gitArgs+=("$@")
     while [ ${#gitArgs[@]} -ne 0 ]
     do

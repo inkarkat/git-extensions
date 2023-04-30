@@ -57,7 +57,7 @@ HELPTEXT
 typeset userFilterArgs=()
 withLogArgs=
 typeset -a allargs=()
-typeset -a files=()
+unset files
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -71,18 +71,19 @@ do
 	--)		shift
 			if [ "$withLogArgs" = except-last ]; then
 			    allargs+=("${!#}")
-			    files=("${@:1:$(($#-1))}")
+			    typeset -a files=("${@:1:$(($#-1))}")
 			else
-			    files=("$@")
+			    typeset -a files=("$@")
 			fi
 			break
 			;;
 	*)		allargs+=("$1"); shift;;
     esac
 done
-if [ ${#files[@]} -eq 0 ]; then
+if [ -z "${files+t}" ]; then
     # No files after -- captured yet; need to investigate parsed and
     # remaining args from behind for files.
+    typeset -a files=()
     allargs+=("$@")
     while [ ${#allargs[@]} -ne 0 ]
     do

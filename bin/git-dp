@@ -18,7 +18,7 @@ revision=
 count=1
 typeset -a gitCommandArgs=()
 typeset -a gitArgs=()
-typeset -a paths=()
+unset paths
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -27,7 +27,7 @@ do
 	--count|-n)	shift; count="$1"; shift;;
 	--count=*)	count="${1#--count=}"; shift;;
 	-+([0-9]))	count="${1#-}"; shift;;
-	--)		shift; paths=("$@"); break;;
+	--)		shift; typeset -a paths=("$@"); break;;
 	-*)		gitArgs+=("$1"); shift;;
 	*)		if [ -z "$revision" ] && [ ! -e "$1" ] && git-commitid --quiet --no-error -- "$1"; then
 			    # Take the first argument as a commit specification
@@ -41,9 +41,10 @@ do
 			;;
     esac
 done
-if [ ${#paths[@]} -eq 0 ]; then
+if [ -z "${paths+t}" ]; then
     # No files after -- captured yet; need to investigate parsed and
     # remaining args from behind for files.
+    typeset -a paths=()
     gitArgs+=("$@")
     while [ ${#gitArgs[@]} -ne 0 ]
     do

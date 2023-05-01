@@ -5,10 +5,11 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--full-decorations] [--commit-log-args <log-options> [...] ;] [<log-options>] [<revision range>] [--] <path> [...]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--full-decorations] --commit-log-args <log-options> [...] ; [<log-options>] [<revision range>] [--] [<path> ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--full-decorations] [--decorate-refs=<pattern> [-i|--include <pattern>] [-e|--exclude <pattern>]] [<log-options>] [<revision range>] ...'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [--commit-log-args <log-options> [...] ;] [--] <path> [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [--full-decorations] --commit-log-args <log-options> [...] ; [--] [<path> ...]'
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '--only-decorations [<log-options>] [<revision range>] [--] [<path> ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... --only-decorations [--] [<path> ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -42,6 +43,14 @@ HELPDESCRIPTION
 			These log options are only used for filtering the
 			non-decorated commits, as an alternative or supplement
 			to filtering by <path>.
+    --decorate-refs=<pattern>
+			Only consider ref names matching <pattern>. This is
+			often provided by an alias; use --include and --exclude
+			to further refine matches.
+    --include|-i <pattern>
+			Append <pattern> to further restrict the ref names.
+    --exclude|-e <pattern>
+			Append <pattern> to exclude matching ref names.
 
 This can be useful if tagging and development are done on separate branches, but
 you want to find out which commits that changed a file were in a release.
@@ -56,6 +65,9 @@ decorationsFilterSedCommandSuffix='\n\2/'
 recolorDecorationsSedCommand='s#\x1b\[[0-9:;]*m##g; s#\[\(.*\)\]#[1;31m\1[0;38;5;245m#; s#^#[38;5;245m#g; s#$#[0m#'
 filter=filterDecorationsAndCommits
 isDecorationsOnly=
+typeset -a decorateRefsPatterns=()
+typeset -a excludePatterns=()
+typeset -a includePatterns=()
 typeset -a gitLogArgs=()
 typeset -a gitCommitLogArgs=()
 typeset -a gitGraphLogArg=()
@@ -110,6 +122,12 @@ do
 			    exit 2
 			fi >&2
 			;;
+	--decorate-refs)
+			shift; decorateRefsPatterns+=("$1"); shift;;
+	--decorate-refs=*)
+			decorateRefsPatterns+=("${1#--decorate-refs=}"); shift;;
+	--exclude|-e)	shift; excludePatterns+=("${1:?}"); shift;;
+	--include|-i)	shift; includePatterns+=("${1:?}"); shift;;
 	--)		shift; typeset -a files=("$@"); break;;
 	*)		gitLogArgs+=("$1"); shift;;
     esac
@@ -147,6 +165,17 @@ else
 fi
 : ${decorationsFilterSedCommand="${decorationsFilterSedCommandPrefix}${decorationsFilterSedCommandSymbol}${decorationsFilterSedCommandSuffix}"}
 
+for pattern in "${decorateRefsPatterns[@]}"
+do
+    for i in "${includePatterns[@]:-}"
+    do
+	gitLogArgs+=(--decorate-refs="${pattern%/}/${i}")
+    done
+    for e in "${excludePatterns[@]}"
+    do
+	gitLogArgs+=(--decorate-refs-exclude="${pattern%/}/${e}")
+    done
+done
 
 contains()
 {

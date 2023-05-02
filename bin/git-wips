@@ -181,11 +181,11 @@ considerCheck()
 }
 
 overallStatus=1
-considerCheck empty && \
-    if git empty; then echo 'Empty repository.'; positiveCheck; fi
+considerCheck empty \
+    && if git empty; then echo 'Empty repository.'; positiveCheck; fi
 
-considerCheck dirty && \
-    if git-dirty --quiet; then git "${gitColorConfigArg[@]}" st; positiveCheck; fi
+considerCheck dirty \
+    && if git-dirty --quiet; then git "${gitColorConfigArg[@]}" st; positiveCheck; fi
 
 findPrivateFiles()
 {
@@ -194,20 +194,24 @@ findPrivateFiles()
     [ ${#privateFiles[@]} -eq 0 ] && return 1
     printf 'Unversioned file: %s\n' "${privateFiles[@]}"
 }
-considerCheck private && \
-    if findPrivateFiles; then positiveCheck; fi
+considerCheck private \
+    && if findPrivateFiles; then positiveCheck; fi
 
-considerCheck stashed && \
-    if git rev-parse --verify --quiet refs/stash >/dev/null; then git stash list; positiveCheck; fi
+considerCheck stashed \
+    && if git rev-parse --verify --quiet refs/stash >/dev/null; then git stash list; positiveCheck; fi
 
-considerCheck noremote && \
-    if ! git existsremote; then echo "Local-only repository; no remotes defined yet."; positiveCheck; fi
+considerCheck noremote \
+    && if ! git existsremote; then echo "Local-only repository; no remotes defined yet."; positiveCheck; fi
 
-considerCheck outgoing && \
-    if git existsremote origin && git remotebr origin >/dev/null 2>&1 && git ooutlgx "${colorArg[@]}" | headtail --separator-cutline | outputAndPrintf 'Outgoing to origin:\n'; then positiveCheck; fi
+considerCheck outgoing \
+    && git existsremote origin \
+    && git remotebr origin >/dev/null 2>&1 \
+    && if git ooutlgx "${colorArg[@]}" | headtail --separator-cutline | outputAndPrintf 'Outgoing to origin:\n'; then positiveCheck; fi
 
-considerCheck incoming && \
-    if git existsremote origin && git remotebr origin >/dev/null 2>&1 && git oinlgx "${colorArg[@]}" | headtail --separator-cutline | outputAndPrintf 'Incoming from origin:\n'; then positiveCheck; fi
+considerCheck incoming \
+    && git existsremote origin \
+    && git remotebr origin >/dev/null 2>&1 \
+    && if git oinlgx "${colorArg[@]}" | headtail --separator-cutline | outputAndPrintf 'Incoming from origin:\n'; then positiveCheck; fi
 
 printChangelogDifferences()
 {
@@ -222,21 +226,21 @@ printChangelogDifferences()
     git diff -R "${colorArg[@]}" "$remoteBranch" -- "$changelogFilespec" | outputAndPrintf 'Behind changes in upstream:\n'
     return ${PIPESTATUS[-1]}
 }
-considerCheck fallenbehind && \
-    git existsremote upstream && \
-    ! git istagged && \
-    if printChangelogDifferences; then positiveCheck; fi
+considerCheck fallenbehind \
+    && git existsremote upstream \
+    && ! git istagged \
+    && if printChangelogDifferences; then positiveCheck; fi
 
 printBehindCommits()
 {
     git uinlgx "${colorArg[@]}" | headtail --separator-cut-what '... use "git uinl[o]g" for the full list ...' | outputAndPrintf 'Behind upstream:\n'
     return ${PIPESTATUS[-1]}
 }
-considerCheck behind && \
-    git existsremote upstream && \
-    git remotebr upstream >/dev/null 2>&1 && \
-    git brname --real-branch-only >/dev/null 2>&1 && \
-    if printBehindCommits; then positiveCheck; fi
+considerCheck behind \
+    && git existsremote upstream \
+    && git remotebr upstream >/dev/null 2>&1 \
+    && git brname --real-branch-only >/dev/null 2>&1 \
+    && if printBehindCommits; then positiveCheck; fi
 
 printBehindTags()
 {
@@ -248,16 +252,18 @@ printBehindTags()
 		uniqueStable | outputAndPrintf 'Behind these tags in upstream:\n'
     return ${PIPESTATUS[-1]}
 }
-considerCheck behindtags && \
-    git existsremote upstream && \
-    tagName="$(git istagged --print)" && \
-    if printBehindTags "$tagName"; then positiveCheck; fi
+considerCheck behindtags \
+    && git existsremote upstream \
+    && tagName="$(git istagged --print)" \
+    && if printBehindTags "$tagName"; then positiveCheck; fi
 
-considerCheck wipcommit && \
-    if git l --max-count=1 "${colorArg[@]}" | grep '\(^\| \)WIP: '; then positiveCheck; fi
+considerCheck wipcommit \
+    && if git l --max-count=1 "${colorArg[@]}" | grep '\(^\| \)WIP: '; then positiveCheck; fi
 
-considerCheck nonmaster && \
-    if branchName="$(git-brname --real-branch-only 2>/dev/null)"; [ -n "$branchName" -a "$branchName" != "$(git-mbr)" -a "$branchName" != "$(git-nbr 2>/dev/null)" ]; then printf 'On branch %s\n' "$branchName"; positiveCheck; fi
+considerCheck nonmaster \
+    && if branchName="$(git-brname --real-branch-only 2>/dev/null)"
+	[ -n "$branchName" -a "$branchName" != "$(git-mbr)" -a "$branchName" != "$(git-nbr 2>/dev/null)" ]
+    then printf 'On branch %s\n' "$branchName"; positiveCheck; fi
 
 findUnmergedDownstreamBranches()
 {
@@ -272,8 +278,10 @@ findUnmergedDownstreamBranches()
 	uniqueStable | \
 	outputAndPrintf 'These branches in origin have not yet been merged to upstream:\n'
 }
-considerCheck unmergeddownstream && \
-    if git existsremote origin && git existsremote upstream && findUnmergedDownstreamBranches; then positiveCheck; fi
+considerCheck unmergeddownstream \
+    && git existsremote origin \
+    && git existsremote upstream \
+    && if findUnmergedDownstreamBranches; then positiveCheck; fi
 
 findDownstreamBranches()
 {
@@ -288,8 +296,10 @@ findDownstreamBranches()
     done
     return $status
 }
-considerCheck downstreambranches && \
-    if git existsremote origin && git existsremote upstream && findDownstreamBranches; then positiveCheck; fi
+considerCheck downstreambranches \
+    && git existsremote origin \
+    && git existsremote upstream \
+    && if findDownstreamBranches; then positiveCheck; fi
 
 findInactiveFork()
 {
@@ -300,8 +310,10 @@ findInactiveFork()
 
     echo 'origin has no active branches, is up-to-date with upstream, and can be archived.'
 }
-considerCheck inactivefork && \
-    if git existsremote origin && git existsremote upstream && findInactiveFork; then positiveCheck; fi
+considerCheck inactivefork \
+    && git existsremote origin \
+    && git existsremote upstream \
+    && if findInactiveFork; then positiveCheck; fi
 
 [ "$isVerbose" ] && printf >/dev/tty %s "$CLEAR_PREVIOUS_LINE"
 

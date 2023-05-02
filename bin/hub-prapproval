@@ -46,7 +46,13 @@ apiCall()
 {
     local prId="${1:?}"; shift
     hub api "$@" "repos/${HUB_PRAPPROVAL_OWNER}/${HUB_PRAPPROVAL_REPO}/pulls/${prId:?}/reviews" \
-	| jq --raw-output '.[] | .user.login + "\t" + '"if .state == \"APPROVED\" then \"${HUB_PRAPPROVAL_COLOR_APPROVED}APPROVED${HUB_PRAPPROVAL_COLOR_RESET}\" elif .state == \"COMMENTED\" then \"${HUB_PRAPPROVAL_COLOR_COMMENTED}COMMENTED${HUB_PRAPPROVAL_COLOR_RESET}\" elif .state == \"CHANGES_REQUESTED\" then \"${HUB_PRAPPROVAL_COLOR_CHANGES_REQUESTED}CHANGES_REQUESTED${HUB_PRAPPROVAL_COLOR_RESET}\" else .state end"' + "\t" + .submitted_at + if .body == "" then "" else "\n" + .body | gsub("(\r?\n)+$"; "") end' \
+	| jq --raw-output ".[]
+	    | .user.login
+		+ \"\\t\"
+		+ if .state == \"APPROVED\" then \"${HUB_PRAPPROVAL_COLOR_APPROVED}APPROVED${HUB_PRAPPROVAL_COLOR_RESET}\" elif .state == \"COMMENTED\" then \"${HUB_PRAPPROVAL_COLOR_COMMENTED}COMMENTED${HUB_PRAPPROVAL_COLOR_RESET}\" elif .state == \"CHANGES_REQUESTED\" then \"${HUB_PRAPPROVAL_COLOR_CHANGES_REQUESTED}CHANGES_REQUESTED${HUB_PRAPPROVAL_COLOR_RESET}\" else .state end
+		+ \"\\t\"
+		+ .submitted_at
+		+ if .body == \"\" then \"\" else \"\\n\" + .body | gsub(\"(\\r?\\n)+\$\"; \"\") end" \
 	| reldate --delta-each --within all
 }
 

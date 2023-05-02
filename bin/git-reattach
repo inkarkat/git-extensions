@@ -48,6 +48,20 @@ if [ -n "$branchName" ]; then
 	userBinaryChoice --keep-prompt --question "'${branchName}' contains the current revision; forward to and check out that?" --yes-no || branchName=''
     fi
 fi
+
+if [ -z "$branchName" ]; then
+    while IFS=$'\n' read -r remoteBranch
+    do
+	if git-equals "$remoteBranch" HEAD; then
+	    if [ "$isYes" ] \
+		|| userBinaryChoice --keep-prompt --question "'${remoteBranch}' points to the current revision; check it out?" --yes-no
+	    then
+		exec git-checkout-remote-branch "$remoteBranch"
+	    fi
+	fi
+    done < <(git-rbr '')
+fi
+
 if [ -z "$branchName" ]; then
     readarray -t containedBranches < <(comm -12 <(git-containsbranch | sort) <(git-localbr --include-all | sort))
     if [ ${#containedBranches[@]} -eq 0 ]; then

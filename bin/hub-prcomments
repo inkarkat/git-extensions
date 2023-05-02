@@ -1,0 +1,149 @@
+#!/bin/bash
+set -o pipefail
+# Source: https://stackoverflow.com/a/66072198/813602
+
+: ${HUB_PRCOMMENTS_OWNER:='{owner}'}
+: ${HUB_PRCOMMENTS_REPO:='{repo}'}
+: ${HUB_PRCOMMENTS_COLOR_CONVERSATIONHEADER=[47m}
+: ${HUB_PRCOMMENTS_COLOR_AUTHOR=[1;35m}
+: ${HUB_PRCOMMENTS_COLOR_COMMENT=}
+: ${HUB_PRCOMMENTS_COLOR_RESET=[0m}
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[#ID|<commit> [...]] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Print unresolved review comments from pull request(s) with #ID / that have HEAD
+/ <commit>(s) as the branch's HEAD.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+EXIT STATUS:
+    0	Complete success.
+    1	No pull request found.
+    2	Bad invocation, wrong or missing command-line arguments.
+    3	Internal error or failed assertion.
+    99	There are no unresolved review comments for any pull request.
+HELPTEXT
+}
+
+isColor=; [ -t 1 ] && isColor=t
+case "$1" in
+    --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+    --no-color|--color=never)
+			isColor=; shift;;
+    --color=always)	isColor=t; shift;;
+    --color=auto)	shift;;
+    --color)		case "$2" in
+			    always) isColor=t;;
+			    never)  isColor=;;
+			    auto)   ;;
+			    *)	    echo >&2 "ERROR: Invalid --color arg: $2"
+				    echo >&2
+				    printUsage "$0" >&2
+				    exit 2
+				    ;;
+			esac
+			shift; shift
+			;;
+esac
+[ "$isColor" ] || unset "${!HUB_PRCOMMENTS_COLOR_@}"
+
+apiCall()
+{
+    local prId="${1:?}"; shift
+    gh api graphql \
+    	--field repo="$HUB_PRCOMMENTS_REPO" \
+    	--field owner="$HUB_PRCOMMENTS_OWNER" \
+    	--field pr="$prId" \
+    	--raw-field query='
+query FetchReviewComments($owner: String!, $repo: String!, $pr: Int!) {
+    repository(owner: $owner, name: $repo) {
+	pullRequest(number: $pr) {
+	    reviewThreads(first: 100) {
+		edges {
+		    node {
+			isResolved
+			isOutdated
+			isCollapsed
+			comments(first: 100) {
+			    totalCount
+			    nodes {
+				author {
+				    login
+				}
+				body
+				url
+			    }
+			}
+		    }
+		}
+	    }
+	}
+    }
+}' \
+    | jq --raw-output "
+	.data.repository.pullRequest.reviewThreads.edges
+	    | map(select(.node.isResolved == false))
+	    | .[]
+	    | \"${HUB_PRCOMMENTS_COLOR_CONVERSATIONHEADER}\" + .node.comments.nodes[0].url + \" (\" + (.node.comments.totalCount | tostring) + \")${HUB_PRCOMMENTS_COLOR_RESET}\",
+		(.node.comments.nodes
+		    | .[]
+		    | \"${HUB_PRCOMMENTS_COLOR_AUTHOR}\" + .author.login + \"${HUB_PRCOMMENTS_COLOR_RESET}\\t${HUB_PRCOMMENTS_COLOR_COMMENT}\" + .body + \"${HUB_PRCOMMENTS_COLOR_RESET}\"
+		)"
+}
+
+[ $# -gt 0 ] || set -- 'HEAD'
+typeset -a commitIds=()
+typeset -a identifiers=()
+for arg
+do
+    if [[ "$arg" =~ ^#[[:digit:]]+$ ]]; then
+	identifiers+=("${arg#\#}")
+    else
+	commitId="$(git rev-parse "$arg" 2>/dev/null)" && commitIds+=("$commitId")
+    fi
+done
+[ ${#commitIds[@]} -gt 0 -o ${#identifiers[@]} -gt 0 ] || exit 1
+
+
+if [ ${#commitIds[@]} -gt 0 ]; then
+    while IFS=$'\t' read -r prCommitId prIdentifier
+    do
+	if contains "$prCommitId" "${commitIds[@]}"; then
+	    identifiers+=("$prIdentifier")
+	fi
+    done < <(hub pr list -f "%sH	%I%n")
+fi
+[ ${#identifiers[@]} -gt 0 ] || exit 1
+
+status=0
+prComments=''
+for id in "${identifiers[@]}"
+do
+    prComments+="$(apiCall "$id")" || status=3
+done
+
+if [ $status -ne 0 ]; then
+    exit $status
+elif [ -z "$prComments" ]; then
+    exit 99
+else
+    printf '%s\n' "$prComments"
+fi

@@ -13,7 +13,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[#ID|<commit> [...]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-a|--all] [#ID|<commit> [...]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -34,6 +34,8 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
+    --all|-a		Print resolved review comments, too.
+
 EXIT STATUS:
     0	Complete success.
     1	No pull request found.
@@ -44,6 +46,7 @@ HELPTEXT
 }
 
 isColor=; [ -t 1 ] && isColor=t
+isResolvedFilter=t
 case "$1" in
     --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
     --no-color|--color=never)
@@ -62,6 +65,7 @@ case "$1" in
 			esac
 			shift; shift
 			;;
+    --all|-a)		shift; isResolvedFilter=;;
 esac
 [ "$isColor" ] || unset "${!HUB_PRCOMMENTS_COLOR_@}"
 
@@ -100,7 +104,7 @@ query FetchReviewComments($owner: String!, $repo: String!, $pr: Int!) {
 }' \
     | jq --raw-output "
 	.data.repository.pullRequest.reviewThreads.edges
-	    | map(select(.node.isResolved == false))
+	    ${isResolvedFilter:+| map(select(.node.isResolved == false))}
 	    | .[]
 	    | \"${HUB_PRCOMMENTS_COLOR_CONVERSATIONHEADER}\" + .node.comments.nodes[0].url + \" (\" + (.node.comments.totalCount | tostring) + \")${HUB_PRCOMMENTS_COLOR_RESET}\",
 		(.node.comments.nodes

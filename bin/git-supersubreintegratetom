@@ -147,6 +147,10 @@ if [ ${#unintegratedSubmodules[@]} -eq 0 ]; then
     fi
     action=reintegrateSuperproject
 
+    if [ "$HUB" ] && hub-prcomments; then
+	userBinaryChoice --keep-prompt --console --question 'Really reintegrate the superproject despite the open PR review comments?' --yes-no || exit 4
+    fi
+
     if [ "$HUB" ] && hub-prapproval; then
 	userBinaryChoice --keep-prompt --console --question 'Really reintegrate the superproject?' --yes-no || exit 4
     fi
@@ -172,10 +176,18 @@ else
     fi
     action=reintegrateSubmodule
 
+    if [ "$HUB" ] && "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--single-success --include-superproject} prcomments; then
+	[ "$isInSubmodule" ] \
+	    && question='Really integrate this submodule' \
+	    || question="Really integrate ${#affectedSubmodules[@]} submodule${affectedSubmodulesPlural}"
+	question+=' despite the open PR review comments?'
+	userBinaryChoice --keep-prompt --console --question "$question" --yes-no || exit 4
+    fi
+
     if [ "$HUB" ] && "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--single-success --include-superproject} prapproval; then
 	[ "$isInSubmodule" ] \
 	    && question='Really integrate this submodule?' \
-	    || question="Really integrate ${#affectedSubmodules[@]} submodule$affectedSubmodulesPlural"
+	    || question="Really integrate ${#affectedSubmodules[@]} submodule${affectedSubmodulesPlural}?"
 	userBinaryChoice --keep-prompt --console --question "$question" --yes-no || exit 4
     fi
 fi

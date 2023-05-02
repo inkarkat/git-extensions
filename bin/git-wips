@@ -68,7 +68,7 @@ deselected (from all checks on offer) via -name.
 	    exist in origin
 - fallenbehind:
 	    differences in the changelog document (to the same remote branch or
-	    else master) exist in upstream
+	    else master, but not if a tag is checked out) exist in upstream
 - behind:   where the current branch misses commits that have been fetched and
 	    exist in upstream
 - behindtags:
@@ -223,7 +223,9 @@ printChangelogDifferences()
     return ${PIPESTATUS[-1]}
 }
 considerCheck fallenbehind && \
-    if git existsremote upstream && printChangelogDifferences; then positiveCheck; fi
+    git existsremote upstream && \
+    ! git istagged && \
+    if printChangelogDifferences; then positiveCheck; fi
 
 printBehindCommits()
 {

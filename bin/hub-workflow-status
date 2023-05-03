@@ -18,9 +18,9 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: [HUB_WORKFLOWSTATUS_WORKFLOW_ID=WORKFLOW_ID|WORKFLOW_FILENAME] %q %s\n' "$(basename "$1")" '[--id WORKFLOW_ID|WORKFLOW_FILENAME] [-u|--user USER] [-b|--branch BRANCH] [-r|--revision REVISION] [-l|--latest] [--is STATE [--is ...] [--print-all]] [--concluded CONCLUSION [--concluded ...] [--print-all]] [--wait WHAT|-W|--wait-for-completion] [-q|--quiet] [-?|-h|--help]'
+    printf 'Usage: [HUB_WORKFLOWSTATUS_WORKFLOW_ID=WORKFLOW_ID|WORKFLOW_FILENAME] %q %s\n' "$(basename "$1")" '[--id WORKFLOW_ID|WORKFLOW_FILENAME] [-u|--user USER] [-b|--branch BRANCH|-P|--pull-request N] [-r|--revision REVISION] [-l|--latest] [--is STATE [--is ...] [--print-all]] [--concluded CONCLUSION [--concluded ...] [--print-all]] [--wait WHAT|-W|--wait-for-completion] [-q|--quiet] [-?|-h|--help]'
     echo
-    printf 'Usage: [HUB_WORKFLOWSTATUS_WORKFLOW_ID=WORKFLOW_ID|WORKFLOW_FILENAME] %q %s\n' "$(basename "$1")" '[--id WORKFLOW_ID|WORKFLOW_FILENAME] [-u|--user USER] [-b|--branch BRANCH] [-r|--revision REVISION] [-l|--latest] --browse|--url|--raw'
+    printf 'Usage: [HUB_WORKFLOWSTATUS_WORKFLOW_ID=WORKFLOW_ID|WORKFLOW_FILENAME] %q %s\n' "$(basename "$1")" '[--id WORKFLOW_ID|WORKFLOW_FILENAME] [-u|--user USER] [-b|--branch BRANCH|-P|--pull-request N] [-r|--revision REVISION] [-l|--latest] --browse|--url|--raw'
     echo
     printf 'Usage: [HUB_WORKFLOWSTATUS_WORKFLOW_ID=WORKFLOW_ID|WORKFLOW_FILENAME] %q %s\n' "$(basename "$1")" '--has-workflow [--id WORKFLOW_ID|WORKFLOW_FILENAME]'
 }
@@ -48,6 +48,7 @@ HELPDESCRIPTION
 			${WORKFLOW_ID_CONFIG_KEY} config setting.
     --user|-u USER	Limit to workflow runs of USER.
     --branch|-b BRANCH	Limit to workflow runs associated with BRANCH.
+    --pull-request|-P N	Limit to workflows associated with pull request N.
     --revision|-r REVISION
 			Limit to workflow runs that build REVISION.
     --latest|-l		Only print / consider the last status.
@@ -122,6 +123,12 @@ do
 
 	--user|-u)	recursiveArgs+=("$1" "$2"); shift; queryArgs+=(--field "actor=${1:?}"); shift;;
 	--branch|-b)	recursiveArgs+=("$1" "$2"); shift; queryArgs+=(--field "branch=${1:?}"); shift;;
+	--pull-request|-P)
+			shift
+			branchName="$(gh pr view --json headRefName --template '{{.headRefName}}{{"\n"}}' "${1:?}")" || exit 2
+			queryArgs+=(--field "branch=$branchName"); shift
+			recursiveArgs+=(--branch "$branchName")	# Don't repeat the lookup on each recursive invocation.
+			;;
 	--revision|-r)	recursiveArgs+=("$1" "$2"); shift; commitId="$(git-commitid -- "${1:?}")" || exit 2; queryArgs+=(--field "head_sha=$commitId"); shift;;
 
 	--latest|-l)	recursiveArgs+=("$1"); shift; preAction='filterLatest';;

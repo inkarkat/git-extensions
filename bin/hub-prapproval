@@ -5,6 +5,7 @@ set -o pipefail
 
 : ${HUB_PRAPPROVAL_OWNER:='{owner}'}
 : ${HUB_PRAPPROVAL_REPO:='{repo}'}
+: ${HUB_PRAPPROVAL_COLOR_AUTHOR=[1;35m}
 : ${HUB_PRAPPROVAL_COLOR_APPROVED=[37;42m}
 : ${HUB_PRAPPROVAL_COLOR_COMMENTED=[37;44m}
 : ${HUB_PRAPPROVAL_COLOR_CHANGES_REQUESTED=[37;41m}
@@ -47,8 +48,8 @@ apiCall()
     local prId="${1:?}"; shift
     hub api "$@" "repos/${HUB_PRAPPROVAL_OWNER}/${HUB_PRAPPROVAL_REPO}/pulls/${prId:?}/reviews" \
 	| jq --raw-output ".[]
-	    | .user.login
-		+ \"\\t\"
+	    | \"${HUB_PRAPPROVAL_COLOR_AUTHOR}\" + .user.login
+		+ \"${HUB_PRAPPROVAL_COLOR_RESET}\\t\"
 		+ if .state == \"APPROVED\" then \"${HUB_PRAPPROVAL_COLOR_APPROVED}APPROVED${HUB_PRAPPROVAL_COLOR_RESET}\" elif .state == \"COMMENTED\" then \"${HUB_PRAPPROVAL_COLOR_COMMENTED}COMMENTED${HUB_PRAPPROVAL_COLOR_RESET}\" elif .state == \"CHANGES_REQUESTED\" then \"${HUB_PRAPPROVAL_COLOR_CHANGES_REQUESTED}CHANGES_REQUESTED${HUB_PRAPPROVAL_COLOR_RESET}\" else .state end
 		+ \"\\t\"
 		+ .submitted_at

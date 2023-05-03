@@ -101,8 +101,12 @@ query FetchReviewComments($owner: String!, $repo: String!, $pr: Int!) {
 	    }
 	}
     }
-}' \
-    | jq --raw-output "
+}'
+}
+
+renderComments()
+{
+    jq --raw-output "
 	.data.repository.pullRequest.reviewThreads.edges
 	    ${isResolvedFilter:+| map(select(.node.isResolved == false))}
 	    | .[]
@@ -141,7 +145,13 @@ status=0
 prComments=''
 for id in "${identifiers[@]}"
 do
-    prComments+="$(apiCall "$id")" || status=3
+    if response="$(apiCall "$id")"; then
+	prComments+="$(printf '%s\n' "$response" | renderComments)" || status=3
+    else
+	status=1
+	# Note: "gh api graphql" already extracts and prints the error message.
+	#printf '%s\n' "$response" | jq --raw-output '.errors | .[] | .message' >&2
+    fi
 done
 
 if [ $status -ne 0 ]; then

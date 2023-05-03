@@ -70,14 +70,18 @@ esac
 apiCall()
 {
     local prId="${1:?}"; shift
-    hub api "$@" "repos/${HUB_PRAPPROVAL_OWNER}/${HUB_PRAPPROVAL_REPO}/pulls/${prId:?}/reviews" \
-	| jq --raw-output ".[]
-	    | \"${HUB_PRAPPROVAL_COLOR_AUTHOR}\" + .user.login
-		+ \"${HUB_PRAPPROVAL_COLOR_RESET}\\t\"
-		+ if .state == \"APPROVED\" then \"${HUB_PRAPPROVAL_COLOR_APPROVED}APPROVED${HUB_PRAPPROVAL_COLOR_RESET}\" elif .state == \"COMMENTED\" then \"${HUB_PRAPPROVAL_COLOR_COMMENTED}COMMENTED${HUB_PRAPPROVAL_COLOR_RESET}\" elif .state == \"CHANGES_REQUESTED\" then \"${HUB_PRAPPROVAL_COLOR_CHANGES_REQUESTED}CHANGES_REQUESTED${HUB_PRAPPROVAL_COLOR_RESET}\" else .state end
-		+ \"\\t\"
-		+ .submitted_at
-		+ if .body == \"\" then \"\" else \"\\n\" + .body | gsub(\"(\\r?\\n)+\$\"; \"\") end" \
+    hub api "$@" "repos/${HUB_PRAPPROVAL_OWNER}/${HUB_PRAPPROVAL_REPO}/pulls/${prId:?}/reviews"
+}
+
+renderApproval()
+{
+    jq --raw-output ".[]
+	| \"${HUB_PRAPPROVAL_COLOR_AUTHOR}\" + .user.login
+	    + \"${HUB_PRAPPROVAL_COLOR_RESET}\\t\"
+	    + if .state == \"APPROVED\" then \"${HUB_PRAPPROVAL_COLOR_APPROVED}APPROVED${HUB_PRAPPROVAL_COLOR_RESET}\" elif .state == \"COMMENTED\" then \"${HUB_PRAPPROVAL_COLOR_COMMENTED}COMMENTED${HUB_PRAPPROVAL_COLOR_RESET}\" elif .state == \"CHANGES_REQUESTED\" then \"${HUB_PRAPPROVAL_COLOR_CHANGES_REQUESTED}CHANGES_REQUESTED${HUB_PRAPPROVAL_COLOR_RESET}\" else .state end
+	    + \"\\t\"
+	    + .submitted_at
+	    + if .body == \"\" then \"\" else \"\\n\" + .body | gsub(\"(\\r?\\n)+\$\"; \"\") end" \
 	| reldate --delta-each --within all
 }
 
@@ -109,7 +113,13 @@ status=0
 prApprovals=''
 for id in "${identifiers[@]}"
 do
-    prApprovals+="$(apiCall "$id")" || status=3
+    if response="$(apiCall "$id")"; then
+	prApprovals+="$(printf '%s\n' "$response" | renderApproval)" || status=3
+    else
+	status=1
+	printf '%s\n' "$response" \
+	    | jq --raw-output '.message' >&2
+    fi
 done
 
 if [ $status -ne 0 ]; then

@@ -3,9 +3,10 @@
 printUsage()
 {
     cat <<HELPTEXT
-branch with DWIM detection of branch listing via pattern (from the help: git
+git branch with DWIM detection of branch listing via pattern (from the help: git
 branch <pattern> would try to create a branch, use git branch --list <pattern>
-to list matching branches).
+to list matching branches) and plain unembellished output when output is not to
+the terminal.
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[BRANCH-ARGS ...] [-?|-h|--help]'
@@ -20,8 +21,12 @@ esac
 
 
 lastArg=; [ $# -gt 0 ] && lastArg=${!#}
-if [[ "$lastArg" =~ ^[^-].*[\[?*]|^[\[?*] ]]; then
+if [[ "$lastArg" =~ ^$|^[^-].*[\[?*]|^[\[?*] ]]; then
     set -- '--list' "$@"
+fi
+
+if [ ! -t 1 ] && contains --list "$@"; then
+    set -- --format '%(refname:lstrip=2)' "$@"
 fi
 
 exec git branch "${colorArg[@]}" "$@"

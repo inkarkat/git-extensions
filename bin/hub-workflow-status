@@ -125,9 +125,9 @@ do
 	--branch|-b)	recursiveArgs+=("$1" "$2"); shift; queryArgs+=(--field "branch=${1:?}"); shift;;
 	--pull-request|-P)
 			shift
-			branchName="$(gh pr view --json headRefName --template '{{.headRefName}}{{"\n"}}' "${1:?}")" || exit 2
-			queryArgs+=(--field "branch=$branchName"); shift
-			recursiveArgs+=(--branch "$branchName")	# Don't repeat the lookup on each recursive invocation.
+			rev="$(gh pr view --json headRefOid --template '{{.headRefOid}}{{"\n"}}' "${1:?}")" || exit 2
+			queryArgs+=(--field "head_sha=$rev"); shift
+			recursiveArgs+=(--revision "$rev")	# Don't repeat the lookup on each recursive invocation.
 			;;
 	--revision|-r)	recursiveArgs+=("$1" "$2"); shift; commitId="$(git-commitid -- "${1:?}")" || exit 2; queryArgs+=(--field "head_sha=$commitId"); shift;;
 

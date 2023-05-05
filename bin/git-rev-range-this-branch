@@ -41,15 +41,16 @@ contains()
 }
 
 includedRemote=
-if [ ! "$isAny" ] && [ -n "$startRev" ] && ! contains 'remotes' "${includedScopes[@]}" && branchRemote="${startRev%%/*}" && git-existsremote "$branchRemote"; then
+if [ ! "$isAny" ] && [ -n "$startRev" ] && ! contains 'remotes' "${includedScopes[@]}" \
+    && branchRemote="${startRev%%/*}" && git-existsremote "$branchRemote"
+then
     # Only accept other branches from the same remote that the BRANCH is from.
     includedRemote="remotes/$branchRemote"
 fi
 
 
 previousRev="${startRev:-HEAD}"
-let branchCnt=0
-while [ $branchCnt -lt $branchNumber ]
+for ((branchCnt = 0; branchCnt < branchNumber; branchCnt++))
 do
     while :
     do
@@ -68,7 +69,6 @@ do
 	    contains "${previousRev%%/*}" "${includedScopes[@]}"
 	fi && break
     done
-    let branchCnt+=1
 done
 
 [ "$isWithRange" ] || startRev=''   # Prevent "ERROR: --end-revision cannot be combined with --no-range!"; we don't need the end revision, as --no-range drops that, anyway.

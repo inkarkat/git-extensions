@@ -1,0 +1,34 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Print the remote name used for GitHub interactions.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --no-color|--color=*)
+			shift;;
+    --color)		shift; shift;;
+esac
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+# gh sets (single remote) / asks (multiple remotes) for the repository on the
+# first run if none has been specified so far; this information is stored (a bit
+# intransparenly; cp. https://github.com/cli/cli/issues/1864) in the repo's Git
+# configuration under remote.<remote>.gh-resolved. We can query that to obtain
+# the selected value.
+# Source: https://github.com/cli/cli/issues/2300#issuecomment-717476725
+remote="$(git config --local --get-regexp '\.gh-resolved$' | cut -f2 -d.)"
+if [ -z "$remote" ]; then
+    gh repo view --json name --template '{{.name}}{{"\n"}}'	# Note: Any repo query will do.
+    remote="$(git config --local --get-regexp '\.gh-resolved$' | cut -f2 -d.)"
+fi
+[ -n "$remote" ] || exit 3
+printf '%s\n' "$remote"

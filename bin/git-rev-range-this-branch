@@ -48,6 +48,18 @@ then
     includedRemote="remotes/$branchRemote"
 fi
 
+typeset -a describeArgs=()
+if [ ! "$isAny" -a "${includedScopes[*]}" = heads ]; then
+    # Optimization: When there are many tags or remote branches, but we're only
+    # interested in local branches, the loop can go through many iterations and
+    # take a lot of time. It would be great if we could simply
+    # --exclude=refs/tags/*, but unfortunately the exclusion starts after the
+    # refs/tags/ prefix. But we can instead turn the filtering around and only
+    # include all local branches. (The same could be done with
+    # --include-remote-refs|-r and remote branches, but I'm too lazy to do it.)
+    readarray -t describeArgs < <(git-br)
+    describeArgs=("${describeArgs[@]/#/--match=}")
+fi
 
 previousRev="${startRev:-HEAD}"
 for ((branchCnt = 0; branchCnt < branchNumber; branchCnt++))
@@ -57,7 +69,7 @@ do
 	# This will exit eventually with
 	#	"fatal: Not a valid object name REV^" or
 	#	"fatal: No tags can describe REV".
-	if ! previousRev="$(git describe --abbrev=0 --all "${previousRev}^" 2>/dev/null)"; then
+	if ! previousRev="$(git describe --abbrev=0 --all "${describeArgs[@]}" "${previousRev}^" 2>/dev/null)"; then
 	    printf >&2 'ERROR: Cannot find base commit for %s\n' "${startRev:-the current branch.}"
 	    exit 1
 	fi

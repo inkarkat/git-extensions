@@ -1,0 +1,300 @@
+#!/bin/bash
+set -o pipefail
+shopt -qs extglob
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--force] [--recurse-submodules=on-demand] [--push-submodules] [--delete-merged-submodule-branches] [--no-delete] [--no-wait|--no-pull] [--rebase-single|--rebase|--merge|--squash] [-y|--yes] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Merge / rebase the pull request that is open for the current branch via a remote
+merge in and by GitHub after necessary requirements are met (i.e. auto-merge).
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --force		Force-push the current branch (when the branch has
+			diverged from the tracked remote).
+    --recurse-submodules=on-demand
+			Also push submodules that changed in the revisions to be
+			pushed; note: this only works if the submodules are on
+			the same branch.
+    --push-submodules	First push submodules affected by the integration;
+			required when this is a superproject and submodule
+			changes have already been reintegrated but neither the
+			updated superproject nor the submodules have yet been
+			pushed.
+    --delete-merged-submodule-branches
+			Delete the merged submodule branches (after triggering
+			the remote merge) of submodules affected by the
+			integration.
+    --no-delete		Don't delete the reintegrated current branch from the
+			local and remote repositories.
+    --no-wait		Don't wait for the completion of the remote merge if
+			requirements weren't met and auto-merge has been enabled.
+    --no-pull		Don't pull the target branch containing the merge result
+			after the remote merge has been done.
+    --rebase-single	Rebase only if the current branch is a single non-merge
+			commit, else merge.
+    --yes		Don't query for confirmation of remote mutations.
+HELPTEXT
+}
+
+typeset -a pushBranchForceArg=()
+typeset -a pushBranchArgs=()
+isDelete=t
+isWait=t
+isPull=t
+isPushSubmodules=
+isDeleteMergedSubmoduleBranches=
+isRebaseSingle=
+mergeResolutionArg=
+typeset -a mergeMessageArgs=()
+typeset -a mergeNoEditMessageArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+	--no-delete)	shift; isDelete=;;
+	--no-wait)	shift; isWait=;;
+	--no-pull)	shift; isPull=;;
+	--force)	pushBranchForceArg=("$1"); shift;;
+	--recurse-submodules=*)
+			pushBranchArgs+=("$1"); shift;;
+	--push-submodules)
+			shift; isPushSubmodules=t;;
+	--delete-merged-submodule-branches)
+			shift; isDeleteMergedSubmoduleBranches=t;;
+	--rebase)	if [ -n "$mergeResolutionArg" ]; then
+			    printUsage "$0" >&2; exit 2
+			fi
+			mergeResolutionArg="$1"; shift
+			;;
+	--rebase-single)
+			if [ -n "$mergeResolutionArg" ]; then
+			    printUsage "$0" >&2; exit 2
+			fi
+			shift; isRebaseSingle=t;;
+	--squash|--merge)
+			if [ -n "$mergeResolutionArg" ]; then
+			    printUsage "$0" >&2; exit 2
+			fi
+			mergeResolutionArg="$1"; shift;;
+	--yes|-y)	gitRemoteMutateArgs+=("$1"); shift;;
+	--message|-m|--file|-F)
+			mergeMessageArgs+=("$1" "$2"); shift; shift;;
+	--no-edit)	mergeNoEditMessageArgs+=("$1"); shift;;
+
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+
+sourceBranch="$(git-brname --real-branch-only)" || exit $?
+sourceTracks="$(git-tracks 2>/dev/null)"
+sourceTrackedRemote="${sourceTracks%%/*}"
+remote="$(hub-remote)"
+if [ "$sourceTrackedRemote" != "$remote" ]; then
+    printf >&2 "ERROR: This branch '%s' is tracking %s, but GitHub is set up to interact with branch '%s' instead.\\n" "$sourceBranch" "${sourceTrackedRemote:-no remote branch yet}" "$remote"
+    exit 1
+fi
+
+{
+    IFS=$'\n' read -r targetBranch
+    IFS=$'\n' read -r sourceRemoteBranch
+    IFS=$'\n' read -r sourceRef
+    IFS=$'\n' read -r mergeable
+    IFS=$'\n' read -r state
+    IFS=$'\n' read -r prNumber
+    IFS=$'\n' read -r prTitle
+} < <(
+    typeset -a prefixCommands=()
+    type -t invocationMessage >/dev/null && prefixCommands=(invocationMessage --message 'Searching for PR...' --success FOUND --fail NONE -- "${prefixCommands[@]}")
+    "${prefixCommands[@]}" gh pr view --json 'baseRefName,headRefName,headRefOid,mergeable,state,number,title' --template '{{.baseRefName}}{{"\n"}}{{.headRefName}}{{"\n"}}{{.headRefOid}}{{"\n"}}{{.mergeable}}{{"\n"}}{{.state}}{{"\n"}}{{.number}}{{"\n"}}{{.title}}{{"\n"}}' "$sourceBranch"
+)
+wait
+
+if [ -z "$targetBranch" -o -z "$prNumber" -o -z "$sourceRef" ]; then
+    printf "ERROR: No pull request found for branch '%s'\\n" "$sourceBranch"
+    exit 1
+elif [ "$sourceRemoteBranch" != "$sourceBranch" ]; then
+    printf >&2 "ERROR: Something is wrong; this branch '%s' is different from the pull request's source branch in GitHub '%s'.\\n" "$sourceBranch" "$sourceRemoteBranch"
+    exit 3
+elif [ "$mergeable" != MERGEABLE ]; then
+    printf "ERROR: Pull request #%d (%s) is not mergeable.\\n" "$prNumber" "$prTitle"
+    exit 1
+elif [ "$state" != OPEN ]; then
+    printf "ERROR: Pull request #%d (%s) is not in state open.\\n" "$prNumber" "$prTitle"
+    exit 1
+fi >&2
+
+canRebase()
+{
+    [ "$(git log --pretty=tformat:%H --max-count 2 --no-merges "${targetBranch}..HEAD" | wc -l)" -le 1 ]
+}
+
+pushSubmodules()
+{
+    printf '\nPushing submodules:\n'
+    git-showsubmodules "${targetBranch}..HEAD" | git-subdo --status-99-is-noop --for - --interactive push-this-branch
+}
+
+deleteMergedSubmoduleBranches()
+{
+    printf '\nDeleting merged submodule branches:\n'
+    git-showsubmodules "${targetBranch}..HEAD" | git-subdo --status-99-is-noop --for - --interactive delete-merged-branches "$sourceBranch"
+}
+
+printf 'Integrating %s into %s via #%d (%s):\n\n' "$sourceBranch" "$targetBranch" "$prNumber" "$prTitle"
+
+if ! git-equals "$sourceRef" HEAD; then
+    quotedSourceBranch; printf -v quotedSourceBranch %q "$sourceBranch"
+    printf '\n%s/%s has diverged from %s.\n' "$sourceTrackedRemote" "$sourceRemoteBranch" "$sourceBranch"
+
+    if [ "$isPushSubmodules" ]; then
+	pushSubmodules; status=$?
+	case $status in
+	    0)  header "$(git-wcname)";;
+	    99) # Still continue with the branch push when there's no
+		# upstream configured.
+		echo;;
+	    *)  # Any real push errors abort; don't continue with pushing the
+		branch.
+		exit $status;;
+	esac
+    fi
+
+    git-remote-mutate "$sourceTrackedRemote" --message 'Push' --argument "$sourceBranch" --context-command "git rev-range-outgoing $sourceTrackedRemote --color=always --one-more-command greyonelinelog --one-more-only-to-terminal lg --branch $quotedSourceBranch" "${gitRemoteMutateArgs[@]}" \
+	push "${pushBranchForceArg[@]}" "${pushBranchArgs[@]}" "$sourceTrackedRemote" || exit $?
+fi
+
+branchMergeMessage="Merge branch '${sourceBranch}'"
+[ "$(git-mbr)" = "$targetBranch" ] || branchMergeMessage+=" into $targetBranch"
+
+# Ensure that the current branch is good for merging.
+git-mergecheck --merge-to "$targetBranch" || exit $?
+
+if [ "$mergeResolutionArg" != '--rebase' ] && [ ${#mergeMessageArgs[@]} -eq 0 ]; then
+    printf -v pullRequestMessage '%s\n\nIntegrated via #%d' "$prTitle" "$prNumber"	# Duplicate of hub-prtitle --as-merge-message
+    mergeMessageArgs+=(--message "${pullRequestMessage}${branchMergeMessage:+$'\n\n'}${branchMergeMessage}")
+    [ ${#mergeNoEditMessageArgs[@]} -gt 0 ] || mergeMessageArgs+=(--edit)
+fi
+
+if [ -z "$mergeResolutionArg" ]; then
+    if commitNum=$(git-inout --is-ahead HEAD "$targetBranch"); then
+	commitNumPlural=s; [ $commitNum -eq 1 ] && commitNumPlural=
+	userBinaryChoice --keep-prompt --console --question "The $commitNum commit$commitNumPlural on the current branch can be fast-forwarded instead of merged. Fast-forward (i.e. rebase)?" --yes-no && mergeResolutionArg='--rebase'
+    elif canRebase; then
+	choice="$(userchoiceFromList --keep-prompt --question "The current branch only consists of a single commit. Rebase it instead of creating a separate merge commit?" --no-cancel --ignore-case -- '[Y]es' '[N]o' '[Q]uit')" || exit $?
+	case "$choice" in
+	    Yes)
+		mergeResolutionArg='--rebase';;
+	    Quit)
+		exit 1
+		;;
+	esac
+    fi
+elif [ "$isRebaseSingle" ] && canRebase; then
+    mergeResolutionArg='--rebase'
+fi
+
+mergeSubject=
+mergeBody=
+if [ "$mergeResolutionArg" != '--rebase' ]; then
+    if [ ${#mergeMessageArgs[@]} -eq 0 ]; then
+	mergeMessageArgs=(--message "$branchMergeMessage")
+	[ ${#mergeNoEditMessageArgs[@]} -gt 0 ] || mergeMessageArgs+=(--edit)
+    fi
+
+    mergeMessage="$(concatenateMessages "${mergeMessageArgs[@]}" "${mergeNoEditMessageArgs[@]}")" || exit $?
+    mergeSubject="${mergeMessage%%$'\n'*}"
+    mergeBody="${mergeMessage#"$mergeSubject"}"; mergeBody="${mergeBody#$'\n'}"
+    mergeBody="${mergeBody#$'\n'}"	# Kill the customary empty line between subject and body, too.
+    if [ -z "$mergeSubject" ]; then
+	echo >&2 'ERROR: No subject for the merge commit.'
+	exit 4
+    fi
+fi
+
+verbose gh pr merge \
+    --auto $mergeResolutionArg ${isDelete:+--delete-branch} \
+    --match-head-commit "$sourceRef" \
+    ${mergeSubject:+--subject "$mergeSubject"} ${mergeBody:+--body "$mergeBody"} \
+    "$prNumber" \
+    || exit $?
+
+currentBranch="$(git-brname --real-branch-only)"
+case "$currentBranch" in
+    "$sourceBranch")
+	isMergeStillPending=t;;
+    "$targetBranch")
+	isMergeStillPending=;;
+    *)	printf >&2 "ERROR: I've landed on neither the source ('%s') nor the target ('%s') branch, but '%s' instead; that's unexpected.\\n" \
+	    "$sourceBranch" "$targetBranch" "$currentBranch"
+	exit 3
+	;;
+esac
+
+status=0
+didVisitSubmodules=
+if [ "$isDeleteMergedSubmoduleBranches" ]; then
+    deleteMergedSubmoduleBranches || status=$?
+    case $status in
+	0)  didVisitSubmodules=t;;
+	99) # Still continue with the branch push when there's no upstream
+	    # configured.
+	    ;;
+	*)  # Any real deletion errors abort; don't continue with branch push.
+	    exit $status;;
+    esac
+fi
+
+if [ "$isMergeStillPending" ]; then
+    if [ ! "$isWait" ]; then
+	printf '\n… Branch %s / PR #%d is still being reintegrated via auto-merge.\n' "$sourceBranch" "$prNumber"
+	exit $status
+    fi
+
+    if hub-workflow-status --has-workflow; then
+	printf 'Waiting for the GitHub action to validate the build on the branch and auto-merge.\n'
+	hub-workflow-status --revision "$sourceRef" --latest --is completed --wait 'The auto-merge branch build' \
+	    || exit $?
+    else
+	printf '\n… The auto-merge is still waiting that requirements are met.\n'
+	exit $status
+    fi
+
+    [ "$isPull" ] || exit $status
+
+    # The merge should be through after the completion of the workflow. Switch
+    # to the target branch and pull the updates.
+    [ "$didVisitSubmodules" ] && header "$(git-wcname)" || echo
+    git-wrapper checkout "$targetBranch" || exit $?
+    GIT_UP_FETCH=t git-up "$remote" --quiet "$@" 2>&1 | git-hushup --fetch "$remote"
+
+    if [ "$isDelete" ]; then
+	printf '\nDeleting merged branch:\n'
+	hub-delete-merged-branches "$sourceBranch" || status=$?
+    fi
+fi
+
+printf '\n✓ Branch %s / PR #%d completely reintegrated.\n' "$sourceBranch" "$prNumber"
+exit $status

@@ -384,7 +384,7 @@ else
     # Ensure that the current branch is good for merging.
     git-mergecheck --merge-to "$targetBranch" || exit $?
 
-    if [ -n "$HUB" ] && [ ! "$isRebase" ] && [ ${#mergeNoEditMessageArgs[@]} -eq 0 ]; then
+    if [ -n "$HUB" ] && [ ! "$isRebase" ] && [ ${#mergeMessageArgs[@]} -eq 0 ]; then
 	# Try to obtain corresponding pull request based on current branch's
 	# HEAD commits (both local and remote if different (this can happen if a
 	# submodule has been reintegrated as a separate commit because of
@@ -400,7 +400,10 @@ else
 	    && suffixArguments=(HEAD "$sourceTracks")
 
 	pullRequestTitles="$("${prefixCommands[@]}" hub-prtitle --as-merge-message "${suffixArguments[@]}")"
-	[ -n "$pullRequestTitles" ] && mergeMessageArgs+=(--message "$pullRequestTitles"$'\n\n'"$branchMergeMessage" --edit)
+	if [ -n "$pullRequestTitles" ]; then
+	    mergeMessageArgs=(--message "$pullRequestTitles"$'\n\n'"$branchMergeMessage")
+	    [ ${#mergeNoEditMessageArgs[@]} -gt 0 ] || mergeMessageArgs+=(--edit)
+	fi
     fi
 
     targetIntegrationSourceBranch="$targetBranch"

@@ -311,7 +311,7 @@ confirmUseTarget()
 }
 canRebase()
 {
-    [ "$(git log --pretty=tformat:%H --max-count 2 --no-merges "${targetIntegrationSourceBranch}.." | wc -l)" -le 1 ]
+    [ "$(git log --pretty=tformat:%H --max-count 2 --no-merges "${targetIntegrationSourceBranch}..HEAD" | wc -l)" -le 1 ]
 }
 printRestartCommand()
 {
@@ -379,12 +379,16 @@ else
     # will look as if $sourceBranch got merged into $targetBranch.
     branchMergeMessage="Merge branch '${sourceBranch}'"
     [ "$(git-mbr)" = "$targetBranch" ] || branchMergeMessage+=" into $targetBranch"
-    branchMergeMessage+=$'\n'"# via fast-forward integration to $targetBranch"
+    if [ ${#mergeNoEditMessageArgs[@]} -eq 0 ]; then
+	# Comments are only ignored if the message is edited, but included as-is
+	# on a direct commit.
+	branchMergeMessage+=$'\n'"# via fast-forward integration to $targetBranch"
+    fi
 
     # Ensure that the current branch is good for merging.
     git-mergecheck --merge-to "$targetBranch" || exit $?
 
-    if [ -n "$HUB" ] && [ ! "$isRebase" ] && [ ${#mergeNoEditMessageArgs[@]} -eq 0 ]; then
+    if [ -n "$HUB" ] && [ ! "$isRebase" ] && [ ${#mergeMessageArgs[@]} -eq 0 ]; then
 	# Try to obtain corresponding pull request based on current branch's
 	# HEAD commits (both local and remote if different (this can happen if a
 	# submodule has been reintegrated as a separate commit because of
@@ -400,7 +404,10 @@ else
 	    && suffixArguments=(HEAD "$sourceTracks")
 
 	pullRequestTitles="$("${prefixCommands[@]}" hub-prtitle --as-merge-message "${suffixArguments[@]}")"
-	[ -n "$pullRequestTitles" ] && mergeMessageArgs+=(--message "$pullRequestTitles"$'\n\n'"$branchMergeMessage" --edit)
+	if [ -n "$pullRequestTitles" ]; then
+	    mergeMessageArgs=(--message "$pullRequestTitles"$'\n\n'"$branchMergeMessage")
+	    [ ${#mergeNoEditMessageArgs[@]} -gt 0 ] || mergeMessageArgs+=(--edit)
+	fi
     fi
 
     targetIntegrationSourceBranch="$targetBranch"
@@ -410,13 +417,9 @@ else
 		targetIntegrationSourceBranch="$targetTracks"
 		reintegrateArgs+=(--ff-target-to-tracked)   # Don't have git-reintegrate ask the same question again, as this is confusing.
 
-		# Update the merge message template, too. (But only if the
-		# message is edited, as comments are only ignored then, but
-		# included as-is on a direct commit.)
-		if [ ${#mergeNoEditMessageArgs[@]} -eq 0 ]; then
-		    branchMergeMessage="${branchMergeMessage/%# via fast-forward integration to $targetBranch/\# via fast-forward integration to $targetTracks}"
-		    mergeMessageArgs=("${mergeMessageArgs[@]/%# via fast-forward integration to $targetBranch/\# via fast-forward integration to $targetTracks}")
-		fi
+		# Update the merge message template, too.
+		branchMergeMessage="${branchMergeMessage/%# via fast-forward integration to $targetBranch/\# via fast-forward integration to $targetTracks}"
+		mergeMessageArgs=("${mergeMessageArgs[@]/%# via fast-forward integration to $targetBranch/\# via fast-forward integration to $targetTracks}")
 	    else
 		printf "Okay, I'll ${isPerformTheMerge:+re}integrate ${isPerformTheMerge:+into }%s locally and you'll then have to merge with %s after that.\\n" "$targetBranch" "$targetTracks"
 	    fi
@@ -526,25 +529,29 @@ fi || {
 
 status=0
 didVisitSubmodules=
-[ ! "$isPushSubmodules" ] || pushSubmodules || status=$?
-case $status in
-    0)	didVisitSubmodules=t;;
-    99) # Still continue with the submodule branch deletion when there's no
-	# upstream configured.
-	;;
-    *)	# Any real push errors abort; don't continue with branch deletion.
-	exit $status;;
-esac
+if [ "$isPushSubmodules" ]; then
+    pushSubmodules || status=$?
+    case $status in
+	0)  didVisitSubmodules=t;;
+	99) # Still continue with the submodule branch deletion when there's no
+	    # upstream configured.
+	    ;;
+	*)  # Any real push errors abort; don't continue with branch deletion.
+	    exit $status;;
+    esac
+fi
 
-[ ! "$isDeleteMergedSubmoduleBranches" ] || deleteMergedSubmoduleBranches || status=$?
-case $status in
-    0)	didVisitSubmodules=t;;
-    99) # Still continue with the branch push when there's no upstream
-	# configured.
-	;;
-    *)	# Any real deletion errors abort; don't continue with branch push.
-	exit $status;;
-esac
+if [ "$isDeleteMergedSubmoduleBranches" ]; then
+    deleteMergedSubmoduleBranches || status=$?
+    case $status in
+	0)  didVisitSubmodules=t;;
+	99) # Still continue with the branch push when there's no upstream
+	    # configured.
+	    ;;
+	*)  # Any real deletion errors abort; don't continue with branch push.
+	    exit $status;;
+    esac
+fi
 
 [ ! "$isPushBranch" ] || pushBranch || {
     status=$?

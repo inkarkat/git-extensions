@@ -290,10 +290,11 @@ canRebase()
 }
 printContinueCommand()
 {
+    local quotedConfigVariables='';  [ -n "$GIT_REINTEGRATE_PRE_PUSH_COMMAND" ] && printf -v quotedConfigVariables 'GIT_REINTEGRATE_PRE_PUSH_COMMAND=%q' "$GIT_REINTEGRATE_PRE_PUSH_COMMAND"
     local gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
     local -r scriptName="$(basename -- "${BASH_SOURCE[0]}")"
     [ "$isCheckFromStdin" ] && printf >&2 'echo CHECK-COMMANDLINES | '
-    printf >&2 '$ %s%s %q' "${1}${1:+ && }" "$gitCommand" "${scriptName#git-}"
+    printf >&2 '$ %s%s%s %q' "${1}${1:+ && }" "${quotedConfigVariables}${quotedConfigVariables:+ }" "$gitCommand" "${scriptName#git-}"
     printf >&2 ' %q' '--continue' ${isBare:+--bare} "${runWithPromptArgs[@]}" "${continueArgs[@]}" "${gitRemoteMutateArgs[@]}" "${checkCommandArgs[@]}"
     printf >&2 -- ' --branch %q'  "${branches[@]}"
     [ "$isCheckFromStdin" ] && printf >&2 ' -'

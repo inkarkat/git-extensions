@@ -221,7 +221,7 @@ confirmFastForward()
 	&& similarCommitNum=$(git-similarcommits "HEAD..${branches[-1]}" "HEAD..${targetTracks}" | wc -l) \
 	&& [ $similarCommitNum -gt 0 ]
     then
-	local commitNum=$(git log --pretty=tformat:%H "HEAD..${branches[-1]}" | wc -l)
+	local commitNum=$(git-count "HEAD..${branches[-1]}")
 	local commitNumPlural=s; [ $commitNum -eq 1 ] && commitNumPlural=
 	local branchNum=${#branches[@]}; [ $branchNum -eq 1 ] && branchNum=
 	question="Your $targetBranch branch is not up-to-date with ${targetTrackedRemote}, but $((100 * similarCommitNum / commitNum))% of the $commitNum commit$commitNumPlural on the ${branchNum}${branchNum:+ }branch$branchesPlural look similar to what you have on ${targetTrackedRemote}. If you're redoing a previously merged (and pushed) branch, please decline."
@@ -274,7 +274,7 @@ canRebase()
 {
     for branch in "${branches[@]}"
     do
-	if [ "$(git log --pretty=tformat:%H --max-count 2 --no-merges "..$branch" | wc -l)" -gt 1 ]; then
+	if git-count -gt 1 --max-count 2 --no-merges "..$branch"; then
 	    # At least one branch has more than one non-merge commit.
 	    return 1
 	fi
@@ -360,7 +360,7 @@ else
     else
 	if [ ! "$hasMergeResolutionArg" ]; then
 	    if git-ffdryrun "${branches[@]}"; then
-		commitNum=$(git log --pretty=tformat:%H "HEAD..${branches[-1]}" | wc -l)
+		commitNum=$(git-count "HEAD..${branches[-1]}")
 		commitNumPlural=s; [ $commitNum -eq 1 ] && commitNumPlural=
 		branchNum=${#branches[@]}; [ $branchNum -eq 1 ] && branchNum=
 

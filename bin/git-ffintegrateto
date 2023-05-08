@@ -261,7 +261,7 @@ confirmFastForwardTarget()
 	&& similarCommitNum=$(git-similarcommits "${targetBranch}..HEAD" "${targetBranch}..${targetTracks}" | wc -l) \
 	&& [ $similarCommitNum -gt 0 ]
     then
-	local commitNum=$(git log --pretty=tformat:%H "${targetBranch}..HEAD" | wc -l)
+	local commitNum=$(git-count "${targetBranch}..HEAD")
 	local commitNumPlural=s; [ $commitNum -eq 1 ] && commitNumPlural=
 	question="Your $targetBranch branch is not up-to-date with ${targetTrackedRemote}, but $((100 * similarCommitNum / commitNum))% of the $commitNum commit$commitNumPlural on the current branch look similar to what you have on ${targetTrackedRemote}. If you're redoing a previously merged (and pushed) branch, please decline."
 	additionalChoices=("Show [D]ifference between ${targetTrackedRemote} and the current branch")
@@ -311,7 +311,7 @@ confirmUseTarget()
 }
 canRebase()
 {
-    [ "$(git log --pretty=tformat:%H --max-count 2 --no-merges "${targetIntegrationSourceBranch}..HEAD" | wc -l)" -le 1 ]
+    git-count -le 1 --max-count 2 --no-merges "${targetIntegrationSourceBranch}..HEAD"
 }
 printRestartCommand()
 {

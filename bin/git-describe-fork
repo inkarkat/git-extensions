@@ -57,11 +57,6 @@ if [ "${originBranch%%/*}" != "$origin" ]; then
     fi
 fi
 
-gitLh()
-{
-    git log --pretty=tformat:%H "$@"
-}
-
 getFirstUpstreamCommit()
 {
     local originRev="${1:?}"; shift
@@ -71,7 +66,7 @@ getFirstUpstreamCommit()
 	    printf '%s\n' "$originCommit"
 	    return 0
 	fi
-    done < <(gitLh "$originRev" 2>/dev/null)
+    done < <(git log --pretty=tformat:%H "$originRev" 2>/dev/null)
 
     printf >&2 'ERROR: Could not find an upsteam commit on which %s is based on.\n' "$originRev"
     exit 1
@@ -137,7 +132,7 @@ showCommit()
 }
 
 firstUpstreamCommit="$(getFirstUpstreamCommit "${originBranch}${backlog}")" || exit $?
-originCommitDelta="$(gitLh --first-parent "${firstUpstreamCommit}..${originBranch}${backlog}" 2>/dev/null | wc -l)" || exit $?
+originCommitDelta=$(git-count --first-parent "${firstUpstreamCommit}..${originBranch}${backlog}" 2>/dev/null) || exit $?
 originCommitDeltaPlural=s; [ $originCommitDelta -eq 1 ] && originCommitDeltaPlural=
 if [ $originCommitDelta -eq 0 ]; then
     printf '%s is up-to-date with' "$origin"
@@ -148,7 +143,7 @@ else
     showCommit "$upstream" "$firstUpstreamCommit"
 fi
 
-localCommitDelta="$(gitLh "${originBranch}${backlog}..${commit}" 2>/dev/null | wc -l)" || exit $?
+localCommitDelta=$(git-count "${originBranch}${backlog}..${commit}" 2>/dev/null) || exit $?
 if [ $localCommitDelta -gt 0 ]; then
     localCommitDeltaPlural=s; [ $localCommitDelta -eq 1 ] && localCommitDeltaPlural=
     localIsBranch=; git-existsbr -- "$commit" && localIsBranch=branch

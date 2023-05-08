@@ -191,7 +191,18 @@ if [ ${#limitRangeArgs[@]} -gt 0 ]; then
 	echo >&2 'ERROR: No range available.'
 	exit 1
     fi
-    limitRange=("${r1}^${GIT_LOGLIMITTORANGECOMMAND_RANGE}${r2}")
+    if previousR1="$(git rev-parse "${r1}^" 2>/dev/null)"; then
+	limitRange=("${previousR1}${GIT_LOGLIMITTORANGECOMMAND_RANGE}${r2}")
+    elif [ "$GIT_LOGLIMITTORANGECOMMAND_RANGE" = ... ]; then
+	# If the range includes the first commit, a diff / show command
+	# (recognized by the ... range (roughly, as ... could also be used for
+	# log, but far less frequently)) includes the very first commit.
+	limitRange=("${r1}${GIT_LOGLIMITTORANGECOMMAND_RANGE}${r2}")
+    else
+	# If the range includes the first commit, just do an open-ended log;
+	# using $r1 would not include the first commit and ${r1}^ is not valid.
+	limitRange=("${r2}")
+    fi
 fi
 
 [ "$passFileArgs" ] || files=()

@@ -6,7 +6,7 @@ printUsage()
 Show information about the last commit [that matches LOG-ARGS].
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[LOG-ARGS ...] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[GIT-COMMAND] [LOG-ARGS ...] [<revision range>] [[--] <path>...] [-?|-h|--help]'
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
@@ -16,6 +16,6 @@ if [ $# -eq 0 ]; then
     commit='HEAD'
 else
     gitCommand="$1"; shift
-    commit=$(git "$gitCommand" log -1 --pretty=tformat:%h "$@") || exit $?
+    commit=$(git-wrapper "$gitCommand" log --max-count 1 --pretty=tformat:%h "$@") || exit $?
 fi
 exec git cat-file commit "$commit"

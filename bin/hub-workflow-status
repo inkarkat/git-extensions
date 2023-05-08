@@ -18,9 +18,9 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: [HUB_WORKFLOWSTATUS_WORKFLOW_ID=WORKFLOW_ID|WORKFLOW_FILENAME] %q %s\n' "$(basename "$1")" '[--id WORKFLOW_ID|WORKFLOW_FILENAME] [-u|--user USER] [-b|--branch BRANCH|-P|--pull-request N] [-r|--revision REVISION] [-l|--latest] [--is STATE [--is ...] [--print-all]] [--concluded CONCLUSION [--concluded ...] [--print-all]] [--wait WHAT|-W|--wait-for-completion] [-q|--quiet] [-?|-h|--help]'
+    printf 'Usage: [HUB_WORKFLOWSTATUS_WORKFLOW_ID=WORKFLOW_ID|WORKFLOW_FILENAME] %q %s\n' "$(basename "$1")" '[--id WORKFLOW_ID|WORKFLOW_FILENAME] [-u|--user USER] [-b|--branch BRANCH|-B|--current-branch|-P|--pull-request N] [-r|--revision REVISION|-R|--current-revision] [-l|--latest] [--is STATE [--is ...] [--print-all]] [--concluded CONCLUSION [--concluded ...] [--print-all]] [--wait WHAT|-W|--wait-for-completion] [-q|--quiet] [-?|-h|--help]'
     echo
-    printf 'Usage: [HUB_WORKFLOWSTATUS_WORKFLOW_ID=WORKFLOW_ID|WORKFLOW_FILENAME] %q %s\n' "$(basename "$1")" '[--id WORKFLOW_ID|WORKFLOW_FILENAME] [-u|--user USER] [-b|--branch BRANCH|-P|--pull-request N] [-r|--revision REVISION] [-l|--latest] --browse|--url|--raw'
+    printf 'Usage: [HUB_WORKFLOWSTATUS_WORKFLOW_ID=WORKFLOW_ID|WORKFLOW_FILENAME] %q %s\n' "$(basename "$1")" '[--id WORKFLOW_ID|WORKFLOW_FILENAME] [-u|--user USER] [-b|--branch BRANCH|-B|--current-branch|-P|--pull-request N] [-r|--revision REVISION|-R|--current-revision] [-l|--latest] --browse|--url|--raw'
     echo
     printf 'Usage: [HUB_WORKFLOWSTATUS_WORKFLOW_ID=WORKFLOW_ID|WORKFLOW_FILENAME] %q %s\n' "$(basename "$1")" '--has-workflow [--id WORKFLOW_ID|WORKFLOW_FILENAME]'
 }
@@ -48,9 +48,13 @@ HELPDESCRIPTION
 			${WORKFLOW_ID_CONFIG_KEY} config setting.
     --user|-u USER	Limit to workflow runs of USER.
     --branch|-b BRANCH	Limit to workflow runs associated with BRANCH.
+    --current-branch|-B	Limit to workflow runs associated with the current branch.
     --pull-request|-P N	Limit to workflows associated with pull request N.
     --revision|-r REVISION
 			Limit to workflow runs that build REVISION.
+    --current-revision|-R
+			Limit to workflow runs that build the current HEAD
+			revision.
     --latest|-l		Only print / consider the last status.
     --is STATE		Only print if one / the status is STATE; else fail.
     --concluded CONCLUSION
@@ -123,14 +127,29 @@ do
 
 	--user|-u)	recursiveArgs+=("$1" "$2"); shift; queryArgs+=(--field "actor=${1:?}"); shift;;
 	--branch|-b)	recursiveArgs+=("$1" "$2"); shift; queryArgs+=(--field "branch=${1:?}"); shift;;
+	--current-branch|-B)
+			shift
+			branchName="$(git-brname --real-branch-only)" || exit 2
+			queryArgs+=(--field "branch=$branchName")
+			recursiveArgs+=(--branch "$branchName")	# Don't repeat the lookup on each recursive invocation.
+			;;
 	--pull-request|-P)
 			shift
 			rev="$(gh pr view --json headRefOid --template '{{.headRefOid}}{{"\n"}}' "${1:?}")" || exit 2
 			queryArgs+=(--field "head_sha=$rev"); shift
 			recursiveArgs+=(--revision "$rev")	# Don't repeat the lookup on each recursive invocation.
 			;;
-	--revision|-r)	recursiveArgs+=("$1" "$2"); shift; commitId="$(git-commitid -- "${1:?}")" || exit 2; queryArgs+=(--field "head_sha=$commitId"); shift;;
-
+	--revision|-r)	recursiveArgs+=("$1" "$2"); shift
+			commitId="$(git-commitid -- "${1:?}")" || exit 2
+			queryArgs+=(--field "head_sha=$commitId")
+			shift
+			;;
+	--current-revision|-R)
+			shift
+			commitId="$(git-commitid -- HEAD)" || exit 2
+			queryArgs+=(--field "head_sha=$commitId")
+			recursiveArgs+=(--revision "$commitId")	# Don't repeat the lookup on each recursive invocation.
+			;;
 	--latest|-l)	recursiveArgs+=("$1"); shift; preAction='filterLatest';;
 	--is)		recursiveArgs+=("$1" "$2"); shift; acceptedStates+=("${1:?}"); shift; compareAction+=${compareAction:+|}compareState;;
 	--concluded)	recursiveArgs+=("$1" "$2"); shift; acceptedConclusions+=("${1:?}"); shift; compareAction+=${compareAction:+|}compareConclusion;;

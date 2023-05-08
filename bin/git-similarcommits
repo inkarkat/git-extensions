@@ -23,6 +23,7 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '-g|--greater|-s|--smaller|-lt|-le|-eq|-ne|-ge|-gt N RANGE1 RANGE2 [--] [<path> ...]'
 }
 
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 typeset -a counter=()
 while [ $# -ne 0 ]
 do
@@ -31,9 +32,9 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
-	--count|-c)	shift; counter=(wc --lines);;
+	--count|-c)	shift; counter=(wc --lines); pager=();;
 	--greater|-g|--smaller|-s|-lt|-le|-eq|-ne|-ge|-gt)
-			counter=(count "$1" "$2"); shift; shift;;
+			counter=(count "$1" "$2"); pager=(); shift; shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -53,4 +54,6 @@ obtainSimilarCommits()
 	<(git l "$range2" "$@" | sort --unique)
 }
 
-eval 'obtainSimilarCommits' "${counter:+|}" '"${counter[@]}"'
+eval 'obtainSimilarCommits' \
+    "${counter:+|}" '"${counter[@]}"' \
+    "${pager:+|}" '"${pager[@]}"'

@@ -168,19 +168,27 @@ if [ "${!#}" = '-' ]; then
     isCheckFromStdin=t
     set -- "${@:1:$(($#-1))}"
 fi
-if [ "$isCheckFromStdin" ]; then
-    if [ ${#checkCommands[@]} -gt 0 ]; then
-	echo 'ERROR: Cannot combine CHECK-COMMANDLINE from stdin (-) with -c|--command|--exec.'
-	echo
-	printUsage "$0"
-	exit 2
-    fi >&2
-elif [ -n "$GIT_REINTEGRATE_CHECK_COMMAND" -a ${#checkCommands[@]} -eq 0 ]; then
-    checkCommands=("$GIT_REINTEGRATE_CHECK_COMMAND")
-elif [ -n "$GIT_CHECK_COMMAND" -a ${#checkCommands[@]} -eq 0 ]; then
-    checkCommands=("$GIT_CHECK_COMMAND")
+if [ "$isCheckFromStdin" ] && [ ${#checkCommands[@]} -gt 0 ]; then
+    echo 'ERROR: Cannot combine CHECK-COMMANDLINE from stdin (-) with -c|--command|--exec.'
+    echo
+    printUsage "$0"
+    exit 2
+fi >&2
+if [ "$isDisableChecks" ]; then
+    echo 'Checks are disabled.'
+    checkCommands=()
 else
-    echo 'No checks to run.'
+    if [ "$isCheckFromStdin" ]; then
+	:
+    elif [ -n "$GIT_REINTEGRATE_CHECK_COMMAND" -a ${#checkCommands[@]} -eq 0 ]; then
+	checkCommands=("$GIT_REINTEGRATE_CHECK_COMMAND")
+	checkCommandArgs+=(--command "$GIT_REINTEGRATE_CHECK_COMMAND")
+    elif [ -n "$GIT_CHECK_COMMAND" -a ${#checkCommands[@]} -eq 0 ]; then
+	checkCommands=("$GIT_CHECK_COMMAND")
+	checkCommandArgs+=(--command "$GIT_CHECK_COMMAND")
+    else
+	echo 'No checks to run.'
+    fi
 fi
 if [ -z "${isPush+t}" -a -n "$HUB" ]; then
     # Need to push to remote first so that GitHub recognizes that the branch has
@@ -188,7 +196,6 @@ if [ -z "${isPush+t}" -a -n "$HUB" ]; then
     # pull request as "closed".
     isPush=t
 fi
-[ "$isDisableChecks" ] && checkCommands=()
 
 branches+=("$@")
 if [ ${#branches[@]} -eq 0 ]; then
@@ -283,10 +290,11 @@ canRebase()
 }
 printContinueCommand()
 {
+    local quotedConfigVariables='';  [ -n "$GIT_REINTEGRATE_PRE_PUSH_COMMAND" ] && printf -v quotedConfigVariables 'GIT_REINTEGRATE_PRE_PUSH_COMMAND=%q' "$GIT_REINTEGRATE_PRE_PUSH_COMMAND"
     local gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
     local -r scriptName="$(basename -- "${BASH_SOURCE[0]}")"
     [ "$isCheckFromStdin" ] && printf >&2 'echo CHECK-COMMANDLINES | '
-    printf >&2 '$ %s%s %q' "${1}${1:+ && }" "$gitCommand" "${scriptName#git-}"
+    printf >&2 '$ %s%s%s %q' "${1}${1:+ && }" "${quotedConfigVariables}${quotedConfigVariables:+ }" "$gitCommand" "${scriptName#git-}"
     printf >&2 ' %q' '--continue' ${isBare:+--bare} "${runWithPromptArgs[@]}" "${continueArgs[@]}" "${gitRemoteMutateArgs[@]}" "${checkCommandArgs[@]}"
     printf >&2 -- ' --branch %q'  "${branches[@]}"
     [ "$isCheckFromStdin" ] && printf >&2 ' -'

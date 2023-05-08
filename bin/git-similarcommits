@@ -8,10 +8,37 @@ identical commit message titles).
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" 'RANGE1 RANGE2 [--] [<path> ...] [-?|-h|--help]'
+    echo
+    cat <<HELPTEXT
+Count the titles of commits in RANGE1 and RANGE2 that look similar.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '-c|--count RANGE1 RANGE2 [--] [<path> ...]'
+    echo
+    cat <<HELPTEXT
+Test whether the number of commits in RANGE1 and RANGE2 that look similar is
+greater / smaller than N.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '-g|--greater|-s|--smaller|-lt|-le|-eq|-ne|-ge|-gt N RANGE1 RANGE2 [--] [<path> ...]'
 }
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-esac
+
+typeset -a counter=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+	--count|-c)	shift; counter=(wc --lines);;
+	--greater|-g|--smaller|-s|-lt|-le|-eq|-ne|-ge|-gt)
+			counter=(count "$1" "$2"); shift; shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 if [ $# -lt 2 ]; then
     printUsage "$0" >&2
     exit 2
@@ -19,6 +46,11 @@ fi
 range1="$1"; shift
 range2="$1"; shift
 
-exec comm -12 \
-    <(git l "$range1" "$@" | sort --unique) \
-    <(git l "$range2" "$@" | sort --unique)
+obtainSimilarCommits()
+{
+    comm -12 \
+	<(git l "$range1" "$@" | sort --unique) \
+	<(git l "$range2" "$@" | sort --unique)
+}
+
+eval 'obtainSimilarCommits' "${counter:+|}" '"${counter[@]}"'

@@ -97,6 +97,13 @@ HELPDESCRIPTION
     --comment COMMENT
     --summarize-failed ERROR-TEXT
     --summarize-failed-separator SEP
+The answers to some questions can be preconfigured via these boolean config
+settings; when not configured (true or false), the user will be prompted every
+time:
+- reintegrate.fastforward-single    fast-forward a single commit
+- reintegrate.fastforward	    fast-forward multiple commits
+- reintegrate.rebase-single	    rebase a single commit instead of creating a
+				    merge commit
 HELPTEXT
 }
 
@@ -334,6 +341,20 @@ printContinueCommand()
     printf >&2 '\n'
 }
 
+choiceEvaluate()
+{
+    local configKey="${1:?}"; shift
+    local choice="${1:?}"; shift
+    local messagePrefix="${1:?}"; shift
+    local positiveMessage="${1:?}"; shift
+    local negativeMessage="${1:?}"; shift
+    case "$choice" in
+	true)	printf '%s %s (based on the %s config).\n' "$messagePrefix" "$positiveMessage" "$configKey"; return 0;;
+	false)	printf '%s %s (based on the %s config).\n' "$messagePrefix" "$negativeMessage" "$configKey"; return 1;;
+	*)	printf >&2 'ASSERT: Invalid choice: %s\n' "$choice"; exit 3;;
+    esac
+}
+
 pushSubmodules()
 {
     printf '\nPushing submodules:\n'
@@ -440,11 +461,21 @@ else
 	if [ ! "$hasMergeResolutionArg" ]; then
 	    if commitNum=$(git-inout --is-ahead HEAD "$targetIntegrationSourceBranch"); then
 		commitNumPlural=s; [ $commitNum -eq 1 ] && commitNumPlural=
-		userBinaryChoice --keep-prompt --console --question "The $commitNum commit$commitNumPlural on the current branch can be fast-forwarded instead of merged. Fast-forward?" --yes-no && fastForwardArgs=(--ff-only)
+
+		fastForwardInsteadOfMergeConfigKey='reintegrate.fastforward'; [ $commitNum -eq 1 ] && fastForwardInsteadOfMergeConfigKey='reintegrate.fastforward-single'
+		if choice="$(git config --type bool --get "$fastForwardInsteadOfMergeConfigKey")"; then
+		    choiceEvaluate "$fastForwardInsteadOfMergeConfigKey" "$choice" "The $commitNum commit$commitNumPlural on the current branch will be" "fast-forwarded instead of merged" "merged, not fast-forwarded"
+		else
+		    userBinaryChoice --keep-prompt --console --question "The $commitNum commit$commitNumPlural on the current branch can be fast-forwarded instead of merged. Fast-forward?" --yes-no && fastForwardArgs=(--ff-only)
+		fi
 	    elif canRebase; then
-		choice="$(userchoiceFromList --keep-prompt --question "The current branch only consists of a single commit. Rebase it instead of creating a separate merge commit?" --no-cancel --ignore-case -- '[Y]es' '[N]o' '[Q]uit')" || exit $?
+		if choice="$(git config --type bool --get reintegrate.rebase-single)"; then
+		    choiceEvaluate reintegrate.rebase-single "The single commit on the current branch will be" "rebased instead of merged" "merged, not rebased"
+		else
+		    choice="$(userchoiceFromList --keep-prompt --question "The current branch only consists of a single commit. Rebase it instead of creating a separate merge commit?" --no-cancel --ignore-case -- '[Y]es' '[N]o' '[Q]uit')" || exit $?
+		fi
 		case "$choice" in
-		    Yes)
+		    true|Yes)
 			isRebase=t;;
 		    Quit)
 			exit 1

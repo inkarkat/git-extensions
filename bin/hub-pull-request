@@ -6,6 +6,7 @@ typeset -a args=()
 while [ $# -ne 0 ]
 do
     case "$1" in
+	--help|-h|-\?)	shift; exec hub pull-request --help;;
 	--edit|-e)	args+=("$1"); shift; isEdit=t;;
 	--message|-m)	args+=("$1" "${2?}"); shift; shift; hasMessage=t;;
 	--file|-F)	shift
@@ -39,4 +40,6 @@ if [ "$hasMessage" ] && [ "$isEdit" ]; then
 	fi
     done
 fi
-exec hub pull-request "${args[@]}" "${appendedPullRequestTemplateArgs[@]}" "$@"
+
+readarray -t defaultArgs < <(eval "git $GIT_CONFIG_ARGS config --get-all pull-request.defaultArg")
+exec hub pull-request "${args[@]}" "${appendedPullRequestTemplateArgs[@]}" "${defaultArgs[@]}" "$@"

@@ -1,6 +1,8 @@
 #!/bin/bash
 shopt -qs extglob
 
+readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
+
 printUsage()
 {
     cat <<HELPTEXT
@@ -17,7 +19,7 @@ case "$1" in
     --existing-changes)
 			shift
 			currentSubmodule="${1?}"; shift
-			readarray -t submodules < <(git subsamebrdo --no-header)
+			readarray -t submodules < <(git subsamebrdo --subdo-command-name "${scriptName#hub-}" --no-header)
 			[ ${#submodules[@]} -eq 0 ] && exit 0
 			hub-bomsubchanges --no-color --qualified-with-userrepo --as markdown ${currentSubmodule:+--exclude-submodule "$currentSubmodule"} "${submodules[@]}"
 			exit 0
@@ -47,5 +49,5 @@ if [ -n "$superMessage" ] || git issubmodule; then
     exec hub-wrapper pull-request --message "${superMessage}${superMessage:+$'\n\n'}$message" --edit
 else
     superMessage="$(git boml | markdownEscape)" || exit $?
-    exec hub-wrapper subsamebrdo --no-git-color --interactive subpull-request --super-message "$superMessage"
+    exec hub-wrapper subsamebrdo --subdo-command-name "${scriptName#hub-}" --no-git-color --interactive subpull-request --super-message "$superMessage"
 fi

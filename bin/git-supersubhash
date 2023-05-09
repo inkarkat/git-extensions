@@ -1,6 +1,8 @@
 #!/bin/bash
 shopt -qs extglob
 
+readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
+
 hasProgressNotification=; type -t progressNotification >/dev/null && hasProgressNotification=t
 
 printShortUsage()
@@ -174,7 +176,11 @@ while IFS=$'\t' read -r submodule commit
 do
     [ -n "$submodule" -a -n "$commit" ] \
 	&& submoduleCommits["$submodule"]="$commit"
-done < <(git-subdo-core --no-header --no-pager --separate-errors "${subdoArgs[@]}" --command 'printf %s\\t "$sm_path"' --command "${commands[*]}")
+done < <(
+    git-subdo-core --subdo-command-name "${scriptName#git-}" --no-header --no-pager --separate-errors "${subdoArgs[@]}" \
+	--command 'printf %s\\t "$sm_path"' \
+	--command "${commands[*]}"
+)
 
 if [ ${#submoduleCommits[@]} -eq 0 ]; then
     echo 'No SUBMODULE(s).'

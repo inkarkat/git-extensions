@@ -1,5 +1,7 @@
 #!/bin/bash
 
+readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
+
 : ${GIT_SUPERSUBREINTEGRATETOM_RECENT_FETCH_AGE:=15m}
 
 printShortUsage()
@@ -56,7 +58,7 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
-	--same-branch)	shift; affectedSubmoduleSourceCommand=(subsamebrdo);;
+	--same-branch)	shift; affectedSubmoduleSourceCommand=(subsamebrdo --subdo-command-name "${scriptName#git-}");;
 	--for)		shift
 			if [ "$1" = - ]; then
 			    shift
@@ -121,7 +123,7 @@ if [ ${#affectedSubmodules[@]} -eq 0 ]; then
     echo >&2 'Use git superonlyreintegratetom instead if you just want to reintegrate the superproject.'
     exit 3
 fi
-typeset -a superprojectSubmoduleExecutor=(git-subdo-core --for "${affectedSubmodules[@]}" \;)
+typeset -a superprojectSubmoduleExecutor=(git-subdo-core --subdo-command-name "${scriptName#git-}" --for "${affectedSubmodules[@]}" \;)
 typeset -a submoduleExecutor=(); [ "$isInSubmodule" ] || submoduleExecutor=("${superprojectSubmoduleExecutor[@]}")
 
 masterBranch="$(git-mbr)" || exit 3
@@ -132,7 +134,7 @@ checkForUnintegratedSubmodules()
 
     readarray -t unintegratedSubmodules < <(
 	"${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} \
-	    subdo --no-header --no-pager --for "${affectedSubmodules[@]}" \; \
+	    subdo --subdo-command-name "${scriptName#git-}" --no-header --no-pager --for "${affectedSubmodules[@]}" \; \
 		--predicate-command "branch=\$(git brname --real-branch-only 2>/dev/null) && [ \"\$branch\" != $masterBranch ]"
     )
 
@@ -245,7 +247,6 @@ reintegrateSubmodule()
 	reintegrateSuperproject "$@"
     else
 	local gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
-	local -r scriptName="$(basename -- "${BASH_SOURCE[0]}")"
 	printf 'Continue with the reintegration of the superproject via $ %s %q' "$gitCommand" "${scriptName#git-}"
 	[ $# -eq 0 ] || printf ' %q' "$@"
 	printf '\n'

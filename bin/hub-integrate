@@ -2,6 +2,8 @@
 set -o pipefail
 shopt -qs extglob
 
+readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
+
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
@@ -175,13 +177,15 @@ choiceEvaluate()
 pushSubmodules()
 {
     printf '\nPushing submodules:\n'
-    git-showsubmodules "${targetBranch}..HEAD" | git-subdo --status-99-is-noop --for - --interactive push-this-branch
+    git-showsubmodules "${targetBranch}..HEAD" \
+	| git-subdo --subdo-command-name "${scriptName#hub-}" --status-99-is-noop --for - --interactive push-this-branch
 }
 
 deleteMergedSubmoduleBranches()
 {
     printf '\nDeleting merged submodule branches:\n'
-    git-showsubmodules "${targetBranch}..HEAD" | git-subdo --status-99-is-noop --for - --interactive delete-merged-branches "$sourceBranch"
+    git-showsubmodules "${targetBranch}..HEAD" \
+	| git-subdo --subdo-command-name "${scriptName#hub-}" --status-99-is-noop --for - --interactive delete-merged-branches "$sourceBranch"
 }
 
 printf 'Integrating %s into %s via #%d (%s):\n\n' "$sourceBranch" "$targetBranch" "$prNumber" "$prTitle"

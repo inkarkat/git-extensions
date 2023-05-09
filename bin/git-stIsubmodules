@@ -1,6 +1,8 @@
 #!/bin/bash
 set -o pipefail
 
+readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
+
 printUsage()
 {
     cat <<HELPTEXT
@@ -35,4 +37,5 @@ readarray -t submodules < <(git status --porcelain=2 --untracked-files=no --igno
 
 # The modified submodules may have staged or unstaged changes; we need to
 # inspect each submodule to filter out those that just have staged changes.
-GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES=0 exec git-subdo-core --no-pager --no-header --for "${submodules[@]}" \; --predicate-command 'test -n "$(git-stIfiles)"' --single-success
+GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES=0 \
+    exec git-subdo-core --subdo-command-name "${scriptName#git-}" --no-pager --no-header --for "${submodules[@]}" \; --predicate-command 'test -n "$(git-stIfiles)"' --single-success

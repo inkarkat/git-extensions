@@ -132,6 +132,7 @@ errorRedir='2>&1'
 isGitColor=t
 typeset -a colorArg=()
 isRepeat=
+subdoCommandName='subdo'
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -153,6 +154,7 @@ do
 	--no-color|--color=*)	colorArg=("$1"); shift;;
 	--color)		colorArg=("$1" "$2"); shift; shift;;
 	--repeat)		shift; isRepeat=t;;
+	--subdo-command-name)	shift; subdoCommandName="${1:?}"; shift;;   # Internal parameter to avoid having to write shell wrappers around all of my subdo aliases.
 
 	--since|--after)	obtainSubmodulesFromRange "$1" "$2"; shift; shift;;
 	*..*)			obtainSubmodulesFromRange "$1"; shift;;
@@ -264,7 +266,7 @@ if [ ${#commands[@]} -eq 0 ]; then
     commands=('echo "$displaypath"')
 fi
 readonly RUNTIME_DIRSPEC="${XDG_RUNTIME_DIR:?}/git-extensions"
-readonly lastSubmoduleStoreFilespec="${RUNTIME_DIRSPEC}/subdo${GIT_SUBDO_STORE_ID:+-}${GIT_SUBDO_STORE_ID}${GIT_SUBDO_STORE_SUBJECT:+-}${GIT_SUBDO_STORE_SUBJECT-$(pathAsFilename --as-is --encode -- "$(git root)")}"
+readonly lastSubmoduleStoreFilespec="${RUNTIME_DIRSPEC}/${subdoCommandName:?}${GIT_SUBDO_STORE_ID:+-}${GIT_SUBDO_STORE_ID}${GIT_SUBDO_STORE_SUBJECT:+-}${GIT_SUBDO_STORE_SUBJECT-$(pathAsFilename --as-is --encode -- "$(git root)")}"
 if [ "$isRepeat" ]; then
     if [ ${#submoduleArgs[@]} -gt 0 ]; then
 	echo 'ERROR: --repeat cannot be combined with --for / a range.'

@@ -1,9 +1,13 @@
 #!/bin/bash
 
+readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
+subdoCommandName="${scriptName#git-}"
 typeset -a subdoRecursiveArg=()
 if [ "$1" = --recursive ]; then
     subdoRecursiveArg=("$1"); shift
+    subdoCommandName+='r'
 fi
+
 isNeedColorArgumentWhenPiping "$@" && set -- --color=always "$@"
 quotedArgs=; [ $# -gt 0 ] && printf -v quotedArgs '%q ' "$@"
-exec git-subdo "${subdoRecursiveArg[@]}" --single-success --command 'branch="$(cd $toplevel && git-subtrackedbr "$sm_path")" && git-existsbr -- "$branch" && git-inout '"$quotedArgs"'"$branch"'
+exec git-subdo "${subdoRecursiveArg[@]}" --subdo-command-name "$subdoCommandName" --single-success --command 'branch="$(cd $toplevel && git-subtrackedbr "$sm_path")" && git-existsbr -- "$branch" && git-inout '"$quotedArgs"'"$branch"'

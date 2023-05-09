@@ -7,6 +7,8 @@ printShortUsage()
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
     printf 'Usage: [GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES=99] %q %s%s %s\n' "$(basename "$1")" '[--recursive] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success] [--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [<revision-range>] [--since <date>] [--after <date>] [--for -|--for SUBMODULE [...] ;] [--include-superproject] [[--not] -P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]'
+    echo
+    printf 'Usage: [GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES=99] %q %s%s %s\n' "$(basename "$1")" '--repeat [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success] [--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [-c|--command "COMMANDLINE" [-c ...]] [[--] SIMPLECOMMAND [...]]'
 }
 printUsage()
 {
@@ -76,6 +78,10 @@ the command output.
 			foreach" are available as well.
     --not		Invert the predicate so that those submodules are
 			skipped where CMD succeeds.
+    --repeat		Consider the same submodules as for the last iteration.
+			Useful when these were based on a predicate that has
+			now been changed (due to the previously executed
+			COMMANDs).
     --command|-c CMD	Execute the passed command line. When this is a simple
 			Git command, it can also be passed as such:
 			    $(basename "$1") [...] [--] SIMPLECOMMAND
@@ -90,6 +96,7 @@ Returns ${GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES:-99} if no submodules found.
 Returns the last non-successful exit status. With --single-success,
 non-successful executions are ignored unless all of them fail. In other words,
 exit status is 0 if at least one command succeeded.
+Returns 4 if --repeat but no previous submodule iteration.
 HELPTEXT
 }
 
@@ -124,6 +131,8 @@ isInteractive=
 errorRedir='2>&1'
 isGitColor=t
 typeset -a colorArg=()
+isRepeat=
+subdoCommandName='subdo'
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -144,6 +153,8 @@ do
 	--no-git-color)		shift; isGitColor=;;
 	--no-color|--color=*)	colorArg=("$1"); shift;;
 	--color)		colorArg=("$1" "$2"); shift; shift;;
+	--repeat)		shift; isRepeat=t;;
+	--subdo-command-name)	shift; subdoCommandName="${1:?}"; shift;;   # Internal parameter to avoid having to write shell wrappers around all of my subdo aliases.
 
 	--since|--after)	obtainSubmodulesFromRange "$1" "$2"; shift; shift;;
 	*..*)			obtainSubmodulesFromRange "$1"; shift;;
@@ -254,23 +265,41 @@ if [ ${#commands[@]} -eq 0 ]; then
     isNeedEval=t
     commands=('echo "$displaypath"')
 fi
-if [ ${#submoduleArgs[@]} -gt 0 -a ${#submodules[@]} -eq 0 ]; then
-    echo 'No SUBMODULE(s) given to --for.'
-    exit 2
-fi >&2
+readonly RUNTIME_DIRSPEC="${XDG_RUNTIME_DIR:?}/git-extensions"
+readonly lastSubmoduleStoreFilespec="${RUNTIME_DIRSPEC}/${subdoCommandName:?}${GIT_SUBDO_STORE_ID:+-}${GIT_SUBDO_STORE_ID}${GIT_SUBDO_STORE_SUBJECT:+-}${GIT_SUBDO_STORE_SUBJECT-$(pathAsFilename --as-is --encode -- "$(git root)")}"
+if [ "$isRepeat" ]; then
+    if [ ${#submoduleArgs[@]} -gt 0 ]; then
+	echo 'ERROR: --repeat cannot be combined with --for / a range.'
+	exit 2
+    fi >&2
+    { readarray -t submoduleEnvironments < "$lastSubmoduleStoreFilespec"; } 2>/dev/null
+    if [ ${#submoduleEnvironments[@]} -eq 0 ]; then
+	echo 'ERROR: No submodule iteration to repeat.'
+	exit 4
+    fi
+else
+    if [ ${#submoduleArgs[@]} -gt 0 -a ${#submodules[@]} -eq 0 ]; then
+	echo 'No SUBMODULE(s) given to --for / obtained from the passed range.'
+	exit 2
+    fi >&2
 
-printf -v quotedScriptFilespec %q "${BASH_SOURCE[0]}"
-quotedSubmoduleArgs=; [ ${#submoduleArgs[@]} -eq 0 ] || printf -v quotedSubmoduleArgs ' %q' "${submoduleArgs[@]}"
-printf -v quotedPredicateCommands ' %q' "${predicateCommands[*]}"
-readarray -t submoduleEnvironments < <(git submodule foreach --quiet "${submoduleRecurseArg[@]}" "$quotedScriptFilespec${quotedSubmoduleArgs}${predicateInversionArg:+ }${predicateInversionArg} --collect${quotedPredicateCommands}")
-if [ ${#submoduleEnvironments[@]} -eq 0 ]; then
-    [ -n "$GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES" ] || echo >&2 "No ${predicateCommands[@]:+such }submodules found."
-    exit ${GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES:-99}
-fi
-if [ "$isIncludeSuperproject" ]; then
-    superprojectName="$(git-wcname)"
-    printf -v superprojectEnvironment '%s=%q; ' dirspec "${PWD:?}" name 'superproject' sm_path '.' displaypath '' sha1 "$(git rev-parse HEAD)" toplevel "${PWD:?}" predicateOutput ''
-    submoduleEnvironments=("$superprojectEnvironment" "${submoduleEnvironments[@]}")
+    printf -v quotedScriptFilespec %q "${BASH_SOURCE[0]}"
+    quotedSubmoduleArgs=; [ ${#submoduleArgs[@]} -eq 0 ] || printf -v quotedSubmoduleArgs ' %q' "${submoduleArgs[@]}"
+    printf -v quotedPredicateCommands ' %q' "${predicateCommands[*]}"
+    readarray -t submoduleEnvironments < <(git submodule foreach --quiet "${submoduleRecurseArg[@]}" "$quotedScriptFilespec${quotedSubmoduleArgs}${predicateInversionArg:+ }${predicateInversionArg} --collect${quotedPredicateCommands}")
+    if [ ${#submoduleEnvironments[@]} -eq 0 ]; then
+	[ -n "$GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES" ] || echo >&2 "No ${predicateCommands[@]:+such }submodules found."
+	exit ${GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES:-99}
+    fi
+    if [ "$isIncludeSuperproject" ]; then
+	superprojectName="$(git-wcname)"
+	printf -v superprojectEnvironment '%s=%q; ' dirspec "${PWD:?}" name 'superproject' sm_path '.' displaypath '' sha1 "$(git rev-parse HEAD)" toplevel "${PWD:?}" predicateOutput ''
+	submoduleEnvironments=("$superprojectEnvironment" "${submoduleEnvironments[@]}")
+    fi
+
+    [ -d "$RUNTIME_DIRSPEC" ] \
+	|| mkdir --parents -- "$RUNTIME_DIRSPEC" \
+	&& printf '%s\n' "${submoduleEnvironments[@]}" > "$lastSubmoduleStoreFilespec"
 fi
 
 if [ "$hasProgressNotification" ] && [ -n "$progressSink" ]; then

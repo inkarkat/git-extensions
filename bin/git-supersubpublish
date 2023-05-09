@@ -1,5 +1,7 @@
 #!/bin/bash
 
+readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
+
 printUsage()
 {
     cat <<HELPTEXT
@@ -41,14 +43,14 @@ if subPaths=("$(git-supersubpath)"); then
     commitMessage="$(git boml)"
 else
     readarray -t subPaths < <(git subst)
-    [ ${#subPaths[@]} -gt 0 ] || readarray -t subPaths < <(git subsamebrdo)
+    [ ${#subPaths[@]} -gt 0 ] || readarray -t subPaths < <(git subsamebrdo --subdo-command-name "${scriptName#git-}")
     if [ ${#subPaths[@]} -eq 0 ]; then
 	echo >&2 'ERROR: No dirty submodules or submodules on the same branch found.'
 	exit 3
     fi
 
-    commitMessage="$(git subsamebrdo --no-header boml)"
+    commitMessage="$(git subsamebrdo --subdo-command-name "${scriptName#git-}" --no-header boml)"
 fi
 
 printf -v quotedSuperCommand '%q ' "${BASH_SOURCE[0]}" --superpublish "$publishCommand" "$commitMessage" "${subPaths[@]}"
-exec git-supersubdo --interactive --super-command "${quotedSuperCommand% }" --submodule-command "git-wrapper $publishCommand"
+exec git-supersubdo --subdo-command-name "${scriptName#git-}" --interactive --super-command "${quotedSuperCommand% }" --submodule-command "git-wrapper $publishCommand"

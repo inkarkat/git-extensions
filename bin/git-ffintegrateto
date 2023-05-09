@@ -2,6 +2,8 @@
 set -o pipefail
 shopt -qs extglob
 
+readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
+
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
@@ -330,7 +332,6 @@ canRebase()
 printRestartCommand()
 {
     local gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
-    local -r scriptName="$(basename -- "${BASH_SOURCE[0]}")"
     [ "$isCheckFromStdin" ] && printf >&2 'echo CHECK-COMMANDLINES | '
     printf >&2 '$ %s %q' "$gitCommand" "${scriptName#git-}"
     printf >&2 ' %q' "${allArgs[@]}"
@@ -339,7 +340,6 @@ printRestartCommand()
 printContinueCommand()
 {
     local gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
-    local -r scriptName="$(basename -- "${BASH_SOURCE[0]}")"
     [ "$isCheckFromStdin" ] && printf >&2 'echo CHECK-COMMANDLINES | '
     printf >&2 '$ %s%s %q' "${1}${1:+ && }" "$gitCommand" "${scriptName#git-}"
     printf >&2 ' %q' '--continue' ${isBare:+--bare} "${runWithPromptArgs[@]}" "${continueArgs[@]}" "${gitRemoteMutateArgs[@]}" "${checkCommandArgs[@]}"
@@ -365,7 +365,7 @@ choiceEvaluate()
 pushSubmodules()
 {
     printf '\nPushing submodules:\n'
-    git-showsubmodules "${targetBranch}..HEAD" | git-subdo --status-99-is-noop --for - --interactive push-this-branch
+    git-showsubmodules "${targetBranch}..HEAD" | git-subdo --subdo-command-name "${scriptName#git-}" --status-99-is-noop --for - --interactive push-this-branch
 }
 
 deleteMergedSubmoduleBranches()

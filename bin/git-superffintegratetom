@@ -1,6 +1,8 @@
 #!/bin/bash
 # Deprecated: Use git-supersubreintegratetom instead.
 
+readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
+
 printUsage()
 {
     cat <<HELPTEXT
@@ -41,7 +43,7 @@ fi
 
 masterBranch="$(git-mbr)" || exit 3
 if [ ${#affectedSubmodules[@]} -gt 0 ] \
-    && ! acceptStatus 99 git-subdo --no-pager --for "${affectedSubmodules[@]}" \; \
+    && ! acceptStatus 99 git-subdo --subdo-command-name "${scriptName#git-}" --no-pager --for "${affectedSubmodules[@]}" \; \
 	--predicate-command "[ \"\$(git brname --real-branch-only)\" != $masterBranch ]" \
 	--command "printf 'Not on %s: ' '$masterBranch'; 'git brname; false"
 then

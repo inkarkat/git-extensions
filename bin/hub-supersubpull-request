@@ -1,6 +1,8 @@
 #!/bin/bash
 shopt -qs extglob
 
+readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
+
 printUsage()
 {
     cat <<HELPTEXT
@@ -35,7 +37,7 @@ else
     handleSubmodules()
     {
 	message="$(hub-prtitle --as-integration-message --qualified-with-userrepo)" || return $?
-	hub subsamebrdo --no-git-color --interactive --command "logs=\"\$(git bomlog --pretty=format:%B --reverse)\"; hub-wrapper pull-request --message \"\$message\"\$'\\n'\"\$logs\" --edit"
+	hub subsamebrdo --subdo-command-name "${scriptName#hub-}" --no-git-color --interactive --command "logs=\"\$(git bomlog --pretty=format:%B --reverse)\"; hub-wrapper pull-request --message \"\$message\"\$'\\n'\"\$logs\" --edit"
     }
 fi
 

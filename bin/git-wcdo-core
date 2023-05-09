@@ -8,7 +8,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[--no-pager] [--no-header|--branch-name]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success] [--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [--skip-files] [-s|--skip-foreign|--foreign-command "COMMANDLINE" [...]] [[--not]-P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] [--] WORKING-COPY [...] [-- SIMPLECOMMAND ...] [-?|-h|--help]'
+    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[--no-pager] [--no-header|--branch-name]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success] [--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [--skip-files] [-s|--skip-foreign|--foreign-command "COMMANDLINE" [...]] [[--not] -P|--predicate-command "COMMANDLINE" [...] | --repeat] [-c|--command "COMMANDLINE" [-c ...]] [--] WORKING-COPY [...] [-- SIMPLECOMMAND ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -73,6 +73,11 @@ Puts a header line (unless --no-header) that contains the WORKING-COPY name
 			that lets you still use SIMPLECOMMAND.
     --not		Invert the predicate so that working copies are skipped
 			where CMD succeeds.
+    --repeat		Consider the same working copies as for the last
+			iteration. Any passed WORKING-COPY arguments are
+			ignored. Useful when these were based on a predicate
+			that has now been changed (due to the previously
+			executed COMMANDs).
     --command|-c CMD	Execute the passed command line. When this is a simple
 			Git command, it can also be passed as such:
 			    $(basename "$1") [...] [--] SIMPLECOMMAND
@@ -88,6 +93,7 @@ EXIT STATUS
 Returns the last non-successful exit status. With --single-success,
 non-successful executions are ignored unless all of them fail. In other words,
 exit status is 0 if at least one command succeeded.
+Returns 4 if --repeat but no previous working copy iteration.
 HELPTEXT
 }
 
@@ -112,6 +118,7 @@ isGitColor=t
 typeset -a colorArg=()
 isDoneWorkingCopies=
 typeset -a wcArgs=()
+isRepeat=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -135,6 +142,7 @@ do
 	--no-git-color)		shift; isGitColor=;;
 	--no-color|--color=*)	colorArg=("$1"); shift;;
 	--color)		colorArg=("$1" "$2"); shift; shift;;
+	--repeat)		shift; isRepeat=t;;
 	--)			shift; [ "$isDoneWorkingCopies" ] && break || isDoneWorkingCopies=t;;
 	-*)			{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)			if [ "$isDoneWorkingCopies" ]; then
@@ -225,6 +233,20 @@ if [ ${#commands[@]} -eq 0 ]; then
     isHeader=
     isNeedEval=t
     commands=('echo "$ROOT"')
+fi
+
+readonly RUNTIME_DIRSPEC="${XDG_RUNTIME_DIR:?}/git-extensions"
+readonly lastWorkingCopyStoreFilespec="${RUNTIME_DIRSPEC}/${GIT_WCDO_STORE_SUBCOMMAND:-wcdo}${GIT_WCDO_STORE_ID:+-}${GIT_WCDO_STORE_ID}${GIT_WCDO_STORE_SUBJECT:+-}${GIT_WCDO_STORE_SUBJECT-$(pathAsFilename --as-is --encode -- "${wcDirspecs[0]}")-${#wcDirspecs[@]}}"
+if [ "$isRepeat" ]; then
+    { readarray -t wcDirspecs < "$lastWorkingCopyStoreFilespec"; } 2>/dev/null
+    if [ ${#wcDirspecs[@]} -eq 0 ]; then
+	echo 'ERROR: No working copy iteration to repeat.'
+	exit 4
+    fi
+else
+    [ -d "$RUNTIME_DIRSPEC" ] \
+	|| mkdir --parents -- "$RUNTIME_DIRSPEC" \
+	&& printf '%s\n' "${wcDirspecs[@]}" > "$lastWorkingCopyStoreFilespec"
 fi
 
 if [ "$hasProgressNotification" ] && [ -n "$progressSink" ]; then

@@ -269,7 +269,7 @@ if [ "$mergeResolutionArg" != '--rebase' ]; then
     fi
 fi
 
-verbose gh pr merge \
+gh pr merge \
     --auto $mergeResolutionArg ${isDelete:+--delete-branch} \
     --match-head-commit "$sourceRef" \
     ${mergeSubject:+--subject "$mergeSubject"} ${mergeBody:+--body "$mergeBody"} \
@@ -322,6 +322,7 @@ if [ "$isMergeStillPending" ]; then
     # The merge should be through after the completion of the workflow. Switch
     # to the target branch and pull the updates.
     [ "$didVisitSubmodules" ] && header "$(git-wcname)" || echo
+    printf '\nSwitching to target branch and fetching merge results:\n'
     git-wrapper checkout "$targetBranch" || exit $?
     GIT_UP_FETCH=t git-up "$remote" --quiet "$@" 2>&1 | git-hushup --fetch "$remote"
 

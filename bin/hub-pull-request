@@ -5,6 +5,7 @@ set -- "${defaultArgs[@]}" "$@"
 
 isEdit=
 isBrowse=
+isCopy=
 isPrint=
 hasMessage=
 typeset -a args=()
@@ -15,6 +16,7 @@ do
 	--help|-h|-\?)	shift; exec hub pull-request --help;;
 	--edit|-e)	args+=("$1"); shift; isEdit=t;;
 	--browse|-o)	outputArgs+=("$1"); shift; isBrowse=t;;
+	--copy|-c)	outputArgs+=("$1"); shift; isCopy=t;;
 	--print)	shift; isPrint=t;;
 	--message|-m)	args+=("$1" "${2?}"); shift; shift; hasMessage=t;;
 	--file|-F)	shift
@@ -49,14 +51,17 @@ if [ "$hasMessage" ] && [ "$isEdit" ]; then
     done
 fi
 
-if [ "$isPrint" ] && [ "$isBrowse" ]; then
+if [ "$isPrint" ] && { [ "$isBrowse" ] || [ "$isCopy" ]; }; then
     # XXX: hub pull-request unfortunately prints the URL as the default action,
     # and --browse or --copy override that behavior, so we cannot have both.
     # We have to let hub pull-request do the default output and emulate the
     # other output action ourselves.
     output="$(hub pull-request "${args[@]}" "${appendedPullRequestTemplateArgs[@]}" "$@")" || exit $?
+
     printf '%s\n' "$output"
-    git-browse "$output"
+    [ "$isBrowse" ] && git-browse "$output"
+    [ "$isCopy" ] && printf '%s\n' "$output" | clipboard
+
     exit 0
 fi
 

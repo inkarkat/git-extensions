@@ -1,5 +1,8 @@
 #!/bin/bash
 
+readarray -t defaultArgs < <(eval "git $GIT_CONFIG_ARGS config --get-all pull-request.defaultArg")
+set -- "${defaultArgs[@]}" "$@"
+
 isEdit=
 hasMessage=
 typeset -a args=()
@@ -41,5 +44,4 @@ if [ "$hasMessage" ] && [ "$isEdit" ]; then
     done
 fi
 
-readarray -t defaultArgs < <(eval "git $GIT_CONFIG_ARGS config --get-all pull-request.defaultArg")
-exec hub pull-request "${args[@]}" "${appendedPullRequestTemplateArgs[@]}" "${defaultArgs[@]}" "$@"
+exec hub pull-request "${args[@]}" "${appendedPullRequestTemplateArgs[@]}" "$@"

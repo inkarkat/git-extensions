@@ -148,6 +148,7 @@ typeset -a runWithPromptArgs=()
 typeset -a continueArgs=()
 typeset -a gitRemoteMutateArgs=()
 typeset -a reintegrateArgs=()
+isFastForwardTargetToTracked=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -213,7 +214,10 @@ do
 	-[sX])		mergeArgs+=("$1" "$2"); shift; shift;;
 	--@(strategy|strategy-option|gpg-sign)=*)	mergeArgs+=("$1"); shift;;
 	--@(strategy|strategy-option|gpg-sign))		mergeArgs+=("$1" "$2"); shift; shift;;
-	--no-submodule-checkout|--no-submodule-update)	reintegrateArgs+=("$1"); shift;;
+	--no-submodule-checkout|--no-submodule-update)
+			reintegrateArgs+=("$1"); shift;;
+	--ff-target-to-tracked)
+			reintegrateArgs+=("$1"); shift; isFastForwardTargetToTracked=t;;
 
 	--)		mergeArgs+=("$1"); shift; break;;
 	--*)		mergeArgs+=("$1"); shift;;
@@ -327,7 +331,7 @@ confirmUseTarget()
 }
 canRebase()
 {
-    git-count -le 1 --max-count 2 --no-merges "${targetIntegrationSourceBranch}..HEAD"
+    git-count -le 1 --max-count 2 --no-merges "${targetIntegrationSourceBranch:?}..HEAD"
 }
 printRestartCommand()
 {
@@ -342,7 +346,7 @@ printContinueCommand()
     local gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
     [ "$isCheckFromStdin" ] && printf >&2 'echo CHECK-COMMANDLINES | '
     printf >&2 '$ %s%s %q' "${1}${1:+ && }" "$gitCommand" "${scriptName#git-}"
-    printf >&2 ' %q' '--continue' ${isBare:+--bare} "${runWithPromptArgs[@]}" "${continueArgs[@]}" "${gitRemoteMutateArgs[@]}" "${checkCommandArgs[@]}"
+    printf >&2 ' %q' '--continue' ${isBare:+--bare} "${runWithPromptArgs[@]}" "${continueArgs[@]}" "${gitRemoteMutateArgs[@]}" "${checkCommandArgs[@]}" "${reintegrateArgs[@]}"
     printf >&2 -- ' --branch %q'  "$targetBranch"
     [ "$isCheckFromStdin" ] && printf >&2 ' -'
     printf >&2 '\n'
@@ -365,13 +369,13 @@ choiceEvaluate()
 pushSubmodules()
 {
     printf '\nPushing submodules:\n'
-    git-showsubmodules "${targetBranch}..HEAD" | git-subdo --subdo-command-name "${scriptName#git-}" --status-99-is-noop --for - --interactive push-this-branch
+    git-showsubmodules "${targetIntegrationSourceBranch:?}..HEAD" | git-subdo --subdo-command-name "${scriptName#git-}" --status-99-is-noop --for - --interactive push-this-branch
 }
 
 deleteMergedSubmoduleBranches()
 {
     printf '\nDeleting merged submodule branches:\n'
-    git-showsubmodules "${targetBranch}..HEAD" | git-subdo --status-99-is-noop --for - --interactive delete-merged-branches "$sourceBranch"
+    git-showsubmodules "${targetIntegrationSourceBranch:?}..HEAD" | git-subdo --status-99-is-noop --for - --interactive delete-merged-branches "$sourceBranch"
 }
 
 pushBranch()
@@ -399,6 +403,9 @@ gitSubmoduleUpdateCommand=; git hassubmodules && gitSubmoduleUpdateCommand='git 
 
 if [ "$isContinue" ]; then
     printf 'Finalizing integration of %s into %s:\n\n' "$sourceBranch" "$targetBranch"
+    [ "$isFastForwardTargetToTracked" ] \
+	&& targetIntegrationSourceBranch="${targetTracks:?}" \
+	|| targetIntegrationSourceBranch="$targetBranch"
 else
     printf 'Integrating %s into %s:\n\n' "$sourceBranch" "$targetBranch"
 
@@ -458,7 +465,7 @@ else
 	fi
     fi
 
-    if git-equals "$targetIntegrationSourceBranch" HEAD; then
+    if git-equals "${targetIntegrationSourceBranch:?}" HEAD; then
 	printf >&2 'Branch %s is already even with %s\n' "$targetIntegrationSourceBranch" "$sourceBranch"
 
 	# Don't run the checks.

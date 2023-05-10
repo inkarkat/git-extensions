@@ -4,13 +4,18 @@ readarray -t defaultArgs < <(eval "git $GIT_CONFIG_ARGS config --get-all pull-re
 set -- "${defaultArgs[@]}" "$@"
 
 isEdit=
+isBrowse=
+isPrint=
 hasMessage=
 typeset -a args=()
+typeset -a outputArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; exec hub pull-request --help;;
 	--edit|-e)	args+=("$1"); shift; isEdit=t;;
+	--browse|-o)	outputArgs+=("$1"); shift; isBrowse=t;;
+	--print)	shift; isPrint=t;;
 	--message|-m)	args+=("$1" "${2?}"); shift; shift; hasMessage=t;;
 	--file|-F)	shift
 			# XXX: Multiple --message are supported, but --file is
@@ -44,4 +49,15 @@ if [ "$hasMessage" ] && [ "$isEdit" ]; then
     done
 fi
 
-exec hub pull-request "${args[@]}" "${appendedPullRequestTemplateArgs[@]}" "$@"
+if [ "$isPrint" ] && [ "$isBrowse" ]; then
+    # XXX: hub pull-request unfortunately prints the URL as the default action,
+    # and --browse or --copy override that behavior, so we cannot have both.
+    # We have to let hub pull-request do the default output and emulate the
+    # other output action ourselves.
+    output="$(hub pull-request "${args[@]}" "${appendedPullRequestTemplateArgs[@]}" "$@")" || exit $?
+    printf '%s\n' "$output"
+    git-browse "$output"
+    exit 0
+fi
+
+exec hub pull-request "${args[@]}" "${outputArgs[@]}" "${appendedPullRequestTemplateArgs[@]}" "$@"

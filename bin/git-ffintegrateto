@@ -213,7 +213,8 @@ do
 	-[sX])		mergeArgs+=("$1" "$2"); shift; shift;;
 	--@(strategy|strategy-option|gpg-sign)=*)	mergeArgs+=("$1"); shift;;
 	--@(strategy|strategy-option|gpg-sign))		mergeArgs+=("$1" "$2"); shift; shift;;
-	--no-submodule-checkout|--no-submodule-update)	reintegrateArgs+=("$1"); shift;;
+	--no-submodule-checkout|--no-submodule-update|--ff-target-to-tracked)
+			reintegrateArgs+=("$1"); shift;;
 
 	--)		mergeArgs+=("$1"); shift; break;;
 	--*)		mergeArgs+=("$1"); shift;;
@@ -342,7 +343,7 @@ printContinueCommand()
     local gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
     [ "$isCheckFromStdin" ] && printf >&2 'echo CHECK-COMMANDLINES | '
     printf >&2 '$ %s%s %q' "${1}${1:+ && }" "$gitCommand" "${scriptName#git-}"
-    printf >&2 ' %q' '--continue' ${isBare:+--bare} "${runWithPromptArgs[@]}" "${continueArgs[@]}" "${gitRemoteMutateArgs[@]}" "${checkCommandArgs[@]}"
+    printf >&2 ' %q' '--continue' ${isBare:+--bare} "${runWithPromptArgs[@]}" "${continueArgs[@]}" "${gitRemoteMutateArgs[@]}" "${checkCommandArgs[@]}" "${reintegrateArgs[@]}"
     printf >&2 -- ' --branch %q'  "$targetBranch"
     [ "$isCheckFromStdin" ] && printf >&2 ' -'
     printf >&2 '\n'

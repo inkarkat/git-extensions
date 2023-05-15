@@ -50,6 +50,7 @@ typeset branchPrefixes=('refs/heads/')
 isInfo=t
 prefixRefFormat=
 additionalRefFormat=
+typeset -a additionalBranchFilters=()
 typeset -a postAction=()
 while [ $# -ne 0 ]
 do
@@ -63,8 +64,13 @@ do
 			;;
 	--long|-l)	shift; additionalRefFormat='%(authorname)%(*authorname)';;
 	-a)		shift; branchPrefixes=('refs/heads/' 'refs/remotes/');;
-	--remote)	shift; branchPrefixes=("refs/remotes/${1}/"); shift;;
-	-r)		shift; branchPrefixes=('refs/remotes/');;
+	--remote)	shift; branchPrefixes=("refs/remotes/${1}/"); additionalBranchFilters+=(-e $'\t'"${1}\$"); shift;;
+	-r)		shift; branchPrefixes=('refs/remotes/')
+			while IFS=$'\n' read -r remote
+			do
+			    additionalBranchFilters+=(-e $'\t'"${remote}\$")
+			done < <(git remote)
+			;;
 	-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt)
 			postAction=(filterAge --field-separator $'\t' "$1" "$2"); shift; shift; prefixRefFormat='%(committerdate:unix)';;
 	--)		shift; break;;
@@ -82,7 +88,7 @@ done
 branchAge()
 {
     git for-each-ref --sort=committerdate --format="${prefixRefFormat}${prefixRefFormat:+%09}${isInfo:+%(committerdate:iso)%09(%(committerdate:relative)}${additionalRefFormat:+, }${additionalRefFormat}${isInfo:+)%09}%(refname:short)" "${branchGlobs[@]}" | \
-	grep --invert-match '/HEAD$'
+	grep --invert-match -e '/HEAD$' "${additionalBranchFilters[@]}"
 }
 
 eval 'branchAge "$@"' "${postAction:+|}" '"${postAction[@]}"' "${formatter:+|}" '"${formatter[@]}"' "${pager:+|}" '"${pager[@]}"'

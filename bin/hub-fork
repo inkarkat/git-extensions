@@ -1,0 +1,18 @@
+#!/bin/bash
+
+typeset -a hubForkArgs=()
+hasRemoteArg=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--no-remote)	hubForkArgs+=("$1"); shift; hasRemoteArg=t;;
+	--remote-name)	hubForkArgs+=("$1" "${2:?}"); shift; shift; hasRemoteArg=t;;
+	--)		hubForkArgs+=("$1"); shift; break;;
+	*)		hubForkArgs+=("$1"); shift;;
+    esac
+done
+
+# DWIM: Use "origin", not my GitHub user name as the remote name for my fork.
+[ "$hasRemoteArg" ] || hubForkArgs+=(--remote-name origin)
+
+exec hub fork "${hubForkArgs[@]}" "$@"

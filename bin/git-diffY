@@ -53,7 +53,7 @@ if [ "$isAsDiffTool" ]; then
     if [ "$isSuppressCommonLines" ] && hasDelta; then
 	# Note: delta would launch "git diff" internally, resulting in endless
 	# recursion. Supply a unified diff to it to avoid that.
-	diff -u "$@" | delta --side-by-side --tabs=4
+	diff -u "$@" | delta --side-by-side ${COLUMNS:+--width $COLUMNS} --tabs=4
 	exit 0	# Need to return success to avoid that Git complains that the "external tool died".
     fi
 
@@ -75,7 +75,7 @@ else
 		# delta); cp.
 		# https://github.com/dandavison/delta/issues/101#issuecomment-593214649.
 		# Thus, we need to pipe through delta ourselves.
-		git diff "$@" | delta --side-by-side --tabs=4
+		git diff "$@" | delta --side-by-side ${COLUMNS:+--width $COLUMNS} --tabs=4
 		exit $?
 	    fi
 	else

@@ -29,6 +29,11 @@ if [ $# -ne 0 -o ${#messages[@]} -ne ${#files[@]} ]; then
     exit 2
 fi
 
+append()
+{
+    printf '%s\n' "${1?}" >> "${2:?}"
+}
+
 typeset -a existingFiles=() newFiles=()
 set -e
 for ((i = 0; i < ${#files[@]}; i++))
@@ -37,7 +42,7 @@ do
     [ -e "$filespec" ] && \
 	existingFiles+=("$filespec") || \
 	newFiles+=("$filespec")
-    printf '%s\n' "${messages[$i]}" >> "${files[$i]}" || exit $?
+    append "${messages[$i]}" "${files[$i]}" || exit $?
 done
 commitMessage="$(joinBy --truncate-after 3 -- ', ' "${messages[@]}")"
 

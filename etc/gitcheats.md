@@ -46,3 +46,5 @@
   one of r1 or r2 but not from both (i.e. symmetric difference).
   Attention! For diff, `r1...r2` views the changes on the branch containing and
   up to the `r2`, starting at a common ancestor of both `r1` and `r2` (asymmetric).
+  For rebase, it's a shortcut for the merge base of r1 and r2 if there is
+  exactly one merge base.

@@ -6,9 +6,10 @@ printUsage()
 Do a test commit by appending MESSAGE to FILE and committing with MESSAGE(s).
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'MESSAGE FILE [[MESSAGE] FILE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-p|--prepend] MESSAGE FILE [[MESSAGE] FILE ...] [-?|-h|--help]'
 }
 
+modifier=append
 typeset -a messages=()
 typeset -a files=()
 while [ $# -ne 0 ]
@@ -18,6 +19,7 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
+	--prepend|-p)	shift; modifier=prepend;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		messages+=("$1"); shift
 			files+=("$1"); shift
@@ -42,7 +44,7 @@ do
     [ -e "$filespec" ] && \
 	existingFiles+=("$filespec") || \
 	newFiles+=("$filespec")
-    append "${messages[$i]}" "${files[$i]}" || exit $?
+    $modifier "${messages[$i]}" "${files[$i]}" || exit $?
 done
 commitMessage="$(joinBy --truncate-after 3 -- ', ' "${messages[@]}")"
 

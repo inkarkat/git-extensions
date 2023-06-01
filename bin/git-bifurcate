@@ -172,7 +172,7 @@ bifurcate()
 }
 
 : ${EDITOR:=vi}
-readonly gitDir="$(git rev-parse --git-dir)" || exit 3
+gitDir="$(git rev-parse --git-dir)" || exit 3
 readonly initialFilespec="${gitDir}/bifurcate-initial"
 readonly baseFilespec="${gitDir}/bifurcate-base"
 readonly sequencesFilespec="${gitDir}/bifurcate-sequences"
@@ -211,10 +211,7 @@ case "$GIT_BIFURCATE_EDITING" in
 	exit 1	# Actual error status doesn't matter; "git rebase" doesn't forward that.
 	;;
     '')
-	if [ -d "${gitDir}/rebase-merge" -o -f "${gitDir}/rebase-apply/rebasing" ]; then
-	    echo >&2 'ERROR: Already rebasing.'
-	    exit 2
-	fi >&2
+	git-isrebasing --print-positive-error && exit 2
 	if [ -n "$action" ]; then
 	    $action "$@"; exit $?
 	fi

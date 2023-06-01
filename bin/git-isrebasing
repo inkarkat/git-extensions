@@ -1,0 +1,51 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Test whether a rebase (conflict resolution) is under way.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" ' [--print-positive-error [--positive-error-message MSG]] [--print-negative-error [--negative-error-message MSG]] [-?|-h|--help]'
+}
+
+positiveErrorMessage='ERROR: Already rebasing.'
+negativeErrorMessage='ERROR: Not currently rebasing.'
+isPrintPositiveError=
+isPrintNegativeError=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+	--print-positive-error)
+			shift; isPrintPositiveError=t;;
+	--positive-error-message)
+			shift; positiveErrorMessage="$1"; shift;;
+	--print-negative-error)
+			shift; isPrintNegativeError=t;;
+	--negative-error-message)
+			shift; negativeErrorMessage="$1"; shift;;
+
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+gitDir="$(git rev-parse --git-dir)" || exit 3
+
+# Source: /usr/lib/git-core/git-sh-prompt
+if [ -d "${gitDir}/rebase-merge" -o -f "${gitDir}/rebase-apply/rebasing" ]; then
+    [ ! "$isPrintPositiveError" ] || printf >&2 '%s\n' "$positiveErrorMessage"
+    exit 0
+else
+    [ ! "$isPrintNegativeError" ] || printf >&2 '%s\n' "$negativeErrorMessage"
+    exit 1
+fi

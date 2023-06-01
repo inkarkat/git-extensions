@@ -7,7 +7,7 @@ printShortUsage()
     # skim the long one.
     printf 'Usage: %q %s\n' "$(basename "$1")" '[REBASE-ARGS ...] <upstream> [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '--continue' # TODO
-    printf 'Usage: %q %s\n' "$(basename "$1")" '--edit' # TODO
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--edit'
 }
 printUsage()
 {
@@ -35,16 +35,28 @@ cla-exitstatus
 HELPTEXT
 }
 
+action=
 typeset -a rebaseArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--edit)		shift; action='edit';;
 	--)		rebaseArgs+=("$1"); shift; break;;
 	*)		rebaseArgs+=("$1"); shift;;
     esac
 done
 set -- "${rebaseArgs[@]}" "$@"
+
+edit()
+{
+    if [ ! -r "$sequencesFilespec" ]; then
+	echo >&2 'ERROR: Not inside an active bifurcation.'; exit 2
+    fi
+    "$EDITOR" "$sequencesFilespec" || exit $?
+
+    bifurcate
+}
 
 printRecursiveCommand()
 {
@@ -193,13 +205,18 @@ case "$GIT_BIFURCATE_EDITING" in
 	exit 1	# Actual error status doesn't matter; "git rebase" doesn't forward that.
 	;;
     '')
+	if [ -d "${gitDir}/rebase-merge" -o -f "${gitDir}/rebase-apply/rebasing" ]; then
+	    echo >&2 'ERROR: Already rebasing.'
+	    exit 2
+	fi >&2
+	if [ -n "$action" ]; then
+	    $action "$@"; exit $?
+	fi
+
 	if [ $# -eq 0 ]; then
 	    echo 'ERROR: No <upstream> passed.'
 	    echo
 	    printUsage "$0"
-	    exit 2
-	elif [ -d "${gitDir}/rebase-merge" -o -f "${gitDir}/rebase-apply/rebasing" ]; then
-	    echo >&2 'ERROR: Already rebasing.'
 	    exit 2
 	fi >&2
 

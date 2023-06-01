@@ -6,7 +6,7 @@ printShortUsage()
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
     printf 'Usage: %q %s\n' "$(basename "$1")" '[REBASE-ARGS ...] <upstream> [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '--continue' # TODO
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--continue'
     printf 'Usage: %q %s\n' "$(basename "$1")" '--edit'
 }
 printUsage()
@@ -41,7 +41,8 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
-	--edit)		shift; action='edit';;
+	--continue)	shift; action=bifurcate;;
+	--edit)		shift; action=edit;;
 	--)		rebaseArgs+=("$1"); shift; break;;
 	*)		rebaseArgs+=("$1"); shift;;
     esac
@@ -75,10 +76,8 @@ putBackSequence()
 
 bifurcate()
 {
-    if [ ! -r "$baseFilespec" ]; then
-	echo >&2 "ASSERT: We have base data in $baseFilespec"; exit 3
-    elif [ ! -r "$sequencesFilespec" ]; then
-	echo >&2 "ASSERT: We have sequences in $sequencesFilespec"; exit 3
+    if [ ! -r "$baseFilespec" -o ! -r "$sequencesFilespec" ]; then
+	echo >&2 'ERROR: Not inside an active bifurcation.'; exit 2
     fi
 
     local startRevision branchName quotedRebaseArgs

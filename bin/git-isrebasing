@@ -3,13 +3,14 @@
 printUsage()
 {
     cat <<HELPTEXT
-Test whether a merge (conflict resolution) is currently under way.
+Test whether a rebase (conflict resolution) is under way.
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" ' [--print-positive-error [--positive-error-message MSG]] [--print-negative-error [--negative-error-message MSG]] [-?|-h|--help]'
 }
-positiveErrorMessage='ERROR: Already merging.'
-negativeErrorMessage='ERROR: Not currently merging.'
+
+positiveErrorMessage='ERROR: Already rebasing.'
+negativeErrorMessage='ERROR: Not currently rebasing.'
 isPrintPositiveError=
 isPrintNegativeError=
 while [ $# -ne 0 ]
@@ -38,9 +39,10 @@ if [ $# -ne 0 ]; then
     exit 2
 fi
 
-gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit 3
+gitDir="$(git rev-parse --git-dir)" || exit 3
 
-if [ -f "${gitDir}/MERGE_HEAD" ]; then
+# Source: /usr/lib/git-core/git-sh-prompt
+if [ -d "${gitDir}/rebase-merge" -o -f "${gitDir}/rebase-apply/rebasing" ]; then
     [ ! "$isPrintPositiveError" ] || printf >&2 '%s\n' "$positiveErrorMessage"
     exit 0
 else

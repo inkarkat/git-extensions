@@ -1,0 +1,268 @@
+#!/bin/bash
+set -o pipefail
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[REBASE-ARGS ...] <upstream> [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--continue'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--edit'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Distribute commits onto different branches by repeatedly rebasing (likely
+disjunct) sequences of commits. Works like rebase, but in the editor you'll
+segregate commits via empty lines and optionally put rebase or branch naming
+arguments before each sequence.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+EXIT STATUS:
+    0	Complete success.
+    1	Rebasing interrupted due to conflicts.
+    2	Bad invocation, wrong or missing command-line arguments.
+    3	Internal error or failed assertion.
+    4	Bifurcation of a sequence has failed due to a failed invocation of
+	rebase.
+    *   any exit status from the invoked editor or rebase command
+
+HELPTEXT
+}
+
+action=
+typeset -a rebaseArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--continue)	shift; action=bifurcate;;
+	--edit)		shift; action=edit;;
+	--)		rebaseArgs+=("$1"); shift; break;;
+	*)		rebaseArgs+=("$1"); shift;;
+    esac
+done
+set -- "${rebaseArgs[@]}" "$@"
+
+edit()
+{
+    if [ ! -r "$sequencesFilespec" ]; then
+	echo >&2 'ERROR: Not inside an active bifurcation.'; exit 2
+    fi
+    "$EDITOR" "$sequencesFilespec" || exit $?
+
+    bifurcate
+}
+
+printRecursiveCommand()
+{
+    local gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
+    local -r scriptName="$(basename -- "${BASH_SOURCE[0]}")"
+    printf >&2 '$ %s %s %s\n' "$gitCommand" "${scriptName#git-}" "${1:?}"
+}
+
+putBackSequence()
+{
+    printf '%s\n' "$@" '' | prepend - "$sequencesFilespec" || exit 3
+
+    echo >&2 'Something is wrong with this bifurcation sequence. Please edit and continue the bifurcation via'
+    printRecursiveCommand --edit
+}
+
+bifurcate()
+{
+    if [ ! -r "$baseFilespec" -o ! -r "$sequencesFilespec" ]; then
+	echo >&2 'ERROR: Not inside an active bifurcation.'; exit 2
+    fi
+
+    local startRevision branchName quotedRebaseArgs
+    IFS=' ' read -r startRevision branchName quotedRebaseArgs < "$baseFilespec"
+
+    while :
+    do
+	typeset -a completeRebaseSequence=(); readarray -t completeRebaseSequence < <(sed -i -e '
+1{
+    :eatEmptyLines
+    /^$/{ N; s/^\n//; b eatEmptyLines; }
+}
+1,/^$/{
+    w /dev/stdout
+    d
+}
+' -- "$sequencesFilespec")
+
+	typeset -a netRebaseSequence=()
+	local s; for s in "${completeRebaseSequence[@]}"
+	do
+	    [[ "$s" =~ ^[[:space:]]*# ]] && continue
+	    netRebaseSequence+=("$s")
+	done
+
+	if [ ${#netRebaseSequence[@]} -eq 0 ]; then
+	    if [ -s "$sequencesFilespec" ]; then
+		printf >&2 'ASSERT: %s should be empty when a sequence is empty.\n' "$sequencesFilespec"; exit 3
+	    fi
+
+	    echo '✓ Bifurcation is complete.'
+	    rm --force -- "$baseFilespec" "$sequencesFilespec"
+	    exit 0
+	fi
+
+	if [[ "${netRebaseSequence[0]}" =~ ^[[:space:]]*- ]]; then
+	    eval "set -- ${netRebaseSequence[0]}" || exit 3
+	    netRebaseSequence=("${netRebaseSequence[@]:1}")
+	fi
+	eval "set -- \"\$@\" $quotedRebaseArgs" || exit 3
+
+	typeset -a branchArgs=(-B "${branchName:?}")
+	typeset -a rebaseArgs=()
+	while [ $# -ne 0 ]
+	do
+	    case "$1" in
+		--)		rebaseArgs+=("$1"); shift; break;;
+		-[bB])	branchArgs=("$1" "${2:?}"); shift; shift;;
+		*)		rebaseArgs+=("$1"); shift;;
+	    esac
+	done
+
+	separator=$'\n'
+	if [ "$(git-brname --real-branch-only)" != "${branchArgs[1]}" ] || ! git-equals HEAD "$startRevision"; then
+	    echo; separator=''
+	    if ! git-wrapper checkout "${branchArgs[@]}" "$startRevision"; then
+		putBackSequence "${completeRebaseSequence[@]}"
+		exit 4
+	    fi
+	fi
+
+	printf "%sBifurcating '%s' with this sequence:\\n" "$separator" "${branchArgs[1]}"
+	printf '%s\n' "${netRebaseSequence[@]}"
+
+	# Pass the current sequence to an interactive "git rebase" that launches
+	# ourselves with the sole purpose of echoing that sequence back to git
+	# rebase.
+	local IFS=$'\n'
+	GIT_BIFURCATE_EDITING="${netRebaseSequence[*]}" \
+	    git -c sequence.editor="${BASH_SOURCE[0]}" rebase --interactive "${rebaseArgs[@]}" "$@" || {
+		status=$?
+		# Invalid upstream is indicated by exit status 128 and unknown
+		# options with 129, but we'd better check the working copy state to
+		# differentiate between a conflict in rebasing and a failure to
+		# start the rebase itself.
+		if git-dirty || ! git-equals HEAD "$startRevision"; then
+		    printf >&2 '\nAfter this branch has been successfully rebased (see above), you can continue the bifurcation via\n'
+		    printRecursiveCommand --continue
+		else
+		    putBackSequence "${completeRebaseSequence[@]}"
+		fi
+		exit $status
+	    }
+    done
+}
+
+: ${EDITOR:=vi}
+gitDir="$(git rev-parse --git-dir)" || exit 3
+readonly initialFilespec="${gitDir}/bifurcate-initial"
+readonly baseFilespec="${gitDir}/bifurcate-base"
+readonly sequencesFilespec="${gitDir}/bifurcate-sequences"
+
+case "$GIT_BIFURCATE_EDITING" in
+    interactive)
+	if [ $# -ne 1 ]; then
+	    echo >&2 'ASSERT: Invalid editor invocation from git rebase: No file to edit.'
+	    exit 3
+	fi
+	rebaseFilespec="${1:?}"
+
+	sed -i "
+/^# Rebase / {
+    s/^# Rebase /# Bifurcate /
+    a \\
+# Reorder and separate the commits into sequences segregated by empty lines.\\
+# Each sequence can start with a line of individual rebase arguments and\\
+# -b|-B <branch> to name the (new|possibly existing) branch this gets\\
+# applied to (default is \"$(field --input "$baseFilespec" 2)-1\" and so on).
+}
+" -- "$rebaseFilespec" || exit 3
+
+	"$EDITOR" "$rebaseFilespec" || {
+	    status=$?
+	    rm -- "$baseFilespec" 2>/dev/null	# Removal of the base file also serves as an indication of a failed editor invocation, as "git rebase" doesn't forward the editor's exit status.
+	    exit $status
+	}
+
+	mv --force -- "$initialFilespec" "$baseFilespec" || exit 3
+	cp --force -- "$rebaseFilespec" "$sequencesFilespec" || exit 3
+
+	# Abort the initial interactive rebase; we could only proceed if the user
+	# did not add custom rebase arguments or branches, anyway. From an
+	# implementation perspective, it makes for a more uniform handling, too.
+	exit 1	# Actual error status doesn't matter; "git rebase" doesn't forward that.
+	;;
+    '')
+	git-isrebasing --print-positive-error && exit 2
+	git-dirty --print-error && exit 2
+
+	if [ -n "$action" ]; then
+	    $action "$@"; exit $?
+	fi
+
+	if [ $# -eq 0 ]; then
+	    echo 'ERROR: No <upstream> passed.'
+	    echo
+	    printUsage "$0"
+	    exit 2
+	fi >&2
+
+
+	if [ -r "$baseFilespec" ]; then
+	    if userBinaryChoice --keep-prompt --question "A pending bifurcation from $(reldate "$baseFilespec") for $(field --input "$baseFilespec" 2) exists." '[C]ontinue that' '[D]iscard and start a new bifurcation'; then
+		bifurcate
+		exit $?
+	    else
+		rm -- "$baseFilespec"
+	    fi
+	fi
+
+	{
+	    startRevision="$(git rev-parse HEAD)" || exit 3
+	    branchName="$(git-brname --real-branch-only)" || exit 3
+	    printf '%s %s' "$startRevision" "$branchName"
+	    printf ' %q' "$@"
+	    printf '\n'
+	} > "$initialFilespec"
+
+	if GIT_BIFURCATE_EDITING=interactive \
+	    git -c sequence.editor="${BASH_SOURCE[0]}" rebase --interactive "$@" 2>/dev/null
+	then
+	    echo >&2 'ASSERT: Interactive rebase should not succeed.'; exit 3
+	else
+	    status=$?
+	    if [ -r "$baseFilespec" ]; then
+		bifurcate
+	    else
+		printf >&2 "Bifurcation has been aborted due to unclean exit of the editor '%s'.\\n" "$EDITOR"
+		exit $status
+	    fi
+	fi
+	;;
+    ?*)	# The current sequence is in $GIT_BIFURCATE_EDITING.
+	if [ $# -ne 1 ]; then
+	    echo >&2 'ASSERT: Invalid editor invocation from git rebase: No file to edit.'
+	    exit 3
+	fi
+	rebaseFilespec="${1:?}"
+	printf '%s\n' "$GIT_BIFURCATE_EDITING" > "$rebaseFilespec"
+	;;
+esac

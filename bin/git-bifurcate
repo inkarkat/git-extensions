@@ -30,7 +30,14 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
-cla-exitstatus
+EXIT STATUS:
+    0	Complete success.
+    1	Rebasing interrupted due to conflicts.
+    2	Bad invocation, wrong or missing command-line arguments.
+    3	Internal error or failed assertion.
+    4	Bifurcation of a sequence has failed due to a failed invocation of
+	rebase.
+    *   any exit status from the invoked editor or rebase command
 
 HELPTEXT
 }
@@ -70,7 +77,7 @@ putBackSequence()
 {
     printf '%s\n' "$@" '' | prepend - "$sequencesFilespec" || exit 3
 
-    echo >&2 "Something is wrong with this bifurcation sequence. Please edit and continue the bifurcation via"
+    echo >&2 'Something is wrong with this bifurcation sequence. Please edit and continue the bifurcation via'
     printRecursiveCommand --edit
 }
 
@@ -154,7 +161,7 @@ bifurcate()
 		# differentiate between a conflict in rebasing and a failure to
 		# start the rebase itself.
 		if git-dirty || ! git-equals HEAD "$startRevision"; then
-		    echo >&2 "After this branch has been successfully rebased (see above), you can continue the bifurcation via"
+		    printf >&2 '\nAfter this branch has been successfully rebased (see above), you can continue the bifurcation via\n'
 		    printRecursiveCommand --continue
 		else
 		    putBackSequence "${completeRebaseSequence[@]}"

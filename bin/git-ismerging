@@ -6,15 +6,44 @@ printUsage()
 Test whether a merge (conflict resolution) is currently under way.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" ' [--print-positive-error [--positive-error-message MSG]] [--print-negative-error [--negative-error-message MSG]] [-?|-h|--help]'
 }
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
+positiveErrorMessage='ERROR: Already merging.'
+negativeErrorMessage='ERROR: Not currently merging.'
+isPrintPositiveError=
+isPrintNegativeError=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
 			shift;;
-    --color)		shift; shift;;
-esac
+	--color)	shift; shift;;
+	--print-positive-error)
+			shift; isPrintPositiveError=t;;
+	--positive-error-message)
+			shift; positiveErrorMessage="$1"; shift;;
+	--print-negative-error)
+			shift; isPrintNegativeError=t;;
+	--negative-error-message)
+			shift; negativeErrorMessage="$1"; shift;;
+
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
 
 gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit 3
 
-[ -f "${gitDir}/MERGE_HEAD" ]
+if [ -f "${gitDir}/MERGE_HEAD" ]; then
+    [ ! "$isPrintPositiveError" ] || printf >&2 '%s\n' "$positiveErrorMessage"
+    exit 0
+else
+    [ ! "$isPrintNegativeError" ] || printf >&2 '%s\n' "$negativeErrorMessage"
+    exit 1
+fi

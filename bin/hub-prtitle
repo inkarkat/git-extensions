@@ -114,13 +114,11 @@ mergeMessage()
     IFS=$'\n'
     case "${#titles[@]}" in
 	0)  return 99;;
-	1)  branchMergeMessage="Merge branch '${headBranches[0]}'"
-	    [ "$(git-mbr)" = "${baseBranches[0]}" ] || branchMergeMessage+=" into ${baseBranches[0]}"
+	1)  branchMergeMessage="$(git-mergeBranchMessage "${baseBranches[0]}" "${headBranches[0]}")" || exit 3
 	    printf '%s\n\nIntegrated via %s\n\n%s\n' "${titles[0]}" "${identifiers[0]}" "$branchMergeMessage"
 	    ;;
-	*)  branchMergeMessage="$(joinBy --prefix "Merge branches '" --suffix "'" --last-separator "' and '" "', '" "${headBranches[@]}" 2>/dev/null)"
-	    targetBranch="$(printf '%s\n' "${baseBranches[@]}" | sort --unique | joinBy --last-separator ' and ' - ', ')"
-	    [ "$(git-mbr)" = "$targetBranch" ] || branchMergeMessage+=" into $targetBranch"
+	*)  targetBranch="$(printf '%s\n' "${baseBranches[@]}" | sort --unique | joinBy --last-separator ' and ' - ', ')"
+	    branchMergeMessage="$(git-mergeBranchMessage "$targetBranch" "${headBranches[@]}")" || exit 3
 	    printf -v summary '%s, ' "${identifiers[@]}"; summary="${summary%, }"
 	    printf 'Merge pull requests %s\n\n' "$summary"
 	    printf '%s\n' "${titles[@]}"

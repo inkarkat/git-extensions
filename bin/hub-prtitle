@@ -128,6 +128,23 @@ mergeMessage()
     esac
 }
 
+addPr()
+{
+    local prTitle="${1:?}"; shift
+    local prHeadBranch="${1:?}"; shift
+    local prBaseBranch="${1:?}"; shift
+    local prIdentifier="${1:?}"; shift
+
+    titles+=("$prTitle")
+    headBranches+=("$prHeadBranch")
+    baseBranches+=("$prBaseBranch")
+    if [ "$isQualified" ]; then
+	identifiers+=("$(hub-userrepo "$prIdentifier")")
+    else
+	identifiers+=("$prIdentifier")
+    fi
+}
+
 obtainFromGitHub()
 {
     [ $# -gt 0 ] || set -- 'HEAD'
@@ -141,32 +158,16 @@ obtainFromGitHub()
 	elif [[ "$arg" =~ ^#?([[:digit:]]+)$ ]]; then
 	    local argPrId="${BASH_REMATCH[1]}"
 	    IFS=$'\t' read -r prCommitId prHeadBranch prBaseBranch prIdentifier prTitle < <(hub pr show -f "$prFormat" "$argPrId")
-	    if [ "$prIdentifier" = "#$argPrId" ]; then
-		titles+=("$prTitle")
-		headBranches+=("$prHeadBranch")
-		baseBranches+=("$prBaseBranch")
-		if [ "$isQualified" ]; then
-		    identifiers+=("$(hub-userrepo "$prIdentifier")")
-		else
-		    identifiers+=("$prIdentifier")
-		fi
-	    fi
+	    [ "$prIdentifier" = "#$argPrId" ] \
+		&& addPr "$prTitle" "$prHeadBranch" "$prBaseBranch" "$prIdentifier"
 	fi
     done
 
     if [ ${#commitIds[@]} -gt 0 ]; then
 	while IFS=$'\t' read -r prCommitId prHeadBranch prBaseBranch prIdentifier prTitle
 	do
-	    if contains "$prCommitId" "${commitIds[@]}"; then
-		titles+=("$prTitle")
-		headBranches+=("$prHeadBranch")
-		baseBranches+=("$prBaseBranch")
-		if [ "$isQualified" ]; then
-		    identifiers+=("$(hub-userrepo "$prIdentifier")")
-		else
-		    identifiers+=("$prIdentifier")
-		fi
-	    fi
+	    contains "$prCommitId" "${commitIds[@]}" \
+		&& addPr "$prTitle" "$prHeadBranch" "$prBaseBranch" "$prIdentifier"
 	done < <(hub pr list -f "$prFormat")
     fi
 

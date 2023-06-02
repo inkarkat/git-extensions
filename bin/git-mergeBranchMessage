@@ -20,8 +20,11 @@ if [ $# -lt 2 ]; then
 fi
 targetBranch="${1:?}"; shift
 
-branchesPlural=es; [ $# -eq 1 ] && branchesPlural=
-branchMergeMessage="$(joinBy --prefix "Merge branch$branchesPlural '" --suffix "'" --last-separator "' and '" "', '" "$@" 2>/dev/null)"
+if [ $# -eq 1 ]; then
+    branchMergeMessage="Merge branch '${1}'"
+else
+    branchMergeMessage="$(joinBy --prefix "Merge branches '" --suffix "'" --last-separator "' and '" "', '" "$@" 2>/dev/null)"
+fi
 [ "$(git-mbr)" = "$targetBranch" ] || branchMergeMessage+=" into $targetBranch"
 
 printf '%s\n' "$branchMergeMessage"

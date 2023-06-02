@@ -329,6 +329,9 @@ else
     # Ensure that the branch(es) are good for merging.
     git-mergecheck "${branches[@]}" || exit $?
 
+    branchMergeMessage="$(joinBy --prefix "Merge branch$branchesPlural '" --suffix "'" --last-separator "' and '" "', '" "${branches[@]}" 2>/dev/null)"
+    [ "$(git-mbr)" = "$targetBranch" ] || branchMergeMessage+=" into $targetBranch"
+
     if [ -n "$HUB" ] && [ ! "$isRebase" ] && [ ${#mergeMessageArgs[@]} -eq 0 ]; then
 	# Try to obtain corresponding pull requests based on the passed branches'
 	# HEAD commits and seed the merge message with it / them (as the PR title
@@ -338,8 +341,6 @@ else
 	type -t timeout >/dev/null && prefixCommands=(timeout 10 "${prefixCommands[@]}")
 	type -t invocationMessage >/dev/null && prefixCommands=(invocationMessage --message 'Searching for PR...' --success FOUND --fail NONE -- "${prefixCommands[@]}")
 	pullRequestTitles="$("${prefixCommands[@]}" hub-prtitle --as-merge-message "${branches[@]}")"
-	branchMergeMessage="$(joinBy --prefix "Merge branch$branchesPlural '" --suffix "'" --last-separator "' and '" "', '" "${branches[@]}" 2>/dev/null)"
-	[ "$(git-mbr)" = "$targetBranch" ] || branchMergeMessage+=" into $targetBranch"
 	if [ -n "$pullRequestTitles" ]; then
 	    mergeMessageArgs+=(--message "$pullRequestTitles"$'\n\n'"$branchMergeMessage")
 	    [ ${#mergeNoEditMessageArgs[@]} -gt 0 ] || mergeMessageArgs+=(--edit)
@@ -466,6 +467,11 @@ else
 		git-wrapper merge --ff-only "$branch" || exit $?
 	    done
 	else
+	    if [ ${#mergeMessageArgs[@]} -eq 0 ]; then
+		mergeMessageArgs=(--message "$branchMergeMessage")
+		[ ${#mergeNoEditMessageArgs[@]} -gt 0 ] || mergeMessageArgs+=(--edit)
+	    fi
+
 	    git-wrapper merge "${fastForwardArgs[@]:---no-ff}" "${mergeMessageArgs[@]}" "${mergeNoEditMessageArgs[@]}" "${mergeArgs[@]}" "${branches[@]}" || {
 		status=$?
 		echo >&2 "After $branchesSubjectAuxiliaryVerb been merged (see above), you can ${isCheckFromStdin:+run checks and }${isPush:+push and }${isKeepBranches:+not }delete $branchesSubject via"

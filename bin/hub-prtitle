@@ -4,7 +4,11 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-i|--as-integration-message|-m|--as-merge-message] [-Q|--qualified-with-userrepo|-u|--url] [<commit> [...]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-i|--as-integration-message|-m|--as-merge-message] [-Q|--qualified-with-userrepo|-u|--url] [-?|-h|--help]'
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [<commit> [...]]'
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... --from PR-IDENTIFIER HEAD-BRANCH BASE-BRANCH PR-TITLE [--from ...]'
 }
 printUsage()
 {
@@ -36,11 +40,19 @@ HELPDESCRIPTION
     --qualified-with-userrepo|-Q
 			Put the USER/REPO in front of the pull request number.
     --url|-u		Use the URL instead of the pull request number.
+    --from PR-IDENTIFIER HEAD-BRANCH BASE-BRANCH PR-TITLE
+			Use the passed information instead of obtaining it from
+			GitHub.
 HELPTEXT
 }
 action=list
 isQualified=
 prIdentifierFormat='%i'
+typeset -a identifiers=()
+typeset -a headBranches=()
+typeset -a baseBranches=()
+typeset -a titles=()
+sourceAction=obtainFromGitHub
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -55,6 +67,13 @@ do
 	--qualified-with-userrepo|-Q)
 			shift; isQualified=t; prIdentifierFormat='%U';;
 	--url|-u)	shift; prIdentifierFormat='%U';;
+	--from)		shift
+			identifiers+=("#${1#\#}"); shift
+			headBranches+=("${1:?}"); shift
+			baseBranches+=("${1:?}"); shift
+			titles+=("${1:?}"); shift
+			sourceAction=:
+			;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -110,31 +129,30 @@ mergeMessage()
     esac
 }
 
-[ $# -gt 0 ] || set -- 'HEAD'
-typeset -a commitIds=()
-for c
-do
-    commitId="$(git rev-parse "$c" 2>/dev/null)" && commitIds+=("$commitId")
-done
-[ ${#commitIds[@]} -gt 0 ] || exit 1
+obtainFromGitHub()
+{
+    [ $# -gt 0 ] || set -- 'HEAD'
+    typeset -a commitIds=()
+    local c commitId; for c
+    do
+	commitId="$(git rev-parse "$c" 2>/dev/null)" && commitIds+=("$commitId")
+    done
+    [ ${#commitIds[@]} -gt 0 ] || return 1
 
-
-typeset -a titles=()
-typeset -a headBranches=()
-typeset -a baseBranches=()
-typeset -a identifiers=()
-while IFS=$'\t' read -r prCommitId prHeadBranch prBaseBranch prIdentifier prTitle
-do
-    if contains "$prCommitId" "${commitIds[@]}"; then
-	titles+=("$prTitle")
-	headBranches+=("$prHeadBranch")
-	baseBranches+=("$prBaseBranch")
-	if [ "$isQualified" ]; then
-	    identifiers+=("$(hub-userrepo "$prIdentifier")")
-	else
-	    identifiers+=("$prIdentifier")
+    local prCommitId prHeadBranch prBaseBranch prIdentifier prTitle
+    while IFS=$'\t' read -r prCommitId prHeadBranch prBaseBranch prIdentifier prTitle
+    do
+	if contains "$prCommitId" "${commitIds[@]}"; then
+	    titles+=("$prTitle")
+	    headBranches+=("$prHeadBranch")
+	    baseBranches+=("$prBaseBranch")
+	    if [ "$isQualified" ]; then
+		identifiers+=("$(hub-userrepo "$prIdentifier")")
+	    else
+		identifiers+=("$prIdentifier")
+	    fi
 	fi
-    fi
-done < <(hub pr list -f "%sH	%H	%B	$prIdentifierFormat	%t%n")
+    done < <(hub pr list -f "%sH	%H	%B	$prIdentifierFormat	%t%n")
+}
 
-$action
+$sourceAction "$@" && $action

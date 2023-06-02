@@ -214,15 +214,11 @@ if ! git-equals "$sourceRef" HEAD; then
 	push "${pushBranchForceArg[@]}" "${pushBranchArgs[@]}" "$sourceTrackedRemote" || exit $?
 fi
 
-branchMergeMessage="Merge branch '${sourceBranch}'"
-[ "$(git-mbr)" = "$targetBranch" ] || branchMergeMessage+=" into $targetBranch"
-
 # Ensure that the current branch is good for merging.
 git-mergecheck --merge-to "$targetBranch" || exit $?
 
 if [ "$mergeResolutionArg" != '--rebase' ] && [ ${#mergeMessageArgs[@]} -eq 0 ]; then
-    printf -v pullRequestMessage '%s\n\nIntegrated via #%d' "$prTitle" "$prNumber"	# Duplicate of hub-prtitle --as-merge-message
-    mergeMessageArgs+=(--message "${pullRequestMessage}${branchMergeMessage:+$'\n\n'}${branchMergeMessage}")
+    mergeMessageArgs+=(--message "$(hub-prtitle --as-merge-message --from "$prNumber" "$sourceBranch" "$targetBranch" "$prTitle")")
     [ ${#mergeNoEditMessageArgs[@]} -gt 0 ] || mergeMessageArgs+=(--edit)
 fi
 

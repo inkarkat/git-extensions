@@ -6,7 +6,7 @@ printShortUsage()
     # skim the long one.
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-i|--as-integration-message|-m|--as-merge-message] [-Q|--qualified-with-userrepo|-u|--url] [-?|-h|--help]'
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '... [<commit> [...]]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [COMMIT|PR-IDENTIFIER [...]]'
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --from PR-IDENTIFIER HEAD-BRANCH BASE-BRANCH PR-TITLE [--from ...]'
 }
@@ -22,9 +22,10 @@ printLongUsage()
     # This is the long "man page" when launched with the help argument.
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
-Obtain corresponding GitHub pull request(s) that have HEAD / <commit>(s) as the
-branch's HEAD, and print its title(s); on separate lines, with a summary header
-listing the PR numbers followed by an empty line) then.
+Obtain corresponding GitHub pull request(s) that have HEAD / COMMIT(s) /
+PR-IDENTIFIER(s) as the branch's HEAD, and print its title(s); on separate
+lines, with a summary header listing the PR numbers followed by an empty line)
+then.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
@@ -130,27 +131,46 @@ mergeMessage()
 obtainFromGitHub()
 {
     [ $# -gt 0 ] || set -- 'HEAD'
-    typeset -a commitIds=()
-    local c commitId; for c
-    do
-	commitId="$(git rev-parse "$c" 2>/dev/null)" && commitIds+=("$commitId")
-    done
-    [ ${#commitIds[@]} -gt 0 ] || return 1
-
+    local -r prFormat="%sH	%H	%B	$prIdentifierFormat	%t%n"
     local prCommitId prHeadBranch prBaseBranch prIdentifier prTitle
-    while IFS=$'\t' read -r prCommitId prHeadBranch prBaseBranch prIdentifier prTitle
+    typeset -a commitIds=()
+    local arg commitId; for arg
     do
-	if contains "$prCommitId" "${commitIds[@]}"; then
-	    titles+=("$prTitle")
-	    headBranches+=("$prHeadBranch")
-	    baseBranches+=("$prBaseBranch")
-	    if [ "$isQualified" ]; then
-		identifiers+=("$(hub-userrepo "$prIdentifier")")
-	    else
-		identifiers+=("$prIdentifier")
+	if commitId="$(git rev-parse "$arg" 2>/dev/null)"; then
+	    commitIds+=("$commitId")
+	elif [[ "$arg" =~ ^#?([[:digit:]]+)$ ]]; then
+	    local argPrId="${BASH_REMATCH[1]}"
+	    IFS=$'\t' read -r prCommitId prHeadBranch prBaseBranch prIdentifier prTitle < <(hub pr show -f "$prFormat" "$argPrId")
+	    if [ "$prIdentifier" = "#$argPrId" ]; then
+		titles+=("$prTitle")
+		headBranches+=("$prHeadBranch")
+		baseBranches+=("$prBaseBranch")
+		if [ "$isQualified" ]; then
+		    identifiers+=("$(hub-userrepo "$prIdentifier")")
+		else
+		    identifiers+=("$prIdentifier")
+		fi
 	    fi
 	fi
-    done < <(hub pr list -f "%sH	%H	%B	$prIdentifierFormat	%t%n")
+    done
+
+    if [ ${#commitIds[@]} -gt 0 ]; then
+	while IFS=$'\t' read -r prCommitId prHeadBranch prBaseBranch prIdentifier prTitle
+	do
+	    if contains "$prCommitId" "${commitIds[@]}"; then
+		titles+=("$prTitle")
+		headBranches+=("$prHeadBranch")
+		baseBranches+=("$prBaseBranch")
+		if [ "$isQualified" ]; then
+		    identifiers+=("$(hub-userrepo "$prIdentifier")")
+		else
+		    identifiers+=("$prIdentifier")
+		fi
+	    fi
+	done < <(hub pr list -f "$prFormat")
+    fi
+
+    [ ${#identifiers[@]} -gt 0 ]
 }
 
 $sourceAction "$@" && $action

@@ -95,11 +95,17 @@ mergeMessage()
     IFS=$'\n'
     case "${#titles[@]}" in
 	0)  return 99;;
-	1)  printf '%s\n\nIntegrated via %s\n' "${titles[0]}" "${identifiers[0]}";;
-	*)  printf -v summary '%s, ' "${identifiers[@]}"; summary="${summary%, }"
+	1)  branchMergeMessage="Merge branch '${headBranches[0]}'"
+	    [ "$(git-mbr)" = "${baseBranches[0]}" ] || branchMergeMessage+=" into ${baseBranches[0]}"
+	    printf '%s\n\nIntegrated via %s\n\n%s\n' "${titles[0]}" "${identifiers[0]}" "$branchMergeMessage"
+	    ;;
+	*)  branchMergeMessage="$(joinBy --prefix "Merge branches '" --suffix "'" --last-separator "' and '" "', '" "${headBranches[@]}" 2>/dev/null)"
+	    targetBranch="$(printf '%s\n' "${baseBranches[@]}" | sort --unique | joinBy --last-separator ' and ' - ', ')"
+	    [ "$(git-mbr)" = "$targetBranch" ] || branchMergeMessage+=" into $targetBranch"
+	    printf -v summary '%s, ' "${identifiers[@]}"; summary="${summary%, }"
 	    printf 'Merge pull requests %s\n\n' "$summary"
 	    printf '%s\n' "${titles[@]}"
-	    printf '\nIntegrated via %s\n' "$summary"
+	    printf '\nIntegrated via %s\n\n%s\n' "$summary" "$branchMergeMessage"
 	    ;;
     esac
 }
@@ -114,17 +120,21 @@ done
 
 
 typeset -a titles=()
+typeset -a headBranches=()
+typeset -a baseBranches=()
 typeset -a identifiers=()
-while IFS=$'\t' read -r prCommitId prIdentifier prTitle
+while IFS=$'\t' read -r prCommitId prHeadBranch prBaseBranch prIdentifier prTitle
 do
     if contains "$prCommitId" "${commitIds[@]}"; then
 	titles+=("$prTitle")
+	headBranches+=("$prHeadBranch")
+	baseBranches+=("$prBaseBranch")
 	if [ "$isQualified" ]; then
 	    identifiers+=("$(hub-userrepo "$prIdentifier")")
 	else
 	    identifiers+=("$prIdentifier")
 	fi
     fi
-done < <(hub pr list -f "%sH	$prIdentifierFormat	%t%n")
+done < <(hub pr list -f "%sH	%H	%B	$prIdentifierFormat	%t%n")
 
 $action

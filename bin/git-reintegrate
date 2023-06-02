@@ -320,6 +320,7 @@ targetTracks="$(git-tracks 2>/dev/null)"
 targetTrackedRemote="${targetTracks%%/*}"
 
 gitSubmoduleUpdateCommand=; git hassubmodules && gitSubmoduleUpdateCommand='git subwipe'
+branchMergeMessage=
 
 if [ "$isContinue" ]; then
     joinBy --prefix 'Finalizing reintegration of ' --suffix $':\n' --last-separator ' and ' ', ' "${branches[@]}" 2>/dev/null
@@ -328,9 +329,6 @@ else
 
     # Ensure that the branch(es) are good for merging.
     git-mergecheck "${branches[@]}" || exit $?
-
-    branchMergeMessage="$(joinBy --prefix "Merge branch$branchesPlural '" --suffix "'" --last-separator "' and '" "', '" "${branches[@]}" 2>/dev/null)"
-    [ "$(git-mbr)" = "$targetBranch" ] || branchMergeMessage+=" into $targetBranch"
 
     if [ -n "$HUB" ] && [ ! "$isRebase" ] && [ ${#mergeMessageArgs[@]} -eq 0 ]; then
 	# Try to obtain corresponding pull requests based on the passed branches'
@@ -342,9 +340,13 @@ else
 	type -t invocationMessage >/dev/null && prefixCommands=(invocationMessage --message 'Searching for PR...' --success FOUND --fail NONE -- "${prefixCommands[@]}")
 	pullRequestTitles="$("${prefixCommands[@]}" hub-prtitle --as-merge-message "${branches[@]}")"
 	if [ -n "$pullRequestTitles" ]; then
-	    mergeMessageArgs+=(--message "$pullRequestTitles"$'\n\n'"$branchMergeMessage")
+	    mergeMessageArgs+=(--message "$pullRequestTitles")
 	    [ ${#mergeNoEditMessageArgs[@]} -gt 0 ] || mergeMessageArgs+=(--edit)
 	fi
+    else
+	# Duplicated from hub-prtitle --as-merge-message
+	branchMergeMessage="$(joinBy --prefix "Merge branch$branchesPlural '" --suffix "'" --last-separator "' and '" "', '" "${branches[@]}" 2>/dev/null)"
+	[ "$(git-mbr)" = "$targetBranch" ] || branchMergeMessage+=" into $targetBranch"
     fi
 
     if [ -n "$targetTracks" ] && ! git-equals HEAD "$targetTracks"; then
@@ -467,7 +469,7 @@ else
 		git-wrapper merge --ff-only "$branch" || exit $?
 	    done
 	else
-	    if [ ${#mergeMessageArgs[@]} -eq 0 ]; then
+	    if [ ${#mergeMessageArgs[@]} -eq 0 -a -n "$branchMergeMessage" ]; then
 		mergeMessageArgs=(--message "$branchMergeMessage")
 		[ ${#mergeNoEditMessageArgs[@]} -gt 0 ] || mergeMessageArgs+=(--edit)
 	    fi

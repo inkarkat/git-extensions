@@ -155,11 +155,15 @@ obtainFromGitHub()
     do
 	if commitId="$(git rev-parse "$arg" 2>/dev/null)"; then
 	    commitIds+=("$commitId")
-	elif [[ "$arg" =~ ^#?([[:digit:]]+)$ ]]; then
-	    local argPrId="${BASH_REMATCH[1]}"
-	    IFS=$'\t' read -r prCommitId prHeadBranch prBaseBranch prIdentifier prTitle < <(hub pr show -f "$prFormat" "$argPrId")
-	    [ "$prIdentifier" = "#$argPrId" ] \
-		&& addPr "$prTitle" "$prHeadBranch" "$prBaseBranch" "$prIdentifier"
+	elif [[ "$arg" =~ ^#?([[:digit:]]+)$ ]] \
+	    && local argPrId="${BASH_REMATCH[1]}" \
+	    && IFS=$'\t' read -r prCommitId prHeadBranch prBaseBranch prIdentifier prTitle < <(hub pr show -f "$prFormat" "$argPrId") \
+	    && [ "$prIdentifier" = "#$argPrId" ]
+	then
+	    addPr "$prTitle" "$prHeadBranch" "$prBaseBranch" "$prIdentifier"
+	else
+	    printf >&2 "ERROR: '%s' is neither a commit nor a pull request ID.\\n" "$arg"
+	    exit 2
 	fi
     done
 

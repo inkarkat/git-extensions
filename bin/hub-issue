@@ -1,0 +1,31 @@
+#!/bin/bash
+set -o pipefail
+
+typeset -a args=()
+typeset -a colorArg=()
+hasFormat=
+typeset -a launcher=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)		shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)	colorArg=("$1"); shift;;
+	--color)		colorArg=("$1" "$2"); shift; shift;;
+	--format|-f)		args+=("$1" "$2"); hasFormat=t; shift; shift;;
+	--browse)		shift; args+=(--format '%U%n'); launcher=(linesToArgs git-browse);;
+	--)			args+=("$1"); shift; break;;
+	*)			args+=("$1"); shift;;
+    esac
+done
+
+if [ $# -eq 0 -o "$1" = 'show' -o "${1:0:1}" = '-' ]; then
+    if [ "$hasFormat" ] && [ ${#launcher[@]} -gt 0 ]; then
+	echo >&2 'ERROR: Cannot combine -f|--format with --browse.'
+	exit 2
+    fi
+
+    isNeedColorArgumentWhenPiping "${colorArg[@]}" && colorArg=(--color=always) || colorArg=()
+fi
+
+eval 'command hub issue "${colorArg[@]}" "${args[@]}" "$@"' \
+    "${launcher:+|}" '"${launcher[@]}"'

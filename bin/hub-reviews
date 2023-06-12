@@ -22,8 +22,10 @@ setSuffixFilter()
 
 typeset -a filter=()
 formatAddition=
+typeset -a launcher=()
 typeset -a args=()
 typeset -a colorArg=()
+format="%pC%>(8)%i%Creset  %t%  l   %Ccyan%rs%Creset${REVIEWERS_FORMAT_SUFFIX}"
 typeset -a formatArgs=()
 while [ $# -ne 0 ]
 do
@@ -38,14 +40,22 @@ do
 	--no-color|--color=*)	colorArg=("$1"); shift;;
 	--color)		colorArg=("$1" "$2"); shift; shift;;
 	--format|-f)		formatArgs+=("$1" "${2%'%n'}${REVIEWERS_FORMAT_SUFFIX}%n"); shift; shift;;
+	--browse)		shift; format="%U${REVIEWERS_FORMAT_SUFFIX}"; launcher=(linesToArgs git-browse);;
 	--)			args+=("$1"); shift; break;;
 	*)			args+=("$1"); shift;;
     esac
 done
 
-[ ${#formatArgs[@]} -eq 0 ] && formatArgs=(--format "%pC%>(8)%i%Creset  %t%  l	%Ccyan%rs%Creset${REVIEWERS_FORMAT_SUFFIX}%n")
+[ ${#formatArgs[@]} -eq 0 ] && formatArgs=(--format "${format}%n")
 [ -n "$formatAddition" ] && formatArgs[1]="${formatArgs[1]%'%n'}${formatAddition}%n"
 isNeedColorArgumentWhenPiping "${colorArg[@]}" && colorArg=(--color=always) || colorArg=()
 
-eval 'command hub pr list "${colorArg[@]}" "${formatArgs[@]}" "${args[@]}" "$@"' "${filter:+|}" '"${filter[@]}"' | \
+filterPullRequestsWithReviews()
+{
     sed -e 's/|.\+$//' -e t -e d
+}
+
+eval 'command hub pr list "${colorArg[@]}" "${formatArgs[@]}" "${args[@]}" "$@"' \
+    "${filter:+|}" '"${filter[@]}"' \
+    | eval filterPullRequestsWithReviews \
+    "${launcher:+|}" '"${launcher[@]}"'

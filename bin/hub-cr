@@ -7,12 +7,14 @@ printUsage()
 Show GitHub issues and pull requests (separately).
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<issue-args> ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--browse] [<issue-args> ...] [-?|-h|--help]'
 }
 
 typeset -a args=()
 typeset -a colorArg=()
+format='%U	%sC%>(8)%i%Creset  %t%  l% Nc'
 hasFormat=
+typeset -a launcher=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -20,6 +22,7 @@ do
 	--no-color|--color=*)	colorArg=("$1"); shift;;
 	--color)		colorArg=("$1" "$2"); shift; shift;;
 	--format|-f)		args+=("$1" "%U	$2"); hasFormat=t; shift; shift;;
+	--browse)		shift; format='%U'; launcher=(linesToArgs git-browse);;
 	--)			args+=("$1"); shift; break;;
 	*)			args+=("$1"); shift;;
     esac
@@ -27,11 +30,14 @@ done
 
 typeset -a issueTypeTransformation=()
 if [ $# -eq 0 -o "$1" = 'show' -o "${1:0:1}" = '-' ]; then
-    typeset -a formatArgs=(); [ "$hasFormat" ] || formatArgs=(--format '%U	%sC%>(8)%i%Creset  %t%  l% Nc%n')
+    typeset -a formatArgs=(); [ "$hasFormat" ] || formatArgs=(--format "${format}%n")
     set -- --include-pulls "${formatArgs[@]}" "$@"
 
     isNeedColorArgumentWhenPiping "${colorArg[@]}" && colorArg=(--color=always) || colorArg=()
-    typeset -a issueTypeTransformation=(sed -e 's#^[^\t]\+/\(issues\|pull\)/[^\t]\+\t\(.*\)$#\1 \2#' -e 's#^issues #issue #' -e 's#^pull #pull  #')
+    [ ${#launcher[@]} -gt 0 ] || \
+	typeset -a issueTypeTransformation=(sed -e 's#^[^\t]\+/\(issues\|pull\)/[^\t]\+\t\(.*\)$#\1 \2#' -e 's#^issues #issue #' -e 's#^pull #pull  #')
 fi
 
-eval 'command hub issue "${colorArg[@]}" "${args[@]}" "$@"' "${issueTypeTransformation:+|}" '"${issueTypeTransformation[@]}"'
+eval 'command hub issue "${colorArg[@]}" "${args[@]}" "$@"' \
+    "${issueTypeTransformation:+|}" '"${issueTypeTransformation[@]}"' \
+    "${launcher:+|}" '"${launcher[@]}"'

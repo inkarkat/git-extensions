@@ -7,6 +7,7 @@ if [ $# -eq 0 -o "${1:0:1}" = '-' ]; then
 	    # XXX: hub pr (in version 2.10.0) cannot filter yet, but we can
 	    # misuse hub issue for it (with filtering).
 	    format='%sC%>(8)%i%Creset  %t%  l'
+	    typeset -a launcher=()
 	    typeset -a args=()
 	    typeset -a colorArg=()
 	    while [ $# -ne 0 ]
@@ -16,14 +17,21 @@ if [ $# -eq 0 -o "${1:0:1}" = '-' ]; then
 		    --no-color|--color=*)	colorArg=("$1"); shift;;
 		    --color)			colorArg=("$1" "$2"); shift; shift;;
 		    --format|-f)		echo >&2 'ERROR: Cannot use -f|--format here.'; exit 2;;
+		    --browse)			shift; format='%U'; launcher=(linesToArgs git-browse);;
 		    --)				args+=("$1"); shift; break;;
 		    *)				args+=("$1"); shift;;
 		esac
 	    done
 	    isNeedColorArgumentWhenPiping "${colorArg[@]}" && colorArg=(--color=always) || colorArg=()
 
+	    filterPullRequestsFromUrlInFieldOne()
+	    {
+		sed -e 's#^[^\t]\+/pull/[^\t]\+\t\(.*\)$#\1#' -e t -e 'd'
+	    }
+
 	    hub issue --include-pulls --format "%U	${format}%n" "${colorArg[@]}" "${args[@]}" "$@" \
-		| sed -e 's#^[^\t]\+/pull/[^\t]\+\t\(.*\)$#\1#' -e t -e 'd'
+		| eval filterPullRequestsFromUrlInFieldOne \
+		"${launcher:+|}" '"${launcher[@]}"'
 	    exit $?
 	    ;;
     esac

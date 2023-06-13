@@ -184,6 +184,7 @@ case "$GIT_BIFURCATE_EDITING" in
 	    exit 3
 	fi
 	rebaseFilespec="${1:?}"
+	currentBranch="$(field --input "$initialFilespec" 2)"
 
 	sed -i "
 /^# Rebase / {
@@ -192,8 +193,10 @@ case "$GIT_BIFURCATE_EDITING" in
 # Reorder and separate the commits into sequences segregated by empty lines.\\
 # Each sequence can start with a line of individual rebase arguments and\\
 # -b|-B <branch> to name the (new|possibly existing) branch this gets\\
-# applied to (by default clones of the current branch (i.e.\\
-# \"$(field --input "$initialFilespec" 2)-1\" and so on)).
+# applied to (by default a clone of the current branch):\\
+# -b $(git-clonebr --print "$currentBranch")\\
+# To overwrite the original branch:\\
+# -B ${currentBranch}
 }
 " -- "$rebaseFilespec" || exit 3
 

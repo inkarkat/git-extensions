@@ -126,14 +126,14 @@ bifurcate()
 	fi
 	eval "set -- \"\$@\" $quotedRebaseArgs" || exit 3
 
-	typeset -a branchArgs=(-B "${branchName:?}")
+	typeset -a branchArgs=(-b "$(git-clonebr --print "${branchName:?}")")
 	typeset -a rebaseArgs=()
 	while [ $# -ne 0 ]
 	do
 	    case "$1" in
-		--)		rebaseArgs+=("$1"); shift; break;;
+		--)	rebaseArgs+=("$1"); shift; break;;
 		-[bB])	branchArgs=("$1" "${2:?}"); shift; shift;;
-		*)		rebaseArgs+=("$1"); shift;;
+		*)	rebaseArgs+=("$1"); shift;;
 	    esac
 	done
 
@@ -184,6 +184,7 @@ case "$GIT_BIFURCATE_EDITING" in
 	    exit 3
 	fi
 	rebaseFilespec="${1:?}"
+	currentBranch="$(field --input "$initialFilespec" 2)"
 
 	sed -i "
 /^# Rebase / {
@@ -192,7 +193,10 @@ case "$GIT_BIFURCATE_EDITING" in
 # Reorder and separate the commits into sequences segregated by empty lines.\\
 # Each sequence can start with a line of individual rebase arguments and\\
 # -b|-B <branch> to name the (new|possibly existing) branch this gets\\
-# applied to (default is \"$(field --input "$baseFilespec" 2)-1\" and so on).
+# applied to (by default a clone of the current branch):\\
+# -b $(git-clonebr --print "$currentBranch")\\
+# To overwrite the original branch:\\
+# -B ${currentBranch}
 }
 " -- "$rebaseFilespec" || exit 3
 

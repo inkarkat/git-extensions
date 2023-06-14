@@ -1,0 +1,56 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Strip leading and trailing empty lines, trailing whitespace, commentary and
+collapse consecutive empty lines from standard input / FILE.
+Just like "git commit --cleanup=strip".
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-i[SUFFIX]|--in-place[=SUFFIX] [--] FILE [-?|-h|--help]'
+    printf 'Usage: cat FILE [...] | %q\n' "$(basename "$1")"
+}
+
+typeset -a inplaceSubsequentSedArgs=()
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --no-color|--color=*)
+			shift;;
+    --color)		shift; shift;;
+    --in-place|-i)	inplaceSubsequentSedArgs=("$@");;
+    --in-place=*|-i?*)	inplaceSubsequentSedArgs=(--in-place "${@:2}");;    # Only write backup on the first sed invocation.
+esac
+
+stripCommentsAndTrailingWhitespace()
+{
+    sed \
+	-e 's/[[:space:]]\+$//' \
+	-e '/^#/d' \
+	"$@"
+}
+
+stripLeadingAndTrailingEmptyLines()
+{
+    sed \
+	-e '/./,$!d' \
+	-e :a -e '/^\n*$/{$d; N; ba' -e '}' \
+	"$@"
+}
+
+condenseConsecutiveEmptyLines()
+{
+    sed \
+	-e :a -e '/^$/{ N; /^\n$/s/\n//; ba' -e '}' \
+	"$@"
+}
+
+if [ ${#inplaceSubsequentSedArgs[@]} -gt 0 ]; then
+    stripCommentsAndTrailingWhitespace "$@" \
+	&& stripLeadingAndTrailingEmptyLines "${inplaceSubsequentSedArgs[@]}" \
+	&& condenseConsecutiveEmptyLines "${inplaceSubsequentSedArgs[@]}"
+else
+    stripCommentsAndTrailingWhitespace "$@" \
+    	| stripLeadingAndTrailingEmptyLines \
+    	| condenseConsecutiveEmptyLines
+fi

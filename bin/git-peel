@@ -1,0 +1,34 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Cancel the last / N commit(s) / REVISION also from index; keep only the working copy.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-n N|--count N|-r|--revision REVISION] [--first-parent|--unmerge|--parent-number N] [-?|-h|--help]'
+}
+
+typeset -a resetToCommitArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+	--count|-n|--revision|-r|--parent-number)
+			resetToCommitArgs+=("$1" "${2:?}"); shift; shift;;
+	--first-parent|--unmerge)
+			resetToCommitArgs+=("$1"); shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+exec git-resetToCommit --mixed "${resetToCommitArgs[@]}"

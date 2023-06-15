@@ -36,25 +36,37 @@ if [ ${#branches[@]} -eq 0 ]; then
 fi >&2
 
 status=0
-readonly REBASE_PATTERN='^\(amend\|fixup\|squash\)! '
+typeset -A badCommitTitlePatterns=(
+    ['^\(amend\|fixup\|squash\)! ']=$'fixup! / amend! / squash!\nsquash'
+    ['\(^\| \)TEST: ']=$'test\ndrop'
+)
 separator=
 for branch in "${branches[@]}"
 do
+    branchHint=; [ ${#branches[@]} -gt 1 ] && branchHint="on $branch"
+
     printf -v branchRange "$branchFormat" "$branch"
-    squashCommitCount=$(git log --pretty=tformat:%s "$branchRange" | grep --count -e "$REBASE_PATTERN")
-    if [ $squashCommitCount -gt 0 ]; then
-	status=1
+    commitTitles="$(git log --pretty=tformat:%s "$branchRange")" || continue
+    [ -n "$commitTitles" ] || continue
 
-	branchHint=; [ ${#branches[@]} -gt 1 ] && branchHint="on $branch"
+    for pattern in "${!badCommitTitlePatterns[@]}"
+    do
+	badCommitCount="$(printf '%s\n' "$commitTitles" | grep --count -e "$pattern")"
+	if [ $badCommitCount -gt 0 ]; then
+	    status=1
 
-	if [ $squashCommitCount -eq 1 ]; then
-	    printf '%sThere is still a fixup! / amend! / squash! commit%s; please squash it first:\n' "$separator" "${branchHint:+ }$branchHint"
-	else
-	    printf '%sThere are still %d fixup! / amend! / squash! commits%s; please squash them first:\n' "$separator" "$squashCommitCount" "${branchHint:+ }$branchHint"
+	    what="${badCommitTitlePatterns["$pattern"]}"
+	    what="${badCommitTitlePatterns["$pattern"]%%$'\n'*}"
+	    remedy="${badCommitTitlePatterns["$pattern"]#*$'\n'}"
+	    if [ $badCommitCount -eq 1 ]; then
+		printf '%sThere is still a %s commit%s; please %s it first:\n' "$separator" "$what" "${branchHint:+ }$branchHint" "$remedy"
+	    else
+		printf '%sThere are still %d %s commits%s; please %s them first:\n' "$separator" "$badCommitCount" "$what" "${branchHint:+ }$branchHint" "$remedy"
+	    fi
+	    separator=$'\n'
+
+	    git lghighlight "$pattern" "$branchRange"
 	fi
-	separator=$'\n'
-
-	git lghighlight "$REBASE_PATTERN" "$branchRange"
-    fi
+    done
 done
 exit $status

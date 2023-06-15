@@ -37,7 +37,7 @@ fi >&2
 
 status=0
 typeset -A badCommitTitlePatterns=(
-    ['^\(amend\|fixup\|squash\)! ']='fixup! / amend! / squash!'
+    ['^\(amend\|fixup\|squash\)! ']=$'fixup! / amend! / squash!\nsquash'
 )
 separator=
 for branch in "${branches[@]}"
@@ -55,10 +55,12 @@ do
 	    status=1
 
 	    what="${badCommitTitlePatterns["$pattern"]}"
+	    what="${badCommitTitlePatterns["$pattern"]%%$'\n'*}"
+	    remedy="${badCommitTitlePatterns["$pattern"]#*$'\n'}"
 	    if [ $badCommitCount -eq 1 ]; then
-		printf '%sThere is still a %s commit%s; please squash it first:\n' "$separator" "$what" "${branchHint:+ }$branchHint"
+		printf '%sThere is still a %s commit%s; please %s it first:\n' "$separator" "$what" "${branchHint:+ }$branchHint" "$remedy"
 	    else
-		printf '%sThere are still %d %s commits%s; please squash them first:\n' "$separator" "$badCommitCount" "$what" "${branchHint:+ }$branchHint"
+		printf '%sThere are still %d %s commits%s; please %s them first:\n' "$separator" "$badCommitCount" "$what" "${branchHint:+ }$branchHint" "$remedy"
 	    fi
 	    separator=$'\n'
 

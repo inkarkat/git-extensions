@@ -41,7 +41,10 @@ separator=
 for branch in "${branches[@]}"
 do
     printf -v branchRange "$branchFormat" "$branch"
-    squashCommitCount=$(git log --pretty=tformat:%s "$branchRange" | grep --count -e "$REBASE_PATTERN")
+    commitTitles="$(git log --pretty=tformat:%s "$branchRange")" || continue
+    [ -n "$commitTitles" ] || continue
+
+    squashCommitCount="$(printf '%s\n' "$commitTitles" | grep --count -e "$REBASE_PATTERN")"
     if [ $squashCommitCount -gt 0 ]; then
 	status=1
 

@@ -3,10 +3,11 @@
 printUsage()
 {
     cat <<HELPTEXT
-Cancel the last commit; keep working copy and index.
+Cancel the last / N commit(s) / up to and including REVISION; keep working copy
+and index.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-n N|--count N|-r|--revision REVISION] [--first-parent|--unmerge|--parent-number N] [-?|-h|--help]'
     echo
     cat <<HELPTEXT
 Remove <path>s from the last commit. Those changes will then be in the working
@@ -15,6 +16,8 @@ HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--patch] [--] <path> [...]'
 }
+
+typeset -a resetToCommitArgs=()
 typeset -a resetArgs=()
 while [ $# -ne 0 ]
 do
@@ -24,15 +27,30 @@ do
 			shift;;
 	--color)	shift; shift;;
 	--patch)	resetArgs+=("$1"); shift;;
+	--count|-n|--revision|-r|--parent-number)
+			resetToCommitArgs+=("$1" "${2:?}"); shift; shift;;
+	--first-parent|--unmerge)
+			resetToCommitArgs+=("$1"); shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
     esac
 done
-
-[ $# -eq 0 ] && [ ${#resetArgs[@]} -eq 0 ] && exec git reset --soft HEAD^
+if [ $# -gt 0 ]; then
+    if [ ${#resetToCommitArgs[@]} -gt 0 ]; then
+	echo 'ERROR: Cannot combine [-n N|--count N|-r|--revision REVISION] [--first-parent|--unmerge|--parent-number N] with <path>s.'
+	echo
+	printUsage "$0"
+	exit 2
+    elif git-ismerge; then
+	echo 'ERROR: Cannot remove <path>s from a merge commit.'
+	exit 1
+    fi
+fi >&2
 
 set -e
-git reset --soft HEAD^
+git-resetToCommit --soft "${resetToCommitArgs[@]}"
+[ $# -eq 0 ] && [ ${#resetArgs[@]} -eq 0 ] && exit 0
+
 git reset "${resetArgs[@]}" HEAD -- "$@"	# Note: This won't fail even if all <path>s do not exist.
 git commit --reuse-message ORIG_HEAD

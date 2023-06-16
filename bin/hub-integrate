@@ -304,9 +304,29 @@ if [ "$isMergeStillPending" ]; then
     fi
 
     if hub-workflow-status --has-workflow; then
-	printf 'Waiting for the GitHub action to validate the build on the branch and auto-merge.\n'
-	hub-workflow-status --revision "$sourceRef" --latest --is completed --wait 'The auto-merge branch build' \
-	    || exit $?
+	while :
+	do
+	    printf 'Waiting for the GitHub action to validate the build on the branch and auto-merge.\n'
+	    hub-workflow-status --revision "$sourceRef" --latest --is completed --wait 'The auto-merge branch build' || exit $?
+
+	    hub-workflow-status --revision "$sourceRef" --latest --is completed --concluded success --quiet \
+		&& break
+
+	    choice="$(userchoiceFromList --keep-prompt --question 'The workflow failed.' --no-cancel --ignore-case -- '[O]pen in browser to investigate and relaunch; wait here' '[W]ait here for a rerun' '[P]roceed as if it had succeeded' '[Q]uit')" || exit $?
+	    case "$choice" in
+		'Open in browser to investigate and relaunch; wait here')
+		    hub-workflow-status --revision "$sourceRef" --browse;;
+		'Wait here for a rerun')
+		    ;;
+		'Proceed as if it had succeeded')
+		    break;;
+		Quit)
+		    exit 1
+		    ;;
+		*)  printf >&2 'ASSERT: Invalid choice: %s\n' "$choice"; exit 3;;
+	    esac
+	    hub-workflow-status --revision "$sourceRef" --latest --is 'in_progress' --wait 'The re-run of the auto-merge branch build' || exit $?
+	done
     else
 	printf '\n… The auto-merge is still waiting that requirements are met.\n'
 	exit $status

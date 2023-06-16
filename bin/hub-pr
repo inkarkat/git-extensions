@@ -1,43 +1,54 @@
 #!/bin/bash
 set -o pipefail
 
-if [ $# -eq 0 -o "${1:0:1}" = '-' ]; then
+isNeedToUseIssue=
+format=
+issueFormatEmulation='%sC%>(8)%i%Creset  %t%  l'
+typeset -a launcher=()
+typeset -a args=()
+typeset -a colorArg=()
+while [ $# -ne 0 ]
+do
     case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			colorArg=("$1"); shift;;
+	--color)	colorArg=("$1" "$2"); shift; shift;;
+	--format|-f)	shift; format="${1:?}"; shift;;
 	--assignee=*|--creator=*|--mentioned=*)
-	    # XXX: hub pr (in version 2.10.0) cannot filter yet, but we can
-	    # misuse hub issue for it (with filtering).
-	    format='%sC%>(8)%i%Creset  %t%  l'
-	    typeset -a launcher=()
-	    typeset -a args=()
-	    typeset -a colorArg=()
-	    while [ $# -ne 0 ]
-	    do
-		case "$1" in
-		    --help|-h|-\?)		shift; printUsage "$0"; exit 0;;
-		    --no-color|--color=*)	colorArg=("$1"); shift;;
-		    --color)			colorArg=("$1" "$2"); shift; shift;;
-		    --format|-f)		echo >&2 'ERROR: Cannot use -f|--format here.'; exit 2;;
-		    --browse)			shift; format='%U'; launcher=(linesToArgs git-browse);;
-		    --)				args+=("$1"); shift; break;;
-		    *)				args+=("$1"); shift;;
-		esac
-	    done
-	    isNeedColorArgumentWhenPiping "${colorArg[@]}" && colorArg=(--color=always) || colorArg=()
-
-	    filterPullRequestsFromUrlInFieldOne()
-	    {
-		sed -e 's#^[^\t]\+/pull/[^\t]\+\t\(.*\)$#\1#' -e t -e 'd'
-	    }
-
-	    hub issue --include-pulls --format "%U	${format}%n" "${colorArg[@]}" "${args[@]}" "$@" \
-		| eval filterPullRequestsFromUrlInFieldOne \
-		"${launcher:+|}" '"${launcher[@]}"'
-	    exit $?
-	    ;;
+			args+=("$1"); shift; isNeedToUseIssue=t;;
+	--browse)	shift; issueFormatEmulation='%U'; launcher=(linesToArgs git-browse);;
+	--)		args+=("$1"); shift; break;;
+	*)		args+=("$1"); shift;;
     esac
+done
+set -- "${args[@]}" "$@"
 
-    # XXX: hub pr (in version 2.10.0) does not default to "list" (like hub
-    # issue). DWIM and add this.
-    set -- list "$@"
+if [ "$isNeedToUseIssue" ]; then
+    # XXX: hub pr (in version 2.14.2) cannot filter yet, but we can misuse hub
+    # issue for it (with filtering). Unfortunately, that means that certain
+    # format placeholders (like %B) are not available.
+    if [ -n "$format" ]; then
+	echo >&2 'ERROR: Cannot use -f|--format here.'
+	exit 2
+    fi
+
+    isNeedColorArgumentWhenPiping "${colorArg[@]}" && colorArg=(--color=always) || colorArg=()
+
+    filterPullRequestsFromUrlInFieldOne()
+    {
+	sed -e 's#^[^\t]\+/pull/[^\t]\+\t\(.*\)$#\1#' -e t -e 'd'
+    }
+
+    hub issue --include-pulls --format "%U	${format:-$issueFormatEmulation}%n" "${colorArg[@]}" "$@" \
+	| eval filterPullRequestsFromUrlInFieldOne \
+	"${launcher:+|}" '"${launcher[@]}"'
+    exit $?
 fi
+
+# XXX: hub pr (in version 2.14.2) does not default to "list" (like hub
+# issue). DWIM and add this.
+[ $# -eq 0 -o "${1:0:1}" != - ] \
+    && set -- list "$@"
+
 exec hub pr "$@"

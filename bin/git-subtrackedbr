@@ -24,6 +24,7 @@ git config --file .gitmodules -l 2>/dev/null | \
 	-v "currentBranchName=${currentBranchName//\\/\\\\}" \
 	-v "selectedSubmoduleList=${*//\\/\\\\}" \
 '
+@load "filefuncs"
 BEGIN {
     selectedSubmoduleNum = split(selectedSubmoduleList, tmp, "\n")
     for (k in tmp) selectedSubmodules[tmp[k]] = 1
@@ -41,7 +42,9 @@ key ~ /.branch$/ {
 }
 END {
     for (submodule in path) {
-	if (selectedSubmoduleNum == 0 || submodule in selectedSubmodules)
+	if ((selectedSubmoduleNum == 0 || submodule in selectedSubmodules) \
+		&& stat(submodule, ignored) == 0) {
 	    print (selectedSubmoduleNum == 1 ? "" : path[submodule] "\t") (branch[submodule] == "" ? "master" : branch[submodule]) # "git submodule update --remote" defaults to master.
+	}
     }
 }'

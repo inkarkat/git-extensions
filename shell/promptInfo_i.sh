@@ -40,7 +40,7 @@ _PS1GitRepoChange()
     if [ "${_PS1GitRoot:-}" != "$gitRoot" ]; then
 	[ -n "${_PS1GitRoot:-}" ] && _PS1PreviousGitRoot="$_PS1GitRoot" || unset _PS1PreviousGitRoot
 	if [ "$gitRoot" ]; then
-	    _PS1GitRoot="$gitRoot"
+	    export _PS1GitRoot="$gitRoot"
 	    eval "${_PS1OnGitRepoEnter:-}"	# Triggered when entering a (different) Git repo.
 	    if [ -z "${_PS1PreviousExistingGitRoot+t}" ] || [ "$_PS1PreviousExistingGitRoot" != "$gitRoot" ]; then
 		eval "${_PS1OnGitRepoChange:-}" # Triggered when moving into the first and then to another Git repo, ignores changes to non-Git paths.

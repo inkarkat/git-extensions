@@ -1,0 +1,56 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Check out a (new or existing remote) branch in the superproject with the same
+name as this submodule's current branch, and also check out corresponding remote
+branches in other submodules.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [--all] [-?|-h|--help]'
+}
+
+submoduleBranch=
+remote=
+if [ "$1" = '--launch' ]; then
+    shift
+    submoduleBranch="${1:?}"; shift
+    remote="${1:?}"; shift
+fi
+
+typeset -a commonArgs=()
+subcobrActionArg=--query
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--all)		subcobrActionArg="$1"; shift;;
+	--force|-f)	commonArgs+=("$1"); shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+if [ -z "$submoduleBranch" ]; then
+    submoduleBranch="$(git-brname --real-branch-only)" || exit $?
+    remote="$(git-trackedremote 2>/dev/null)" || remote='origin'
+    exec git-superdo "${BASH_SOURCE[0]#git-}" --launch "$submoduleBranch" "$remote" "${commonArgs[@]}" "$subcobrActionArg" "$@"
+fi
+
+if git-existsbr -- "$submoduleBranch"; then
+    printf >&2 "ERROR: Submodule branch '%s' already exists in the superproject.\\n" "$submoduleBranch"
+    exit 1
+fi
+
+if git-existsbr -- "${remote}/${submoduleBranch}"; then
+    git-checkout-remote-branch "${commonArgs[@]}" "${remote}/${submoduleBranch}"
+else
+    git-checkoutbranch -b "$submoduleBranch" "${commonArgs[@]}"
+fi || exit $?
+
+exec git subcoremotebr "${commonArgs[@]}" "$subcobrActionArg"

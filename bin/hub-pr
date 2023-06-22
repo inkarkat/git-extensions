@@ -5,7 +5,7 @@ printUsage()
 {
     command hub pr --help 2>&1 | sed \
 	-e '/\[-f$/{ N; s/\n[[:space:]]*/ /; }' \
-	-e 's/\[-f FORMAT\]/[-v|--verbose|--browse|-f|--format FORMAT]/g'
+	-e 's/\[-f FORMAT\]/[--age|-v|--verbose|--browse|-f|--format FORMAT]/g'
 }
 
 typeset -a colorArg=(--color=always)
@@ -35,6 +35,7 @@ do
 			args+=("$1"); shift; action=pullRequestsFromIssues;;
 	--browse)	shift; defaultFormat='%U%n'; issueFormatEmulation='%U'; formatter=(linesToArgs git-browse);;
 	--verbose|-v)	shift; defaultFormat="${defaultFormat/  /  %Ccyan%H%Creset → %Cblue%B%Creset	}"; formatter=("${defaultFormatter[@]}");;
+	--age)		shift; defaultFormat="${defaultFormat/  /  %cI	(%cr)	}"; issueFormatEmulation="${issueFormatEmulation/  / %cI	(%cr)	}"; formatter=("${defaultFormatter[@]}");;
 	--)		args+=("$1"); shift; break;;
 	*)		args+=("$1"); shift;;
     esac

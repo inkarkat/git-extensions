@@ -1,6 +1,13 @@
 #!/bin/bash
 set -o pipefail
 
+printUsage()
+{
+    command hub pr --help 2>&1 | sed \
+	-e '/\[-f$/{ N; s/\n[[:space:]]*/ /; }' \
+	-e 's/\[-f FORMAT\]/[-v|--verbose|--browse|-f|--format FORMAT]/g'
+}
+
 typeset -a colorArg=(--color=always)
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
 typeset -a defaultFormatter=(column -s $'\t' -t)
@@ -50,7 +57,7 @@ pullRequestsFromIssues()
 	sed -e 's#^[^\t]\+/pull/[^\t]\+\t\(.*\)$#\1#' -e t -e 'd'
     }
 
-    hub issue --include-pulls --format "%U	${format:-$issueFormatEmulation}%n" "${colorArg[@]}" "$@" \
+    command hub issue --include-pulls --format "%U	${format:-$issueFormatEmulation}%n" "${colorArg[@]}" "$@" \
 	| eval filterPullRequestsFromUrlInFieldOne
 }
 
@@ -62,7 +69,7 @@ pullRequestList()
     [ $# -eq 0 -o "${1:0:1}" != - ] \
 	&& defaultAction=(list)
 
-    hub pr "${defaultAction[@]}" --format "${format:-$defaultFormat}" "${colorArg[@]}" "$@"
+    command hub pr "${defaultAction[@]}" --format "${format:-$defaultFormat}" "${colorArg[@]}" "$@"
 }
 
 eval '$action "$@"' \

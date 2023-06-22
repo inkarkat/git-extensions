@@ -29,6 +29,7 @@ Check for other open reintegrations (i.e. submodule commits on master not yet
 referenced in the superproject):
 superproject: `$ git bomsubmodules | negateThis git osuperhaspendingsubintegrations -`
 Check for pull request comments and approvals:
+superproject: `$ hub subsamebrdo --single-success --include-superproject prcomments`
 superproject: `$ hub subsamebrdo --single-success --include-superproject prapproval`
 Do the integration:
 superproject: `$ hub subsamebrdo --interactive reintegratetom --no-push --no-delete --no-checks`

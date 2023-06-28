@@ -119,10 +119,11 @@ fi
 [ -n "${affectedSubmodules+t}" ] \
     || readarray -t affectedSubmodules < <("${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} "${affectedSubmoduleSourceCommand[@]}")
 if [ ${#affectedSubmodules[@]} -eq 0 ]; then
-    echo >&2 'ERROR: Expected at least one affected submodule in the commits on the branch, but none found.'
-    echo >&2 'Use git superonlyreintegratetom instead if you just want to reintegrate the superproject.'
+    gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
+    echo 'ERROR: Expected at least one affected submodule in the commits on the branch, but none found.'
+    printf 'Use %s superonlyreintegratetom instead if you just want to reintegrate the superproject.\n' "$gitCommand"
     exit 3
-fi
+fi >&2
 typeset -a superprojectSubmoduleExecutor=(git-subdo-core --subdo-command-name "${scriptName#git-}" --for "${affectedSubmodules[@]}" \;)
 typeset -a submoduleExecutor=(); [ "$isInSubmodule" ] || submoduleExecutor=("${superprojectSubmoduleExecutor[@]}")
 

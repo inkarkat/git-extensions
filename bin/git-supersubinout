@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header] [-p|--super-base SUPER-COMMIT] [-r|--remote SUB-REMOTE] [-b|--submodule-base SUB-BRANCH] [--stat|--ahead-behind [--indicator-only]|--files|--submodules] [--] [-|SUBMODULE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header] [--message MESSAGE] [-p|--super-base SUPER-COMMIT] [-r|--remote SUB-REMOTE] [-b|--submodule-base SUB-BRANCH] [--stat|--ahead-behind [--indicator-only]|--files|--submodules] [--] [-|SUBMODULE ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -31,6 +31,8 @@ HELPDESCRIPTION
 			view if there's too much output).
     --no-header		Do not output the header line before each commit log
 			(and no separating empty line after it).
+    --message MESSAGE	Print MESSAGE before the first commit log (only if there
+			are such).
     --super-base|-p SUPER-COMMIT
 			Use submodules as recorded in SUPER-COMMIT (instead of
 			what is currently checked out).
@@ -52,6 +54,7 @@ if [ ! -t 1 ]; then
     pager=()
 fi
 isHeader=; type -t withHeader >/dev/null && isHeader=t
+typeset -a messagePipeline=()
 typeset -a superBase=()
 submoduleRemote=
 submoduleBase=
@@ -63,6 +66,7 @@ do
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--no-pager)	shift; pager=();;
 	--no-header)	shift; isHeader=;;
+	--message)	shift; messagePipeline=(outputAndPrintf --stderr '%s\n' "${1?}"); shift;;
 	--color=auto)	shift;;
 	--no-color|--color=*)
 			colorArg=("$1"); shift;;
@@ -107,7 +111,10 @@ superSubInOut()
 	local thisSubmoduleBase="$submoduleBase"
 	[ -n "$thisSubmoduleBase" ] || thisSubmoduleBase="$(git-mbr)"
 
-	eval 'git-inout "${colorArg[@]}" "${inoutArgs[@]}" --base "$base" "${submoduleRemote}${submoduleRemote:+/}${thisSubmoduleBase}"' "${isHeader:+| withHeader "${colorArg[@]}" --id '$GIT_SUPERSUBINOUT_HEADER_ID' -- '$submodule'}"
+	eval 'git-inout "${colorArg[@]}" "${inoutArgs[@]}" --base "$base" "${submoduleRemote}${submoduleRemote:+/}${thisSubmoduleBase}"' \
+		"${messagePipeline:+|}" '"${messagePipeline[@]}"' \
+		"${isHeader:+| withHeader "${colorArg[@]}" --id '$GIT_SUPERSUBINOUT_HEADER_ID' -- '$submodule'}" \
+	    && messagePipeline=()
     ) && status=0 || : ${status:=$?}
     done
     return ${status:-99}

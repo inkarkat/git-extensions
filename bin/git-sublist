@@ -38,9 +38,14 @@ listSubmodules()
     if [ -z "$revision" -o "$revision" = HEAD ]; then
 	exec git submodule foreach --quiet 'echo $sm_path'
     else
-	git config --blob "${revision}:.gitmodules" --get-regexp '^submodule\..*\.path$' 2>/dev/null \
-	    | sed -e 's/^.*\.path //' \
-	    | sort
+	comm -12 \
+	    <(git config --blob "${revision}:.gitmodules" --get-regexp '^submodule\..*\.path$' 2>/dev/null \
+		| sed -e 's/^.*\.path //' \
+		| sort
+	    ) \
+	    <(git ls-tree -r "$revision" --name-only \
+		| sort
+	    )
     fi
 }
 

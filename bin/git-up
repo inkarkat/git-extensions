@@ -25,7 +25,7 @@ printUsage()
 $action in ${remote:-REMOTE}, and show a log of the changes.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[--gui|--terminal|--none] [--submodule ignore|yes|recurse] [-q|--quiet] ${remote:-REMOTE} [PULL/REBASE-ARGS ...] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[--gui|--terminal|--none] [--submodule ignore|yes|recurse] [-q|--quiet] ${remote:-REMOTE} [FETCH/PULL/REBASE-ARGS ...] [-?|-h|--help]"
 }
 
 getDetachedBranch()
@@ -58,12 +58,19 @@ getRemoteBranch()
 
 remote=
 submoduleHandling=recurse
+typeset -a fetchPullArgs=()
 typeset -a logDeltaArgs=(--submodule "$submoduleHandling")
 typeset -a colorArg=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+
+	--recurse-submodules)
+			fetchPullArgs+=("$1" "${2?}"); shift; shift;;
+	--recurse-submodules=*|--no-recurse-submodules)
+			fetchPullArgs+=("$1"); shift;;
+
 	--@(gui|terminal|none|quiet))
 			logDeltaArgs+=("$1"); shift;;
 	-[q])
@@ -126,7 +133,7 @@ else
 	fi
     fi
 
-    exec git-logdelta "${colorArg[@]}" "${logDeltaArgs[@]}" -- "${scriptName#git-}" "${remote:?}" --launch "$@"
+    exec git-logdelta "${colorArg[@]}" "${logDeltaArgs[@]}" -- "${scriptName#git-}" "${remote:?}" "${fetchPullArgs[@]}" --launch "$@"
 fi
 
 GIT_VERSION="$(git --version 2>/dev/null)"
@@ -150,7 +157,7 @@ if [ "$GIT_UP_FETCH" ]; then
     # XXX: Don't use "git-wrapper fetch" there, because that would use my
     # hub-fetch extension if we got invoked via hub (e.g. through the
     # auto-fetching of "hub supersubreintegratetom").
-    git-fetch "$remote" || exit $?
+    git-fetch "${fetchPullArgs[@]}" "$remote" "$@" || exit $?
 fi
 
 # Here, merges typically happen from the master / base branch to pick up
@@ -215,7 +222,7 @@ elif git-isdetached; then
 	fi
     fi
 else
-    git "${gitAutoStashGitArg[@]}" pull "${gitAutoStashPullOrRebaseArg[@]}" "${gitPullRebaseMergesArg[@]}" "$remote" "$@" || exit $?
+    git "${gitAutoStashGitArg[@]}" pull "${fetchPullArgs[@]}" "${gitAutoStashPullOrRebaseArg[@]}" "${gitPullRebaseMergesArg[@]}" "$remote" "$@" || exit $?
 fi
 
 [ "$submoduleHandling" = ignore ] || ! GIT_SUBMODULEUNINITIALIZED_MESSAGE='Warning: Uninitialized submodule(s) found:' git-submodule-uninitialized --print --recursive

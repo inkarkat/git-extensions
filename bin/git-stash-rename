@@ -11,13 +11,20 @@ HELPTEXT
 }
 stash='stash@{0}'
 unset message
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
 			shift;;
-    --color)		shift; shift;;
-    --message|-m)	shift; message="$1"; shift;;
-esac
+	--color)	shift; shift;;
+	--message|-m)	shift; message="$1"; shift;;
+	stash@*)	stash="$1"; shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 if [ $# -eq 1 ]; then
     stash="$1"; shift
 elif [ $# -gt 1 ]; then

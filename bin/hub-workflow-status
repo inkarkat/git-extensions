@@ -54,7 +54,7 @@ HELPDESCRIPTION
 			Limit to workflow runs that build REVISION.
     --current-revision|-R
 			Limit to workflow runs that build the current HEAD
-			revision.
+			revision of the tracked remote branch.
     --latest|-l		Only print / consider the last status.
     --is STATE		Only print if one / the status is STATE; else fail.
     --concluded CONCLUSION
@@ -146,7 +146,14 @@ do
 			;;
 	--current-revision|-R)
 			shift
-			commitId="$(git-commitid -- HEAD)" || exit 2
+			if ! tracks="$(git-tracks)"; then
+			    echo >&2 'ERROR: The current branch does not track a remote branch.'
+			    exit 2
+			fi
+			commitId="$(git-commitid -- "$tracks")" || exit 2
+			if ! git-equals HEAD "$commitId"; then
+			    printf >&2 'Note: The current branch is not up-to-date with the tracked remote branch:\n%s\n' "$(git ab HEAD "$commitId")"
+			fi
 			queryArgs+=(--field "head_sha=$commitId")
 			recursiveArgs+=(--revision "$commitId")	# Don't repeat the lookup on each recursive invocation.
 			;;

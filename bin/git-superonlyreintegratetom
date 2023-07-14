@@ -61,19 +61,22 @@ if [ "$HUB" ] && acceptStatus 0 99 hub-prapproval; then
 fi
 
 masterBranch="$(git-mbr)" || exit 3
+typeset -a integrateArgs=() ffintegratetoArgs=()
 case $(git bomcount) in
     0)  echo >&2 'ERROR: Expected at least one commit in the superproject on the branch, but none found.'
 	exit 3
 	;;
     1)  echo "Rebasing the single superproject commit on top of ${masterBranch}."
-	typeset -a ffintegratetoArgs=(--push-branch --rebase-single)
+	integrateArgs=(--rebase-single)
 	;;
     *)  # Disallow fast-forward to have a merge commit that maintains the history of
 	# how the feature grew.
 	echo "Maintaing the history of how the feature grew via a merge to ${masterBranch}."
-	typeset -a ffintegratetoArgs=(--push-branch --no-ff)
+	ffintegratetoArgs=(--no-ff)
 	;;
 esac
+
+[ "$HUB" ] && hub-integrate --offer "${integrateArgs[@]}" "$@" && exit 0
 
 git-dirty --print-error --error-message 'ERROR: The superproject working copy is still dirty.' \
     && exit 1
@@ -92,4 +95,4 @@ if hub-workflow-status --has-workflow; then
     fi
 fi
 
-exec git-ffintegrateto --branch "$masterBranch" "${ffintegratetoArgs[@]}" "$@"
+exec git-ffintegrateto --branch "$masterBranch" --push-branch "${integrateArgs[@]}" "${ffintegratetoArgs[@]}" "$@"

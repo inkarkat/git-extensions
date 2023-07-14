@@ -8,7 +8,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--force] [--recurse-submodules=on-demand] [--push-submodules] [--delete-merged-submodule-branches] [--no-delete] [--no-wait|--no-pull] [--rebase-single|--rebase|--merge|--squash] [-y|--yes] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--force] [--recurse-submodules=on-demand] [--push-submodules] [--delete-merged-submodule-branches] [--no-delete] [--no-wait|--no-pull] [--rebase-single|--rebase|--merge|--squash] [-y|--yes] [--offer] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -53,6 +53,8 @@ HELPDESCRIPTION
     --rebase-single	Rebase only if the current branch is a single non-merge
 			commit, else merge.
     --yes		Don't query for confirmation of remote mutations.
+    --offer		Ask for confirmation of remote merge if it's possible,
+			and do nothing (and exit 4) if the user declines.
 The answers to some questions can be preconfigured via these boolean config
 settings; when not configured (true or false), the user will be prompted every
 time:
@@ -74,6 +76,8 @@ isRebaseSingle=
 mergeResolutionArg=
 typeset -a mergeMessageArgs=()
 typeset -a mergeNoEditMessageArgs=()
+isOffer=
+problemSeverity='ERROR'
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -107,6 +111,7 @@ do
 			fi
 			mergeResolutionArg="$1"; shift;;
 	--yes|-y)	gitRemoteMutateArgs+=("$1"); shift;;
+	--offer)	shift; isOffer=t; problemSeverity='Note';;
 	--message|-m|--file|-F)
 			mergeMessageArgs+=("$1" "$2"); shift; shift;;
 	--no-edit)	mergeNoEditMessageArgs+=("$1"); shift;;
@@ -142,16 +147,16 @@ fi
 wait
 
 if [ -z "$targetBranch" -o -z "$prNumber" -o -z "$sourceRef" ]; then
-    printf "ERROR: No pull request found for branch '%s'\\n" "$sourceBranch"
+    printf "%s: No pull request found for branch '%s'\\n" "$problemSeverity" "$sourceBranch"
     exit 1
 elif [ "$sourceRemoteBranch" != "$sourceBranch" ]; then
     printf >&2 "ERROR: Something is wrong; this branch '%s' is different from the pull request's source branch in GitHub '%s'.\\n" "$sourceBranch" "$sourceRemoteBranch"
     exit 3
 elif [ "$mergeable" != MERGEABLE ]; then
-    printf "ERROR: Pull request #%d (%s) is not mergeable.\\n" "$prNumber" "$prTitle"
+    printf "%s: Pull request #%d (%s) is not mergeable.\\n" "$prNumber" "$problemSeverity" "$prTitle"
     exit 1
 elif [ "$state" != OPEN ]; then
-    printf "ERROR: Pull request #%d (%s) is not in state open.\\n" "$prNumber" "$prTitle"
+    printf "%s: Pull request #%d (%s) is not in state open.\\n" "$prNumber" "$problemSeverity" "$prTitle"
     exit 1
 fi >&2
 
@@ -188,6 +193,10 @@ deleteMergedSubmoduleBranches()
 	| git-subdo --subdo-command-name "${scriptName#hub-}" --status-99-is-noop --for - --interactive delete-merged-branches "$sourceBranch"
 }
 
+if [ "$isOffer" ]; then
+    userBinaryChoice --keep-prompt --introduction "A mergeable pull request #${prNumber} (${prTitle}) exists." --question "Integrate ${sourceBranch} into ${targetBranch} in and by GitHub?" --yes-no \
+	|| exit 4
+fi
 printf 'Integrating %s into %s via #%d (%s):\n\n' "$sourceBranch" "$targetBranch" "$prNumber" "$prTitle"
 
 if ! git-equals "$sourceRef" HEAD; then

@@ -195,14 +195,23 @@ else
     fi
 fi
 
-if "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} ofetchdate -gt "$GIT_SUPERSUBREINTEGRATETOM_RECENT_FETCH_AGE" --message $'\nLast fetched'; then
-    echo 'Fetching origin first...'
-    "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} ofetchonly-hushed --recurse-submodules=yes
-    echo
-fi
+isDidFetch=
+fetchFirst()
+{
+    if [ ! "$isDidFetch" ] && "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} ofetchdate -gt "$GIT_SUPERSUBREINTEGRATETOM_RECENT_FETCH_AGE" --message $'\nLast fetched'; then
+	echo 'Fetching origin first...'
+	"${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} ofetchonly-hushed --recurse-submodules=yes
+	isDidFetch=t
+	echo
+    fi
+}
 
 reintegrateSubmodule()
 {
+    [ "$HUB" ] && "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--interactive} hub-integrate --offer "$@" && return
+
+    fetchFirst
+
     "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} bomsubmodules \
 	| negateThis "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} osuperhaspendingsubintegrations - || exit $?
 
@@ -258,22 +267,27 @@ reintegrateSuperproject()
 {
     goToSuperproject
 
-    git-dirty --print-error --error-message 'ERROR: The superproject working copy is still dirty.' \
-	&& exit 1
-
+    typeset -a integrateArgs=() ffintegratetoArgs=()
     case $(git bomcount) in
 	0)  echo >&2 'ERROR: Expected at least one commit in the superproject on the branch, but none found.'
 	    exit 3
 	    ;;
 	1)  echo "Rebasing the single superproject commit on top of ${masterBranch}."
-	    typeset -a ffintegratetoArgs=(--push-branch --rebase-single)
+	    integrateArgs=(--rebase-single)
 	    ;;
 	*)  # Disallow fast-forward to have a merge commit that maintains the history of
 	    # how the feature grew.
 	    echo "Maintaing the history of how the feature grew via a merge to ${masterBranch}."
-	    typeset -a ffintegratetoArgs=(--push-branch --no-ff)
+	    ffintegratetoArgs=(--no-ff)
 	    ;;
     esac
+
+    [ "$HUB" ] && hub-integrate --offer "${integrateArgs[@]}" "$@" && return
+
+    git-dirty --print-error --error-message 'ERROR: The superproject working copy is still dirty.' \
+	&& exit 1
+
+    fetchFirst
 
     if hub-workflow-status --has-workflow; then
 	if [ "$HUB" ]; then
@@ -283,7 +297,7 @@ reintegrateSuperproject()
 	fi
     fi
 
-    exec git-ffintegrateto --branch "$masterBranch" "${ffintegratetoArgs[@]}" --push-submodules --delete-merged-submodule-branches "$@"
+    exec git-ffintegrateto --branch "$masterBranch" --push-branch "${integrateArgs[@]}" "${ffintegratetoArgs[@]}" --push-submodules --delete-merged-submodule-branches "$@"
 }
 
 $action "$@"

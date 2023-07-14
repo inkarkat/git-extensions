@@ -60,15 +60,6 @@ if [ "$HUB" ] && acceptStatus 0 99 hub-prapproval; then
     userBinaryChoice --keep-prompt --console --question 'Really reintegrate the superproject?' --yes-no || exit 4
 fi
 
-if git ofetchdate -gt "$GIT_SUPERONLYREINTEGRATETOM_RECENT_FETCH_AGE" --message 'Last fetched'; then
-    echo 'Fetching origin first...'
-    git ofetchonly-hushed
-    echo
-fi
-
-git-dirty --print-error --error-message 'ERROR: The superproject working copy is still dirty.' \
-    && exit 1
-
 masterBranch="$(git-mbr)" || exit 3
 case $(git bomcount) in
     0)  echo >&2 'ERROR: Expected at least one commit in the superproject on the branch, but none found.'
@@ -83,6 +74,15 @@ case $(git bomcount) in
 	typeset -a ffintegratetoArgs=(--push-branch --no-ff)
 	;;
 esac
+
+git-dirty --print-error --error-message 'ERROR: The superproject working copy is still dirty.' \
+    && exit 1
+
+if git ofetchdate -gt "$GIT_SUPERONLYREINTEGRATETOM_RECENT_FETCH_AGE" --message 'Last fetched'; then
+    echo 'Fetching origin first...'
+    git ofetchonly-hushed
+    echo
+fi
 
 if hub-workflow-status --has-workflow; then
     if [ "$HUB" ]; then

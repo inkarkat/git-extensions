@@ -263,11 +263,7 @@ reintegrateSubmodule()
 
 reintegrateSuperproject()
 {
-    fetchFirst
     goToSuperproject
-
-    git-dirty --print-error --error-message 'ERROR: The superproject working copy is still dirty.' \
-	&& exit 1
 
     case $(git bomcount) in
 	0)  echo >&2 'ERROR: Expected at least one commit in the superproject on the branch, but none found.'
@@ -282,6 +278,11 @@ reintegrateSuperproject()
 	    typeset -a ffintegratetoArgs=(--push-branch --no-ff)
 	    ;;
     esac
+
+    git-dirty --print-error --error-message 'ERROR: The superproject working copy is still dirty.' \
+	&& exit 1
+
+    fetchFirst
 
     if hub-workflow-status --has-workflow; then
 	if [ "$HUB" ]; then

@@ -195,14 +195,21 @@ else
     fi
 fi
 
-if "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} ofetchdate -gt "$GIT_SUPERSUBREINTEGRATETOM_RECENT_FETCH_AGE" --message $'\nLast fetched'; then
-    echo 'Fetching origin first...'
-    "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} ofetchonly-hushed --recurse-submodules=yes
-    echo
-fi
+isDidFetch=
+fetchFirst()
+{
+    if [ ! "$isDidFetch" ] && "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} ofetchdate -gt "$GIT_SUPERSUBREINTEGRATETOM_RECENT_FETCH_AGE" --message $'\nLast fetched'; then
+	echo 'Fetching origin first...'
+	"${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} ofetchonly-hushed --recurse-submodules=yes
+	isDidFetch=t
+	echo
+    fi
+}
 
 reintegrateSubmodule()
 {
+    fetchFirst
+
     "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} bomsubmodules \
 	| negateThis "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} osuperhaspendingsubintegrations - || exit $?
 
@@ -256,6 +263,7 @@ reintegrateSubmodule()
 
 reintegrateSuperproject()
 {
+    fetchFirst
     goToSuperproject
 
     git-dirty --print-error --error-message 'ERROR: The superproject working copy is still dirty.' \

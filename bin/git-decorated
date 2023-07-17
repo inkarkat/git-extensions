@@ -1,0 +1,21 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Show the (short) ref names of the current / passed revision(s).
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<commit-ish> ...] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+[ $# -eq 0 ] && set -- HEAD
+
+status=0
+for rev
+do
+    git log --max-count 1 --pretty='format:%D' "$rev" -- || status=$?
+done
+exit $status

@@ -1,0 +1,63 @@
+#!/bin/bash
+set -o pipefail
+shopt -qs extglob
+
+readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
+[ -d "$scriptDir" ] || { echo >&2 'ERROR: Cannot determine script directory!'; exit 3; }
+readonly projectDir="${scriptDir}/.."
+readonly libDir="${projectDir}/lib"
+
+printUsage()
+{
+    cat <<HELPTEXT
+Show the (short) ref names of the current / passed revision(s).
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--decorate[=short|full|auto|no]] [--decorate-refs=<pattern>] [--decorate-refs-exclude=<pattern>] [--] [<commit-ish> ...] [-?|-h|--help]'
+}
+
+typeset -a logDecorateArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--decorate|--decorate=*)
+			logDecorateArgs+=("$1"); shift;;
+	--decorate-refs?(-exclude))
+			logDecorateArgs+=("$1" "${2?}"); shift; shift;;
+	--decorate-refs?(-exclude)=*)
+			logDecorateArgs+=("$1"); shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+[ $# -eq 0 ] && set -- HEAD
+
+status=0
+for rev
+do
+    git log --max-count 1 "${logDecorateArgs[@]}" --pretty='format:%D' "$rev" -- \
+	| awk --file "${libDir}/versionCompare.awk" --source '
+{
+    SEP = ", "
+    n = split($0, a, SEP)
+    for (i = 1; i <= n + 1; ++i) {
+	if (a[i] ~ /^tag: /) {
+	    tags[++t] = substr(a[i], 6)
+	} else {
+	    if (t > 1) {
+		result = result (result == "" ? "" : SEP) "tag: " join(tags, 1, t, ", tag: ")
+		delete tags; t = 0
+	    }
+	    if (i <= n) {
+		result = result (result == "" ? "" : SEP) a[i]
+	    }
+	}
+    }
+    print result
+}
+' \
+	|| status=$?
+done
+exit $status

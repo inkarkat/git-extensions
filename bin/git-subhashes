@@ -1,4 +1,5 @@
 #!/bin/bash
+shopt -qs extglob
 
 printUsage()
 {
@@ -7,11 +8,13 @@ Show a list of commit IDs recorded in the superproject [in <ref>], for all
 submodules.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--recursive] [<ref>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--recursive] [--short[=length]] [--decorate[=short|full|auto|no]] [--decorate-refs=<pattern>] [--decorate-refs-exclude=<pattern>] [<ref>] [-?|-h|--help]'
 }
 
 ref=
 typeset -a recursiveArg=()
+typeset -a subhashArgs=()
+hasDecorate=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -19,8 +22,15 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
-
 	--recursive)	recursiveArg=("$1"); shift;;
+	--short|--short=*)
+			subhashArgs+=("$1"); shift;;
+	--decorate|--decorate=*)
+			subhashArgs+=("$1"); shift; hasDecorate=t;;
+	--decorate-refs?(-exclude))
+			subhashArgs+=("$1" "${2?}"); shift; shift; hasDecorate=t;;
+	--decorate-refs?(-exclude)=*)
+			subhashArgs+=("$1"); shift; hasDecorate=t;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		if [ -z "$ref" ]; then
@@ -36,14 +46,24 @@ if [ $# -ne 0 ]; then
 fi
 
 # Optimization for when no <ref> is passed.
-[ -z "$ref" ] && exec git submodule foreach "${recursiveArg[@]}" --quiet 'echo $sha1 $sm_path'
+[ -z "$ref" -a ${#subhashArgs[@]} -eq 0 ] \
+    && exec git submodule foreach "${recursiveArg[@]}" --quiet 'echo $sha1 $sm_path'
 
 readarray -t submodules < <(git-sublist "${recursiveArg[@]}" --revision "$ref")
 [ ${#submodules[@]} -gt 0 ] || exit 99
+[ ! "$hasDecorate" ] || submoduleWidth=$(printf '%s\n' "${submodules[@]}" | wc --max-line-length)
+
 status=0
 for submodule in "${submodules[@]}"
 do
-    subhash="$(git-subhash "$ref" "$submodule")" || status=$?
-    printf '%s %s\n' "$subhash" "$submodule"
+    subhash="$(git-subhash "${subhashArgs[@]}" "$ref" "$submodule")" || status=$?
+
+    if [ "$hasDecorate" ]; then
+	decoration="${subhash#*$'\t'}"
+	subhash="${subhash%%$'\t'*}"
+	printf "%s %-${submoduleWidth}s %s\n" "$subhash" "$submodule" "$decoration"
+    else
+	printf '%s %s\n' "$subhash" "$submodule"
+    fi
 done
 exit $status

@@ -1,5 +1,11 @@
 #!/bin/bash
+set -o pipefail
 shopt -qs extglob
+
+readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
+[ -d "$scriptDir" ] || { echo >&2 'ERROR: Cannot determine script directory!'; exit 3; }
+readonly projectDir="${scriptDir}/.."
+readonly libDir="${projectDir}/lib"
 
 printUsage()
 {
@@ -31,6 +37,27 @@ done
 status=0
 for rev
 do
-    git log --max-count 1 "${logDecorateArgs[@]}" --pretty='format:%D' "$rev" -- || status=$?
+    git log --max-count 1 "${logDecorateArgs[@]}" --pretty='format:%D' "$rev" -- \
+	| awk --file "${libDir}/versionCompare.awk" --source '
+{
+    SEP = ", "
+    n = split($0, a, SEP)
+    for (i = 1; i <= n + 1; ++i) {
+	if (a[i] ~ /^tag: /) {
+	    tags[++t] = substr(a[i], 6)
+	} else {
+	    if (t > 1) {
+		result = result (result == "" ? "" : SEP) "tag: " join(tags, 1, t, ", tag: ")
+		delete tags; t = 0
+	    }
+	    if (i <= n) {
+		result = result (result == "" ? "" : SEP) a[i]
+	    }
+	}
+    }
+    print result
+}
+' \
+	|| status=$?
 done
 exit $status

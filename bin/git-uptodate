@@ -2,8 +2,6 @@
 # Source: https://stackoverflow.com/a/25109122/813602
 set -o pipefail
 
-readonly EXCLUDED_TAGS_CONFIG_KEY='uptodate.excludedTags'
-
 printUsage()
 {
     cat <<HELPTEXT
@@ -76,13 +74,12 @@ checkTag()
 	*)  printUsage "$0" >&2; exit 2;;
     esac
 
-    typeset -a excludedTagsArgs=(); readarray -t excludedTagsArgs < <(git config --get-all "$EXCLUDED_TAGS_CONFIG_KEY")
     remoteRev='' isFoundCurrentTag=
     while IFS=$'\n' read -r remoteTagName
     do
 	[ "$tagName" = "$remoteTagName" ] && isFoundCurrentTag=t
 	[ "$isFoundCurrentTag" ] && remoteRev="$remoteTagName"	# The latest tag wins.
-    done < <(git rtagtype "$remote" all "${excludedTagsArgs[@]/#/--exclude=}")
+    done < <(git rtagtype "$remote" all --version-tags-only)
     if [ ! "$isFoundCurrentTag" ]; then
 	printf >&2 "ERROR: Couldn't locate current tag '%s' in %s tags.\\n" "$tagName" "$remote"
 	exit 3

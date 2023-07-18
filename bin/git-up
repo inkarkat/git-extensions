@@ -4,8 +4,6 @@ shopt -qs extglob
 : ${GIT_UP_PREFER_DETACHED_TAG_OVER_BRANCH:=}	# When the detached working copy both refers to a tag and a local branch, checkout the newest tag instead of forwarding the corresponding branch.
 : ${GIT_UP_PREFER_LATEST_TAG_OVER_HIGHEST_VERSION:=}	# Use creation date ordering for remote tags instead of the default version-sorting.
 
-readonly EXCLUDED_TAGS_CONFIG_KEY='uptodate.excludedTags'
-
 # Source:
 #   https://stackoverflow.com/questions/30208928/can-git-pull-automatically-stash-and-pop-pending-changes
 #   https://github.com/aanand/git-up
@@ -185,13 +183,12 @@ elif git-isdetached; then
 	    echo >&2 'Note: Not touching a dirty detached checkout.'
 	else
 	    # Checkout the tag with the highest version number / newest tag.
-	    typeset -a excludedTagsArgs=(); readarray -t excludedTagsArgs < <(git config --get-all "$EXCLUDED_TAGS_CONFIG_KEY")
 	    newTagName='' isFoundCurrentTag=
 	    while IFS=$'\n' read -r availableTagName
 	    do
 		[ "$tagName" = "$availableTagName" ] && isFoundCurrentTag=t
 		[ "$isFoundCurrentTag" ] && newTagName="$availableTagName"	# The last tag (with the highest version number / newest) wins.
-	    done < <(git tagtype all "${excludedTagsArgs[@]/#/--exclude=}" ${GIT_UP_PREFER_LATEST_TAG_OVER_HIGHEST_VERSION:+--sort-by-age})
+	    done < <(git tagtype all --version-tags-only ${GIT_UP_PREFER_LATEST_TAG_OVER_HIGHEST_VERSION:+--sort-by-age})
 	    if [ ! "$isFoundCurrentTag" ]; then
 		printf >&2 "ERROR: Couldn't locate current tag '%s'.\\n" "$tagName"
 		# Note: Ignore this; don't abort.

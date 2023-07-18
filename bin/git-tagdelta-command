@@ -1,0 +1,162 @@
+#!/bin/bash
+
+readonly EXCLUDED_TAGS_CONFIG_KEY='uptodate.excludedTags'
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--annotated|--lightweight] [-r|--revision REVISION|-o|--tag-offset N] [-d|--tag-delta N] [--reverse] [-i|--include <pattern> [-i ...]] [-e|--exclude <pattern> [-e ...]] [--version-tags-only|--no-version-tags] [--sort-by-age] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... TAGRANGE ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [...]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Print / execute GIT-COMMAND with revisions of HEAD / the passed -r|--revision
+REVISION and the first tag or of two tags (with -o|--tag-offset N or
+-d|--tag-delta N in between, matching -i|--include <pattern> or not -e|--exclude
+<pattern>)
+- appended as TAG2..(TAG1|REVISION)
+- replacing TAG1 and TAG2 argument(s) anywhere
+- replacing TAG1 and TAG2 in the following GIT-COMMAND and -(N-1) arguments
+- replacing TAG1 and TAG2 in the following +(N) arguments and appending those
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    cat <<HELPTEXT
+    --annotated		Only consider annotated tags.
+    --lightweight	Only consider lightweight tags.
+    -r|--revision REVISION
+			Use REVISION instead of HEAD as the base revision.
+    --tag-offset|-o N	Skips the first N tags; with 0, just skips HEAD|REVISION
+			as the base.
+    --tag-delta|-d N	Skip N tags in between.
+    --reverse		Swap TAG1 and TAG2 and change the default ordering to
+			(TAG1|REVISION)..TAG2
+    --include|-i <pattern>
+			Only consider tags matching <pattern>.
+    --exclude|-e <pattern>
+			Only consider tags not matching <pattern>. Takes
+			precedence over --include.
+    --version-tags-only	Only consider tags that are considered versions; i.e. do
+			not match the $EXCLUDED_TAGS_CONFIG_KEY config setting.
+    --no-version-tags	Omit tags that are considered versions.
+    --sort-by-age	Sort by tag date (ascending, oldest first) instead of
+			the default version number sorting.
+HELPTEXT
+}
+
+tagType=all
+revision=
+tagOffset=
+tagDelta=0
+isReverse=
+typeset -a tagtypeArgs=()
+typeset -a args=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--annotated|--lightweight)
+			shift; tagType="${1#--}"; shift;;
+	--revision|-r)	if [ "$2" = TAG1 -o "$2" = TAG2 ]; then
+			    args+=("$1" "$2"); shift; shift
+			else
+			    shift; revision="$1"; shift
+			fi
+			;;
+	--tag-offset|-o)
+			shift; tagOffset="${1?}"; shift;;
+	--tag-delta|-d)	shift; tagDelta="${1?}"; shift;;
+	--reverse)	shift; isReverse=t;;
+	--include|-i)	shift; tagtypeArgs+=(--list "$1"); shift;;
+	--include=*)	tagtypeArgs+=(--list "${1#--include=}"); shift;;
+	-i*)		tagtypeArgs+=(--list "${1#-i}"); shift;;
+	--exclude|-e)	tagtypeArgs+=("$1" "${2?}"); shift; shift;;
+	--exclude=*|-e*)
+			tagtypeArgs+=("$1"); shift;;
+	--version-tags-only|--no-version-tags|--sort-by-age)
+			tagtypeArgs+=("$1"); shift;;
+	--)		break;;
+	*)		args+=("$1"); shift;;
+    esac
+done
+set -- "${args[@]}" "$@"
+
+if [ $# -eq 0 ]; then
+    echo 'ERROR: No GIT-COMMAND passed.'
+    exit 2
+elif [ -n "$tagOffset" -a -n "$revision" ]; then
+    echo 'ERROR: -o|--tag-offset cannot be combined with -r|--revision.'
+    echo
+    printUsage "$0"
+    exit 2
+fi >&2
+
+readarray -t tags < <(git-tagtype "$tagType" "${tagtypeArgs[@]}" | tac)
+if [ ${#tags[@]} -eq 0 ]; then
+    echo >&2 'ERROR: No tags found.'
+    exit 1
+fi
+if [ -n "$tagOffset" ]; then
+    tag1="${tags[$tagOffset]}"
+    tag2="${tags[$((tagOffset + 1 + tagDelta))]}"
+
+    if [ -z "$tag1" ]; then
+	printf >&2 'ERROR: Only %d tags available, not %d tags.\n' ${#tags[@]} $((tagOffset + 1))
+	exit 1
+    elif [ -z "$tag2" ]; then
+	printf >&2 'ERROR: Only %d tags available, not %d tags.\n' ${#tags[@]} $((tagOffset + 2 + tagDelta))
+	exit 1
+    fi
+else
+    tag1="${revision:-HEAD}"
+    tag2="${tags[$tagDelta]}"
+
+    if [ -z "$tag2" ]; then
+	printf >&2 'ERROR: Only %d tags available, not %d tags.\n' ${#tags[@]} "$((tagDelta + 1))"
+	exit 1
+    fi
+fi
+if [ "$isReverse" ]; then
+    tmp="$tag1"; tag1="$tag2"; tag2="$tmp"
+fi
+
+isCountedAppend=
+case "$1" in
+    +[1-9])
+	isCountedAppend=t;&
+    -[1-9])
+	typeset countedArgNum=${1#[+-]}
+	typeset -a countedArgs=("${@:2:${countedArgNum}}")
+	set -- "${@:$((2 + countedArgNum))}"
+
+	countedArgs=("${countedArgs[@]//TAG1/${tag1}}")
+	countedArgs=("${countedArgs[@]//TAG2/${tag2}}")
+
+	[ "$isCountedAppend" ] \
+	    && exec git-wrapper "$@" "${countedArgs[@]}" \
+	    || exec git-wrapper "${countedArgs[@]}" "$@"
+	;;
+    --keep-position)
+	shift
+	set -- "${@//TAG1/${tag1}}"
+	set -- "${@//TAG2/${tag2}}"
+	exec git-wrapper "$@"
+	;;
+    *)
+	exec git-wrapper "$@" "${tag2}..${tag1}"
+	;;
+esac

@@ -6,22 +6,53 @@ set -o pipefail
 printUsage()
 {
     cat <<HELPTEXT
-git ${GIT_LGHIGHLIGHT_LG}, with lines that match passed PATTERN highlighted.
-PATTERN is a sed-style unanchored basic regular expresion.
+git ${GIT_LGHIGHLIGHT_LG}, with lines that match the specified text or /regexp/ highlighted.
+regexp is a sed-style unanchored basic regular expresion.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'PATTERN [GIT-LOG-ARGUMENTS ...] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[GIT-LOG-ARGUMENTS ...] [<revision range>] [[--] <path>...] text|/regexp/ [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[GIT-LOG-ARGUMENTS ...] [<revision range>] --grep=<pattern> [[--] <path>...]'
 }
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-esac
-if [ $# -eq 0 ]; then
-    echo 'ERROR: No PATTERN passed.'
-    echo
-    printUsage "$0"
-    exit 2
-fi >&2
-pattern="${1:?}"; shift
+
+typeset -a colorArg=(--color=always)
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+if [ ! -t 1 ]; then
+    colorArg=()
+    pager=()
+fi
+pattern=
+typeset -a logArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--color=auto)	shift;;
+	--no-color|--color=*)
+			colorArg=("$1"); shift;;
+	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); shift; shift;;
+
+	--grep)		shift; pattern+="${pattern:+\\|}${1:?}"; shift;;
+	--grep=*)	pattern+="${pattern:+\\|}${1#--grep=}"; shift;;
+	--)		logArgs+=("$1"); shift; break;;
+	*)		logArgs+=("$1"); shift;;
+    esac
+done
+set -- "${logArgs[@]}" "$@"
+if [ -z "$pattern" ]; then
+    # No --grep given; the last argument is the text or /regexp/.
+    if [ $# -eq 0 ]; then
+	printUsage "$0"
+	exit 2
+    fi
+
+    lastArg="${!#}"
+    pattern=$(printf '%s' "$lastArg" | sed -ne 's/^\([^a-zA-Z0-9]\)\(.*\)\1$/\2/p')
+    if [ -z "$pattern" ]; then
+	pattern="$(printf %s "$lastArg" | sed -e 's/[][\$*.^/]/\\&/g')"
+    fi
+    set -- "${@:1:$(($#-1))}"
+fi
+
 if [[ "$pattern" =~ ^(\\\()*\^ ]] && [ ! "$GIT_LGHIGHLIGHT_RAW_PATTERN" ]; then
     # The ^ anchor is supposed to match at the beginning of the commit title,
     # but as git lg has additional elements at the beginning, we need to convert
@@ -32,30 +63,10 @@ if [[ "$pattern" =~ ^(\\\()*\^ ]] && [ ! "$GIT_LGHIGHLIGHT_RAW_PATTERN" ]; then
     pattern="${pattern/^/ \\(\\x1b\\[[0-9:;]*m\\)* \\([^)]\\+)\\(\\x1b\\[[0-9:;]*m\\)* \\)\\?}"
 fi
 
-typeset -a colorArg=(--color=always)
-typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
-if [ ! -t 1 ]; then
-    colorArg=()
-    pager=()
-fi
-typeset -a gitLogArgs=()
-while [ $# -ne 0 ]
-do
-    case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-	--color=auto)	shift;;
-	--no-color|--color=*)
-			colorArg=("$1"); shift;;
-	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); shift; shift;;
-	--)		gitLogArgs+=("$@"); break;;
-	*)		gitLogArgs+=("$1"); shift;;
-    esac
-done
-
-
 lghighlight()
 {
-    git ${GIT_LGHIGHLIGHT_LG:?} "${colorArg[@]}" "${gitLogArgs[@]}" | sed -e "/${pattern//\//\/}/"'{ s#\[0*m#&[07m#g; s#.*#[07m&[0m# }'
+    git ${GIT_LGHIGHLIGHT_LG:?} "${colorArg[@]}" "$@" \
+	| sed -e "/${pattern//\//\/}/"'{ s#\[0*m#&[07m#g; s#.*#[07m&[0m# }'
 }
 
 eval 'lghighlight "$@"' "${pager:+|}" '"${pager[@]}"'

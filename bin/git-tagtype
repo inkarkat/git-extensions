@@ -1,11 +1,13 @@
 #!/bin/bash
 set -o pipefail
 
+readonly EXCLUDED_TAGS_CONFIG_KEY='uptodate.excludedTags'
+
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'all|annotated|lightweight [-v|--verbose [-v]] [[-l|--list] <pattern> [...]] [-e|--exclude <pattern> [-e ...]] [--sort-by-age] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'all|annotated|lightweight [-v|--verbose [-v]] [[-l|--list] <pattern> [...]] [-e|--exclude <pattern> [-e ...]] [--version-tags-only] [--sort-by-age] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -27,6 +29,8 @@ HELPDESCRIPTION
     cat <<HELPTEXT
     --exclude|-e <pattern>
 			Only print tags not matching <pattern>.
+    --version-tags-only	Only print tags that are considered versions; i.e. do
+			not match the $EXCLUDED_TAGS_CONFIG_KEY config setting.
     --sort-by-age	Sort by tag date (ascending, oldest first) instead of
 			the default version number sorting.
 HELPTEXT
@@ -65,9 +69,14 @@ do
 			;;
 	--list|-l)	shift; filter='matcher'; patterns+=("$1"); shift;;
 
-	--exclude|-e)	shift; filter='matcher'; excludedPatterns+=("${1:?}"); shift;;
+	--exclude|-e)	shift; excludedPatterns+=("${1:?}"); shift; filter='matcher';;
 	--exclude=*)	excludedPatterns+=("${1#--exclude=}"); shift; filter='matcher';;
 	-e*)		excludedPatterns+=("${1#-e}"); shift; filter='matcher';;
+	--version-tags-only)
+			shift
+			readarray -t excludedPatterns -O ${#excludedPatterns[@]} < <(git config --get-all "$EXCLUDED_TAGS_CONFIG_KEY")
+			filter='matcher'
+			;;
 
 	--sort-by-age)	shift; sortField='creatordate';;
 	--)		shift; break;;

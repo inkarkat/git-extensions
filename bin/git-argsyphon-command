@@ -1,0 +1,89 @@
+#!/bin/bash
+shopt -qs extglob
+
+printUsage()
+{
+    cat <<HELPTEXT
+Execute GIT-COMMAND with SHORT_OPTIONS LONG_OPTIONS SHORT_PARAMS LONG_PARAMS
+arguments parsed off and
+- appended
+- replacing ARGS argument(s) anywhere
+- replacing ARGS in the following GIT-COMMAND and -(N-1) arguments
+- replacing ARGS in the following +(N) arguments and appending those
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'SHORT_OPTIONS LONG_OPTIONS SHORT_PARAMS LONG_PARAMS ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... ARGS ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [...]'
+}
+
+shortOptions="${1?}"; shift
+longOptions="${1?}"; shift
+shortParams="${1?}"; shift
+longParams="${1?}"; shift
+
+typeset -a args=()
+typeset -a siphonedArgs=()
+while [ $# -ne 0 ]
+do
+    eval "case \"\$1\" in
+	--help|-h|-\\?)	shift; printUsage \"\$0\"; exit 0;;
+	${shortOptions:+(-+([${shortOptions}]))	siphonedArgs+=(\"\$1\"); shift;;}
+	${longOptions:+(--@(${longOptions}))	siphonedArgs+=(\"\$1\"); shift;;}
+	${shortParams:+(-+([${shortParams}]))	siphonedArgs+=(\"\$1\" \"\${2?\}\"); shift; shift;;}
+	${longParams:+(--@(${longParams}))	siphonedArgs+=(\"\$1\" \"\${2?\}\"); shift; shift;;}
+	--)		break;;
+	*)		args+=(\"\$1\"); shift;;
+    esac"
+done
+set -- "${args[@]}" "$@"
+
+if [ $# -eq 0 ]; then
+    echo >&2 'ERROR: No GIT-COMMAND passed.'
+    exit 2
+fi
+
+isCountedAppend=
+case "$1" in
+    +[1-9])
+	isCountedAppend=t;&
+    -[1-9])
+	typeset countedArgNum=${1#[+-]}
+	typeset -a countedArgs=("${@:2:${countedArgNum}}")
+	set -- "${@:$((2 + countedArgNum))}"
+
+	typeset -a appendedArgs=()
+	for arg in "${countedArgs[@]}"
+	do
+	    if [ "$arg" = 'ARGS' ]; then
+		appendedArgs+=("${siphonedArgs[@]}")
+	    else
+		appendedArgs+=("$arg")
+	    fi
+	done
+
+	[ "$isCountedAppend" ] \
+	    && exec git-wrapper "$@" "${appendedArgs[@]}" \
+	    || exec git-wrapper "${appendedArgs[@]}" "$@"
+	;;
+    --keep-position)
+	shift
+
+	typeset -a appendedArgs=()
+	for arg
+	do
+	    if [ "$arg" = 'ARGS' ]; then
+		appendedArgs+=("${siphonedArgs[@]}")
+	    else
+		appendedArgs+=("$arg")
+	    fi
+	done
+
+	exec git-wrapper "${appendedArgs[@]}"
+	;;
+    *)
+	exec git-wrapper "$@" "${siphonedArgs[@]}"
+	;;
+esac

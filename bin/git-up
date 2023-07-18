@@ -3,6 +3,7 @@ shopt -qs extglob
 
 : ${GIT_UP_PREFER_DETACHED_TAG_OVER_BRANCH:=}	# When the detached working copy both refers to a tag and a local branch, checkout the newest tag instead of forwarding the corresponding branch.
 : ${GIT_UP_PREFER_LATEST_TAG_OVER_HIGHEST_VERSION:=}	# Use creation date ordering for remote tags instead of the default version-sorting.
+: ${GIT_UP_CHECK_CONFIG_KEY=up.check}	# The config key for after-update check commands.
 
 # Source:
 #   https://stackoverflow.com/questions/30208928/can-git-pull-automatically-stash-and-pop-pending-changes
@@ -227,3 +228,9 @@ else
 fi
 
 [ "$submoduleHandling" = ignore ] || ! GIT_SUBMODULEUNINITIALIZED_MESSAGE='Warning: Uninitialized submodule(s) found:' git-submodule-uninitialized --print --recursive
+
+readarray -t afterUpdateChecks < <(git config --get-all "$GIT_UP_CHECK_CONFIG_KEY")
+for afterUpdateCheck in "${afterUpdateChecks[@]}"
+do
+    eval "$afterUpdateCheck" >&2 || exit $?
+done

@@ -55,6 +55,11 @@ getRemoteBranch()
     fi
 }
 
+gitUpdateOperation()
+{
+    eval "\"\$@\"${GIT_UP_REDIRECTION:+ }${GIT_UP_REDIRECTION}"
+}
+
 remote=
 submoduleHandling=recurse
 typeset -a fetchPullArgs=()
@@ -157,7 +162,7 @@ if [ "$GIT_UP_FETCH" ]; then
     # XXX: Don't use "git-wrapper fetch" there, because that would use my
     # hub-fetch extension if we got invoked via hub (e.g. through the
     # auto-fetching of "hub supersubreintegratetom").
-    git-fetch "${fetchPullArgs[@]}" "$remote" "$@" || exit $?
+    gitUpdateOperation git-fetch "${fetchPullArgs[@]}" "$remote" "$@" || exit $?
 fi
 
 # Here, merges typically happen from the master / base branch to pick up
@@ -172,7 +177,7 @@ elif [ "$GIT_UP_REBASE" ]; then
     if [ $# -gt 0 ] && git-existsbr -- "${!#}"; then
 	set -- "${@:1:$(($#-1))}"   # Drop the trailing <refspec> remote branch for the rebase.
     fi
-    git-wrapper "${gitAutoStashGitArg[@]}" rebase "${gitAutoStashPullOrRebaseArg[@]}" "${gitRebaseMergesArg[@]}" "$@" "$remoteBranch" || exit $?
+    gitUpdateOperation git-wrapper "${gitAutoStashGitArg[@]}" rebase "${gitAutoStashPullOrRebaseArg[@]}" "${gitRebaseMergesArg[@]}" "$@" "$remoteBranch" || exit $?
 elif git-isdetached; then
     tagName="$(git istagged --print)"
     branch="$(getDetachedBranch)"
@@ -224,7 +229,7 @@ elif git-isdetached; then
 	fi
     fi
 else
-    git "${gitAutoStashGitArg[@]}" pull "${fetchPullArgs[@]}" "${gitAutoStashPullOrRebaseArg[@]}" "${gitPullRebaseMergesArg[@]}" "$remote" "$@" || exit $?
+    gitUpdateOperation git "${gitAutoStashGitArg[@]}" pull "${fetchPullArgs[@]}" "${gitAutoStashPullOrRebaseArg[@]}" "${gitPullRebaseMergesArg[@]}" "$remote" "$@" || exit $?
 fi
 
 [ "$submoduleHandling" = ignore ] || ! GIT_SUBMODULEUNINITIALIZED_MESSAGE='Warning: Uninitialized submodule(s) found:' git-submodule-uninitialized --print --recursive

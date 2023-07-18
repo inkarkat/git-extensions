@@ -3,6 +3,7 @@ shopt -qs extglob
 
 : ${GIT_UP_PREFER_DETACHED_TAG_OVER_BRANCH:=}	# When the detached working copy both refers to a tag and a local branch, checkout the newest tag instead of forwarding the corresponding branch.
 : ${GIT_UP_PREFER_LATEST_TAG_OVER_HIGHEST_VERSION:=}	# Use creation date ordering for remote tags instead of the default version-sorting.
+: ${GIT_UP_CHECK_CONFIG_KEY=up.check}	# The config key for after-update check commands.
 
 # Source:
 #   https://stackoverflow.com/questions/30208928/can-git-pull-automatically-stash-and-pop-pending-changes
@@ -52,6 +53,11 @@ getRemoteBranch()
     else
 	git-remotebr "${remote:?}"
     fi
+}
+
+gitUpdateOperation()
+{
+    eval "\"\$@\"${GIT_UP_REDIRECTION:+ }${GIT_UP_REDIRECTION}"
 }
 
 remote=
@@ -132,7 +138,7 @@ else
 	fi
     fi
 
-    exec git-logdelta "${colorArg[@]}" "${logDeltaArgs[@]}" -- "${scriptName#git-}" --remote "${remote:?}" "${fetchPullArgs[@]}" --launch "$@"
+    exec git-logdelta "${colorArg[@]}" "${logDeltaArgs[@]}" -- "${scriptName#git-}" "${colorArg[@]}" --remote "${remote:?}" "${fetchPullArgs[@]}" --launch "$@"
 fi
 
 GIT_VERSION="$(git --version 2>/dev/null)"
@@ -156,7 +162,7 @@ if [ "$GIT_UP_FETCH" ]; then
     # XXX: Don't use "git-wrapper fetch" there, because that would use my
     # hub-fetch extension if we got invoked via hub (e.g. through the
     # auto-fetching of "hub supersubreintegratetom").
-    git-fetch "${fetchPullArgs[@]}" "$remote" "$@" || exit $?
+    gitUpdateOperation git-fetch "${fetchPullArgs[@]}" "$remote" "$@" || exit $?
 fi
 
 # Here, merges typically happen from the master / base branch to pick up
@@ -171,7 +177,7 @@ elif [ "$GIT_UP_REBASE" ]; then
     if [ $# -gt 0 ] && git-existsbr -- "${!#}"; then
 	set -- "${@:1:$(($#-1))}"   # Drop the trailing <refspec> remote branch for the rebase.
     fi
-    git-wrapper "${gitAutoStashGitArg[@]}" rebase "${gitAutoStashPullOrRebaseArg[@]}" "${gitRebaseMergesArg[@]}" "$@" "$remoteBranch" || exit $?
+    gitUpdateOperation git-wrapper "${gitAutoStashGitArg[@]}" rebase "${gitAutoStashPullOrRebaseArg[@]}" "${gitRebaseMergesArg[@]}" "$@" "$remoteBranch" || exit $?
 elif git-isdetached; then
     tagName="$(git istagged --print)"
     branch="$(getDetachedBranch)"
@@ -223,7 +229,13 @@ elif git-isdetached; then
 	fi
     fi
 else
-    git "${gitAutoStashGitArg[@]}" pull "${fetchPullArgs[@]}" "${gitAutoStashPullOrRebaseArg[@]}" "${gitPullRebaseMergesArg[@]}" "$remote" "$@" || exit $?
+    gitUpdateOperation git "${gitAutoStashGitArg[@]}" pull "${fetchPullArgs[@]}" "${gitAutoStashPullOrRebaseArg[@]}" "${gitPullRebaseMergesArg[@]}" "$remote" "$@" || exit $?
 fi
 
 [ "$submoduleHandling" = ignore ] || ! GIT_SUBMODULEUNINITIALIZED_MESSAGE='Warning: Uninitialized submodule(s) found:' git-submodule-uninitialized --print --recursive
+
+readarray -t afterUpdateChecks < <(git config --get-all "$GIT_UP_CHECK_CONFIG_KEY")
+for afterUpdateCheck in "${afterUpdateChecks[@]}"
+do
+    eval "$afterUpdateCheck" >&2 || exit $?
+done

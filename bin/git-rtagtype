@@ -7,7 +7,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} all|annotated|lightweight [[-l|--list] <pattern> [...]] [-e|--exclude <pattern> [-e ...]] [--version-tags-only] [--sort-by-age] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} all|annotated|lightweight [[-l|--list] <pattern> [...]] [-e|--exclude <pattern> [-e ...]] [--version-tags-only|--no-version-tags] [--sort-by-age] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -31,6 +31,7 @@ HELPDESCRIPTION
 			Only print tags not matching <pattern>.
     --version-tags-only	Only print tags that are considered versions; i.e. do
 			not match the $EXCLUDED_TAGS_CONFIG_KEY config setting.
+    --no-version-tags	Omit tags that are considered versions.
     --sort-by-age	Sort by tag date (ascending, oldest first) instead of
 			the default version number sorting. Note: Corresponding
 			commits must have been fetched already for this to work.
@@ -72,6 +73,11 @@ do
 	--version-tags-only)
 			shift
 			readarray -t excludedPatterns -O ${#excludedPatterns[@]} < <(git config --get-all "$EXCLUDED_TAGS_CONFIG_KEY")
+			filter='matcher'
+			;;
+	--no-version-tags)
+			shift
+			readarray -t patterns -O ${#patterns[@]} < <(git config --get-all "$EXCLUDED_TAGS_CONFIG_KEY")
 			filter='matcher'
 			;;
 

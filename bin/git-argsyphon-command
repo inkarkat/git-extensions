@@ -7,14 +7,14 @@ printUsage()
 Execute GIT-COMMAND with SHORT_OPTIONS LONG_OPTIONS SHORT_PARAMS LONG_PARAMS
 arguments parsed off and
 - appended
-- replacing ARGS argument(s) anywhere
-- replacing ARGS in the following GIT-COMMAND and -(N-1) arguments
-- replacing ARGS in the following +(N) arguments and appending those
+- replacing [Q]ARGS argument(s) anywhere
+- replacing [Q]ARGS in the following GIT-COMMAND and -(N-1) arguments
+- replacing [Q]ARGS in the following +(N) arguments and appending those
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" 'SHORT_OPTIONS LONG_OPTIONS SHORT_PARAMS LONG_PARAMS ... [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [...]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... ARGS ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "... --keep-position GIT-COMMAND [... ARGS|--command 'echo 'QARGS ...]"
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [...]'
 }
@@ -45,6 +45,7 @@ if [ $# -eq 0 ]; then
     exit 2
 fi
 
+quotedSiphonedArgs=; if [ ${#siphonedArgs[@]} -gt 0 ]; then printf -v quotedSiphonedArgs '%q ' "${siphonedArgs[@]}"; quotedSiphonedArgs="${quotedSiphonedArgs% }"; fi
 isCountedAppend=
 case "$1" in
     +[1-9])
@@ -60,7 +61,7 @@ case "$1" in
 	    if [ "$arg" = 'ARGS' ]; then
 		appendedArgs+=("${siphonedArgs[@]}")
 	    else
-		appendedArgs+=("$arg")
+		appendedArgs+=("${arg//QARGS/$quotedSiphonedArgs}")
 	    fi
 	done
 
@@ -77,7 +78,7 @@ case "$1" in
 	    if [ "$arg" = 'ARGS' ]; then
 		appendedArgs+=("${siphonedArgs[@]}")
 	    else
-		appendedArgs+=("$arg")
+		appendedArgs+=("${arg//QARGS/$quotedSiphonedArgs}")
 	    fi
 	done
 

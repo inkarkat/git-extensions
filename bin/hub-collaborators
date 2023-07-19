@@ -1,0 +1,49 @@
+#!/bin/bash
+
+: ${HUB_COLLABORATORS_OWNER:='{owner}'}
+: ${HUB_COLLABORATORS_REPO:='{repo}'}
+
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+typeset -a formatter=(column -s $'\t' -t)
+if [ ! -t 1 ]; then
+    pager=()
+    formatter=()
+fi
+
+printUsage()
+{
+    cat <<HELPTEXT
+List all collaborators and their role (and corresponding permissions) for the
+current repository.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+apiCall()
+{
+    gh api "$@" "repos/${HUB_COLLABORATORS_OWNER}/${HUB_COLLABORATORS_REPO}/collaborators"
+}
+
+getCollaborators()
+{
+    jq --raw-output '.[] | .login + "\t" + .role_name + "\t(" + (.permissions | with_entries(select(.value)) | keys | join(", ")) + ")"'
+}
+
+sortCollaborators()
+{
+    sort --ignore-case --field-separator=$'\t' --key=2,2 --key=1,1
+}
+
+apiCall "$@" \
+    | getCollaborators \
+    | eval 'sortCollaborators' \
+    "${formatter:+|}" '"${formatter[@]}"' \
+    "${pager:+|}" '"${pager[@]}"'

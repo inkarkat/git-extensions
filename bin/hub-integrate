@@ -64,6 +64,11 @@ time:
 				    merge commit
 HELPTEXT
 }
+printChecksIgnoredNote()
+{
+    echo >&2 'Note: Passed checks are ignored when merging remotely via GitHub.'
+    printChecksIgnoredNote() { :; }
+}
 
 typeset -a pushBranchForceArg=()
 typeset -a pushBranchArgs=()
@@ -111,6 +116,20 @@ do
 			fi
 			mergeResolutionArg="$1"; shift;;
 	--yes|-y)	gitRemoteMutateArgs+=("$1"); shift;;
+	--no-checks)	shift; printChecksIgnoredNote() { :; };;
+	--command|-c)	shift; shift; printChecksIgnoredNote;;
+	--exec)		shift
+			while [ $# -gt 0 -a "$1" != ';' ]
+			do
+			    shift
+			done
+			if [ $# -eq 0 ]; then
+			    echo 'ERROR: --exec command must be concluded with ;!'; echo; printUsage "$0"
+			    exit 2
+			fi >&2
+			shift
+			printChecksIgnoredNote
+			;;
 	--offer)	shift; isOffer=t; problemSeverity='Note';;
 	--message|-m|--file|-F)
 			mergeMessageArgs+=("$1" "$2"); shift; shift;;
@@ -121,6 +140,7 @@ do
 	*)		break;;
     esac
 done
+[ -z "$GIT_CHECK_COMMAND" ] || printChecksIgnoredNote
 
 sourceBranch="$(git-brname --real-branch-only)" || exit $?
 sourceTracks="$(git-tracks 2>/dev/null)"

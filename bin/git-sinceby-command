@@ -52,8 +52,10 @@ HELPTEXT
 
 # Need to parse off --author|--committer from anywhere first; these here select
 # the user and do not filter commits by author (for that we have "git logby").
+# Same for --revision to determine the start revision.
 # Same for --with-log-args-except-last to determine that the last argument is
 # not a file argument.
+revision=
 typeset userFilterArgs=()
 withLogArgs=
 typeset -a allargs=()
@@ -62,6 +64,7 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--revision|-r)	shift; revision="$1"; shift;;
 	--author|--committer)
 			userFilterArgs+=("$1" "$2"); shift; shift;;
 	--author=*|--committer=*)
@@ -95,18 +98,6 @@ if [ -z "${files+t}" ]; then
     done
 fi
 set -- "${allargs[@]}"
-
-revision=
-typeset -a allargs=()
-while [ $# -ne 0 ]
-do
-    case "$1" in
-	--revision|-r)	shift; revision="$1"; shift;;
-	--)		break;;
-	*)		args+=("$1"); shift;;
-    esac
-done
-set -- "${args[@]}" "$@"
 
 range=..
 isShowOneMore=

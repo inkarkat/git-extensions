@@ -6,10 +6,10 @@ printShortUsage()
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--revision REVISION] [--author=<pattern>|--committer=<pattern> ...] [--no-range|--with-range ...|--last-only] [--one-more] [--with-log-args|--with-log-args-except-last] ... [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [...]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... USERRANGE ...]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [... --author=<pattern>|--committer=<pattern> [-r|--revision REVISION] ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... USERRANGE ... --author=<pattern>|--committer=<pattern> [-r|--revision REVISION] ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [... --author=<pattern>|--committer=<pattern> [-r|--revision REVISION] ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [... --author=<pattern>|--committer=<pattern> [-r|--revision REVISION] ...]'
 }
 printUsage()
 {
@@ -48,19 +48,36 @@ HELPDESCRIPTION
 		    be used when determining the revision range.
 HELPTEXT
 }
+
+# Need to parse off --author|--committer from anywhere first; these here select
+# the user and do not filter commits by author.
+# Same for --revision to determine the start revision.
 revision=
+typeset userFilterArgs=()
+typeset -a allargs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--revision|-r)	shift; revision="$1"; shift;;
+	--author|--committer)
+			userFilterArgs+=("$1" "$2"); shift; shift;;
+	--author=*|--committer=*)
+			userFilterArgs+=("$1"); shift;;
+	--)		break;;
+	*)		allargs+=("$1"); shift;;
+    esac
+done
+set -- "${allargs[@]}" "$@"
+
 range=..
 isLastOnly=
 isShowOneMore=
-typeset userFilterArgs=()
 withLogArgs=
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)		    shift; printLongUsage "$0"; exit 0;;
-	--revision|-r)		    shift; revision="$1"; shift;;
-	--author|--committer)	    userFilterArgs+=("$1" "$2"); shift; shift;;
-	--author=*|--committer=*)   userFilterArgs+=("$1"); shift;;
 	--no-range)		    shift; range=;;
 	--with-range)		    shift; range="$1"; shift;;
 	--last-only)		    shift; isLastOnly=t; range=;;

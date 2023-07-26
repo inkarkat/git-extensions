@@ -6,14 +6,26 @@ printUsage()
 Interactively select (from all modified files or those filtered by passed list
 of files) files (or directly pass N, M, ... selections) to diff by number.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<range>] [N [M ...]] [--] [FILE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[[--log-range] <range>] [N [M ...]] [--] [FILE ...] [-?|-h|--help]'
 }
 
 diffCommand="${GIT_DIFFSELECTED_DIFFCOMMAND:-diff}"
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --cached)		diffCommand+=" $1"; shift; export GIT_SELECTED_COMMAND_DEFAULT_FILES='git-staged';;
-    *..*)		diffCommand+=" $1"; shift; export GIT_SELECTED_COMMAND_DEFAULT_FILES='printf %s\\n';;
-esac
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--cached)	diffCommand+=" $1"; shift; export GIT_SELECTED_COMMAND_DEFAULT_FILES='git-staged';;
+	--log-range)	shift
+			case "$1" in
+			    *...*)   diffCommand+=" ${1/.../..}";;
+			    *..*)   diffCommand+=" ${1/../...}";;
+			esac
+			shift
+			export GIT_SELECTED_COMMAND_DEFAULT_FILES='printf %s\\n'
+			;;
+	*..*)		diffCommand+=" $1"; shift; export GIT_SELECTED_COMMAND_DEFAULT_FILES='printf %s\\n';;
+	*)		break;;
+    esac
+done
 
-exec git-selected-command "root $diffCommand" "$@"
+exec git-selected-command "root $diffCommand --" "$@"

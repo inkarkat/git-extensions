@@ -110,8 +110,8 @@ case "$1" in
 esac
 
 if [ ${#userFilterArgs[@]} -eq 0 ]; then
-    author="$(git show --no-patch --pretty=format:'%aN <%aE>' "${revision:-HEAD}")" || exit $?
-    committer="$(git show --no-patch --pretty=format:'%cN <%cE>' "${revision:-HEAD}")" || exit $?
+    author="$(git log --max-count 1 --pretty=format:'%aN <%aE>' "${revision:-HEAD}")" || exit $?
+    committer="$(git log --max-count 1 --pretty=format:'%cN <%cE>' "${revision:-HEAD}")" || exit $?
     userFilterArgs+=(--author "$author")
     [ "$author" = "$committer" ] || userFilterArgs+=(--committer "$committer")
 fi
@@ -137,7 +137,7 @@ startRevision=
 
 if [ -n "$firstDifferentRevision" ]; then
     if [ $firstDifferentCount -eq 1 ]; then
-	[ "$author" ] || author="$(git show --no-patch --pretty=format:'%aN <%aE>' "$revision" "${sharedLogArgs[@]}" 2>/dev/null)"
+	[ "$author" ] || author="$(git log --max-count 1 --pretty=format:'%aN <%aE>' "$revision" "${sharedLogArgs[@]}" 2>/dev/null)"
 	printf >&2 'The %s revision already is from another user (%s).\n' "$revision" "$author"
 	exit 1
     else

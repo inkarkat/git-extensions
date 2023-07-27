@@ -54,37 +54,37 @@ do
     esac
 done
 
-getBranches()
+getBranchRecords()
 {
-    typeset -a localBranches=()
-    readarray -t localBranches < <(git for-each-ref --sort=committerdate --format=$'%(committerdate:unix)\t%(refname:short)' refs/heads/)
-    [ ${#localBranches[@]} -gt 0 ] || return 1
+    typeset -a localBranchRecords=()
+    readarray -t localBranchRecords < <(git for-each-ref --sort=committerdate --format=$'%(committerdate:unix)\t%(refname:short)' refs/heads/)
+    [ ${#localBranchRecords[@]} -gt 0 ] || return 1
 
     if [ $# -gt 0 ]; then
-	typeset -A matchedBranches=()
-	local branch; while IFS=$'\n' read -r branch
+	typeset -A matchedBranchRecords=()
+	local branchRecord; while IFS=$'\n' read -r branchRecord
 	do
-	    matchedBranches["$branch"]=t
+	    matchedBranchRecords["$branchRecord"]=t
 	done < <(local glob; for glob
 	    do
-		filterGlob "$glob" "${localBranches[@]}"
+		filterGlob $'*\t'"$glob" "${localBranchRecords[@]}"
 	    done
 	)
 
 	status=1
-	for branch in "${localBranches[@]}"
+	for branchRecord in "${localBranchRecords[@]}"
 	do
-	    if [ "${matchedBranches["$branch"]}" ]; then
-		printf '%s\n' "$branch"
+	    if [ "${matchedBranchRecords["$branchRecord"]}" ]; then
+		printf '%s\n' "$branchRecord"
 		status=0
 	    fi
 	done
 	return $status
     else
-	printf '%s\n' "${localBranches[@]}"
+	printf '%s\n' "${localBranchRecords[@]}"
     fi
 }
 
-getBranches "$@" \
+getBranchRecords "$@" \
     | "${filterAction[@]}" \
     | git-filter-out-persistent-branches "${branchFilters[@]}"

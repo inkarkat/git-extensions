@@ -28,7 +28,7 @@ if git issubmodule; then
 	header "$(git-wcname)"
 	message="$(withSeparator \
 	    --command 'hub-superpr | markdownEscape' \
-	    --command 'git bomlog --pretty=format:%B --reverse' \
+	    --command 'git bomlo --reverse' \
 	)" || exit $?
 
 	hub-wrapper pull-request --message "$message" --edit
@@ -37,13 +37,13 @@ else
     handleSubmodules()
     {
 	message="$(hub-prtitle --as-integration-message --qualified-with-userrepo)" || return $?
-	hub subsamebrdo --subdo-command-name "${scriptName#hub-}" --no-git-color --interactive --command "logs=\"\$(git bomlog --pretty=format:%B --reverse)\"; hub-wrapper pull-request --message \"\$message\"\$'\\n'\"\$logs\" --edit"
+	hub subsamebrdo --subdo-command-name "${scriptName#hub-}" --no-git-color --interactive --command "logs=\"\$(git bomlo --reverse)\"; hub-wrapper pull-request --message \"\$message\"\$'\\n'\"\$logs\" --edit"
     }
 fi
 
 message="$(withSeparator \
     --command 'git-servername --message' \
-    --command 'git bomlog --pretty=format:%B --reverse | markdownEscape' \
+    --command 'git bomlo --reverse | markdownEscape' \
 )" || exit $?
 hub-wrapper pull-request --draft --message "$message" --edit \
     || userBinaryChoice --keep-prompt --console --question 'The superproject pull-request failed / was aborted; do you still want to continue with the submodules?' --yes-no \

@@ -19,10 +19,22 @@ esac
 publishCommand=
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --superpublish)	shift; publishCommand="$1"; shift; commitMessage="$1"; shift
+    --superpublish)	shift; publishCommand="${1:?}"; shift; submoduleBranch="${1:?}"; shift; commitMessage="$1"; shift
+			superBranch="$(git-brname --real-branch-only)"
+
 			if git-dirty --ignore-submodules=dirty --quiet -- "$@"; then
+			    if [ "$superBranch" != "$submoduleBranch" ]; then
+				userBinaryChoice --keep-prompt --introduction "The superproject's branch $superBranch does not match the submodule's branch ${submoduleBranch}." --question "Do you want to check out $submoduleBranch in $(git-wcname) first?" --ok-cancel || exit 4
+				git-checkoutbranch -B "$submoduleBranch" || exit $?
+			    fi
+
 			    git-wrapper commit --edit --message "$commitMessage" -- "$@" || exit $?
+			else
+			    if [ "$superBranch" != "$submoduleBranch" ]; then
+				userBinaryChoice --keep-prompt --introduction "The superproject's branch $superBranch does not match the submodule's branch ${submoduleBranch}." --question "Really publish $(git-wcname)'s ${superBranch}?" --ok-cancel || exit 4
+			    fi
 			fi
+
 			exec git-wrapper "$publishCommand"
 			;;
     origin)		shift; publishCommand=opublish;;
@@ -52,5 +64,5 @@ else
     commitMessage="$(git subsamebrdo --subdo-command-name "${scriptName#git-}" --no-header boml)"
 fi
 
-printf -v quotedSuperCommand '%q ' "${BASH_SOURCE[0]}" --superpublish "$publishCommand" "$commitMessage" "${subPaths[@]}"
+printf -v quotedSuperCommand '%q ' "${BASH_SOURCE[0]}" --superpublish "$publishCommand" "$(git-brname --real-branch-only)" "$commitMessage" "${subPaths[@]}"
 exec git-supersubdo --subdo-command-name "${scriptName#git-}" --interactive --super-command "${quotedSuperCommand% }" --submodule-command "git-wrapper $publishCommand"

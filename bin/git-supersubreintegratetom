@@ -148,14 +148,37 @@ if [ ${#unintegratedSubmodules[@]} -eq 0 ]; then
     else
 	printf 'All %d submodules have been reintegrated already; now integrating the superproject.\n' ${#affectedSubmodules[@]}
     fi
-    action=reintegrateSuperproject
 
-    if [ "$HUB" ] && hub-prcomments; then
-	userBinaryChoice --keep-prompt --console --question 'Really reintegrate the superproject despite the open PR review comments?' --yes-no || exit 4
-    fi
+    readarray -t dirtySubmoduleReferences < <(
+	"${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} \
+	    dirty --ignore-submodules=dirty -- "${affectedSubmodules[@]}"
+    )
+    if [ ${#dirtySubmoduleReferences[@]} -gt 0 ]; then
+	if [ ${#dirtySubmoduleReferences[@]} -eq 1 ]; then
+	    dirtySubmoduleReferencesPlural=
+	    dirtySubmoduleReferencesAuxiliaryVerb=has
+	else
+	    dirtySubmoduleReferencesPlural=s
+	    dirtySubmoduleReferencesAuxiliaryVerb=have
+	fi
+	dirtySubmoduleReferencesPlural=s; [ ${#dirtySubmoduleReferences[@]} -eq 1 ] && dirtySubmoduleReferencesPlural=
 
-    if [ "$HUB" ] && acceptStatus 0 99 hub-prapproval; then
-	userBinaryChoice --keep-prompt --console --question 'Really reintegrate the superproject?' --yes-no || exit 4
+	userBinaryChoice --keep-prompt \
+	    --introduction "Apparently the submodule reintegration was interrupted and ${#dirtySubmoduleReferences[@]} submodule reference$dirtySubmoduleReferencesPlural $dirtySubmoduleReferencesAuxiliaryVerb not been committed yet." \
+	    --question "Update the changed submodule reference$dirtySubmoduleReferencesPlural in the superproject now?" \
+	    --yes-no || exit 4
+
+	action=completeSubmoduleReintegrationInSuperproject
+    else
+	if [ "$HUB" ] && hub-prcomments; then
+	    userBinaryChoice --keep-prompt --console --question 'Really reintegrate the superproject despite the open PR review comments?' --yes-no || exit 4
+	fi
+
+	if [ "$HUB" ] && acceptStatus 0 99 hub-prapproval; then
+	    userBinaryChoice --keep-prompt --console --question 'Really reintegrate the superproject?' --yes-no || exit 4
+	fi
+
+	action=reintegrateSuperproject
     fi
 else
     affectedSubmodulesPlural=s

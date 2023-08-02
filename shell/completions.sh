@@ -73,15 +73,26 @@ _git_complete()
     typeset -a aliases=(); readarray -t aliases < <(compgen -A command -- 'git-' 2>/dev/null)
     aliases=("${aliases[@]/#git-/}")
 
+    if [ $COMP_CWORD -ge 3 ] && contains "${COMP_WORDS[1]}-${COMP_WORDS[2]}" "${aliases[@]}"; then
+	local gitAlias="_git_${COMP_WORDS[1]//-/_}_${COMP_WORDS[2]//-/_}"
+	# Completing a sub-alias; delegate to its custom completion function (if
+	# available)
+	if type -t "$gitAlias" >/dev/null; then
+	    typeset -a save_COMP_WORDS=("${COMP_WORDS[@]}"); COMP_WORDS=("git-${COMP_WORDS[1]}-${COMP_WORDS[2]}" "${COMP_WORDS[@]:3}")
+		COMP_CWORD=$((COMP_CWORD-2)) \
+		    "$gitAlias" "${COMP_WORDS[0]}" "${save_COMP_WORDS[COMP_CWORD]}" "${save_COMP_WORDS[COMP_CWORD-1]}"
+	    COMP_WORDS=("${save_COMP_WORDS[@]}")
+	fi
+    fi
     if [ $COMP_CWORD -ge 2 ] && contains "${COMP_WORDS[1]}" "${aliases[@]}"; then
 	local gitAlias="_git_${COMP_WORDS[1]//-/_}"
 	# Completing an alias; delegate to its custom completion function (if
 	# available)
-	if type -t "${gitAlias}" >/dev/null; then
-	    COMP_WORDS=("git-${COMP_WORDS[1]}" "${COMP_WORDS[@]:2}")
-	    let COMP_CWORD-=1
-	    "$gitAlias" "${COMP_WORDS[0]}" "${COMP_WORDS[COMP_CWORD]}" "${COMP_WORDS[COMP_CWORD-1]}"
-	    return $?
+	if type -t "$gitAlias" >/dev/null; then
+	    typeset -a save_COMP_WORDS=("${COMP_WORDS[@]}"); COMP_WORDS=("git-${COMP_WORDS[1]}" "${COMP_WORDS[@]:2}")
+		COMP_CWORD=$((COMP_CWORD-1)) \
+		    "$gitAlias" "${COMP_WORDS[0]}" "${save_COMP_WORDS[COMP_CWORD]}" "${save_COMP_WORDS[COMP_CWORD-1]}"
+	    COMP_WORDS=("${save_COMP_WORDS[@]}")
 	fi
     fi
 
@@ -107,15 +118,26 @@ _hub_complete()
     typeset -a aliases=(); readarray -t aliases < <(compgen -A command -- 'hub-' 2>/dev/null)
     aliases=("${aliases[@]/#hub-/}")
 
+    if [ $COMP_CWORD -ge 3 ] && contains "${COMP_WORDS[1]}-${COMP_WORDS[2]}" "${aliases[@]}"; then
+	local hubAlias="_hub_${COMP_WORDS[1]//-/_}_${COMP_WORDS[2]//-/_}"
+	# Completing a sub-alias; delegate to its custom completion function (if
+	# available)
+	if type -t "$hubAlias" >/dev/null; then
+	    typeset -a save_COMP_WORDS=("${COMP_WORDS[@]}"); COMP_WORDS=("hub-${COMP_WORDS[1]}-${COMP_WORDS[2]}" "${COMP_WORDS[@]:3}")
+		COMP_CWORD=$((COMP_CWORD-2)) \
+		    "$hubAlias" "${COMP_WORDS[0]}" "${COMP_WORDS[COMP_CWORD]}" "${COMP_WORDS[COMP_CWORD-1]}"
+	    COMP_WORDS=("${save_COMP_WORDS[@]}")
+	fi
+    fi
     if [ $COMP_CWORD -ge 2 ] && contains "${COMP_WORDS[1]}" "${aliases[@]}"; then
 	local hubAlias="_hub_${COMP_WORDS[1]//-/_}"
 	# Completing an alias; delegate to its custom completion function (if
 	# available)
-	if type -t "${hubAlias}" >/dev/null; then
-	    COMP_WORDS=("hub-${COMP_WORDS[1]}" "${COMP_WORDS[@]:2}")
-	    let COMP_CWORD-=1
-	    "$hubAlias" "${COMP_WORDS[0]}" "${COMP_WORDS[COMP_CWORD]}" "${COMP_WORDS[COMP_CWORD-1]}"
-	    return $?
+	if type -t "$hubAlias" >/dev/null; then
+	    typeset -a save_COMP_WORDS=("${COMP_WORDS[@]}"); COMP_WORDS=("hub-${COMP_WORDS[1]}" "${COMP_WORDS[@]:2}")
+		COMP_CWORD=$((COMP_CWORD-1)) \
+		    "$hubAlias" "${COMP_WORDS[0]}" "${COMP_WORDS[COMP_CWORD]}" "${COMP_WORDS[COMP_CWORD-1]}"
+	    COMP_WORDS=("${save_COMP_WORDS[@]}")
 	fi
     fi
 

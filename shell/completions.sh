@@ -70,7 +70,9 @@ complete -F _git_cheat git-cheat hub-cheat
 _git_complete()
 {
     local IFS=$'\n'
-    typeset -a aliases=(); readarray -t aliases < <(compgen -A command -- 'git-' 2>/dev/null)
+    typeset -a aliases=(); readarray -t aliases < <(compgen -A command -- 'git-' 2>/dev/null \
+	| grep -vFx -e git-add -e git-bisect -e git-checkout -e git-commit -e git-fetch -e git-log -e git-merge -e git-pull -e git-push -e git-rebase -e git-revert -e git-show \
+	)   # XXX: Need to ignore my wrappers around built-in Git commands, as their completion functions use the same scheme (e.g. _git_add), but expect different arguments.
     aliases=("${aliases[@]/#git-/}")
 
     if [ $COMP_CWORD -ge 3 ] && contains "${COMP_WORDS[1]}-${COMP_WORDS[2]}" "${aliases[@]}"; then

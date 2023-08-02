@@ -85,18 +85,21 @@ _hub_complete()
 	fi
     fi
 
-    __git_wrap__git_main "$@"
-
     if [ $COMP_CWORD -eq 1 ]; then
+	typeset -a builtinCommands=(api browse ci-status compare create delete fork gist issue pr pull-request release sync)
 	# Also offer aliases (hub-aliasname, callable via my hub wrapper
 	# function as hub aliasname).
-	readarray -O ${#COMPREPLY[@]} -t COMPREPLY < <(compgen -W "${aliases[*]}" -X "!${2}*")
+	readarray -O ${#COMPREPLY[@]} -t COMPREPLY < <(compgen -W "${builtinCommands[*]}"$'\n'"${aliases[*]}" -X "!${2}*")
     elif [ $COMP_CWORD -eq 2 ]; then
+	__git_wrap__git_main "$@"
+
 	# Also offer aliases (hub-aliasname-subaliasname, callable via my hub wrapper
 	# function as hub aliasname subaliasname).
 	typeset -a subAliases=(); readarray -t subAliases < <(compgen -A command -- "hub-${COMP_WORDS[1]}-" 2>/dev/null)
 	subAliases=("${subAliases[@]/#hub-${COMP_WORDS[1]}-/}")
 	readarray -O ${#COMPREPLY[@]} -t COMPREPLY < <(compgen -W "${subAliases[*]}" -X "!${2}*")
+    else
+	__git_wrap__git_main "$@"
     fi
 }
 complete -F _hub_complete hub

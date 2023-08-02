@@ -67,6 +67,40 @@ _git_cheat()
 }
 complete -F _git_cheat git-cheat hub-cheat
 
+_git_complete()
+{
+    local IFS=$'\n'
+    typeset -a aliases=(); readarray -t aliases < <(compgen -A command -- 'git-' 2>/dev/null)
+    aliases=("${aliases[@]/#git-/}")
+
+    if [ $COMP_CWORD -ge 2 ] && contains "${COMP_WORDS[1]}" "${aliases[@]}"; then
+	local gitAlias="_git_${COMP_WORDS[1]//-/_}"
+	# Completing an alias; delegate to its custom completion function (if
+	# available)
+	if type -t "${gitAlias}" >/dev/null; then
+	    COMP_WORDS=("git-${COMP_WORDS[1]}" "${COMP_WORDS[@]:2}")
+	    let COMP_CWORD-=1
+	    "$gitAlias" "${COMP_WORDS[0]}" "${COMP_WORDS[COMP_CWORD]}" "${COMP_WORDS[COMP_CWORD-1]}"
+	    return $?
+	fi
+    fi
+
+    __git_wrap__git_main "$@"
+
+    if [ $COMP_CWORD -eq 1 ]; then
+	# Also offer aliases (git-aliasname, callable via my git wrapper
+	# function as git aliasname).
+	readarray -O ${#COMPREPLY[@]} -t COMPREPLY < <(compgen -W "${aliases[*]}" -X "!${2}*")
+    elif [ $COMP_CWORD -eq 2 ]; then
+	# Also offer aliases (git-aliasname-subaliasname, callable via my git wrapper
+	# function as git aliasname subaliasname).
+	typeset -a subAliases=(); readarray -t subAliases < <(compgen -A command -- "git-${COMP_WORDS[1]}-" 2>/dev/null)
+	subAliases=("${subAliases[@]/#git-${COMP_WORDS[1]}-/}")
+	readarray -O ${#COMPREPLY[@]} -t COMPREPLY < <(compgen -W "${subAliases[*]}" -X "!${2}*")
+    fi
+}
+complete -F _git_complete git
+
 _hub_complete()
 {
     local IFS=$'\n'

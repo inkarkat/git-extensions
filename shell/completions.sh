@@ -96,7 +96,7 @@ _git_complete()
 	fi
     fi
 
-    __git_wrap__git_main "$@"
+    IFS=$' \t\n' __git_wrap__git_main "$@"
 
     if [ $COMP_CWORD -eq 1 ]; then
 	# Also offer aliases (git-aliasname, callable via my git wrapper

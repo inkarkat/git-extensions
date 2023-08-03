@@ -1,0 +1,62 @@
+#!/bin/bash
+shopt -qs extglob
+
+printUsage()
+{
+    cat <<HELPTEXT
+Reset the passed BRANCH's HEAD to REVISION without switching to it.
+Requires -f|--force to reset the current branch.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [-b|--branch] BRANCH [-r|--revision] REVISION [-?|-h|--help]'
+}
+
+isForce=
+branch=
+revision=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+	--force|-f)	shift; isForce=t;;
+	--branch|-b)	shift; branch="${1:?}"; shift;;
+	--revision|-r)	shift; revision="${1:?}"; shift;;
+	*)		if [ -z "$branch" ]; then
+			    branch="${1:?}"; shift
+			elif [ -z "$revision" ]; then
+			    revision="${1:?}"; shift
+			else
+			    break
+			fi
+			;;
+    esac
+done
+if [ -z "$branch" ]; then
+    echo 'ERROR: No -b|--branch BRANCH passed.'
+    echo
+    printUsage "$0"
+    exit 2
+elif [ -z "$revision" ]; then
+    echo 'ERROR: No -r|--revision REVISION passed.'
+    echo
+    printUsage "$0"
+    exit 2
+elif [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi >&2
+
+oldValue="$(git rev-parse --verify --quiet "$branch")" || exit $?
+
+if [ ! "$isForce" ] && [ "$branch" = "$(git-brname --real-branch-only 2>/dev/null)" ]; then
+    echo 'ERROR: Need -f|--force to reset the current branch.'
+    exit 1
+elif git-equals "$oldValue" "$revision"; then
+    printf >&2 'Branch is already at %s\n' "$oldValue"
+    exit 99
+fi
+
+exec git update-ref -m "${GIT_RESETBRANCH_WHAT:-Reset} $branch from $oldValue to $revision" "refs/heads/$branch" "$revision" "$oldValue"

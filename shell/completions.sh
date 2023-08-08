@@ -120,6 +120,12 @@ _hub_complete()
     typeset -a aliases=(); readarray -t aliases < <(compgen -A command -- 'hub-' 2>/dev/null)
     aliases=("${aliases[@]/#hub-/}")
 
+    typeset -a multiModeAliases=(); readarray -t multiModeAliases < <(
+	command cd "$(dirname -- "$(command -v git-wrapper)" 2>/dev/null)" \
+	    && grep --fixed-strings --files-with-matches --no-messages '"$HUB"' -- git-* 2>/dev/null
+    )
+    aliases=("${multiModeAliases[@]/#git-/}")
+
     if [ $COMP_CWORD -ge 3 ] && contains "${COMP_WORDS[1]}-${COMP_WORDS[2]}" "${aliases[@]}"; then
 	local hubAlias="_hub_${COMP_WORDS[1]//-/_}_${COMP_WORDS[2]//-/_}"
 	# Completing a sub-alias; delegate to its custom completion function (if

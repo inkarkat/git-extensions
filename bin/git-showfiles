@@ -9,7 +9,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--cached|--intermediate] [-s|--status [--[no-]renames] [-M<n>|--find-renames[=<n>]] [-C<n>|--find-copies[=<n>]|--find-copies-harder] ([-a|--added] [-c|--copied] [-d|--deleted] [-m|--modified] [-r|--renamed] [-t|--retyped] ... | [-A|--not-added] [-C|--not-copied] [-D|--not-deleted] [-M|--not-modified] [-R|--not-renamed] [-T|--not-retyped] ...) [<since>..<until>|--since <date>|--max-count <number>|-n <number>|COMMIT-LIMITING-ARGS] [[--] <path>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--intermediate] [-s|--status [--[no-]renames] [-M<n>|--find-renames[=<n>]] [-C<n>|--find-copies[=<n>]|--find-copies-harder] ([-a|--added] [-c|--copied] [-d|--deleted] [-m|--modified] [-r|--renamed] [-t|--retyped] ... | [-A|--not-added] [-C|--not-copied] [-D|--not-deleted] [-M|--not-modified] [-R|--not-renamed] [-T|--not-retyped] ...) ([--cached] [--to COMMIT])|<since>..<until>|--since <date>|--max-count <number>|-n <number>|COMMIT-LIMITING-ARGS] [[--] <path>...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -47,7 +47,7 @@ HELPTEXT
 }
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
-diffRange=
+typeset -a diffRange=()
 typeset -a logRange=()
 isIncludeIntermediate=
 typeset -a gitNameStatusArg=(--name-only)
@@ -59,7 +59,8 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
-	--cached)	diffRange="$1"; shift;;
+	--cached)	diffRange+=("$1"); shift;;
+	--to)		shift; diffRange+=("${1:?}"); shift;;
 	--intermediate)	shift; isIncludeIntermediate=t;;
 	--status|-s)	shift; gitNameStatusArg=(--name-status); sorter='sort -k 2 -u';;
 	--no-renames|--renames|--find-renames|--find-renames=*|-M?*|--find-copies|--find-copies=*|-C?*|--find-copies-harder)
@@ -100,8 +101,8 @@ do
 	# So, the symmetric one is ... for log, but .. for diff, and the one
 	# that excludes changes from the first is .. for log but ... for diff.
 	# WTF.
-	*...*)		logRange=("$1"); range='..'; diffRange="${1/.../$range}"; shift;;
-	*..*)		logRange=("$1"); range='...';  diffRange="${1/../$range}"; shift;;
+	*...*)		logRange=("$1"); range='..'; shift;;
+	*..*)		logRange=("$1"); range='...'; shift;;
 
 	--)		break;;
 	*)		allargs+=("$1"); shift;;
@@ -112,9 +113,16 @@ typeset -a statusFilterArg=(); [ -z "$statusFilter" ] || statusFilterArg=(--diff
 
 if [ "$isIncludeIntermediate" ]; then
     git-log --pretty='format:' "${gitNameStatusArg[@]}" "${renameArgs[@]}" "${statusFilterArg[@]}" "${allargs[@]}" "${logRange[@]}" "$@"
-elif [ -n "$diffRange" ]; then
+elif [ -n "$range" ]; then
+    if [ ${#diffRange[@]} -gt 0 ]; then
+	printUsage "$0" >&2
+	exit 2
+    fi
     # Source: http://stackoverflow.com/a/1552353/813602
     GIT_LOGLIMITTORANGECOMMAND_RANGE="$range" git-loglimit-to-range-command -2 diff LIMITRANGE "${gitNameStatusArg[@]}" "${renameArgs[@]}" "${statusFilterArg[@]}" "${allargs[@]}" "${logRange[@]}" "$@"
+elif [ ${#diffRange[@]} -gt 0 ]; then
+    # Source: http://stackoverflow.com/a/1552353/813602
+    git diff "${gitNameStatusArg[@]}" "${renameArgs[@]}" "${statusFilterArg[@]}" "${allargs[@]}" "${diffRange[@]}" "$@"
 else
     git-loglimit-to-range-command -2 show LIMITRANGE --pretty='format:' "${gitNameStatusArg[@]}" "${renameArgs[@]}" "${statusFilterArg[@]}" "${allargs[@]}" "${logRange[@]}" "$@"
 fi | eval "$filter ${filter:+|} $sorter | sed -e '/^\$/d'" "${pager:+|}" '"${pager[@]}"'

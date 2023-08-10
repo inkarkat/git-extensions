@@ -98,8 +98,19 @@ _git_complete()
 	fi
     fi
 
-    IFS=$' \t\n' __git_wrap__git_main "$@"
-    COMPREPLY=("${COMPREPLY[@]% }") # XXX: Git 2.41.0 adds a trailing space to the completion results.
+    if ! type -t __git_wrap__git_main >/dev/null; then
+	# Bash completion for Git is dynamically loaded, so its completion
+	# function may not exist yet; especially because its auto-loading will
+	# never be triggered as we've overridden it here.
+	# However, if hub is installed, its completion eagerly loads Git's
+	# completion (to be able to patch it).
+	[ -e /usr/share/bash-completion/completions/git ] \
+	    && source /usr/share/bash-completion/completions/git \
+	    && type -t __git_wrap__git_main >/dev/null
+    fi && {
+	IFS=$' \t\n' __git_wrap__git_main "$@"
+	COMPREPLY=("${COMPREPLY[@]% }") # XXX: Git 2.41.0 adds a trailing space to the completion results.
+    }
 
     if [ $COMP_CWORD -eq 1 ]; then
 	# Also offer aliases (git-aliasname, callable via my git wrapper

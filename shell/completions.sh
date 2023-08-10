@@ -155,7 +155,7 @@ _hub_complete()
 	# function as hub aliasname).
 	readarray -O ${#COMPREPLY[@]} -t COMPREPLY < <(compgen -W "${builtinCommands[*]}"$'\n'"${aliases[*]}" -X "!${2}*")
     elif [ $COMP_CWORD -eq 2 ]; then
-	__git_wrap__git_main "$@"
+	IFS=$' \t\n' __git_wrap__git_main "$@"
 
 	# Also offer aliases (hub-aliasname-subaliasname, callable via my hub wrapper
 	# function as hub aliasname subaliasname).
@@ -163,7 +163,7 @@ _hub_complete()
 	subAliases=("${subAliases[@]/#hub-${COMP_WORDS[1]}-/}")
 	readarray -O ${#COMPREPLY[@]} -t COMPREPLY < <(compgen -W "${subAliases[*]}" -X "!${2}*")
     else
-	__git_wrap__git_main "$@"
+	IFS=$' \t\n' __git_wrap__git_main "$@"
     fi
 }
 complete -F _hub_complete hub

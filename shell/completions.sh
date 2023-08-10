@@ -99,6 +99,7 @@ _git_complete()
     fi
 
     IFS=$' \t\n' __git_wrap__git_main "$@"
+    COMPREPLY=("${COMPREPLY[@]% }") # XXX: Git 2.41.0 adds a trailing space to the completion results.
 
     if [ $COMP_CWORD -eq 1 ]; then
 	# Also offer aliases (git-aliasname, callable via my git wrapper

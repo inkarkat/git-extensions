@@ -109,7 +109,6 @@ _git_complete()
 	    && type -t __git_wrap__git_main >/dev/null
     fi && {
 	IFS=$' \t\n' __git_wrap__git_main "$@"
-	COMPREPLY=("${COMPREPLY[@]% }") # XXX: Git 2.41.0 adds a trailing space to the completion results.
     }
 
     if [ $COMP_CWORD -eq 1 ]; then
@@ -124,7 +123,7 @@ _git_complete()
 	readarray -O ${#COMPREPLY[@]} -t COMPREPLY < <(compgen -W "${subAliases[*]}" -X "!${2}*")
     fi
 }
-complete -F _git_complete git
+complete -o bashdefault -o default -o nospace -F _git_complete git
 
 _hub_complete()
 {
@@ -178,4 +177,4 @@ _hub_complete()
 	IFS=$' \t\n' __git_wrap__git_main "$@"
     fi
 }
-complete -F _hub_complete hub
+complete -o bashdefault -o default -o nospace -F _hub_complete hub

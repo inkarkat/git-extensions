@@ -16,14 +16,14 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [...]'
 }
-format='%d %gs'
+format=$'%ci (%cr)\t%d %gs'
 myArgs=
 typeset -a gitArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-	--commits-only)	myArgs+=" $1"; shift; format='%gs';;
+	--commits-only)	myArgs+=" $1"; shift;;
 	--source)	shift
 			typeset -a reflogArgs=()
 			number=
@@ -31,7 +31,7 @@ do
 			while [ $# -ne 0 ]
 			do
 			    case "$1" in
-				--commits-only)	shift; filter=(awk '$2 ~ /^commit:?$/');;
+				--commits-only)	shift; filter=(awk --field-separator '\t' '$3 ~ /^( \([^)]+\))? commit[: ]/');;	# %d is either empty or has a space in front of the (...)
 				--since)	reflogArgs+=("$1" "$2"); shift; shift;;
 				--max-count)	shift; number="${1:?}"; shift;;
 				--max-count=*)	number="${1#--max-count=}"; shift;;

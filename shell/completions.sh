@@ -135,7 +135,7 @@ _hub_complete()
 	command cd "$(dirname -- "$(command -v git-wrapper)" 2>/dev/null)" \
 	    && grep --fixed-strings --files-with-matches --no-messages '"$HUB"' -- git-* 2>/dev/null
     )
-    aliases=("${multiModeAliases[@]/#git-/}")
+    aliases+=("${multiModeAliases[@]/#git-/}")
 
     if [ $COMP_CWORD -ge 3 ] && contains "${COMP_WORDS[1]}-${COMP_WORDS[2]}" "${aliases[@]}"; then
 	local hubAlias="_hub_${COMP_WORDS[1]//-/_}_${COMP_WORDS[2]//-/_}"

@@ -6,7 +6,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--include-current] [--include-master] [--include-base] [--include-all] [-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [--] [<branch-glob> ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--include-current] [--include-master] [--include-base] [--include-all] [-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [--sort <key> [--sort ...]] [--] [<branch-glob> ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -36,6 +36,7 @@ for days, 'w' for weeks, 'mo' for months, 'y' for years, 'g' for generations.
 HELPTEXT
 }
 
+typeset -a sortArgs=()
 typeset -a branchFilters=()
 typeset -a filterAction=(sed -e 's/^[^\t]*\t//')
 while [ $# -ne 0 ]
@@ -46,6 +47,8 @@ do
 			shift;;
 	--color)	shift; shift;;
 	--include-*)	branchFilters+=("$1"); shift;;
+	--sort)		sortArgs+=("$1" "$2"); shift; shift;;
+	--sort=*)	sortArgs+=("$1"); shift;;
 	-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt)
 			filterAction=(filterAge --field-separator $'\t' "$1" "$2"); shift; shift;;
 	--)		shift; break;;
@@ -57,7 +60,7 @@ done
 getBranchRecords()
 {
     typeset -a localBranchRecords=()
-    readarray -t localBranchRecords < <(git for-each-ref --sort=committerdate --format=$'%(committerdate:unix)\t%(refname:short)' refs/heads/)
+    readarray -t localBranchRecords < <(git for-each-ref "${sortArgs[@]:---sort=committerdate}" --format=$'%(committerdate:unix)\t%(refname:short)' refs/heads/)
     [ ${#localBranchRecords[@]} -gt 0 ] || return 1
 
     if [ $# -gt 0 ]; then

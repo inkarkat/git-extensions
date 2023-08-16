@@ -1,5 +1,7 @@
 #!/bin/bash
 
+: ${GIT_CHECKOUTSELECTEDBRANCH_CHECKOUT_COMMAND:=checkout}
+
 printUsage()
 {
     cat <<HELPTEXT
@@ -7,7 +9,7 @@ Switch to the branch [matching <glob>] that is interactively selected from
 existing branches.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<checkout-args> ...] [-- <branch-glob> ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[<${GIT_CHECKOUTSELECTEDBRANCH_CHECKOUT_COMMAND}-args> ...] [-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [--sort <key> [--sort ...]] [-- <branch-glob> ...] [-?|-h|--help]"
 }
 
 typeset -a checkoutArgs=()
@@ -38,7 +40,7 @@ do
     fi
 done
 
-printf -v quotedCheckoutCommand '%q ' checkout "$@"
+printf -v quotedCheckoutCommand '%q ' "$GIT_CHECKOUTSELECTEDBRANCH_CHECKOUT_COMMAND" "$@"
 quotedBranchArgs=; [ ${#branchArgs[@]} -eq 0 ] || printf -v quotedBranchArgs ' %q' "${branchArgs[@]}"
 quotedBranchGlobArgs=; [ ${#branchGlobArgs[@]} -eq 0 ] || printf -v quotedBranchGlobArgs ' %q' "${branchGlobArgs[@]}"
 

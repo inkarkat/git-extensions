@@ -238,7 +238,9 @@ reintegrateSubmodule()
     "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} bomsubmodules \
 	| negateThis "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} osuperhaspendingsubintegrations - || exit $?
 
-    "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--interactive} reintegratetom --no-push --no-delete --no-checks || exit $?
+    local superMessage="$("${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} bomlo)"
+
+    "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--interactive} reintegratetom --no-push --no-delete --no-checks ${superMessage:+--merge-message-template "$superMessage"} || exit $?
 
     # Remaining steps (i.e. committing the submodule changes) happen in the superproject.
     completeSubmoduleReintegrationInSuperproject "$@"

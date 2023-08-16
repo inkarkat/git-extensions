@@ -75,7 +75,7 @@ do
 
 	--)		args+=("$1"); shift; break;;
 	-*)		args+=("$1"); shift;;
-	?*)		if [[ "$1" =~ ^(|.*[^.])(\.\.\.?)(.*)$ ]]; then
+	?*)		if [ ! "$didRefLookup" ] && [[ "$1" =~ ^(|.*[^.])(\.\.\.?)(.*)$ ]]; then
 			    if [ -n "$count" ]; then
 				echo 'ERROR: Cannot combine --rev-count with <ref>..<ref> or <ref>...<ref>.'
 				echo
@@ -90,7 +90,7 @@ do
 			    else
 				args+=("$1")
 			    fi
-			elif subRev="$(getSubHash "$1" 2>/dev/null)"; then
+			elif [ ! "$didRefLookup" ] && subRev="$(getSubHash "$1" 2>/dev/null)"; then
 			    if [ -n "$count" ]; then
 				subRevCounted="$(getSubHash "${1}~${count}")" || exit 2
 				args+=("${subRevCounted}..${subRev}")

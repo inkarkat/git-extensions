@@ -3,14 +3,14 @@
 printUsage()
 {
     cat <<HELPTEXT
-Execute GIT-COMMAND inside SUBMODULE, with a superproject's <ref> or
-<ref>..[.]<ref> replaced by the SUBMODULE's revisions. With this, you can use
-tags, branches, commit IDs from the superproject to reference SUBMODULE
-revisions.
+Execute GIT-COMMAND inside SUBMODULE, with a superproject's <ref> [and N-1
+previous commits] or <ref>..[.]<ref> replaced by the SUBMODULE's revisions.
+With this, you can use tags, branches, commit IDs from the superproject to
+reference SUBMODULE revisions.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND [...] <ref>|<ref>..<ref>|<ref>...<ref> [...] SUBMODULE [...] [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND [...] SUBMODULE [...] <ref>|<ref>..<ref>|<ref>...<ref> [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND [...] ([--rev-count N] <ref>)|<ref>..<ref>|<ref>...<ref> [...] SUBMODULE [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND [...] SUBMODULE [...] ([--rev-count N] <ref>)|<ref>..<ref>|<ref>...<ref> [...] [-?|-h|--help]'
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
@@ -65,14 +65,24 @@ getSubHash()
     git-subhash "$potentialRev" "${submodule:?}"
 }
 
+count=
 didRefLookup=
 typeset -a args=()
 while [ $# -ne 0 ]
 do
     case "$1" in
+	--rev-count)	shift; count="$1"; shift;;
+
 	--)		args+=("$1"); shift; break;;
 	-*)		args+=("$1"); shift;;
 	?*)		if [[ "$1" =~ ^(|.*[^.])(\.\.\.?)(.*)$ ]]; then
+			    if [ -n "$count" ]; then
+				echo 'ERROR: Cannot combine --rev-count with <ref>..<ref> or <ref>...<ref>.'
+				echo
+				printUsage "$0"
+				exit 2
+			    fi >&2
+
 			    rev1="${BASH_REMATCH[1]}"; range="${BASH_REMATCH[2]}"; rev2="${BASH_REMATCH[3]}"
 			    if subRev1="$(getSubHash "$rev1")" && subRev2="$(getSubHash "$rev2")"; then
 				args+=("${subRev1}${range}${subRev2}")
@@ -81,7 +91,12 @@ do
 				args+=("$1")
 			    fi
 			elif subRev="$(getSubHash "$1")"; then
-			    args+=("$subRev")
+			    if [ -n "$count" ]; then
+				subRevCounted="$(getSubHash "${1}~${count}")" || exit 2
+				args+=("${subRevCounted}..${subRev}")
+			    else
+				args+=("$subRev")
+			    fi
 			    didRefLookup=t
 			else
 			    args+=("$1")

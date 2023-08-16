@@ -331,7 +331,7 @@ else
     git-mergecheck "${branches[@]}" || exit $?
 
     if [ ! "$isRebase" ] && [ ${#mergeMessageArgs[@]} -eq 0 ]; then
-	if [ -n "$HUB" ]; then
+	if [ -n "$HUB" ] && {
 	    # Try to obtain corresponding pull requests based on the passed branches'
 	    # HEAD commits and seed the merge message with it / them (as the PR title
 	    # already summarizes the changeset and makes for a great merge title). This
@@ -340,10 +340,10 @@ else
 	    type -t timeout >/dev/null && prefixCommands=(timeout 10 "${prefixCommands[@]}")
 	    type -t invocationMessage >/dev/null && prefixCommands=(invocationMessage --message 'Searching for PR...' --success FOUND --fail NONE -- "${prefixCommands[@]}")
 	    pullRequestTitles="$("${prefixCommands[@]}" hub-prtitle --as-merge-message "${branches[@]}")"
-	    if [ -n "$pullRequestTitles" ]; then
-		mergeMessageArgs+=(--message "$pullRequestTitles")
-		[ ${#mergeNoEditMessageArgs[@]} -gt 0 ] || mergeMessageArgs+=(--edit)
-	    fi
+	    [ -n "$pullRequestTitles" ]
+	}; then
+	    mergeMessageArgs+=(--message "$pullRequestTitles")
+	    [ ${#mergeNoEditMessageArgs[@]} -gt 0 ] || mergeMessageArgs+=(--edit)
 	else
 	    branchMergeMessage="$(git-mergeBranchMessage "$targetBranch" "${branches[@]}")" || exit 3
 	fi

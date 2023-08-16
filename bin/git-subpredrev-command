@@ -3,26 +3,17 @@ shopt -qs extglob
 
 printUsage()
 {
-    cat <<HELPTEXT
-Execute GIT-COMMAND inside SUBMODULE, with a superproject's <ref> replaced by
-the SUBMODULE's revisions that are affected by <ref> [and its N-1 previous
-commits].
-With this, you can use tags, branches, commit IDs from the superproject to
-reference SUBMODULE revisions.
-HELPTEXT
-    echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND [...] [-<number>|-n <number>|--count=<number>] [...] SUBMODULE [...] [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND [...] SUBMODULE [...] [-<number>|-n <number>|--count=<number>] [...] [-?|-h|--help]'
+    git-subrev-command --help 2>&1 | sed \
+	-e "1s#^.*\$#Execute GIT-COMMAND inside all affected submodules / passed SUBMODULE(s), with a superproject's <ref> replaced by the submodule's revisions that are affected by <ref> [and its N-1 previous commits].#" \
+	-e '2b removeFirstParagraphLoop' \
+	-e '/^ *--rev-count/a\
+    -<number>|-n <number>|--count=<number>\
+			Include <number>-1 previous commits. (Like --rev-count,\
+			but can also be part of GIT-COMMAND.)' \
+	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ ]\+ \)*git-subrev-command /\1\2'"$(basename "$1")"' /; s/<ref>|<ref>..<ref>|<ref>...<ref>/[-<number>|-n <number>|--count=<number>] <ref>/; }' \
+	-e b -e :removeFirstParagraphLoop -e '{ /\(^\|\n\)$/{ s/^\(.*\n\)\?//; b; }; N; b removeFirstParagraphLoop; }' \
+	-e b -e :removeOptionLoop -e '{ /\n *--rev-count[^\n]*$/{ N; b removeOptionLoop; }; /\n *--[^\n]*$\|\n[^	 ]\|\n$/{ s/^\(.*\n\)\?//; b; }; N; b removeOptionLoop; }'
 }
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-esac
-
-if [ $# -eq 0 ]; then
-    echo >&2 'ERROR: No GIT-COMMAND passed.'
-    exit 2
-fi
-gitCommand="$1"; shift
 
 count=1
 typeset -a args=()
@@ -38,4 +29,4 @@ do
 	*)		args+=("$1"); shift;;
     esac
 done
-exec git-subrev-command "$gitCommand" --rev-count "$count" "${args[@]}" "$@"
+exec git-subrev-command --rev-count "$count" "${args[@]}" "$@"

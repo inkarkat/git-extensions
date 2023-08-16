@@ -1,0 +1,41 @@
+#!/bin/bash
+shopt -qs extglob
+
+printUsage()
+{
+    cat <<HELPTEXT
+Execute GIT-COMMAND inside SUBMODULE, with a superproject's <ref> replaced by
+the SUBMODULE's revisions that are affected by <ref> [and its N-1 previous
+commits].
+With this, you can use tags, branches, commit IDs from the superproject to
+reference SUBMODULE revisions.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND [...] [-<number>|-n <number>|--count=<number>] [...] SUBMODULE [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND [...] SUBMODULE [...] [-<number>|-n <number>|--count=<number>] [...] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+if [ $# -eq 0 ]; then
+    echo >&2 'ERROR: No GIT-COMMAND passed.'
+    exit 2
+fi
+gitCommand="$1"; shift
+
+count=1
+typeset -a args=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	-c)		args+=("$1" "$2"); shift; shift;;
+	--count|-n)	shift; count="$1"; shift;;
+	--count=*)	count="${1#--count=}"; shift;;
+	-+([0-9]))	count="${1#-}"; shift;;
+	--)		args+=("$1"); shift; break;;
+	*)		args+=("$1"); shift;;
+    esac
+done
+exec git-subrev-command "$gitCommand" --rev-count "$count" "${args[@]}" "$@"

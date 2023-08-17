@@ -1,26 +1,145 @@
 #!/bin/bash
 
+hasProgressNotification=; type -t progressNotification >/dev/null && hasProgressNotification=t
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[--rev-count N] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [-?|-h|--help] ...'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [...] <ref>|<ref>..<ref>|<ref>...<ref> [...] [SUBMODULE [...]] [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [...] [SUBMODULE [...]] [...] <ref>|<ref>..<ref>|<ref>...<ref> [...]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
-Execute GIT-COMMAND inside SUBMODULE, with a superproject's <ref> or
-<ref>..[.]<ref> replaced by the SUBMODULE's revisions. With this, you can use
-tags, branches, commit IDs from the superproject to reference SUBMODULE
-revisions.
-HELPTEXT
-    echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND [...] <ref>|<ref>..<ref>|<ref>...<ref> [...] SUBMODULE [...] [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND [...] SUBMODULE [...] <ref>|<ref>..<ref>|<ref>...<ref> [...] [-?|-h|--help]'
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
 }
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-esac
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Execute GIT-COMMAND inside all affected submodules / passed SUBMODULE(s), with a
+superproject's <ref> [and N-1 previous commits] or <ref>..[.]<ref> replaced by
+the submodule's revisions.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --rev-count N	Limit the range to <ref> and its N-1 previous commits.
+    --no-pager		Do not page the output (so contents will scroll out of
+			view if there's too much output).
+    --no-header		Do not output the header line before command output (and
+			no separating empty line after it).${hasProgressNotification:+
+    --progress SINK	Report the current submodule (and count + percentage)
+			through one of the SINKs of the progressNotification
+			command.}
+    --interactive|-i	For use with interactive COMMANDs that query the user or
+			open an editor; combination of --no-pager --no-header${hasProgressNotification:+
+			and --progress addendum}.
+    --separate-errors	Do not combine command output and command errors into
+			one (paged) stream. Commands that just cause error
+			output won't have a header then. Error output will
+			remain on its separate file descriptor and will not be
+			paged. Useful if you want to suppress errors or handle
+			them separately.
+    --no-git-color	Do not pass a --color=... to "git SIMPLECOMMAND". (For
+			COMMANDLINE you have to insert "\${gitColorArg[@]}"
+			yourself.)
+With this, you can use tags, branches, commit IDs from the superproject to
+reference submodule revisions.
 
-if [ $# -eq 0 ]; then
+SEE ALSO:
+- subchanges shows just commit titles, and can shorten the output even more by
+  considering existing pull requests.
+- subchanges and subdiff simply apply a <range> to each submodule; they do not
+  determine the affected commit range in each submodule like here.
+HELPTEXT
+}
+
+count=
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+isHeader=; type -t withHeader >/dev/null && isHeader=t
+progressSink=
+isInteractive=
+errorRedir='2>&1'
+isGitColor=t
+typeset -a colorArg=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)		shift; printLongUsage "$0"; exit 0;;
+	--rev-count)		shift; count="$1"; shift;;
+	--no-pager)		shift; pager=();;
+	--no-header)		shift; isHeader=;;
+	--progress)		shift; progressSink="$1"; shift;;
+	--interactive|-i)	shift; isInteractive=t; pager=(); isHeader=; progressSink='addendum';;
+	--separate-errors)	shift; errorRedir='';;
+	--no-git-color)		shift; isGitColor=;;
+	--no-color|--color=*)	colorArg=("$1"); shift;;
+	--color)		colorArg=("$1" "$2"); shift; shift;;
+	--)			shift; break;;
+	-*)			{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)			break;;
+    esac
+done
+typeset -a uncoloredSimpleCommand=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--no-color|--color=*)	colorArg=("$1"); shift;;
+	--color)		colorArg=("$1" "$2"); shift; shift;;
+	*)			uncoloredSimpleCommand+=("$1"); shift;;
+    esac
+done
+set -- "${uncoloredSimpleCommand[@]}"
+
+# With piping into withHeader / pager, we need to explicitly enable color for
+# Git, unless this command's output itself is redirected. Also don't do this if
+# the user explicitly turned off color.
+gitColorArg=()
+if [ -n "$pager" -o -n "$isHeader" ] && isNeedColorArgumentWhenPiping "${colorArg[@]}"; then
+    colorArg=(--color=always)	# Force for withHeader
+    [ "$isGitColor" ] && gitColorArg=(--color=always)	# Force for Git
+fi
+
+typeset -a gitCommand=(git-wrapper)
+if [ $# -gt 0 ]; then
+    if [ ${#gitColorArg[@]} -gt 0 ]; then
+	# Simply appending gitColorArg doesn't work; many Git commands have a
+	# special <path> or <commit> part at the end. Place it just behind the
+	# Git subcommand by iterating arguments in the same way as the various
+	# git-*-command metaprograms, and moving anything that is in front from
+	# $@ to gitCommand.
+	case "$1" in
+	    [^-]*-command)  gitCommand+=("$1"); shift
+			    while [ $# -ne 0 ]
+			    do
+				case "$1" in
+				    --)		break;;
+				    -*)		gitCommand+=("$1"); shift;;
+				    *)		gitCommand+=("$1"); shift; break;;
+				esac
+			    done
+			    ;;
+	    *)		    while [ $# -ne 0 ]
+			    do
+				case "$1" in
+				    -c) gitCommand+=("$1" "$2"); shift; shift;;
+				    *)	gitCommand+=("$1"); shift; break;;
+				esac
+			    done
+	esac
+	gitCommand+=("${gitColorArg[@]}")
+    fi
+else
     echo >&2 'ERROR: No GIT-COMMAND passed.'
     exit 2
 fi
-gitCommand="$1"; shift
 
 
 typeset -A submodules=()
@@ -29,17 +148,19 @@ do
     submodules["$name"]=t
 done < <(git-sublist)
 
-# First parse the SUBMODULE - we need it to look up the <ref>s.
+# First parse the SUBMODULE(s).
+isPassedSubmodules=
 typeset -a args=()
-submodule=
+typeset -A chosenSubmodules=()
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--)		args+=("$1"); shift; break;;
 	-*)		args+=("$1"); shift;;
-	?*)		if [ "${submodules["$1"]}" ] && [ -z "$submodule" ]; then
-			    submodule="$1"
+	?*)		if [ "${submodules["$1"]}" ] && [ -z "${chosenSubmodules["$1"]+t}" ]; then
+			    chosenSubmodules["$1"]=''
+			    isPassedSubmodules=t
 			else
 			    args+=("$1")
 			fi
@@ -48,21 +169,22 @@ do
 	*)		args+=("$1"); shift;;
     esac
 done
-if [ -z "$submodule" ]; then
-    echo 'ERROR: No SUBMODULE passed.'
-    echo
-    printUsage "$0"
-    exit 2
-fi >&2
 set -- "${args[@]}" "$@"
+if [ ${#chosenSubmodules[@]} -eq 0 ]; then
+    for submodule in "${!submodules[@]}"
+    do
+	chosenSubmodules["$submodule"]=''
+    done
+fi
 
 
 # Parse and translate <ref>s into the corresponding subhashes in SUBMODULE.
 getSubHash()
 {
-    local potentialRev="${1:?}"; shift
+    local submodule="${1:?}"; shift
+    local potentialRev="${1?}"; shift
     [ -z "$potentialRev" ] && return 0
-    git-subhash "$potentialRev" "${submodule:?}"
+    git-subhash --short "$potentialRev" "$submodule"
 }
 
 didRefLookup=
@@ -72,17 +194,51 @@ do
     case "$1" in
 	--)		args+=("$1"); shift; break;;
 	-*)		args+=("$1"); shift;;
-	?*)		if [[ "$1" =~ ^(|.*[^.])(\.\.\.?)(.*)$ ]]; then
+	?*)		if [ ! "$didRefLookup" ] && [[ "$1" =~ ^(|.*[^.])(\.\.\.?)(.*)$ ]]; then
+			    if [ -n "$count" ]; then
+				echo 'ERROR: Cannot combine --rev-count with <ref>..<ref> or <ref>...<ref>.'
+				echo
+				printUsage "$0"
+				exit 2
+			    fi >&2
+
 			    rev1="${BASH_REMATCH[1]}"; range="${BASH_REMATCH[2]}"; rev2="${BASH_REMATCH[3]}"
-			    if subRev1="$(getSubHash "$rev1")" && subRev2="$(getSubHash "$rev2")"; then
-				args+=("${subRev1}${range}${subRev2}")
-				didRefLookup=t
+			    for submodule in "${!chosenSubmodules[@]}"
+			    do
+				if subRev1="$(getSubHash "$submodule" "$rev1" 2>/dev/null)" && subRev2="$(getSubHash "$submodule" "$rev2" 2>/dev/null)"; then
+				    chosenSubmodules["$submodule"]="${subRev1}${range}${subRev2}"
+				    didRefLookup=t
+				else
+				    didRefLookup=
+				    break
+				fi
+			    done
+			    if [ "$didRefLookup" ]; then
+				args+=('SUBMODULE')
 			    else
 				args+=("$1")
 			    fi
-			elif subRev="$(getSubHash "$1")"; then
-			    args+=("$subRev")
-			    didRefLookup=t
+			elif [ ! "$didRefLookup" ]; then
+			    for submodule in "${!chosenSubmodules[@]}"
+			    do
+				if subRev="$(getSubHash "$submodule" "$1" 2>/dev/null)"; then
+				    if [ -n "$count" ]; then
+					subRevCounted="$(getSubHash "$submodule" "${1}~${count}")" || exit 2
+					chosenSubmodules["$submodule"]="${subRevCounted}..${subRev}"
+				    else
+					chosenSubmodules["$submodule"]="$subRev"
+				    fi
+				    didRefLookup=t
+				else
+				    didRefLookup=
+				    break
+				fi
+			    done
+			    if [ "$didRefLookup" ]; then
+				args+=('SUBMODULE')
+			    else
+				args+=("$1")
+			    fi
 			else
 			    args+=("$1")
 			fi
@@ -98,4 +254,48 @@ if [ ! "$didRefLookup" ]; then
     exit 2
 fi >&2
 
-cd "$submodule" && exec git-wrapper "$gitCommand" "${args[@]}" "$@"
+[ ${#chosenSubmodules[@]} -gt 0 ] || exit 99
+
+
+if [ "$isPassedSubmodules" ] && [ ${#chosenSubmodules[@]} -eq 1 ]; then
+    submoduleRef="${chosenSubmodules["$submodule"]}"
+    if ! cd "$submodule" 2>/dev/null; then
+	printf >&2 'ERROR: Cannot chdir to %s!\n' "$submodule"
+	exit 1
+    fi
+    exec "${gitCommand[@]}" "${args[@]/SUBMODULE/$submoduleRef}" "$@"
+else
+    if [ "$hasProgressNotification" ] && [ -n "$progressSink" ]; then
+	exec 3> >(progressNotification --to "$progressSink" --prepend-count 'submodule' --count-to "${#chosenSubmodules[@]}" 2>/dev/null)
+
+	reportProgress()
+	{
+	    trap 'reportProgress() { :; }; trap PIPE' PIPE
+	    printf '%s\n' "$*" >&3 2>/dev/null  # Silence "printf: write error: Broken pipe"
+	}
+    else
+	reportProgress() { :; }
+    fi
+
+    subrev()
+    {
+	: ${GIT_SUBREVCOMMAND_HEADER_ID:="subref-command-$$-$RANDOM"}
+	local cwd="$PWD" status=0 submodule
+	for submodule in "${!chosenSubmodules[@]}"
+	do
+	    if ! cd "${cwd%/}/${submodule}" 2>/dev/null; then
+		printf >&2 'ERROR: Cannot chdir to %s!\n' "${cwd%/}/${submodule}"
+		status=1; continue
+	    fi
+
+	    submoduleRef="${chosenSubmodules["$submodule"]}"
+	    reportProgress "$submodule"
+	    local header="$submodule $submoduleRef"
+	    [ ! "$isInteractive" ] || header "${colorArg[@]}" --id "$GIT_SUBREVCOMMAND_HEADER_ID" -- "${header:?}"
+
+	    eval "${isHeader:+{}" '"${gitCommand[@]}" "${args[@]/SUBMODULE/$submoduleRef}" "$@"' "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_SUBREVCOMMAND_HEADER_ID' -- '${header:?}'}" || status=$?
+	done
+	return $status
+    }
+    eval "subrev ${pager:+$errorRedir |}" '"${pager[@]}"'
+fi

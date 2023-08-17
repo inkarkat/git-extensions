@@ -1,18 +1,44 @@
 #!/bin/bash
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager|--each-submodule] [DIFF-ARGS ...] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
-Show diff only of submodules (excluding changes in the current superproject).
-HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Show diff only of submodules (one submodule after the other; excluding changes
+in the current superproject).
+HELPDESCRIPTION
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager|--each-submodule] [DIFF-ARGS ...] [-?|-h|--help]'
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --no-pager		Do not page the output (so contents will scroll out of
+			view if there's too much output).
+    --each-submodule	Page through each submodule's diff separately.
+
+SEE ALSO:
+- subchanges shows just commit titles, and can shorten the output even more by
+  considering existing pull requests.
+HELPTEXT
 }
 postAction=
 redirection=
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
 case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
     --no-pager)		shift; pager=();;
     --each-submodule)	shift
 			tempDir="$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || { dirspec="${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM"; mkdir -p -- "$dirspec" && printf %s "$dirspec"; })" || exit 3

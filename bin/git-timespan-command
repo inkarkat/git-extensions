@@ -16,7 +16,7 @@ only the starting revision will be used)
 - replacing TIMESPAN in the following +(N) arguments and appending those
 HELPTEXT
     local requiredEnvironmentVariables; [ -n "$GIT_TIMESPANCOMMAND_TIMESPAN" ] || requiredEnvironmentVariables='GIT_TIMESPANCOMMAND_TIMESPAN=SINCE-ARG'
-    printf "Usage: ${requiredEnvironmentVariables}${requiredEnvironmentVariables:+ }%q %s\\n" "$(basename "$1")" '[-r|--revision REVISION] [--no-range|--range] [--one-more] ... [-?|-h|--help]'
+    printf "Usage: ${requiredEnvironmentVariables}${requiredEnvironmentVariables:+ }%q %s\\n" "$(basename "$1")" '[-r|--revision REVISION] [--no-range|--range|--with-range RANGE] [--one-more] ... [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [...] [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... TIMESPAN ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
@@ -26,6 +26,7 @@ HELPTEXT
 revision=
 unset isRange
 isShowOneMore=
+range='..'
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -33,6 +34,7 @@ do
 	--revision|-r)	shift; [ "$1" = 'HEAD' ] || revision="$1"; shift;;
 	--no-range)	shift; isRange=;;
 	--range)	shift; isRange=t;;
+	--with-range)	shift; isRange=t; range="${1:?}"; shift;;
 	--one-more)	shift; isShowOneMore=t;;
 	--)		shift; break;;
 	*)		break;;
@@ -60,7 +62,7 @@ if [ -z "$revision" -a -z "${isRange+t}" ] && [ ! "$isShowOneMore" ]; then
     rangeArgs=('--since' "$GIT_TIMESPANCOMMAND_TIMESPAN")
 else
     [ -n "$revision" ] && isRange=t
-    rangeArgs=("$(getTimespanAgoCommit)${isShowOneMore:+^}${isRange:+^..}${revision}") || exit $?
+    rangeArgs=("$(getTimespanAgoCommit)${isShowOneMore:+^}${isRange:+^$range}${revision}") || exit $?
 fi
 
 isCountedAppend=

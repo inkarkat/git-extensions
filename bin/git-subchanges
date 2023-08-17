@@ -182,12 +182,19 @@ logAsMarkdown()
 {
     typeset -a sedHeaderTransformation=(-e '1{ s/^Submodule //; s/ [[:xdigit:]]\+..[[:xdigit:]]\+:$/:/; b; }')
     if [ "$isQualifiedWithUserRepo" ]; then
-	local userRepo="$(cd "$submodule" && hub-userrepo)"
-	if [ -n "$userRepo" ]; then
-	    literalUserRepo="$userRepo"
-	    literalUserRepo="${literalUserRepo//\\/\\\\}"
-	    literalUserRepo="${literalUserRepo//&/\\&}"
-	    sedHeaderTransformation=(-e "1{ s/^Submodule //; s# [[:xdigit:]]\\+..\\([[:xdigit:]]\\+\\):\$# ${literalUserRepo//#/\\#}@\\1:#; b; }")
+	local userRepoUrl="$(
+	    cd "$submodule" || exit 3
+	    # XXX: hub-url may append the path to the current branch, which is
+	    # not what we need here; "git ourl" would have the right format, but
+	    # is hard-coded to use the "origin" remote (which hub-url likely
+	    # also uses, but maybe also when renamed).
+	    hub-url -- \# | sed -e 's@/#$@@'
+	)"
+	if [ -n "$userRepoUrl" ]; then
+	    literalUserRepoUrl="$userRepoUrl"
+	    literalUserRepoUrl="${literalUserRepoUrl//\\/\\\\}"
+	    literalUserRepoUrl="${literalUserRepoUrl//&/\\&}"
+	    sedHeaderTransformation=(-e "1{ s/^Submodule //; s# \\([[:xdigit:]]\\+\\)..\\([[:xdigit:]]\\+\\):\$# [\\1..\\2](${literalUserRepoUrl//#/\\#}/compare/\\1...\\2):#; b; }")
 	fi
     fi
 

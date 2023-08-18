@@ -128,14 +128,27 @@ complete -o bashdefault -o default -o nospace -F _git_complete git
 _hub_complete()
 {
     local IFS=$'\n'
+
+    # Custom commands that only make sense in the hub context should be named
+    # hub-*, so that they won't be offered in the Git completion.
+    # Pure hub aliases should be made a small wrapper script.
     typeset -a aliases=(); readarray -t aliases < <(compgen -A command -- 'hub-' 2>/dev/null)
     aliases=("${aliases[@]/#hub-/}")
 
-    typeset -a multiModeAliases=(); readarray -t multiModeAliases < <(
+    # Detect commands that can be used with both git and hub by having a check
+    # for the "$HUB" variable in their source code.
+    typeset -a multiModeCommands=(); readarray -t multiModeCommands < <(
 	command cd "$(dirname -- "$(command -v git-wrapper)" 2>/dev/null)" \
 	    && grep --fixed-strings --files-with-matches --no-messages '"$HUB"' -- git-* 2>/dev/null
     )
-    aliases+=("${multiModeAliases[@]/#git-/}")
+    aliases+=("${multiModeCommands[@]/#git-/}")
+
+    # Detect aliases that can be used with both git and hub through a "HUB" marker comment at the end of the line of the alias definition.
+    typeset -a multiModeAliases=(); readarray -t multiModeAliases < <(
+	command cd "$(dirname -- "$(command -v git-wrapper)" 2>/dev/null)/.." \
+	    && sed -ne 's#^[[:space:]]*\(;; \([[:alnum:]]\+\):\|\([[:alnum:]]\+\) =\) .* HUB$#\2\3#p' gitconfig* 2>/dev/null
+    )
+    aliases+=("${multiModeAliases[@]}")
 
     if [ $COMP_CWORD -ge 3 ] && contains "${COMP_WORDS[1]}-${COMP_WORDS[2]}" "${aliases[@]}"; then
 	local hubAlias="_hub_${COMP_WORDS[1]//-/_}_${COMP_WORDS[2]//-/_}"

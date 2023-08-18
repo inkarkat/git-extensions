@@ -1,4 +1,5 @@
 #!/bin/bash
+set -o pipefail
 shopt -qs extglob
 
 printUsage()
@@ -7,11 +8,22 @@ printUsage()
 Open a pull request for the superproject.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[HUB-PULL-REQUEST-ARGS ...] [-?|-h|--help]'
 }
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-esac
+
+remote="$(git-trackedremote 2>/dev/null)" || remote='origin'
+base="$(git-mbr)" || exit $?
+typeset -a args=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--base|-b)	shift; base="${1:?}"; shift;;
+	--)		args+=("$1"); shift; break;;
+	*)		args+=("$1"); shift;;
+    esac
+done
+set -- "${args[@]}" "$@"
 
 if git issubmodule; then
     superprojectRoot="$(git superproject)" || exit 3
@@ -19,18 +31,18 @@ if git issubmodule; then
     header "../$(git-wcname)"
 fi
 
-typeset -a submoduleMessageCommands=(--command 'hub-bomsubchanges')
+typeset -a submoduleMessageCommands=(--command "git-subchanges ${remote}/${base}..HEAD --no-color --include-pull-requests --qualified-with-userrepo --as markdown")
 typeset -a submodulePullRequestArgs=(--draft)
-if ! git bomsubmodules >/dev/null; then
+if ! git-showsubmodules "${remote}/${base}..HEAD" >/dev/null; then
     submoduleMessageCommands=()
     submodulePullRequestArgs=()
 fi
 
 message="$(withSeparator \
-    --command 'git boml | markdownEscape' \
+    --command "git l ${remote}/${base}..HEAD -- | markdownEscape" \
     "${submoduleMessageCommands[@]}" \
-    --command 'hub-bomlogForPullRequest' \
+    --command "hub-logForPullRequest ${remote}/${base}..HEAD --" \
     --command 'git-servername --message' \
 )" || exit $?
 
-exec hub-wrapper pull-request "${submodulePullRequestArgs[@]}" --message "$message" --edit
+exec hub-wrapper pull-request --base "$base" "${submodulePullRequestArgs[@]}" --message "$message" --edit "$@"

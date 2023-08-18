@@ -74,9 +74,11 @@ b) just the superproject, no submodules involved:
 ### Prepare transaction:
 Note: Need to do a reverse integration (i.e. master to branch) because
 submodule changes must be pushed so that the superproject can reference them,
-but should not be visible on master yet. --no-merge stops short of the actual
-reintegration.
+but should not be visible on master yet.
+First ffintegrate the submodules; --no-merge stops short of the actual
+reintegration; submodules are still on their feature branch:
 `$ git subsamebrdo --interactive ffintegratetom --push-branch --no-merge --no-checks`
+Then ffintegrate the superproject; here, the merge will happen (locally):
 0) submodule branch(es) have been fast-forwarded: that creates no commit on
    master, so no action here
    `$ git ffintegratetom --push-branch --no-delete --no-submodule-checkout --no-submodule-update --rebase-single`
@@ -88,19 +90,24 @@ a) amends to short-lived feature without API changes:
 b) across-submodule API changes / maintain history of how the feature grew:
    `$ git cu -m 'feat-4711 Housekeeping: Reintegrate [...] submodule(s)'`   (no-op if all submodule branch(es) have been fast-forwarded)
    `$ git ffintegratetom --push-branch --no-delete --no-submodule-checkout --no-submodule-update --no-ff`
-If the GitHub action does not trigger (if this is just a merge commit affecting
+If the **GitHub action** does not **trigger** (if this is just a merge commit affecting
 submodule references but no actual files in the superproject), trigger it
 manually in GitHub.
 The superproject now will be on master already, it must **not be pushed to origin**
 **until the submodules have been reintegrated**.
+`$ hub showsubdo --interactive reintegratetom --ff-only --no-push --no-delete --no-checks`
+The submodules are now on master, too. Everything just needs to be pushed.
 ### Commit transaction:
+Now **wait until the GitHub action** has built the superproject's pushed feature
+branch successfully, then conclude by pushing all master branches and cleaning
+up branches.
 Note: There's no real transactional handling across repos; reintegration may
 fail at any point. This just limits the critical time period.
-`$ hub showsubdo --interactive reintegratetom --ff-only --no-checks`
-Now wait until the GitHub action has built the superproject's pushed feature
-branch successfully, then conclude by pushing master and cleaning up with
+`$ hub showsubdo --interactive opush`
 `$ git opush`
-`$ git oldeletelb`
+If any of the pushes fail, you still have the local branches; wipe the master
+branches, check out the feature branch, fetch, and repeat.
+`$ hub showsubdo --include-superproject --interactive oldeletelb`
 
 
 # Rules

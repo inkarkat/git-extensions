@@ -77,6 +77,11 @@ submodule changes must be pushed so that the superproject can reference them,
 but should not be visible on master yet. --no-merge stops short of the actual
 reintegration.
 `$ git subsamebrdo --interactive ffintegratetom --push-branch --no-merge --no-checks`
+0) submodule branch(es) have been fast-forwarded: that creates no commit on
+   master, so no action here
+   `$ git ffintegratetom --push-branch --no-delete --no-submodule-checkout --no-submodule-update --rebase-single`
+   This will be the case if you've just recently started the feature and it was
+   an automated process (like updating metadata files everywhere).
 a) amends to short-lived feature without API changes:
    `$ git amenu`
    `$ git ffintegratetom --push-branch --no-delete --no-submodule-checkout --no-submodule-update --rebase-single`

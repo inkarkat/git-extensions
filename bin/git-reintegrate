@@ -6,7 +6,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--[no-]push] [--no-delete] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] [--ff-target-to-tracked] [--no-submodule-update] [-y|--yes] -b|--branch <branch> [...] | [--] <branch> [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--[no-]push] [--no-delete] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] [--ff-target-to-tracked] [--no-submodule-update] [--ignore-dirty-submodules] [-y|--yes] -b|--branch <branch> [...] | [--] <branch> [...] [-?|-h|--help]'
     echo
     printf 'Usage: GIT_REINTEGRATE_CHECK_COMMAND=CMD|GIT_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" '[...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '[...] --no-checks | -c|--command "CHECK-COMMANDLINE" [-c ...] | --exec SIMPLECOMMAND [...] ; [...]'
@@ -51,6 +51,9 @@ HELPDESCRIPTION
     --no-submodule-update
 			Don't automatically check out resulting submodule
 			versions.
+    --ignore-dirty-submodules
+			Don't complain if submodules are dirty. (This happens
+			when reintegrateto --no-submodule-checkout is used.)
     --no-checks		Don't run any default \$GIT_REINTEGRATE_CHECK_COMMAND /
 			\$GIT_CHECK_COMMAND.
     --yes		Don't query for confirmation of remote mutations.
@@ -105,6 +108,7 @@ runWithCommand=runWithPrompt
 typeset -a runWithPromptArgs=()
 typeset -a continueArgs=()
 typeset -a gitRemoteMutateArgs=()
+typeset -a gitDirtyArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -159,6 +163,7 @@ do
 	--@(strategy|strategy-option|gpg-sign)=*)	mergeArgs+=("$1"); shift;;
 	--@(strategy|strategy-option|gpg-sign))		mergeArgs+=("$1" "$2"); shift; shift;;
 	--no-submodule-update)				mergeArgs+=("$1"); rebaseArgs+=("$1"); shift;;
+	--ignore-dirty-submodules)			shift; gitDirtyArgs+=(--ignore-submodules=all);;
 
 	--)		mergeArgs+=("$1"); shift; break;;
 	--*)		mergeArgs+=("$1"); shift;;
@@ -206,7 +211,7 @@ if [ ${#branches[@]} -eq 0 ]; then
     exit 2
 elif ! git-existsbr --verbose "${branches[@]}"; then
     exit 1
-elif git-dirty --print-error; then
+elif git-dirty --print-error "${gitDirtyArgs[@]}"; then
     exit 1
 fi >&2
 

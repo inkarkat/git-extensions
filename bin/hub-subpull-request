@@ -46,7 +46,7 @@ if [ -n "$superMessage" ] || git issubmodule; then
     # Do this for each submodule, even if invoked in the superproject, as each
     # submodule iteration adds a pull request.
     currentSubmodule="$(git-supersubpath)" || exit $?
-    existingChanges="$(git superdo --no-header subpull-request --base "$base" --existing-changes "$currentSubmodule")"
+    existingChanges="$(git superdo --no-header "${scriptName#hub-}" --base "$base" --existing-changes "$currentSubmodule")"
     typeset -a existingChangesCommand=()
     if [ -n "$existingChanges" ]; then
 	printf -v echoExistingChanges 'printf %%s\\\\n%%s\\\\n %q %q' 'Related changes:' "$existingChanges"
@@ -63,5 +63,5 @@ if [ -n "$superMessage" ] || git issubmodule; then
     exec hub-wrapper pull-request --base "$base" --message "${superMessage}${superMessage:+$'\n\n'}$message" --edit "$@"
 else
     superMessage="$(git lo "${remote}/${base}..HEAD" | markdownEscape)" || exit $?
-    exec hub-wrapper subsamebrdo --subdo-command-name "${scriptName#hub-}" --no-git-color --interactive subpull-request --base "$base" --super-message "$superMessage"
+    exec hub-wrapper subsamebrdo --subdo-command-name "${scriptName#hub-}" --no-git-color --interactive "${scriptName#hub-}" --base "$base" --super-message "$superMessage"
 fi

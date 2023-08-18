@@ -1,4 +1,5 @@
 #!/bin/bash
+set -o pipefail
 shopt -qs extglob
 
 readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
@@ -10,11 +11,22 @@ Open pull requests for the superproject and the current submodule / for all
 submodules that are on the same branch as the superproject.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[HUB-PULL-REQUEST-ARGS ...] [-?|-h|--help]'
 }
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-esac
+
+remote="$(git-trackedremote 2>/dev/null)" || remote='origin'
+base="$(git-mbr)" || exit $?
+typeset -a args=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--base|-b)	shift; base="${1:?}"; shift;;
+	--)		args+=("$1"); shift; break;;
+	*)		args+=("$1"); shift;;
+    esac
+done
+set -- "${args[@]}" "$@"
 
 if git issubmodule; then
     superprojectRoot="$(git superproject)" || exit 3
@@ -26,37 +38,42 @@ if git issubmodule; then
     {
 	cd "$submoduleRoot" || exit 3
 	header "$(git-wcname)"
+	local message
 	message="$(withSeparator \
 	    --command 'hub-superpr | markdownEscape' \
-	    --command 'git boml | markdownEscape' \
-	    --command 'hub-bomlogForPullRequest' \
+	    --command "git l ${remote}/${base}..HEAD -- | markdownEscape" \
+	    --command "hub-logForPullRequest ${remote}/${base}..HEAD --" \
 	)" || exit $?
 
-	hub-wrapper pull-request --message "$message" --edit
+	hub-wrapper pull-request --base "$base" --message "$message" --edit "$@"
     }
 else
     handleSubmodules()
     {
+	local message quotedMessage quotedArgs
 	message="$(hub-prtitle --as-integration-message --qualified-with-userrepo)" || return $?
+	printf -v quotedMessage '%q' "$message"
+	quotedArgs=; [ $# -eq 0 ] || printf -v quotedArgs ' %q' "$@"
+
 	hub subsamebrdo --subdo-command-name "${scriptName#hub-}" --no-git-color --interactive --command "logs=\"\$(
 	    withSeparator
-		--command 'git boml | markdownEscape'
-		--command 'hub-bomlogForPullRequest'
+		--command 'git l ${remote}/${base}..HEAD -- | markdownEscape'
+		--command 'hub-logForPullRequest ${remote}/${base}..HEAD --'
 	    \)\";
-	    hub-wrapper pull-request --message \"\$message\"\$'\\n'\"\$logs\" --edit"
+	    hub-wrapper pull-request --base $base --message ${quotedMessage}\$'\\n'\"\$logs\" --edit${quotedArgs}"
     }
 fi
 
 message="$(withSeparator \
-    --command 'git boml | markdownEscape' \
-    --command 'hub-bomlogForPullRequest' \
+    --command "git l ${remote}/${base}..HEAD -- | markdownEscape" \
+    --command "hub-logForPullRequest ${remote}/${base}..HEAD --" \
     --command 'git-servername --message' \
 )" || exit $?
-hub-wrapper pull-request --draft --message "$message" --edit \
+hub-wrapper pull-request --draft --base "$base" --message "$message" --edit "$@" \
     || userBinaryChoice --keep-prompt --console --question 'The superproject pull-request failed / was aborted; do you still want to continue with the submodules?' --yes-no \
     || exit 4
 
-handleSubmodules || exit $?
+handleSubmodules "$@" || exit $?
 
 exec tempedit \
     --basename PULLREQ_EDITMSG \
@@ -64,6 +81,6 @@ exec tempedit \
     --sink-exec gh pr edit --body-file - \; \
     -- withSeparator \
 	--command 'hub pr show -f "%t (← do not edit here)%n%n%b"' \
-	--command 'git boml | markdownEscape' \
-	--command hub-bomsubchanges \
+	--command "git l ${remote}/${base}..HEAD -- | markdownEscape" \
+	--command "git-subchanges ${remote}/${base}..HEAD --no-color --include-pull-requests --qualified-with-userrepo --as markdown" \
 

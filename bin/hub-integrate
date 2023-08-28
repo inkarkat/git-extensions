@@ -155,6 +155,7 @@ fi
     IFS=$'\n' read -r targetBranch
     IFS=$'\n' read -r sourceRemoteBranch
     IFS=$'\n' read -r sourceRef
+    IFS=$'\n' read -r isDraft
     IFS=$'\n' read -r mergeable
     IFS=$'\n' read -r state
     IFS=$'\n' read -r prNumber
@@ -162,7 +163,10 @@ fi
 } < <(
     typeset -a prefixCommands=()
     type -t invocationMessage >/dev/null && prefixCommands=(invocationMessage --message 'Searching for PR...' --success FOUND --fail NONE -- "${prefixCommands[@]}")
-    "${prefixCommands[@]}" gh pr view --json 'baseRefName,headRefName,headRefOid,mergeable,state,number,title' --template '{{.baseRefName}}{{"\n"}}{{.headRefName}}{{"\n"}}{{.headRefOid}}{{"\n"}}{{.mergeable}}{{"\n"}}{{.state}}{{"\n"}}{{.number}}{{"\n"}}{{.title}}{{"\n"}}' "$sourceBranch"
+    "${prefixCommands[@]}" gh pr view \
+	--json 'baseRefName,headRefName,headRefOid,isDraft,mergeable,state,number,title' \
+	--template '{{.baseRefName}}{{"\n"}}{{.headRefName}}{{"\n"}}{{.headRefOid}}{{"\n"}}{{.isDraft}}{{"\n"}}{{.mergeable}}{{"\n"}}{{.state}}{{"\n"}}{{.number}}{{"\n"}}{{.title}}{{"\n"}}' \
+	"$sourceBranch"
 )
 wait
 
@@ -173,10 +177,13 @@ elif [ "$sourceRemoteBranch" != "$sourceBranch" ]; then
     printf >&2 "ERROR: Something is wrong; this branch '%s' is different from the pull request's source branch in GitHub '%s'.\\n" "$sourceBranch" "$sourceRemoteBranch"
     exit 3
 elif [ "$mergeable" != MERGEABLE ]; then
-    printf "%s: Pull request #%d (%s) is not mergeable: %s\\n" "$problemSeverity" "$prNumber" "$prTitle" "$mergeable"
+    printf '%s: Pull request #%d (%s) is not mergeable: %s\n' "$problemSeverity" "$prNumber" "$prTitle" "$mergeable"
     exit 1
 elif [ "$state" != OPEN ]; then
-    printf "%s: Pull request #%d (%s) is not in state open: %s\\n" "$problemSeverity" "$prNumber" "$prTitle" "$state"
+    printf '%s: Pull request #%d (%s) is not in state open: %s\n' "$problemSeverity" "$prNumber" "$prTitle" "$state"
+    exit 1
+elif [ "$isDraft" != false ] && [ ! "$isOffer" ]; then
+    printf '%s: Pull request #%d (%s) is still a draft.\n' "$problemSeverity" "$prNumber" "$prTitle"
     exit 1
 fi >&2
 
@@ -213,9 +220,14 @@ deleteMergedSubmoduleBranches()
 	| git-subdo --subdo-command-name "${scriptName#hub-}" --status-99-is-noop --for - --interactive delete-merged-branches "$sourceBranch"
 }
 
+isMakeReady=
 if [ "$isOffer" ]; then
-    userBinaryChoice --keep-prompt --introduction "A mergeable pull request #${prNumber} (${prTitle}) exists." --question "Integrate ${sourceBranch} into ${targetBranch} in and by GitHub?" --yes-no \
-	|| exit 4
+    if [ "$isDraft" = false ]; then
+	userBinaryChoice --keep-prompt --introduction "A mergeable pull request #${prNumber} (${prTitle}) exists." --question "Integrate ${sourceBranch} into ${targetBranch} in and by GitHub?" --yes-no
+    else
+	userBinaryChoice --keep-prompt --introduction "A mergeable pull request #${prNumber} (${prTitle}) exists, but is still in draft state." --question "Mark as ready and then integrate ${sourceBranch} into ${targetBranch} in and by GitHub?" --yes-no \
+	    && isMakeReady=t
+    fi || exit 4
 fi
 printf 'Integrating %s into %s via #%d (%s):\n\n' "$sourceBranch" "$targetBranch" "$prNumber" "$prTitle"
 
@@ -291,6 +303,10 @@ if [ "$mergeResolutionArg" != '--rebase' ]; then
 	echo >&2 'ERROR: No subject for the merge commit.'
 	exit 4
     fi
+fi
+
+if [ "$isMakeReady" ]; then
+    gh pr ready "$prNumber" || exit $?
 fi
 
 gh pr merge \

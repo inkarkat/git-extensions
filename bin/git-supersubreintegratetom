@@ -9,7 +9,7 @@ printShortUsage()
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
-    printf 'Usage: GIT_REINTEGRATE_CHECK_COMMAND=CMD|GIT_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" '[--same-branch|--for -|--for SUBMODULE [...] ;] [...]'
+    printf 'Usage: GIT_REINTEGRATE_CHECK_COMMAND=CMD|GIT_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" '[--submodules-only] [--same-branch|--for -|--for SUBMODULE [...] ;] [...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '[...] --no-checks | -c|--command "CHECK-COMMANDLINE" [-c ...] | --exec SIMPLECOMMAND [...] ; [...]'
     printf 'Usage: echo CHECK-COMMANDLINES | %q %s\n' "$(basename "$1")" '[...] [--bare|[--initial-status NUM] [--trailing-prompt|--no-trailing-prompt] [--no-output-no-prompt] [--no-output-no-error] [--emulate-prompt]] [--no-success-no-count|--no-count-on N] [--exit-on-success|--exit-on-failure|--exit-on NUM] [--worst-status] [--comment COMMENT] [--summarize-failed ERROR-TEXT [--summarize-failed-separator SEP]] -'
     printf 'Usage: %q %s - <<EOF\n  CHECK-COMMANDLINE\n...\nEOF\n' "$(basename "$1")" '[...]'
@@ -38,6 +38,11 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
+    --submodules-only	Only reintegrate the submodule(s), not the superproject,
+			and skip the update / amend of the superproject, too.
+			You have to manually update the superproject later.
+			(This is useful when reintegrating multiple feature
+			branches via a single superproject integration branch.)
     --same-branch	Cover all submodules that are on the same branch as the
 			superproject. By default, covers submodules that are
 			modified in the superproject's current branch to master
@@ -54,10 +59,13 @@ HELPTEXT
 typeset -a affectedSubmodules=()
 typeset -a affectedSubmoduleSourceCommand=(bomsubmodules)
 typeset -a reintegrateArgs=()
+isSubmodulesOnly=
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--submodules-only)
+			shift; isSubmodulesOnly=t;;
 	--same-branch)	shift; affectedSubmoduleSourceCommand=(subsamebrdo --subdo-command-name "${scriptName#git-}");;
 	--for)		shift
 			if [ "$1" = - ]; then
@@ -250,49 +258,56 @@ completeSubmoduleReintegrationInSuperproject()
 {
     goToSuperproject
 
-    case $(git bomcount) in
-	0)  echo >&2 'ERROR: Expected at least one commit in the superproject on the branch, but none found.'
-	    exit 3
-	    ;;
-	1)  if git-dirty --ignore-submodules=dirty -- "${affectedSubmodules[@]}"; then
-		echo 'Amending reintegrated submodule(s) to the single superproject commit.'
-		git add -- "${affectedSubmodules[@]}" \
-		    && git amen \
-		    || exit $?
-	    else
-		echo 'The reintegrated submodule(s) have been fast-forwarded; nothing to amend.'
-	    fi
-	    ;;
-	*)  local submoduleCnt=$((${#affectedSubmodules[@]} - ${#unintegratedSubmodules[@]} + 1))
-	    if git-dirty --ignore-submodules=dirty -- "${affectedSubmodules[@]}"; then
-		if [ $submoduleCnt -eq 1 ]; then
-		    local affectedSubmodulesPlural=s; [ ${#affectedSubmodules[@]} -eq 1 ] && affectedSubmodulesPlural=
-		    local commitMessage; printf -v commitMessage 'Housekeeping: Reintegrate submodule%s %s' "$affectedSubmodulesPlural" "$(joinBy ', ' "${affectedSubmodules[@]}")"
-		    git add -- "${affectedSubmodules[@]}" \
-			&& git-wrapper commit --edit --message "$commitMessage" \
-			|| exit $?
-		else
-		    printf 'Amending the %d. reintegrated submodule to the previous superproject commit.\n' "$submoduleCnt"
+    if [ ! "$isSubmodulesOnly" ]; then
+	case $(git bomcount) in
+	    0)  echo >&2 'ERROR: Expected at least one commit in the superproject on the branch, but none found.'
+		exit 3
+		;;
+	    1)  if git-dirty --ignore-submodules=dirty -- "${affectedSubmodules[@]}"; then
+		    echo 'Amending reintegrated submodule(s) to the single superproject commit.'
 		    git add -- "${affectedSubmodules[@]}" \
 			&& git amen \
 			|| exit $?
+		else
+		    echo 'The reintegrated submodule(s) have been fast-forwarded; nothing to amend.'
 		fi
-	    else
-		printf 'This (%d.) reintegrated submodule has been fast-forwarded; nothing to amend.' "$submoduleCnt"
-	    fi
-	    ;;
-    esac
+		;;
+	    *)  local submoduleCnt=$((${#affectedSubmodules[@]} - ${#unintegratedSubmodules[@]} + 1))
+		if git-dirty --ignore-submodules=dirty -- "${affectedSubmodules[@]}"; then
+		    if [ $submoduleCnt -eq 1 ]; then
+			local affectedSubmodulesPlural=s; [ ${#affectedSubmodules[@]} -eq 1 ] && affectedSubmodulesPlural=
+			local commitMessage; printf -v commitMessage 'Housekeeping: Reintegrate submodule%s %s' "$affectedSubmodulesPlural" "$(joinBy ', ' "${affectedSubmodules[@]}")"
+			git add -- "${affectedSubmodules[@]}" \
+			    && git-wrapper commit --edit --message "$commitMessage" \
+			    || exit $?
+		    else
+			printf 'Amending the %d. reintegrated submodule to the previous superproject commit.\n' "$submoduleCnt"
+			git add -- "${affectedSubmodules[@]}" \
+			    && git amen \
+			    || exit $?
+		    fi
+		else
+		    printf 'This (%d.) reintegrated submodule has been fast-forwarded; nothing to amend.' "$submoduleCnt"
+		fi
+		;;
+	esac
+    fi
 
     echo
     checkForUnintegratedSubmodules
+
+    local gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
     if [ ${#unintegratedSubmodules[@]} -gt 0 ]; then
 	unintegratedSubmodulesPlural=s; [ ${#unintegratedSubmodules[@]} -eq 1 ] && unintegratedSubmodulesPlural=
 	printf '%s more submodule%s to reintegrate: %s\n' ${#unintegratedSubmodules[@]} "$unintegratedSubmodulesPlural" "$(joinBy ', ' "${unintegratedSubmodules[@]}")"
 	exit 0
+    elif [ "$isSubmodulesOnly" ]; then
+	printf 'You need to manually update the superproject with the submodule reintegration changes; then continue with the reintegration of the superproject via $ %s %q' "$gitCommand" "${scriptName#git-}"
+	[ $# -eq 0 ] || printf ' %q' "$@"
+	printf '\n'
     elif userBinaryChoice --keep-prompt --question 'Reintegrate the superproject now?' --yes-no; then
 	reintegrateSuperproject "$@"
     else
-	local gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
 	printf 'Continue with the reintegration of the superproject via $ %s %q' "$gitCommand" "${scriptName#git-}"
 	[ $# -eq 0 ] || printf ' %q' "$@"
 	printf '\n'

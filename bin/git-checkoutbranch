@@ -1,5 +1,4 @@
 #!/bin/bash
-shopt -qs extglob
 
 printUsage()
 {
@@ -16,7 +15,6 @@ HELPTEXT
 branchOption=
 typeset -a branches=()
 typeset -a checkoutArgs=()
-logArg=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -25,8 +23,6 @@ do
 			shift;;
 	--color)	shift; shift;;
 	-[bB])		branchOption="$1"; shift; branches+=("$1"); shift;;
-	--@(gui|terminal|none))
-			logArg="$1"; shift;;
 	--)		checkoutArgs+=("$1"); shift; break;;
 	*)		checkoutArgs+=("$1"); shift;;
     esac
@@ -45,8 +41,4 @@ else
     newBranch="${branches[0]}"
 fi
 
-if [ $# -eq 0 -o -z "$logArg" -o "$logArg" = --none ]; then
-    exec git-wrapper checkout "${checkoutArgs[@]}" "${branchOption:?}" "${newBranch:?}" "$@"
-else
-    exec git-logdelta $logArg -- checkout "${checkoutArgs[@]}" "${branchOption:?}" "${newBranch:?}" "$@"
-fi
+exec git-checkout-with-logdelta "${checkoutArgs[@]}" "${branchOption:?}" "${newBranch:?}" "$@"

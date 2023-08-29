@@ -1,0 +1,31 @@
+#!/bin/bash
+shopt -qs extglob
+
+printUsage()
+{
+    cat <<HELPTEXT
+Switch branches while showing a log of the changes between the current HEAD and
+the checkout result.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--gui|--terminal|--none] [CHECKOUT-ARGS ...] [-?|-h|--help]'
+}
+
+typeset -a checkoutArgs=()
+logArg=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--@(gui|terminal|none))
+			logArg="$1"; shift;;
+	--)		checkoutArgs+=("$1"); shift; break;;
+	*)		checkoutArgs+=("$1"); shift;;
+    esac
+done
+
+if [ -z "$logArg" -o "$logArg" = --none ]; then
+    exec git-wrapper checkout "${checkoutArgs[@]}" "$@"
+else
+    exec git-logdelta $logArg -- checkout "${checkoutArgs[@]}" "$@"
+fi

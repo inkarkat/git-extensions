@@ -14,7 +14,8 @@ HELPTEXT
 }
 isQuiet=
 isYes=
-typeset -a checkoutBranchArgs=()
+typeset -a checkoutArgs=()
+logArg=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -24,8 +25,9 @@ do
 	--color)	shift; shift;;
 	--quiet|-q)	shift; isQuiet=t;;
 	--yes|-y)	shift; isYes=t;;
-	--@(force|f|gui|terminal|none))
-			checkoutBranchArgs+=("$1"); shift;;
+	--force|-f)	checkoutArgs+=("$1"); shift;;
+	--@(gui|terminal|none))
+			logArg="$1"; shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -56,7 +58,7 @@ if [ -z "$branchName" ]; then
 	    if [ "$isYes" ] \
 		|| userBinaryChoice --keep-prompt --question "'${remoteBranch}' points to the current revision; check it out?" --yes-no
 	    then
-		exec git-checkout-remote-branch "$remoteBranch"
+		exec git-checkout-remote-branch $logArg "${checkoutArgs[@]}" "$remoteBranch"
 	    fi
 	fi
     done < <(git-rbr '')
@@ -82,4 +84,9 @@ if [ -z "$branchName" ]; then
     fi
 fi
 
-exec git-checkoutbranch --no-track "${checkoutBranchArgs[@]}" -B "${branchName:?}"
+checkoutArgs+=(--no-track)
+if [ -z "$logArg" -o "$logArg" = --none ]; then
+    exec git-wrapper checkout "${checkoutArgs[@]}" "${branchName:?}"
+else
+    exec git-logdelta $logArg -- checkout "${checkoutArgs[@]}" "${branchName:?}"
+fi

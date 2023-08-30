@@ -319,9 +319,11 @@ reintegrateSuperproject()
     esac
 
     if [ "$HUB" ]; then
-	"${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--no-pager --separate-errors} outlg \
-	    | outputAndPrintf 'Note: Submodule(s) have outgoing reintegration commits; integration in and by GitHub not possible:\n' \
-		|| hub-integrate --offer "${integrateArgs[@]}" "$@" && return
+	if ! "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--no-pager --separate-errors} outlg \
+	    | outputAndPrintf 'Note: Submodule(s) have outgoing reintegration commits; integration in and by GitHub not possible:\n'
+	then
+	    hub-integrate --offer "${integrateArgs[@]}" "$@" && return
+	fi
     fi
 
     git-dirty --print-error --error-message 'ERROR: The superproject working copy is still dirty.' \

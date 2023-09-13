@@ -212,7 +212,42 @@ prTitleAsMarkdown()
 
 obtainLog()
 {
-    git log --pretty= --patch --submodule=log "${colorArg[@]}" "${rangeModificationArgs[@]}" "${rangeArgs[@]}" "$@" -- "$submodule"
+    git log --pretty= --patch --submodule=log "${colorArg[@]}" "${rangeModificationArgs[@]}" "${rangeArgs[@]}" "$@" -- "$submodule" \
+	| joinSubmoduleLogs
+}
+joinSubmoduleLogs()
+{
+    awk '
+/^Submodule / {
+    if (!match($0, /^Submodule ([^ ]+) ([[:xdigit:]]+)\.\.([[:xdigit:]]+):$/, a)) {
+	print "ASSERT: Invalid submodule header: " $0 > "/dev/stderr"
+	exit(3)
+    } else if (submodule != "" && submodule != a[1]) {
+	printf "ASSERT: Encountered different submodule \"%s\" != previous \"%s\" in line %d.\n", a[1], submodule, NR > "/dev/stderr"
+	exit(3)
+    }
+
+    submodule = a[1]
+    startRevision = a[2]    # The last start revision covers the full range.
+    if (endRevision == "") endRevision = a[3]	# The first end revision is where it starts.
+
+    next
+}
+{
+    logs[++n] = $0
+}
+END {
+    if (submodule == "") {
+	print "ERROR: No submodule header found." > "/dev/stderr"
+	exit(3)
+    }
+
+    printf "Submodule %s %s..%s:\n", submodule, startRevision, endRevision
+    for (i = 1; i <= n; ++i) {
+	print logs[i]
+    }
+}
+'
 }
 obtainChanges()
 {

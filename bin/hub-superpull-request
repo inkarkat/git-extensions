@@ -8,17 +8,19 @@ printUsage()
 Open a pull request for the superproject.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[HUB-PULL-REQUEST-ARGS ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[HUB-PULL-REQUEST-ARGS ...] [-?|--help]'
 }
 
 remote="$(git-trackedremote 2>/dev/null)" || remote='origin'
 base="$(git-mbr)" || exit $?
+head=
 typeset -a args=()
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-\?)	shift; printUsage "$0"; exit 0;;
 	--base|-b)	shift; base="${1:?}"; shift;;
+	--head|-h)	shift; head="${1:?}"; shift;;
 	--)		args+=("$1"); shift; break;;
 	*)		args+=("$1"); shift;;
     esac
@@ -31,18 +33,18 @@ if git issubmodule; then
     header "../$(git-wcname)"
 fi
 
-typeset -a submoduleMessageCommands=(--command "git-subchanges ${remote}/${base}..HEAD --no-color --include-pull-requests --qualified-with-userrepo --as markdown")
+typeset -a submoduleMessageCommands=(--command "git-subchanges ${remote}/${base}..${head} --no-color --include-pull-requests --qualified-with-userrepo --as markdown")
 typeset -a submodulePullRequestArgs=(--draft)
-if ! git-showsubmodules "${remote}/${base}..HEAD" >/dev/null; then
+if ! git-showsubmodules "${remote}/${base}..${head}" >/dev/null; then
     submoduleMessageCommands=()
     submodulePullRequestArgs=()
 fi
 
 message="$(withSeparator \
-    --command "git l ${remote}/${base}..HEAD -- | markdownEscape" \
+    --command "git l ${remote}/${base}..${head} -- | markdownEscape" \
     "${submoduleMessageCommands[@]}" \
-    --command "hub-logForPullRequest ${remote}/${base}..HEAD --" \
+    --command "hub-logForPullRequest ${remote}/${base}..${head} --" \
     --command 'git-servername --message' \
 )" || exit $?
 
-exec hub-wrapper pull-request --base "$base" "${submodulePullRequestArgs[@]}" --message "$message" --edit "$@"
+exec hub-wrapper pull-request --base "$base" ${head:+--head "$head"} "${submodulePullRequestArgs[@]}" --message "$message" --edit "$@"

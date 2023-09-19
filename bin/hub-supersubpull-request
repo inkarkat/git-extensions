@@ -11,17 +11,19 @@ Open pull requests for the superproject and the current submodule / for all
 submodules that are on the same branch as the superproject.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[HUB-PULL-REQUEST-ARGS ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[HUB-PULL-REQUEST-ARGS ...] [-?|--help]'
 }
 
 remote="$(git-trackedremote 2>/dev/null)" || remote='origin'
 base="$(git-mbr)" || exit $?
+head=
 typeset -a args=()
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-\?)	shift; printUsage "$0"; exit 0;;
 	--base|-b)	shift; base="${1:?}"; shift;;
+	--head|-h)	shift; head="${1:?}"; shift;;
 	--)		args+=("$1"); shift; break;;
 	*)		args+=("$1"); shift;;
     esac
@@ -41,11 +43,11 @@ if git issubmodule; then
 	local message
 	message="$(withSeparator \
 	    --command 'hub-superpr | markdownEscape' \
-	    --command "git l ${remote}/${base}..HEAD -- | markdownEscape" \
-	    --command "hub-logForPullRequest ${remote}/${base}..HEAD --" \
+	    --command "git l ${remote}/${base}..${head} -- | markdownEscape" \
+	    --command "hub-logForPullRequest ${remote}/${base}..${head} --" \
 	)" || exit $?
 
-	hub-wrapper pull-request --base "$base" --message "$message" --edit "$@"
+	hub-wrapper pull-request --base "$base" ${head:+--head "$head"} --message "$message" --edit "$@"
     }
 else
     handleSubmodules()
@@ -57,19 +59,19 @@ else
 
 	hub subsamebrdo --subdo-command-name "${scriptName#hub-}" --no-git-color --interactive --command "logs=\"\$(
 	    withSeparator
-		--command 'git l ${remote}/${base}..HEAD -- | markdownEscape'
-		--command 'hub-logForPullRequest ${remote}/${base}..HEAD --'
+		--command 'git l ${remote}/${base}..${head} -- | markdownEscape'
+		--command 'hub-logForPullRequest ${remote}/${base}..${head} --'
 	    \)\";
-	    hub-wrapper pull-request --base $base --message ${quotedMessage}\$'\\n'\"\$logs\" --edit${quotedArgs}"
+	    hub-wrapper pull-request --base $base ${head:+--head "$head"} --message ${quotedMessage}\$'\\n'\"\$logs\" --edit${quotedArgs}"
     }
 fi
 
 message="$(withSeparator \
-    --command "git l ${remote}/${base}..HEAD -- | markdownEscape" \
-    --command "hub-logForPullRequest ${remote}/${base}..HEAD --" \
+    --command "git l ${remote}/${base}..${head} -- | markdownEscape" \
+    --command "hub-logForPullRequest ${remote}/${base}..${head} --" \
     --command 'git-servername --message' \
 )" || exit $?
-hub-wrapper pull-request --draft --base "$base" --message "$message" --edit "$@" \
+hub-wrapper pull-request --draft --base "$base" ${head:+--head "$head"} --message "$message" --edit "$@" \
     || userBinaryChoice --keep-prompt --console --question 'The superproject pull-request failed / was aborted; do you still want to continue with the submodules?' --yes-no \
     || exit 4
 
@@ -81,6 +83,6 @@ exec tempedit \
     --sink-exec gh pr edit --body-file - \; \
     -- withSeparator \
 	--command 'hub pr show -f "%t (← do not edit here)%n%n%b"' \
-	--command "git l ${remote}/${base}..HEAD -- | markdownEscape" \
-	--command "git-subchanges ${remote}/${base}..HEAD --no-color --include-pull-requests --qualified-with-userrepo --as markdown" \
+	--command "git l ${remote}/${base}..${head} -- | markdownEscape" \
+	--command "git-subchanges ${remote}/${base}..${head} --no-color --include-pull-requests --qualified-with-userrepo --as markdown" \
 

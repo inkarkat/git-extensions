@@ -1,0 +1,19 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Create a GitHub pull request for the branch that is interactively selected from
+existing branches.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[HUB-PULL-REQUEST-ARGS ...] [-?|-h|--help]'
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+printf -v quotedPullRequestCommand '%q ' pull-request "$@" --head
+export GIT_SELECTED_COMMAND_DEFAULT_FILES='git-localbr --include-current'
+HUB=t exec git-selected-command --single-only "${quotedPullRequestCommand% }"

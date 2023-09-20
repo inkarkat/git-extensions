@@ -11,18 +11,20 @@ Open a pull request for the current submodule / for all submodules that are on
 the same branch as the superproject.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[HUB-PULL-REQUEST-ARGS ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[HUB-PULL-REQUEST-ARGS ...] [-?|--help]'
 }
 
 remote="$(git-trackedremote 2>/dev/null)" || remote='origin'
 base="$(git-mbr)" || exit $?
+head=
 typeset -a args=()
 superMessage=
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-\?)	shift; printUsage "$0"; exit 0;;
 	--base|-b)	shift; base="${1:?}"; shift;;
+	--head|-h)	shift; head="${1:?}"; shift;;
 	--super-message)
 			shift; superMessage="${1:?}"; shift;;
 	--existing-changes)
@@ -30,7 +32,7 @@ do
 			currentSubmodule="${1?}"; shift
 			readarray -t submodules < <(git subsamebrdo --subdo-command-name "${scriptName#hub-}" --no-header)
 			[ ${#submodules[@]} -eq 0 ] && exit 0
-			git-subchanges "${remote}/${base}..HEAD" --no-color --include-pull-requests --qualified-with-userrepo --as markdown ${currentSubmodule:+--exclude-submodule "$currentSubmodule"} "${submodules[@]}"
+			git-subchanges "${remote}/${base}..${head}" --no-color --include-pull-requests --qualified-with-userrepo --as markdown ${currentSubmodule:+--exclude-submodule "$currentSubmodule"} "${submodules[@]}"
 			exit 0
 			;;
 	--)		args+=("$1"); shift; break;;
@@ -40,13 +42,13 @@ done
 set -- "${args[@]}" "$@"
 
 if [ -n "$superMessage" ] || git issubmodule; then
-    [ -n "$superMessage" ] || superMessage="$(git superdo --no-header lo "${remote}/${base}..HEAD" -- | markdownEscape)" \
+    [ -n "$superMessage" ] || superMessage="$(git superdo --no-header lo "${remote}/${base}..${head}" -- | markdownEscape)" \
 	|| echo >&2 'Note: Found no corresponding changes in superproject.'
 
     # Do this for each submodule, even if invoked in the superproject, as each
     # submodule iteration adds a pull request.
     currentSubmodule="$(git-supersubpath)" || exit $?
-    existingChanges="$(git superdo --no-header "${scriptName#hub-}" --base "$base" --existing-changes "$currentSubmodule")"
+    existingChanges="$(git superdo --no-header "${scriptName#hub-}" --base "$base" ${head:+--head "$head"} --existing-changes "$currentSubmodule")"
     typeset -a existingChangesCommand=()
     if [ -n "$existingChanges" ]; then
 	printf -v echoExistingChanges 'printf %%s\\\\n%%s\\\\n %q %q' 'Related changes:' "$existingChanges"
@@ -54,14 +56,14 @@ if [ -n "$superMessage" ] || git issubmodule; then
     fi
 
     message="$(withSeparator \
-	--command "git l ${remote}/${base}..HEAD -- | markdownEscape" \
+	--command "git l ${remote}/${base}..${head} -- | markdownEscape" \
 	"${existingChangesCommand[@]}" \
-	--command "hub-logForPullRequest ${remote}/${base}..HEAD --" \
+	--command "hub-logForPullRequest ${remote}/${base}..${head} --" \
 	--command 'git-servername --message' \
     )" || exit $?
 
-    exec hub-wrapper pull-request --base "$base" --message "${superMessage}${superMessage:+$'\n\n'}$message" --edit "$@"
+    exec hub-wrapper pull-request --base "$base" ${head:+--head "$head"} --message "${superMessage}${superMessage:+$'\n\n'}$message" --edit "$@"
 else
-    superMessage="$(git lo "${remote}/${base}..HEAD" | markdownEscape)" || exit $?
-    exec hub-wrapper subsamebrdo --subdo-command-name "${scriptName#hub-}" --no-git-color --interactive "${scriptName#hub-}" --base "$base" --super-message "$superMessage"
+    superMessage="$(git lo "${remote}/${base}..${head}" | markdownEscape)" || exit $?
+    exec hub-wrapper subsamebrdo --subdo-command-name "${scriptName#hub-}" --no-git-color --interactive "${scriptName#hub-}" --base "$base" ${head:+--head "$head"} --super-message "$superMessage"
 fi

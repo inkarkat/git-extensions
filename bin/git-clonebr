@@ -72,11 +72,13 @@ case $# in
 esac
 
 # Handle cloning an existing clone.
-branchBase="$branch"
-[[ "$branchBase" =~ ^(.+)"${GIT_CLONEBR_SEPARATOR}"[[:digit:]]+$ ]] && \
-    branchBase="${BASH_REMATCH[1]}"
-
 let num=1
+branchBase="$branch"
+if [[ "$branchBase" =~ ^(.+)"${GIT_CLONEBR_SEPARATOR}"([[:digit:]]+)$ ]]; then
+    branchBase="${BASH_REMATCH[1]}"
+    num=$((BASH_REMATCH[2] + 1))
+fi
+
 while newBranch="${branchBase}${GIT_CLONEBR_SEPARATOR}${num}" && git-existsbr -- "$newBranch"
 do
     let num+=1

@@ -2,22 +2,55 @@
 
 : ${GIT_CLONEBR_SEPARATOR=-}
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--reset-to-tracked|--no-checkout [--reset-to-tracked]|-p|--print] [-f|--force] [--] [<branch>] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
-Clone the current / passed branch by appending ${GIT_CLONEBR_SEPARATOR}1 (${GIT_CLONEBR_SEPARATOR}2, etc.) at the end of the
-branch name and switch to it (unless --no-checkout is given).
-Use checkoutbranch -b instead for full control over the resulting new branch name.
-HELPTEXT
-    echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-checkout|-p|--print] [-f|--force] [--] [<branch>] [-?|-h|--help]'
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
 }
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Clone the current / passed branch by appending ${GIT_CLONEBR_SEPARATOR}1 (${GIT_CLONEBR_SEPARATOR}2, etc.) at the end of the
+branch name and switch to it.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --reset-to-tracked	Reset the current / passed branch to the tracked
+			(pushed) branch.
+			This is useful to retroactively create a clone after new
+			commits have been made locally already.
+    --no-checkout	Stay on the current branch / do not switch to the new
+			branch.
+    --print|-p		Just print the resulting cloned branch name; do not
+			create it.
+SEE ALSO:
+- Use git checkoutbranch -b instead for full control over the resulting new
+  branch name.
+HELPTEXT
+}
+
 action=checkout
 typeset -a actionArgs=()
+postAction=:
+typeset -a resetbrForceFlag=()
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--reset-to-tracked)
+			shift; postAction=resetToTracked;;
 	--no-checkout)	shift; action=create;;
 	--print|-p)	shift; action=print;;
 	--force|-f)	actionArgs+=("$1"); shift;;
@@ -39,11 +72,13 @@ case $# in
 esac
 
 # Handle cloning an existing clone.
-branchBase="$branch"
-[[ "$branchBase" =~ ^(.+)"${GIT_CLONEBR_SEPARATOR}"[[:digit:]]+$ ]] && \
-    branchBase="${BASH_REMATCH[1]}"
-
 let num=1
+branchBase="$branch"
+if [[ "$branchBase" =~ ^(.+)"${GIT_CLONEBR_SEPARATOR}"([[:digit:]]+)$ ]]; then
+    branchBase="${BASH_REMATCH[1]}"
+    num=$((BASH_REMATCH[2] + 1))
+fi
+
 while newBranch="${branchBase}${GIT_CLONEBR_SEPARATOR}${num}" && git-existsbr -- "$newBranch"
 do
     let num+=1
@@ -55,12 +90,20 @@ checkout()
 }
 create()
 {
+    resetbrForceFlag=(--force)	# Need -f|--force to reset the current branch.
     GIT_CREATEBRANCH_WHAT='Clone' \
-	git-createbr $action "${actionArgs[@]}" -b "$newBranch" "$branch"
+	git-createbr "${actionArgs[@]}" -b "$newBranch" "$branch"
 }
 print()
 {
+    postAction=:
     printf '%s\n' "$newBranch"
 }
 
-$action
+resetToTracked()
+{
+    local trackedBranch; trackedBranch="$(git tracks --push "$branch")" || return $?
+    git-resetbr "${resetbrForceFlag[@]}" --branch "$branch" --revision "$trackedBranch"
+}
+
+$action && $postAction

@@ -2,22 +2,47 @@
 
 : ${GIT_CLONEBR_SEPARATOR=-}
 
-printUsage()
+printShortUsage()
 {
-    cat <<HELPTEXT
-Clone the current / passed branch by appending ${GIT_CLONEBR_SEPARATOR}1 (${GIT_CLONEBR_SEPARATOR}2, etc.) at the end of the
-branch name and switch to it (unless --no-checkout is given).
-Use checkoutbranch -b instead for full control over the resulting new branch name.
-HELPTEXT
-    echo
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-checkout|-p|--print] [-f|--force] [--] [<branch>] [-?|-h|--help]'
 }
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Clone the current / passed branch by appending ${GIT_CLONEBR_SEPARATOR}1 (${GIT_CLONEBR_SEPARATOR}2, etc.) at the end of the
+branch name and switch to it.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --no-checkout	Stay on the current branch / do not switch to the new
+			branch.
+    --print|-p		Just print the resulting cloned branch name; do not
+			create it.
+SEE ALSO:
+- Use git checkoutbranch -b instead for full control over the resulting new
+  branch name.
+HELPTEXT
+}
+
 action=checkout
 typeset -a actionArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--no-checkout)	shift; action=create;;
 	--print|-p)	shift; action=print;;
 	--force|-f)	actionArgs+=("$1"); shift;;

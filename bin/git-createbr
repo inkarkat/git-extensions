@@ -34,13 +34,16 @@ if [ ${#branches[@]} -eq 0 ]; then
 fi >&2
 
 oldBranch=
+explanation=
 case $# in
     0)	oldBranch="$(git-brname --real-branch-only 2>/dev/null)"
 	commit="$oldBranch"
+	explanation="; still on '$oldBranch'."
 	;;
     1)	commit="$1"; shift
 	if git-existsbr -- "$commit"; then
 	    oldBranch="$commit"
+	    explanation=" off of '$oldBranch'."
 	elif [ ${#branches[@]} -gt 1 ]; then
 	    echo >&2 'ERROR: Cannot base new branch on a <start-point> that is not a branch.'
 	    exit 2
@@ -60,4 +63,8 @@ fi
 oldValue=''	# Note: Empty <oldvalue> ensures that the $newBranch reference doesn't exist yet.
 [ "$isForce" ] && oldValue="$(git rev-parse --verify --quiet "${newBranch:?}" 2>/dev/null)"
 
-exec git update-ref -m "${GIT_CREATEBRANCH_WHAT:-Create} $newBranch from $commit" "refs/heads/${newBranch:?}" "$commit" "$oldValue"
+git update-ref -m "${GIT_CREATEBRANCH_WHAT:-Create} $newBranch from $commit" "refs/heads/${newBranch:?}" "$commit" "$oldValue" || exit $?
+
+what='Created'
+[ -n "$oldValue" ] && what='Reset'
+printf "%s branch '%s'%s\\n" "$what" "$newBranch" "${explanation:-.}"

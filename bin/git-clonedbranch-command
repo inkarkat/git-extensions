@@ -1,0 +1,94 @@
+#!/bin/bash
+set -o pipefail
+
+: ${GIT_CLONEBR_SEPARATOR=-}
+
+printUsage()
+{
+    cat <<HELPTEXT
+Execute GIT-COMMAND with the branch name where next / previous existing OFFSET
+cloned branch is added to the appended ${GIT_CLONEBR_SEPARATOR}1 suffix
+- appended
+- replacing BRANCH argument(s) anywhere
+- replacing BRANCH in the following GIT-COMMAND and -(N-1) arguments
+- replacing BRANCH in the following +(N) arguments and appending those
+If there's no branch, an error is printed.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-o|--offset N] [--] ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [... -o|--offset N [-b|--branch BRANCH] ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... BRANCH ... -o|--offset N [-b|--branch BRANCH] ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [... -o|--offset N [-b|--branch BRANCH] ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [... -o|--offset N [-b|--branch BRANCH] ...]'
+}
+
+# Need to parse off -o|--offset and -b|--branch from anywhere first.
+typeset -a allargs=()
+offset=
+branch=
+branchOrigin='Current'
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--offset|-o)	shift; offset=${1:?}; shift;;
+	--branch|-b)	shift; branch="${1:?}"; shift; branchOrigin='Passed';;
+	--)		allargs+=("$1"); shift; break;;
+	*)		allargs+=("$1"); shift;;
+    esac
+done
+set -- "${allargs[@]}"
+[ -n "$branch" ] || branch="$(git-brname --real-branch-only)" || exit $?
+
+if [[ ! "$branch" =~ ^(.+)"${GIT_CLONEBR_SEPARATOR}"([[:digit:]]+)$ ]]; then
+    printf >&2 'ERROR: %s branch is not a cloned branch; the %s1 suffix is missing: %s\n' "$branchOrigin" "$GIT_CLONEBR_SEPARATOR" "$branch"
+    exit 1
+fi
+branchBase="${BASH_REMATCH[1]}"
+clonedBranch=
+readarray -t branches < <(git-localbr --include-all -- "${branchBase}${GIT_CLONEBR_SEPARATOR}+([0-9])" | sort --numeric-sort)
+branchIndex=$(index "$branch" "${branches[@]}") || { echo >&2 "Cannot find branch ${branch}."; exit 3; }
+let clonedBranchIndex=branchIndex+offset
+if [ $clonedBranchIndex -lt 0 ]; then
+    if [ $branchIndex -eq 0 ]; then
+	printf >&2 'ERROR: No previous cloned branches available; cannot go back.\n'
+    else
+	branchPlural=es; [ $branchIndex -eq 1 ] && branchPlural=
+	printf >&2 'ERROR: Only %d previous cloned branch%s available; first is %s; cannot go back %d branches.\n' $branchIndex "$branchPlural" "${branches[0]}" $((-1 * offset))
+    fi
+    exit 2
+elif [ $clonedBranchIndex -ge ${#branches[@]} ]; then
+    if [ $branchIndex -eq $((${#branches[@]} - 1)) ]; then
+	printf >&2 'ERROR: No next cloned branches available; cannot go forward.\n'
+    else
+	branchCnt=$((${#branches[@]} - branchIndex))
+	branchPlural=es; [ $branchCnt -eq 1 ] && branchPlural=
+	printf >&2 'ERROR: Only %d next cloned branch%s available; last is %s; cannot go forward %d branches.\n' $branchCnt "$branchPlural" "${branches[-1]}" $offset
+    fi
+    exit 2
+fi
+clonedBranch="${branches[$clonedBranchIndex]}"
+
+isCountedAppend=
+case "$1" in
+    +[1-9])
+	isCountedAppend=t;&
+    -[1-9])
+	typeset countedArgNum=${1#[+-]}
+	typeset -a countedArgs=("${@:2:${countedArgNum}}")
+	set -- "${@:$((2 + countedArgNum))}"
+
+	countedArgs=("${countedArgs[@]//BRANCH/${clonedBranch}}")
+
+	[ "$isCountedAppend" ] \
+	    && exec git-wrapper "$@" "${countedArgs[@]}" \
+	    || exec git-wrapper "${countedArgs[@]}" "$@"
+	;;
+    --keep-position)
+	shift
+	exec git-wrapper "${@//BRANCH/${clonedBranch}}"
+	;;
+    *)
+	exec git-wrapper "$@" "$clonedBranch"
+	;;
+esac

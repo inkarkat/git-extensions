@@ -7,9 +7,9 @@ submodules: a) Create branches prior to changes:
 	       `$ c ReLogic git omco -b feat-4711/super-cool`
 	       `$ git subconewbr --query|SUBMODULE1 SUBMODULE2`
 submodules: b) Create branches after uncommitted changes:
-	       `$ git subdirtydo omco -b feat-4711/super-cool`
-	       `$ git subuntrackeddo omco -b feat-4711/super-cool`
-	       `$ git subdo --dirty --untracked omco -b feat-4711/super-cool`
+	       `$ git subdirtydo checkoutbranch -b feat-4711/super-cool`
+	       `$ git subuntrackeddo checkoutbranch -b feat-4711/super-cool`
+	       `$ git subdo --dirty --untracked checkoutbranch -b feat-4711/super-cool`
 ## b) start bottom-up
 submodule(s): Create branch: `$ git omco -b feat-4711/super-cool`
 superproject: Create branch: `$ git omco -b $(git substdo --interactive brname | sort -u | singleLineOrSuppressAndError)`

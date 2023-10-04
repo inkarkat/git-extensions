@@ -265,6 +265,14 @@ confirmFastForward()
 	*)  printf >&2 'ASSERT: Unhandled choice: %s\n' "$choice"; exit 3;;
     esac
 }
+isAheadOfTracked()
+{
+    local ahead
+    ahead=$(git-inout --is-ahead --base "$targetTracks") || return 1
+    aheadPlural=s; [ $ahead -eq 1 ] && aheadPlural=
+    printf 'Note: Your %s branch is %d commit%s ahead of %s.\n' "$targetBranch" $ahead "$aheadPlural" "$targetTrackedRemote"
+}
+
 confirmMerge()
 {
     local aheadBehind="$(GIT_INOUT_INDICATOR_PREFIX='is ' GIT_INOUT_INDICATOR_SUFFIX=' vs.' git ab --indicator-only --base "$targetTracks")"
@@ -365,6 +373,8 @@ else
 		    exit $status
 		}
 	    fi
+	elif isAheadOfTracked; then
+	    :
 	elif confirmMerge; then
 	    exit 0
 	else

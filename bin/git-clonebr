@@ -43,7 +43,7 @@ HELPTEXT
 
 action=checkout
 typeset -a actionArgs=()
-isResetToTracked=
+resetTo=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -53,7 +53,7 @@ do
 	--color)	shift; shift;;
 
 	--reset-to-tracked)
-			shift; isResetToTracked=t;;
+			shift; resetTo="$(git tracks --push "$branch")" || exit $?;;
 	--no-checkout)	shift; action=create;;
 	--print|-p)	shift; action=print;;
 	--force|-f)	actionArgs+=("$1"); shift;;
@@ -91,19 +91,15 @@ checkout()
 {
     git-checkoutbranch "${actionArgs[@]}" -b "$newBranch" "$branch" || return $?
 
-    [ "$isResetToTracked" ] || return 0
-    local trackedBranch; trackedBranch="$(git tracks --push "$branch")" || return $?
-    git-resetbr --branch "$branch" --revision "$trackedBranch"
+    [ -z "$resetTo" ] || git-resetbr --branch "$branch" --revision "$resetTo"
 }
 create()
 {
     GIT_CREATEBRANCH_WHAT='Clone' \
 	git-createbr "${actionArgs[@]}" -b "$newBranch" "$branch" || return $?
 
-    [ "$isResetToTracked" ] || return 0
-    local trackedBranch; trackedBranch="$(git tracks --push "$branch")" || return $?
+    [ -z "$resetTo" ] || git checkout --no-track -B "$branch" "$resetTo"
     # Note: Cannot use git-resetbr --force as that will leave the index and working tree dirty with the original branch's content.
-    git checkout --no-track -B "$branch" "$trackedBranch"
 }
 print()
 {

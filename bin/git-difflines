@@ -1,13 +1,34 @@
 #!/bin/bash
 set -o pipefail
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--only-new|--only-old] [<diff-options>] [<commit> [<commit>]] [--] [<path>...] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 Show changed line numbers between commits, commit and working tree, etc.
-HELPTEXT
+HELPDESCRIPTION
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--only-new|--only-old] [<diff-options>] [<commit> [<commit>]] [--] [<path>...] [-?|-h|--help]'
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --only-new		Only include added or changed line numbers.
+    --only-old		Only include removed or changed line numbers from the
+			previous file.
+HELPTEXT
 }
 
 typeset -a pager=("${PAGER:-less}" --quit-on-intr --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
@@ -20,7 +41,7 @@ typeset -a forwardedArgs=()
 while [ $# -gt 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--as-difftool)	shift; isAsDiffTool=t;;
 	--no-color|--color=*)
 			shift;;

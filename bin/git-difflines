@@ -10,7 +10,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[--only-new|--only-old|--only-removed] [--prefix-numbers PREFIX] [-c|--command \"COMMANDLINE\" [...] | --exec SIMPLECOMMAND [...] ${numberMarker:+[}${numberMarker}${numberMarker:+] [...]} ; [...]] [<diff-options>] [<commit> [<commit>]] [--] [<path>...] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[--only-new|--only-old|--only-removed] [--number-format LFMT] [-c|--command \"COMMANDLINE\" [...] | --exec SIMPLECOMMAND [...] ${numberMarker:+[}${numberMarker}${numberMarker:+] [...]} ; [...]] [<diff-options>] [<commit> [<commit>]] [--] [<path>...] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -35,8 +35,10 @@ HELPDESCRIPTION
 			previous file.
     --only-removed	Only include removed line numbers from the previous
 			files (so actual deletions, not changes).
-    --prefix-numbers PREFIX
-			Prepend PREFIX before each line number.
+    --number-format LFMT
+			Render each line number as LFMT (a printf-style spec for
+			input line number; cp. diff's --unchanged-line-format
+			parameter - %dn is the plain number).
     --command|-c CMD	Execute CMD as a command-line for each diffed file${fileMarker:+; ${fileMarker}
 			is replaced with the filespec}.
 			Line numbers ${numberMarker:+either }are appended${numberMarker:+ or replace any $numberMarker
@@ -52,10 +54,10 @@ HELPTEXT
 }
 
 typeset -a pager=("${PAGER:-less}" --quit-on-intr --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
-oldFormat=$'%dn\n'
-newFormat="$oldFormat"
+isOldFormat=t
+isNewFormat=t
 algorithm=oldNewDiff
-prefix=
+numberFormat=$'%dn\n'
 isAsDiffTool=
 typeset -a allargs=()
 typeset -a forwardedArgs=()
@@ -68,11 +70,11 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
-	--only-new)	forwardedArgs+=("$1"); shift; oldFormat='';;
-	--only-old)	forwardedArgs+=("$1"); shift; newFormat='';;
+	--only-new)	forwardedArgs+=("$1"); shift; isOldFormat=;;
+	--only-old)	forwardedArgs+=("$1"); shift; isNewFormat=;;
 	--only-removed)	forwardedArgs+=("$1"); shift; algorithm=removedDiff;;
-	--prefix-numbers)
-			forwardedArgs+=("$1" "${2?}"); shift; prefix="${1?}"; shift;;
+	--number-format)
+			forwardedArgs+=("$1" "${2?}"); shift; numberFormat="${1?}"; shift;;
 	--command|-c)	forwardedArgs+=("$1" "${2?}"); shift; commands+=(${commands:+;} "$1"); shift;;
 	--exec)		forwardedArgs+=("$1"); shift
 			cmd=
@@ -101,17 +103,18 @@ oldNewDiff()
 {
     diff \
 	    --unchanged-line-format= \
-	    --old-line-format="${oldFormat:+$prefix}${oldFormat}" \
-	    --new-line-format="${newFormat:+$prefix}${newFormat}" \
+	    --old-line-format="${isOldFormat:+$numberFormat}" \
+	    --new-line-format="${isNewFormat:+$numberFormat}" \
 	    "$@"
 }
 
 removedDiff()
 {
+    numberFormat="${numberFormat%$'\n'}"$'\n'	# This algorithm needs a trailing newline.
     # Look at each hunk; if there's at least one new line; discard it.
     diff \
 	    --unchanged-line-format=$'\n' \
-	    --old-line-format="${oldFormat:+$prefix}${oldFormat}" \
+	    --old-line-format="$numberFormat" \
 	    --new-line-format=$'X\n' \
 	    "$@" \
 	| awk '

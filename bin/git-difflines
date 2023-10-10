@@ -75,7 +75,7 @@ do
 	--only-old)	forwardedArgs+=("$1"); shift; isNewFormat=;;
 	--only-removed)	forwardedArgs+=("$1"); shift; algorithm=removedDiff;;
 	--number-format)
-			forwardedArgs+=("$1" "${2?}"); shift; numberFormat="${1?}"; shift;;
+			forwardedArgs+=("$1" "${2?}"); shift; numberFormat="${1%$'\n'}"$'\n'; shift;;	# Both oldNewDiff and removedDiff algorithms need a trailing newline.
 	--command|-c)	forwardedArgs+=("$1" "${2?}"); shift; commands+=(${commands:+;} "$1"); shift;;
 	--exec)		forwardedArgs+=("$1"); shift
 			cmd=
@@ -99,20 +99,19 @@ do
     esac
 done
 set -- "${allargs[@]}"
-[ ${#commands[@]} -gt 0 ] || commands=("for number in $numberMarker; do printf '%s: %d\n' $fileMarker \$number; done")
+[ ${#commands[@]} -gt 0 ] || commands=("for number in $numberMarker; do printf '%s: %s\n' $fileMarker \$number; done")
 
 oldNewDiff()
 {
-    diff \
-	    --unchanged-line-format= \
-	    --old-line-format="${isOldFormat:+$numberFormat}" \
-	    --new-line-format="${isNewFormat:+$numberFormat}" \
-	    "$@"
+    typeset sortCommand=(sort --numeric-sort --unique)
+    [ "$isOldFormat" ] && [ "$isNewFormat" ] || sortCommand=()	# Uniquification is only needed when both old and new lines are shown.
+
+    eval 'diff --unchanged-line-format= --old-line-format="${isOldFormat:+$numberFormat}" --new-line-format="${isNewFormat:+$numberFormat}" "$@"' \
+	"${sortCommand:+|}" '"${sortCommand[@]}"'
 }
 
 removedDiff()
 {
-    numberFormat="${numberFormat%$'\n'}"$'\n'	# This algorithm needs a trailing newline.
     # Look at each hunk; if there's at least one new line; discard it.
     diff \
 	    --unchanged-line-format=$'\n' \
@@ -159,7 +158,6 @@ if [ "$isAsDiffTool" ]; then
 else
     readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
     quotedForwardedArgs=; [ ${#forwardedArgs[@]} -eq 0 ] || printf -v quotedForwardedArgs ' %q' "${forwardedArgs[@]}"
-    git difftool --no-prompt --extcmd="$scriptName --as-difftool${quotedForwardedArgs}" "$@" \
-	| eval 'sort --numeric-sort --unique' \
+    eval 'git difftool --no-prompt --extcmd="$scriptName --as-difftool${quotedForwardedArgs}" "$@"' \
 	"${pager:+|}" '"${pager[@]}"'
 fi

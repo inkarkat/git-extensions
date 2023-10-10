@@ -37,6 +37,7 @@ typeset -a pager=("${PAGER:-less}" --quit-on-intr --RAW-CONTROL-CHARS); [ -t 1 ]
 
 oldFormat=$'%dn\n'
 newFormat="$oldFormat"
+algorithm=oldNewDiff
 prefix=
 isAsDiffTool=
 typeset -a allargs=()
@@ -58,13 +59,22 @@ do
 done
 set -- "${allargs[@]}"
 
+oldNewDiff()
+{
+    diff \
+	--unchanged-line-format= \
+	--old-line-format="${oldFormat:+$prefix}${oldFormat}" \
+	--new-line-format="${newFormat:+$prefix}${newFormat}" \
+	"$@"
+}
+
 if [ "$isAsDiffTool" ]; then
     if [ $# -eq 0 ]; then
 	echo >&2 'ERROR: No FILEs passed.'
 	exit 2
     fi
 
-    diff --unchanged-line-format= --old-line-format="${oldFormat:+$prefix}${oldFormat}" --new-line-format="${newFormat:+$prefix}${newFormat}" "$@"
+    $algorithm "$@"
     exit 0	# Need to return success to avoid that Git complains that the "external tool died".
 else
     readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"

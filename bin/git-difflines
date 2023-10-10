@@ -10,7 +10,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[--only-new|--only-old|--only-removed] [--number-format LFMT] [-c|--command \"COMMANDLINE\" [...] | --exec SIMPLECOMMAND [...] ${numberMarker:+[}${numberMarker}${numberMarker:+] [...]} ; [...]] [<diff-options>] [<commit> [<commit>]] [--] [<path>...] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[--only-new|--only-old|--only-removed --number-format LFMT]|[--number-format LFMT [--sort-key=KEYDEF]] [-c|--command \"COMMANDLINE\" [...] | --exec SIMPLECOMMAND [...] ${numberMarker:+[}${numberMarker}${numberMarker:+] [...]} ; [...]] [<diff-options>] [<commit> [<commit>]] [--] [<path>...] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -40,6 +40,11 @@ HELPDESCRIPTION
 			Render each line number as LFMT (a printf-style spec for
 			input line number; cp. diff's --unchanged-line-format
 			parameter - %dn is the plain number).
+    --sort-key KEYDEF	Modify the numeric sorting and uniquification of line
+			numbers to account for a modified LFMT format. E.g.
+			--LFMT -L%dn --sort-key 1.3 to drop the -L prefix.
+			Not applicable when a --only-* is passed; only old + new
+			lines require uniquification.
     --command|-c CMD	Execute CMD as a command-line for each diffed file${fileMarker:+; ${fileMarker}
 			is replaced with the filespec}.
 			Line numbers ${numberMarker:+either }are appended${numberMarker:+ or replace any $numberMarker
@@ -63,6 +68,7 @@ isAsDiffTool=
 typeset -a allargs=()
 typeset -a forwardedArgs=()
 typeset -a commands=()
+typeset -a sortArgs=()
 while [ $# -gt 0 ]
 do
     case "$1" in
@@ -76,6 +82,7 @@ do
 	--only-removed)	forwardedArgs+=("$1"); shift; algorithm=removedDiff;;
 	--number-format)
 			forwardedArgs+=("$1" "${2?}"); shift; numberFormat="${1%$'\n'}"$'\n'; shift;;	# Both oldNewDiff and removedDiff algorithms need a trailing newline.
+	--sort-key)	forwardedArgs+=("$1" "${2?}"); shift; sortArgs+=(--key "${1?}"); shift;;
 	--command|-c)	forwardedArgs+=("$1" "${2?}"); shift; commands+=(${commands:+;} "$1"); shift;;
 	--exec)		forwardedArgs+=("$1"); shift
 			cmd=
@@ -103,7 +110,7 @@ set -- "${allargs[@]}"
 
 oldNewDiff()
 {
-    typeset sortCommand=(sort --numeric-sort --unique)
+    typeset sortCommand=(sort --numeric-sort --unique "${sortArgs[@]}")
     [ "$isOldFormat" ] && [ "$isNewFormat" ] || sortCommand=()	# Uniquification is only needed when both old and new lines are shown.
 
     eval 'diff --unchanged-line-format= --old-line-format="${isOldFormat:+$numberFormat}" --new-line-format="${isNewFormat:+$numberFormat}" "$@"' \

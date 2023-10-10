@@ -1,0 +1,179 @@
+#!/bin/bash
+set -o pipefail
+
+: ${GIT_DIFFLINES_FILE_MARKER='{+}'}
+fileMarker="$GIT_DIFFLINES_FILE_MARKER"; unset GIT_DIFFLINES_FILE_MARKER
+: ${GIT_DIFFLINES_NUMBER_MARKER='{}'}
+numberMarker="$GIT_DIFFLINES_NUMBER_MARKER"; unset GIT_DIFFLINES_NUMBER_MARKER
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[--only-new|--only-old|--only-removed --number-format LFMT]|[--number-format LFMT [--sort-key=KEYDEF]] [-c|--command \"COMMANDLINE\" [...] | --exec SIMPLECOMMAND [...] ${numberMarker:+[}${numberMarker}${numberMarker:+] [...]} ; [...]] [<diff-options>] [<commit> [<commit>]] [--] [<path>...] [-?|-h|--help]"
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Show / process per-file changed lines [numbers] between commits, commit and
+working tree, etc.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --only-new		Only include added or changed line numbers.
+    --only-old		Only include removed or changed line numbers from the
+			previous file.
+    --only-removed	Only include removed line numbers from the previous
+			files (so actual deletions, not changes).
+    --number-format LFMT
+			Render each line number as LFMT (a printf-style spec for
+			input line number; cp. diff's --unchanged-line-format
+			parameter - %dn is the plain number).
+    --sort-key KEYDEF	Modify the numeric sorting and uniquification of line
+			numbers to account for a modified LFMT format. E.g.
+			--LFMT -L%dn --sort-key 1.3 to drop the -L prefix.
+			Not applicable when a --only-* is passed; only old + new
+			lines require uniquification.
+    --command|-c CMD	Execute CMD as a command-line for each diffed file${fileMarker:+; ${fileMarker}
+			is replaced with the filespec}.
+			Line numbers ${numberMarker:+either }are appended${numberMarker:+ or replace any $numberMarker
+			marker} inside COMMANDLINE.
+    --exec COMMAND [...] ;
+			Execute COMMAND for each diffed file${fileMarker:+; ${fileMarker} is replaced
+			with the filespec};
+			all following arguments are taken to be arguments to the
+			COMMAND until an argument consisting of ';' is
+			encountered. Line numbers ${numberMarker:+either }are appended${numberMarker:+ or replace
+			any $numberMarker marker} inside COMMANDLINE.
+HELPTEXT
+}
+
+typeset -a pager=("${PAGER:-less}" --quit-on-intr --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+isOldFormat=t
+isNewFormat=t
+algorithm=oldNewDiff
+numberFormat=$'%dn\n'
+isAsDiffTool=
+typeset -a allargs=()
+typeset -a forwardedArgs=()
+typeset -a commands=()
+typeset -a sortArgs=()
+while [ $# -gt 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--as-difftool)	shift; isAsDiffTool=t;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+	--only-new)	forwardedArgs+=("$1"); shift; isOldFormat=;;
+	--only-old)	forwardedArgs+=("$1"); shift; isNewFormat=;;
+	--only-removed)	forwardedArgs+=("$1"); shift; algorithm=removedDiff;;
+	--number-format)
+			forwardedArgs+=("$1" "${2?}"); shift; numberFormat="${1%$'\n'}"$'\n'; shift;;	# Both oldNewDiff and removedDiff algorithms need a trailing newline.
+	--sort-key)	forwardedArgs+=("$1" "${2?}"); shift; sortArgs+=(--key "${1?}"); shift;;
+	--command|-c)	forwardedArgs+=("$1" "${2?}"); shift; commands+=(${commands:+;} "$1"); shift;;
+	--exec)		forwardedArgs+=("$1"); shift
+			cmd=
+			printf -v escapedFileMarker %q "$fileMarker"
+			printf -v escapedNumberMarker %q "$numberMarker"
+			while [ $# -gt 0 -a "$1" != ';' ]
+			do
+			    printf -v quotedArg '%q' "$1"
+			    quotedArg="${quotedArg//"$escapedFileMarker"/$fileMarker}"	# %q escapes {}, we don't want that to have it interpolated later.
+			    cmd="${cmd}${cmd:+ }${quotedArg//"$escapedNumberMarker"/$numberMarker}"	# %q escapes {}, we don't want that to have it interpolated later.
+			    forwardedArgs+=("$1"); shift
+			done
+			if [ $# -eq 0 ]; then
+			    echo 'ERROR: --exec command must be concluded with ;!'; echo; printUsage "$0"
+			    exit 2
+			fi >&2
+			forwardedArgs+=("$1"); shift
+			commands+=(${commands:+;} "$cmd")
+			;;
+	*)		allargs+=("$1"); shift;;
+    esac
+done
+set -- "${allargs[@]}"
+[ ${#commands[@]} -gt 0 ] || commands=("for number in $numberMarker; do printf '%s: %s\n' $fileMarker \$number; done")
+
+formatDiff()
+{
+    local unchangedFormat="${1?}"; shift
+    local oldFormat="${1?}"; shift
+    local newFormat="${1?}"; shift
+
+    diff \
+	    --unchanged-line-format="$unchangedFormat" \
+	    --old-line-format="$oldFormat" \
+	    --new-line-format="$newFormat" \
+	    "$@"
+}
+
+oldNewDiff()
+{
+    typeset sortCommand=(sort --numeric-sort --unique "${sortArgs[@]}")
+    [ "$isOldFormat" ] && [ "$isNewFormat" ] || sortCommand=()	# Uniquification is only needed when both old and new lines are shown.
+
+    eval 'formatDiff "" "${isOldFormat:+$numberFormat}" "${isNewFormat:+$numberFormat}" "$@"' \
+	"${sortCommand:+|}" '"${sortCommand[@]}"'
+}
+
+removedDiff()
+{
+    # Look at each hunk; if there's at least one new line; discard it.
+    formatDiff $'\n' "$numberFormat" $'X\n' "$@" \
+	| awk '
+function processHunk()
+{
+    if (isDiscardHunk || hunk == "") return
+    printf("%s", hunk)
+}
+/^$/ { processHunk(); isDiscardHunk = 0; hunk = ""; }
+/^X$/ { isDiscardHunk = 1; }
+/./ { hunk = hunk $0 "\n"; }
+END { processHunk(); }
+'
+}
+
+execute()
+{
+    local filespec="${1:?}"; shift
+    typeset -a numbers=(); readarray -t numbers
+    [ ${#numbers[@]} -gt 0 ] || return
+
+    local quotedNumbers; printf -v quotedNumbers '%q ' "${numbers[@]}"; quotedNumbers="${quotedNumbers% }"
+    typeset -a interpolatedCommands=("${commands[@]//"$numberMarker"/$quotedNumbers}")
+    [ "${interpolatedCommands[*]}" = "${commands[*]}" ] && interpolatedCommands+=("$quotedNumbers")
+    interpolatedCommands=("${interpolatedCommands[@]//"$fileMarker"/$filespec}")
+    eval "${interpolatedCommands[@]}"
+}
+
+if [ "$isAsDiffTool" ]; then
+    if [ $# -eq 0 ]; then
+	echo >&2 'ERROR: No FILEs passed.'
+	exit 2
+    fi
+
+    filespec="${!#}"
+
+    $algorithm "$@" \
+	| execute "$filespec"
+    exit 0	# Need to return success to avoid that Git complains that the "external tool died".
+else
+    readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
+    quotedForwardedArgs=; [ ${#forwardedArgs[@]} -eq 0 ] || printf -v quotedForwardedArgs ' %q' "${forwardedArgs[@]}"
+    eval 'git difftool --no-prompt --extcmd="$scriptName --as-difftool${quotedForwardedArgs}" "$@"' \
+	"${pager:+|}" '"${pager[@]}"'
+fi

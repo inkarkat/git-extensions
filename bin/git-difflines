@@ -108,23 +108,32 @@ done
 set -- "${allargs[@]}"
 [ ${#commands[@]} -gt 0 ] || commands=("for number in $numberMarker; do printf '%s: %s\n' $fileMarker \$number; done")
 
+formatDiff()
+{
+    local unchangedFormat="${1?}"; shift
+    local oldFormat="${1?}"; shift
+    local newFormat="${1?}"; shift
+
+    diff \
+	    --unchanged-line-format="$unchangedFormat" \
+	    --old-line-format="$oldFormat" \
+	    --new-line-format="$newFormat" \
+	    "$@"
+}
+
 oldNewDiff()
 {
     typeset sortCommand=(sort --numeric-sort --unique "${sortArgs[@]}")
     [ "$isOldFormat" ] && [ "$isNewFormat" ] || sortCommand=()	# Uniquification is only needed when both old and new lines are shown.
 
-    eval 'diff --unchanged-line-format= --old-line-format="${isOldFormat:+$numberFormat}" --new-line-format="${isNewFormat:+$numberFormat}" "$@"' \
+    eval 'formatDiff "" "${isOldFormat:+$numberFormat}" "${isNewFormat:+$numberFormat}" "$@"' \
 	"${sortCommand:+|}" '"${sortCommand[@]}"'
 }
 
 removedDiff()
 {
     # Look at each hunk; if there's at least one new line; discard it.
-    diff \
-	    --unchanged-line-format=$'\n' \
-	    --old-line-format="$numberFormat" \
-	    --new-line-format=$'X\n' \
-	    "$@" \
+    formatDiff $'\n' "$numberFormat" $'X\n' "$@" \
 	| awk '
 function processHunk()
 {

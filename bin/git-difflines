@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--only-new|--only-old] [--prefix-numbers PREFIX] [<diff-options>] [<commit> [<commit>]] [--] [<path>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--only-new|--only-old|--only-removed] [--prefix-numbers PREFIX] [<diff-options>] [<commit> [<commit>]] [--] [<path>...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -28,6 +28,8 @@ HELPDESCRIPTION
     --only-new		Only include added or changed line numbers.
     --only-old		Only include removed or changed line numbers from the
 			previous file.
+    --only-removed	Only include removed line numbers from the previous
+			files (so actual deletions, not changes).
     --prefix-numbers PREFIX
 			Prepend PREFIX before each line number.
 HELPTEXT
@@ -52,6 +54,7 @@ do
 	--color)	shift; shift;;
 	--only-new)	forwardedArgs+=("$1"); shift; oldFormat='';;
 	--only-old)	forwardedArgs+=("$1"); shift; newFormat='';;
+	--only-removed)	forwardedArgs+=("$1"); shift; algorithm=removedDiff;;
 	--prefix-numbers)
 			forwardedArgs+=("$1" "${2?}"); shift; prefix="${1?}"; shift;;
 	*)		allargs+=("$1"); shift;;
@@ -62,10 +65,31 @@ set -- "${allargs[@]}"
 oldNewDiff()
 {
     diff \
-	--unchanged-line-format= \
-	--old-line-format="${oldFormat:+$prefix}${oldFormat}" \
-	--new-line-format="${newFormat:+$prefix}${newFormat}" \
-	"$@"
+	    --unchanged-line-format= \
+	    --old-line-format="${oldFormat:+$prefix}${oldFormat}" \
+	    --new-line-format="${newFormat:+$prefix}${newFormat}" \
+	    "$@"
+}
+
+removedDiff()
+{
+    # Look at each hunk; if there's at least one new line; discard it.
+    diff \
+	    --unchanged-line-format=$'\n' \
+	    --old-line-format="${oldFormat:+$prefix}${oldFormat}" \
+	    --new-line-format=$'X\n' \
+	    "$@" \
+	| awk '
+function processHunk()
+{
+    if (isDiscardHunk || hunk == "") return
+    printf("%s", hunk)
+}
+/^$/ { processHunk(); isDiscardHunk = 0; hunk = ""; }
+/^X$/ { isDiscardHunk = 1; }
+/./ { hunk = hunk $0 "\n"; }
+END { processHunk(); }
+'
 }
 
 if [ "$isAsDiffTool" ]; then

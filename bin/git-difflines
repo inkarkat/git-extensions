@@ -24,7 +24,8 @@ printLongUsage()
     # This is the long "man page" when launched with the help argument.
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
-Show changed line numbers between commits, commit and working tree, etc.
+Show / process per-file changed lines [numbers] between commits, commit and
+working tree, etc.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
@@ -98,6 +99,7 @@ do
     esac
 done
 set -- "${allargs[@]}"
+[ ${#commands[@]} -gt 0 ] || commands=("for number in $numberMarker; do printf '%s: %d\n' $fileMarker \$number; done")
 
 oldNewDiff()
 {
@@ -149,8 +151,10 @@ if [ "$isAsDiffTool" ]; then
 	exit 2
     fi
 
-    eval '$algorithm "$@"' \
-	"${commands[*]:+| execute "${!#}"}"
+    filespec="${!#}"
+
+    $algorithm "$@" \
+	| execute "$filespec"
     exit 0	# Need to return success to avoid that Git complains that the "external tool died".
 else
     readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"

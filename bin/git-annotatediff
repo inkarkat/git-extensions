@@ -1,0 +1,103 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Annotate changed lines between commits, commit and working tree, etc.
+Combination of diff with blame of the resulting lines.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<commit> [<commit>]|<commit>..<commit>|<commit>...<commit>] [--] [<path>...] [-?|-h|--help]'
+}
+
+typeset -a allargs=()
+isColor=t
+typeset -a colorArg=(--color=always)
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+
+# Use delta (which also acts as a pager) if available and configured.
+type -t delta >/dev/null \
+    && [ "$(git config --get core.pager)" = 'delta' ] && pager=(delta)
+
+if [ ! -t 1 ]; then
+    isColor=
+    colorArg=()
+    pager=()
+fi
+
+exitTooManyCommitsError()
+{
+    echo >&2 'ERROR: Too many <commit>s specified.'
+    echo >&2
+    printUsage >&2 "$0"
+    exit 2
+}
+
+typeset -a commits=()
+addCommit()
+{
+    commits+=("${1:-HEAD}")
+}
+
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=never)
+			colorArg=("$1"); shift; isColor=;;
+	--color=always)	colorArg=("$1"); shift; isColor=t;;
+	--color=*)	colorArg=("$1"); shift;;
+	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); case "$2" in never) isColor=;; always) isColor=t;; esac; shift; shift;;
+	--)		break;;
+	*...*)		[ ${#commits[@]} -lt 2 ] || exitTooManyCommitsError
+			endCommit="${1#*...}"
+			startCommit="$(git merge-base "${1%%...*}" "$endCommit")" || exit $?
+			addCommit "$startCommit"
+			addCommit "$endCommit"
+			shift
+			;;
+	*..*)		[ ${#commits[@]} -lt 2 ] || exitTooManyCommitsError
+			addCommit "${1%%..*}"
+			addCommit "${1#*..}"
+			shift
+			;;
+	*)		if git rev-parse --verify --quiet "${1:?}" >/dev/null 2>&1; then
+			    [ ${#commits[@]} -lt 2 ] || exitTooManyCommitsError
+			    addCommit "$1"
+			else
+			    allargs+=("$1")
+			fi
+			shift
+			;;
+    esac
+done
+set -- "${allargs[@]}" "$@"
+
+: ${GIT_ANNOTATEDIFF_HEADER_ID:="annotatediff-$$-$RANDOM"}
+
+annotatediff()
+{
+    if [ "$isColor" ]; then
+	export HEADER_PREFIX='[9m'
+    fi
+    local previousCommit="${commits[0]:-HEAD}"	# blame the start commit or working copy to HEAD
+    git difflines --only-removed --number-format '-L%dn,%dn' \
+	    --exec header --id "$GIT_ANNOTATEDIFF_HEADER_ID" --appendix 'removed' "${colorArg[@]}" -- '{+}' \; \
+	    --exec git blame {} "$previousCommit" -- '{+}' \; \
+	    "${commits[@]}" "$@"
+
+    unset HEADER_PREFIX
+    typeset -a currentCommit=()
+    case ${#commits[@]} in
+	0)  ;&
+	1)  currentCommit=();;	# working copy
+	2)  currentCommit=("${commits[1]}");;	# blame the end commit
+    esac
+    git difflines --only-new --number-format '-L%dn,%dn' \
+	    --exec header --id "$GIT_ANNOTATEDIFF_HEADER_ID" "${colorArg[@]}" -- '{+}' \; \
+	    --exec git blame {} "${currentCommit[@]}" -- '{+}' \; \
+	    "${commits[@]}" "$@"
+}
+
+eval 'annotatediff "$@"' \
+    "${pager:+|}" '"${pager[@]}"'

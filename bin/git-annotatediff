@@ -1,16 +1,16 @@
 #!/bin/bash
+shopt -qs extglob
 
 printUsage()
 {
     cat <<HELPTEXT
-Annotate changed lines between commits, commit and working tree, etc.
+Annotate changed lines between commits, commit and working tree, commit and Nth predecessor, etc.
 Combination of diff with blame of the resulting lines.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<commit> [<commit>]|<commit>..<commit>|<commit>...<commit>] [--] [<path>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<commit> [<commit>]|<commit>..<commit>|<commit>...<commit>|-<number>|-n <number>|--count=<number> [<commit>]] [--] [<path>...] [-?|-h|--help]'
 }
 
-typeset -a allargs=()
 isColor=t
 typeset -a colorArg=(--color=always)
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
@@ -39,6 +39,8 @@ addCommit()
     commits+=("${1:-HEAD}")
 }
 
+count=
+typeset -a allargs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -48,7 +50,13 @@ do
 	--color=always)	colorArg=("$1"); shift; isColor=t;;
 	--color=*)	colorArg=("$1"); shift;;
 	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); case "$2" in never) isColor=;; always) isColor=t;; esac; shift; shift;;
+
+	--count|-n)	shift; count="$1"; shift;;
+	--count=*)	count="${1#--count=}"; shift;;
+	-+([0-9]))	count="${1#-}"; shift;;
+
 	--)		break;;
+
 	*...*)		[ ${#commits[@]} -lt 2 ] || exitTooManyCommitsError
 			endCommit="${1#*...}"
 			startCommit="$(git merge-base "${1%%...*}" "$endCommit")" || exit $?
@@ -72,6 +80,13 @@ do
     esac
 done
 set -- "${allargs[@]}" "$@"
+if [ -n "$count" ]; then
+    case ${#commits[@]} in
+	0) addCommit "HEAD~${count}"; addCommit 'HEAD';;
+	1) commits=("${commits[0]}~${count}" "${commits[0]}");;
+	*) exitTooManyCommitsError;;
+    esac
+fi
 
 : ${GIT_ANNOTATEDIFF_HEADER_ID:="annotatediff-$$-$RANDOM"}
 
@@ -84,7 +99,7 @@ annotatediff()
     git difflines --only-removed --number-format '-L%dn,%dn' \
 	    --exec header --id "$GIT_ANNOTATEDIFF_HEADER_ID" --appendix 'removed' "${colorArg[@]}" -- '{+}' \; \
 	    --exec git blame {} "$previousCommit" -- '{+}' \; \
-	    "${commits[@]}" "$@"
+	    "${commits[@]}" "$@" || exit $?
 
     unset HEADER_PREFIX
     typeset -a currentCommit=()

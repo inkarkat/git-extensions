@@ -1,0 +1,77 @@
+#!/bin/bash
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: echo R1 R2 R3 | %q %s\n' "$(basename "$1")" '[--accept-single] [--single-only] [--cached|HEAD] [GIT-COMMAND-ARGS ...] [--] [FILE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [GIT-COMMAND-ARGS ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... COMMITS ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [...]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Execute GIT-COMMAND for the commit interactively chosen from the commits
+affected by lines that have been changed between commits, commit and working
+tree, etc. [in FILE ...]
+- appended
+- replacing COMMITS argument(s) anywhere
+- replacing COMMITS in the following GIT-COMMAND and -(N-1) arguments
+- replacing COMMITS in the following +(N) arguments and appending those
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --cached		Use lines changed in the index, not the working copy for
+			determining the commits.
+    HEAD		Use lines changed in both index and working copy for
+			determining the commits.
+HELPTEXT
+}
+
+typeset -a difflinesArgs=()
+typeset -a selectedcommitCommandArgs=()
+unset files
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--cached|HEAD)	difflinesArgs+=("$1"); shift;;
+
+	--)		typeset -a files=("$@"); break;;
+	*)		selectedcommitCommandArgs+=("$1"); shift;;
+    esac
+done
+if [ -z ${files+t}  ]; then
+    # No files after -- captured yet; need to investigate parsed and
+    # remaining args from behind for files.
+    typeset -a files=()
+    selectedcommitCommandArgs+=("$@")
+    while [ ${#selectedcommitCommandArgs[@]} -ne 0 ]
+    do
+	lastArg="${selectedcommitCommandArgs[-1]}"
+	[ -e "$lastArg" ] || break
+
+	files=("$lastArg" "${files[@]}")
+	selectedcommitCommandArgs=("${selectedcommitCommandArgs[@]:0:${#selectedcommitCommandArgs[@]}-1}")
+    done
+fi
+
+git-difflines "${difflinesArgs[@]}" --only-old --number-format '-L%dn,%dn' \
+	--command 'git blame --porcelain {} HEAD -- {+} | grep -o "^[[:xdigit:]]\\{40\\}" | sort --unique' \
+	"${files[@]}" \
+    |	GIT_SELECTEDCOMMIT_COMMAND=logrevs \
+	GIT_SELECTEDCOMMIT_NO_MANDATORY_RANGE=t \
+	    git-selectedcommit-command "${selectedcommitCommandArgs[@]}"

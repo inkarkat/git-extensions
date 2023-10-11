@@ -6,7 +6,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: [GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES=99] %q %s%s %s\n' "$(basename "$1")" '[--recursive] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success] [--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [<revision-range>] [--since <date>] [--after <date>] [--for -|--for SUBMODULE [...] ;] [--include-superproject] [[--not] -P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]'
+    printf 'Usage: [GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES=99] %q %s%s %s\n' "$(basename "$1")" '[--recursive] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success] [--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [<revision-range>] [--since <date>] [--after <date>] [--for -|--for SUBMODULE [...] ;] [-j|--include-superproject|-J|--include-superproject-last] [[--not] -P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]'
     echo
     printf 'Usage: [GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES=99] %q %s%s %s\n' "$(basename "$1")" '--repeat [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success] [--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [-c|--command "COMMANDLINE" [-c ...]] [[--] SIMPLECOMMAND [...]]'
 }
@@ -69,8 +69,11 @@ the command output.
 			following arguments until an argument consisting of ';'
 			is encountered.
     --for -		Only consider the SUBMODULE(s) read from stdin.
-    --include-superproject
+    --include-superproject|-j
 			First execute COMMAND on the superproject itself.
+    --include-superproject-last|-J
+			Execute COMMAND on the superproject itself after all
+			submodules.
     --predicate-command|-P CMD
 			Skip submodules where CMD (executed in the submodule
 			root) fails. The string {} is replaced with the relative
@@ -127,6 +130,7 @@ typeset -a commands=()
 isHeader=; type -t withHeader >/dev/null && isHeader=t
 progressSink=
 isIncludeSuperproject=
+isIncludeSuperprojectLast=
 isInteractive=
 errorRedir='2>&1'
 isGitColor=t
@@ -183,7 +187,10 @@ do
 				fi
 				;;
 
-	--include-superproject)	shift; isIncludeSuperproject=t;;
+	--include-superproject|-j)
+				shift; isIncludeSuperproject=t;;
+	--include-superproject-last|-J)
+				shift; isIncludeSuperproject=t; isIncludeSuperprojectLast=t;;
 	--collect)		shift
 				[ ${#submodules[@]} -eq 0 ] || [ "${submodules["${sm_path:?}"]}" ] || exit 0
 
@@ -294,7 +301,9 @@ else
     if [ "$isIncludeSuperproject" ]; then
 	superprojectName="$(git-wcname)"
 	printf -v superprojectEnvironment '%s=%q; ' dirspec "${PWD:?}" name 'superproject' sm_path '.' displaypath '' sha1 "$(git rev-parse HEAD)" toplevel "${PWD:?}" predicateOutput ''
-	submoduleEnvironments=("$superprojectEnvironment" "${submoduleEnvironments[@]}")
+	[ "$isIncludeSuperprojectLast" ] \
+	    && submoduleEnvironments=("${submoduleEnvironments[@]}" "$superprojectEnvironment") \
+	    || submoduleEnvironments=("$superprojectEnvironment" "${submoduleEnvironments[@]}")
     fi
 
     [ -d "$RUNTIME_DIRSPEC" ] \

@@ -96,18 +96,19 @@ fi
 
 : ${GIT_ANNOTATEDIFF_HEADER_ID:="annotatediff-$$-$RANDOM"}
 
-annotatediff()
+annotateRemovals()
 {
-    if [ "$isColor" ]; then
-	export HEADER_PREFIX='[9m'
-    fi
-    local previousCommit="${commits[0]:-HEAD}"	# blame the start commit or working copy to HEAD
-    git-difflines --only-removed --number-format '-L%dn,%dn' \
-	    --exec header --id "$GIT_ANNOTATEDIFF_HEADER_ID" --appendix 'removed' "${colorArg[@]}" -- '{+}' \; \
-	    --exec git blame {} "$previousCommit" -- '{+}' \; \
-	    "${commits[@]}" "$@" || exit $?
-
+    [ "$isColor" ] && export HEADER_PREFIX='[9m'
+	local previousCommit="${commits[0]:-HEAD}"	# blame the start commit or working copy to HEAD
+	git-difflines --only-removed --number-format '-L%dn,%dn' \
+		--exec header --id "$GIT_ANNOTATEDIFF_HEADER_ID" --appendix 'removed' "${colorArg[@]}" -- '{+}' \; \
+		--exec git blame {} "$previousCommit" -- '{+}' \; \
+		"${commits[@]}" "$@" || return $?
     unset HEADER_PREFIX
+}
+
+annotateChanges()
+{
     typeset -a currentCommit=()
     if [ "$isWithStage" ]; then
 	currentCommit=(HEAD)	# DWIM: There's no blaming of staged changes, so blame the last commit.
@@ -122,6 +123,12 @@ annotatediff()
 	    --exec header --id "$GIT_ANNOTATEDIFF_HEADER_ID" "${colorArg[@]}" -- '{+}' \; \
 	    --exec git blame {} "${currentCommit[@]}" -- '{+}' \; \
 	    "${commits[@]}" "$@"
+}
+
+annotatediff()
+{
+    annotateRemovals "$@" \
+	&& annotateChanges "$@"
 }
 
 eval 'annotatediff "$@"' \

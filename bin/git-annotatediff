@@ -8,7 +8,7 @@ Annotate changed lines between commits, commit and working tree, commit and Nth 
 Combination of diff with blame of the resulting lines.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<commit> [<commit>]|<commit>..<commit>|<commit>...<commit>|-<number>|-n <number>|--count=<number> [<commit>]] [--] [<path>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--cached [<commit>]|<commit> [<commit>]|<commit>..<commit>|<commit>...<commit>|-<number>|-n <number>|--count=<number> [<commit>]] [--] [<path>...] [-?|-h|--help]'
 }
 
 isColor=t
@@ -40,6 +40,7 @@ addCommit()
 }
 
 count=
+isWithStage=
 typeset -a allargs=()
 while [ $# -ne 0 ]
 do
@@ -54,6 +55,8 @@ do
 	--count|-n)	shift; count="$1"; shift;;
 	--count=*)	count="${1#--count=}"; shift;;
 	-+([0-9]))	count="${1#-}"; shift;;
+
+	--cached)	allargs+=("$1"); shift; isWithStage=t;;
 
 	--)		break;;
 
@@ -87,31 +90,45 @@ if [ -n "$count" ]; then
 	*) exitTooManyCommitsError;;
     esac
 fi
+if [ "$isWithStage" ] && [ ${#commits[@]} -gt 1 ]; then
+    exitTooManyCommitsError
+fi
 
 : ${GIT_ANNOTATEDIFF_HEADER_ID:="annotatediff-$$-$RANDOM"}
 
-annotatediff()
+annotateRemovals()
 {
-    if [ "$isColor" ]; then
-	export HEADER_PREFIX='[9m'
-    fi
-    local previousCommit="${commits[0]:-HEAD}"	# blame the start commit or working copy to HEAD
-    git-difflines --only-removed --number-format '-L%dn,%dn' \
-	    --exec header --id "$GIT_ANNOTATEDIFF_HEADER_ID" --appendix 'removed' "${colorArg[@]}" -- '{+}' \; \
-	    --exec git blame {} "$previousCommit" -- '{+}' \; \
-	    "${commits[@]}" "$@" || exit $?
-
+    [ "$isColor" ] && export HEADER_PREFIX='[9m'
+	local previousCommit="${commits[0]:-HEAD}"	# blame the start commit or working copy to HEAD
+	git-difflines --only-removed --number-format '-L%dn,%dn' \
+		--exec header --id "$GIT_ANNOTATEDIFF_HEADER_ID" --appendix 'removed' "${colorArg[@]}" -- '{+}' \; \
+		--exec git blame {} "$previousCommit" -- '{+}' \; \
+		"${commits[@]}" "$@" || return $?
     unset HEADER_PREFIX
+}
+
+annotateChanges()
+{
     typeset -a currentCommit=()
-    case ${#commits[@]} in
-	0)  ;&
-	1)  currentCommit=();;	# working copy
-	2)  currentCommit=("${commits[1]}");;	# blame the end commit
-    esac
+    if [ "$isWithStage" ]; then
+	currentCommit=(HEAD)	# DWIM: There's no blaming of staged changes, so blame the last commit.
+    else
+	case ${#commits[@]} in
+	    0)  ;&
+	    1)  currentCommit=();;	# working copy
+	    2)  currentCommit=("${commits[1]}");;	# blame the end commit
+	esac
+    fi
     git-difflines --only-new --number-format '-L%dn,%dn' \
 	    --exec header --id "$GIT_ANNOTATEDIFF_HEADER_ID" "${colorArg[@]}" -- '{+}' \; \
 	    --exec git blame {} "${currentCommit[@]}" -- '{+}' \; \
 	    "${commits[@]}" "$@"
+}
+
+annotatediff()
+{
+    annotateRemovals "$@" \
+	&& annotateChanges "$@"
 }
 
 eval 'annotatediff "$@"' \

@@ -8,7 +8,7 @@ Annotate changed lines between commits, commit and working tree, commit and Nth 
 Combination of diff with blame of the resulting lines.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<commit> [<commit>]|<commit>..<commit>|<commit>...<commit>|-<number>|-n <number>|--count=<number> [<commit>]] [--] [<path>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--cached [<commit>]|<commit> [<commit>]|<commit>..<commit>|<commit>...<commit>|-<number>|-n <number>|--count=<number> [<commit>]] [--] [<path>...] [-?|-h|--help]'
 }
 
 isColor=t
@@ -40,6 +40,7 @@ addCommit()
 }
 
 count=
+isWithStage=
 typeset -a allargs=()
 while [ $# -ne 0 ]
 do
@@ -54,6 +55,8 @@ do
 	--count|-n)	shift; count="$1"; shift;;
 	--count=*)	count="${1#--count=}"; shift;;
 	-+([0-9]))	count="${1#-}"; shift;;
+
+	--cached)	allargs+=("$1"); shift; isWithStage=t;;
 
 	--)		break;;
 
@@ -86,6 +89,9 @@ if [ -n "$count" ]; then
 	1) commits=("${commits[0]}~${count}" "${commits[0]}");;
 	*) exitTooManyCommitsError;;
     esac
+fi
+if [ "$isWithStage" ] && [ ${#commits[@]} -gt 1 ]; then
+    exitTooManyCommitsError
 fi
 
 : ${GIT_ANNOTATEDIFF_HEADER_ID:="annotatediff-$$-$RANDOM"}

@@ -8,7 +8,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[-q|--quiet] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success] [--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [--interrupt-on-failure|--interrupt-on EXIT_STATUS] [--continue|--abort|--stashed] [--include-current] [--include-master] [--include-base] [--include-all] [--branches "<branch1> ..."] [--detach] [-B N|--max-branch N] [[--not]-P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...]] [-?|-h|--help]'
+    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[-q|--quiet] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success] [--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [--interrupt-on-failure|--interrupt-on EXIT_STATUS] [--continue|--abort|--stashed] [--include-current] [--include-master] [--include-base] [--include-all] [--branches "<branch1> ..."] [--detach] [(--submodules|--queried-submodules) [--submodules-recursive]] [-B N|--max-branch N] [[--not]-P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -88,6 +88,12 @@ current Git branch before the command output.
 			errors like "fatal: 'branch' is already checked out at
 			..." with multiple worktrees, but of course also limits
 			your abilities to work with the branch.
+    --submodules	Also check out corresponding branches in submodules.
+    --queried-submodules
+			Also check out queried corresponding branches in
+			submodules.
+    --submodules-recursive
+			Check out branches in nested submodules, too.
 Note: For paging and headers, this command has to control Git's color output.
 Pass --no-git-color if "git SIMPLECOMMAND" does not support the --color=...
 arguments. (For COMMANDLINE you have to insert "\${gitColorArg[@]}" yourself.)
@@ -126,7 +132,8 @@ branchNum=9999
 typeset -a inputBranches=()
 iterationAction=
 typeset -a gitLocalbrArgs=()
-typeset -a gitCheckoutArgs=()
+typeset -a anyCheckoutArgs=()
+typeset -a iteratingCheckoutArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -151,7 +158,9 @@ do
 	--include-*)	    gitLocalbrArgs+=("$1"); shift;;
 	--branches)	    shift; IFS=$' \t' read -r -a inputBranches <<<"${1//$'\n'/ }"; shift;;	# Internal hook to pass in the branches.
 	--continue|--abort) iterationAction="${1#--}"; shift;;
-	--detach)	    gitCheckoutArgs+=("$1"); shift;;
+	--detach)	    iteratingCheckoutArgs+=("$1"); shift;;
+	--submodules|--queried-submodules|--submodules-recursive)
+			    anyCheckoutArgs+=("$1"); shift;;
 	--max-branch|-B)    shift; branchNum="$1"; shift;;
 	--predicate-command|-P)
 			    shift; predicateCommands+=(${predicateCommands:+&&} "$1"); shift;;
@@ -252,7 +261,7 @@ persistContext()
     typeset -p localBranches originalCommands originalIsNeedEval originalBranch \
 	pager abortStatus abortComparison interruptStatus interruptComparison progressSink \
 	isInteractive isSingleSuccess isStatus99Noop isQuiet isHeader errorRedir \
-	colorArg isStashed gitCheckoutArgs \
+	colorArg isStashed anyCheckoutArgs iteratingCheckoutArgs \
 	GIT_LOCALBRDO_HEADER_ID \
 	| sed -e 's#^declare #&-g #' > "${usedContextStore:?}"	# The sourcing is done inside a function, so "declare -g" must be used to define the variables with global scope.
 }
@@ -292,7 +301,7 @@ interruptIfDesired()
 
 restoreOriginalBranch()
 {
-    git-wrapper checkout --quiet "$originalBranch" || return $?
+    git-wrapper checkout --quiet "${anyCheckoutArgs[@]}" "$originalBranch" || return $?
     [ "$isQuiet" ] || printf >&2 "Restored branch '%s'\\n" "$originalBranch"
 
     [ -z "$usedContextStore" ] || \
@@ -371,7 +380,7 @@ localbrdo()
 	local branch="${localBranches[0]}"
 	localBranches=("${localBranches[@]:1}")
 
-	git-wrapper checkout --quiet "${gitCheckoutArgs[@]}" "${branch}" || exit $?	# Suppress Git's checkout information with --quiet. We're probably not interested in stuff like "Your branch is up-to-date with ...", and we emulate the switch message itself:
+	git-wrapper checkout --quiet "${anyCheckoutArgs[@]}" "${iteratingCheckoutArgs[@]}" "${branch}" || exit $?	# Suppress Git's checkout information with --quiet. We're probably not interested in stuff like "Your branch is up-to-date with ...", and we emulate the switch message itself:
 
 	reportProgress "$branch"
 	[ ! "$isInteractive" ] || header "${colorArg[@]}" --id "$GIT_LOCALBRDO_HEADER_ID" -- "$branch"

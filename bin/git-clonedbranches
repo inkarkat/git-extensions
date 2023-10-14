@@ -1,0 +1,40 @@
+#!/bin/bash
+set -o pipefail
+
+: ${GIT_CLONEBR_SEPARATOR=-}
+
+printUsage()
+{
+    cat <<HELPTEXT
+List all branches that can be obtained from the current / passed branch by
+appending ${GIT_CLONEBR_SEPARATOR}1 (${GIT_CLONEBR_SEPARATOR}2, etc.) at the end of the branch name.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-b|--branch BRANCH] [-?|-h|--help]'
+}
+
+branch=
+branchOrigin='Current'
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--branch|-b)	shift; branch="${1:?}"; shift; branchOrigin='Passed';;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+[ -n "$branch" ] || branch="$(git-brname --real-branch-only)" || exit $?
+
+if [[ ! "$branch" =~ ^(.+)"${GIT_CLONEBR_SEPARATOR}"([[:digit:]]+)$ ]]; then
+    printf >&2 'ERROR: %s branch is not a cloned branch; the %s1 suffix is missing: %s\n' "$branchOrigin" "$GIT_CLONEBR_SEPARATOR" "$branch"
+    exit 1
+fi
+branchBase="${BASH_REMATCH[1]}"
+git-localbr --include-all -- "${branchBase}${GIT_CLONEBR_SEPARATOR}+([0-9])" \
+    | sort --numeric-sort

@@ -9,16 +9,16 @@ printUsage()
     git-localbrdo --help 2>&1 | sed \
 	-e "1s#^.*\$#Check out all branches that can be obtained from the current / passed branch by appending ${GIT_CLONEBR_SEPARATOR}1 (${GIT_CLONEBR_SEPARATOR}2, etc.) at the end of the branch name one by one and execute \"git SIMPLECOMMAND\" and/or COMMANDLINE on each branch.#" \
 	-e '2b removeFirstParagraphLoop' \
-	-e '/^ *\[--include-current\] \[--include-master\] \[--include-base\] \[--include-all\] \[--branches "<branch1> \.\.\."\]/b removeOptionLoop' \
+	-e '/^ *\[--include-current\] \[--include-master\] \[--include-base\] \[--include-all\]/b removeOptionLoop' \
 	-e '/^ *--no-pager/i\
     --exlude-base	Do not include the base branch (the branch without the\
 			${GIT_CLONEBR_SEPARATOR}1 suffix).\
     --reverse		Iterate from highest offset to lowest.\
     --start-branch|-S N	Only consider the first committed N branches.' \
-	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ ]\+ \)*git-localbrdo /\1\2'"$(basename "$1")"' [-b|--branch BRANCH] [--exclude-base] [--reverse] [--start-branch|-S N] /; s/\[--include-current\] \[--include-master\] \[--include-base\] \[--include-all\] \[--branches "<branch1> \.\.\."\]//; }' \
+	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ ]\+ \)*git-localbrdo /\1\2'"$(basename "$1")"' [-b|--branch BRANCH] [--exclude-base] [--reverse] [--start-branch|-S N] /; s/\[--include-current\] \[--include-master\] \[--include-base\] \[--include-all\] //; }' \
 	-e '/^Example:$/N' -e '/\(^\|\n\)Example: */{ s/\(^\|\n\)\(Example: *\)\?git-localbrdo .*/\1\2'"$(basename "$1") -n /; }" \
 	-e b -e :removeFirstParagraphLoop -e '{ /\(^\|\n\)$/{ s/^\(.*\n\)\?//; b; }; N; b removeFirstParagraphLoop; }' \
-	-e b -e :removeOptionLoop -e '{ /\n *\[--include-current\] \[--include-master\] \[--include-base\] \[--include-all\] \[--branches "<branch1> \.\.\."\][^\n]*$/{ N; b removeOptionLoop; }; /\n *--[^\n]*$\|\n[^	 ]\|\n$/{ s/^\(.*\n\)\?//; b; }; N; b removeOptionLoop; }'
+	-e b -e :removeOptionLoop -e '{ /\n *\[--include-current\] \[--include-master\] \[--include-base\] \[--include-all\] [^\n]*$/{ N; b removeOptionLoop; }; /\n *--[^\n]*$\|\n[^	 ]\|\n$/{ s/^\(.*\n\)\?//; b; }; N; b removeOptionLoop; }'
 }
 
 isReverse=

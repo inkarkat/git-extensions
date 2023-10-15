@@ -15,14 +15,15 @@ cloned branch is added to the appended ${GIT_CLONEBR_SEPARATOR}1 suffix
 If there's no branch, an error is printed.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-o|--offset N] [--] ... [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [... -o|--offset N [-b|--branch BRANCH] ...] [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... BRANCH ... -o|--offset N [-b|--branch BRANCH] ...]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [... -o|--offset N [-b|--branch BRANCH] ...]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [... -o|--offset N [-b|--branch BRANCH] ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-o|--offset N] [--exclude-base] [--] ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [... -o|--offset N [--exclude-base] [-b|--branch BRANCH] ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... BRANCH ... -o|--offset N [--exclude-base] [-b|--branch BRANCH] ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [... -o|--offset N [--exclude-base] [-b|--branch BRANCH] ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [... -o|--offset N [--exclude-base] [-b|--branch BRANCH] ...]'
 }
 
-# Need to parse off -o|--offset and -b|--branch from anywhere first.
+# Need to parse off -o|--offset, --exclude-base and -b|--branch from anywhere first.
+typeset -a clonedbranchesArgs=()
 typeset -a allargs=()
 offset=
 branch=
@@ -30,6 +31,7 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--exclude-base)	clonedbranchesArgs+=("$1"); shift;;
 	--offset|-o)	shift; offset=${1:?}; shift;;
 	--branch|-b)	shift; branch="${1:?}"; shift;;
 	--)		allargs+=("$1"); shift; break;;
@@ -40,7 +42,7 @@ set -- "${allargs[@]}"
 [ -n "$branch" ] || branch="$(git-brname --real-branch-only)" || exit $?
 
 clonedBranch=
-readarray -t branches < <(git-clonedbranches ${branch:+--branch "$branch"})
+readarray -t branches < <(git-clonedbranches "${clonedbranchesArgs[@]}" ${branch:+--branch "$branch"})
 branchIndex=$(index "$branch" "${branches[@]}") || { echo >&2 "Cannot find branch ${branch}."; exit 3; }
 let clonedBranchIndex=branchIndex+offset
 if [ $clonedBranchIndex -lt 0 ]; then

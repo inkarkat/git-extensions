@@ -2,13 +2,15 @@
 set -o pipefail
 shopt -qs extglob
 
+: ${GIT_LOCALBRDO_SOURCE_COMMAND:=git-localbr}
+
 hasProgressNotification=; type -t progressNotification >/dev/null && hasProgressNotification=t
 
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[-q|--quiet] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success] [--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [--interrupt-on-failure|--interrupt-on EXIT_STATUS] [--continue|--abort|--stashed] [--include-current] [--include-master] [--include-base] [--include-all] [--branches "<branch1> ..."] [--detach] [(--submodules|--queried-submodules) [--submodules-recursive]] [-B N|--max-branch N] [[--not]-P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...]] [-?|-h|--help]'
+    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[-q|--quiet] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success] [--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [--interrupt-on-failure|--interrupt-on EXIT_STATUS] [--continue|--abort|--stashed] [--include-current] [--include-master] [--include-base] [--include-all] [--branches BRANCH [...] ;] [--detach] [(--submodules|--queried-submodules) [--submodules-recursive]] [-B N|--max-branch N] [[--not]-P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -81,6 +83,10 @@ current Git branch before the command output.
 			    $(basename "$1") [...] [--] SIMPLECOMMAND
 			If omitted, will just return to the shell for each
 			branch.
+    --branches BRANCH [...] ;
+			Only iterate over the following BRANCH(es); i.e. all
+			following arguments until an argument consisting of ';'
+			is encountered.
     --stashed		Don't create a temporary stash in case the working copy
 			is dirty (as an optimization in case you know you're
 			clean.)
@@ -128,8 +134,8 @@ predicateComparison=-eq
 typeset -a predicateCommands=()
 typeset -a commands=()
 isStashed=
-branchNum=9999
-typeset -a inputBranches=()
+branchNum=
+typeset -a directBranches=()
 iterationAction=
 typeset -a gitLocalbrArgs=()
 typeset -a anyCheckoutArgs=()
@@ -156,7 +162,18 @@ do
 	--color)		colorArg=("$1" "$2"); shift; shift;;
 	--stashed)	    shift; isStashed=t;;
 	--include-*)	    gitLocalbrArgs+=("$1"); shift;;
-	--branches)	    shift; IFS=$' \t' read -r -a inputBranches <<<"${1//$'\n'/ }"; shift;;	# Internal hook to pass in the branches.
+	--branches)	    shift
+			    while [ $# -gt 0 -a "$1" != ';' ]
+			    do
+				directBranches+=("$1")
+				shift
+			    done
+			    if [ $# -eq 0 ]; then
+				echo 'ERROR: --branches must be concluded with ;!'; echo; printUsage "$0"
+				exit 2
+			    fi >&2
+			    shift
+			    ;;
 	--continue|--abort) iterationAction="${1#--}"; shift;;
 	--detach)	    iteratingCheckoutArgs+=("$1"); shift;;
 	--submodules|--queried-submodules|--submodules-recursive)
@@ -329,11 +346,17 @@ case "$iterationAction" in
 	    exit 1
 	fi
 
-	readarray -t localBranches < <(git-localbr "${gitLocalbrArgs[@]}" -- "${inputBranches[@]}" | tail -n "$branchNum")
+	if [ ${#directBranches[@]} -gt 0 ]; then
+	    localBranches=("${directBranches[@]}")
+	else
+	    readarray -t localBranches < <(eval "$GIT_LOCALBRDO_SOURCE_COMMAND" '"${gitLocalbrArgs[@]}"')
+	fi
 	if [ ${#localBranches[@]} -eq 0 ]; then
 	    echo >&2 'No local branches found!'
 	    exit 99
 	fi
+	[ -n "$branchNum" ]  && [ $branchNum -lt ${#localBranches[@]} ] \
+	    && localBranches=("${localBranches[@]:(-$branchNum)}")
 	if [ ${#predicateCommands[@]} -gt 0 ]; then
 	    typeset -a filteredLocalBranches=()
 	    for branch in "${localBranches[@]}"

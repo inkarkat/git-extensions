@@ -1,0 +1,71 @@
+#!/bin/bash
+set -o pipefail
+
+: ${GIT_CLONEBR_SEPARATOR=-}
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--exclude-base] [-b|--branch BRANCH] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+List all branches that can be obtained from the current / passed branch by
+appending ${GIT_CLONEBR_SEPARATOR}1 (${GIT_CLONEBR_SEPARATOR}2, etc.) at the end of the branch name.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --exlude-base	Do not include the base branch (the branch without the
+			${GIT_CLONEBR_SEPARATOR}1 suffix).
+HELPTEXT
+}
+
+branch=
+branchOrigin='Current'
+isIncludeBase=t
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--exclude-base)	shift; isIncludeBase=;;
+	--branch|-b)	shift; branch="${1:?}"; shift; branchOrigin='Passed';;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+[ -n "$branch" ] || branch="$(git-brname --real-branch-only)" || exit $?
+
+[[ "$branch" =~ ^(.+)"${GIT_CLONEBR_SEPARATOR}"([[:digit:]]+)$ ]] \
+    && branchBase="${BASH_REMATCH[1]}" \
+    || branchBase="$branch"
+readarray -t branches < <(
+    git-localbr --include-all -- ${isIncludeBase:+"$branchBase"} "${branchBase}${GIT_CLONEBR_SEPARATOR}+([0-9])" \
+	| sort --numeric-sort
+)
+
+if [ ${#branches[@]} -eq 0 ]; then
+    printf >&2 'ERROR: %s branch is no local branch: %s\n' "$branchOrigin" "$branch"
+    exit 2
+elif [ ${#branches[@]} -eq 1 -a "${branches[0]}" = "$branchBase" ]; then
+    printf >&2 'ERROR: %s branch has no cloned branches; there is no %s1 suffix: %s\n' "$branchOrigin" "$GIT_CLONEBR_SEPARATOR" "${branches[0]}"
+    exit 1
+fi
+printf '%s\n' "${branches[@]}"

@@ -129,6 +129,7 @@ typeset -a predicateCommands=()
 typeset -a commands=()
 isStashed=
 branchNum=9999
+typeset -a directBranches=()
 typeset -a inputBranches=()
 iterationAction=
 typeset -a gitLocalbrArgs=()
@@ -156,7 +157,8 @@ do
 	--color)		colorArg=("$1" "$2"); shift; shift;;
 	--stashed)	    shift; isStashed=t;;
 	--include-*)	    gitLocalbrArgs+=("$1"); shift;;
-	--branches)	    shift; IFS=$' \t' read -r -a inputBranches <<<"${1//$'\n'/ }"; shift;;	# Internal hook to pass in the branches.
+	--direct-branches)  shift; IFS=$' \t' read -r -a directBranches <<<"${1//$'\n'/ }"; shift;;	# Internal hook to pass in the branches without further processing except applying --max-branch.
+	--branches)	    shift; IFS=$' \t' read -r -a inputBranches <<<"${1//$'\n'/ }"; shift;;	# Internal hook to pass in the branches while still doing sorting and input filtering.
 	--continue|--abort) iterationAction="${1#--}"; shift;;
 	--detach)	    iteratingCheckoutArgs+=("$1"); shift;;
 	--submodules|--queried-submodules|--submodules-recursive)
@@ -329,7 +331,14 @@ case "$iterationAction" in
 	    exit 1
 	fi
 
-	readarray -t localBranches < <(git-localbr "${gitLocalbrArgs[@]}" -- "${inputBranches[@]}" | tail -n "$branchNum")
+	readarray -t localBranches < <(
+	    if [ ${#directBranches[@]} -gt 0 ]; then
+		printf '%s\n' "${directBranches[@]}"
+	    else
+		git-localbr "${gitLocalbrArgs[@]}" -- "${inputBranches[@]}"
+	    fi \
+		| tail -n "$branchNum"
+	)
 	if [ ${#localBranches[@]} -eq 0 ]; then
 	    echo >&2 'No local branches found!'
 	    exit 99

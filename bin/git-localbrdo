@@ -135,7 +135,7 @@ typeset -a predicateCommands=()
 typeset -a commands=()
 isStashed=
 branchNum=
-typeset -a directBranches=()
+typeset -a sourceBranches=()
 iterationAction=
 typeset -a gitLocalbrArgs=()
 typeset -a anyCheckoutArgs=()
@@ -165,7 +165,7 @@ do
 	--branches)	    shift
 			    while [ $# -gt 0 -a "$1" != ';' ]
 			    do
-				directBranches+=("$1")
+				sourceBranches+=("$1")
 				shift
 			    done
 			    if [ $# -eq 0 ]; then
@@ -346,10 +346,10 @@ case "$iterationAction" in
 	    exit 1
 	fi
 
-	if [ ${#directBranches[@]} -gt 0 ]; then
-	    localBranches=("${directBranches[@]}")
+	if [ ${#sourceBranches[@]} -gt 0 ] && [ ! "$GIT_LOCALBRDO_SOURCE_SORTED" ]; then
+	    localBranches=("${sourceBranches[@]}")
 	else
-	    readarray -t localBranches < <(eval "$GIT_LOCALBRDO_SOURCE_COMMAND" '"${gitLocalbrArgs[@]}"')
+	    readarray -t localBranches < <(eval "$GIT_LOCALBRDO_SOURCE_COMMAND" '"${gitLocalbrArgs[@]}" "${sourceBranches[@]}"')
 	fi
 	if [ ${#localBranches[@]} -eq 0 ]; then
 	    echo >&2 'No local branches found!'

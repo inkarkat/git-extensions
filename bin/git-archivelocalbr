@@ -1,11 +1,13 @@
 #!/bin/bash
 shopt -qs extglob
 
+: ${GIT_ARCHIVELOCALBR_SOURCE_COMMAND:=git-localbr}
+
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--branches "<branch1> ..."] [-n N|--count N] [-q|--quiet] [-y|--yes] [-f|--force] [-m <msg>|--message=<msg>|-F <file>|--file=<file>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--branches BRANCH [...] ;] [-n N|--count N] [-q|--quiet] [-y|--yes] [-f|--force] [-m <msg>|--message=<msg>|-F <file>|--file=<file>] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -32,21 +34,15 @@ HELPDESCRIPTION
     --yes|-y		Skip the confirmation.
     --force|-f		Force archiving of those branches that have not been
 			fully merged.
+    --branches BRANCH [...] ;
+			Only archive the following BRANCH(es); i.e. all
+			following arguments until an argument consisting of ';'
+			is encountered.
 HELPTEXT
 }
 
-branchNum=9999
-typeset -a inputBranches=()
-if [ "$1" = '--branches' ]; then
-    # Internal hook to pass in the branches.
-    shift
-    IFS=$' \t' read -r -a inputBranches <<<"${1//$'\n'/ }"; shift
-
-    if [ ${#inputBranches[@]} -eq 0 ]; then
-	echo >&2 'ERROR: No branches passed to --branches.'
-	exit 2
-    fi
-fi
+branchNum=
+typeset -a sourceBranches=()
 isQuiet=
 isYes=
 typeset -a gitArchiveArgs=()
@@ -65,17 +61,35 @@ do
 			gitArchiveArgs+=("$1" "$2"); shift; shift;;
 	--@(message|file)=*)
 			gitArchiveArgs+=("$1"); shift;;
+	--branches)	shift
+			while [ $# -gt 0 -a "$1" != ';' ]
+			do
+			    sourceBranches+=("$1")
+			    shift
+			done
+			if [ $# -eq 0 ]; then
+			    echo 'ERROR: --branches must be concluded with ;!'; echo; printUsage "$0"
+			    exit 2
+			fi >&2
+			shift
+			;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
     esac
 done
 
-readarray -t localBranches < <(git-localbr -- "${inputBranches[@]}" | head -n "$branchNum")
+if [ ${#sourceBranches[@]} -gt 0 ] && [ ! "$GIT_ARCHIVELOCALBR_SOURCE_SORTED" ]; then
+    localBranches=("${sourceBranches[@]}")
+else
+    readarray -t localBranches < <(eval "$GIT_ARCHIVELOCALBR_SOURCE_COMMAND" '"${sourceBranches[@]}"')
+fi
 if [ ${#localBranches[@]} -eq 0 ]; then
     echo >&2 'No local branches found!'
     exit 1
 fi
+[ -n "$branchNum" ]  && [ $branchNum -lt ${#localBranches[@]} ] \
+    && localBranches=("${localBranches[@]:0:$branchNum}")
 
 IFS=$'\n'
 if [ "$isYes" ]; then

@@ -2,7 +2,7 @@
 set -o pipefail
 shopt -qs extglob
 
-: ${GIT_BRREFDO_BRANCH_COMMAND:=git-abr}
+: ${GIT_BRREFDO_SOURCE_COMMAND:=git-abr}
 : ${GIT_BRREFDO_COMMANDNAME:=$(basename -- "$0")}
 : ${GIT_BRREFDO_WHAT:=branches}
 
@@ -12,7 +12,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s%s %s\n' "$GIT_BRREFDO_COMMANDNAME" '[--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" "[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success] [--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS]${GIT_BRREFDO_ADDITIONAL_ARGS:+ }${GIT_BRREFDO_ADDITIONAL_ARGS} [--branches \"<branch1> ...\"] [-B N|--max-branch N] [[--not] -P|--predicate-command \"COMMANDLINE\" [...]] [-c|--command \"COMMANDLINE\" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]"
+    printf 'Usage: %q %s%s %s\n' "$GIT_BRREFDO_COMMANDNAME" '[--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" "[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success] [--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS]${GIT_BRREFDO_ADDITIONAL_ARGS:+ }${GIT_BRREFDO_ADDITIONAL_ARGS} [--branches BRANCH [...] ;] [-B N|--max-branch N] [[--not] -P|--predicate-command \"COMMANDLINE\" [...]] [-c|--command \"COMMANDLINE\" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -73,6 +73,10 @@ current Git branch before the command output.
 			Git command, it can also be passed as such:
 			    $(basename "$1") [...] [--] SIMPLECOMMAND
 			The string {} is replaced with the current branch name.
+    --branches BRANCH [...] ;
+			Only iterate over the following BRANCH(es); i.e. all
+			following arguments until an argument consisting of ';'
+			is encountered.
 Note: For paging and headers, this command has to control Git's color output.
 Pass --no-git-color if "git SIMPLECOMMAND" does not support the --color=...
 arguments. (For COMMANDLINE you have to insert "\${gitColorArg[@]}" yourself.)
@@ -103,7 +107,7 @@ predicateComparison=-eq
 typeset -a predicateCommands=()
 typeset -a commands=()
 branchNum=
-typeset -a inputBranches=()
+typeset -a sourceBranches=()
 typeset -a gitBrArgs=()
 while [ $# -ne 0 ]
 do
@@ -129,7 +133,18 @@ do
 			    gitBrArgs+=("$1" "$2"); shift; shift;;
 	--@(${GIT_BRREFDO_LONG_PARAMS:-[]}))
 			    gitBrArgs+=("$1" "$2"); shift; shift;;
-	--branches)	    shift; IFS=$' \t' read -r -a inputBranches <<<"${1//$'\n'/ }"; shift;;	# Internal hook to pass in the branches.
+	--branches)	    shift
+			    while [ $# -gt 0 -a "$1" != ';' ]
+			    do
+				sourceBranches+=("$1")
+				shift
+			    done
+			    if [ $# -eq 0 ]; then
+				echo 'ERROR: --branches must be concluded with ;!'; echo; printUsage "$0"
+				exit 2
+			    fi >&2
+			    shift
+			    ;;
 	--max-branch|-B)    shift; branchNum="$1"; shift;;
 	--not)		    shift; predicateComparison=-ne;;
 	--predicate-command|-P)
@@ -189,11 +204,17 @@ if [ $# -gt 0 ]; then
     fi
 fi
 
-readarray -t branches < <(eval '$GIT_BRREFDO_BRANCH_COMMAND "${gitBrArgs[@]}" ${inputBranches:+--} "${inputBranches[@]}"' ${branchNum:+ | tail -n "$branchNum"})
+if [ ${#sourceBranches[@]} -gt 0 ] && [ ! "$GIT_BRREFDO_SOURCE_SORTED" ]; then
+    branches=("${sourceBranches[@]}")
+else
+    readarray -t branches < <(eval "$GIT_BRREFDO_SOURCE_COMMAND" '"${gitBrArgs[@]}" "${sourceBranches[@]}"')
+fi
 if [ ${#branches[@]} -eq 0 ]; then
     echo >&2 "No ${GIT_BRREFDO_WHAT} found!"
     exit 99
 fi
+[ -n "$branchNum" ]  && [ $branchNum -lt ${#branches[@]} ] \
+    && branches=("${branches[@]:(-$branchNum)}")
 
 if [ ${#commands[@]} -eq 0 ]; then
     if [ ${#predicateCommands[@]} -eq 0 ]; then

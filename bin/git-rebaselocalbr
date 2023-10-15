@@ -1,6 +1,8 @@
 #!/bin/bash
 shopt -qs extglob
 
+: ${GIT_REBASELOCALBR_SOURCE_COMMAND:=git-localbr}
+
 printUsage()
 {
     cat <<HELPTEXT
@@ -10,14 +12,14 @@ branch.<name>.remote and branch.<name>.merge) head.
 After that, you can push all branches via to the default (or passed, if you did
 not pass a remote to this command) remote via git push -f --all.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--continue|--skip|--abort] [--upstream <remote>/<branch>] [--push|--push-to <remote>] [--include-current] [--include-master] [--include-base] [--include-all] [--branches "<branch1> ..."] [-n N|--count N] [-i|--interactive] [-y|--yes] [options] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--continue|--skip|--abort] [--upstream <remote>/<branch>] [--push|--push-to <remote>] [--include-current] [--include-master] [--include-base] [--include-all] [--branches BRANCH [...] ;] [-n N|--count N] [-i|--interactive] [-y|--yes] [options] [-?|-h|--help]'
 }
 
-branchNum=9999
+branchNum=
 upstreamBranch=
 isPush=
 pushRemote=
-typeset -a inputBranches=()
+typeset -a sourceBranches=()
 rebaseAction=
 typeset -a gitLocalbrArgs=()
 typeset -a gitRemoteMutateArgs=()
@@ -29,7 +31,18 @@ do
 			shift;;
 	--color)	shift; shift;;
 	--include-*)	gitLocalbrArgs+=("$1"); shift;;
-	--branches)	shift; IFS=$' \t' read -r -a inputBranches <<<"${1//$'\n'/ }"; shift;;	# Internal hook to pass in the branches.
+	--branches)	shift
+			while [ $# -gt 0 -a "$1" != ';' ]
+			do
+			    sourceBranches+=("$1")
+			    shift
+			done
+			if [ $# -eq 0 ]; then
+			    echo 'ERROR: --branches must be concluded with ;!'; echo; printUsage "$0"
+			    exit 2
+			fi >&2
+			shift
+			;;
 	--upstream)	shift; upstreamBranch="$1"; shift;;
 	--push)		shift; isPush=t;;
 	--push-to)	shift; isPush=t; pushRemote="$1"; shift;;
@@ -56,11 +69,17 @@ getNextBranch()
 }
 
 if [ ! "$rebaseAction" ]; then
-    readarray -t localBranches < <(git-localbr "${gitLocalbrArgs[@]}" -- "${inputBranches[@]}" | tail -n "$branchNum")
+    if [ ${#sourceBranches[@]} -gt 0 ] && [ ! "$GIT_REBASELOCALBR_SOURCE_SORTED" ]; then
+	localBranches=("${sourceBranches[@]}")
+    else
+	readarray -t localBranches < <(eval "$GIT_REBASELOCALBR_SOURCE_COMMAND" '"${gitLocalbrArgs[@]}" "${sourceBranches[@]}"')
+    fi
     if [ ${#localBranches[@]} -eq 0 ]; then
 	echo >&2 'No local branches found!'
 	exit 1
     fi
+    [ -n "$branchNum" ]  && [ $branchNum -lt ${#localBranches[@]} ] \
+	&& localBranches=("${localBranches[@]:(-$branchNum)}")
 
     typeset -a branches=()
     for candidateBranch in "${localBranches[@]}"

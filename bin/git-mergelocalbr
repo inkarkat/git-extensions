@@ -1,28 +1,26 @@
 #!/bin/bash
 shopt -qs extglob
 
+: ${GIT_MERGELOCALBR_SOURCE_COMMAND:=git-localbr}
+
 printUsage()
 {
     cat <<HELPTEXT
 Merge all / the last committed N local branches (except for the current
 branch and master (and base branch if defined)).
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--branches "<branch1> ..."] [-q|--quiet] [-y|--yes] [--include-current] [--include-master] [--include-base] [--include-all] [-n N|--count N] [--no-commit] [--squash] [-s <strategy> | -s single | -s1 ] [-m <msg>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--branches BRANCH [...] ;] [-q|--quiet] [-y|--yes] [--include-current] [--include-master] [--include-base] [--include-all] [-n N|--count N] [--no-commit] [--squash] [-s <strategy> | -s single | -s1 ] [-m <msg>] [-?|-h|--help]'
 }
 
-branchNum=9999
-typeset -a inputBranches=()
+branchNum=
+typeset -a sourceBranches=()
 printf -v originalArgs '%q ' "${@//
 / }"
-if [ "$1" = '--branches' ]; then
-    # Internal hook to pass in the branches.
-    shift
-    IFS=$' \t' read -r -a inputBranches <<<"${1//$'\n'/ }"; shift
-fi
 isQuiet=
 isYes=
 isOneByOneMerge=
 typeset -a gitLocalbrArgs=()
+typeset -a sourceBranches=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -36,6 +34,18 @@ do
 	-s1)		shift; isOneByOneMerge=t;;
 	-s)		if [ "$2" = 'single' ]; then shift; shift; isOneByOneMerge=t; else break; fi;;
 	--include-*)	gitLocalbrArgs+=("$1"); shift;;
+	--branches)	shift
+			while [ $# -gt 0 -a "$1" != ';' ]
+			do
+			    sourceBranches+=("$1")
+			    shift
+			done
+			if [ $# -eq 0 ]; then
+			    echo 'ERROR: --branches must be concluded with ;!'; echo; printUsage "$0"
+			    exit 2
+			fi >&2
+			shift
+			;;
 	--)		shift; break;;
 	*)		break;;
     esac
@@ -53,11 +63,17 @@ getOneByOneMergeCommand()
     done
 }
 
-readarray -t localBranches < <(git-localbr "${gitLocalbrArgs[@]}" -- "${inputBranches[@]}" | tail -n "$branchNum")
+if [ ${#sourceBranches[@]} -gt 0 ] && [ ! "$GIT_MERGELOCALBR_SOURCE_SORTED" ]; then
+    localBranches=("${sourceBranches[@]}")
+else
+    readarray -t localBranches < <(eval "$GIT_MERGELOCALBR_SOURCE_COMMAND" '"${gitLocalbrArgs[@]}" "${sourceBranches[@]}"')
+fi
 if [ ${#localBranches[@]} -eq 0 ]; then
     echo >&2 'No local branches found!'
     exit 1
 fi
+[ -n "$branchNum" ]  && [ $branchNum -lt ${#localBranches[@]} ] \
+    && localBranches=("${localBranches[@]:(-$branchNum)}")
 
 if [ "$isOneByOneMerge" ]; then
     readarray -t mergeCommand < <(getOneByOneMergeCommand "$*" "${localBranches[@]}")

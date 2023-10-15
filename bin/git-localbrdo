@@ -128,7 +128,7 @@ predicateComparison=-eq
 typeset -a predicateCommands=()
 typeset -a commands=()
 isStashed=
-branchNum=9999
+branchNum=
 typeset -a directBranches=()
 typeset -a inputBranches=()
 iterationAction=
@@ -331,18 +331,17 @@ case "$iterationAction" in
 	    exit 1
 	fi
 
-	readarray -t localBranches < <(
-	    if [ ${#directBranches[@]} -gt 0 ]; then
-		printf '%s\n' "${directBranches[@]}"
-	    else
-		git-localbr "${gitLocalbrArgs[@]}" -- "${inputBranches[@]}"
-	    fi \
-		| tail -n "$branchNum"
-	)
+	if [ ${#directBranches[@]} -gt 0 ]; then
+	    localBranches=("${directBranches[@]}")
+	else
+	    readarray -t localBranches < <(git-localbr "${gitLocalbrArgs[@]}" -- "${inputBranches[@]}")
+	fi
 	if [ ${#localBranches[@]} -eq 0 ]; then
 	    echo >&2 'No local branches found!'
 	    exit 99
 	fi
+	[ -n "$branchNum" ]  && [ $branchNum -lt ${#localBranches[@]} ] \
+	    && localBranches=("${localBranches[@]:(-$branchNum)}")
 	if [ ${#predicateCommands[@]} -gt 0 ]; then
 	    typeset -a filteredLocalBranches=()
 	    for branch in "${localBranches[@]}"

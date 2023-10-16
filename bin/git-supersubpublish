@@ -36,24 +36,27 @@ case "$1" in
 			    fi
 			fi
 
-			exec git-wrapper "$publishCommand"
+			eval "exec git-wrapper $publishCommand"
 			;;
-    origin)		shift; publishCommand=opublish;;
-    upstream)		shift
+    origin)		remote="$1"; shift; publishCommand=opublish;;
+    upstream)		remote="$1"; shift
 			publishCommand=upublish
 			if [ "$1" = origin ]; then
 			    shift; publishCommand=uopublish
 			fi
 			;;
+    *)			remote="$1"; shift; publishCommand="rpublish $remote";;
 esac
-if [ $# -gt 0 -o -z "$publishCommand" ]; then
+if [ -z "$publishCommand" ]; then
     printUsage "$0" >&2
     exit 2
 fi
 
+typeset -a changeLogCommand=(master-command --keep-position rev-range --revision "${remote}/MASTER" -2 l RANGE)
+
 typeset -a subPaths=()
 if subPaths=("$(git-supersubpath)"); then
-    commitMessage="$(git boml)"
+    commitMessage="$(git "${changeLogCommand[@]}")"
 else
     readarray -t subPaths < <(git subst)
     [ ${#subPaths[@]} -gt 0 ] || readarray -t subPaths < <(git subsamebrdo --subdo-command-name "${scriptName#git-}")
@@ -62,7 +65,7 @@ else
 	exit 3
     fi
 
-    commitMessage="$(git subsamebrdo --subdo-command-name "${scriptName#git-}" --no-header boml | uniqueStable)"
+    commitMessage="$(git subsamebrdo --subdo-command-name "${scriptName#git-}" --no-header "${changeLogCommand[@]}" | uniqueStable)"
 fi
 
 printf -v quotedSuperCommand '%q ' "${BASH_SOURCE[0]}" --superpublish "$publishCommand" "$(git-brname --real-branch-only)" "$commitMessage" "${subPaths[@]}"

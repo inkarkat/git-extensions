@@ -4,7 +4,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-i|--as-integration-message|-m|--as-merge-message] [-Q|--qualified-with-userrepo|-u|--url] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-i|--as-integration-message|-m|--as-merge-message|--only-ids] [-Q|--qualified-with-userrepo|-u|--url] [-?|-h|--help]'
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [COMMIT|PR-IDENTIFIER [...]]'
     echo
@@ -38,6 +38,7 @@ HELPDESCRIPTION
     --as-merge-message|-m
 			Output in a format suitable for a merge commit instead
 			of a plain list.
+    --only-ids		Only output a comma-separated list of PR-IDENTIFIERs.
     --qualified-with-userrepo|-Q
 			Put the USER/REPO in front of the pull request number.
     --url|-u		Use the URL instead of the pull request number.
@@ -65,6 +66,7 @@ do
 			shift; action=integrationMessage;;
 	--as-merge-message|-m)
 			shift; action=mergeMessage;;
+	--only-ids)	shift; action=onlyIds;;
 	--qualified-with-userrepo|-Q)
 			shift; isQualified=t; prIdentifierFormat='%U';;
 	--url|-u)	shift; prIdentifierFormat='%U';;
@@ -125,6 +127,16 @@ mergeMessage()
 	    printf '%s\n' "${titles[@]}"
 	    printf '\nIntegrated via %s\n\n%s\n' "$summary" "$branchMergeMessage"
 	    ;;
+    esac
+}
+
+onlyIds()
+{
+    IFS=$'\n'
+    case "${#titles[@]}" in
+	0)  return 99;;
+	1)  printf '%s\n' "${identifiers[0]}";;
+	*)  printf '%s\n' "$(printf '%s\n' "${identifiers[@]}" | joinBy --last-separator ' and ' - ', ')";;
     esac
 }
 

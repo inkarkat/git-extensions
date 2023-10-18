@@ -24,13 +24,13 @@ do
     case "$1" in
 	--help|-\?)	shift; printUsage "$0"; exit 0;;
 	--base|-b)	shift; base="${1:?}"; shift;;
-	--head|-h)	shift; head="${1:?}"; shift;;
+	--head|-h)	shift; git-equals "${1:?}" HEAD || head="$1"; shift;;
 	--super-message)
 			shift; superMessage="${1:?}"; shift;;
 	--existing-changes)
 			shift
 			currentSubmodule="${1?}"; shift
-			readarray -t submodules < <(git subsamebrdo --subdo-command-name "${scriptName#hub-}" --no-header)
+			readarray -t submodules < <(git subsamebrdo --subdo-command-name "${scriptName#hub-}" ${head:+--branch "$head"} --no-header)
 			[ ${#submodules[@]} -eq 0 ] && exit 0
 			git-subchanges "${remote}/${base}..${head}" --no-color --include-pull-requests --qualified-with-userrepo --as markdown ${currentSubmodule:+--exclude-submodule "$currentSubmodule"} "${submodules[@]}"
 			exit 0
@@ -65,5 +65,5 @@ if [ -n "$superMessage" ] || git issubmodule; then
     exec hub-wrapper pull-request --base "$base" ${head:+--head "$head"} --message "${superMessage}${superMessage:+$'\n\n'}$message" --edit "$@"
 else
     superMessage="$(git lo "${remote}/${base}..${head}" | markdownEscape)" || exit $?
-    exec hub-wrapper subsamebrdo --subdo-command-name "${scriptName#hub-}" --no-git-color --interactive "${scriptName#hub-}" --base "$base" ${head:+--head "$head"} --super-message "$superMessage"
+    exec hub-wrapper subsamebrdo --subdo-command-name "${scriptName#hub-}" ${head:+--branch "$head"} --no-git-color --interactive "${scriptName#hub-}" --base "$base" ${head:+--head "$head"} --super-message "$superMessage"
 fi

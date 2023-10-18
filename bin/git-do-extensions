@@ -22,7 +22,7 @@ printExtendedUsage()
     local splitPattern='/^Note:/'
     "$GIT_DOEXTENSIONS_WRAPPEE" --help 2>&1 | sed \
 	-e "${splitPattern},\$d" \
-	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ ]\+ \)*'"${GIT_DOEXTENSIONS_WRAPPEE} /\\1\\2${wrapper}"' [--untracked|--dirty|--wips [(+|-)CHECK [(+|-)...]]|--same-branch] /; }'
+	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ ]\+ \)*'"${GIT_DOEXTENSIONS_WRAPPEE} /\\1\\2${wrapper}"' [--untracked|--dirty|--wips [(+|-)CHECK [(+|-)...]]|--same-branch [-b|--branch BRANCH]] /; }'
     cat <<HELPTEXT
 Supports the following special commands and options:
     repo-missing	    Show those $GIT_DOEXTENSIONS_WHAT that are not yet
@@ -73,7 +73,12 @@ Supports the following special commands and options:
 			    that could be incorporated. You can abort the
 			    iteration by exiting the shell with exit status 126.
     --same-branch	    Only consider those $GIT_DOEXTENSIONS_WHAT that are
-			    on the same branch as the current working copy.
+			    on the same branch as the current working copy /
+			    also have the passed -b|-branch BRANCH.
+    --branch|-b BRANCH	    Use a different branch than the current working
+			    copy's for --same-branch, and consider those
+			    $GIT_DOEXTENSIONS_WHAT that have (not necessarily
+			    are on) that BRANCH.
 HELPTEXT
     [ "$GIT_DOEXTENSIONS_ADDITIONAL_EXTENSIONS" ] && printf '%s\n' "$GIT_DOEXTENSIONS_ADDITIONAL_EXTENSIONS"
     "$GIT_DOEXTENSIONS_WRAPPEE" --help 2>&1 | sed -e "${splitPattern}p" -e "1,${splitPattern}d"
@@ -84,6 +89,8 @@ typeset -a wcdoCommandArgs=()
 typeset -a dashdashArgs=()
 typeset -a args=()
 typeset -a accumulationCommand=()
+isSameBranch=
+branch=
 parseCommand()
 {
     while [ $# -ne 0 ]
@@ -121,11 +128,8 @@ parseCommand()
 			    fi
 			    wcdoArgs+=(--predicate-command "git wips ${wipsQuietArg}${wipsQuietArg:+ }${quotedWipsArgs}")
 			    ;;
-	    --same-branch)  shift
-			    currentBranch="$(git-brname --real-branch-only)" || exit $?
-			    printf -v quotedCurrentBranch '%q' "$currentBranch"
-			    wcdoArgs+=(--predicate-command "[ \"\$(git-brname --real-branch-only 2>/dev/null)\" = $quotedCurrentBranch ]")
-			    ;;
+	    --same-branch)  shift; isSameBranch=t;;
+	    --branch|-b)    shift; branch="${1:?}"; shift;;
 
 	    --)		    if [ "$GIT_DOEXTENSIONS_DASHDASH_ARGS_BEFORE_SIMPLECOMMAND" ]; then
 				dashdashArgs+=("$1"); shift
@@ -142,6 +146,16 @@ parseCommand()
 			    ;;
 	esac
     done
+    if [ "$isSameBranch" ]; then
+	if [ -n "$branch" ]; then
+	    printf -v quotedBranch '%q' "$branch"
+	    wcdoArgs+=(--predicate-command "git-existsbr -- $quotedBranch")
+	else
+	    currentBranch="$(git-brname --real-branch-only)" || exit $?
+	    printf -v quotedCurrentBranch '%q' "$currentBranch"
+	    wcdoArgs+=(--predicate-command "[ \"\$(git-brname --real-branch-only 2>/dev/null)\" = $quotedCurrentBranch ]")
+	fi
+    fi
 
     if [ ${#wcdoCommandArgs[@]} -eq 0 -a $# -eq 0 ]; then
 	:

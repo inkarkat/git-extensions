@@ -162,13 +162,13 @@ do
 	--push)		continueArgs+=("$1"); pushArg=("$1"); shift; isPush=t;;
 	--no-push)	continueArgs+=("$1"); pushArg=("$1"); shift; isPush=;;
 	--push-branch)	continueArgs+=("$1"); shift; isPushBranch=t;;
-	--force)	pushBranchForceArg=("$1"); shift;;
+	--force)	continueArgs+=("$1"); pushBranchForceArg=("$1"); shift;;
 	--recurse-submodules=*)
-			pushBranchArgs+=("$1"); shift;;
+			continueArgs+=("$1"); pushBranchArgs+=("$1"); shift;;
 	--push-submodules)
-			shift; isPushSubmodules=t;;
+			continueArgs+=("$1"); shift; isPushSubmodules=t;;
 	--delete-merged-submodule-branches)
-			shift; isDeleteMergedSubmoduleBranches=t;;
+			continueArgs+=("$1"); shift; isDeleteMergedSubmoduleBranches=t;;
 	--branch|-b)    shift
 			if [ -n "$targetBranch" ]; then
 			    echo >&2 'ERROR: <branch> can only be passed once.'
@@ -177,7 +177,7 @@ do
 			targetBranch="${1:?}"
 			shift
 			;;
-	--rebase)	continueArgs+=("$1"); shift; hasMergeResolutionArg=t; isRebase=t;;
+	--rebase)	shift; hasMergeResolutionArg=t; isRebase=t;;
 	--rebase-single)
 			shift; hasMergeResolutionArg=t; isRebaseSingle=t;;
 	--ff|--no-ff|--ff-only)
@@ -200,7 +200,7 @@ do
 			checkCommandArgs+=("$1"); shift
 			checkCommands+=(${checkCommands:+&&} "$cmd")
 			;;
-	--bare)		shift; isBare=t; runWithCommand=runWith;;
+	--bare)		continueArgs+=("$1"); shift; isBare=t; runWithCommand=runWith;;
 	--exit-on-failure)
 			bashArgs+=(-e); runWithPromptArgs+=("$1"); shift;;
 	--trailing-prompt|--no-trailing-prompt|--no-output-no-prompt|--no-output-no-error|--no-success-no-count|--exit-on-success|--emulate-prompt|--worst-status)
@@ -347,7 +347,7 @@ printContinueCommand()
     local gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
     [ "$isCheckFromStdin" ] && printf >&2 'echo CHECK-COMMANDLINES | '
     printf >&2 '$ %s%s%s %q' "${1}${1:+ && }" "${quotedConfigVariables}${quotedConfigVariables:+ }" "$gitCommand" "${scriptName#git-}"
-    printf >&2 ' %q' '--continue' ${isBare:+--bare} "${runWithPromptArgs[@]}" "${continueArgs[@]}" "${gitRemoteMutateArgs[@]}" "${checkCommandArgs[@]}" "${reintegrateArgs[@]}"
+    printf >&2 ' %q' '--continue' "${runWithPromptArgs[@]}" "${continueArgs[@]}" "${gitRemoteMutateArgs[@]}" "${checkCommandArgs[@]}" "${reintegrateArgs[@]}"
     printf >&2 -- ' --branch %q'  "$targetBranch"
     [ "$isCheckFromStdin" ] && printf >&2 ' -'
     printf >&2 '\n'
@@ -504,7 +504,6 @@ else
 	elif [ "$isRebaseSingle" ]; then
 	    if canRebase; then
 		isRebase=t
-		continueArgs+=(--rebase)
 	    fi
 	fi
 
@@ -611,7 +610,6 @@ fi
     echo >&2 'Push of the current branch failed; correct the problem and push yourself.'
     # Turn an automatic reintegration into the echoing of the command.
     isPerformTheMerge=
-    exit $status
 }
 
 [ "$didVisitSubmodules" ] && header "$(git-wcname)" || echo

@@ -200,7 +200,7 @@ do
 			checkCommandArgs+=("$1"); shift
 			checkCommands+=(${checkCommands:+&&} "$cmd")
 			;;
-	--bare)		shift; isBare=t; runWithCommand=runWith;;
+	--bare)		continueArgs+=("$1"); shift; isBare=t; runWithCommand=runWith;;
 	--exit-on-failure)
 			bashArgs+=(-e); runWithPromptArgs+=("$1"); shift;;
 	--trailing-prompt|--no-trailing-prompt|--no-output-no-prompt|--no-output-no-error|--no-success-no-count|--exit-on-success|--emulate-prompt|--worst-status)
@@ -347,7 +347,7 @@ printContinueCommand()
     local gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
     [ "$isCheckFromStdin" ] && printf >&2 'echo CHECK-COMMANDLINES | '
     printf >&2 '$ %s%s%s %q' "${1}${1:+ && }" "${quotedConfigVariables}${quotedConfigVariables:+ }" "$gitCommand" "${scriptName#git-}"
-    printf >&2 ' %q' '--continue' ${isBare:+--bare} "${runWithPromptArgs[@]}" "${continueArgs[@]}" "${gitRemoteMutateArgs[@]}" "${checkCommandArgs[@]}" "${reintegrateArgs[@]}"
+    printf >&2 ' %q' '--continue' "${runWithPromptArgs[@]}" "${continueArgs[@]}" "${gitRemoteMutateArgs[@]}" "${checkCommandArgs[@]}" "${reintegrateArgs[@]}"
     printf >&2 -- ' --branch %q'  "$targetBranch"
     [ "$isCheckFromStdin" ] && printf >&2 ' -'
     printf >&2 '\n'

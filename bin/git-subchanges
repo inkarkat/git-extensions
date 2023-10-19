@@ -180,7 +180,7 @@ fi >&2
 
 logAsMarkdown()
 {
-    typeset -a sedHeaderTransformation=(-e '1{ s/^Submodule //; s/ [[:xdigit:]]\+..[[:xdigit:]]\+:$/:/; b; }')
+    typeset -a sedHeaderTransformation=(-e '/^Submodule /{ s/^Submodule //; s/ [[:xdigit:]]\+..[[:xdigit:]]\+:$/:/; b; }')
     if [ "$isQualifiedWithUserRepo" ]; then
 	local userRepoUrl="$(
 	    cd "$submodule" || exit 3
@@ -194,15 +194,15 @@ logAsMarkdown()
 	    literalUserRepoUrl="$userRepoUrl"
 	    literalUserRepoUrl="${literalUserRepoUrl//\\/\\\\}"
 	    literalUserRepoUrl="${literalUserRepoUrl//&/\\&}"
-	    sedHeaderTransformation=(-e "1{ s/^Submodule //; s# \\([[:xdigit:]]\\+\\)..\\([[:xdigit:]]\\+\\):\$# [\\1..\\2](${literalUserRepoUrl//#/\\#}/compare/\\1...\\2):#; b; }")
+	    sedHeaderTransformation=(-e "/^Submodule /{ s/^Submodule //; s# \\([[:xdigit:]]\\+\\)..\\([[:xdigit:]]\\+\\):\$# [\\1..\\2](${literalUserRepoUrl//#/\\#}/compare/\\1...\\2):#; b; }")
 	fi
     fi
 
     sed \
-	"${sedHeaderTransformation[@]}" \
-	-e '/^Submodule /d' \
-	-e 's/^  > /* /' \
-	-e 's/^  < \(.*\)$/* ~~\1~~/'
+	    "${sedHeaderTransformation[@]}" \
+	    -e 's/^  > /* /' \
+	    -e 's/^  < \(.*\)$/* ~~\1~~/' \
+	| uniq
 }
 prTitleAsMarkdown()
 {
@@ -219,7 +219,7 @@ joinSubmoduleLogs()
 {
     awk '
 /^Submodule / {
-    if (!match($0, /^Submodule ([^ ]+) ([[:xdigit:]]+)\.\.([[:xdigit:]]+):$/, a)) {
+    if (!match($0, /^Submodule ([^ ]+) ([[:xdigit:]]+)(\.\.\.?)([[:xdigit:]]+):$/, a)) {
 	print "ASSERT: Invalid submodule header: " $0 > "/dev/stderr"
 	exit(3)
     } else if (submodule != "" && submodule != a[1]) {
@@ -228,15 +228,22 @@ joinSubmoduleLogs()
     }
 
     submodule = a[1]
+    revisionRangeSeparator = a[3]
+    if (revisionRangeSeparator == "...") {
+	# This is a rebase; skip those logs, and start a new logs section on the next set of logs.
+	printJoinedSubmoduleLogs()
+	skipLogs = 1
+	next
+    } else {
+	skipLogs = 0
+    }
     startRevision = a[2]    # The last start revision covers the full range.
-    if (endRevision == "") endRevision = a[3]	# The first end revision is where it starts.
+    if (endRevision == "") endRevision = a[4]	# The first end revision is where it starts.
 
     next
 }
+function printJoinedSubmoduleLogs()
 {
-    logs[++n] = $0
-}
-END {
     if (submodule == "") {
 	print "ERROR: No submodule header found." > "/dev/stderr"
 	exit(3)
@@ -246,21 +253,52 @@ END {
     for (i = 1; i <= n; ++i) {
 	print logs[i]
     }
+    delete logs
+    n = 0
+    endRevision = ""
+}
+{
+    if (! skipLogs) logs[++n] = $0
+}
+END {
+    printJoinedSubmoduleLogs()
 }
 '
 }
+joinLeadingSubmoduleLines()
+{
+    sed '
+1{ N; b join; }
+b
+
+:join
+s#^\(\(Submodule \)\?\([^ ]\+\) \)\(.*\):\n\1\(.*\):#\1\4 \5:#
+T
+N
+b join
+'
+}
+
 obtainChanges()
 {
     local separator status='' submodule logOutput prTitleOutput
     for submodule in "${submodules[@]}"
     do
-	if logOutput="$(eval 'obtainLog "$@"' "${logPostProcessor:+|}$logPostProcessor")"; then
+	if logOutput="$(obtainLog "$@")"; then
 	    : ${status:=0}
 	    if [ -n "$logOutput" ]; then
 		if [ "$isIncludePullRequests" ] && prTitleOutput="$(cd "$submodule" && eval '{ printf "  "; hub-prtitle "${prTitleArgs[@]}"; }' "${prTitlePostProcessor:+|}$prTitlePostProcessor")"; then
-		    logOutput="${logOutput%%$'\n'*}"$'\n'"${hasColor:+$GIT_SUBCHANGES_PRCOLOR_PREFIX}${prTitleOutput}${hasColor:+$GIT_SUBCHANGES_PRCOLOR_SUFFIX}"
+		    logOutput="$(
+			printf '%s\n' "$logOutput" \
+			    | eval "grep \"^Submodule \"" \
+			    "${logPostProcessor:+|}$logPostProcessor" \
+			    | joinLeadingSubmoduleLines
+		    )"
+		    logOutput="${logOutput}"$'\n'"${hasColor:+$GIT_SUBCHANGES_PRCOLOR_PREFIX}${prTitleOutput}${hasColor:+$GIT_SUBCHANGES_PRCOLOR_SUFFIX}"
 		elif [ "$isOnlyPullRequests" ]; then
 		    continue
+		elif [ -n "$logPostProcessor" ]; then
+		    logOutput="$(printf '%s\n' "$logOutput" | $logPostProcessor)"
 		fi
 
 		printf '%s%s\n' "$separator" "$logOutput"

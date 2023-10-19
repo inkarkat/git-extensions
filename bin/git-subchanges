@@ -199,9 +199,10 @@ logAsMarkdown()
     fi
 
     sed \
-	"${sedHeaderTransformation[@]}" \
-	-e 's/^  > /* /' \
-	-e 's/^  < \(.*\)$/* ~~\1~~/'
+	    "${sedHeaderTransformation[@]}" \
+	    -e 's/^  > /* /' \
+	    -e 's/^  < \(.*\)$/* ~~\1~~/' \
+	| uniq
 }
 prTitleAsMarkdown()
 {
@@ -264,18 +265,40 @@ END {
 }
 '
 }
+joinLeadingSubmoduleLines()
+{
+    sed '
+1{ N; b join; }
+b
+
+:join
+s#^\(\(Submodule \)\?\([^ ]\+\) \)\(.*\):\n\1\(.*\):#\1\4 \5:#
+T
+N
+b join
+'
+}
+
 obtainChanges()
 {
     local separator status='' submodule logOutput prTitleOutput
     for submodule in "${submodules[@]}"
     do
-	if logOutput="$(eval 'obtainLog "$@"' "${logPostProcessor:+|}$logPostProcessor")"; then
+	if logOutput="$(obtainLog "$@")"; then
 	    : ${status:=0}
 	    if [ -n "$logOutput" ]; then
 		if [ "$isIncludePullRequests" ] && prTitleOutput="$(cd "$submodule" && eval '{ printf "  "; hub-prtitle "${prTitleArgs[@]}"; }' "${prTitlePostProcessor:+|}$prTitlePostProcessor")"; then
-		    logOutput="${logOutput%%$'\n'*}"$'\n'"${hasColor:+$GIT_SUBCHANGES_PRCOLOR_PREFIX}${prTitleOutput}${hasColor:+$GIT_SUBCHANGES_PRCOLOR_SUFFIX}"
+		    logOutput="$(
+			printf '%s\n' "$logOutput" \
+			    | eval "grep \"^Submodule \"" \
+			    "${logPostProcessor:+|}$logPostProcessor" \
+			    | joinLeadingSubmoduleLines
+		    )"
+		    logOutput="${logOutput}"$'\n'"${hasColor:+$GIT_SUBCHANGES_PRCOLOR_PREFIX}${prTitleOutput}${hasColor:+$GIT_SUBCHANGES_PRCOLOR_SUFFIX}"
 		elif [ "$isOnlyPullRequests" ]; then
 		    continue
+		elif [ -n "$logPostProcessor" ]; then
+		    logOutput="$(printf '%s\n' "$logOutput" | $logPostProcessor)"
 		fi
 
 		printf '%s%s\n' "$separator" "$logOutput"

@@ -63,7 +63,8 @@ typeset -a shortlogArgs=()
 prettyFormat=short
 typeset -a preFilter=(grep -v -e '^[[:space:]]*<none>$')
 typeset -a postFilter=()
-selector=
+filterSelector=
+finalSelector=
 isSummary=
 typeset -a nonRecursiveArgs=()
 eachOutputFormatArg='--spark'
@@ -102,12 +103,12 @@ do
 	--names-only|-n)
 	    shift; postFilter=(sed -e 's/^[[:space:]]*[[:digit:]]\+%\?[[:space:]]\+//'); shortlogArgs+=(--summary);;
 	--spark)
-	    printf -v selector '%q ' fieldMap --field-separator , 2 'gensub(/^[[:digit:]]+$/, "??", 1, $fieldNr)' 2 '|nameToInitials -u' 3 '" "' 4 '" "'
-	    printf -v selector '%s | spark' "$selector"
+	    printf -v finalSelector '%q ' fieldMap --field-separator , 2 'gensub(/^[[:digit:]]+$/, "??", 1, $fieldNr)' 2 '|nameToInitials -u' 3 '" "' 4 '" "'
+	    printf -v finalSelector '%s | spark' "$finalSelector"
 	    ;&	# Continue with CSV.
 	--csv)
 	    shift; postFilter=(sed -n -e 's/^[[:space:]]*\([[:digit:]]\+%\?\)[[:space:]]\+\([^[:space:]].*\)$/\1,\2/p'); shortlogArgs+=(--summary);;
-	--most-only|-1)	shift; shortlogArgs+=(--summary); isSummary=t; selector='countFieldToPercentage 1 | head -n 1'; shortlogOrderingArg=(--numbered);;
+	--most-only|-1)	shift; shortlogArgs+=(--summary); isSummary=t; filterSelector='countFieldToPercentage 1 | head -n 1'; shortlogOrderingArg=(--numbered);;
 
 	# Ignore options that influence commit formatting (we need just the
 	# shortlog), and diff options.
@@ -141,4 +142,8 @@ if [ ${#logArgs[@]} -eq 0 ]; then
 else
     git log --pretty=$prettyFormat "${logArgs[@]}" "$@" | git shortlog "${shortlogOrderingArg[@]}" "${shortlogArgs[@]}"
 fi | \
-    eval '"${preFilter[@]}"' "${selector:+|}$selector" "${postFilter:+|}" '"${postFilter[@]}"' "${pager:+|}" '"${pager[@]}"'
+    eval '"${preFilter[@]}"' \
+	"${filterSelector:+|}$filterSelector" \
+	"${postFilter:+|}" '"${postFilter[@]}"' \
+	"${finalSelector:+|}$finalSelector" \
+	"${pager:+|}" '"${pager[@]}"'

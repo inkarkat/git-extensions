@@ -582,25 +582,11 @@ if [ "$isPushSubmodules" ]; then
     pushSubmodules || status=$?
     case $status in
 	0)  didVisitSubmodules=t;;
-	4)  # Still continue with the submodule branch deletion when submodule
-	    # pushes have been skipped.
+	4)  # Still continue with pushing when submodule pushes have been skipped.
 	    ;;
-	99) # Still continue with the submodule branch deletion when there's no
-	    # upstream configured.
+	99) # Still continue with pushing when there's no upstream configured.
 	    ;;
-	*)  # Any real push errors abort; don't continue with branch deletion.
-	    exit $status;;
-    esac
-fi
-
-if [ "$isDeleteMergedSubmoduleBranches" ]; then
-    deleteMergedSubmoduleBranches || status=$?
-    case $status in
-	0)  didVisitSubmodules=t;;
-	99) # Still continue with the branch push when there's no upstream
-	    # configured.
-	    ;;
-	*)  # Any real deletion errors abort; don't continue with branch push.
+	*)  # Any real push errors abort; don't continue with pushing.
 	    exit $status;;
     esac
 fi
@@ -612,6 +598,19 @@ fi
     isPerformTheMerge=
 }
 
+if [ "$isDeleteMergedSubmoduleBranches" ]; then
+    deleteMergedSubmoduleBranches || status=$?
+    case $status in
+	0)  didVisitSubmodules=t;;
+	99) # Still continue with the reintegration when there's no upstream configured.
+	    status=0
+	    ;;
+	*)  # Turn an automatic reintegration into the echoing of the command.
+	    isPerformTheMerge=
+	    ;;
+    esac
+fi
+
 [ "$didVisitSubmodules" ] && header "$(git-wcname)" || echo
 
 typeset -a reintegrateToCommand=(reintegrateto --ff-only --no-checks --branch "$targetBranch"${isKeepBranches:+ --no-delete} "${pushArg[@]}" "${reintegrateArgs[@]}" "${gitRemoteMutateArgs[@]}")
@@ -622,4 +621,5 @@ else
     printf 'You can fast-forward-integrate the current %s into %s via:\n$ %s' "$sourceBranch" "$targetBranch" "$gitCommand"
     printf >&2 ' %q' "${reintegrateToCommand[@]}"
     printf '\n'
+    exit $status
 fi

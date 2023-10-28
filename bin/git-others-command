@@ -1,4 +1,5 @@
 #!/bin/bash
+shopt -qs extglob
 
 printUsage()
 {
@@ -11,7 +12,7 @@ address (as a lookup; filtering is done via git whois)
 - replacing AUTHORS in the following GIT-COMMAND and -(N-1) arguments
 - replacing AUTHORS in the following +(N) arguments and appending those
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-option-name] [--joined-as-pattern [--prefix P] [--suffix S]] GIT-COMMAND [...] AUTHOR-PATTERN [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-option-name] [--joined-as-pattern [--prefix P] [--suffix S]] [--since <date>|--max-count <number>|--range <range> [--range ...]] GIT-COMMAND [...] AUTHOR-PATTERN [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '[...] GIT-COMMAND [...] -- [AUTHOR-PATTERN] [...] [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-option-name] [--joined-as-pattern [--prefix P] [--suffix S]] --keep-position GIT-COMMAND [... AUTHORS ...] AUTHOR-PATTERN'
     printf 'Usage: %q %s\n' "$(basename "$1")" '[...] GIT-COMMAND [... AUTHORS ...] -- [AUTHOR-PATTERN] [...]'
@@ -34,7 +35,10 @@ do
 	--joined-as-pattern)	shift; isJoinedAsPattern=t;;
 	--prefix)		shift; joinPrefix="$1"; shift;;
 	--suffix)		shift; joinSuffix="$1"; shift;;
-	--name|--email|-[ne])	whoisArgs+=("$1"); shift;;
+	--name|--email|-[ne]|--follow|--max-count=*|--range=*)
+				whoisArgs+=("$1"); shift;;
+	--@(since|max-count|range))
+				whoisArgs+=("$1" "${2?}"); shift; shift;;
 	*)			break;;
     esac
 done

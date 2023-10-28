@@ -1,4 +1,5 @@
 #!/bin/bash
+shopt -qs extglob
 
 printUsage()
 {
@@ -8,12 +9,16 @@ the repository. With --accept-unknown, will also accept new names in the form
 NAME EMAIL@HOST (two arguments) or "NAME <EMAIL@HOST>" (one argument) that are
 not yet found in the repository.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-1|--first|-s|--select|-S|--select-many] [-n|--name|-e|--email] [--accept-unknown] AUTHOR-PATTERN [...]|NAME EMAIL@HOST|"NAME <EMAIL@HOST>" [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-1|--first|-s|--select|-S|--select-many] [-n|--name|-e|--email] [--accept-unknown] [--range-is-last|--since <date>|--max-count <number>|-<number>|--range <range> [--range ...]] AUTHOR-PATTERN [...]|NAME EMAIL@HOST|"NAME <EMAIL@HOST>" [-?|-h|--help]'
 }
+
 isAcceptUnknown=
 isShowFirstCandidate=
 isSelect=
 isSelectMany=
+isRangeLastArg=
+typeset -a rangeArgs=()
+typeset -a rangeModificationArgs=()
 typeset -a personFilter=()
 while [ $# -ne 0 ]
 do
@@ -29,12 +34,33 @@ do
 			shift; isSelect=t; isSelectMany=t;;
 	--name|-n)	shift; personFilter=(sed -e 's# \+<[^ ]\+@[^ ]\+>$##');;
 	--email|-e)	shift; personFilter=(sed -e 's#^.* \+<\([^ ]\+@[^ ]\+\)>$#\1#');;
+
+	--range-is-last)
+			shift; isRangeLastArg=t;;
+	--since)	rangeArgs+=("$1" "$2"); shift; shift;;
+	--max-count)	rangeArgs+=("$1" "$2"); shift; shift;;
+	--max-count=*|-+([0-9]))
+			rangeArgs+=("$1"); shift;;
+	--range)	shift; rangeArgs+=("$1"); shift;;
+	--range=*)	rangeArgs+=("${1#--range=}"); shift;;
+	--follow)	rangeModificationArgs+=("$1"); shift;;
+
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
     esac
 done
 
+if [ "$isRangeLastArg" ]; then
+    typeset -a parsedRangeArgs=("${rangeArgs[@]}")
+
+    if [ $# -gt 0 ]; then
+	rangeArgs=("${!#}")
+	set -- "${@:1:$(($#-1))}"
+    fi
+
+    set -- "${parsedRangeArgs[@]}" "${rangeModificationArgs[@]}" # Undo the parsing of range args; let the rangeModificationArgs apply to both.
+fi
 
 if type -t commandOnSelected >/dev/null; then
     # Delegate to external tool.
@@ -59,7 +85,7 @@ else
 	    exit 1
 	elif [ $# -eq 1 ]; then
 	    printPersons "$1"
-	else
+	erlse
 	    typeset -a selectedPersons=()
 	    select person
 	    do
@@ -93,7 +119,10 @@ printPersons()
     eval 'printf %s\\n "$@"' "${personFilter:+|}" '"${personFilter[@]}"' "${personFilter:+|sort --unique}"
 }
 
-readarray -t candidates < <(git log -i ${isShowFirstCandidate:+-1} --pretty='tformat:%aN <%aE>' "${@/#/--author=}" | sort --unique)
+readarray -t candidates < <(
+    git log -i ${isShowFirstCandidate:+-1} --pretty='tformat:%aN <%aE>' "${@/#/--author=}" "${rangeArgs[@]}" "${rangeModificationArgs[@]}" \
+	| sort --unique
+)
 
 if [ ${#candidates[@]} -eq 0 ]; then
     if [ "$isAcceptUnknown" -a \( $# -eq 1 -o $# -eq 2 \) ]; then

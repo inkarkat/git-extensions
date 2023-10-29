@@ -14,16 +14,23 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
 	--cached)	diffCommand+=" $1"; shift; export GIT_SELECTED_COMMAND_DEFAULT_FILES='git-staged';;
+	--shortstat|--stat|--compact-summary)
+			diffCommand+=" $1"; shift;;
 	--log-range)	shift
 			case "$1" in
 			    *...*)   diffCommand+=" ${1/.../..}";;
 			    *..*)   diffCommand+=" ${1/../...}";;
 			esac
+			export GIT_SELECTED_COMMAND_DEFAULT_FILES="git-showfiles $1"
 			shift
-			export GIT_SELECTED_COMMAND_DEFAULT_FILES='printf %s\\n'
 			;;
-	*..*)		diffCommand+=" $1"; shift; export GIT_SELECTED_COMMAND_DEFAULT_FILES='printf %s\\n';;
+	*..*)		diffCommand+=" $1"; export GIT_SELECTED_COMMAND_DEFAULT_FILES="git-showfiles ${1%%..*}...${1#*..}"; shift;;
+	--revision)	shift; diffCommand+=" ${1:?}"; export GIT_SELECTED_COMMAND_DEFAULT_FILES="git-showfiles $1"; shift;;
+	--revisions)	shift; diffCommand+=" ${1:?} ${2:?}"; export GIT_SELECTED_COMMAND_DEFAULT_FILES="git-showfiles $1..$2"; shift; shift;;
 	*)		break;;
     esac
 done

@@ -1,0 +1,21 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Show separate diff of each file (instead of concatenating all changes) with
+predecessor [for FILE(s)] for the commit interactively chosen / last commit from
+the commits [that cover FILE ...] in the passed <range>, paged through with
+less.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[--accept-single|--single-only] [--filter ''|FILTER] [--last-only] [--pass-file-args] --since <date>|--max-count <number>|-n <number>|<range> [<show-args> ...] [--] [FILE ...] [-?|-h|--help]"
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+# Note: git-dp only supports a single <commit>; multiple would also be
+# problematic from the usability because during the per-file iteration it would
+# not be clear which commit the diff belongs to.
+GIT_SHOWSELECTED_COMMAND=dpl exec git-showselected --single-only "$@"

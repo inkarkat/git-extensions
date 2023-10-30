@@ -464,7 +464,7 @@ else
 		git-wrapper rebase "${rebaseArgs[@]}" HEAD "$branch" && git checkout "$origRef" || {
 		    status=$?
 		    if [ "$branch" = "${branches[-1]}" ]; then
-			echo >&2 "After this branch has been successfully rebased (see above), you can merge $branchesSubject and ${isCheckFromStdin:+run checks and }${isPush:+push and }${isKeepBranches:+not }delete $branchesSubject via"
+			echo >&2 "After this branch has been successfully rebased (see above), you can merge $branchesSubject and ${isCheckFromStdin:+run checks and }${checkCommands[*]:+run checks and }${isPush:+push and }${isKeepBranches:+not }delete $branchesSubject via"
 			printf >&2 'git checkout %q && git-merge --ff-only %q && ' "$origRef" "$branch"
 			printContinueCommand
 		    else
@@ -475,7 +475,7 @@ else
 			done
 			missingBranches=("${missingBranches[@]:1}")
 
-			echo >&2 "After this branch has been successfully rebased (see above), you can continue rebasing, merge $branchesSubject and ${isCheckFromStdin:+run checks and }${isPush:+push and }${isKeepBranches:+not }delete $branchesSubject via"
+			echo >&2 "After this branch has been successfully rebased (see above), you can continue rebasing, merge $branchesSubject and ${isCheckFromStdin:+run checks and }${checkCommands[*]:+run checks and }${isPush:+push and }${isKeepBranches:+not }delete $branchesSubject via"
 			printf >&2 'git checkout %q && git-merge --ff-only %q && %q --rebase --no-delete ' "$origRef" "$branch" "$(basename "$0")"
 			printf >&2 -- '--branch %q ' "${missingBranches[@]}"
 			printf >&2 '&& '
@@ -493,7 +493,7 @@ else
 
 	    git-wrapper merge "${fastForwardArgs[@]:---no-ff}" "${mergeMessageArgs[@]}" "${mergeNoEditMessageArgs[@]}" "${mergeArgs[@]}" "${branches[@]}" || {
 		status=$?
-		echo >&2 "After $branchesSubjectAuxiliaryVerb been merged (see above), you can continue (${isCheckFromStdin:+run checks and }${isPush:+push and }${isKeepBranches:+not }delete ${branchesSubject}) via"
+		echo >&2 "After $branchesSubjectAuxiliaryVerb been merged (see above), you can continue (${isCheckFromStdin:+run checks and }${checkCommands[*]:+run checks and }${isPush:+push and }${isKeepBranches:+not }delete ${branchesSubject}) via"
 		printContinueCommand "$gitSubmoduleUpdateCommand"
 		exit $status
 	    }

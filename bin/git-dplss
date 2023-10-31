@@ -1,0 +1,71 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Show separate diff of each interactively chosen file (instead of concatenating
+all changes) with predecessor [for FILE(s)] for the commit(s) interactively
+chosen / last commit from the commits [that cover FILE ...] in the passed
+<range>, paged through with less. First lets you select commit(s), then file(s)
+modified by those commit(s).
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" "--since <date>|--max-count <number>|-n <number>|<range> [<show-args> ...] [--] [FILE ...] [-?|-h|--help]"
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+
+    --on-revision-selection)
+			shift
+			typeset -a revisions=()
+			typeset -a paths=()
+			while [ $# -ne 0 ]
+			do
+			    case "$1" in
+				--) paths=("$@"); set --; break;;
+				*)  revisions+=("$1"); shift;;
+			    esac
+			done
+			quotedRevisions=; [ ${#revisions[@]} -eq 0 ] || printf -v quotedRevisions ' %q' "${revisions[@]}"
+
+			# Generator / filter (if FILE(s) are passed) for the selection are the files modified in the selected commits.
+			GIT_SELECTED_COMMAND_DEFAULT_FILES="git-showfiles${quotedRevisions} --" \
+			    exec git-selected-command --accept-single "dplss --on-file-selection${quotedRevisions} --" "${paths[@]}"
+			;;
+    --on-file-selection)
+			shift
+			# All diffs from (potentially) multiple commits must all
+			# be paged through as one set. git-dp can only work on
+			# one commit at a time, we need to first invoke git-dl
+			# and generate all diffs for it to split.
+			GIT_DL_DIFFCOMMAND='dplss --on-diff' \
+			    exec git-dl "$@"
+			;;
+    --on-diff)		shift
+			# Iterate over all commits; for each commit, show the
+			# diffs (of any overall affected files - files that
+			# weren't modified in that particular commit fortunately
+			# are ignored). The wrappee git-dl will split those
+			# diffs into per-file ones (apparently even when
+			# multiple commits cover the same file; they'll all be
+			# appended into one paged diff).
+			typeset -a revisions=()
+			typeset -a paths=()
+			while [ $# -ne 0 ]
+			do
+			    case "$1" in
+				--) paths=("$@"); set --; break;;
+				*)  revisions+=("$1"); shift;;
+			    esac
+			done
+			status=0
+			for revision in "${revisions[@]}"
+			do
+			    git-dp "$revision" -- "${paths[@]}" || status=$?
+			done
+			exit $status
+			;;
+esac
+
+GIT_SHOWSELECTED_COMMAND='dplss --on-revision-selection' \
+    exec git-showselected --pass-file-args "$@"

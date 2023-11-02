@@ -33,6 +33,11 @@ fast-forward.
 Performs additional sanity checks and chooses the right arguments based on
 whether this is a short-lived feature with a single superproject commit or full
 history exists.
+The answers to some questions can be preconfigured via these boolean config
+settings; when not configured (true or false), the user will be prompted every
+time:
+- reintegrate.superproject-in-hub   integrate superproject in and by GitHub
+- reintegrate.submodule-in-hub	    integrate submodule(s) in and by GitHub
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
@@ -231,7 +236,17 @@ fetchFirst()
 
 reintegrateSubmodule()
 {
-    [ "$HUB" ] && "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--interactive} integrate --offer "$@" && return
+    if [ "$HUB" ]; then
+	if choice="$(git config --type bool --get reintegrate.submodule-in-hub)"; then
+	    case "$choice" in
+		true)   "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--interactive} integrate --make-ready "$@" && return;;
+		false)  ;;
+		*)	printf >&2 'ASSERT: Invalid choice: %s\n' "$choice"; exit 3;;
+	    esac
+	else
+	    "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--interactive} integrate --offer "$@" && return
+	fi
+    fi
 
     fetchFirst
 
@@ -322,7 +337,15 @@ reintegrateSuperproject()
 	if ! "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--no-pager --separate-errors} outlg \
 	    | outputAndPrintf 'Note: Submodule(s) have outgoing reintegration commits; integration in and by GitHub not possible:\n'
 	then
-	    hub-integrate --offer "${integrateArgs[@]}" "$@" && return
+	    if choice="$(git config --type bool --get reintegrate.superproject-in-hub)"; then
+		case "$choice" in
+		    true)   hub-integrate --make-ready "${integrateArgs[@]}" "$@" && return;;
+		    false)  ;;
+		    *)	    printf >&2 'ASSERT: Invalid choice: %s\n' "$choice"; exit 3;;
+		esac
+	    else
+		hub-integrate --offer "${integrateArgs[@]}" "$@" && return
+	    fi
 	fi
     fi
 

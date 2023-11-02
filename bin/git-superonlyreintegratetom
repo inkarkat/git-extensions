@@ -34,6 +34,10 @@ reintegration is a simple fast-forward.
 Performs additional sanity checks and chooses the right arguments based on
 whether this is a short-lived feature with a single superproject commit or full
 history exists.
+The answers to some questions can be preconfigured via these boolean config
+settings; when not configured (true or false), the user will be prompted every
+time:
+- reintegrate.superonlyproject-in-hub	integrate superproject in and by GitHub
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
@@ -76,7 +80,17 @@ case $(git bomcount) in
 	;;
 esac
 
-[ "$HUB" ] && hub-integrate --offer "${integrateArgs[@]}" "$@" && exit 0
+if [ "$HUB" ]; then
+    if choice="$(git config --type bool --get reintegrate.superonlyproject-in-hub)"; then
+	case "$choice" in
+	    true)   hub-integrate --make-ready "${integrateArgs[@]}" "$@" && exit 0;;
+	    false)  ;;
+	    *)	    printf >&2 'ASSERT: Invalid choice: %s\n' "$choice"; exit 3;;
+	esac
+    else
+	hub-integrate --offer "${integrateArgs[@]}" "$@" && exit 0
+    fi
+fi
 
 git-dirty --print-error --error-message 'ERROR: The superproject working copy is still dirty.' \
     && exit 1

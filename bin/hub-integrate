@@ -8,7 +8,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--force] [--recurse-submodules=on-demand] [--push-submodules] [--delete-merged-submodule-branches] [--no-delete] [--no-wait|--no-pull] [--rebase-single|--rebase|--merge|--squash] [-y|--yes] [--offer] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--force] [--recurse-submodules=on-demand] [--push-submodules] [--delete-merged-submodule-branches] [--no-delete] [--no-wait|--no-pull] [--rebase-single|--rebase|--merge|--squash] [-y|--yes] [--offer] [--make-ready] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -55,6 +55,8 @@ HELPDESCRIPTION
     --yes		Don't query for confirmation of remote mutations.
     --offer		Ask for confirmation of remote merge if it's possible,
 			and do nothing (and exit 4) if the user declines.
+    --make-ready	Remove the draft status of a pull request so that it can
+			be merged in and by GitHub.
 The answers to some questions can be preconfigured via these boolean config
 settings; when not configured (true or false), the user will be prompted every
 time:
@@ -82,6 +84,7 @@ mergeResolutionArg=
 typeset -a mergeMessageArgs=()
 typeset -a mergeNoEditMessageArgs=()
 isOffer=
+isMakeReady=
 problemSeverity='ERROR'
 while [ $# -ne 0 ]
 do
@@ -131,6 +134,7 @@ do
 			printChecksIgnoredNote
 			;;
 	--offer)	shift; isOffer=t; problemSeverity='Note';;
+	--make-ready)	shift; isMakeReady=t;;
 	--message|-m|--file|-F)
 			mergeMessageArgs+=("$1" "$2"); shift; shift;;
 	--no-edit)	mergeNoEditMessageArgs+=("$1"); shift;;
@@ -220,11 +224,10 @@ deleteMergedSubmoduleBranches()
 	| git-subdo --subdo-command-name "${scriptName#hub-}" --status-99-is-noop --for - --interactive delete-merged-branches "$sourceBranch"
 }
 
-isMakeReady=
 if [ "$isOffer" ]; then
     if [ "$isDraft" = false ]; then
 	userBinaryChoice --keep-prompt --introduction "A mergeable pull request #${prNumber} (${prTitle}) exists." --question "Integrate ${sourceBranch} into ${targetBranch} in and by GitHub?" --yes-no
-    else
+    elif [ ! "$isMakeReady" ]; then
 	userBinaryChoice --keep-prompt --introduction "A mergeable pull request #${prNumber} (${prTitle}) exists, but is still in draft state." --question "Mark as ready and then integrate ${sourceBranch} into ${targetBranch} in and by GitHub?" --yes-no \
 	    && isMakeReady=t
     fi || exit 4

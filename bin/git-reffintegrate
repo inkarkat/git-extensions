@@ -1,0 +1,153 @@
+#!/bin/bash
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '<branch>|-b|--branch <branch> [--no-delete] [-y|--yes] [-?|-h|--help]'
+    echo
+    printf 'Usage: GIT_REINTEGRATE_CHECK_COMMAND=CMD|GIT_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" '[...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[...] --no-checks | -c|--command "CHECK-COMMANDLINE" [-c ...] | --exec SIMPLECOMMAND [...] ; [...]'
+    printf 'Usage: echo CHECK-COMMANDLINES | %q %s\n' "$(basename "$1")" '[...] [--bare|[--initial-status NUM] [--trailing-prompt|--no-trailing-prompt] [--no-output-no-prompt] [--no-output-no-error] [--emulate-prompt]] [--no-success-no-count|--no-count-on N] [--exit-on-success|--exit-on-failure|--exit-on NUM] [--worst-status] [--comment COMMENT] [--summarize-failed ERROR-TEXT [--summarize-failed-separator SEP]] -'
+    printf 'Usage: %q %s - <<EOF\n  CHECK-COMMANDLINE\n...\nEOF\n' "$(basename "$1")" '[...]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Reattempt a merge / rebase of the passed <branch> to the current target branch
+via a reverse integration after the push of the target branch was rejected
+because the remote contains work that you do not have locally. It undoes a
+previous merge and then fast-forward merges / rebases <branch> again.
+(You need to fetch first before using this command.)
+
+Runs CHECK-COMMAND(s), and if all succeed (for -c|--commands|--exec, for stdin:
+only with --worst-status, else if the last succeeds) then do the fast-forward
+and delete the current branch from the local repository as well as a tracked
+remote (if it exists there).
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --no-delete		Don't delete the reintegrated branch from local
+			repository and tracked remote.
+    --no-checks		Don't run any default \$GIT_REINTEGRATE_CHECK_COMMAND /
+			\$GIT_CHECK_COMMAND.
+    --yes		Don't query for confirmation of remote mutations.
+    --bare		    Do not print a status line before and after
+			    launching the COMMAND.
+    --emulate-prompt	    Customizations of the prompt emulation around
+    --initial-status NUM    COMMAND; cp. runWithPrompt
+    --trailing-prompt
+    --no-trailing-prompt
+    --no-output-no-prompt
+    --no-output-no-error
+    --no-success-no-count   Stop on condition / summarize at end; cp. runWith
+    --no-count-on N
+    --exit-on-success
+    --exit-on-failure	    (This also works with --bare.)
+    --exit-on NUM
+    --worst-status
+    --comment COMMENT
+    --summarize-failed ERROR-TEXT
+    --summarize-failed-separator SEP
+HELPTEXT
+}
+
+sourceBranch=
+case "$1" in
+    -*)	;;
+    ?*)	if git-existsbr -- "$1"; then
+	    sourceBranch="$1"
+	    shift
+	fi
+	;;
+esac
+
+typeset -a ffintegratetoArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--branch|-b)    shift
+			if [ -n "$sourceBranch" ]; then
+			    echo >&2 'ERROR: <branch> can only be passed once.'
+			    exit 2
+			fi
+			sourceBranch="${1:?}"
+			shift
+			;;
+	--)		ffintegratetoArgs+=("$1"); shift; break;;
+	*)		ffintegratetoArgs+=("$1"); shift;;
+    esac
+done
+set -- "${ffintegratetoArgs[@]}" "$@"
+
+targetBranch="$(git-brname --real-branch-only)" || exit $?
+if [ "$sourceBranch" = "$targetBranch" ]; then
+    printf >&2 "ERROR: Already on '%s'; need to be on the target branch.\\n" "$targetBranch"
+    exit 2
+fi
+if ! targetTracks="$(git-tracks)"; then
+    echo >&2 'ERROR: Cannot determine tracked remote branch.'
+    exit 3
+fi
+if git-equals "$targetTracks" "$targetBranch"; then
+    printf >&2 "ERROR: No updates on '%s'; did you forget to fetch %s?\\n" "$targetTracks" "${targetTracks%%/*}"
+    exit 1
+fi
+
+if git-ismerge; then
+    # Reuse the original merge commit message; though my scripting usually generates the
+    # whole message, opening the editor again is needless and distracting; the
+    # original message should be just as good for the second attempt.
+    mergeCommit="$(git-rev-parse HEAD)" \
+	&& mergeMessage="$(git lo1 "$mergeCommit")" \
+	&& [ -n "$mergeMessage" ] \
+	&& ffintegratetoArgs+=(--message "$mergeMessage")
+
+    # A merge commit needs to be undone; the unmerge command will automatically
+    # switch to the source branch.
+    git-unmerge --yes || exit $?
+
+    currentBranchName="$(git-brname --real-branch-only)"
+    if [ "$currentBranchName" != "$sourceBranch" ]; then
+	printf >&2 "ERROR: git-unmerge did not switch to the source branch; '%s' != '%s'\\n." "$currentBranchName" "$sourceBranch"
+	exit 3
+    fi
+else # rebase
+    # Reset the target branch to the tracked one first.
+    git reset --hard "$targetTracks" || exit $?
+    # Then switch to the source branch to reattempt the rebase.
+    git-wrapper checkout -- "$sourceBranch" || exit $?
+fi
+
+typeset -a ffintegratetoArgs=()
+case $(git count "${targetTracks}..") in
+    0)  echo >&2 'ERROR: Expected at least one commit the branch, but none found.'
+	exit 3
+	;;
+    1)  echo "Rebasing the single commit on top of ${targetBranch} again."
+	ffintegratetoArgs+=(--rebase-single)
+	;;
+    *)  # Disallow fast-forward to have a merge commit that maintains the history of
+	# how the feature grew.
+	echo "Maintaining the history of how the feature grew via a merge to ${targetBranch} again."
+	ffintegratetoArgs+=(--no-ff)
+	;;
+esac
+
+typeset -a ffintegratetoSpecialArgs=(
+    --force # Force-push required to overwrite the previous fast-forward reintegration attempt.
+    --ff-target-to-tracked  # We need a fast-forward of the target branch to the tracked remote branch, as that contains the changes that prevented the previous push in the first place.
+)
+exec git-ffintegrateto --branch "$targetBranch" --push-branch "${ffintegratetoSpecialArgs[@]}" "${ffintegratetoArgs[@]}"

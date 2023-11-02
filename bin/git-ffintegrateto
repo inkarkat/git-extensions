@@ -8,7 +8,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--[no-]push] [--push-branch [--force] [--recurse-submodules=on-demand]] [--push-submodules] [--delete-merged-submodule-branches] [--no-merge] [--no-delete] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] [--no-submodule-checkout] [--no-submodule-update] [-y|--yes] -b|--branch <branch> | [--] <branch> [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '<branch>|-b|--branch <branch> [--[no-]push] [--push-branch [--force] [--recurse-submodules=on-demand]] [--push-submodules] [--delete-merged-submodule-branches] [--no-merge] [--no-delete] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] [--no-submodule-checkout] [--no-submodule-update] [-y|--yes] [-?|-h|--help]'
     echo
     printf 'Usage: GIT_REINTEGRATE_CHECK_COMMAND=CMD|GIT_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" '[...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '[...] --no-checks | -c|--command "CHECK-COMMANDLINE" [-c ...] | --exec SIMPLECOMMAND [...] ; [...]'
@@ -452,7 +452,7 @@ else
     targetIntegrationSourceBranch="$targetBranch"
     if [ -n "$targetTracks" ] && ! git-equals "$targetBranch" "$targetTracks"; then
 	if git-inout --is-behind "$targetBranch" "$targetTracks" >/dev/null; then
-	    if confirmFastForwardTarget; then
+	    if [ "$isFastForwardTargetToTracked" ] || confirmFastForwardTarget; then
 		targetIntegrationSourceBranch="$targetTracks"
 		reintegrateArgs+=(--ff-target-to-tracked)   # Don't have git-reintegrate ask the same question again, as this is confusing.
 
@@ -594,6 +594,7 @@ fi
 [ ! "$isPushBranch" ] || pushBranch || {
     status=$?
     echo >&2 'Push of the current branch failed; correct the problem and push yourself.'
+    [ ! "$isDeleteMergedSubmoduleBranches" ] || echo >&2 "But hang on, I'll still delete the merged submodule branches now."
     # Turn an automatic reintegration into the echoing of the command.
     isPerformTheMerge=
 }

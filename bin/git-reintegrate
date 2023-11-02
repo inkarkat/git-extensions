@@ -84,6 +84,7 @@ time:
 HELPTEXT
 }
 
+typeset -a allArgs=("$@")
 isContinue=
 isKeepBranches=
 unset isPush
@@ -540,6 +541,17 @@ case $status in
 	# configured.
 	;;
     *)	# Any real push errors abort; don't continue with branch deletion.
+	echo >&2 'Push of the merged branch%s failed.' "$branchesPlural"
+	if [ ${#branches[@]} -eq 1 ] \
+	    && contains --ff-only "${allArgs[@]}" \
+	    && contains --no-checks "${allArgs[@]}"
+	then
+	    echo >&2 'This looks like a fast-forward integration. If updates were rejected because the remote contains work that you do not have locally, you can update and reattempt the fast-forward integration via'
+	    gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
+	    printf >&2 '$ git fetch %q && %s reffintegrate' "$targetTrackedRemote" "$gitCommand"
+	    printf >&2 ' %q' --branch "${branches[0]}" "${gitRemoteMutateArgs[@]}"
+	    printf >&2 '\n%s\n' "Note: Don't forget to pass any CHECK-COMMANDLINE arguments."
+	fi
 	exit $status;;
 esac
 

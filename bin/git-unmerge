@@ -47,6 +47,7 @@ branchCommit="$(git rev-parse HEAD^2)" || exit $?
 mergeCommit="$(git rev-parse HEAD)" || exit $?
 beforeMergeCommit="$(git rev-parse HEAD^)" || exit $?
 action=checkoutNewBranch
+originalBranchAction=undoMergeOnOriginalBranch
 [ -n "$branchName" ] || branchName="$(git lo1 HEAD | sed -n -e "s#^Merge branch '\\(.*\\)'[[:space:]]*\\(into .*\\)\\?\$#\\1#p")" || exit $?
 if [ -z "$branchName" ] && [ ! "$isYes" ]; then
     branchName="$(userquery -r -p 'Branch name not found in merge commit; please enter branch name: ')" || exit $?
@@ -56,6 +57,18 @@ if git-existsbr -- "$branchName"; then
     if git-equals "$branchName" "$branchCommit"; then
 	printf "Note: Branch '%s' already exists, and its current state got merged; will reuse it.\\n" "$branchName"
 	action=checkoutExistingBranch
+    elif git-equals "$branchName" "$mergeCommit"; then
+	# We need to follow the second merge parent for the branch.
+	beforeMergeCommit="$(git rev-parse HEAD^2)" || return $?
+
+	if [ "$currentBranchName" = "$branchName" ]; then
+	    printf "Note: Already on branch '%s', and its current state got fast-forward integrated (as it contains the merge commit); will undo the merge on it.\\n" "$branchName"
+	    action=undoMergeOnExistingBranch
+	    originalBranchAction=:
+	else
+	    printf "Note: Branch '%s' already exists, and its current state got fast-forward integrated (as it contains the merge commit); will undo the merge on it.\\n" "$branchName"
+	    action=checkoutAndUndoMergeOnExistingBranch
+	fi
     else
 	printf >&2 "ERROR: Branch '%s' already exists (and does not correspond to the merged state).\\n" "$branchName"
 	exit 1
@@ -72,10 +85,26 @@ checkoutNewBranch()
 {
     git-wrapper checkout "${gitCheckoutArgs[@]}" -b "$branchName" "$branchCommit"
 }
+
 checkoutExistingBranch()
 {
     git-wrapper checkout "${gitCheckoutArgs[@]}" "$branchName"
 }
 
+undoMergeOnExistingBranch()
+{
+    git reset --hard "$beforeMergeCommit"
+}
+
+checkoutAndUndoMergeOnExistingBranch()
+{
+    git-wrapper checkout "${gitCheckoutArgs[@]}" -B "$branchName" "$beforeMergeCommit"
+}
+
+undoMergeOnOriginalBranch()
+{
+    git update-ref -m "unmerge: undo merge in $mergeCommit to $branchName" "refs/heads/$currentBranchName" "$beforeMergeCommit"
+}
+
 $action || exit $?
-exec git update-ref -m "unmerge: undo merge in $mergeCommit to $branchName" "refs/heads/$currentBranchName" "$beforeMergeCommit"
+$originalBranchAction || exit $?

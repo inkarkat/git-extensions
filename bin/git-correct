@@ -7,17 +7,18 @@ shopt -qs extglob
 printUsage()
 {
     cat <<HELPTEXT
-Commit as a correction of <commit> [from the working copy that FILE or DIR
+Commit as a correction of <commit>(s) [from the working copy that FILE or DIR
 resides in] (when it's too late or cumbersome to fixup the existing commit).
-This just adds a reference to the prior commit in the commit message (title and
-body).
+This just adds a reference to the prior commit(s) in the commit message (title
+and body).
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<commit-arguments> ...] <ref>|:/<pattern> [-- FILE|DIR] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<commit-arguments> ...] (<ref>|:/<pattern> [[--] FILE|DIR] ...) [-?|-h|--help]'
 }
 
 gitInWorkingCopy()
 {
+    local workingCopyFilespec="${1?}"; shift
     git ${workingCopyFilespec:+inside} "$@" ${workingCopyFilespec:+-- "$workingCopyFilespec"}
 }
 
@@ -37,21 +38,34 @@ do
 done
 set -- "${commitArgs[@]}" "$@"
 if [ $# -eq 0 ]; then
-    echo >&2 'ERROR: Must pass <commit>!'
+    echo >&2 'ERROR: Must pass <ref>|:/<pattern>.'
     exit 2
 fi
+lastFilespec=
+typeset -a filespecs=()
+typeset -a commitIds=()
+typeset -a contextualizedCommitIds=()
+typeset -a contextualizedShortCommitIds=()
 lastArg="${!#}"
-workingCopyFilespec=
-repoContext=
-if [ $# -gt 1 -a -e "$lastArg" -a "${*:(-2):1}" = '--' ]; then
-    workingCopyFilespec="$lastArg"
-    repoContext="$(gitInWorkingCopy userrepo 2>/dev/null)"
-    set -- "${@:1:$(($#-2))}"
+while [ -n "$lastArg" ]
+do
+    if [ "$lastArg" = -- ]; then
+	:
+    elif [ -e "$lastArg" ]; then
+	lastFilespec="$lastArg"
+    elif commitId="$(gitInWorkingCopy "$lastFilespec" commitid --no-error "$lastArg")"; then
+	repoContext="$([ -z "$lastFilespec" ] || gitInWorkingCopy "$lastFilespec" userrepo 2>/dev/null)"
+	filespecs=("$lastFilespec" "${filespecs[@]}")
+	commitIds=("$commitId" "${commitIds[@]}")
+	contextualizedCommitIds=("${repoContext}${repoContext:+@}${commitId}" "${contextualizedCommitIds[@]}")
+	contextualizedShortCommitIds=("${repoContext}${repoContext:+@}$(gitInWorkingCopy "$lastFilespec" commitid --short "$lastArg")" "${contextualizedShortCommitIds[@]}")
+    else
+	break
+    fi
+    [ $# -gt 1 ] || break
+    set -- "${@:1:$(($#-1))}"
     lastArg="${!#}"
-fi
-
-commitId="$(gitInWorkingCopy commitid "$lastArg")" || exit $?
-shortCommitId="$(gitInWorkingCopy commitid --short "$lastArg")" || exit $?
+done
 
 commitMessageFilespec="$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM")"
 cleanup()
@@ -61,9 +75,9 @@ cleanup()
 [ "$DEBUG" ] || trap 'cleanup' EXIT
 {
     IFS=$'\n' read -r titleLine
-    titleLine="${titleLine% (${GIT_CORRECT_REFERENCE_REFERRER}${GIT_CORRECT_REFERENCE_REFERRER:+ }?(+([^ ])@)+([0-9A-Fa-f]))}"
+    titleLine="${titleLine% (${GIT_CORRECT_REFERENCE_REFERRER}${GIT_CORRECT_REFERENCE_REFERRER:+ }?(+([^ ])@)+([0-9A-Fa-f])*(, +([^ ])@)+([0-9A-Fa-f]))}"
 
-    remainingLines="$(grep -v -e "^(${GIT_CORRECT_REFERENCE_MESSAGE} [[:xdigit:]]\\+)\$")"
+    remainingLines="$(grep -v -e "^(${GIT_CORRECT_REFERENCE_MESSAGE} [[:xdigit:]]\\+\\(\\(,\\| and\\) [[:xdigit:]]\\+\\)*)\$")"
     remainingLines="${remainingLines%%+($'\n')}"
 } < <(
     if [ "$isAmend" ]; then
@@ -71,16 +85,20 @@ cleanup()
 	# references.
 	git lo1
     else
-	# Use the original commit's message as the base for editing.
-	gitInWorkingCopy lo1 "$commitId"
+	# Use the original commit's message(s) as the base for editing.
+	for ((i = 0; i < ${#commitIds[@]}; i++))
+	do
+	    gitInWorkingCopy "${filespecs[i]}" lo1 "${commitIds[i]}"
+	    echo
+	done
     fi
 )
 printf "%s (%s%s)\\n%s\\n\\n(${GIT_CORRECT_REFERENCE_MESSAGE} %s)\\n" \
     "$titleLine" \
     "${GIT_CORRECT_REFERENCE_REFERRER}${GIT_CORRECT_REFERENCE_REFERRER:+ }" \
-    "${repoContext}${repoContext:+@}${shortCommitId}" \
+    "$(joinBy ', ' "${contextualizedShortCommitIds[@]}")" \
     "$remainingLines" \
-    "${repoContext}${repoContext:+@}${commitId}" \
+    "$(joinBy --last-separator ' and ' ', ' "${contextualizedCommitIds[@]}")" \
     > "$commitMessageFilespec" || exit $?
 
 exec git-wrapper commit --edit --file "$commitMessageFilespec" "${@:1:$(($#-1))}"

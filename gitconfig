@@ -283,9 +283,9 @@
 	;; commitwithdiffselected: Interactively select (from staged files or those filtered by passed list of files) files (or directly pass N, M, ... selections) to seed the commit message with their diff additions.
 	;; commitpush: Commit and push [to REMOTE].
 
-	;; correct: Commit as a correction of <commit> (when it's too late or cumbersome to fixup the existing commit). This just adds a reference to the prior commit in the commit message (title and body).
+	;; correct: Commit as a correction of <commit>(s) [from the working copy that FILE or DIR resides in] (when it's too late or cumbersome to fixup the existing commit). This just adds a reference to the prior commit(s) in the commit message (title and body).
 	correctlast = selectedcommit-command --accept-single --single-only --pass-file-args --allow-outside-workingcopy -2 correct COMMITS --max-count 1	; Commit as a correction of the last commit (of FILE; if you omit that the HEAD commit would be referenced, and you could just amend there).
-	correctselected = selectedcommit-command --single-only --pass-file-args --allow-outside-workingcopy -2 correct COMMITS	; Commit as a correction of the commit interactively chosen from the commits in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
+	correctselected = selectedcommit-command --pass-file-args --allow-outside-workingcopy -2 correct COMMITS	; Commit as a correction of the commit(s) interactively chosen from the commits in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
 	correct1 = correctselected --max-count 1
 	correct2 = correctselected --max-count 2
 	correct3 = correctselected --max-count 3
@@ -296,9 +296,9 @@
 	correctx = correctselected --max-count 12
 	correctq = correctselected --max-count 25
 	correctz = correctselected --max-count 100
-	correctg = selectedgcommit-command --single-only -2 correct COMMITS	; Commit as a correction of the commit interactively chosen from the commits where log messages match the specified text or /regexp/.
+	correctg = selectedgcommit-command -2 correct COMMITS	; Commit as a correction of the commit interactively chosen from the commits where log messages match the specified text or /regexp/.
 
-	correctst = stfiles-command selectedcommit-command --single-only -2 correct COMMITS	; Commit as a correction of the commit interactively chosen from the commits of currently modified files in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
+	correctst = stfiles-command selectedcommit-command -2 correct COMMITS	; Commit as a correction of the commit(s) interactively chosen from the commits of currently modified files in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
 	correctlastst = stfiles-command selectedcommit-command --accept-single --single-only -2 correct COMMITS --max-count 1	; Commit as a correction of the last commit of currently modified files (when it's too late or cumbersome to fixup the existing commit).
 	correctst1 = correctst --max-count 1
 	correctst2 = correctst --max-count 2
@@ -310,9 +310,9 @@
 	correctstx = correctst --max-count 12
 	correctstq = correctst --max-count 25
 	correctstz = correctst --max-count 100
-	correctadst = selectedannotatediffcommit-command HEAD --single-only -2 correct COMMITS	; Commit as a correction of the commit interactively chosen from the commits affected by lines that have been changed in currently modified files.
+	correctadst = selectedannotatediffcommit-command HEAD -2 correct COMMITS	; Commit as a correction of the commit(s) interactively chosen from the commits affected by lines that have been changed in currently modified files.
 
-	correcti = stifiles-command selectedcommit-command --single-only -2 correct COMMITS	; Commit as a correction of the commit interactively chosen from the commits of currently staged files in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
+	correcti = stifiles-command selectedcommit-command -2 correct COMMITS	; Commit as a correction of the commit(s) interactively chosen from the commits of currently staged files in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
 	correctlasti = stifiles-command selectedcommit-command --accept-single --single-only -2 correct COMMITS --max-count 1	; Commit as a correction of the last commit of currently staged files (when it's too late or cumbersome to fixup the existing commit).
 	correcti1 = correcti --max-count 1
 	correcti2 = correcti --max-count 2
@@ -324,9 +324,9 @@
 	correctix = correcti --max-count 12
 	correctiq = correcti --max-count 25
 	correctiz = correcti --max-count 100
-	correctadi = selectedannotatediffcommit-command --cached --single-only -2 correct COMMITS	; Commit as a correction of the commit interactively chosen from the commits affected by lines that have been changed in currently staged files.
+	correctadi = selectedannotatediffcommit-command --cached -2 correct COMMITS	; Commit as a correction of the commit(s) interactively chosen from the commits affected by lines that have been changed in currently staged files.
 
-	correct-i = stIfiles-command selectedcommit-command --single-only -2 correct COMMITS	; Commit as a correction of the commit interactively chosen from the commits of currently modified but not staged files in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
+	correct-i = stIfiles-command selectedcommit-command -2 correct COMMITS	; Commit as a correction of the commit(s) interactively chosen from the commits of currently modified but not staged files in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
 	correctlast-i = stIfiles-command selectedcommit-command --accept-single --single-only -2 correct COMMITS --max-count 1	; Commit as a correction of the last commit of currently modified but not staged files (when it's too late or cumbersome to fixup the existing commit).
 	correct-i1 = correct-i --max-count 1
 	correct-i2 = correct-i --max-count 2
@@ -338,7 +338,7 @@
 	correct-ix = correct-i --max-count 12
 	correct-iq = correct-i --max-count 25
 	correct-iz = correct-i --max-count 100
-	correctad-i = selectedannotatediffcommit-command --single-only -2 correct COMMITS	; Commit as a correction of the commit interactively chosen from the commits affected by lines that have been changed in currently modified but not staged files.
+	correctad-i = selectedannotatediffcommit-command -2 correct COMMITS	; Commit as a correction of the commit(s) interactively chosen from the commits affected by lines that have been changed in currently modified but not staged files.
 
 
 	;; fixup: Commit with the intent of squashing this with the passed <commit> (id or :/<pattern>) via interactive rebase later.
@@ -807,9 +807,9 @@
 	commitlikead-i = selectedannotatediffcommit-command --single-only -2 commitlike COMMITS
 
 
-	;; commitrelate: Commit with the same commit message as <commit> as the base for further editing, referencing prior <commit> (when it's too late to amend the existing commit).
+	;; commitrelate: Commit with the same commit message as <commit>(s) [from the working copy that FILE or DIR resides in] as the base for further editing, referencing prior <commit>(s) (when it's too late to amend the existing commit). This just adds a reference to the prior commit(s) in the commit message (title and body).
 	commitrelatelast = selectedcommit-command --accept-single --single-only --pass-file-args --allow-outside-workingcopy -2 commitrelate COMMITS --max-count 1	; Commit with the same commit message as the last commit as the base for further editing, referencing prior <commit> (when it's too late to amend the existing commit).
-	commitrelateselected = selectedcommit-command --single-only --pass-file-args --allow-outside-workingcopy -2 commitrelate COMMITS	; Commit with the same commit message as <commit> as the base for further editing, referencing prior commit interactively chosen from the commits in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
+	commitrelateselected = selectedcommit-command --pass-file-args --allow-outside-workingcopy -2 commitrelate COMMITS	; Commit with the same commit message(s) as <commit>(s) as the base for further editing, referencing prior commit(s) interactively chosen from the commits in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
 	commitrelate1 = commitrelateselected --max-count 1
 	commitrelate2 = commitrelateselected --max-count 2
 	commitrelate3 = commitrelateselected --max-count 3
@@ -820,9 +820,9 @@
 	commitrelatex = commitrelateselected --max-count 12
 	commitrelateq = commitrelateselected --max-count 25
 	commitrelatez = commitrelateselected --max-count 100
-	commitrelateg = selectedgcommit-command --single-only -2 commitrelate COMMITS	; Commit with the same commit message as <commit> as the base for further editing, referencing prior commit interactively chosen from the commits where log messages match the specified text or /regexp/ (when it's too late or cumbersome to fixup the existing commit).
+	commitrelateg = selectedgcommit-command -2 commitrelate COMMITS	; Commit with the same commit message(s) as <commit>(s) as the base for further editing, referencing prior commit(s) interactively chosen from the commits where log messages match the specified text or /regexp/ (when it's too late or cumbersome to fixup the existing commit).
 
-	commitrelatest = stfiles-command selectedcommit-command --single-only -2 commitrelate COMMITS	; Commit with the same commit message as <commit> as the base for further editing, referencing prior commit interactively chosen from the commits of currently modified files in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
+	commitrelatest = stfiles-command selectedcommit-command -2 commitrelate COMMITS	; Commit with the same commit message(s) as <commit>(s) as the base for further editing, referencing prior commit(s) interactively chosen from the commits of currently modified files in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
 	commitrelatelastst = stfiles-command selectedcommit-command --accept-single --single-only -2 commitrelate COMMITS --max-count 1	; Commit with the same commit message as the last commit of currently modified files as the base for further editing, referencing prior commit (when it's too late to amend the existing commit).
 	commitrelatest1 = commitrelatest --max-count 1
 	commitrelatest2 = commitrelatest --max-count 2
@@ -834,9 +834,9 @@
 	commitrelatestx = commitrelatest --max-count 12
 	commitrelatestq = commitrelatest --max-count 25
 	commitrelatestz = commitrelatest --max-count 100
-	commitrelateadst = selectedannotatediffcommit-command HEAD --single-only -2 commitrelate COMMITS
+	commitrelateadst = selectedannotatediffcommit-command HEAD -2 commitrelate COMMITS
 
-	commitrelatei = stifiles-command selectedcommit-command --single-only -2 commitrelate COMMITS	; Commit with the same commit message as <commit> as the base for further editing, referencing prior commit interactively chosen from the commits of currently staged files in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
+	commitrelatei = stifiles-command selectedcommit-command -2 commitrelate COMMITS	; Commit with the same commit message(s) as <commit>(s) as the base for further editing, referencing prior commit(s) interactively chosen from the commits of currently staged files in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
 	commitrelatelasti = stifiles-command selectedcommit-command --accept-single --single-only -2 commitrelate COMMITS --max-count 1	; Commit with the same commit message as the last commit of currently staged files as the base for further editing, referencing prior commit (when it's too late to amend the existing commit).
 	commitrelatei1 = commitrelatei --max-count 1
 	commitrelatei2 = commitrelatei --max-count 2
@@ -848,9 +848,9 @@
 	commitrelateix = commitrelatei --max-count 12
 	commitrelateiq = commitrelatei --max-count 25
 	commitrelateiz = commitrelatei --max-count 100
-	commitrelateadi = selectedannotatediffcommit-command --cached --single-only -2 commitrelate COMMITS
+	commitrelateadi = selectedannotatediffcommit-command --cached -2 commitrelate COMMITS
 
-	commitrelate-i = stIfiles-command selectedcommit-command --single-only -2 commitrelate COMMITS	; Commit with the same commit message as <commit> as the base for further editing, referencing prior commit interactively chosen from the commits of currently modified but not staged files in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
+	commitrelate-i = stIfiles-command selectedcommit-command -2 commitrelate COMMITS	; Commit with the same commit message(s) as <commit>(s) as the base for further editing, referencing prior commit(s) interactively chosen from the commits of currently modified but not staged files in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
 	commitrelatelast-i = stIfiles-command selectedcommit-command --accept-single --single-only -2 commitrelate COMMITS --max-count 1	; Commit with the same commit message as the last commit of currently modified but not staged files as the base for further editing, referencing prior commit (when it's too late to amend the existing commit).
 	commitrelate-i1 = commitrelate-i --max-count 1
 	commitrelate-i2 = commitrelate-i --max-count 2
@@ -862,12 +862,12 @@
 	commitrelate-ix = commitrelate-i --max-count 12
 	commitrelate-iq = commitrelate-i --max-count 25
 	commitrelate-iz = commitrelate-i --max-count 100
-	commitrelatead-i = selectedannotatediffcommit-command --single-only -2 commitrelate COMMITS
+	commitrelatead-i = selectedannotatediffcommit-command -2 commitrelate COMMITS
 
 
-	amendrelate = commitrelate --amend  ; Amend with a reference to prior <commit> (when it's too late to amend the existing commit).
+	amendrelate = commitrelate --amend  ; Amend with a reference to prior <commit>(s) (when it's too late to amend the existing commit).
 	amendrelatelast = selectedcommit-command --accept-single --single-only -2 amendrelate COMMITS --max-count 1	; Amend with a reference to the last commit (when it's too late to amend the existing commit).
-	amendrelateselected = selectedcommit-command --single-only -2 amendrelate COMMITS	; Amend with a reference to prior commit interactively chosen from the commits in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
+	amendrelateselected = selectedcommit-command -2 amendrelate COMMITS	; Amend with a reference to prior commit(s) interactively chosen from the commits in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
 	amendrelate1 = amendrelateselected --max-count 1
 	amendrelate2 = amendrelateselected --max-count 2
 	amendrelate3 = amendrelateselected --max-count 3
@@ -878,9 +878,9 @@
 	amendrelatex = amendrelateselected --max-count 12
 	amendrelateq = amendrelateselected --max-count 25
 	amendrelatez = amendrelateselected --max-count 100
-	amendrelateg = selectedgcommit-command --single-only -2 amendrelate COMMITS	; Amend with a reference to prior commit interactively chosen from the commits where log messages match the specified text or /regexp/ (when it's too late or cumbersome to fixup the existing commit).
+	amendrelateg = selectedgcommit-command -2 amendrelate COMMITS	; Amend with a reference to prior commit(s) interactively chosen from the commits where log messages match the specified text or /regexp/ (when it's too late or cumbersome to fixup the existing commit).
 
-	amendrelatest = stfiles-command selectedcommit-command --single-only -2 amendrelate COMMITS	; Amend with a reference to prior commit interactively chosen from the commits of currently modified files in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
+	amendrelatest = stfiles-command selectedcommit-command -2 amendrelate COMMITS	; Amend with a reference to prior commit(s) interactively chosen from the commits of currently modified files in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
 	amendrelatelastst = stfiles-command selectedcommit-command --accept-single --single-only -2 amendrelate COMMITS --max-count 1	; Amend with a reference to the last commit of currently modified files as the base for further editing, referencing prior commit (when it's too late to amend the existing commit).
 	amendrelatest1 = amendrelatest --max-count 1
 	amendrelatest2 = amendrelatest --max-count 2
@@ -892,9 +892,9 @@
 	amendrelatestx = amendrelatest --max-count 12
 	amendrelatestq = amendrelatest --max-count 25
 	amendrelatestz = amendrelatest --max-count 100
-	amendrelateadst = selectedannotatediffcommit-command HEAD --single-only -2 amendrelate COMMITS
+	amendrelateadst = selectedannotatediffcommit-command HEAD -2 amendrelate COMMITS
 
-	amendrelatei = stifiles-command selectedcommit-command --single-only -2 amendrelate COMMITS	; Amend with a reference to prior commit interactively chosen from the commits of currently staged files in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
+	amendrelatei = stifiles-command selectedcommit-command -2 amendrelate COMMITS	; Amend with a reference to prior commit(s) interactively chosen from the commits of currently staged files in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
 	amendrelatelasti = stifiles-command selectedcommit-command --accept-single --single-only -2 amendrelate COMMITS --max-count 1	; Amend with a reference to the last commit of currently staged files as the base for further editing, referencing prior commit (when it's too late to amend the existing commit).
 	amendrelatei1 = amendrelatei --max-count 1
 	amendrelatei2 = amendrelatei --max-count 2
@@ -906,9 +906,9 @@
 	amendrelateix = amendrelatei --max-count 12
 	amendrelateiq = amendrelatei --max-count 25
 	amendrelateiz = amendrelatei --max-count 100
-	amendrelateadi = selectedannotatediffcommit-command --cached --single-only -2 amendrelate COMMITS
+	amendrelateadi = selectedannotatediffcommit-command --cached -2 amendrelate COMMITS
 
-	amendrelate-i = stIfiles-command selectedcommit-command --single-only -2 amendrelate COMMITS	; Amend with a reference to prior commit interactively chosen from the commits of currently modified but not staged files in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
+	amendrelate-i = stIfiles-command selectedcommit-command -2 amendrelate COMMITS	; Amend with a reference to prior commit(s) interactively chosen from the commits of currently modified but not staged files in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
 	amendrelatelast-i = stIfiles-command selectedcommit-command --accept-single --single-only -2 amendrelate COMMITS --max-count 1	; Amend with a reference to the last commit of currently modified but not staged files as the base for further editing, referencing prior commit (when it's too late to amend the existing commit).
 	amendrelate-i1 = amendrelate-i --max-count 1
 	amendrelate-i2 = amendrelate-i --max-count 2
@@ -920,7 +920,7 @@
 	amendrelate-ix = amendrelate-i --max-count 12
 	amendrelate-iq = amendrelate-i --max-count 25
 	amendrelate-iz = amendrelate-i --max-count 100
-	amendrelatead-i = selectedannotatediffcommit-command --single-only -2 amendrelate COMMITS
+	amendrelatead-i = selectedannotatediffcommit-command -2 amendrelate COMMITS
 
 
 	amen = wrapper-nocolor commit --amend --reuse-message=HEAD	; Amend to last commit without re-editing the message.

@@ -4,7 +4,8 @@ printUsage()
 {
     cat <<HELPTEXT
 Test whether there are new files not yet added to version control (and not
-covered by the ignore patterns).
+covered by the ignore patterns) or files with an unstaged modification. Changes
+in the index are ignored.
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-p|--print] [--] [<file>...] [-?|-h|--help]'
@@ -18,6 +19,6 @@ case "$1" in
     --print|-p)		shift; isPrint=t;;
 esac
 
-untrackedFilespecs="$(git ls-files --others --exclude-standard -- "$@" 2>/dev/null)"
+untrackedFilespecs="$(git ls-files --modified --others --exclude-standard -- "$@" 2>/dev/null)"
 [ -n "$untrackedFilespecs" ] || exit 1
 [ ! "$isPrint" ] || printf '%s\n' "$untrackedFilespecs"

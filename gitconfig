@@ -1133,6 +1133,7 @@
 	;; dirty: Test whether there are uncommitted changes, either in the working copy or the index.
 	;; unstaged: Test whether there are / list uncommitted changes to committed files in the working copy (ignoring changes in the index and untracked files).
 	;; untracked: Test whether there are new files not yet added to version control (and not covered by the ignore patterns).
+	;; stageable: Test whether there are new files not yet added to version control (and not covered by the ignore patterns) or files with an unstaged modification. Changes in the index are ignored.
 	st = wrapper-nocolor status -sb ; Concise status with branch and tracking info.
 	;; str: Concise recursive status that includes one-line summaries of each modified submodule.
 	;; stfiles: Just list any modified files (for renames both original and resulting file as separate lines).
@@ -4843,10 +4844,12 @@
 	subdor = subdo --recursive --subdo-command-name subdor
 	subsamebrdo = subdo --subdo-command-name subsamebrdo --same-branch	; Execute "git SIMPLECOMMAND" and/or COMMANDLINE in each Git submodule that is on the same branch as the superproject.
 	subsamebrdor = subsamebrdo --recursive
-	subdirtydo = subdo --subdo-command-name subdirtydo --dirty	; Execute "git SIMPLECOMMAND" and/or COMMANDLINE in each Git submodule that contains modified content.
-	subdirtydor = subdirtydo --subdo-command-name subdirtydor --recursive
 	subuntrackeddo = subdo --subdo-command-name subuntrackeddo --untracked	; Execute "git SIMPLECOMMAND" and/or COMMANDLINE in each Git submodule that contains new files not yet added to version control (and not covered by the ignore patterns).
 	subuntrackeddor = subuntrackeddo --subdo-command-name subuntrackeddor --recursive
+	subdirtydo = subdo --subdo-command-name subdirtydo --dirty	; Execute "git SIMPLECOMMAND" and/or COMMANDLINE in each Git submodule that contains modified content.
+	subdirtydor = subdirtydo --subdo-command-name subdirtydor --recursive
+	substageabledo = subdo --subdo-command-name substageabledo --stageable	; Execute "git SIMPLECOMMAND" and/or COMMANDLINE in each Git submodule that contains new files not yet added to version control (and not covered by the ignore patterns) and/or files with an unstaged modification.
+	substageabledor = substageabledo --subdo-command-name substageabledor --recursive
 	;; subst: Show a list of submodules that are modified but not committed in the superproject.
 	;; subi: Show a list of submodules that are currently staged in the superproject.
 	;; sub-i: Show a list of submodules that are currently modified but not staged in the superproject.
@@ -4955,8 +4958,9 @@
 
 	;; sublist: Show a list of all (initialized and at least once updated) submodules.
 	sublistr = sublist --recursive ; Show a list of all (initialized and at least once updated) submodules, also nested within submodules.
-	;; subdirty: Show a list of all submodules that contain modified content.
 	;; subuntracked: Show a list of all submodules that contain untracked files.
+	;; subdirty: Show a list of all submodules that contain modified content.
+	; Not substageable because even the porcelain format only distingishes between untracked and modifications.
 
 	;; subhash: Show the commit ID recorded in the superproject [in <ref>] for passed <submodule>.
 	;; subhashes: Show a list of commit IDs recorded in the superproject [in <ref>], for all submodules.

@@ -13,9 +13,9 @@ superproject: `$ git ocosub feat-4711/super-cool`
 (or with querying: `$ git oco --queried-submodules feat-4711/super-cool`)
 (or separately for superproject and submodules: `$ git oco feat-4711/super-cool && $ git subcoremotebr --query|--all`
 ## d) Create branches after uncommitted changes:
-   `$ git subdirtydo -j checkoutbranch -b feat-4711/super-cool`
    `$ git subuntrackeddo -j checkoutbranch -b feat-4711/super-cool`
-   `$ git subdo --dirty --untracked -j checkoutbranch -b feat-4711/super-cool`
+   `$ git subdirtydo -j checkoutbranch -b feat-4711/super-cool`
+   `$ git substageabledo -j checkoutbranch -b feat-4711/super-cool`
 
 ## publish submodule changes
 a) from superproject or submodule, [commit and] publish superproject as well:

@@ -22,7 +22,7 @@ printExtendedUsage()
     local splitPattern='/^Note:/'
     "$GIT_DOEXTENSIONS_WRAPPEE" --help 2>&1 | sed \
 	-e "${splitPattern},\$d" \
-	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ ]\+ \)*'"${GIT_DOEXTENSIONS_WRAPPEE} /\\1\\2${wrapper}"' [--untracked|--dirty|--wips [(+|-)CHECK [(+|-)...]]|--same-branch [-b|--branch BRANCH]] /; }'
+	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ ]\+ \)*'"${GIT_DOEXTENSIONS_WRAPPEE} /\\1\\2${wrapper}"' [--untracked|--dirty|--stageable|--wips [(+|-)CHECK [(+|-)...]]|--same-branch [-b|--branch BRANCH]] /; }'
     cat <<HELPTEXT
 Supports the following special commands and options:
     repo-missing	    Show those $GIT_DOEXTENSIONS_WHAT that are not yet
@@ -46,6 +46,17 @@ Supports the following special commands and options:
 			    You can abort the iteration by exiting the shell
 			    with exit status 126.
     --dirty		    Also available as a standalone predicate (to combine
+			    with other COMMAND(s)).
+    stageable-sh [COMMAND ...]
+			    Open an interactive shell / execute COMMAND in those
+			    $GIT_DOEXTENSIONS_WHAT that have new files not yet
+			    added to version control (and not covered by the
+			    ignore patterns) and/or files with an unstaged
+			    modification.
+			    Equivalent to untracked + dirty - staged files.
+			    You can abort the iteration by exiting the shell
+			    with exit status 126.
+    --stageable		    Also available as a standalone predicate (to combine
 			    with other COMMAND(s)).
     wips-sh [(+|-)CHECK [(+|-)...]] [COMMAND ...]
 			    Open an interactive shell / execute COMMAND in those
@@ -111,6 +122,7 @@ parseCommand()
 
 	    --untracked)    shift; wcdoArgs+=(--predicate-command 'git untracked');;
 	    --dirty)	    shift; wcdoArgs+=(--predicate-command 'git-dirty --quiet');;
+	    --stageable)    shift; wcdoArgs+=(--predicate-command 'git-stageable');;
 	    --wips)	    shift
 			    typeset -a wipsArgs=()
 			    while [ $# -gt 0 ] && [[ "$1" =~ ^[+-][[:alpha:]]+$ ]]
@@ -214,6 +226,18 @@ parseCommand()
 		# Synthesized new command.
 		shift
 		wcdoArgs+=(--predicate-command 'git-dirty --quiet')
+		if [ $# -eq 0 ]; then
+		    wcdoArgs+=("${shellInteractiveWcdoArgs[@]}" --command "$quotedShell -i")
+		    echo "Note: To abort the iteration of $GIT_DOEXTENSIONS_WHAT, use \"exit 126\"."
+		else
+		    printf -v quotedSimpleCommand '%q ' "$@"
+		    wcdoArgs+=("${shellCommandWcdoArgs[@]}" --command "${quotedSimpleCommand# }")
+		fi
+		;;
+	    stageable-sh)
+		# Synthesized new command.
+		shift
+		wcdoArgs+=(--predicate-command 'git-stageable')
 		if [ $# -eq 0 ]; then
 		    wcdoArgs+=("${shellInteractiveWcdoArgs[@]}" --command "$quotedShell -i")
 		    echo "Note: To abort the iteration of $GIT_DOEXTENSIONS_WHAT, use \"exit 126\"."

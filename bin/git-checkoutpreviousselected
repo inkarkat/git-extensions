@@ -7,14 +7,23 @@ Interactively select (from files touched in <commit> / HEAD) files (or directly
 pass N, M, ... selections) to be reverted to what the content *before* <commit>
 was.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '<commit> [N [M ...]] [--] [FILE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[--accept-single|--single-only] [--filter ''|FILTER] <commit> [N [M ...]] [--] [FILE ...] [-?|-h|--help]"
 }
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
+typeset -a selectedCommandArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
 			shift;;
-    --color)		shift; shift;;
-esac
+	--color)	shift; shift;;
+
+	--accept-single|--single-only)
+			selectedCommandArgs+=("$1"); shift;;
+	--filter)	selectedCommandArgs+=("$1" "$2"); shift; shift;;
+	*)		break;;
+    esac
+done
 
 if [ ! "$GIT_CHECKOUTPREVIOUS_COMMIT" ]; then
     if [ "$1" = '--' ]; then
@@ -27,4 +36,4 @@ if [ ! "$GIT_CHECKOUTPREVIOUS_COMMIT" ]; then
 fi
 export GIT_CHECKOUTPREVIOUS_COMMIT
 export GIT_SELECTED_COMMAND_DEFAULT_FILES="git-showfiles $GIT_CHECKOUTPREVIOUS_COMMIT --"
-exec git-selected-command 'root checkoutprevious' "$@"
+exec git-selected-command "${selectedCommandArgs[@]}" 'root checkoutprevious' "$@"

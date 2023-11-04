@@ -57,6 +57,26 @@ do
     esac
 done
 
+isUpToDate()
+{
+    if [ "$1" = push -a "$2" = "$remote" ] && {
+	    [ $# -eq 2 ] \
+		&& [ "$(git-trackedremote)" = "$remote" ] \
+		&& trackedBranch="$(git-tracks)"
+	} || {
+	    [ $# -eq 3 ] \
+		&& trackedBranch="${remote}/$(git-brname --real-branch-only 2>/dev/null)"
+	} \
+	    && git-equals HEAD "$trackedBranch"
+    then
+	printf >&2 'Note: %s is already up-to-date.\n' "$trackedBranch"
+	return 0
+    else
+	return 1
+    fi
+
+}
+
 confirmMutation()
 {
     concatenatedArguments="$(joinBy --empty "with $*" --last-separator ' and ' ', ' "${arguments[@]}")"
@@ -77,7 +97,9 @@ confirmMutation()
 	*)  printf >&2 'ASSERT: Unhandled choice: %s\n' "$choice"; exit 3;;
     esac
 }
+
 if [ ! "$isYes" ] && [ "${confirmRemotes["$remote"]}" ]; then
+    isUpToDate "$@" && exit 0
     confirmMutation "$@" || exit $?
 fi
 

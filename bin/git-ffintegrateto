@@ -333,14 +333,6 @@ canRebase()
 {
     git-count -le 1 --max-count 2 --no-merges "${targetIntegrationSourceBranch:?}..HEAD"
 }
-printRestartCommand()
-{
-    local gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
-    [ "$isCheckFromStdin" ] && printf >&2 'echo CHECK-COMMANDLINES | '
-    printf >&2 '$ %s %q' "$gitCommand" "${scriptName#git-}"
-    printf >&2 ' %q' "${allArgs[@]}"
-    printf >&2 '\n'
-}
 
 printIntegrationCommand()
 {
@@ -354,6 +346,13 @@ printIntegrationCommand()
     [ "$isCheckFromStdin" ] && printf >&2 ' -'
     printf >&2 '\n'
 }
+
+printRestartCommand()
+{
+    printIntegrationCommand "${scriptName#git-}" "$isCheckFromStdin" \
+	"${allArgs[@]}"
+}
+
 printContinueCommand()
 {
     printIntegrationCommand "${scriptName#git-}" "$isCheckFromStdin" \

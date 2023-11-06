@@ -11,9 +11,10 @@ failure without the committed fix, so no dirty working copy is allowed (unless
 forced).
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--previous] [-f|--force] [<commit>] [--] [FILE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--previous] [-f|--force] [[-r|--revision] <commit>] [--] [FILE ...] [-?|-h|--help]'
 }
 
+rev=
 isForce=
 commitSuffix=
 while [ $# -ne 0 ]
@@ -25,6 +26,7 @@ do
 	--color)	shift; shift;;
 	--previous)	shift; commitSuffix='^';;
 	--force|-f)	shift; isForce=t;;
+	--revision|-r)	shift; rev="${1:?}"; shift;;
 	--)		shift; break;;
 	*)		break;;
     esac
@@ -32,16 +34,14 @@ done
 
 [ ! "$isForce" ] && git-dirty --print-error "$@" && exit 1
 
-if [ "$GIT_CHECKOUTREVISION_COMMIT" ]; then
-    rev="$GIT_CHECKOUTREVISION_COMMIT"
-else
+if [ -z "$rev" ]; then
     if [ "$1" = '--' ]; then
 	shift
     elif rev="$(git-commitid --no-error -- "$1")"; then
 	shift
 	[ "$1" = '--' ] && shift
     fi
-    [ "$rev" ] || rev=HEAD
+    [ -n "$rev" ] || rev='HEAD'
 fi
 
 git-wrapper checkout "${rev}${commitSuffix}" -- "${@:-.}" \

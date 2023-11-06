@@ -7,9 +7,10 @@ Interactively select (from files touched in <commit> / HEAD) files (or directly
 pass N, M, ... selections) to be reverted to what the content in (with
 --previous commit prior to the) passed <commit> was.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[--previous] [-f|--force] [--accept-single|--single-only] [--filter ''|FILTER] <commit> [N [M ...]] [--] [FILE ...] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[--previous] [-f|--force] [--accept-single|--single-only] [--filter ''|FILTER] ([-r|--revision] <commit>) [N [M ...]] [--] [FILE ...] [-?|-h|--help]"
 }
 
+rev=
 checkoutrevisionCommand='checkoutrevision'
 typeset -a selectedCommandArgs=()
 while [ $# -ne 0 ]
@@ -22,6 +23,7 @@ do
 
 	--previous|--force|-f)
 			checkoutrevisionCommand+=" $1"; shift;;
+	--revision|-r)	shift; rev="${1:?}"; shift;;
 	--accept-single|--single-only)
 			selectedCommandArgs+=("$1"); shift;;
 	--filter)	selectedCommandArgs+=("$1" "$2"); shift; shift;;
@@ -29,15 +31,16 @@ do
     esac
 done
 
-if [ ! "$GIT_CHECKOUTREVISION_COMMIT" ]; then
+if [ -z "$rev" ]; then
     if [ "$1" = '--' ]; then
 	shift
-    elif GIT_CHECKOUTREVISION_COMMIT="$(git-commitid --no-error -- "$1")"; then
+    elif rev="$(git-commitid --no-error -- "$1")"; then
 	shift
 	[ "$1" = '--' ] && shift
     fi
-    [ "$GIT_CHECKOUTREVISION_COMMIT" ] || GIT_CHECKOUTREVISION_COMMIT=HEAD
+    [ -n "$rev" ] || rev='HEAD'
 fi
-export GIT_CHECKOUTREVISION_COMMIT
-export GIT_SELECTED_COMMAND_DEFAULT_FILES="git-showfiles $GIT_CHECKOUTREVISION_COMMIT --"
-exec git-selected-command "${selectedCommandArgs[@]}" "root $checkoutrevisionCommand" "$@"
+
+printf -v quotedRev '%q' "$rev"
+export GIT_SELECTED_COMMAND_DEFAULT_FILES="git-showfiles $quotedRev --"
+exec git-selected-command "${selectedCommandArgs[@]}" "root $checkoutrevisionCommand --revision $quotedRev" "$@"

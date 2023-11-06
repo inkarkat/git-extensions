@@ -1,0 +1,49 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Revert changes [for FILE(s)] in the working copy to the (with --previous commit
+prior to the) passed <commit> / HEAD. Like "git checkout <commit> [-- FILE ...]"
+but doesn't write to the index / cause the "detached HEAD" status when no FILEs
+are passed. This is meant to be for temporary investigation or verifying a test
+failure without the committed fix, so no dirty working copy is allowed (unless
+forced).
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--previous] [-f|--force] [[-r|--revision] <commit>] [--] [FILE ...] [-?|-h|--help]'
+}
+
+rev=
+isForce=
+commitSuffix=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+	--previous)	shift; commitSuffix='^';;
+	--force|-f)	shift; isForce=t;;
+	--revision|-r)	shift; rev="${1:?}"; shift;;
+	--)		shift; break;;
+	*)		break;;
+    esac
+done
+
+[ ! "$isForce" ] && git-dirty --print-error "$@" && exit 1
+
+if [ -z "$rev" ]; then
+    if [ "$1" = '--' ]; then
+	shift
+    elif rev="$(git-commitid --no-error -- "$1")"; then
+	shift
+	[ "$1" = '--' ] && shift
+    fi
+    [ -n "$rev" ] || rev='HEAD'
+fi
+
+git-wrapper checkout "${rev}${commitSuffix}" -- "${@:-.}" \
+    && git unstage "$@" >/dev/null \
+    && git status -sb

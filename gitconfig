@@ -132,11 +132,30 @@
 	coc = checkout-committed
 	;; checkout-committed-selected: Interactively select (from modified files or passed list of files) files (or directly pass N, M, ... selections) and revert changes in the working copy to the latest commit, but keep any changes in the index. These can be put back into the working copy via checkout.
 	cocs = checkout-committed-selected
-	;; checkoutprevious: Revert changes [for FILE(s)] in the working copy to the commit prior to passed <commit> / HEAD. Like "git checkout <commit>^ [-- FILE ...]" but doesn't write to the index / cause the "detached HEAD" status when no FILEs are passed. This is meant to be for temporary investigation or verifying a test failure without the committed fix, so no dirty working copy is allowed.
+
+	;; checkoutrevision: Revert changes [for FILE(s)] in the working copy to the (with --previous commit prior to the) passed <commit> / HEAD. Like "git checkout <commit> [-- FILE ...]" but doesn't write to the index / cause the "detached HEAD" status when no FILEs are passed. This is meant to be for temporary investigation or verifying a test failure without the committed fix, so no dirty working copy is allowed (unless forced).
+	cor = checkoutrevision
+	;; checkoutrevisionselected: Interactively select (from files touched in <commit> / HEAD) files (or directly pass N, M, ... selections) to be reverted to what the content in (with --previous commit prior to the) passed <commit> was.
+	cors = checkoutrevisionselected
+	checkoutselectedrevisionselected = selectedcommit-command --single-only -4 checkoutrevisionselected --accept-single --revision COMMITS	; Interactively select (from files touched in a commit from the commits in the passed <range>) files (or directly pass N, M, ... selections) to be reverted to what the content in <commit> was.
+	corss = checkoutselectedrevisionselected
+	cors1 = checkoutselectedrevisionselected --max-count 1
+	cors2 = checkoutselectedrevisionselected --max-count 2
+	cors3 = checkoutselectedrevisionselected --max-count 3
+	cors4 = checkoutselectedrevisionselected --max-count 4
+	cors5 = checkoutselectedrevisionselected --max-count 5
+	cors6 = checkoutselectedrevisionselected --max-count 6
+	cors7 = checkoutselectedrevisionselected --max-count 7
+	corsx = checkoutselectedrevisionselected --max-count 12
+	corsq = checkoutselectedrevisionselected --max-count 25
+	corsz = checkoutselectedrevisionselected --max-count 100
+	corsg = selectedgcommit-command --single-only -4 checkoutrevisionselected --accept-single --revision COMMITS
+
+	checkoutprevious = checkoutrevision --previous	; Revert changes [for FILE(s)] in the working copy to the commit prior to passed <commit> / HEAD. Like "git checkout <commit>^ [-- FILE ...]" but doesn't write to the index / cause the "detached HEAD" status when no FILEs are passed. This is meant to be for temporary investigation or verifying a test failure without the committed fix, so no dirty working copy is allowed.
 	cop = checkoutprevious
-	;; checkoutpreviousselected: Interactively select (from files touched in <commit> / HEAD) files (or directly pass N, M, ... selections) to be reverted to what the content *before* <commit> was.
+	checkoutpreviousselected = checkoutrevisionselected --previous	; Interactively select (from files touched in <commit> / HEAD) files (or directly pass N, M, ... selections) to be reverted to what the content *before* <commit> was.
 	cops = checkoutpreviousselected
-	checkoutselectedpreviousselected = selectedcommit-command --single-only -3 checkoutpreviousselected --accept-single COMMITS	; Interactively select (from files touched in a commit from the commits in the passed <range>) files (or directly pass N, M, ... selections) to be reverted to what the content *before* <commit> was.
+	checkoutselectedpreviousselected = selectedcommit-command --single-only -4 checkoutpreviousselected --accept-single --revision COMMITS	; Interactively select (from files touched in a commit from the commits in the passed <range>) files (or directly pass N, M, ... selections) to be reverted to what the content *before* <commit> was.
 	copss = checkoutselectedpreviousselected
 	cops1 = checkoutselectedpreviousselected --max-count 1
 	cops2 = checkoutselectedpreviousselected --max-count 2
@@ -148,7 +167,7 @@
 	copsx = checkoutselectedpreviousselected --max-count 12
 	copsq = checkoutselectedpreviousselected --max-count 25
 	copsz = checkoutselectedpreviousselected --max-count 100
-	copsg = selectedgcommit-command --single-only -3 checkoutpreviousselected --accept-single COMMITS
+	copsg = selectedgcommit-command --single-only -4 checkoutpreviousselected --accept-single --revision COMMITS
 
 	;;revert: Apply the reverted changes only to the index and working copy; the index does not have to match the HEAD commit, so you can revert multiple commits in a row.
 	revertcommit = revert	; Apply the reverted changes and commit.
@@ -4125,6 +4144,7 @@
 	;; peel: Cancel the last / N commit(s) / REVISION also from index; keep only the working copy.
 	;; wipecommit: Completely remove the last / N commit(s) / up to and including REVISION, also from working copy and index. If a merge commit is wiped, asks which merge parent to pick up.
 	;; wipe: Reset HEAD, working copy and index [to <branch>] [<paths>...]. Ensures that the current branch isn't dirty.
+	wipes = wipeselected	; Interactively select (from modified files or passed list of files) files (or directly pass N, M, ... selections) to reset HEAD, working copy and index for.
 
 	wipetoselected = selectedcommit-command --single-only -2 wipe COMMITS	; Reset HEAD, working copy and index to the commit interactively chosen from the commits in the passed <range>.
 	wipeto1 = wipetoselected --max-count 1

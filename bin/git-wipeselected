@@ -1,0 +1,34 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Interactively select (from modified files or passed list of files) files (or
+directly pass N, M, ... selections) to reset [to <commit>] HEAD, working copy
+and index for.
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [<commit>] [N [M ...]] [--] [FILE ...] [-?|-h|--help]'
+}
+
+wipeCommand='wipe'
+wipeCommitArg=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+	--force|-f)	wipeCommand+=" $1"; shift;;
+	--)		break;;
+	*)		if [ -z "$wipeCommitArg" ] && wipeCommitArg="$(git-commitid --no-error "$1")"; then
+			    export GIT_SELECTED_COMMAND_DEFAULT_FILES="git-showfiles $wipeCommitArg --"
+			    shift
+			else
+			    break
+			fi
+			;;
+    esac
+done
+
+exec git-selected-command "root ${wipeCommand}${wipeCommitArg:+ }${wipeCommitArg}" "$@"

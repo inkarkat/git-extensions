@@ -334,9 +334,11 @@ reintegrateSuperproject()
     esac
 
     if [ "$HUB" ]; then
-	if ! "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--no-pager --separate-errors} outlg \
-	    | outputAndPrintf 'Note: Submodule(s) have outgoing reintegration commits; integration in and by GitHub not possible:\n'
+	if "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--no-pager --separate-errors} outlg \
+	    | outputAndPrintf '\nNote: Submodule(s) have outgoing reintegration commits; integration in and by GitHub not possible:\n'
 	then
+	    echo
+	else
 	    if choice="$(git config --type bool --get reintegrate.superproject-in-hub)"; then
 		case "$choice" in
 		    true)   hub-integrate --make-ready "${integrateArgs[@]}" "$@" && return;;

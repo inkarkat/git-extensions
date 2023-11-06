@@ -1,0 +1,42 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Interactively select (from files touched in <commit> / HEAD) files (or directly
+pass N, M, ... selections) to be reverted to what the content in (with
+--previous commit prior to the) passed <commit> was.
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[--previous] [--accept-single|--single-only] [--filter ''|FILTER] <commit> [N [M ...]] [--] [FILE ...] [-?|-h|--help]"
+}
+
+checkoutrevisionCommand='checkoutrevision'
+typeset -a selectedCommandArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+
+	--previous)	checkoutrevisionCommand+=" $1"; shift;;
+	--accept-single|--single-only)
+			selectedCommandArgs+=("$1"); shift;;
+	--filter)	selectedCommandArgs+=("$1" "$2"); shift; shift;;
+	*)		break;;
+    esac
+done
+
+if [ ! "$GIT_CHECKOUTREVISION_COMMIT" ]; then
+    if [ "$1" = '--' ]; then
+	shift
+    elif GIT_CHECKOUTREVISION_COMMIT="$(git-commitid --no-error "$1")"; then
+	shift
+	[ "$1" = '--' ] && shift
+    fi
+    [ "$GIT_CHECKOUTREVISION_COMMIT" ] || GIT_CHECKOUTREVISION_COMMIT=HEAD
+fi
+export GIT_CHECKOUTREVISION_COMMIT
+export GIT_SELECTED_COMMAND_DEFAULT_FILES="git-showfiles $GIT_CHECKOUTREVISION_COMMIT --"
+exec git-selected-command "${selectedCommandArgs[@]}" "root $checkoutrevisionCommand" "$@"

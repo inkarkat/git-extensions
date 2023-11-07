@@ -7,7 +7,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header] [-i|--interactive] [--separate-errors] [--no-git-color] [--super-command "COMMANDLINE"] [--submodule-command "COMMANDLINE"|--no-submodule-command] [<subdo-args> ...] [-c|--command "COMMANDLINE" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header] [-i|--interactive] [--separate-errors] [--no-git-color] [--toplevel] [--super-command "COMMANDLINE"] [--submodule-command "COMMANDLINE"|--no-submodule-command] [<subdo-args> ...] [-c|--command "COMMANDLINE" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -47,6 +47,9 @@ command output.
     --no-git-color	Do not pass a --color=... to "git SIMPLECOMMAND". (For
 			COMMANDLINE you have to insert "\${gitColorArg[@]}"
 			yourself.)
+    --toplevel		When executed from a submodule, use the topmost
+			superproject, not the immediate one. (An intermediate
+			submodule is always recognized as a submodule.)
     --super-command CMD	Execute the passed command line only for the
 			superproject.
     --submodule-command CMD
@@ -79,6 +82,7 @@ isSubmoduleCommands=t
 typeset -a superCommands=()
 typeset -a subCommands=()
 typeset -a subdoArgs=()
+typeset -a superprojectArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -125,6 +129,7 @@ do
 			isNeedEval=t
 			shift
 			;;
+	--toplevel)	shift; superprojectArgs+=(--print-toplevel);;
 	--super-command)
 			shift; superCommands+=(${superCommands:+;} "$1"); isNeedEval=t; shift;;
 	--submodule-command)
@@ -232,7 +237,7 @@ execute()
 fromSubmodule()
 {
     submoduleRoot="$(git root)" || exit $?
-    superprojectRoot="$(git superproject)" || exit 3
+    superprojectRoot="$(git superproject "${superprojectArgs[@]}")" || exit 3
 
     if [ ${#subCommands[@]} -gt 0 ]; then
 	cd "$submoduleRoot" || exit 3

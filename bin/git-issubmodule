@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-p|--print|-t|--print-toplevel] [FILESPEC] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-p|--print|-t|--print-toplevel] [--] [FILESPEC] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -33,15 +33,20 @@ HELPTEXT
 }
 isPrint=
 isToplevel=
-case "$1" in
-    --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
-    --no-color|--color=*)
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--no-color|--color=*)
 			shift;;
-    --color)		shift; shift;;
-    --print|-p)		shift; isPrint=t;;
-    --print-toplevel|-t)
+	--color)	shift; shift;;
+	--print|-p)	shift; isPrint=t;;
+	--print-toplevel|-t)
 			shift; isPrint=t; isToplevel=t;;
-esac
+	--)		shift; break;;
+	*)		break;;
+    esac
+done
 case $# in
     0)	;;
     1)	if [ -d "$1" ]; then

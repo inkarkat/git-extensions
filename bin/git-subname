@@ -1,0 +1,59 @@
+#!/bin/bash
+set -o pipefail
+
+printUsage()
+{
+    cat <<HELPTEXT
+Show the name of the current submodule, as it's configured in the submodule
+configuration. This is NOT the name of the directory in the superproject
+(\$sm_path).
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--revision REVISION] [-?|-h|--help]'
+}
+
+typeset -a allargs=("$@")
+submoduleRoot=
+revisionArg=--file
+revision=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+	--superproject)	shift
+			submoduleRoot="${1:?}"; shift
+			;;
+	--revision|-r)	shift; revision="${1:?}"; shift; revisionArg=--blob;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+elif [ -z "$submoduleRoot" ]; then
+    # Recurse inside the superproject.
+    if ! git issubmodule; then
+	echo >&2 'ERROR: Not in a submodule.'
+	exit 99
+    fi
+    readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
+    submoduleRoot="$(git root)" || exit 3
+    exec git-superdo --no-pager --no-header "${scriptName#git-}" --superproject "$submoduleRoot" "${allargs[@]}"
+fi
+
+# Recursive callee implementation.
+superprojectRoot="$(git root)" || exit 3
+while IFS=' ' read -r key value
+do
+    if [ "${superprojectRoot}/${value}" = "$submoduleRoot" ]; then
+	name="${key#submodule.}"; name="${name%.path}"
+	printf '%s\n' "$name"
+	exit 0
+    fi
+done < <(git config $revisionArg "${revision}${revision:+:}.gitmodules" --get-regexp '^submodule\..*\.path$' 2>/dev/null)
+exit 1

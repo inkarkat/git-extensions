@@ -1,31 +1,60 @@
 #!/bin/bash
 set -o pipefail
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--url|--userrepo|--reponame] [-r|--revision REVISION] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 Show the name of the current submodule, as it's configured in the submodule
 configuration. This is NOT the name of the directory in the superproject
 (\$sm_path).
-HELPTEXT
+HELPDESCRIPTION
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--revision REVISION] [-?|-h|--help]'
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --url		Print the URL of the submodule.
+    --userrepo		Print the user/repository part of the submodule URL.
+    --reponame		Print just the repository part of the submodule URL.
+    --revision|-r REVISION
+			The revision (in the superproject) to use for the
+			.gitmodules configuration. Default is the current
+			working copy configuration.
+HELPTEXT
 }
 
 typeset -a allargs=("$@")
 submoduleRoot=
 revisionArg=--file
 revision=
+action=printName
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
 	--superproject)	shift
 			submoduleRoot="${1:?}"; shift
 			;;
+	--url)		shift; action=printUrl;;
+	--userrepo)	shift; action=printUserRepo;;
+	--reponame)	shift; action=printRepoName;;
 	--revision|-r)	shift; revision="${1:?}"; shift; revisionArg=--blob;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
@@ -47,13 +76,37 @@ elif [ -z "$submoduleRoot" ]; then
 fi
 
 # Recursive callee implementation.
+printName()
+{
+    local name="${1:?}"; shift
+    printf '%s\n' "$name"
+}
+
+printUrl()
+{
+    local name="${1:?}"; shift
+    git config $revisionArg "${revision}${revision:+:}.gitmodules" --get "submodule.${name}.url"
+}
+
+printUserRepo()
+{
+    local url; url="$(printUrl "$@")" || return $?
+    hub-userrepo "$url"
+}
+
+printRepoName()
+{
+    local userrepo; userrepo="$(printUserRepo "$@")" || return $?
+    printf '%s\n' "${userrepo#*/}"
+}
+
 superprojectRoot="$(git root)" || exit 3
 while IFS=' ' read -r key value
 do
     if [ "${superprojectRoot}/${value}" = "$submoduleRoot" ]; then
 	name="${key#submodule.}"; name="${name%.path}"
-	printf '%s\n' "$name"
-	exit 0
+	$action "$name"
+	exit $?
     fi
 done < <(git config $revisionArg "${revision}${revision:+:}.gitmodules" --get-regexp '^submodule\..*\.path$' 2>/dev/null)
 exit 1

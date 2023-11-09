@@ -4,7 +4,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-i|--as-integration-message|-m|--as-merge-message|--only-ids] [-Q|--qualified-with-userrepo|-u|--url] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-i|--as-integration-message|--as-title-and-integration-message|-m|--as-merge-message|--only-ids] [-Q|--qualified-with-userrepo|-u|--url] [-?|-h|--help]'
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [COMMIT|PR-IDENTIFIER [...]]'
     echo
@@ -33,8 +33,13 @@ HELPDESCRIPTION
     cat <<HELPTEXT
     --as-integration-message|-i
 			Output in a format suitable for a pull request that
-			references the superproject that integrates the changes
-			in this submodule.
+			wants to reference the PR(s).
+    --as-title-and-integration-message
+			Output in a format suitable for a submodule pull request
+			that references the superproject pull request that
+			integrates the changes in this submodule. Includes the
+			PR title(s), separating line, followed by the references
+			(like --as-integration-message outputs).
     --as-merge-message|-m
 			Output in a format suitable for a merge commit instead
 			of a plain list.
@@ -64,6 +69,8 @@ do
 	--color)	shift; shift;;
 	--as-integration-message|-i)
 			shift; action=integrationMessage;;
+	--as-title-and-integration-message)
+			shift; action=titleAndIntegrationMessage;;
 	--as-merge-message|-m)
 			shift; action=mergeMessage;;
 	--only-ids)	shift; action=onlyIds;;
@@ -105,6 +112,22 @@ list()
 integrationMessage()
 {
     [ ${#titles[@]} -gt 0 ] || return 99
+    local i; for ((i = 0; i < ${#identifiers[@]}; i++))
+    do
+	[ "$isQualified" ] && title='' || title="${titles[$i]}"
+	printf '* Note: This is being integrated via %s%s\n' "${identifiers[$i]}" "${title:+ }${title}"
+    done
+}
+
+titleAndIntegrationMessage()
+{
+    [ ${#titles[@]} -gt 0 ] || return 99
+    local i; for ((i = 0; i < ${#identifiers[@]}; i++))
+    do
+	title="${titles[$i]}"
+	[ -z "$title" ] || printf '%s\n' "$title"
+    done
+    printf '\n'
     local i; for ((i = 0; i < ${#identifiers[@]}; i++))
     do
 	[ "$isQualified" ] && title='' || title="${titles[$i]}"

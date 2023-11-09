@@ -8,22 +8,42 @@ printUsage()
 {
     cat <<HELPTEXT
 Open pull requests for the superproject and the current submodule / for all
-submodules that are on the same branch as the superproject.
+submodules [from the passed SUBMODULE(s)] that are on the same branch as the
+superproject.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[HUB-PULL-REQUEST-ARGS ...] [-?|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[HUB-PULL-REQUEST-ARGS ...] [--for -|--for SUBMODULE [...] ;] [-?|--help]'
 }
 
 remote="$(git-trackedremote 2>/dev/null)" || remote='origin'
 base="$(git-mbr)" || exit $?
 head=
 typeset -a args=()
+typeset -a subdoArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-\?)	shift; printUsage "$0"; exit 0;;
 	--base|-b)	shift; base="${1:?}"; shift;;
 	--head|-h)	shift; git-equals "${1:?}" HEAD || head="$1"; shift;;
+	--for)		subdoArgs+=("$1"); shift
+			if [ "$1" = - ]; then
+			    subdoArgs+=("$1"); shift
+			else
+			    while [ $# -gt 0 -a "$1" != ';' ]
+			    do
+				subdoArgs+=("$1")
+				shift
+			    done
+			    if [ $# -eq 0 ]; then
+				echo 'ERROR: --for must be concluded with ;!'; echo; printUsage "$0"
+				exit 2
+			    fi >&2
+			    subdoArgs+=("$1")
+			    shift
+			fi
+			;;
+	--repeat)	subdoArgs+=("$1");;
 	--)		args+=("$1"); shift; break;;
 	*)		args+=("$1"); shift;;
     esac
@@ -57,7 +77,7 @@ else
 	printf -v quotedMessage '%q' "$message"
 	quotedArgs=; [ $# -eq 0 ] || printf -v quotedArgs ' %q' "$@"
 
-	hub subsamebrdo --subdo-command-name "${scriptName#hub-}" ${head:+--branch "$head"} --no-git-color --interactive --command "logs=\"\$(
+	hub subsamebrdo --subdo-command-name "${scriptName#hub-}" ${head:+--branch "$head"} --no-git-color --interactive "${subdoArgs[@]}" --command "logs=\"\$(
 	    withSeparator
 		--command 'git l ${remote}/${base}..${head} -- | markdownEscape'
 		--command 'hub-logForPullRequest ${remote}/${base}..${head} --'

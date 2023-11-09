@@ -1,0 +1,57 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Check whether a pull-request for the current commit / passed HEAD [to BASE]
+exists.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-p|--print] [-h|--head HEAD] [-b|--base BASE] [-s|--state STATE] [-?|--help]'
+}
+
+base="$(git-mbr)" || exit $?
+head="$(git-commitid HEAD)" || exit $?
+isPrint=
+typeset -a hubprArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-\?)	shift; printUsage "$0"; exit 0;;
+	--print|-p)	shift; isPrint=t;;
+	--base|-b)	shift; base="${1:?}"; shift;;
+	--head|-h)	shift; git-equals "${1:?}" HEAD || head="$1"; shift;;
+	--state|-s)	hubprArgs+=("$1" "${2:?}"); shift; shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+check()
+{
+    local checkCommitId="${1:?}"; shift
+    local checkBranch="${1:?}"; shift
+    local value="${1:?}"; shift
+
+    [ "$value" = "$checkBranch" ] \
+	|| git-equals "$value" "$checkCommitId"
+}
+
+status=
+while IFS=$'\t' read -r prHeadCommitId prHeadBranch prBaseCommitId prBaseBranch prIdentifier prTitle
+do
+    if check "$prHeadCommitId" "$prHeadBranch" "$head" \
+	&& check "$prBaseCommitId" "$prBaseBranch" "$base"
+    then
+	status=0
+	[ ! "$isPrint" ] || printf '%s %s\n' "$prIdentifier" "$prTitle"
+    else
+	: ${status:=1}
+    fi
+done < <(hub pr list -f '%sH	%H	%sB	%B	%i	%t%n' "${hubprArgs[@]}")
+exit ${status:-99}

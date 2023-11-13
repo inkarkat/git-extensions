@@ -31,7 +31,12 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
-	--amend)	commitArgs+=("$1"); shift; isAmend=t;;
+	--amend)	commitArgs+=("$1"); shift; isAmend=t
+			if ! git-staged --quiet; then
+			    # DWIM: Reword the last commit with the reference. A "git amendrelate" with no unstaged changes complained about "nothing to commit, working tree clean", and a separate "git rewordrelate" command (and all br... variants) would be needed. Amending with passed FILE(s) is no use case here, as a trailing FILE is interpreted differently, so this is a safe enhancement that does not interfere with normal use.
+			    commitArgs+=(--only)
+			fi
+			;;
 	--)		commitArgs+=("$1"); shift; break;;
 	*)		commitArgs+=("$1"); shift;;
     esac

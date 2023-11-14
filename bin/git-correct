@@ -71,6 +71,10 @@ do
     set -- "${@:1:$(($#-1))}"
     lastArg="${!#}"
 done
+if [ ! "$isAmend" ] && [ ${#commitIds[@]} -eq 0 ]; then
+    printf >&2 'ERROR: No commit found for %s\n' "$lastArg"
+    exit 1
+fi
 
 commitMessageFilespec="$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM")"
 cleanup()

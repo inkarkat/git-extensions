@@ -4,9 +4,9 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--from-root] [-s|--skip-foreign|--foreign-command "COMMANDLINE"] -c|--command "COMMANDLINE" [-c ...] | SIMPLECOMMAND [...] -- FILE|DIR [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--from-root] [-s|--skip-foreign|--foreign-command "COMMANDLINE"] -c|--command "COMMANDLINE" [-c ...] | SIMPLECOMMAND [...] -- [...] -- FILE|DIR [...] [-?|-h|--help]'
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--from-root] [-s|--skip-foreign|--foreign-command "COMMANDLINE"] -c|--command "COMMANDLINE" [-c ...] | SIMPLECOMMAND [...] [--] FILE|DIR [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--from-root] [-s|--skip-foreign|--foreign-command "COMMANDLINE"] -c|--command "COMMANDLINE" [-c ...] | SIMPLECOMMAND [...] [--] FILE|DIR [...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -49,7 +49,6 @@ isSkipForeign=
 typeset -a foreignCommands=()
 isNeedEval=
 typeset -a commands=()
-typeset -a fileArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -61,32 +60,45 @@ do
 	--skip-foreign|-s)  shift; isSkipForeign=t;;
 	--foreign-command)  shift; foreignCommands+=(${foreignCommands:+;} "$1"); shift;;
 	--command|-c)	    shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
-	--)		    shift; fileArgs=("$@"); set --; break;;
+	--)		    break;;
 	-*)		    { echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		    break;;
     esac
 done
-readonly gitCommand='git-wrapper'
-if [ $# -gt 1 ]; then
-    typeset -a simpleCommand=()
-    while [ $# -gt 1 ]
+
+# Capture all FILE|DIR args after the (last, mandatory) --.
+typeset -a fileArgs=()
+for ((i = $#; i > 0; i--))
+do
+    if [ "${*:$i:1}" = '--' ]; then
+	fileArgs=("${@:$((i+1))}")
+	set -- "${@:1:$((i-1))}"
+	break
+    fi
+done
+if [ ${#fileArgs[@]} -eq 0 ]; then
+    # No files after -- captured yet; need to investigate remaining args from
+    # behind for files.
+    while [ $# -ne 0 ]
     do
-	case "$1" in
-	    --)	shift; break;;
-	    *)  simpleCommand+=("$1"); shift;;
-	esac
+	lastArg="${!#}"
+	[ -e "$lastArg" ] || break
+	fileArgs+=("$lastArg")
+	[ $# -eq 0 ] && set -- || set -- "${@:1:$(($#-1))}"
     done
+fi
+
+readonly gitCommand='git-wrapper'
+if [ $# -gt 0 ]; then
     if [ "$isNeedEval" ]; then
 	# Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
 	# undo the effects of eval.
-	printf -v quotedSimpleCommand '%q ' "$gitCommand" "${simpleCommand[@]}"
+	printf -v quotedSimpleCommand '%q ' "$gitCommand" "$@"
 	commands+=(${commands:+;} "${quotedSimpleCommand% }")
     else
-	commands=("$gitCommand" "${simpleCommand[@]}")
+	commands=("$gitCommand" "$@")
     fi
 fi
-fileArgs+=("$@")
-
 if [ ${#commands[@]} -eq 0 ]; then
     echo 'ERROR: No COMMAND(s) specified; need to pass -c|--command "COMMANDLINE", or SIMPLECOMMAND.'
     echo

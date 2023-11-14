@@ -338,24 +338,26 @@ printIntegrationCommand()
 {
     local integrationCommandName="${1:?}"; shift
     local isCheckFromStdin="${1?}"; shift
+    local preCommand="${1?}"; shift
+
     local quotedConfigVariables='';  [ -n "$GIT_REINTEGRATE_PRE_PUSH_COMMAND" ] && printf -v quotedConfigVariables 'GIT_REINTEGRATE_PRE_PUSH_COMMAND=%q' "$GIT_REINTEGRATE_PRE_PUSH_COMMAND"
     local gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
     [ "$isCheckFromStdin" ] && printf >&2 'echo CHECK-COMMANDLINES | '
-    printf >&2 '$ %s%s%s %q' "${1}${1:+ && }" "${quotedConfigVariables}${quotedConfigVariables:+ }" "$gitCommand" "$integrationCommandName"
-    printf >&2 ' %q' "$@"
+    printf >&2 '$ %s%s%s %q' "${preCommand}${preCommand:+ && }" "${quotedConfigVariables}${quotedConfigVariables:+ }" "$gitCommand" "$integrationCommandName"
+    [ $# -eq 0 ] || printf >&2 ' %q' "$@"
     [ "$isCheckFromStdin" ] && printf >&2 ' -'
     printf >&2 '\n'
 }
 
 printRestartCommand()
 {
-    printIntegrationCommand "${scriptName#git-}" "$isCheckFromStdin" \
+    printIntegrationCommand "${scriptName#git-}" "$isCheckFromStdin" '' \
 	"${allArgs[@]}"
 }
 
 printContinueCommand()
 {
-    printIntegrationCommand "${scriptName#git-}" "$isCheckFromStdin" \
+    printIntegrationCommand "${scriptName#git-}" "$isCheckFromStdin" "$1" \
 	--continue \
 	"${runWithPromptArgs[@]}" "${continueArgs[@]}" "${gitRemoteMutateArgs[@]}" "${checkCommandArgs[@]}" "${reintegrateArgs[@]}" \
 	--branch "$targetBranch"
@@ -628,6 +630,6 @@ if [ "$isPerformTheMerge" ]; then
 else
     gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
     printf 'You can fast-forward-integrate the current %s into %s via:\n' "$sourceBranch" "$targetBranch"
-    printIntegrationCommand reintegrateto '' "${reintegratetoArgs[@]}"
+    printIntegrationCommand reintegrateto '' '' "${reintegratetoArgs[@]}"
     exit $status
 fi

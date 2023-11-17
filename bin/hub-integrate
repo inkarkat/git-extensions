@@ -8,7 +8,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--force] [--recurse-submodules=on-demand] [--push-submodules] [--delete-merged-submodule-branches] [--no-delete] [--no-wait|--no-pull] [--rebase-single|--rebase|--merge|--squash] [-y|--yes] [--offer] [--make-ready] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--force] [--recurse-submodules=on-demand] [--push-submodules] [--delete-merged-submodule-branches] [--no-delete] [--no-wait|--no-pull] [--rebase-single|--rebase|--merge|--squash] [-y|--yes] [--offer] [--check] [--make-ready] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -55,6 +55,10 @@ HELPDESCRIPTION
     --yes		Don't query for confirmation of remote mutations.
     --offer		Ask for confirmation of remote merge if it's possible,
 			and do nothing (and exit 4) if the user declines.
+    --check		Just check whether a remote merge is possible (/ desired
+			in combination with --offer); exit 0 if possible / the
+			user accepts, exit 4 if the user declines, exit 1 if not
+			possible.
     --make-ready	Remove the draft status of a pull request so that it can
 			be merged in and by GitHub.
 The answers to some questions can be preconfigured via these boolean config
@@ -84,6 +88,7 @@ mergeResolutionArg=
 typeset -a mergeMessageArgs=()
 typeset -a mergeNoEditMessageArgs=()
 isOffer=
+isCheck=
 isMakeReady=
 problemSeverity='ERROR'
 while [ $# -ne 0 ]
@@ -133,6 +138,7 @@ do
 			shift
 			printChecksIgnoredNote
 			;;
+	--check)	shift; isCheck=t;&
 	--offer)	shift; isOffer=t; problemSeverity='Note';;
 	--make-ready)	shift; isMakeReady=t;;
 	--message|-m|--file|-F)
@@ -232,6 +238,7 @@ if [ "$isOffer" ]; then
 	    && isMakeReady=t
     fi || exit 4
 fi
+[ "$isCheck" ] && exit 0
 printf 'Integrating %s into %s via #%d (%s):\n\n' "$sourceBranch" "$targetBranch" "$prNumber" "$prTitle"
 
 if ! git-equals "$sourceRef" HEAD; then

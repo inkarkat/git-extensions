@@ -9,12 +9,42 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
 }
 
+cherryPickOne()
+{
+    local commit="${1:?}"; shift
+    local stageNum="${1:?}"; shift
+    local hint="${1?}"; shift
+    git -c advice.resolveConflict=false cherry-pick "$commit" || {
+	status=$?
+	if [ "$isPrintHint" ] && git-conflicts --quiet; then
+	    [ -z "$hint" ] || printf '%s\n' "$hint"
+	    printf 'hint: After resolving the conflicts, mark them with\nhint: "git add/rm <pathspec>", then run\nhint: "%q --continue-%d"\n' "$continueCommand" "$stageNum"
+	    printf 'hint: To abort and get back to the state before "%q",\nhint: run "%q --abort"\n' "$continueCommand" "$continueCommand"
+	fi >&2
+	exit $status
+    }
+}
+cherryPickFirst()
+{
+    [ "$continueCommand" = git-swapstage ] \
+	&& local hint=$'hint: Apply the previously unstaged changes to the future stage; i.e.\nhint: apply the change from the parent to futureStage onto HEAD.' \
+	|| local hint=$'hint: Apply the previously last changes to the starting commit; i.e.\nhint: apply the change from the parent to theirs onto HEAD.'
+    cherryPickOne _invert 1 "$hint"
+}
+cherryPickSecond()
+{
+    [ "$continueCommand" = git-swapstage ] \
+	&& local hint=$'hint: Apply the previously unstaged changes to the future unstaged; i.e.\nhint: apply the change from the parent to futureUnstaged onto HEAD.' \
+	|| local hint=$'hint: Apply the previously previous-to-last changes to the just made commit; i.e.\nhint: apply the change from the parent to theirs onto HEAD.'
+    cherryPickOne _invert~1 2 "$hint"
+}
 cleanup()
 {
     git tag -d _invert
 }
 
-isPrintHint=
+isPrintHint=t
+continueCommand="$(basename "$0")"
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -22,18 +52,23 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
-	--continue|--quit|--abort)
-			if git cherry-pick "$1"; then
-			    cleanup
-			    exit $?
-			else
-			    status=$?
-			    printf >&2 'hint: after committing, finalize the swap with %q --cleanup\n' "$(basename "$0")"
-			    exit $status
-			fi
+	--continue-1)	git -c core.editor=true cherry-pick --continue || exit $?
+			cherryPickSecond
+			cleanup
+			exit $?
+			;;
+	--continue-2)	git -c core.editor=true cherry-pick --continue || exit $?
+			cleanup
+			exit $?
+			;;
+	--abort)	git reset --hard _invert || exit $?
+			cleanup
+			exit $?
 			;;
 	--cleanup)	cleanup; exit $?;;
 	--no-hint)	shift; isPrintHint=;;
+	--continue-command)
+			shift; continueCommand="${1:?}"; shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -48,5 +83,6 @@ git-dirty --print-error && exit 1
 
 git tag _invert || exit $?
 git reset --hard HEAD~2 || exit $?
-git cherry-pick _invert _invert~1 || { status=$?; [ ! "$isPrintHint" ] || printf >&2 'hint: after committing, finish the swap with %q --continue\n' "$(basename "$0")"; exit $status; }
+cherryPickFirst
+cherryPickSecond
 cleanup

@@ -9,10 +9,11 @@ files) changes.
 HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-A|--all] [-?|-h|--help]'
 }
+
 uncommit()
 {
-    git reset HEAD~1 || exit $?
-    git reset HEAD~1 --soft || exit $?
+    git reset --mixed HEAD~1 || exit $?
+    git reset --soft  HEAD~1 || exit $?
 }
 
 addArg=--update
@@ -23,7 +24,15 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
-	--continue)	shift; git-swaplast --continue; uncommit; exit $?;;
+	--continue-[12])
+			git-swaplast --continue-command "$(basename "$0")" "$@" \
+			    && uncommit
+			exit $?
+			;;
+	--abort)	git-swaplast --abort \
+			    && uncommit
+			exit $?
+			;;
 	--all)		addArg="$1"; shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
@@ -41,5 +50,5 @@ fi
 git commit -m futureUnstaged || exit $?
 git add $addArg || exit $?
 git commit -m futureStage || exit $?
-git-swaplast --no-hint || { status=$?; printf >&2 'hint: after swapping, finish the inversion with %q --continue\n' "$(basename "$0")"; exit $status; }
+git-swaplast --continue-command "$(basename "$0")" || exit $?
 uncommit

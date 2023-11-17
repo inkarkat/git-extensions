@@ -15,21 +15,31 @@ uncommit()
     git reset HEAD~1 --soft || exit $?
 }
 
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
+addArg=--update
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
 			shift;;
-    --color)		shift; shift;;
-    --continue)		uncommit; exit $?;;
-esac
-
-if git-existsbr _invert; then
+	--color)	shift; shift;;
+	--continue)	uncommit; exit $?;;
+	--all)		addArg="$1"; shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+elif git-existsbr _invert; then
     echo >&2 'ERROR: It looks like a git-swaplast is under way. Please finalize that first (via --continue|--quit|--abort|--cleanup).'
     exit 1
 fi
 
 git commit -m futureUnstaged || exit $?
-git add "${1:---update}" || exit $?
+git add $addArg || exit $?
 git commit -m futureStage || exit $?
 git swaplast || { status=$?; printf >&2 'hint: after swapping, finish the inversion with %q --continue\n' "$(basename "$0")"; exit $status; }
 uncommit

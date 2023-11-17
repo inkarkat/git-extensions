@@ -14,6 +14,7 @@ cleanup()
     git tag -d _invert
 }
 
+isPrintHint=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -32,6 +33,7 @@ do
 			fi
 			;;
 	--cleanup)	cleanup; exit $?;;
+	--no-hint)	shift; isPrintHint=;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -46,5 +48,5 @@ git-dirty --print-error && exit 1
 
 git tag _invert || exit $?
 git reset --hard HEAD~2 || exit $?
-git cherry-pick _invert _invert~1 || { status=$?; printf >&2 'hint: after committing, finish the swap with %q --continue\n' "$(basename "$0")"; exit $status; }
+git cherry-pick _invert _invert~1 || { status=$?; [ ! "$isPrintHint" ] || printf >&2 'hint: after committing, finish the swap with %q --continue\n' "$(basename "$0")"; exit $status; }
 cleanup

@@ -88,6 +88,11 @@ do
 			    exit 2
 			fi
 			;;
+	--print-outgoing)
+			shift
+			reintegratedBranchName="$(git blbase)" || exit 3
+			exec git-wrapper outlg --branch "$reintegratedBranchName" "$@"
+			;;
 	--)		reintegrateArgs+=("$1"); shift; break;;
 	*)		reintegrateArgs+=("$1"); shift;;
     esac
@@ -333,9 +338,10 @@ reintegrateSuperproject()
 	    ;;
     esac
 
+    unset isHubIntegrate
     if [ "$HUB" ]; then
-	if "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--no-pager --separate-errors} outlg \
-	    | outputAndPrintf '\nNote: Submodule(s) have outgoing reintegration commits; integration in and by GitHub not possible:\n'
+	if "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--no-pager --separate-errors} "${scriptName#git-}" --print-outgoing \
+	    | outputAndPrintf '\nNote: Submodule(s) have outgoing reintegration commits; complete integration in and by GitHub (without running local checks) not possible:\n'
 	then
 	    echo
 	else
@@ -348,11 +354,31 @@ reintegrateSuperproject()
 	    else
 		hub-integrate --offer "${integrateArgs[@]}" "$@" && return
 	    fi
+	    isHubIntegrate=
 	fi
     fi
 
     git-dirty --print-error --error-message 'ERROR: The superproject working copy is still dirty.' \
 	&& exit 1
+
+    # We couldn't fully reintegrate in and by GitHub due to outgoing
+    # reintegration commits, but if there's a superproject PR, we can do the
+    # submodule reintegration locally, run the checks, and then push submodules
+    # and let the superproject PR do the remainder. This saves us from waiting
+    # for the GitHub action to validate the build.
+    if [ "$HUB" ] && [ -z "${isHubIntegrate+t}" ]; then
+	# Note: We can only --check here, because there's still local work to do
+	# first.
+	if choice="$(git config --type bool --get reintegrate.superproject-in-hub)"; then
+	    case "$choice" in
+		true)   hub-integrate --check --make-ready "${integrateArgs[@]}" "$@" && isHubIntegrate=t;;
+		false)  ;;
+		*)	printf >&2 'ASSERT: Invalid choice: %s\n' "$choice"; exit 3;;
+	    esac
+	else
+	    hub-integrate --check --offer "${integrateArgs[@]}" "$@" && isHubIntegrate=t
+	fi
+    fi
 
     fetchFirst
 
@@ -364,7 +390,16 @@ reintegrateSuperproject()
 	fi
     fi
 
-    exec git-ffintegrateto --branch "$masterBranch" --push-branch "${integrateArgs[@]}" "${ffintegratetoArgs[@]}" --push-submodules --delete-merged-submodule-branches "$@"
+    typeset -ra ffintegratetoArgs=(--branch "$masterBranch" --push-branch "${integrateArgs[@]}" "${ffintegratetoArgs[@]}" --push-submodules --delete-merged-submodule-branches)
+    if [ "$isHubIntegrate" ]; then
+	# Just merge / rebase $masterBranch to the current branch, run checks,
+	# push and delete submodule branches. With that, the superproject PR can
+	# do the remainder of the integration in and by GitHub.
+	git-ffintegrateto --no-merge "${ffintegratetoArgs[@]}" "$@" || exit $?
+	exec hub-integrate --make-ready "${integrateArgs[@]}" "$@"
+    else
+	exec git-ffintegrateto "${ffintegratetoArgs[@]}" "$@"
+    fi
 }
 
 $action "$@"

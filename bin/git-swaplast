@@ -8,27 +8,39 @@ Swap the last and one-before-last commits.
 HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
 }
+
 cleanup()
 {
     git tag -d _invert
 }
 
-case "$1" in
-    --help|-h|-\?)		shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
-				shift;;
-    --color)			shift; shift;;
-    --continue|--quit|--abort)	if git cherry-pick "$1"; then
-				    cleanup
-				    exit $?
-				else
-				    status=$?
-				    printf >&2 'hint: after committing, finalize the swap with %q --cleanup\n' "$(basename "$0")"
-				    exit $status
-				fi
-				;;
-    --cleanup)			cleanup; exit $?;;
-esac
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+	--continue|--quit|--abort)
+			if git cherry-pick "$1"; then
+			    cleanup
+			    exit $?
+			else
+			    status=$?
+			    printf >&2 'hint: after committing, finalize the swap with %q --cleanup\n' "$(basename "$0")"
+			    exit $status
+			fi
+			;;
+	--cleanup)	cleanup; exit $?;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
 
 git-dirty --print-error && exit 1
 

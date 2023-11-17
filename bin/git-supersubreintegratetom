@@ -88,6 +88,11 @@ do
 			    exit 2
 			fi
 			;;
+	--print-outgoing)
+			shift
+			reintegratedBranchName="$(git blbase)" || exit 3
+			exec git-wrapper outlg --branch "$reintegratedBranchName" "$@"
+			;;
 	--)		reintegrateArgs+=("$1"); shift; break;;
 	*)		reintegrateArgs+=("$1"); shift;;
     esac
@@ -334,7 +339,7 @@ reintegrateSuperproject()
     esac
 
     if [ "$HUB" ]; then
-	if "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--no-pager --separate-errors} outlg \
+	if "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--no-pager --separate-errors} "${scriptName#git-}" --print-outgoing \
 	    | outputAndPrintf '\nNote: Submodule(s) have outgoing reintegration commits; integration in and by GitHub not possible:\n'
 	then
 	    echo

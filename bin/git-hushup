@@ -124,6 +124,12 @@ $1 == "Fetching" && $2 == "submodule" {
     $1 = ""; $2 = ""; sub(OFS, ""); sub(OFS, ""); submodule = $0
     next
 }
+# Special message from git-up to indicate the end of [submodule] fetches.
+($1 == "Fetching" || $1 == "Pulling") && $2 == "done." {
+    printJoinedReferences()
+    submodule = ""
+    next
+}
 $2 == "*" && $3 == "[new" && NF == 5 {
     $4 = substr($4, 1, length($4) - 1)
     newWhat = substr($3, 2) " " $4

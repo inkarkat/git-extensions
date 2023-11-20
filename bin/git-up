@@ -232,10 +232,17 @@ else
     gitUpdateOperation git "${gitAutoStashGitArg[@]}" pull "${fetchPullArgs[@]}" "${gitAutoStashPullOrRebaseArg[@]}" "${gitPullRebaseMergesArg[@]}" "$remote" "$@" || exit $?
 fi
 
-[ "$submoduleHandling" = ignore ] || ! GIT_SUBMODULEUNINITIALIZED_MESSAGE='Warning: Uninitialized submodule(s) found:' git-submodule-uninitialized --print --recursive
+[ "$GIT_UP_FETCH" ] \
+    && doneMessage='Fetching done.' \
+    || doneMessage='Pulling done.'
+
+status=0
+[ "$submoduleHandling" = ignore ] || ! GIT_SUBMODULEUNINITIALIZED_MESSAGE="$doneMessage"$'\n\nWarning: Uninitialized submodule(s) found:' gitUpdateOperation git-submodule-uninitialized --print --recursive || status=$?
 
 readarray -t afterUpdateChecks < <(git config --get-all "$GIT_UP_CHECK_CONFIG_KEY")
 for afterUpdateCheck in "${afterUpdateChecks[@]}"
 do
-    eval "$afterUpdateCheck" >&2 || exit $?
+    eval "$afterUpdateCheck" 2>&1 | outputAndPrintf '%s\n\n' "$doneMessage"
+    checkStatus=${PIPESTATUS[0]}; [ $checkStatus -eq 0 ] || status=$checkStatus
 done
+exit $status

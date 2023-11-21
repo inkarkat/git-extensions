@@ -3,12 +3,12 @@ superproject: `$ git com && git ofetchup-hushed`
 (directly from another feature: `$ git ofetchonly-hushed`)
 ## a) start top-down
 superproject: Create a branch: `$ git omco -b feat-4711/super-cool`
-submodules: `$ c ReLogic git omco -b feat-4711/super-cool`
-	    `$ git subconewbr --query|SUBMODULE1 SUBMODULE2`
+submodules: `$ c SUBMODULE1 git cosuperbr`
+(or with querying: `$ git subconewbr --query|SUBMODULE1 SUBMODULE2`)
 ## b) start bottom-up
-submodule(s): Create branch: `$ git omco -b feat-4711/super-cool`
-superproject: Create branch: `$ git omco -b $(git substdo --interactive brname | sort -u | singleLineOrSuppressAndError)`
-## c) continue from elsewhere:
+submodule(s): Create branch: `$ git checkoutbranch -b feat-4711/super-cool`
+superproject: Create branch: `$ git checkoutbranch -b $(git substdo --interactive brname | sort -u | singleLineOrSuppressAndError)`
+## c) continue from development started on another system:
 superproject: `$ git ocosub feat-4711/super-cool`
 (or with querying: `$ git oco --queried-submodules feat-4711/super-cool`)
 (or separately for superproject and submodules: `$ git oco feat-4711/super-cool && $ git subcoremotebr --query|--all`

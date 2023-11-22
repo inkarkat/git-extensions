@@ -90,8 +90,11 @@ do
 			;;
 	--print-outgoing)
 			shift
-			reintegratedBranchName="$(git blbase)" || exit 3
-			exec git-wrapper outlg --branch "$reintegratedBranchName" "$@"
+			# The submodule has already been reintegrated; any rebased or merged commits require a push and therefore prevent reintegration in and by GitHub.
+			# To find those commits, we need to compare the submodule's commit that's recorded in the superproject's tracked branch (that's what the remote sees) with the current to-be-pushed state on master.
+			superprojectRev="${1:?}"; shift
+			remoteSubmoduleRev="$(git-superdo --no-header --no-pager subhash "$superprojectRev" "$PWD")"
+			exec git lg "${remoteSubmoduleRev}..HEAD" "$@"
 			;;
 	--)		reintegrateArgs+=("$1"); shift; break;;
 	*)		reintegrateArgs+=("$1"); shift;;
@@ -340,7 +343,10 @@ reintegrateSuperproject()
 
     unset isHubIntegrate
     if [ "$HUB" ]; then
-	if "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--no-pager --separate-errors} "${scriptName#git-}" --print-outgoing \
+	local targetTracks="$(git-tracks 2>/dev/null)"
+	if [ -z "$targetTracks" ]; then
+	    printf >&2 '\nNote: The superproject does not track any remote; complete integration in and by GitHub (without running local checks) not possible.\n'
+	elif "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--no-pager --separate-errors} "${scriptName#git-}" --print-outgoing "$targetTracks" \
 	    | outputAndPrintf '\nNote: Submodule(s) have outgoing reintegration commits; complete integration in and by GitHub (without running local checks) not possible:\n'
 	then
 	    echo

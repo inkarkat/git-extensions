@@ -53,19 +53,19 @@ then
 	if trackedBranch="$(git-tracks --push 2>/dev/null)" && \
 	    [ "$trackedBranch" != "${remote}/${branch}" ]
 	then
-	    [ ${#forceArgs[@]} -ge 2 ] || userBinaryChoice --keep-prompt --question "You're publishing to $branch on ${remote:?}, but previously this was published to ${trackedBranch}." --ok-cancel || exit 4
+	    [ ${#forceArgs[@]} -ge 2 ] || [ "$GIT_PUSH_ALLOW_PUBLISH_DIFFERENT" ] || userBinaryChoice --keep-prompt --question "You're publishing to $branch on ${remote:?}, but previously this was published to ${trackedBranch}." --ok-cancel || exit 4
 	fi
 
 	if git-existsbr -- "${remote}/${branch}"; then
 	    if [ -z "$trackedBranch" ]; then
-		[ ${#forceArgs[@]} -ge 2 ] || userBinaryChoice --keep-prompt --question "You're publishing to $branch on ${remote:?}, but a ${remote}/${branch} branch already exists; it isn't yet tracked though." --ok-cancel || exit 4
+		[ ${#forceArgs[@]} -ge 2 ] || [ "$GIT_PUSH_ALLOW_PUBLISH_EXISTING" ] || userBinaryChoice --keep-prompt --question "You're publishing to $branch on ${remote:?}, but a ${remote}/${branch} branch already exists; it isn't yet tracked though." --ok-cancel || exit 4
 	    elif [ "$trackedBranch" = "${remote}/${branch}" ]; then
 		echo >&2 "Note: The ${remote}/${branch} branch already exists and is already being tracked."
 	    fi
 	fi
     else
 	if trackedBranch="$(git-tracks --push 2>/dev/null)" && [ -n "$remote" ] && [ "$trackedBranch" != "${remote}/${branch}" ]; then
-	    [ ${#forceArgs[@]} -ge 2 ] || userBinaryChoice --keep-prompt --question "You're pushing to $branch on ${remote:?}, which is different from $trackedBranch." --ok-cancel || exit 4
+	    [ ${#forceArgs[@]} -ge 2 ] || [ "$GIT_PUSH_ALLOW_PUSH_TO_DIFFERENT" ] || userBinaryChoice --keep-prompt --question "You're pushing to $branch on ${remote:?}, which is different from $trackedBranch." --ok-cancel || exit 4
 	fi
     fi
 fi

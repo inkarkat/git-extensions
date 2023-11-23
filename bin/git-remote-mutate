@@ -59,8 +59,11 @@ done
 
 isUpToDate()
 {
-    [ "$1" = push -a "$2" = "$remote" ] || return 1
-    shift; shift
+    [ "$1" = push ] && shift || return 1
+    case "$1" in
+	--force|-f) shift;;
+    esac
+    [ "$1" = "$remote" ] && shift || return 1
     [ $# -le 1 ] || return 1	# Only support "git push origin [branch]".
 
     if [ "$(git-trackedremote --push "$@")" = "$remote" ] \

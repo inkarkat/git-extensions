@@ -59,16 +59,14 @@ done
 
 isUpToDate()
 {
-    if [ "$1" = push -a "$2" = "$remote" ] && {
-	    [ $# -eq 2 ] \
-		&& [ "$(git-trackedremote)" = "$remote" ] \
-		&& trackedBranch="$(git-tracks)"
-	} || {
-	    [ $# -eq 3 ] \
-		&& trackedBranch="${remote}/$(git-brname --real-branch-only 2>/dev/null)"
-	} \
-	    && git-equals HEAD "$trackedBranch"
-    then
+    [ "$1" = push -a "$2" = "$remote" ] || return 1
+    local trackedBranch=
+    case $# in
+	2) [ "$(git-trackedremote)" = "$remote" ] \
+	    && trackedBranch="$(git-tracks)";;
+	3) trackedBranch="${remote}/$(git-brname --real-branch-only 2>/dev/null)";;
+    esac
+    if [ -n "$trackedBranch" ] && git-equals HEAD "$trackedBranch"; then
 	printf >&2 'Note: %s is already up-to-date.\n' "$trackedBranch"
 	return 0
     else

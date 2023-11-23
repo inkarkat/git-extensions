@@ -25,30 +25,29 @@ do
     esac
 done
 
-lastArg=; [ $# -gt 0 ] && lastArg="${!#}"
-path="$lastArg"
-if git-existsbr "origin/$path"; then
-    if ! git-existsbr "upstream/$path"; then
-	printf >&2 'ERROR: origin/%s exists, but upstream/%s does not.\n' "$path" "$path"
+branch=; [ $# -gt 0 ] && branch="${!#}"
+if git-existsbr "origin/$branch"; then
+    if ! git-existsbr "upstream/$branch"; then
+	printf >&2 'ERROR: origin/%s exists, but upstream/%s does not.\n' "$branch" "$branch"
 	exit 1
     fi
 
     set -- "${@:1:$(($#-1))}"
 else
-    path=$(git-brname --real-branch-only) || exit $?
-    if ! git-existsbr "origin/$path"; then
-	printf >&2 'ERROR: Cannot find corresponding origin branch; origin/%s does not exist.\n' "$path"
+    branch=$(git-brname --real-branch-only) || exit $?
+    if ! git-existsbr "origin/$branch"; then
+	printf >&2 'ERROR: Cannot find corresponding origin branch; origin/%s does not exist.\n' "$branch"
 	exit 1
-    elif ! git-existsbr "upstream/$path"; then
-	printf >&2 'ERROR: origin/%s exists, but upstream/%s does not.\n' "$path" "$path"
+    elif ! git-existsbr "upstream/$branch"; then
+	printf >&2 'ERROR: origin/%s exists, but upstream/%s does not.\n' "$branch" "$branch"
 	exit 1
     fi
 fi
 
 # First push to upstream; we usually want to catch up origin to upstream, but
 # keep it at the current state if pushing to upstream failed.
-printf -v quotedPath %q "$path"
+printf -v quotedPath %q "$branch"
 git-remote-mutate upstream --message 'Push' --context-command "git uoutlg --color=always --branch $quotedPath" "${gitRemoteMutateArgs[@]}" \
-    push "$@" upstream "$path" || exit $?
+    push "$@" upstream "$branch" || exit $?
 git-remote-mutate origin --message 'Push' --context-command "git ooutlg --color=always --branch $quotedPath" "${gitRemoteMutateArgs[@]}" \
-    push "$@" origin "$path"
+    push "$@" origin "$branch"

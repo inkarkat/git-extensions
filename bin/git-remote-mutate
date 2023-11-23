@@ -59,22 +59,19 @@ done
 
 isUpToDate()
 {
-    if [ "$1" = push -a "$2" = "$remote" ] && {
-	    [ $# -eq 2 ] \
-		&& [ "$(git-trackedremote)" = "$remote" ] \
-		&& trackedBranch="$(git-tracks)"
-	} || {
-	    [ $# -eq 3 ] \
-		&& trackedBranch="${remote}/$(git-brname --real-branch-only 2>/dev/null)"
-	} \
-	    && git-equals HEAD "$trackedBranch"
+    [ "$1" = push -a "$2" = "$remote" ] || return 1
+    shift; shift
+    [ $# -le 1 ] || return 1	# Only support "git push origin [branch]".
+
+    if [ "$(git-trackedremote --push "$@")" = "$remote" ] \
+	    && trackedBranch="$(git-tracks --push "$@")" \
+	    && git-equals "${1:-HEAD}" "$trackedBranch"
     then
 	printf >&2 'Note: %s is already up-to-date.\n' "$trackedBranch"
 	return 0
     else
 	return 1
     fi
-
 }
 
 confirmMutation()

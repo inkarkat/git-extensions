@@ -121,13 +121,8 @@ _git_complete()
     }
 
     if [ $COMP_CWORD -eq 1 ]; then
-	# Also offer aliases (git-aliasname, callable via my git wrapper
-	# function as git aliasname).
-	readarray -O ${#COMPREPLY[@]} -t COMPREPLY < <(compgen -W "${aliases[*]}" -X "!${2}*")
-    elif [[ "${COMP_WORDS[1]}" =~ do(-core)?$ ]]; then
-	# Also offer aliases (git-aliasname, callable via my git wrapper
-	# function as git aliasname) as "git SIMPLECOMMAND" after a *do command.
-	readarray -O ${#COMPREPLY[@]} -t COMPREPLY < <(compgen -W "${aliases[*]}" -X "!${2}*")
+	# Bash completion for Git already offer git-aliasnames.
+	:
     elif [ $COMP_CWORD -eq 2 ]; then
 	# Also offer aliases (git-aliasname-subaliasname, callable via my git wrapper
 	# function as git aliasname subaliasname).

@@ -1,0 +1,22 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Commit directly (without further edits) with the same commit message as the last
+commit / passed revision from the superproject.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<commit-arguments> ...] [<ref>|:/<pattern>] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+superprojectRoot="$(git superproject)" || exit 1
+
+if [ $# -eq 0 ] || ! git-inside rev-parse --verify --quiet "${!#}" >/dev/null 2>&1; then
+    set -- "$@" HEAD	# default to the last superproject's commit
+fi
+
+exec git-commitidentical "$@" -- "$superprojectRoot"

@@ -333,7 +333,7 @@
 	;; commitwithdiffselected: Interactively select (from staged files or those filtered by passed list of files) files (or directly pass N, M, ... selections) to seed the commit message with their diff additions.
 	;; commitpush: Commit and push [to REMOTE].
 
-	;; correct: Commit as a correction of <commit>(s) [from the working copy that FILE or DIR resides in] (when it's too late or cumbersome to fixup the existing commit). This just adds a reference to the prior commit(s) in the commit message (title and body).
+	;; correct: Commit as a correction of passed revision(s) [from the working copy that FILE or DIR resides in] (when it's too late or cumbersome to fixup the existing commit). This just adds a reference to the prior commit(s) in the commit message (title and body).
 	correctlast = selectedcommit-command --accept-single --single-only --pass-file-args --allow-outside-workingcopy -2 correct COMMITS --max-count 1	; Commit as a correction of the last commit (of FILE; if you omit that the HEAD commit would be referenced, and you could just amend there).
 	correctselected = selectedcommit-command --pass-file-args --allow-outside-workingcopy -2 correct COMMITS	; Commit as a correction of the commit(s) interactively chosen from the commits in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
 	correct1 = correctselected --max-count 1
@@ -393,7 +393,7 @@
 	correctad-i = selectedannotatediffcommit-command -2 correct COMMITS	; Commit as a correction of the commit(s) interactively chosen from the commits affected by lines that have been changed in currently modified but not staged files.
 
 
-	;; fixup: Commit with the intent of squashing this with the passed <commit> (id or :/<pattern>) via interactive rebase later.
+	;; fixup: Commit with the intent of squashing this with the passed revision via interactive rebase later (now with --rebase).
 	fixuplast = selectedcommit-command --accept-single --single-only -2 fixup COMMITS --max-count 1	; Commit with the intent of squashing this with the last commit (of FILE; if you omit that the HEAD commit would be referenced, and you could just amend there).
 	fixupselected = selectedcommit-command --single-only -2 fixup COMMITS	; Commit with the intent of squashing this with the commit interactively chosen from the commits in the passed <range> via interactive rebase later.
 	fixup1 = fixupselected --max-count 1
@@ -453,7 +453,7 @@
 	fixupad-i = selectedannotatediffcommit-command --single-only -2 fixup COMMITS	; Commit with the intent of squashing this with the commit interactively chosen from the commits affected by lines that have been changed in currently modified but not staged files.
 
 
-	fixamend = fixup --amend	; Commit with the intent of squashing this with the passed <commit> (id or :/<pattern>) and overwriting the original commit message via interactive rebase later. Note: Keep the summary line 1 as-is; line 3 is the new summary and the commit message starts in line 5.
+	fixamend = fixup --amend	; Commit with the intent of squashing this with the passed revision and overwriting the original commit message via interactive rebase later. Note: Keep the summary line 1 as-is; line 3 is the new summary and the commit message starts in line 5.
 	fixamendlast = selectedcommit-command --accept-single --single-only -2 fixamend COMMITS --max-count 1	; Commit with the intent of squashing this with the last commit (of FILE; if you omit that the HEAD commit would be referenced, and you could just amend there) and overwriting the original commit message via interactive rebase later.
 	fixamendselected = selectedcommit-command --single-only -2 fixamend COMMITS
 	fixamend1 = fixamendselected --max-count 1
@@ -513,7 +513,7 @@
 	fixamendad-i = selectedannotatediffcommit-command --single-only -2 fixamend COMMITS
 
 
-	fixwording = fixup --reword	; Commit with the intent of squashing this with the passed <commit> (id or :/<pattern>) and just rewording the original commit message (no changes!) via interactive rebase later. Note: Keep the summary line 1 as-is; line 3 is the new summary and the commit message starts in line 5.
+	fixwording = fixup --reword	; Commit with the intent of squashing this with the passed revision and just rewording the original commit message (no changes!) via interactive rebase later. Note: Keep the summary line 1 as-is; line 3 is the new summary and the commit message starts in line 5.
 	fixwordinglast = selectedcommit-command --accept-single --single-only -2 fixwording COMMITS --max-count 1	; Commit with the intent of squashing this with the last commit (of FILE; if you omit that the HEAD commit would be referenced, and you could just amend there) and just rewording the original commit message (no changes!) via interactive rebase later.
 	fixwordingselected = selectedcommit-command --single-only -2 fixwording COMMITS
 	fixwording1 = fixwordingselected --max-count 1
@@ -573,7 +573,7 @@
 	fixwordingad-i = selectedannotatediffcommit-command --single-only -2 fixwording COMMITS
 
 
-	;; fixuprb: Commit and squash with the passed <commit> (id or :/<pattern>) via interactive rebase.
+	;; fixuprb: Commit and squash with the passed revision via interactive rebase.
 	fixuprblast = selectedcommit-command --accept-single --single-only -2 fixuprb COMMITS --max-count 1	; Commit and squash with the last commit (of FILE; if you omit that the HEAD commit would be referenced, and you could just amend there).
 	fixupselectedrb = selectedcommit-command --single-only -2 fixuprb COMMITS	; Commit and squash with the commit interactively chosen from the commits in the passed <range> via interactive rebase.
 	fixuprb1 = fixupselectedrb --max-count 1
@@ -633,7 +633,7 @@
 	fixuprbad-i = selectedannotatediffcommit-command --single-only -2 fixuprb COMMITS
 
 
-	;; fixamendrb: Commit and squash and overwrite the original commit message with the passed <commit> (id or :/<pattern>) via interactive rebase.
+	;; fixamendrb: Commit and squash and overwrite the original commit message with the passed revision via interactive rebase.
 	fixamendrblast = selectedcommit-command --accept-single --single-only -2 fixamendrb COMMITS --max-count 1	; Commit and squash and overwrite the original commit message with the last commit (of FILE; if you omit that the HEAD commit would be referenced, and you could just amend there).
 	fixamendselectedrb = selectedcommit-command --single-only -2 fixamendrb COMMITS	; Commit and squash and overwrite the original commit message with the commit interactively chosen from the commits in the passed <range> via interactive rebase.
 	fixamendrb1 = fixamendselectedrb --max-count 1
@@ -693,7 +693,7 @@
 	fixamendrbad-i = selectedannotatediffcommit-command --single-only -2 fixamendrb COMMITS
 
 
-	;; fixwordingrb: Commit and squash and just reword the original commit message (no changes!) the original commit message with the passed <commit> (id or :/<pattern>) via interactive rebase.
+	;; fixwordingrb: Commit and squash and just reword the original commit message (no changes!) the original commit message with the passed revision via interactive rebase.
 	fixwordingrblast = selectedcommit-command --accept-single --single-only -2 fixwordingrb COMMITS --max-count 1	; Commit and squash and just reword the original commit message with the last commit (of FILE; if you omit that the HEAD commit would be referenced, and you could just amend there).
 	fixwordingselectedrb = selectedcommit-command --single-only -2 fixwordingrb COMMITS	; Commit and squash and just reword the original commit message with the commit interactively chosen from the commits in the passed <range> via interactive rebase.
 	fixwordingrb1 = fixwordingselectedrb --max-count 1
@@ -753,7 +753,7 @@
 	fixwordingrbad-i = selectedannotatediffcommit-command --single-only -2 fixwordingrb COMMITS
 
 
-	;; commitidentical: Commit directly (without further edits) with the same commit message as <commit>.
+	;; commitidentical: Commit directly (without further edits) with the same commit message as the passed revision [from the working copy that FILE or DIR resides in].
 	commitidenticallast = selectedcommit-command --accept-single --single-only --pass-file-args --allow-outside-workingcopy -2 commitidentical COMMITS --max-count 1	; Commit directly (without further edits) with the same commit message as the last commit.
 	commitidenticalselected = selectedcommit-command --single-only --pass-file-args --allow-outside-workingcopy -2 commitidentical COMMITS	; Commit directly (without further edits) with the same commit message as the commit interactively chosen from the commits in the passed <range>.
 	commitidentical1 = commitidenticalselected --max-count 1
@@ -814,7 +814,7 @@
 	commitidenticalad-i = selectedannotatediffcommit-command --single-only -2 commitidentical COMMITS
 
 
-	commitlike = commitidentical --edit 	; Commit with the same commit message as <commit> as the base for further editing.
+	commitlike = commitidentical --edit 	; Commit with the same commit message as the passed revision as the base for further editing.
 	commitlikelast = selectedcommit-command --accept-single --single-only --pass-file-args --allow-outside-workingcopy -2 commitlike COMMITS --max-count 1	; Commit with the same commit message as the last commit.
 	commitlikeselected = selectedcommit-command --single-only --pass-file-args --allow-outside-workingcopy -2 commitlike COMMITS	; Commit with the same commit message as the commit interactively chosen from the commits in the passed <range> as the base for further editing.
 	commitlike1 = commitlikeselected --max-count 1
@@ -875,9 +875,9 @@
 	commitlikead-i = selectedannotatediffcommit-command --single-only -2 commitlike COMMITS
 
 
-	;; commitrelate: Commit with the same commit message as <commit>(s) [from the working copy that FILE or DIR resides in] as the base for further editing, referencing prior <commit>(s) (when it's too late to amend the existing commit). This just adds a reference to the prior commit(s) in the commit message (title and body).
-	commitrelatelast = selectedcommit-command --accept-single --single-only --pass-file-args --allow-outside-workingcopy -2 commitrelate COMMITS --max-count 1	; Commit with the same commit message as the last commit as the base for further editing, referencing prior <commit> (when it's too late to amend the existing commit).
-	commitrelateselected = selectedcommit-command --pass-file-args --allow-outside-workingcopy -2 commitrelate COMMITS	; Commit with the same commit message(s) as <commit>(s) as the base for further editing, referencing prior commit(s) interactively chosen from the commits in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
+	;; commitrelate: Commit with the same commit message as passed revision(s) [from the working copy that FILE or DIR resides in] as the base for further editing, referencing prior commit(s) (when it's too late to amend the existing commit). This just adds a reference to the prior commit(s) in the commit message (title and body).
+	commitrelatelast = selectedcommit-command --accept-single --single-only --pass-file-args --allow-outside-workingcopy -2 commitrelate COMMITS --max-count 1	; Commit with the same commit message as the last commit as the base for further editing, referencing prior commit (when it's too late to amend the existing commit).
+	commitrelateselected = selectedcommit-command --pass-file-args --allow-outside-workingcopy -2 commitrelate COMMITS	; Commit with the same commit message(s) as the passed revision(s) as the base for further editing, referencing prior commit(s) interactively chosen from the commits in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
 	commitrelate1 = commitrelateselected --max-count 1
 	commitrelate2 = commitrelateselected --max-count 2
 	commitrelate3 = commitrelateselected --max-count 3
@@ -888,11 +888,11 @@
 	commitrelatex = commitrelateselected --max-count 12
 	commitrelateq = commitrelateselected --max-count 25
 	commitrelatez = commitrelateselected --max-count 100
-	commitrelateg = selectedgcommit-command -2 commitrelate COMMITS	; Commit with the same commit message(s) as <commit>(s) as the base for further editing, referencing prior commit(s) interactively chosen from the commits where log messages match the specified text or /regexp/ (when it's too late or cumbersome to fixup the existing commit).
-	commitrelatechanged = selectedchangedcommit-command -2 commitrelate COMMITS	; Commit with the same commit message(s) as <commit>(s) as the base for further editing, referencing prior commit(s) interactively chosen from the commits where the actual diff; i.e. those filepairs whose preimage and postimage have different number of occurrences of the text or /regexp/.
-	commitrelatetouched = selectedtouchedcommit-command -2 commitrelate COMMITS	; Commit with the same commit message(s) as <commit>(s) as the base for further editing, referencing prior commit(s) interactively chosen from the commits where in the diff the text or /regexp/ matches, without necessarily changing the number of occurrences themselves.
+	commitrelateg = selectedgcommit-command -2 commitrelate COMMITS	; Commit with the same commit message(s) as the passed revision(s) as the base for further editing, referencing prior commit(s) interactively chosen from the commits where log messages match the specified text or /regexp/ (when it's too late or cumbersome to fixup the existing commit).
+	commitrelatechanged = selectedchangedcommit-command -2 commitrelate COMMITS	; Commit with the same commit message(s) as the passed revision(s) as the base for further editing, referencing prior commit(s) interactively chosen from the commits where the actual diff; i.e. those filepairs whose preimage and postimage have different number of occurrences of the text or /regexp/.
+	commitrelatetouched = selectedtouchedcommit-command -2 commitrelate COMMITS	; Commit with the same commit message(s) as the passed revision(s) as the base for further editing, referencing prior commit(s) interactively chosen from the commits where in the diff the text or /regexp/ matches, without necessarily changing the number of occurrences themselves.
 
-	commitrelatest = stfiles-command selectedcommit-command -2 commitrelate COMMITS	; Commit with the same commit message(s) as <commit>(s) as the base for further editing, referencing prior commit(s) interactively chosen from the commits of currently modified files in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
+	commitrelatest = stfiles-command selectedcommit-command -2 commitrelate COMMITS	; Commit with the same commit message(s) as the passed revision(s) as the base for further editing, referencing prior commit(s) interactively chosen from the commits of currently modified files in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
 	commitrelatelastst = stfiles-command selectedcommit-command --accept-single --single-only -2 commitrelate COMMITS --max-count 1	; Commit with the same commit message as the last commit of currently modified files as the base for further editing, referencing prior commit (when it's too late to amend the existing commit).
 	commitrelatest1 = commitrelatest --max-count 1
 	commitrelatest2 = commitrelatest --max-count 2
@@ -906,7 +906,7 @@
 	commitrelatestz = commitrelatest --max-count 100
 	commitrelateadst = selectedannotatediffcommit-command HEAD -2 commitrelate COMMITS
 
-	commitrelatei = stifiles-command selectedcommit-command -2 commitrelate COMMITS	; Commit with the same commit message(s) as <commit>(s) as the base for further editing, referencing prior commit(s) interactively chosen from the commits of currently staged files in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
+	commitrelatei = stifiles-command selectedcommit-command -2 commitrelate COMMITS	; Commit with the same commit message(s) as the passed revision(s) as the base for further editing, referencing prior commit(s) interactively chosen from the commits of currently staged files in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
 	commitrelatelasti = stifiles-command selectedcommit-command --accept-single --single-only -2 commitrelate COMMITS --max-count 1	; Commit with the same commit message as the last commit of currently staged files as the base for further editing, referencing prior commit (when it's too late to amend the existing commit).
 	commitrelatei1 = commitrelatei --max-count 1
 	commitrelatei2 = commitrelatei --max-count 2
@@ -920,7 +920,7 @@
 	commitrelateiz = commitrelatei --max-count 100
 	commitrelateadi = selectedannotatediffcommit-command --cached -2 commitrelate COMMITS
 
-	commitrelate-i = stIfiles-command selectedcommit-command -2 commitrelate COMMITS	; Commit with the same commit message(s) as <commit>(s) as the base for further editing, referencing prior commit(s) interactively chosen from the commits of currently modified but not staged files in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
+	commitrelate-i = stIfiles-command selectedcommit-command -2 commitrelate COMMITS	; Commit with the same commit message(s) as the passed revision(s) as the base for further editing, referencing prior commit(s) interactively chosen from the commits of currently modified but not staged files in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
 	commitrelatelast-i = stIfiles-command selectedcommit-command --accept-single --single-only -2 commitrelate COMMITS --max-count 1	; Commit with the same commit message as the last commit of currently modified but not staged files as the base for further editing, referencing prior commit (when it's too late to amend the existing commit).
 	commitrelate-i1 = commitrelate-i --max-count 1
 	commitrelate-i2 = commitrelate-i --max-count 2
@@ -935,7 +935,7 @@
 	commitrelatead-i = selectedannotatediffcommit-command -2 commitrelate COMMITS
 
 
-	amendrelate = commitrelate --amend  ; Amend with a reference to prior <commit>(s) (when it's too late to amend the existing commit).
+	amendrelate = commitrelate --amend  ; Amend with a reference to prior revision(s) (when it's too late to amend the existing commit).
 	amendrelatelast = selectedcommit-command --accept-single --single-only -2 amendrelate COMMITS --max-count 1	; Amend with a reference to the last commit (when it's too late to amend the existing commit).
 	amendrelateselected = selectedcommit-command -2 amendrelate COMMITS	; Amend with a reference to prior commit(s) interactively chosen from the commits in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
 	amendrelate1 = amendrelateselected --max-count 1
@@ -1006,7 +1006,7 @@
 	amendonly = wrapper-nocolor commit --amend --only	; Reword commit message / amend passed files to last commit, ignoring any already staged changes.
 	reword = amendonly --cleanup=strip
 
-	; amendlike: Amend the same files (inside <path>) as were modified in the last commit / N'th commit / passed <commit> to the last commit (ignoring any already staged changes).
+	; amendlike: Amend the same files (inside <path>) as were modified in the last commit / N'th commit / passed revision to the last commit (ignoring any already staged changes).
 	amendlikeselected = selectedcommit-command --single-only -2 amendlike COMMITS
 	amendlike1 = amendlikeselected --max-count 1
 	amendlike2 = amendlikeselected --max-count 2

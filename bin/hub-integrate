@@ -91,6 +91,7 @@ isOffer=
 isCheck=
 isMakeReady=
 problemSeverity='ERROR'
+typeset -a gitRemoteMutateArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -220,14 +221,14 @@ pushSubmodules()
 {
     printf '\nPushing submodules:\n'
     git-showsubmodules "${targetBranch}..HEAD" \
-	| git-subdo --subdo-command-name "${scriptName#hub-}" --status-99-is-noop --for - --interactive push-this-branch
+	| git-subdo --subdo-command-name "${scriptName#hub-}" --status-99-is-noop --for - --interactive push-this-branch "${gitRemoteMutateArgs[@]}"
 }
 
 deleteMergedSubmoduleBranches()
 {
     printf '\nDeleting merged submodule branches:\n'
     git-showsubmodules "${targetBranch}..HEAD" \
-	| git-subdo --subdo-command-name "${scriptName#hub-}" --status-99-is-noop --for - --interactive delete-merged-branches "$sourceBranch"
+	| git-subdo --subdo-command-name "${scriptName#hub-}" --status-99-is-noop --for - --interactive delete-merged-branches "${gitRemoteMutateArgs[@]}" -- "$sourceBranch"
 }
 
 if [ "$isOffer" ]; then

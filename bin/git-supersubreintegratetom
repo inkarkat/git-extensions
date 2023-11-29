@@ -69,6 +69,7 @@ HELPTEXT
 
 typeset -a affectedSubmodules=()
 typeset -a affectedSubmoduleSourceCommand=(bomsubmodules)
+typeset -a affectedSubmoduleDeleteBranchCommand=(oldelete BRANCHNAME)
 typeset -a reintegrateArgs=()
 isFastForwardIntegration=
 integrationType='re'
@@ -78,7 +79,10 @@ do
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--fast-forward-integrate)
 			shift; isFastForwardIntegration=t; integrationType='fast-forward-';;
-	--same-branch)	shift; affectedSubmoduleSourceCommand=(subsamebrdo --subdo-command-name "${scriptName#git-}");;
+	--same-branch)	shift
+			affectedSubmoduleSourceCommand=(subsamebrdo --subdo-command-name "${scriptName#git-}")
+			affectedSubmoduleDeleteBranchCommand=(oldeletelb)
+			;;
 	--for)		shift
 			if [ "$1" = - ]; then
 			    shift
@@ -340,6 +344,7 @@ completeSubmoduleReintegrationInSuperproject()
     fi
 }
 
+sourceBranch=
 reintegrateSuperproject()
 {
     goToSuperproject
@@ -419,6 +424,7 @@ reintegrateSuperproject()
 	&& ffintegratetoArgs+=(--no-push --no-delete --no-submodule-checkout --no-submodule-update) \
 	|| ffintegratetoArgs+=( --push-submodules --delete-merged-submodule-branches)
     if [ "$isFastForwardIntegration" ]; then
+	sourceBranch="$(git brname --real-branch-only)" || exit 3
 	git-ffintegrateto "${ffintegratetoArgs[@]}" "$@" || exit $?
 	fastforwardCommit
     elif [ "$isHubIntegrate" ]; then
@@ -464,10 +470,15 @@ fastforwardCommit()
     # TODO: Add --yes once supported
 
     printf '\nDeleting merged superproject and submodule branches:\n'
+    if [ -n "$sourceBranch" ]; then
+	affectedSubmoduleDeleteBranchCommand=("${affectedSubmoduleDeleteBranchCommand[@]//BRANCHNAME/$sourceBranch}")
+    else
+	echo >&2 'Warning: Source branch unknown; will attempt to delete the last checked-out branch.'
+	affectedSubmoduleDeleteBranchCommand=(oldeletelb)
+    fi
     "${submoduleExecutor[@]:?}" ${submoduleExecutor:+--no-pager --include-superproject --interactive} \
-	    oldeletelb \
+	    "${affectedSubmoduleDeleteBranchCommand[@]}" \
 	|| exit $?
-    # TODO: Record and use previous branch.
 }
 
 $action "$@"

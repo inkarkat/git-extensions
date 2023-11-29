@@ -440,6 +440,7 @@ reintegrateSuperproject()
 
 fastforwardCommit()
 {
+    printf '\nFast-forwarding submodule%s into %s:\n' "$affectedSubmodulesPlural" "$masterBranch"
     "${submoduleExecutor[@]:?}" ${submoduleExecutor:+--no-header --no-pager --interactive} \
 	    reintegratetom --ff-only --no-push --no-delete --no-checks \
 	|| exit $?
@@ -451,7 +452,7 @@ fastforwardCommit()
 		exit 1
 	    }
 	else
-	    userBinaryChoice --keep-prompt --console --question "Please confirm that the GitHub action has successfully validated the build on the branch." --ok-cancel || exit 4
+	    userBinaryChoice --keep-prompt --console --question $'\nPlease confirm that the GitHub action has successfully validated the build on the branch?' --ok-cancel || exit 4
 	fi
     fi
 
@@ -459,7 +460,7 @@ fastforwardCommit()
     if ! "${submoduleExecutor[@]:?}" ${submoduleExecutor:+--no-pager --include-superproject-last} \
 	uptodate --tracked "origin/${masterBranch}"
     then
-	echo >&2 "ERROR: Some repo(s) is/are not up-to-date with the remote any longer. You unfortunately need to repeat the ${integrationType}integration."
+	echo >&2 "ERROR: At least one repo is not up-to-date with origin any longer. You unfortunately need to repeat the ${integrationType}integration."
 	exit 1
     fi
 
@@ -479,6 +480,8 @@ fastforwardCommit()
     "${submoduleExecutor[@]:?}" ${submoduleExecutor:+--no-pager --include-superproject --interactive} \
 	    "${affectedSubmoduleDeleteBranchCommand[@]}" \
 	|| exit $?
+
+    printf '\n✓ Branch completely reintegrated.\n'
 }
 
 $action "$@"

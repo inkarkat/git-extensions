@@ -102,8 +102,7 @@ branch successfully, then conclude by pushing all master branches and cleaning
 up branches.
 Note: There's no real transactional handling across repos; reintegration may
 fail at any point. This just limits the critical time period.
-`$ hub showsubdo --interactive opush`
-`$ git opush`
+`$ hub showsubdo --interactive opush && git opush`
 If any of the pushes fail, you still have the local branches; wipe the master
 branches, check out the feature branch, fetch, and repeat.
 `$ hub showsubdo --include-superproject --interactive oldeletelb`

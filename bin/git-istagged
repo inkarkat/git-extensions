@@ -7,16 +7,23 @@ printUsage()
 Test whether the current working copy / passed FILESPEC directly refers to a
 tagged commit.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-p|--print] [FILESPEC] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-p|--print] [--] [FILESPEC] [-?|-h|--help]'
 }
+
 redir='>/dev/null 2>&1'
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
 			shift;;
-    --color)		shift; shift;;
-    --print|-p)		shift; redir='2>/dev/null';;
-esac
+	--color)	shift; shift;;
+	--print|-p)	shift; redir='2>/dev/null';;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 case $# in
     0)	;;
     1)	if [ -d "$1" ]; then

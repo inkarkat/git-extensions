@@ -53,35 +53,18 @@ do
     esac
 done
 
-checkBranch()
+branchName=
+remoteBranch=
+remote=
+haveBranchName()
 {
     case $# in
-	0)  if ! remoteBranch="$(git-tracks)"; then
-		echo >&2 'ERROR: Not tracking a remote branch!'
-		exit 99
-	    fi
-	    ;;
-	1)  case "$1" in
-		*/*)    remoteBranch="$1";;
-		*)	remoteBranch="${1}/${branchName}" || exit $?;;
-	    esac
-	    if ! git-existsbr -- "$remoteBranch"; then
-		printf >&2 'ERROR: Remote branch %s does not exist.\n' "$remoteBranch"
-		exit 99
-	    fi
-	    ;;
-	*)  printUsage "$0" >&2; exit 2;;
-    esac
+	0)  branchName="$(git-brname --real-branch-only 2>/dev/null)" \
+		&& remoteBranch="$(git-tracks)" \
+		&& remote="${remoteBranch%%/*}" \
+		&& return
 
-    remoteRev="$(git ls-remote "${remoteBranch%%/*}" "${remoteBranch#*/}" | cut -f1)" || exit 2
-    localRev="$(git rev-parse HEAD)"
-    remote="${remoteBranch%%/*}"
-}
-
-checkTag()
-{
-    case $# in
-	0)  readarray -t remotes < <(git remote)
+	    typeset -a remotes=(); readarray -t remotes < <(git remote)
 	    case ${#remotes[@]} in
 		0)	printf >&2 'ERROR: No remotes.\n'; exit 99;;
 		1)	remote="${remotes[0]}";;
@@ -89,8 +72,18 @@ checkTag()
 	    esac
 	    ;;
 	1)  case "$1" in
-		*/*)    remote="${1%%/*}";;
-		*)	remote="${1:?}";;
+		*/*)    branchName="${1#*/}"
+			remoteBranch="$1"
+			if ! git-existsbr -- "$remoteBranch"; then
+			    printf >&2 'ERROR: Remote branch %s does not exist.\n' "$remoteBranch"
+			    exit 99
+			fi
+			remote="${1%%/*}"
+			;;
+		*)	branchName="$(git-brname --real-branch-only)" \
+			    && remoteBranch="${1}/${branchName}"
+			remote="${1:?}"
+			;;
 	    esac
 	    if ! git-existsremote "$remote"; then
 		printf >&2 'ERROR: Remote %s does not exist.\n' "$remote"
@@ -100,6 +93,23 @@ checkTag()
 	*)  printUsage "$0" >&2; exit 2;;
     esac
 
+    [ -n "$branchName" ]
+}
+
+checkBranch()
+{
+    if [ -z "$remoteBranch" ]; then
+	echo >&2 'ERROR: Not tracking a remote branch!'
+	exit 99
+    fi
+
+    remoteRev="$(git ls-remote "${remoteBranch%%/*}" "${remoteBranch#*/}" | cut -f1)" || exit 2
+    localRev="$(git rev-parse HEAD)"
+    remote="${remoteBranch%%/*}"
+}
+
+checkTag()
+{
     remoteRev='' isFoundCurrentTag=
     while IFS=$'\n' read -r remoteTagName
     do
@@ -115,7 +125,7 @@ checkTag()
 }
 
 
-if ! branchName="$(git-brname --real-branch-only 2>/dev/null)" \
+if ! haveBranchName "$@" \
     && tagName="$(git istagged --print)"
 then
     checkTag "$@"

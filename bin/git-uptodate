@@ -6,7 +6,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [--] [<remote>[/<branch>]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-t|--tracked] [-q|--quiet] [--] [<remote>[/<branch>]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -21,7 +21,7 @@ printLongUsage()
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
 Check remote whether the current branch is on the same commit as the tracked
-remote branch / passed remote (or whether a fetch / push is needed).
+remote branch / passed remote (or whether a pull / push is needed).
 Check remote whether there are tags with higher version numbers than the
 currently checked out tag.
 HELPDESCRIPTION
@@ -29,6 +29,9 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
+    --tracked|-t	Evaluate the update need of the tracked remote branch,
+			not the current branch. So the concern is about fetching,
+			not pulling.
     --quiet|-q		Do not print an up-to-date message or the pending
 			commits.
 HELPTEXT
@@ -37,6 +40,7 @@ HELPTEXT
 [ -t 1 ] \
     && typeset colorArg=(--color=always) \
     || typeset -a colorArg=(--no-color)
+isTracked=
 isQuiet=
 while [ $# -ne 0 ]
 do
@@ -46,6 +50,7 @@ do
 	--no-color|--color=*)
 			colorArg=("$1"); shift;;
 	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); shift; shift;;
+	--tracked|-t)	shift; isTracked=t;;
 	--quiet|-q)	shift; isQuiet=t;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
@@ -104,7 +109,9 @@ checkBranch()
     fi
 
     remoteRev="$(git ls-remote "${remoteBranch%%/*}" "${remoteBranch#*/}" | cut -f1)" || exit 2
-    localRev="$(git rev-parse HEAD)"
+    [ "$isTracked" ] \
+	&& compareRev="$(git rev-parse "$remoteBranch")" \
+	|| compareRev="$(git rev-parse HEAD)"
     remote="${remoteBranch%%/*}"
 }
 
@@ -121,23 +128,23 @@ checkTag()
 	exit 3
     fi
 
-    localRev="$tagName"
+    compareRev="$tagName"
 }
 
 
 if ! haveBranchName "$@" \
-    && tagName="$(git istagged --print)"
+    && tagName="$(git istagged --print ${isTracked:+--revision "$remoteBranch"})"
 then
     checkTag "$@"
 else
     checkBranch "$@"
 fi
 
-if git-equals "$localRev" "$remoteRev" 2>/dev/null; then
+if git-equals "$compareRev" "$remoteRev" 2>/dev/null; then
     [ "$isQuiet" ] || echo 'up to date'
 else
     [ "$isQuiet" ] || printf 'not up to date:\n%s\n   ↓↓↓\n%s\n' \
-	"$(git lg1 "${colorArg[@]}" "$localRev" --)" \
+	"$(git lg1 "${colorArg[@]}" "$compareRev" --)" \
 	"$(git lg1 "${colorArg[@]}" "$remoteRev" -- 2>/dev/null \
 	    || printf '%s\n' "$remoteRev" | git-lurl "$remote" -\
 	)"

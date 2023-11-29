@@ -4,12 +4,13 @@ set -e
 printUsage()
 {
     cat <<HELPTEXT
-Test whether the current working copy / passed FILESPEC directly refers to a
-tagged commit.
+Test whether the current commit / REVISION in the working copy / passed FILESPEC
+directly refers to a tagged commit.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-p|--print] [--] [FILESPEC] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-p|--print] [-r|--revision REVISION] [--] [FILESPEC] [-?|-h|--help]'
 }
 
+revision=
 redir='>/dev/null 2>&1'
 while [ $# -ne 0 ]
 do
@@ -19,6 +20,7 @@ do
 			shift;;
 	--color)	shift; shift;;
 	--print|-p)	shift; redir='2>/dev/null';;
+	--revision|-r)	shift; revision="${1:?}"; shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -38,4 +40,4 @@ case $# in
 	;;
 esac
 
-eval "exec git describe --tags --exact-match HEAD${redir:+ }${redir}"
+eval "exec git describe --tags --exact-match \"\${revision:-HEAD}\"${redir:+ }${redir}"

@@ -9,7 +9,7 @@ printShortUsage()
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
-    printf 'Usage: GIT_REINTEGRATE_CHECK_COMMAND=CMD|GIT_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" '[--same-branch|--for -|--for SUBMODULE [...] ;] [...]'
+    printf 'Usage: GIT_REINTEGRATE_CHECK_COMMAND=CMD|GIT_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" '[--fast-forward-integrate] [--same-branch|--for -|--for SUBMODULE [...] ;] [...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '[...] --no-checks | -c|--command "CHECK-COMMANDLINE" [-c ...] | --exec SIMPLECOMMAND [...] ; [...]'
     printf 'Usage: echo CHECK-COMMANDLINES | %q %s\n' "$(basename "$1")" '[...] [--bare|[--initial-status NUM] [--trailing-prompt|--no-trailing-prompt] [--no-output-no-prompt] [--no-output-no-error] [--emulate-prompt]] [--no-success-no-count|--no-count-on N] [--exit-on-success|--exit-on-failure|--exit-on NUM] [--worst-status] [--comment COMMENT] [--summarize-failed ERROR-TEXT [--summarize-failed-separator SEP]] -'
     printf 'Usage: %q %s - <<EOF\n  CHECK-COMMANDLINE\n...\nEOF\n' "$(basename "$1")" '[...]'
@@ -43,6 +43,17 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
+    --fast-forward-integrate
+			Also reverse-integrate all submodule(s) so that they too
+			remain on their branches instead of directly pushing out
+			their master branches while the superproject is being
+			integrated. All repos can then be pushed out at once.
+			This minimizes the time of discrepancies between latest
+			submodule state and recorded superproject commit when a
+			mandatory superproject CI/CD build verification prevents
+			the immediate pushing of the reintegrated superproject
+			commit, at the cost of more complexity, especially when
+			a push fails due to concurrent third-party updates.
     --same-branch	Cover all submodules that are on the same branch as the
 			superproject. By default, covers submodules that are
 			modified in the superproject's current branch to master
@@ -59,10 +70,14 @@ HELPTEXT
 typeset -a affectedSubmodules=()
 typeset -a affectedSubmoduleSourceCommand=(bomsubmodules)
 typeset -a reintegrateArgs=()
+isFastForwardIntegration=
+integrationType='re'
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--fast-forward-integrate)
+			shift; isFastForwardIntegration=t; integrationType='fast-forward-';;
 	--same-branch)	shift; affectedSubmoduleSourceCommand=(subsamebrdo --subdo-command-name "${scriptName#git-}");;
 	--for)		shift
 			if [ "$1" = - ]; then
@@ -177,18 +192,18 @@ if [ ${#unintegratedSubmodules[@]} -eq 0 ]; then
 	dirtySubmoduleReferencesPlural=s; [ ${#dirtySubmoduleReferences[@]} -eq 1 ] && dirtySubmoduleReferencesPlural=
 
 	userBinaryChoice --keep-prompt \
-	    --introduction "Apparently the submodule reintegration was interrupted and ${#dirtySubmoduleReferences[@]} submodule reference$dirtySubmoduleReferencesPlural $dirtySubmoduleReferencesAuxiliaryVerb not been committed yet." \
+	    --introduction "Apparently the submodule ${integrationType}integration was interrupted and ${#dirtySubmoduleReferences[@]} submodule reference$dirtySubmoduleReferencesPlural $dirtySubmoduleReferencesAuxiliaryVerb not been committed yet." \
 	    --question "Update the changed submodule reference$dirtySubmoduleReferencesPlural in the superproject now?" \
 	    --yes-no || exit 4
 
 	action=completeSubmoduleReintegrationInSuperproject
     else
 	if [ "$HUB" ] && hub-prcomments; then
-	    userBinaryChoice --keep-prompt --console --question 'Really reintegrate the superproject despite the open PR review comments?' --yes-no || exit 4
+	    userBinaryChoice --keep-prompt --console --question "Really ${integrationType}integrate the superproject despite the open PR review comments?" --yes-no || exit 4
 	fi
 
 	if [ "$HUB" ] && acceptStatus 0 99 hub-prapproval; then
-	    userBinaryChoice --keep-prompt --console --question 'Really reintegrate the superproject?' --yes-no || exit 4
+	    userBinaryChoice --keep-prompt --console --question "Really ${integrationType}integrate the superproject?" --yes-no || exit 4
 	fi
 
 	action=reintegrateSuperproject
@@ -244,7 +259,7 @@ fetchFirst()
 
 reintegrateSubmodule()
 {
-    if [ "$HUB" ]; then
+    if [ "$HUB" ] && [ ! "$isFastForwardIntegration" ]; then
 	if choice="$(git config --type bool --get reintegrate.submodule-in-hub)"; then
 	    case "$choice" in
 		true)   "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--interactive} integrate --make-ready "$@" && return;;
@@ -263,7 +278,10 @@ reintegrateSubmodule()
 
     local superMessage="$("${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} bomlo)"
 
-    "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--interactive} reintegratetom --no-push --no-delete --no-checks ${superMessage:+--merge-message-template "$superMessage"} || exit $?
+    [ "$isFastForwardIntegration" ] \
+	&& typeset -a submoduleReintegrationCommand=(ffintegratetom --push-branch --no-merge) \
+	|| typeset -a submoduleReintegrationCommand=(reintegratetom --no-delete)
+    "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--interactive} "${submoduleReintegrationCommand[@]}" --no-push --no-checks ${superMessage:+--merge-message-template "$superMessage"} || exit $?
 
     # Remaining steps (i.e. committing the submodule changes) happen in the superproject.
     completeSubmoduleReintegrationInSuperproject "$@"
@@ -312,11 +330,11 @@ completeSubmoduleReintegrationInSuperproject()
 	unintegratedSubmodulesPlural=s; [ ${#unintegratedSubmodules[@]} -eq 1 ] && unintegratedSubmodulesPlural=
 	printf '%s more submodule%s to reintegrate: %s\n' ${#unintegratedSubmodules[@]} "$unintegratedSubmodulesPlural" "$(joinBy ', ' "${unintegratedSubmodules[@]}")"
 	exit 0
-    elif userBinaryChoice --keep-prompt --question 'Reintegrate the superproject now?' --yes-no; then
+    elif userBinaryChoice --keep-prompt --question "${integrationType^}integrate the superproject now?" --yes-no; then
 	reintegrateSuperproject "$@"
     else
 	local gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
-	printf 'Continue with the reintegration of the superproject via $ %s %q' "$gitCommand" "${scriptName#git-}"
+	printf 'Continue with the %sintegration of the superproject via $ %s %q' "$integrationType" "$gitCommand" "${scriptName#git-}"
 	[ $# -eq 0 ] || printf ' %q' "$@"
 	printf '\n'
     fi
@@ -342,11 +360,11 @@ reintegrateSuperproject()
     esac
 
     unset isHubIntegrate
-    if [ "$HUB" ]; then
+    if [ "$HUB" ] && [ ! "$isFastForwardIntegration" ]; then
 	local targetTracks="$(git-tracks 2>/dev/null)"
 	if [ -z "$targetTracks" ]; then
 	    printf >&2 '\nNote: The superproject does not track any remote; complete integration in and by GitHub (without running local checks) not possible.\n'
-	elif "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--no-pager --separate-errors} "${scriptName#git-}" --print-outgoing "$targetTracks" \
+	elif "${submoduleExecutor[@]:?}" ${submoduleExecutor:+--no-pager --separate-errors} "${scriptName#git-}" --print-outgoing "$targetTracks" \
 	    | outputAndPrintf '\nNote: Submodule(s) have outgoing reintegration commits; complete integration in and by GitHub (without running local checks) not possible:\n'
 	then
 	    echo
@@ -372,7 +390,7 @@ reintegrateSuperproject()
     # submodule reintegration locally, run the checks, and then push submodules
     # and let the superproject PR do the remainder. This saves us from waiting
     # for the GitHub action to validate the build.
-    if [ "$HUB" ] && [ -z "${isHubIntegrate+t}" ]; then
+    if [ "$HUB" ] && [ ! "$isFastForwardIntegration" ] && [ -z "${isHubIntegrate+t}" ]; then
 	# Note: We can only --check here, because there's still local work to do
 	# first.
 	if choice="$(git config --type bool --get reintegrate.superproject-in-hub)"; then
@@ -396,8 +414,14 @@ reintegrateSuperproject()
 	fi
     fi
 
-    typeset -ra ffintegratetoArgs=(--branch "$masterBranch" --push-branch "${integrateArgs[@]}" "${ffintegratetoArgs[@]}" --push-submodules --delete-merged-submodule-branches)
-    if [ "$isHubIntegrate" ]; then
+    typeset -a ffintegratetoArgs=(--branch "$masterBranch" --push-branch "${integrateArgs[@]}" "${ffintegratetoArgs[@]}")
+    [ "$isFastForwardIntegration" ] \
+	&& ffintegratetoArgs+=(--no-push --no-delete --no-submodule-checkout --no-submodule-update) \
+	|| ffintegratetoArgs+=( --push-submodules --delete-merged-submodule-branches)
+    if [ "$isFastForwardIntegration" ]; then
+	git-ffintegrateto "${ffintegratetoArgs[@]}" "$@" || exit $?
+	fastforwardCommit
+    elif [ "$isHubIntegrate" ]; then
 	# Just merge / rebase $masterBranch to the current branch, run checks,
 	# push and delete submodule branches. With that, the superproject PR can
 	# do the remainder of the integration in and by GitHub.
@@ -406,6 +430,44 @@ reintegrateSuperproject()
     else
 	exec git-ffintegrateto "${ffintegratetoArgs[@]}" "$@"
     fi
+}
+
+fastforwardCommit()
+{
+    "${submoduleExecutor[@]:?}" ${submoduleExecutor:+--no-header --no-pager --interactive} \
+	    reintegratetom --ff-only --no-push --no-delete --no-checks \
+	|| exit $?
+
+    if hub-workflow-status --has-workflow; then
+	if [ "$HUB" ]; then
+	    eval "${GIT_REINTEGRATE_PRE_PUSH_COMMAND:?}" || {
+		echo >&2 'Push preparation failed.'
+		exit 1
+	    }
+	else
+	    userBinaryChoice --keep-prompt --console --question "Please confirm that the GitHub action has successfully validated the build on the branch." --ok-cancel || exit 4
+	fi
+    fi
+
+    printf '\nFinal up-to-date check before pushing %s branches quasi-transactionally:\n' "$masterBranch"
+    if ! "${submoduleExecutor[@]:?}" ${submoduleExecutor:+--no-pager --include-superproject-last} \
+	uptodate --tracked "origin/${masterBranch}"
+    then
+	echo >&2 "ERROR: Some repo(s) is/are not up-to-date with the remote any longer. You unfortunately need to repeat the ${integrationType}integration."
+	exit 1
+    fi
+
+    printf '\nPushing fast-forward-integrated submodule and superproject %s branches:\n' "$masterBranch"
+    "${submoduleExecutor[@]:?}" ${submoduleExecutor:+--no-pager --include-superproject-last --interactive} \
+	    push-this-branch \
+	|| exit $?
+    # TODO: Add --yes once supported
+
+    printf '\nDeleting merged superproject and submodule branches:\n'
+    "${submoduleExecutor[@]:?}" ${submoduleExecutor:+--no-pager --include-superproject --interactive} \
+	    oldeletelb \
+	|| exit $?
+    # TODO: Record and use previous branch.
 }
 
 $action "$@"

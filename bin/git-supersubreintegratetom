@@ -165,10 +165,16 @@ checkForUnintegratedSubmodules()
 {
     printf 'Checking for unintegrated submodules... '
 
+    # After a reintegration, the submodule already is on the master branch; this is easy to check.
+    # After a fast-forward integration, the submodule is still on the feature branch, and with rebasing there might not even be a merge commit. Therefore, we've asked ffintegrateto via --mark-reverse-merge-done to set a mark that we'll now check.
+    [ "$isFastForwardIntegration" ] \
+	&& local predicateCommand='! git-ffintegrateto --is-reverse-merge-done' \
+	|| local predicateCommand="branch=\$(git brname --real-branch-only 2>/dev/null) && [ \"\$branch\" != $masterBranch ]"
+
     readarray -t unintegratedSubmodules < <(
 	"${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} \
 	    subdo --subdo-command-name "${scriptName#git-}" --no-header --no-pager --for "${affectedSubmodules[@]}" \; \
-		--predicate-command "branch=\$(git brname --real-branch-only 2>/dev/null) && [ \"\$branch\" != $masterBranch ]"
+		--predicate-command "$predicateCommand"
     )
 
     [ ${#unintegratedSubmodules[@]} -eq 0 ] || echo 'DONE.' # "If there are none, "No such submodules found." has already been printed.
@@ -283,7 +289,7 @@ reintegrateSubmodule()
     local superMessage="$("${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} bomlo)"
 
     [ "$isFastForwardIntegration" ] \
-	&& typeset -a submoduleReintegrationCommand=(ffintegratetom --push-branch --no-merge) \
+	&& typeset -a submoduleReintegrationCommand=(ffintegratetom --push-branch --no-merge --mark-reverse-merge-done) \
 	|| typeset -a submoduleReintegrationCommand=(reintegratetom --no-delete)
     "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--interactive} "${submoduleReintegrationCommand[@]}" --no-push --no-checks ${superMessage:+--merge-message-template "$superMessage"} || exit $?
 

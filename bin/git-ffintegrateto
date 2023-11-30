@@ -109,6 +109,23 @@ time:
 HELPTEXT
 }
 
+withMarkStore()
+{
+    gitDir=$(git rev-parse --git-dir 2>/dev/null) || return 3
+    markStore="${gitDir}/ffintegrate"
+    "$@"
+}
+setReverseMarkDone()
+{
+    git-commitid HEAD > "${markStore:?}" || return 3
+}
+checkReverseMarkDone()
+{
+    [ -r "${markStore:?}" ] || return 1
+    < "$markStore" IFS=$'\n' read -r integrationRevision || return 3
+    [ "${integrationRevision:?}" = "$(git-commitid HEAD)" ]
+}
+
 allArgs=("$@")
 targetBranch=
 case "$1" in
@@ -150,6 +167,7 @@ typeset -a continueArgs=()
 typeset -a gitRemoteMutateArgs=()
 typeset -a reintegrateArgs=()
 isFastForwardTargetToTracked=
+afterReverseMergeCommand=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -221,6 +239,11 @@ do
 			reintegrateArgs+=("$1"); shift;;
 	--ff-target-to-tracked)
 			reintegrateArgs+=("$1"); shift; isFastForwardTargetToTracked=t;;
+
+	--mark-reverse-merge-done)
+			shift; afterReverseMergeCommand+="${afterReverseMergeCommand:+; }withMarkStore setReverseMarkDone";;
+	--is-reverse-merge-done)
+			shift; withMarkStore checkReverseMarkDone; exit $?;;
 
 	--)		mergeArgs+=("$1"); shift; break;;
 	--*)		mergeArgs+=("$1"); shift;;
@@ -568,7 +591,8 @@ else
 	    fi
 	fi
     fi
-fi  # End of actual merge; continue finalization from here.
+fi  # End of actual reverse merge; continue finalization from here.
+eval "$afterReverseMergeCommand"
 
 
 if [ "$isCheckFromStdin" ]; then

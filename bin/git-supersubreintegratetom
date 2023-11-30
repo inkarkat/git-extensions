@@ -9,7 +9,7 @@ printShortUsage()
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
-    printf 'Usage: GIT_REINTEGRATE_CHECK_COMMAND=CMD|GIT_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" '[--fast-forward-integrate] [--same-branch|--for -|--for SUBMODULE [...] ;] [...]'
+    printf 'Usage: GIT_REINTEGRATE_CHECK_COMMAND=CMD|GIT_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" '[--fast-forward-integrate] [-y|--yes] [--same-branch|--for -|--for SUBMODULE [...] ;] [...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '[...] --no-checks | -c|--command "CHECK-COMMANDLINE" [-c ...] | --exec SIMPLECOMMAND [...] ; [...]'
     printf 'Usage: echo CHECK-COMMANDLINES | %q %s\n' "$(basename "$1")" '[...] [--bare|[--initial-status NUM] [--trailing-prompt|--no-trailing-prompt] [--no-output-no-prompt] [--no-output-no-error] [--emulate-prompt]] [--no-success-no-count|--no-count-on N] [--exit-on-success|--exit-on-failure|--exit-on NUM] [--worst-status] [--comment COMMENT] [--summarize-failed ERROR-TEXT [--summarize-failed-separator SEP]] -'
     printf 'Usage: %q %s - <<EOF\n  CHECK-COMMANDLINE\n...\nEOF\n' "$(basename "$1")" '[...]'
@@ -54,6 +54,7 @@ HELPDESCRIPTION
 			the immediate pushing of the reintegrated superproject
 			commit, at the cost of more complexity, especially when
 			a push fails due to concurrent third-party updates.
+    --yes		Don't query for confirmation of remote mutations.
     --same-branch	Cover all submodules that are on the same branch as the
 			superproject. By default, covers submodules that are
 			modified in the superproject's current branch to master
@@ -69,19 +70,21 @@ HELPTEXT
 
 typeset -a affectedSubmodules=()
 typeset -a affectedSubmoduleSourceCommand=(bomsubmodules)
-typeset -a affectedSubmoduleDeleteBranchCommand=(delete-merged-branches -- '@{-1}')
+typeset -a affectedSubmoduleDeleteBranchArgs=('@{-1}')
 typeset -a reintegrateArgs=()
 isFastForwardIntegration=
 integrationType='re'
+typeset -a gitRemoteMutateArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--fast-forward-integrate)
 			shift; isFastForwardIntegration=t; integrationType='fast-forward-';;
+	--yes|-y)	gitRemoteMutateArgs+=("$1"); reintegrateArgs+=("$1"); shift;;
 	--same-branch)	shift
 			affectedSubmoduleSourceCommand=(subsamebrdo --subdo-command-name "${scriptName#git-}")
-			affectedSubmoduleDeleteBranchCommand=(delete-merged-branches -- BRANCHNAME)
+			affectedSubmoduleDeleteBranchArgs=(BRANCHNAME)
 			;;
 	--for)		shift
 			if [ "$1" = - ]; then
@@ -481,13 +484,13 @@ fastforwardCommit()
 
     printf '\nDeleting merged superproject and submodule branches:\n'
     if [ -n "$sourceBranch" ]; then
-	affectedSubmoduleDeleteBranchCommand=("${affectedSubmoduleDeleteBranchCommand[@]//BRANCHNAME/$sourceBranch}")
+	affectedSubmoduleDeleteBranchArgs=("${affectedSubmoduleDeleteBranchArgs[@]//BRANCHNAME/$sourceBranch}")
     else
 	echo >&2 'Warning: Source branch unknown; will attempt to delete the last checked-out branch.'
-	affectedSubmoduleDeleteBranchCommand=(delete-merged-branches -- '@{-1}')
+	affectedSubmoduleDeleteBranchArgs=('@{-1}')
     fi
     "${submoduleExecutor[@]:?}" ${submoduleExecutor:+--no-pager --include-superproject --interactive} \
-	    "${affectedSubmoduleDeleteBranchCommand[@]}" \
+	    delete-merged-branches "${gitRemoteMutateArgs[@]}" -- "${affectedSubmoduleDeleteBranchArgs[@]}" \
 	|| exit $?
 
     printf '\n✓ Branch completely reintegrated.\n'

@@ -137,6 +137,7 @@ typeset -a fastForwardArgs=()
 typeset -a mergeArgs=()
 typeset -a mergeMessageArgs=()
 typeset -a mergeNoEditMessageArgs=()
+mergeMessageTemplate=
 isBare=
 isDisableChecks=
 isCheckFromStdin=
@@ -211,6 +212,8 @@ do
 	--message|-m|--file|-F)
 			mergeMessageArgs+=("$1" "$2"); shift; shift;;
 	--no-edit)	mergeNoEditMessageArgs+=("$1"); shift;;
+	--merge-message-template)
+			shift; mergeMessageTemplate="${1?}"; shift;;
 	-[sX])		mergeArgs+=("$1" "$2"); shift; shift;;
 	--@(strategy|strategy-option|gpg-sign)=*)	mergeArgs+=("$1"); shift;;
 	--@(strategy|strategy-option|gpg-sign))		mergeArgs+=("$1" "$2"); shift; shift;;
@@ -456,7 +459,7 @@ else
 	# This is the reverse merge message: Though we're actually merging
 	# $targetBranch into $sourceBranch, with the fast-forward integration it
 	# will look as if $sourceBranch got merged into $targetBranch.
-	branchMergeMessage="$(git-mergeBranchMessage "$targetBranch" "$sourceBranch")" || exit 3
+	branchMergeMessage="${mergeMessageTemplate}${mergeMessageTemplate:+$'\n\n'}$(git-mergeBranchMessage "$targetBranch" "$sourceBranch")" || exit 3
     fi
 
     targetIntegrationSourceBranch="$targetBranch"

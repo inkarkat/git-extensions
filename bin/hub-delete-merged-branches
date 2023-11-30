@@ -7,7 +7,7 @@ Delete all passed branch(es) locally as well as in the tracked remote (unless it
 has already been auto-deleted by GitHub).
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-y|--yes] [--] <branch> [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-y|--yes] [--] <branch>|<revision> [...] [-?|-h|--help]'
 }
 
 typeset -a gitRemoteMutateArgs=()
@@ -43,6 +43,16 @@ hasBranchBeenAutoDeletedOnMerge()
 status=99
 for branch
 do
+    if ! git-existsbr "$branch"; then
+	resolvedBranch="$(git name-rev --name-only --no-undefined --exclude 'refs/tags/*' --exclude 'refs/remotes/*')"
+	if [ -n "$resolvedBranch" ]; then
+	    branch="$resolvedBranch"
+	else
+	    printf >&2 'ERROR: No branch %s\n' "$branch"
+	    status=1
+	fi
+    fi
+
     tracks="$(git-tracks "$branch" 2>/dev/null)"
     trackedRemote="${tracks%%/*}"
     typeset -a rldeletebrArgs=()

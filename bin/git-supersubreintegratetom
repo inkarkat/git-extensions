@@ -69,7 +69,7 @@ HELPTEXT
 
 typeset -a affectedSubmodules=()
 typeset -a affectedSubmoduleSourceCommand=(bomsubmodules)
-typeset -a affectedSubmoduleDeleteBranchCommand=(oldelete BRANCHNAME)
+typeset -a affectedSubmoduleDeleteBranchCommand=(delete-merged-branches -- '@{-1}')
 typeset -a reintegrateArgs=()
 isFastForwardIntegration=
 integrationType='re'
@@ -81,7 +81,7 @@ do
 			shift; isFastForwardIntegration=t; integrationType='fast-forward-';;
 	--same-branch)	shift
 			affectedSubmoduleSourceCommand=(subsamebrdo --subdo-command-name "${scriptName#git-}")
-			affectedSubmoduleDeleteBranchCommand=(oldeletelb)
+			affectedSubmoduleDeleteBranchCommand=(delete-merged-branches -- BRANCHNAME)
 			;;
 	--for)		shift
 			if [ "$1" = - ]; then
@@ -484,7 +484,7 @@ fastforwardCommit()
 	affectedSubmoduleDeleteBranchCommand=("${affectedSubmoduleDeleteBranchCommand[@]//BRANCHNAME/$sourceBranch}")
     else
 	echo >&2 'Warning: Source branch unknown; will attempt to delete the last checked-out branch.'
-	affectedSubmoduleDeleteBranchCommand=(oldeletelb)
+	affectedSubmoduleDeleteBranchCommand=(delete-merged-branches -- '@{-1}')
     fi
     "${submoduleExecutor[@]:?}" ${submoduleExecutor:+--no-pager --include-superproject --interactive} \
 	    "${affectedSubmoduleDeleteBranchCommand[@]}" \

@@ -60,7 +60,7 @@
 	;; system-setup: Setup system-specific Git configuration for a system.
 	;; isworktree: Test whether the current working copy is a secondary worktree.
 	;; isdetached: Test whether the current working copy directly refers to a particular commit as opposed to a named branch.
-	;; istagged: Test whether the current working copy directly refers to a tagged commit.
+	;; istagged: Test whether the current commit / REVISION in the working copy / passed FILESPEC directly refers to a tagged commit.
 
 	;; cat: Retrieve the contents of <path> as it exists in revision <ref>.
 	catselected = selectedcommit-command --single-only --pass-file-args -2 cat COMMITS	; Retrieve the contents of <path> as it exists in the commit interactively chosen from the commits in the passed <range>.
@@ -4554,9 +4554,9 @@
 	;; syncdate: Show when the local repository was last synchronized (fetch, pull, or push) with REMOTE(s).
 	osyncdate = syncdate origin
 	usyncdate = syncdate upstream
-	;; uptodate: Check remote whether the current branch is on the same commit as the tracked remote branch / passed remote (or whether a fetch / push is needed). Check remote whether there are newer tags than the currently checked out tag.
-	ouptodate = uptodate origin
-	uuptodate = uptodate upstream
+	;; uptodate: Check remote whether the current branch is on the same commit as the tracked remote branch / passed remote (or whether a pull / push is needed). Check remote whether there are tags with higher version numbers than the currently checked out tag.
+	ouptodate = uptodate --tracked origin	; Check remote whether the tracked origin branch is on the same commit as the remote itself (or whether a fetch / push is needed). Check remote whether there are tags with higher version numbers than the current tag at the tracked origin branch.
+	uuptodate = uptodate --tracked upstream	; Check remote whether the tracked upstream branch is on the same commit as the remote itself (or whether a fetch / push is needed). Check remote whether there are tags with higher version numbers than the current tag at the tracked upstream branch.
 
 	tco = rev-tracked-command checkout ; checkout tracked branch HEAD
 	td = rev-tracked-command diff ; diff with tracked branch
@@ -5032,8 +5032,8 @@
 	sublclgz = sublclg --max-count 100
 
 	;; showsubmodules: Show only the submodules that were modified in the passed commit or commit range.
-	showsubdo = "files-command --source-command showsubmodules --keep-position subdo --subdo-command-name showsubdo --for FILES ;"
-	showsubdor = "files-command --source-command showsubmodules --keep-position subdo --recursive --subdo-command-name showsubdor --for FILES ;"
+	showsubdo = "files-command --source-command showsubmodules --keep-position subdo --for FILES ;"
+	showsubdor = "files-command --source-command showsubmodules --keep-position subdor --for FILES ;"
 
 	subinout = subdo --subdo-command-name subinout inout
 	subinoutr = subdo --recursive --subdo-command-name subinoutr inout
@@ -5144,7 +5144,9 @@
 	osuperamendpush = superamendpush origin
 	usuperamendpush = superamendpush upstream
 
-	;; superffintegratetom: Merge / rebase the current branch of a superproject (immediately after reintegrating its submodules) to the master branch via a reverse integration; i.e. master is merged / rebased to the current branch first so that the reintegration is a simple fast-forward.
+	;; superonlyreintegratetom: Merge / rebase the current branch of the superproject (without affected submodules) to the master branch via a reverse integration of the superproject; i.e. master is merged / rebased to the current branch first so that the reintegration is a simple fast-forward.
+	;; supersubreintegratetom: Merge / rebase the current branch of a superproject + submodule(s) to the master branch via a reverse integration of the superproject; i.e. master is merged / rebased to the current branch first so that the reintegration is a simple fast-forward.
+	;; supersubffintegratetom: Merge / rebase the current branch of a superproject + submodule(s) to the master branch via a reverse integration of superproject and submodule(s); i.e. master branches are merged / rebased to the current branch first, those branches are pushed (allowing remote verification by CI/CD), and the final reintegration is a simple fast-forward that can then be quickly pushed for submodule(s) and superproject, minimizing the time of discrepancies between latest submodule state and recorded superproject commit to seconds.
 
 	;; supercommit: Reference this submodule's current revision and commit that in the superproject.
 	superamen = supercommit --amend --reuse-message=HEAD	; Reference this submodule's current revision and amend that to the superproject's last commit without re-editing the message.

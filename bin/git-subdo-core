@@ -8,7 +8,7 @@ printShortUsage()
     # skim the long one.
     printf 'Usage: [GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES=99] %q %s%s %s\n' "$(basename "$1")" '[--recursive] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success] [--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [<revision-range>] [--since <date>] [--after <date>] [--for -|--for SUBMODULE [...] ;] [-j|--include-superproject|-J|--include-superproject-last] [[--not] -P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]'
     echo
-    printf 'Usage: [GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES=99] %q %s%s %s\n' "$(basename "$1")" '--repeat [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success] [--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [-c|--command "COMMANDLINE" [-c ...]] [[--] SIMPLECOMMAND [...]]'
+    printf 'Usage: [GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES=99] %q %s%s %s\n' "$(basename "$1")" '--repeat [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success] [--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [-j|--include-superproject|-J|--include-superproject-last] [-c|--command "COMMANDLINE" [-c ...]] [[--] SIMPLECOMMAND [...]]'
 }
 printUsage()
 {
@@ -82,6 +82,8 @@ the command output.
     --not		Invert the predicate so that those submodules are
 			skipped where CMD succeeds.
     --repeat		Consider the same submodules as for the last iteration.
+			Does not include the superproject; it can still be added
+			separately via --include-superproject[-last].
 			Useful when these were based on a predicate that has
 			now been changed (due to the previously executed
 			COMMANDs).
@@ -298,17 +300,18 @@ else
 	[ -n "$GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES" ] || echo >&2 "No ${predicateCommands[@]:+such }submodules found."
 	exit ${GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES:-99}
     fi
-    if [ "$isIncludeSuperproject" ]; then
-	superprojectName="$(git-wcname)"
-	printf -v superprojectEnvironment '%s=%q; ' dirspec "${PWD:?}" name 'superproject' sm_path '.' displaypath '' sha1 "$(git rev-parse HEAD)" toplevel "${PWD:?}" predicateOutput ''
-	[ "$isIncludeSuperprojectLast" ] \
-	    && submoduleEnvironments=("${submoduleEnvironments[@]}" "$superprojectEnvironment") \
-	    || submoduleEnvironments=("$superprojectEnvironment" "${submoduleEnvironments[@]}")
-    fi
 
     [ -d "$RUNTIME_DIRSPEC" ] \
 	|| mkdir --parents -- "$RUNTIME_DIRSPEC" \
 	&& printf '%s\n' "${submoduleEnvironments[@]}" > "$lastSubmoduleStoreFilespec"
+fi
+
+if [ "$isIncludeSuperproject" ]; then
+    superprojectName="$(git-wcname)"
+    printf -v superprojectEnvironment '%s=%q; ' dirspec "${PWD:?}" name 'superproject' sm_path '.' displaypath '' sha1 "$(git rev-parse HEAD)" toplevel "${PWD:?}" predicateOutput ''
+    [ "$isIncludeSuperprojectLast" ] \
+	&& submoduleEnvironments=("${submoduleEnvironments[@]}" "$superprojectEnvironment") \
+	|| submoduleEnvironments=("$superprojectEnvironment" "${submoduleEnvironments[@]}")
 fi
 
 if [ "$hasProgressNotification" ] && [ -n "$progressSink" ]; then

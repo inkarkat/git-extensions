@@ -80,15 +80,15 @@ reintegration; submodules are still on their feature branch:
 Then ffintegrate the superproject; here, the merge will happen (locally):
 0) submodule branch(es) have been fast-forwarded: that creates no commit on
    master, so no action here
-   `$ git ffintegratetom --push-branch --no-delete --no-submodule-checkout --no-submodule-update --rebase-single`
+   `$ git ffintegratetom --no-push --push-branch --no-delete --no-submodule-checkout --no-submodule-update --rebase-single`
    This will be the case if you've just recently started the feature and it was
    an automated process (like updating metadata files everywhere).
 a) amends to short-lived feature without API changes:
    `$ git amenu`
-   `$ git ffintegratetom --push-branch --no-delete --no-submodule-checkout --no-submodule-update --rebase-single`
+   `$ git ffintegratetom --no-push --push-branch --no-delete --no-submodule-checkout --no-submodule-update --rebase-single`
 b) across-submodule API changes / maintain history of how the feature grew:
    `$ git cu -m 'feat-4711 Housekeeping: Reintegrate [...] submodule(s)'`   (no-op if all submodule branch(es) have been fast-forwarded)
-   `$ git ffintegratetom --push-branch --no-delete --no-submodule-checkout --no-submodule-update --no-ff`
+   `$ git ffintegratetom --no-push --push-branch --no-delete --no-submodule-checkout --no-submodule-update --no-ff`
 If the **GitHub action** does not **trigger** (if this is just a merge commit affecting
 submodule references but no actual files in the superproject), trigger it
 manually in GitHub.
@@ -102,8 +102,7 @@ branch successfully, then conclude by pushing all master branches and cleaning
 up branches.
 Note: There's no real transactional handling across repos; reintegration may
 fail at any point. This just limits the critical time period.
-`$ hub showsubdo --interactive opush`
-`$ git opush`
+`$ hub showsubdo --interactive opush && git opush`
 If any of the pushes fail, you still have the local branches; wipe the master
 branches, check out the feature branch, fetch, and repeat.
 `$ hub showsubdo --include-superproject --interactive oldeletelb`

@@ -7,14 +7,23 @@ Delete all passed branch(es) locally as well as in the tracked remote (unless it
 has already been auto-deleted by GitHub).
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '<branch> [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-y|--yes] [--] <branch>|<revision> [...] [-?|-h|--help]'
 }
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
+
+typeset -a gitRemoteMutateArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
 			shift;;
-    --color)		shift; shift;;
-esac
+	--color)	shift; shift;;
+	--yes|-y)	gitRemoteMutateArgs+=("$1"); shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 if [ $# -eq 0 ]; then
     printUsage "$0" >&2
     exit 2
@@ -34,6 +43,16 @@ hasBranchBeenAutoDeletedOnMerge()
 status=99
 for branch
 do
+    if ! git-existsbr "$branch"; then
+	resolvedBranch="$(git name-rev --name-only --no-undefined --exclude 'refs/tags/*' --exclude 'refs/remotes/*')"
+	if [ -n "$resolvedBranch" ]; then
+	    branch="$resolvedBranch"
+	else
+	    printf >&2 'ERROR: No branch %s\n' "$branch"
+	    status=1
+	fi
+    fi
+
     tracks="$(git-tracks "$branch" 2>/dev/null)"
     trackedRemote="${tracks%%/*}"
     typeset -a rldeletebrArgs=()
@@ -44,14 +63,14 @@ do
     if hasBranchBeenAutoDeletedOnMerge "$trackedRemote" "$branch"; then
 	printf >&2 "Note: GitHub already has automatically deleted the merged branch '%s' in %s.\\n" "$branch" "$trackedRemote"
 	if git-existsbr -- "$branch"; then
-	    git-deletebr --force "$branch"	# Need force here because without a pull the local repository is not aware of the remote branch deletion and would complain about it not being fully merged.
+	    git-deletebr --force "${gitRemoteMutateArgs[@]}" -- "$branch"	# Need force here because without a pull the local repository is not aware of the remote branch deletion and would complain about it not being fully merged.
 	    status=$(status99Reduction "$status" $?)
 	else
 	    printf >&2 "Note: The local branch '%s' already got deleted.\\n" "$branch"
 	    status=$(status99Reduction "$status" 99)
 	fi
     else
-	git-rldeletebr "$trackedRemote" --force --ignore-missing-local "${rldeletebrArgs[@]}" "$branch"	# Need force here for when the local merged branch got amended due to a conflict resolution during the merge.
+	git-rldeletebr "$trackedRemote" --force --ignore-missing-local "${rldeletebrArgs[@]}" "${gitRemoteMutateArgs[@]}" -- "$branch"	# Need force here for when the local merged branch got amended due to a conflict resolution during the merge.
 	status=$(status99Reduction "$status" $?)
     fi
 done

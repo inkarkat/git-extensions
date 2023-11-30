@@ -109,6 +109,23 @@ time:
 HELPTEXT
 }
 
+withMarkStore()
+{
+    gitDir=$(git rev-parse --git-dir 2>/dev/null) || return 3
+    markStore="${gitDir}/ffintegrate"
+    "$@"
+}
+setReverseMarkDone()
+{
+    git-commitid HEAD > "${markStore:?}" || return 3
+}
+checkReverseMarkDone()
+{
+    [ -r "${markStore:?}" ] || return 1
+    < "$markStore" IFS=$'\n' read -r integrationRevision || return 3
+    [ "${integrationRevision:?}" = "$(git-commitid HEAD)" ]
+}
+
 allArgs=("$@")
 targetBranch=
 case "$1" in
@@ -137,6 +154,7 @@ typeset -a fastForwardArgs=()
 typeset -a mergeArgs=()
 typeset -a mergeMessageArgs=()
 typeset -a mergeNoEditMessageArgs=()
+mergeMessageTemplate=
 isBare=
 isDisableChecks=
 isCheckFromStdin=
@@ -149,6 +167,7 @@ typeset -a continueArgs=()
 typeset -a gitRemoteMutateArgs=()
 typeset -a reintegrateArgs=()
 isFastForwardTargetToTracked=
+afterReverseMergeCommand=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -211,6 +230,8 @@ do
 	--message|-m|--file|-F)
 			mergeMessageArgs+=("$1" "$2"); shift; shift;;
 	--no-edit)	mergeNoEditMessageArgs+=("$1"); shift;;
+	--merge-message-template)
+			shift; mergeMessageTemplate="${1?}"; shift;;
 	-[sX])		mergeArgs+=("$1" "$2"); shift; shift;;
 	--@(strategy|strategy-option|gpg-sign)=*)	mergeArgs+=("$1"); shift;;
 	--@(strategy|strategy-option|gpg-sign))		mergeArgs+=("$1" "$2"); shift; shift;;
@@ -218,6 +239,11 @@ do
 			reintegrateArgs+=("$1"); shift;;
 	--ff-target-to-tracked)
 			reintegrateArgs+=("$1"); shift; isFastForwardTargetToTracked=t;;
+
+	--mark-reverse-merge-done)
+			shift; afterReverseMergeCommand+="${afterReverseMergeCommand:+; }withMarkStore setReverseMarkDone";;
+	--is-reverse-merge-done)
+			shift; withMarkStore checkReverseMarkDone; exit $?;;
 
 	--)		mergeArgs+=("$1"); shift; break;;
 	--*)		mergeArgs+=("$1"); shift;;
@@ -380,13 +406,13 @@ choiceEvaluate()
 pushSubmodules()
 {
     printf '\nPushing submodules:\n'
-    git-showsubmodules "${targetIntegrationSourceBranch:?}..HEAD" | git-subdo --subdo-command-name "${scriptName#git-}" --status-99-is-noop --for - --interactive push-this-branch
+    git-showsubmodules "${targetIntegrationSourceBranch:?}..HEAD" | git-subdo --subdo-command-name "${scriptName#git-}" --status-99-is-noop --for - --interactive push-this-branch "${gitRemoteMutateArgs[@]}"
 }
 
 deleteMergedSubmoduleBranches()
 {
     printf '\nDeleting merged submodule branches:\n'
-    git-showsubmodules "${targetIntegrationSourceBranch:?}..HEAD" | git-subdo --status-99-is-noop --for - --interactive delete-merged-branches "$sourceBranch"
+    git-showsubmodules "${targetIntegrationSourceBranch:?}..HEAD" | git-subdo --status-99-is-noop --for - --interactive delete-merged-branches "${gitRemoteMutateArgs[@]}" -- "$sourceBranch"
 }
 
 pushBranch()
@@ -456,7 +482,7 @@ else
 	# This is the reverse merge message: Though we're actually merging
 	# $targetBranch into $sourceBranch, with the fast-forward integration it
 	# will look as if $sourceBranch got merged into $targetBranch.
-	branchMergeMessage="$(git-mergeBranchMessage "$targetBranch" "$sourceBranch")" || exit 3
+	branchMergeMessage="${mergeMessageTemplate}${mergeMessageTemplate:+$'\n\n'}$(git-mergeBranchMessage "$targetBranch" "$sourceBranch")" || exit 3
     fi
 
     targetIntegrationSourceBranch="$targetBranch"
@@ -565,7 +591,8 @@ else
 	    fi
 	fi
     fi
-fi  # End of actual merge; continue finalization from here.
+fi  # End of actual reverse merge; continue finalization from here.
+eval "$afterReverseMergeCommand"
 
 
 if [ "$isCheckFromStdin" ]; then

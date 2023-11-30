@@ -1,0 +1,19 @@
+#!/bin/bash
+
+printUsage()
+{
+    git-supersubreintegratetom --help 2>&1 | sed \
+	-e '1s#^.*$#Merge / rebase the current branch of a superproject + submodule(s) to the master branch via a reverse integration of superproject and submodule(s); i.e. master branches are merged / rebased to the current branch first, those branches are pushed (allowing remote verification by CI/CD), and the final reintegration is a simple fast-forward that can then be quickly pushed for submodule(s) and superproject, minimizing the time of discrepancies between latest submodule state and recorded superproject commit to seconds. Performs additional sanity checks and chooses the right arguments based on whether this is a short-lived feature with a single superproject commit or full history exists.#' \
+	-e '2b removeFirstParagraphLoop' \
+	-e '/^ *--fast-forward-integrate/b removeOptionLoop' \
+	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ ]\+ \)*git-supersubreintegratetom /\1\2'"$(basename "$1")"' /; s/ \[--fast-forward-integrate\]//;}' \
+	-e '/^Example:$/N' -e '/\(^\|\n\)Example: */{ s/\(^\|\n\)\(Example: *\)\?git-supersubreintegratetom /\1\2'"$(basename "$1") /; }" \
+	-e b -e :removeFirstParagraphLoop -e '{ /\(^\|\n\)$/{ s/^\(.*\n\)\?//; b; }; N; b removeFirstParagraphLoop; }' \
+	-e b -e :removeOptionLoop -e '{ /\n *\[--fast-forward-integrate\][^\n]*$/{ N; b removeOptionLoop; }; /\n *--[^\n]*$\|\n[^	 ]\|\n$/{ s/^\(.*\n\)\?//; b; }; N; b removeOptionLoop; }'
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+exec git-supersubreintegratetom --fast-forward-integrate "$@"

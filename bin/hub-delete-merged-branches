@@ -44,7 +44,8 @@ status=99
 for branch
 do
     if ! git-existsbr "$branch"; then
-	resolvedBranch="$(git name-rev --name-only --no-undefined --exclude 'refs/tags/*' --exclude 'refs/remotes/*')"
+	currentBranch="$(git-brname --real-branch-only)" # Ignore the current branch; I'd be unexpected (to say the least) to remove it, and unfortunately in a fast-forward integration this would be the first candidate.
+	resolvedBranch="$(git name-rev --name-only --no-undefined --exclude 'refs/tags/*' --exclude 'refs/remotes/*' --exclude "refs/heads/${currentBranch}" -- "$branch")"
 	if [ -n "$resolvedBranch" ]; then
 	    branch="$resolvedBranch"
 	else

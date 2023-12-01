@@ -102,6 +102,7 @@ isWait=
 waitWhat=
 isFiltering=t
 typeset -a recursiveArgs=()
+typeset -a retryArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -164,7 +165,7 @@ do
 	--wait-for-completion|-W)
 			shift; set -- "$@" --latest --is completed --wait 'The workflow';;
 	--print-all)	shift; isFiltering=;;
-	--quiet|-q)	recursiveArgs+=("$1"); shift; action='';;
+	--quiet|-q)	recursiveArgs+=("$1"); shift; action=''; retryArgs+=(--silent-command);;
 	--raw)		recursiveArgs+=("$1"); shift; parser=''; action=cat;;
 
 	--browse)	shift; action=browseUrl;;
@@ -200,7 +201,7 @@ if [ "$isWait" ]; then
     RETRY_SUCCEED_VERB="got $verb" \
     RETRY_FAIL_VERB="still is not ${verb}${action:+: %OUTPUT%}" \
     RETRY_ABORT_VERB="did not become ${verb}${action:+: %OUTPUT%}" \
-	retry --silent-command --command-name "${waitWhat:-The workflow action}" ${action:+--verbose-or-none --verbose-output} \
+	retry "${retryArgs[@]}" --command-name "${waitWhat:-The workflow action}" ${action:+--verbose-or-none --verbose-output} \
 	    --interval "$HUB_WORKFLOWSTATUS_WAIT_INTERVAL" --abort-timeout "$HUB_WORKFLOWSTATUS_WAIT_TIMEOUT" \
 	    --alert --alert-after "$HUB_WORKFLOWSTATUS_WAIT_INTERVAL" \
 	    "${BASH_SOURCE[0]}" --print-all "${recursiveArgs[@]}" "$@"

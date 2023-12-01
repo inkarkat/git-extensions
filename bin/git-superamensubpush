@@ -5,8 +5,9 @@ readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
 printUsage()
 {
     cat <<HELPTEXT
-Reference this submodule's current revision and amend that to the superproject's
-last commit without re-editing the message, then push both [to REMOTE].
+Reference this submodule's current revision / all submodules that are on the
+same branch as the superproject and amend that to the superproject's last commit
+without re-editing the message, then push both / all [to REMOTE].
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[REMOTE] [<submodule-push-args>] [-?|-h|--help]'
@@ -23,7 +24,24 @@ case "$1" in
 			;;
 esac
 
-git superamen || exit $?
+if git issubmodule; then
+    git superamen || exit $?
 
-# Note: Need to force-push the amended superproject commit.
-exec git-supersubdo --subdo-command-name "${scriptName#git-}" --interactive --super-command "git-wrapper $pushCommand --force" -- "$pushCommand" "$@"
+    # Note: Need to force-push the amended superproject commit.
+    exec git-supersubdo --subdo-command-name "${scriptName#git-}" --interactive --super-command "git-wrapper $pushCommand --force" -- "$pushCommand" "$@"
+else
+    readarray -t sameBranchSubmodules < <(git subsamebrdo --subdo-command-name "${scriptName#git-}")
+    if [ ${#sameBranchSubmodules[@]} -eq 0 ]; then
+	echo >&2 'ERROR: No submodule is on the same branch as the superproject.'
+	exit 99
+    fi
+    git amen -- "${sameBranchSubmodules[@]}" || exit $?
+
+    git subsamebrdo --subdo-command-name "${scriptName#git-}" --no-git-color --interactive --status-99-is-noop $pushCommand "$@"
+    case $? in
+	0|99)	header "$(git-wcname)"
+		git-wrapper $pushCommand --force
+		;;
+	*)	exit $?
+    esac
+fi

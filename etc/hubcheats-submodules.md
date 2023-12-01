@@ -7,7 +7,7 @@ submodules: `$ c SUBMODULE1 git cosuperbr`
 (or with querying: `$ git subconewbr --query|SUBMODULE1 SUBMODULE2`)
 ## b) start bottom-up
 submodule(s): Create branch: `$ git checkoutbranch -b feat-4711/super-cool`
-superproject: Create branch: `$ git checkoutbranch -b $(git substdo --interactive brname | sort -u | singleLineOrSuppressAndError)`
+superproject: Create branch: `$ git checkoutbranch -b $(git substdo --no-header brname | sort -u | singleLineOrSuppressAndError)`
 ## c) continue from development started on another system:
 superproject: `$ git ocosub feat-4711/super-cool`
 (or with querying: `$ git oco --queried-submodules feat-4711/super-cool`)

@@ -474,13 +474,13 @@ fastforwardCommit()
     fi
 
     printf '\nPushing fast-forward-integrated submodule and superproject %s branches:\n' "$masterBranch"
+    # Note: No confirmation here (through --yes) because this is just the transactional commit, and that should happen right after the up-to-date check.
+    # The user already the chance to review the changes when the reverse-integrated feature branches were pushed.
     "${submoduleExecutor[@]:?}" ${submoduleExecutor:+--no-pager --interactive} \
-	    push-this-branch \
+	    push-this-branch --yes \
 	|| exit $?
-    # TODO: Add --yes once we know this is working well.
     header "$(git-wcname)"
-    hub-push-this-branch || exit $?
-    # TODO: Add --yes once we know this is working well.
+    hub-push-this-branch --yes || exit $?
 
     printf '\nDeleting merged superproject and submodule branches:\n'
     if [ -n "$sourceBranch" ]; then

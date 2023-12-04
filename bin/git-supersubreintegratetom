@@ -68,9 +68,19 @@ For all other arguments see ffintegrateto.
 HELPTEXT
 }
 
+ensureSourceBranch()
+{
+    local sourceBranch="${1?}"; shift
+    if [ -z "$sourceBranch" ]; then
+	echo >&2 'Warning: Source branch unknown; will attempt to delete the last checked-out branch.'
+	sourceBranch='@{-1}'
+    fi
+    printf %s "$sourceBranch"
+}
+
 typeset -a affectedSubmodules=()
 typeset -a affectedSubmoduleSourceCommand=(bomsubmodules)
-typeset -a affectedSubmoduleDeleteBranchArgs=('@{-1}')
+isSameBranch=
 typeset -a reintegrateArgs=()
 isFastForwardIntegration=
 integrationType='re'
@@ -84,7 +94,7 @@ do
 	--yes|-y)	gitRemoteMutateArgs+=("$1"); reintegrateArgs+=("$1"); shift;;
 	--same-branch)	shift
 			affectedSubmoduleSourceCommand=(subsamebrdo --subdo-command-name "${scriptName#git-}")
-			affectedSubmoduleDeleteBranchArgs=(BRANCHNAME)
+			isSameBranch=t
 			;;
 	--for)		shift
 			if [ "$1" = - ]; then
@@ -118,6 +128,9 @@ do
 			remoteSubmoduleRev="$(git-superdo --no-header --no-pager subhash "$superprojectRev" "$PWD")"
 			exec git lg "${remoteSubmoduleRev}..HEAD" "$@"
 			;;
+
+	--delete-submodule-branch)
+			shift; exec hub-delete-merged-branches "$@" -- "$(ensureSourceBranch "$(git-ffintegrateto --print-merged-branch)")";;
 	--)		reintegrateArgs+=("$1"); shift; break;;
 	*)		reintegrateArgs+=("$1"); shift;;
     esac
@@ -433,7 +446,7 @@ reintegrateSuperproject()
 	&& ffintegratetoArgs+=(--no-push --no-delete --no-submodule-checkout --no-submodule-update) \
 	|| ffintegratetoArgs+=( --push-submodules --delete-merged-submodule-branches)
     if [ "$isFastForwardIntegration" ]; then
-	sourceBranch="$(git brname --real-branch-only)" || exit 3
+	sourceBranch="$(git-brname --real-branch-only)"
 	git-ffintegrateto "${ffintegratetoArgs[@]}" "$@" || exit $?
 	fastforwardCommit
     elif [ "$isHubIntegrate" ]; then
@@ -483,15 +496,14 @@ fastforwardCommit()
     hub-push-this-branch --yes || exit $?
 
     printf '\nDeleting merged superproject and submodule branches:\n'
-    if [ -n "$sourceBranch" ]; then
-	affectedSubmoduleDeleteBranchArgs=("${affectedSubmoduleDeleteBranchArgs[@]//BRANCHNAME/$sourceBranch}")
+    sourceBranch="$(ensureSourceBranch "$sourceBranch")"
+    if [ "$isSameBranch" ]; then
+	typeset -a affectedSubmoduleDeleteBranchCommand=(--include-superproject delete-merged-branches "${gitRemoteMutateArgs[@]}" -- "$sourceBranch")
     else
-	echo >&2 'Warning: Source branch unknown; will attempt to delete the last checked-out branch.'
-	affectedSubmoduleDeleteBranchArgs=('@{-1}')
+	hub-delete-merged-branches "${gitRemoteMutateArgs[@]}" -- "$sourceBranch"
+	typeset -a affectedSubmoduleDeleteBranchCommand=("${scriptName#git-}" --delete-submodule-branch "${gitRemoteMutateArgs[@]}")
     fi
-    "${submoduleExecutor[@]:?}" ${submoduleExecutor:+--no-pager --include-superproject --interactive} \
-	    delete-merged-branches "${gitRemoteMutateArgs[@]}" -- "${affectedSubmoduleDeleteBranchArgs[@]}" \
-	|| exit $?
+    "${submoduleExecutor[@]:?}" ${submoduleExecutor:+--no-pager --interactive} "${affectedSubmoduleDeleteBranchCommand[@]}" || exit $?
 
     printf '\n✓ Branch completely reintegrated.\n'
 }

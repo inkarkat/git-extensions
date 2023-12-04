@@ -117,13 +117,25 @@ withMarkStore()
 }
 setReverseMarkDone()
 {
-    git-commitid HEAD > "${markStore:?}" || return 3
+    {
+	git-commitid HEAD
+	git-brname --real-branch-only
+    } > "${markStore:?}" || return 3
 }
 checkReverseMarkDone()
 {
     [ -r "${markStore:?}" ] || return 1
     < "$markStore" IFS=$'\n' read -r integrationRevision || return 3
     [ "${integrationRevision:?}" = "$(git-commitid HEAD)" ]
+}
+printMergedBranch()
+{
+    [ -r "${markStore:?}" ] || return 1
+    {
+	IFS=$'\n' read -r integrationRevision || return 3
+	IFS=$'\n' read -r branchName || return 3
+    } < "$markStore"
+    printf '%s\n' "$branchName"
 }
 
 allArgs=("$@")
@@ -244,6 +256,8 @@ do
 			shift; afterReverseMergeCommand+="${afterReverseMergeCommand:+; }withMarkStore setReverseMarkDone";;
 	--is-reverse-merge-done)
 			shift; withMarkStore checkReverseMarkDone; exit $?;;
+	--print-merged-branch)
+			shift; withMarkStore printMergedBranch; exit $?;;
 
 	--)		mergeArgs+=("$1"); shift; break;;
 	--*)		mergeArgs+=("$1"); shift;;

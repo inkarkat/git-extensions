@@ -36,17 +36,15 @@ hasBranchBeenAutoDeletedOnMerge()
 
     [ "$(hub-settings --remote "$trackedRemote" get deleteBranchOnMerge 2>/dev/null)" = 'true' ] || return 1
     local abortTimeout=20
-    if [ -n "$HUB_DELETEMERGEDBRANCHES_TIMEOUT_BASEEPOCH" ]; then
-	local adaptedAbortTimeout=$((abortTimeout - ($(date +%s) - HUB_DELETEMERGEDBRANCHES_TIMEOUT_BASEEPOCH)))
-	abortTimeout=$((
-	    adaptedAbortTimeout > 0
-		? (adaptedAbortTimeout > abortTimeout
-		    ? abortTimeout
-		    : adaptedAbortTimeout
-		)
-		: 0
-	))
-    fi
+    local adaptedAbortTimeout=$((abortTimeout - (SECONDS - baseEpoch)))
+    abortTimeout=$((
+	adaptedAbortTimeout > 0
+	    ? (adaptedAbortTimeout > abortTimeout
+		? abortTimeout
+		: adaptedAbortTimeout
+	    )
+	    : 0
+    ))
 
     local abortTimeout=$((${HUB_DELETEMERGEDBRANCHES_TIMEOUT_BASEEPOCH:-0} + ${HUB_DELETEMERGEDBRANCHES_TIMEOUT:-0}))
 	[ $abortTimeout -gt 0 ] || return 1
@@ -55,6 +53,7 @@ hasBranchBeenAutoDeletedOnMerge()
 	    negateThis git-existsremotebr "$trackedRemote" "$branch"
 }
 
+readonly baseEpoch=${HUB_DELETEMERGEDBRANCHES_TIMEOUT_BASEEPOCH:-$(date +%s)}; SECONDS=$baseEpoch
 status=99
 for branch
 do

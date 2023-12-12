@@ -7,7 +7,7 @@ Delete all passed branch(es) locally as well as in the tracked remote (unless it
 has already been auto-deleted by GitHub).
 HELPTEXT
     echo
-    printf 'Usage: [HUB_DELETEMERGEDBRANCHES_TIMEOUT_BASEEPOCH=EPOCH] %q %s\n' "$(basename "$1")" '[-y|--yes] [--] <branch>|<revision> [...] [-?|-h|--help]'
+    printf 'Usage: [HUB_DELETEMERGEDBRANCHES_TIMEOUT_BASEEPOCH=EPOCH] [HUB_DELETEMERGEDBRANCHES_WAITTIME=SECONDS] %q %s\n' "$(basename "$1")" '[-y|--yes] [--] <branch>|<revision> [...] [-?|-h|--help]'
 }
 
 typeset -a gitRemoteMutateArgs=()
@@ -35,8 +35,9 @@ hasBranchBeenAutoDeletedOnMerge()
     local branch="${1:?}"; shift
 
     [ "$(hub-settings --remote "$trackedRemote" get deleteBranchOnMerge 2>/dev/null)" = 'true' ] || return 1
-    local abortTimeout=20
-    local adaptedAbortTimeout=$((abortTimeout - (SECONDS - baseEpoch)))
+    local abortTimeout=${HUB_DELETEMERGEDBRANCHES_WAITTIME:-20}
+    local elapsedTime=$((SECONDS - baseEpoch))
+    local adaptedAbortTimeout=$((abortTimeout - elapsedTime))
     abortTimeout=$((
 	adaptedAbortTimeout > 0
 	    ? (adaptedAbortTimeout > abortTimeout
@@ -44,16 +45,14 @@ hasBranchBeenAutoDeletedOnMerge()
 		: adaptedAbortTimeout
 	    )
 	    : 0
-    ))
+    ))	# Don't wait longer than the wait time if the passed base epoch still is in the future.
 
-    local abortTimeout=$((${HUB_DELETEMERGEDBRANCHES_TIMEOUT_BASEEPOCH:-0} + ${HUB_DELETEMERGEDBRANCHES_TIMEOUT:-0}))
-	[ $abortTimeout -gt 0 ] || return 1
     RETRY_SUCCEED_VERB='got auto-deleted' RETRY_FAIL_VERB='still exists' RETRY_ABORT_VERB='did not get auto-deleted' \
 	retry --silent-command --command-name 'The remote branch' --verbose-or-none --interval 2 --abort-timeout $abortTimeout \
 	    negateThis git-existsremotebr "$trackedRemote" "$branch"
 }
 
-readonly baseEpoch=${HUB_DELETEMERGEDBRANCHES_TIMEOUT_BASEEPOCH:-$(date +%s)}; SECONDS=$baseEpoch
+SECONDS=$(date +%s); readonly baseEpoch=${HUB_DELETEMERGEDBRANCHES_TIMEOUT_BASEEPOCH:-$SECONDS}
 status=99
 for branch
 do

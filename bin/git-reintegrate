@@ -466,7 +466,10 @@ else
 		    status=$?
 		    if [ "$branch" = "${branches[-1]}" ]; then
 			echo >&2 "After this branch has been successfully rebased (see above), you can merge $branchesSubject and ${isCheckFromStdin:+run checks and }${checkCommands[*]:+run checks and }${isPush:+push and }${isKeepBranches:+not }delete $branchesSubject via"
-			printf >&2 'git checkout %q && git-merge --ff-only %q && ' "$origRef" "$branch"
+			printf >&2 'git checkout %q && ' "$origRef"
+			printf >&2 'git-merge --ff-only '
+			printf >&2 '%q ' -- "$branch"
+			printf >&2 '&& '
 			printContinueCommand
 		    else
 			typeset -a missingBranches=("${branches[@]}")
@@ -477,7 +480,10 @@ else
 			missingBranches=("${missingBranches[@]:1}")
 
 			echo >&2 "After this branch has been successfully rebased (see above), you can continue rebasing, merge $branchesSubject and ${isCheckFromStdin:+run checks and }${checkCommands[*]:+run checks and }${isPush:+push and }${isKeepBranches:+not }delete $branchesSubject via"
-			printf >&2 'git checkout %q && git-merge --ff-only %q && %q --rebase --no-delete ' "$origRef" "$branch" "$(basename "$0")"
+			printf >&2 'git checkout %q && ' "$origRef"
+			printf >&2 'git-merge --ff-only '
+			printf >&2 '%q ' -- "$branch"
+			printf >&2 '&& %q --rebase --no-delete ' "$(basename "$0")"
 			printf >&2 -- '--branch %q ' "${missingBranches[@]}"
 			printf >&2 '&& '
 			printContinueCommand

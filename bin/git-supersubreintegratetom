@@ -330,9 +330,9 @@ completeSubmoduleReintegrationInSuperproject()
 	    fi
 	    ;;
 	*)  local submoduleCnt=$((${#affectedSubmodules[@]} - ${#unintegratedSubmodules[@]} + 1))
+	    local affectedSubmodulesPlural=s affectedSubmodulesAuxiliaryVerb=have; if [ ${#affectedSubmodules[@]} -eq 1 ]; then affectedSubmodulesPlural=; affectedSubmodulesAuxiliaryVerb=has; fi
 	    if git-dirty --ignore-submodules=dirty -- "${affectedSubmodules[@]}"; then
 		if [ $submoduleCnt -eq 1 ]; then
-		    local affectedSubmodulesPlural=s; [ ${#affectedSubmodules[@]} -eq 1 ] && affectedSubmodulesPlural=
 		    local commitMessage; printf -v commitMessage 'Housekeeping: Reintegrate submodule%s %s' "$affectedSubmodulesPlural" "$(joinBy ', ' "${affectedSubmodules[@]}")"
 		    git add -- "${affectedSubmodules[@]}" \
 			&& git-wrapper commit --edit --message "$commitMessage" \
@@ -344,7 +344,9 @@ completeSubmoduleReintegrationInSuperproject()
 			|| exit $?
 		fi
 	    else
-		printf 'This (%d.) reintegrated submodule has been fast-forwarded; nothing to amend.' "$submoduleCnt"
+		[ "$isInvokedFromSubmodule" ] \
+		    && printf 'This (%d.) reintegrated submodule has been fast-forwarded; nothing to amend.\n' "$submoduleCnt" \
+		    || printf 'The %d reintegrated submodule%s %s been fast-forwarded; nothing to amend.\n' "${#affectedSubmodules[@]}" "$affectedSubmodulesPlural" "$affectedSubmodulesAuxiliaryVerb"
 	    fi
 	    ;;
     esac

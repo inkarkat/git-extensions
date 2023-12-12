@@ -137,11 +137,11 @@ do
 done
 set -- "${reintegrateArgs[@]}" "$@"
 
-isInSubmodule=
+isInvokedFromSubmodule=
 typeset -a superprojectExecutor=()
 goToSuperproject() { :; }
 if git issubmodule; then
-    isInSubmodule=t
+    isInvokedFromSubmodule=t
     superprojectExecutor=(git superdo)
     goToSuperproject()
     {
@@ -149,7 +149,6 @@ if git issubmodule; then
 	cd "$superprojectRoot" || exit 3
 	header "../$(git-wcname)"
 
-	isInSubmodule=
 	superprojectExecutor=()
 	submoduleExecutor=("${superprojectSubmoduleExecutor[@]}")
 	goToSuperproject() { :; }
@@ -173,7 +172,7 @@ if [ ${#affectedSubmodules[@]} -eq 0 ]; then
     exit 3
 fi >&2
 typeset -a superprojectSubmoduleExecutor=(git-subdo-core --subdo-command-name "${scriptName#git-}" --for "${affectedSubmodules[@]}" \;)
-typeset -a submoduleExecutor=(); [ "$isInSubmodule" ] || submoduleExecutor=("${superprojectSubmoduleExecutor[@]}")
+typeset -a submoduleExecutor=(); [ "$isInvokedFromSubmodule" ] || submoduleExecutor=("${superprojectSubmoduleExecutor[@]}")
 
 masterBranch="$(git-mbr)" || exit 3
 typeset -a unintegratedSubmodules=()
@@ -238,7 +237,7 @@ else
     affectedSubmodulesPlural=s
     if [ ${#affectedSubmodules[@]} -eq 1 ]; then
 	affectedSubmodulesPlural=
-	if [ "$isInSubmodule" ]; then
+	if [ "$isInvokedFromSubmodule" ]; then
 	    echo 'Integrating this single submodule.'
 	else
 	    echo 'Integrating the single submodule.'
@@ -246,7 +245,7 @@ else
     elif [ ${#unintegratedSubmodules[@]} -eq 1 ]; then
 	printf 'Integrating the last submodule (of %d).\n' ${#affectedSubmodules[@]}
     else
-	if [ "$isInSubmodule" ]; then
+	if [ "$isInvokedFromSubmodule" ]; then
 	    printf 'Integrating submodule %d of %d.\n' $((${#affectedSubmodules[@]} - ${#unintegratedSubmodules[@]} + 1)) ${#affectedSubmodules[@]}
 	elif [ ${#affectedSubmodules[@]} -eq ${#unintegratedSubmodules[@]} ]; then
 	    printf 'Integrating all %d submodules.\n' ${#affectedSubmodules[@]}
@@ -257,7 +256,7 @@ else
     action=reintegrateSubmodule
 
     if [ "$HUB" ] && "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--single-success --include-superproject} prcomments; then
-	[ "$isInSubmodule" ] \
+	[ "$isInvokedFromSubmodule" ] \
 	    && question='Really integrate this submodule' \
 	    || question="Really integrate ${#affectedSubmodules[@]} submodule${affectedSubmodulesPlural}"
 	question+=' despite the open PR review comments?'
@@ -265,7 +264,7 @@ else
     fi
 
     if [ "$HUB" ] && acceptStatus 0 99 "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--single-success --include-superproject} prapproval; then
-	[ "$isInSubmodule" ] \
+	[ "$isInvokedFromSubmodule" ] \
 	    && question='Really integrate this submodule?' \
 	    || question="Really integrate ${#affectedSubmodules[@]} submodule${affectedSubmodulesPlural}?"
 	userBinaryChoice --keep-prompt --console --question "$question" --yes-no || exit 4
@@ -331,9 +330,9 @@ completeSubmoduleReintegrationInSuperproject()
 	    fi
 	    ;;
 	*)  local submoduleCnt=$((${#affectedSubmodules[@]} - ${#unintegratedSubmodules[@]} + 1))
+	    local affectedSubmodulesPlural=s affectedSubmodulesAuxiliaryVerb=have; if [ ${#affectedSubmodules[@]} -eq 1 ]; then affectedSubmodulesPlural=; affectedSubmodulesAuxiliaryVerb=has; fi
 	    if git-dirty --ignore-submodules=dirty -- "${affectedSubmodules[@]}"; then
 		if [ $submoduleCnt -eq 1 ]; then
-		    local affectedSubmodulesPlural=s; [ ${#affectedSubmodules[@]} -eq 1 ] && affectedSubmodulesPlural=
 		    local commitMessage; printf -v commitMessage 'Housekeeping: Reintegrate submodule%s %s' "$affectedSubmodulesPlural" "$(joinBy ', ' "${affectedSubmodules[@]}")"
 		    git add -- "${affectedSubmodules[@]}" \
 			&& git-wrapper commit --edit --message "$commitMessage" \
@@ -345,7 +344,9 @@ completeSubmoduleReintegrationInSuperproject()
 			|| exit $?
 		fi
 	    else
-		printf 'This (%d.) reintegrated submodule has been fast-forwarded; nothing to amend.' "$submoduleCnt"
+		[ "$isInvokedFromSubmodule" ] \
+		    && printf 'This (%d.) reintegrated submodule has been fast-forwarded; nothing to amend.\n' "$submoduleCnt" \
+		    || printf 'The %d reintegrated submodule%s %s been fast-forwarded; nothing to amend.\n' "${#affectedSubmodules[@]}" "$affectedSubmodulesPlural" "$affectedSubmodulesAuxiliaryVerb"
 	    fi
 	    ;;
     esac
@@ -444,7 +445,7 @@ reintegrateSuperproject()
     typeset -a ffintegratetoArgs=(--branch "$masterBranch" --push-branch "${integrateArgs[@]}" "${ffintegratetoArgs[@]}")
     [ "$isFastForwardIntegration" ] \
 	&& ffintegratetoArgs+=(--no-push --no-delete --no-submodule-checkout --no-submodule-update) \
-	|| ffintegratetoArgs+=( --push-submodules --delete-merged-submodule-branches)
+	|| ffintegratetoArgs+=(--push-submodules --delete-merged-submodule-branches)
     if [ "$isFastForwardIntegration" ]; then
 	sourceBranch="$(git-brname --real-branch-only)"
 	git-ffintegrateto "${ffintegratetoArgs[@]}" "$@" || exit $?

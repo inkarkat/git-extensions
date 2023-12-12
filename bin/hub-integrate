@@ -382,6 +382,11 @@ if [ "$isMergeStillPending" ]; then
 		*)  printf >&2 'ASSERT: Invalid choice: %s\n' "$choice"; exit 3;;
 	    esac
 	    hub-workflow-status --revision "$sourceRef" --latest --is 'in_progress' --wait 'The re-run of the auto-merge branch build' || exit $?
+
+	    # After the workflow has run, any auto-deletion of the merged branch
+	    # will have executed, too. So the time spent on pulling can be
+	    # deducted from the timeout.
+	    export HUB_DELETEMERGEDBRANCHES_TIMEOUT_BASEEPOCH=$(date +%s)
 	done
     else
 	printf '\n… The auto-merge is still waiting that requirements are met.\n'

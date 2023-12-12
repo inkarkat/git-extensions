@@ -137,11 +137,11 @@ do
 done
 set -- "${reintegrateArgs[@]}" "$@"
 
-isInSubmodule=
+isInvokedFromSubmodule=
 typeset -a superprojectExecutor=()
 goToSuperproject() { :; }
 if git issubmodule; then
-    isInSubmodule=t
+    isInvokedFromSubmodule=t
     superprojectExecutor=(git superdo)
     goToSuperproject()
     {
@@ -149,7 +149,6 @@ if git issubmodule; then
 	cd "$superprojectRoot" || exit 3
 	header "../$(git-wcname)"
 
-	isInSubmodule=
 	superprojectExecutor=()
 	submoduleExecutor=("${superprojectSubmoduleExecutor[@]}")
 	goToSuperproject() { :; }
@@ -173,7 +172,7 @@ if [ ${#affectedSubmodules[@]} -eq 0 ]; then
     exit 3
 fi >&2
 typeset -a superprojectSubmoduleExecutor=(git-subdo-core --subdo-command-name "${scriptName#git-}" --for "${affectedSubmodules[@]}" \;)
-typeset -a submoduleExecutor=(); [ "$isInSubmodule" ] || submoduleExecutor=("${superprojectSubmoduleExecutor[@]}")
+typeset -a submoduleExecutor=(); [ "$isInvokedFromSubmodule" ] || submoduleExecutor=("${superprojectSubmoduleExecutor[@]}")
 
 masterBranch="$(git-mbr)" || exit 3
 typeset -a unintegratedSubmodules=()
@@ -238,7 +237,7 @@ else
     affectedSubmodulesPlural=s
     if [ ${#affectedSubmodules[@]} -eq 1 ]; then
 	affectedSubmodulesPlural=
-	if [ "$isInSubmodule" ]; then
+	if [ "$isInvokedFromSubmodule" ]; then
 	    echo 'Integrating this single submodule.'
 	else
 	    echo 'Integrating the single submodule.'
@@ -246,7 +245,7 @@ else
     elif [ ${#unintegratedSubmodules[@]} -eq 1 ]; then
 	printf 'Integrating the last submodule (of %d).\n' ${#affectedSubmodules[@]}
     else
-	if [ "$isInSubmodule" ]; then
+	if [ "$isInvokedFromSubmodule" ]; then
 	    printf 'Integrating submodule %d of %d.\n' $((${#affectedSubmodules[@]} - ${#unintegratedSubmodules[@]} + 1)) ${#affectedSubmodules[@]}
 	elif [ ${#affectedSubmodules[@]} -eq ${#unintegratedSubmodules[@]} ]; then
 	    printf 'Integrating all %d submodules.\n' ${#affectedSubmodules[@]}
@@ -257,7 +256,7 @@ else
     action=reintegrateSubmodule
 
     if [ "$HUB" ] && "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--single-success --include-superproject} prcomments; then
-	[ "$isInSubmodule" ] \
+	[ "$isInvokedFromSubmodule" ] \
 	    && question='Really integrate this submodule' \
 	    || question="Really integrate ${#affectedSubmodules[@]} submodule${affectedSubmodulesPlural}"
 	question+=' despite the open PR review comments?'
@@ -265,7 +264,7 @@ else
     fi
 
     if [ "$HUB" ] && acceptStatus 0 99 "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--single-success --include-superproject} prapproval; then
-	[ "$isInSubmodule" ] \
+	[ "$isInvokedFromSubmodule" ] \
 	    && question='Really integrate this submodule?' \
 	    || question="Really integrate ${#affectedSubmodules[@]} submodule${affectedSubmodulesPlural}?"
 	userBinaryChoice --keep-prompt --console --question "$question" --yes-no || exit 4

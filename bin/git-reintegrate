@@ -368,7 +368,7 @@ else
     if [ -n "$targetTracks" ] && ! git-equals HEAD "$targetTracks"; then
 	if git-ffdryrun "$targetTracks"; then
 	    if [ "$isFastForwardToTracked" ] || confirmFastForward; then
-		git-wrapper merge --ff-only "$targetTracks" || {
+		git-wrapper merge --ff-only "${mergeArgs[@]}" -- "$targetTracks" || {
 		    status=$?
 		    echo >&2 'Fast-forwarding unexpectedly failed.'
 		    exit $status
@@ -468,7 +468,7 @@ else
 			echo >&2 "After this branch has been successfully rebased (see above), you can merge $branchesSubject and ${isCheckFromStdin:+run checks and }${checkCommands[*]:+run checks and }${isPush:+push and }${isKeepBranches:+not }delete $branchesSubject via"
 			printf >&2 'git checkout %q && ' "$origRef"
 			printf >&2 'git-merge --ff-only '
-			printf >&2 '%q ' -- "$branch"
+			printf >&2 '%q ' "${mergeArgs[@]}" -- "$branch"
 			printf >&2 '&& '
 			printContinueCommand
 		    else
@@ -482,7 +482,7 @@ else
 			echo >&2 "After this branch has been successfully rebased (see above), you can continue rebasing, merge $branchesSubject and ${isCheckFromStdin:+run checks and }${checkCommands[*]:+run checks and }${isPush:+push and }${isKeepBranches:+not }delete $branchesSubject via"
 			printf >&2 'git checkout %q && ' "$origRef"
 			printf >&2 'git-merge --ff-only '
-			printf >&2 '%q ' -- "$branch"
+			printf >&2 '%q ' "${mergeArgs[@]}" -- "$branch"
 			printf >&2 '&& %q --rebase --no-delete ' "$(basename "$0")"
 			printf >&2 -- '--branch %q ' "${missingBranches[@]}"
 			printf >&2 '&& '
@@ -490,7 +490,7 @@ else
 		    fi
 		    exit $status
 		}
-		git-wrapper merge --ff-only "$branch" || exit $?
+		git-wrapper merge --ff-only "${mergeArgs[@]}" -- "$branch" || exit $?
 	    done
 	else
 	    if [ ${#mergeMessageArgs[@]} -eq 0 -a -n "$branchMergeMessage" ]; then

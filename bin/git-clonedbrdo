@@ -11,11 +11,11 @@ printUsage()
 	-e '2b removeFirstParagraphLoop' \
 	-e '/^ *\(--include-current\|--include-master\|--include-base\|--include-all\|--branches BRANCH \[\.\.\.\] ;\)/b removeOptionLoop' \
 	-e '/^ *--no-pager/i\
-    -b|--branch BRANCH	Use BRANCH instead of the current branch.\
+    --branch|-b BRANCH	Use BRANCH instead of the current branch.\
     --exclude-base	Do not include the base branch (the branch without the\
 			${GIT_CLONEBR_SEPARATOR}1 suffix).\
     --reverse		Iterate from highest offset to lowest.\
-    --start-branch|-S N	Only consider the first committed N branches.' \
+    --start-branch|-S N	Skip the first N branches.' \
 	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ ]\+ \)*git-localbrdo /\1\2'"$(basename "$1")"' [-b|--branch BRANCH] [--exclude-base] [--reverse] [--start-branch|-S N] /; s/\[--include-current\] \[--include-master\] \[--include-base\] \[--include-all\] \[--branches BRANCH \[\.\.\.\] ;\]//; }' \
 	-e '/^Example:$/N' -e '/\(^\|\n\)Example: */{ s/\(^\|\n\)\(Example: *\)\?git-localbrdo .*/\1\2'"$(basename "$1") -n /; }" \
 	-e b -e :removeFirstParagraphLoop -e '{ /\(^\|\n\)$/{ s/^\(.*\n\)\?//; b; }; N; b removeFirstParagraphLoop; }' \
@@ -45,7 +45,7 @@ readarray -t branches < <(eval 'git-clonedbranches "${clonedbranchesArgs[@]}"' "
 unset 'branches[-1]'; [ -z "${branches[-1]}" ] && unset 'branches[-1]'
 
 if [ -n "$branchStartNum" ]; then
-    typeset -a selectedBranches=("${branches[@]:$((branchStartNum + 1))}")
+    typeset -a selectedBranches=("${branches[@]:$branchStartNum}")
     if [ ${#selectedBranches[@]} -eq 0 ]; then
 	if [ ${#branches[@]} -eq 1 ]; then
 	    branchesPlural=

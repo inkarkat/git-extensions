@@ -2,6 +2,13 @@
 
 Create subsequent branches (foo → foo-1 → foo-2 → ...) via `$ git supersubdo clonebr`
 
+Create pull requests for a series of cloned branches via
+`$ hub clonedbrpull-requesttopc` (or `clonedbr[super][sub]pull-requesttopc`)
+The first branch requests a reintegration [to the default branch / --base BASE]
+while following branches open drafts towards the previous branch, so everything
+can be reviewed separately and then the branches can be (subsequently rebased
+and) merged.
+
 After the reintegration of one branch:
 1. superproject: Check out the next branch; e.g. via `$ git cossbr`
 2. Rebase

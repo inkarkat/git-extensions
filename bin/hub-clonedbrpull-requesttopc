@@ -1,0 +1,118 @@
+#!/bin/bash
+
+: ${GIT_CLONEBR_SEPARATOR=-}
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-b|--branch BRANCH] [--exclude-base] [--start-branch|-S N] [HUB-PULL-REQUEST-ARGS ...] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Create a series of GitHub pull requests for all branches that can be obtained
+from the current / passed branch by appending ${GIT_CLONEBR_SEPARATOR}1 (${GIT_CLONEBR_SEPARATOR}2, etc.) at the end of the
+branch name.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --branch|-b BRANCH	Use BRANCH instead of the current branch.
+    --exclude-base	Do not create a pull request for the base branch (the
+			branch without the ${GIT_CLONEBR_SEPARATOR}1 suffix).
+    --start-branch|-S N	Skip the first N branches.
+
+The first pull request is made against the default / passed BASE branch, all
+subsequent ones are drafts made against the previous cloned branch.
+Branches with existing pull requests are skipped. An unclean exit of the editor
+gives the choice to skip just that branch or to abort the whole operation.
+
+EXIT STATUS:
+    0	Pull requests created successfully.
+    2	Bad invocation, wrong or missing command-line arguments.
+    4	Pull requests for some / all branches were skipped.
+    99	Not enough branches / Pull requests for all branches already exist.
+HELPTEXT
+}
+
+branchStartNum=
+typeset -a clonedbranchesArgs=()
+typeset -a firstPullrequestArgs=()
+typeset -a pullrequestArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--branch|-b)	clonedbranchesArgs+=("$1" "${2:?}"); shift; shift;;
+	--exclude-base) clonedbranchesArgs+=("$1"); shift;;
+	--start-branch|-S)
+			shift; branchStartNum="${1:?}"; shift;;
+	--base)		firstPullrequestArgs+=("$1" "${2:?}"); shift; shift;;
+	--head)		echo >&2 'ERROR: --head HEAD is not supported; use -b|--branch to specify the clone branch.'; exit 2;;
+	--)		pullrequestArgs+=("$1"); shift; break;;
+	*)		pullrequestArgs+=("$1"); shift;;
+    esac
+done
+
+readarray -t branches < <(eval 'git-clonedbranches "${clonedbranchesArgs[@]}"'; printf '\n%d\n' "$?")	# Exit status from the process substitution is lost; return the actual exit status via an appended additional line.
+[ ${branches[-1]} -ne 0 ] && exit ${branches[-1]}
+unset 'branches[-1]'; [ -z "${branches[-1]}" ] && unset 'branches[-1]'
+
+if [ -n "$branchStartNum" ]; then
+    typeset -a selectedBranches=("${branches[@]:$branchStartNum}")
+    if [ ${#selectedBranches[@]} -eq 0 ]; then
+	if [ ${#branches[@]} -eq 1 ]; then
+	    branchesPlural=
+	    branchesAuxiliaryVerb=is
+	else
+	    branchesPlural=es
+	    branchesAuxiliaryVerb=are
+	fi
+	printf >&2 'ERROR: There %s only %d cloned branch%s.\n' "$branchesAuxiliaryVerb" ${#branches[@]} "$branchesPlural"
+	exit 99
+    fi
+    branches=("${selectedBranches[@]}")
+fi
+
+typeset -a prCommand=(hub-wrapper "${HUB_PULLREQUESTTO_COMMAND:-pull-request}" --head)
+firstPullRequestExists()
+{
+    firstPullrequestArgs=()
+
+    # Note: We could trivially implement this ourselves here as we have all the
+    # branches, but the hub-pull-requesttopc command already implements the
+    # reference to the previous pull request for us.
+    prCommand=(hub-pull-requesttopc --draft --branch)
+}
+
+branchesPlural=es; [ ${#branches[@]} -eq 1 ] && branchesPlural=
+printf >&2 'Considering %d branch%s: %s\n' ${#branches[@]} "$branchesPlural" "$(joinBy --last-separator ', and ' ', ' "${branches[@]}")"
+for branch in "${branches[@]}"
+do
+    header -- "$branch"
+
+    if hub-prtitle -- "$branch"; then
+	printf >&2 'Note: Skipping branch %s; it already has a pull request.\n' "$branch"
+	firstPullRequestExists
+    elif "${prCommand[@]}" "$branch" "${firstPullrequestArgs[@]}" "${pullrequestArgs[@]}"; then
+	: ${status:=0}
+	firstPullRequestExists
+    elif [ "$branch" != "${branches[-1]}" ]; then
+	userBinaryChoice --keep-prompt --question 'Just skip this branch and continue, or abort the whole operation?' 'Skip' 'Abort' || exit 4
+	status=4
+    else
+	status=4
+    fi
+done
+exit ${status:-99}

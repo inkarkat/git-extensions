@@ -18,7 +18,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: [HUB_WORKFLOWSTATUS_WORKFLOW_ID=WORKFLOW_ID|WORKFLOW_FILENAME] %q %s\n' "$(basename "$1")" '[--id WORKFLOW_ID|WORKFLOW_FILENAME] [-u|--user USER] [-b|--branch BRANCH|-B|--current-branch|-P|--pull-request N] [-r|--revision REVISION|-R|--current-revision] [-l|--latest] [--is STATE [--is ...] [--print-all]] [--concluded CONCLUSION [--concluded ...] [--print-all]] [--wait WHAT|-W|--wait-for-completion] [-q|--quiet] [-?|-h|--help]'
+    printf 'Usage: [HUB_WORKFLOWSTATUS_WORKFLOW_ID=WORKFLOW_ID|WORKFLOW_FILENAME] %q %s\n' "$(basename "$1")" '[--id WORKFLOW_ID|WORKFLOW_FILENAME] [-u|--user USER] [-b|--branch BRANCH|-B|--current-branch|-P|--pull-request N] [-r|--revision REVISION|-R|--current-revision] [-l|--latest] [--is STATE [--is ...] [--print-all]] [--concluded CONCLUSION [--concluded ...] [--print-all]] [--wait WHAT|-w|--wait-for-completion|-W|--wait-for-success] [-q|--quiet] [-?|-h|--help]'
     echo
     printf 'Usage: [HUB_WORKFLOWSTATUS_WORKFLOW_ID=WORKFLOW_ID|WORKFLOW_FILENAME] %q %s\n' "$(basename "$1")" '[--id WORKFLOW_ID|WORKFLOW_FILENAME] [-u|--user USER] [-b|--branch BRANCH|-B|--current-branch|-P|--pull-request N] [-r|--revision REVISION|-R|--current-revision] [-l|--latest] --browse|--url|--raw'
     echo
@@ -57,20 +57,29 @@ HELPDESCRIPTION
 			revision of the tracked remote branch.
     --latest|-l		Only print / consider the last status.
     --is STATE		Only print if one / the status is STATE; else fail.
+			Can be one of: "queued", "in_progress", or "completed".
     --concluded CONCLUSION
 			Only print if one / the workflow concluded with
 			CONCLUSION; else fail.
+			Can be one of the "success", "failure", "neutral",
+			"cancelled", "skipped", "timed_out", or
+			"action_required".
     --print-all		A match of STATE / CONCLUSION only determines the exit
 			status but does not drop non-matching workflows from the
 			output.
-    --wait WHAT		Block and repeatedly check whether STATE has been
-			reached. It's recommended to combine this with --latest
-			(or at least use --quiet to avoid printing all
-			statuses).
-    --wait-for-completion|-W
+    --wait WHAT		Block and repeatedly check whether STATE and/or
+			CONCLUSION have been reached. It's recommended to
+			combine this with --latest (or at least use --quiet to
+			avoid printing all statuses).
+    --wait-for-completion|-w
 			Block and repeatedly check whether the last workflow has
 			completed. Equivalent to:
 			--latest --is completed --wait 'The workflow'
+    --wait-for-success|-W
+			Block and repeatedly check whether the last workflow has
+			completed AND concluded with success. Equivalent to:
+			--latest --is completed --concluded success --wait 'The
+			workflow'
     --browse		Open the URL(s) of the workflow status page(s) in a
 			browser.
     --url		Only print the URL(s) of the workflow status page(s).
@@ -162,8 +171,10 @@ do
 	--is)		recursiveArgs+=("$1" "$2"); shift; acceptedStates+=("${1:?}"); shift; compareAction+=${compareAction:+|}compareState;;
 	--concluded)	recursiveArgs+=("$1" "$2"); shift; acceptedConclusions+=("${1:?}"); shift; compareAction+=${compareAction:+|}compareConclusion;;
 	--wait)		shift; waitWhat="$1"; shift; isWait=t;;
-	--wait-for-completion|-W)
+	--wait-for-completion|-w)
 			shift; set -- "$@" --latest --is completed --wait 'The workflow';;
+	--wait-for-success|-W)
+			shift; set -- "$@" --latest --is completed --concluded success --wait 'The workflow';;
 	--print-all)	shift; isFiltering=;;
 	--quiet|-q)	recursiveArgs+=("$1"); shift; action=''; retryArgs+=(--silent-command);;
 	--raw)		recursiveArgs+=("$1"); shift; parser=''; action=cat;;
@@ -190,14 +201,14 @@ if [ -z "$workflowId" ]; then
 fi
 
 if [ "$isWait" ]; then
-    if [ ${#acceptedStates[@]} -eq 0 ]; then
-	echo 'ERROR: Need --is STATE to wait for.'
+    if [ ${#acceptedStates[@]} -eq 0 -a ${#acceptedConclusions[@]} -eq 0 ]; then
+	echo 'ERROR: Need --is STATE and/or --concluded CONCLUSION to wait for.'
 	echo
 	printUsage "$0"
 	exit 2
     fi >&2
 
-    verb="$(joinBy ' or ' "${acceptedStates[@]}")"
+    verb="$(joinBy --omit-empty ' and ' "$(joinBy ' or ' "${acceptedStates[@]}")" "$(joinBy --prefix 'a ' ' or ' "${acceptedConclusions[@]}")")"
     RETRY_SUCCEED_VERB="got $verb" \
     RETRY_FAIL_VERB="still is not ${verb}${action:+: %OUTPUT%}" \
     RETRY_ABORT_VERB="did not become ${verb}${action:+: %OUTPUT%}" \
@@ -293,4 +304,8 @@ browseUrl()
     exec git-browse "${urls[@]}"
 }
 
-eval 'apiCall "$@"' "${parser:+|}$parser" "${preAction:+|}$preAction" "${compareAction:+|}$compareAction" "${action:+|}${action:->/dev/null}"
+eval 'apiCall "$@"' \
+    "${parser:+|}$parser" \
+    "${preAction:+|}$preAction" \
+    "${compareAction:+|}$compareAction" \
+    "${action:+|}${action:->/dev/null}"

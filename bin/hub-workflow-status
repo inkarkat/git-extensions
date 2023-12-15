@@ -63,10 +63,10 @@ HELPDESCRIPTION
     --print-all		A match of STATE / CONCLUSION only determines the exit
 			status but does not drop non-matching workflows from the
 			output.
-    --wait WHAT		Block and repeatedly check whether STATE has been
-			reached. It's recommended to combine this with --latest
-			(or at least use --quiet to avoid printing all
-			statuses).
+    --wait WHAT		Block and repeatedly check whether STATE and/or
+			CONCLUSION have been reached. It's recommended to
+			combine this with --latest (or at least use --quiet to
+			avoid printing all statuses).
     --wait-for-completion|-W
 			Block and repeatedly check whether the last workflow has
 			completed. Equivalent to:
@@ -190,14 +190,14 @@ if [ -z "$workflowId" ]; then
 fi
 
 if [ "$isWait" ]; then
-    if [ ${#acceptedStates[@]} -eq 0 ]; then
-	echo 'ERROR: Need --is STATE to wait for.'
+    if [ ${#acceptedStates[@]} -eq 0 -a ${#acceptedConclusions[@]} -eq 0 ]; then
+	echo 'ERROR: Need --is STATE and/or --concluded CONCLUSION to wait for.'
 	echo
 	printUsage "$0"
 	exit 2
     fi >&2
 
-    verb="$(joinBy ' or ' "${acceptedStates[@]}")"
+    verb="$(joinBy --omit-empty ' and ' "$(joinBy ' or ' "${acceptedStates[@]}")" "$(joinBy --prefix 'a ' ' or ' "${acceptedConclusions[@]}")")"
     RETRY_SUCCEED_VERB="got $verb" \
     RETRY_FAIL_VERB="still is not ${verb}${action:+: %OUTPUT%}" \
     RETRY_ABORT_VERB="did not become ${verb}${action:+: %OUTPUT%}" \
@@ -293,4 +293,8 @@ browseUrl()
     exec git-browse "${urls[@]}"
 }
 
-eval 'apiCall "$@"' "${parser:+|}$parser" "${preAction:+|}$preAction" "${compareAction:+|}$compareAction" "${action:+|}${action:->/dev/null}"
+eval 'apiCall "$@"' \
+    "${parser:+|}$parser" \
+    "${preAction:+|}$preAction" \
+    "${compareAction:+|}$compareAction" \
+    "${action:+|}${action:->/dev/null}"

@@ -1,0 +1,26 @@
+#!/bin/bash
+
+typeset -a branchArgs=()
+typeset -a pullrequestArgs=()
+typeset -a allargs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--branch|-b)	branchArgs+=("$1" "${2:?}"); pullrequestArgs+=(--head "${2:?}"); shift; shift;;
+	--)		allargs+=("$1"); shift; break;;
+	*)		allargs+=("$1"); shift;;
+    esac
+done
+set -- "${allargs[@]}" "$@"
+
+# DWIM: Add reference to a pull request of the previous stacked branch if such
+# exists. I use stacked branches to build changes on top of each other, and
+# these are then rebased and merged in turn.
+previousStackedPr="$(git stackedbranch-command --offset -1 "${branchArgs[@]}" -3 prtitle --only-ids BRANCH)"
+if [ -n "$previousStackedPr" ]; then
+    contains --no-edit "$@" || pullrequestArgs+=(--edit)
+    pullrequestArgs+=(--message "* Note: This is a follow-up on $previousStackedPr")
+fi
+
+exec git-rev-range-to-previous-stack --no-range "${branchArgs[@]}" --keep-position "${HUB_PULLREQUESTTO_COMMAND:-pull-request}" --base RANGE "${pullrequestArgs[@]}" "$@"

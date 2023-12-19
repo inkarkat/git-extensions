@@ -1,7 +1,7 @@
 #!/bin/bash
 set -o pipefail
 
-: ${GIT_CLONEBR_SEPARATOR=-}
+: ${GIT_STACKBR_SEPARATOR=-}
 
 printShortUsage()
 {
@@ -21,15 +21,15 @@ printLongUsage()
     # This is the long "man page" when launched with the help argument.
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
-List all branches that can be obtained from the current / passed branch by
-appending ${GIT_CLONEBR_SEPARATOR}1 (${GIT_CLONEBR_SEPARATOR}2, etc.) at the end of the branch name.
+List all stacked branches that can be obtained from the current / passed branch
+by appending ${GIT_STACKBR_SEPARATOR}1 (${GIT_STACKBR_SEPARATOR}2, etc.) at the end of the branch name.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
     --exlude-base	Do not include the base branch (the branch without the
-			${GIT_CLONEBR_SEPARATOR}1 suffix).
+			${GIT_STACKBR_SEPARATOR}1 suffix).
 HELPTEXT
 }
 
@@ -53,11 +53,11 @@ if [ $# -ne 0 ]; then
 fi
 [ -n "$branch" ] || branch="$(git-brname --real-branch-only)" || exit $?
 
-[[ "$branch" =~ ^(.+)"${GIT_CLONEBR_SEPARATOR}"([[:digit:]]+)$ ]] \
+[[ "$branch" =~ ^(.+)"${GIT_STACKBR_SEPARATOR}"([[:digit:]]+)$ ]] \
     && branchBase="${BASH_REMATCH[1]}" \
     || branchBase="$branch"
 readarray -t branches < <(
-    git-localbr --include-all -- ${isIncludeBase:+"$branchBase"} "${branchBase}${GIT_CLONEBR_SEPARATOR}+([0-9])" \
+    git-localbr --include-all -- ${isIncludeBase:+"$branchBase"} "${branchBase}${GIT_STACKBR_SEPARATOR}+([0-9])" \
 	| sort --numeric-sort
 )
 
@@ -65,7 +65,7 @@ if [ ${#branches[@]} -eq 0 ]; then
     printf >&2 'ERROR: %s branch is no local branch: %s\n' "$branchOrigin" "$branch"
     exit 2
 elif [ ${#branches[@]} -eq 1 -a "${branches[0]}" = "$branchBase" ]; then
-    printf >&2 'ERROR: %s branch has no cloned branches; there is no %s1 suffix: %s\n' "$branchOrigin" "$GIT_CLONEBR_SEPARATOR" "${branches[0]}"
+    printf >&2 'ERROR: %s branch has no stacked branches; there is no %s1 suffix: %s\n' "$branchOrigin" "$GIT_STACKBR_SEPARATOR" "${branches[0]}"
     exit 1
 fi
 printf '%s\n' "${branches[@]}"

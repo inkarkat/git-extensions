@@ -1,9 +1,9 @@
-# Feature development through serial branches
+# Feature development through serial stacked branches
 
-Create subsequent branches (foo → foo-1 → foo-2 → ...) via `$ git supersubdo clonebr`
+Create subsequent branches (foo → foo-1 → foo-2 → ...) via `$ git supersubdo stackbr`
 
-Create pull requests for a series of cloned branches via
-`$ hub clonedbrpull-requesttopc` (or `clonedbr[super][sub]pull-requesttopc`)
+Create pull requests for a series of stacked branches via
+`$ hub stackedbrpull-requesttops` (or `stackedbr[super][sub]pull-requesttops`)
 The first branch requests a reintegration [to the default branch / --base BASE]
 while following branches open drafts towards the previous branch, so everything
 can be reviewed separately and then the branches can be (subsequently rebased
@@ -26,11 +26,11 @@ After the reintegration of one branch:
 If there are more outstanding follow-up branches:
 6. superproject: Check out the next branch: `$ git cosubnextbr`
 7. Rebase
-   a) from superproject: `$ git subsamebrdo -i pcrb`
-   b) from submodule(s): `$ git pcrb`
+   a) from superproject: `$ git subsamebrdo -i psrb`
+   b) from submodule(s): `$ git psrb`
 8. superproject: Incorporate rebased submodule(s):
    a) amends to short-lived feature: `$ git amenu`
-   .  Rebase: `$ git pcrb -i` (_not_ `pcrbi`!)
+   .  Rebase: `$ git psrb -i` (_not_ `psrbi`!)
    .    Drop all earlier commits (we get these in rebased form from the
    .    previous branch); just keep the last (feature branch) commit
    .    Accept the current, conflicted submodule(s):

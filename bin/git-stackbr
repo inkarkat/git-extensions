@@ -1,6 +1,6 @@
 #!/bin/bash
 
-: ${GIT_CLONEBR_SEPARATOR=-}
+: ${GIT_STACKBR_SEPARATOR=-}
 
 printShortUsage()
 {
@@ -20,8 +20,8 @@ printLongUsage()
     # This is the long "man page" when launched with the help argument.
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
-Clone the current / passed branch by appending ${GIT_CLONEBR_SEPARATOR}1 (${GIT_CLONEBR_SEPARATOR}2, etc.) at the end of the
-branch name and switch to it.
+Create a stacked follow-up branch of the current / passed branch by cloning and
+appending ${GIT_STACKBR_SEPARATOR}1 (${GIT_STACKBR_SEPARATOR}2, etc.) at the end of the branch name and switch to it.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
@@ -29,12 +29,11 @@ HELPDESCRIPTION
     cat <<HELPTEXT
     --reset-to-tracked	Reset the current / passed branch to the tracked
 			(pushed) branch.
-			This is useful to retroactively create a clone after new
-			commits have been made locally already.
+			This is useful to retroactively create a stacked branch
+			after new commits have been made locally already.
     --no-checkout	Stay on the current branch / do not switch to the new
 			branch.
-    --print|-p		Just print the resulting cloned branch name; do not
-			create it.
+    --print|-p		Just print the resulting branch name; do not create it.
 SEE ALSO:
 - Use git checkoutbranch -b instead for full control over the resulting new
   branch name.
@@ -75,15 +74,15 @@ case $# in
 	exit 2
 esac
 
-# Handle cloning an existing clone.
+# Handle stacking an existing stacked branch.
 let num=1
 branchBase="$branch"
-if [[ "$branchBase" =~ ^(.+)"${GIT_CLONEBR_SEPARATOR}"([[:digit:]]+)$ ]]; then
+if [[ "$branchBase" =~ ^(.+)"${GIT_STACKBR_SEPARATOR}"([[:digit:]]+)$ ]]; then
     branchBase="${BASH_REMATCH[1]}"
     num=$((BASH_REMATCH[2] + 1))
 fi
 
-while newBranch="${branchBase}${GIT_CLONEBR_SEPARATOR}${num}" && git-existsbr -- "$newBranch"
+while newBranch="${branchBase}${GIT_STACKBR_SEPARATOR}${num}" && git-existsbr -- "$newBranch"
 do
     let num+=1
 done
@@ -96,7 +95,7 @@ checkout()
 }
 create()
 {
-    GIT_CREATEBRANCH_WHAT='Clone' \
+    GIT_CREATEBRANCH_WHAT='Stack' \
 	git-createbr "${actionArgs[@]}" -b "$newBranch" "$branch" || return $?
 
     [ -z "$resetTo" ] || git checkout --no-track -B "$branch" "$resetTo"

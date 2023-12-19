@@ -1,21 +1,21 @@
 #!/bin/bash
 shopt -qs extglob
 
-typeset -a clonedbrrefdoArgs=()
+typeset -a stackedbrrefdoArgs=()
 typeset -a otherArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
-	-+([?hSqiXy]))	clonedbrrefdoArgs+=("$1"); shift;;
+	-+([?hSqiXy]))	stackedbrrefdoArgs+=("$1"); shift;;
 	--@(help|exclude-base|reverse|quiet|no-pager|no-header|interactive|separate-errors|no-git-color|single-success|status-99-is-noop|abort-on-failure|interrupt-on-failure|continue|abort|stashed|detach|submodules|queried-submodules|submodules-recursive|not))
-			clonedbrrefdoArgs+=("$1"); shift;;
-	-[BP])		clonedbrrefdoArgs+=("$1" "$2"); shift; shift;;
+			stackedbrrefdoArgs+=("$1"); shift;;
+	-[BP])		stackedbrrefdoArgs+=("$1" "$2"); shift; shift;;
 	--@(start-branch|progress|abort-on|interrupt-on|max-branch|predicate-command))
-			clonedbrrefdoArgs+=("$1" "$2"); shift; shift;;
+			stackedbrrefdoArgs+=("$1" "$2"); shift; shift;;
 	--branch|-b)	if [ "$2" = '{}' ]; then
 			    otherArgs+=("$1" "${2:?}")
 			else
-			    clonedbrrefdoArgs+=("$1" "${2:?}")
+			    stackedbrrefdoArgs+=("$1" "${2:?}")
 			fi
 			shift; shift
 			;;
@@ -23,4 +23,4 @@ do
 	*)		otherArgs+=("$1"); shift;;
     esac
 done
-exec git-clonedbrrefdo "${clonedbrrefdoArgs[@]}" "${otherArgs[@]}" "$@"
+exec git-stackedbrrefdo "${stackedbrrefdoArgs[@]}" "${otherArgs[@]}" "$@"

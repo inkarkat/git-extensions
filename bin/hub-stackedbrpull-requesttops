@@ -1,6 +1,6 @@
 #!/bin/bash
 
-: ${GIT_CLONEBR_SEPARATOR=-}
+: ${GIT_STACKBR_SEPARATOR=-}
 
 printShortUsage()
 {
@@ -20,9 +20,9 @@ printLongUsage()
     # This is the long "man page" when launched with the help argument.
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
-Create a series of GitHub pull requests for all branches that can be obtained
-from the current / passed branch by appending ${GIT_CLONEBR_SEPARATOR}1 (${GIT_CLONEBR_SEPARATOR}2, etc.) at the end of the
-branch name.
+Create a series of GitHub pull requests for all stacked branches that can be
+obtained from the current / passed branch by appending ${GIT_STACKBR_SEPARATOR}1 (${GIT_STACKBR_SEPARATOR}2, etc.) at the end
+of the branch name.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
@@ -30,11 +30,11 @@ HELPDESCRIPTION
     cat <<HELPTEXT
     --branch|-b BRANCH	Use BRANCH instead of the current branch.
     --exclude-base	Do not create a pull request for the base branch (the
-			branch without the ${GIT_CLONEBR_SEPARATOR}1 suffix).
+			branch without the ${GIT_STACKBR_SEPARATOR}1 suffix).
     --start-branch|-S N	Skip the first N branches.
 
 The first pull request is made against the default / passed BASE branch, all
-subsequent ones are drafts made against the previous cloned branch.
+subsequent ones are drafts made against the previous stacked branch.
 Branches with existing pull requests are skipped. An unclean exit of the editor
 gives the choice to skip just that branch or to abort the whole operation.
 
@@ -47,25 +47,25 @@ HELPTEXT
 }
 
 branchStartNum=
-typeset -a clonedbranchesArgs=()
+typeset -a stackedbranchesArgs=()
 typeset -a firstPullrequestArgs=()
 typeset -a pullrequestArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
-	--branch|-b)	clonedbranchesArgs+=("$1" "${2:?}"); shift; shift;;
-	--exclude-base) clonedbranchesArgs+=("$1"); shift;;
+	--branch|-b)	stackedbranchesArgs+=("$1" "${2:?}"); shift; shift;;
+	--exclude-base) stackedbranchesArgs+=("$1"); shift;;
 	--start-branch|-S)
 			shift; branchStartNum="${1:?}"; shift;;
 	--base)		firstPullrequestArgs+=("$1" "${2:?}"); shift; shift;;
-	--head)		echo >&2 'ERROR: --head HEAD is not supported; use -b|--branch to specify the clone branch.'; exit 2;;
+	--head)		echo >&2 'ERROR: --head HEAD is not supported; use -b|--branch to specify the stacked branch.'; exit 2;;
 	--)		pullrequestArgs+=("$1"); shift; break;;
 	*)		pullrequestArgs+=("$1"); shift;;
     esac
 done
 
-readarray -t branches < <(eval 'git-clonedbranches "${clonedbranchesArgs[@]}"'; printf '\n%d\n' "$?")	# Exit status from the process substitution is lost; return the actual exit status via an appended additional line.
+readarray -t branches < <(eval 'git-stackedbranches "${stackedbranchesArgs[@]}"'; printf '\n%d\n' "$?")	# Exit status from the process substitution is lost; return the actual exit status via an appended additional line.
 [ ${branches[-1]} -ne 0 ] && exit ${branches[-1]}
 unset 'branches[-1]'; [ -z "${branches[-1]}" ] && unset 'branches[-1]'
 
@@ -79,7 +79,7 @@ if [ -n "$branchStartNum" ]; then
 	    branchesPlural=es
 	    branchesAuxiliaryVerb=are
 	fi
-	printf >&2 'ERROR: There %s only %d cloned branch%s.\n' "$branchesAuxiliaryVerb" ${#branches[@]} "$branchesPlural"
+	printf >&2 'ERROR: There %s only %d stacked branch%s.\n' "$branchesAuxiliaryVerb" ${#branches[@]} "$branchesPlural"
 	exit 99
     fi
     branches=("${selectedBranches[@]}")
@@ -91,9 +91,9 @@ firstPullRequestExists()
     firstPullrequestArgs=()
 
     # Note: We could trivially implement this ourselves here as we have all the
-    # branches, but the hub-pull-requesttopc command already implements the
+    # branches, but the hub-pull-requesttops command already implements the
     # reference to the previous pull request for us.
-    prCommand=(hub-pull-requesttopc --draft --branch)
+    prCommand=(hub-pull-requesttops --draft --branch)
 }
 
 branchesPlural=es; [ ${#branches[@]} -eq 1 ] && branchesPlural=

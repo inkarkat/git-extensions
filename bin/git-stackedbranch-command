@@ -1,13 +1,13 @@
 #!/bin/bash
 set -o pipefail
 
-: ${GIT_CLONEBR_SEPARATOR=-}
+: ${GIT_STACKBR_SEPARATOR=-}
 
 printUsage()
 {
     cat <<HELPTEXT
 Execute GIT-COMMAND with the branch name where next / previous existing OFFSET
-cloned branch is added to the appended ${GIT_CLONEBR_SEPARATOR}1 suffix
+stacked branch is added to the appended ${GIT_STACKBR_SEPARATOR}1 suffix
 - appended
 - replacing BRANCH argument(s) anywhere
 - replacing BRANCH in the following GIT-COMMAND and -(N-1) arguments
@@ -23,7 +23,7 @@ HELPTEXT
 }
 
 # Need to parse off -o|--offset, --exclude-base and -b|--branch from anywhere first.
-typeset -a clonedbranchesArgs=()
+typeset -a stackedbranchesArgs=()
 typeset -a allargs=()
 offset=
 branch=
@@ -31,7 +31,7 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-	--exclude-base)	clonedbranchesArgs+=("$1"); shift;;
+	--exclude-base)	stackedbranchesArgs+=("$1"); shift;;
 	--offset|-o)	shift; offset=${1:?}; shift;;
 	--branch|-b)	shift; branch="${1:?}"; shift;;
 	--)		allargs+=("$1"); shift; break;;
@@ -41,29 +41,29 @@ done
 set -- "${allargs[@]}"
 [ -n "$branch" ] || branch="$(git-brname --real-branch-only)" || exit $?
 
-clonedBranch=
-readarray -t branches < <(git-clonedbranches "${clonedbranchesArgs[@]}" ${branch:+--branch "$branch"})
+stackedBranch=
+readarray -t branches < <(git-stackedbranches "${stackedbranchesArgs[@]}" ${branch:+--branch "$branch"})
 branchIndex=$(index "$branch" "${branches[@]}") || { echo >&2 "Cannot find branch ${branch}."; exit 3; }
-let clonedBranchIndex=branchIndex+offset
-if [ $clonedBranchIndex -lt 0 ]; then
+let stackedBranchIndex=branchIndex+offset
+if [ $stackedBranchIndex -lt 0 ]; then
     if [ $branchIndex -eq 0 ]; then
-	printf >&2 'ERROR: No previous cloned branches available; cannot go back.\n'
+	printf >&2 'ERROR: No previous stacked branches available; cannot go back.\n'
     else
 	branchPlural=es; [ $branchIndex -eq 1 ] && branchPlural=
-	printf >&2 'ERROR: Only %d previous cloned branch%s available; first is %s; cannot go back %d branches.\n' $branchIndex "$branchPlural" "${branches[0]}" $((-1 * offset))
+	printf >&2 'ERROR: Only %d previous stacked branch%s available; first is %s; cannot go back %d branches.\n' $branchIndex "$branchPlural" "${branches[0]}" $((-1 * offset))
     fi
     exit 2
-elif [ $clonedBranchIndex -ge ${#branches[@]} ]; then
+elif [ $stackedBranchIndex -ge ${#branches[@]} ]; then
     if [ $branchIndex -eq $((${#branches[@]} - 1)) ]; then
-	printf >&2 'ERROR: No next cloned branches available; cannot go forward.\n'
+	printf >&2 'ERROR: No next stacked branches available; cannot go forward.\n'
     else
 	branchCnt=$((${#branches[@]} - branchIndex))
 	branchPlural=es; [ $branchCnt -eq 1 ] && branchPlural=
-	printf >&2 'ERROR: Only %d next cloned branch%s available; last is %s; cannot go forward %d branches.\n' $branchCnt "$branchPlural" "${branches[-1]}" $offset
+	printf >&2 'ERROR: Only %d next stacked branch%s available; last is %s; cannot go forward %d branches.\n' $branchCnt "$branchPlural" "${branches[-1]}" $offset
     fi
     exit 2
 fi
-clonedBranch="${branches[$clonedBranchIndex]}"
+stackedBranch="${branches[$stackedBranchIndex]}"
 
 isCountedAppend=
 case "$1" in
@@ -74,7 +74,7 @@ case "$1" in
 	typeset -a countedArgs=("${@:2:${countedArgNum}}")
 	set -- "${@:$((2 + countedArgNum))}"
 
-	countedArgs=("${countedArgs[@]//BRANCH/${clonedBranch}}")
+	countedArgs=("${countedArgs[@]//BRANCH/${stackedBranch}}")
 
 	[ "$isCountedAppend" ] \
 	    && exec git-wrapper "$@" "${countedArgs[@]}" \
@@ -82,9 +82,9 @@ case "$1" in
 	;;
     --keep-position)
 	shift
-	exec git-wrapper "${@//BRANCH/${clonedBranch}}"
+	exec git-wrapper "${@//BRANCH/${stackedBranch}}"
 	;;
     *)
-	exec git-wrapper "$@" "$clonedBranch"
+	exec git-wrapper "$@" "$stackedBranch"
 	;;
 esac

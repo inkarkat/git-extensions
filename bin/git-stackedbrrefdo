@@ -2,20 +2,20 @@
 set -o pipefail
 shopt -qs extglob
 
-: ${GIT_CLONEBR_SEPARATOR=-}
+: ${GIT_STACKBR_SEPARATOR=-}
 
 printUsage()
 {
     git-localbrdo --help 2>&1 | sed \
-	-e "1s#^.*\$#Iterate over all branches that can be obtained from the current / passed branch by appending ${GIT_CLONEBR_SEPARATOR}1 (${GIT_CLONEBR_SEPARATOR}2, etc.) at the end of the branch name one by one and execute \"git SIMPLECOMMAND\" and/or COMMANDLINE for each branch, replacing {} with its name.#" \
+	-e "1s#^.*\$#Iterate over all stacked branches that can be obtained from the current / passed branch by appending ${GIT_STACKBR_SEPARATOR}1 (${GIT_STACKBR_SEPARATOR}2, etc.) at the end of the branch name one by one and execute \"git SIMPLECOMMAND\" and/or COMMANDLINE for each branch, replacing {} with its name.#" \
 	-e '2b removeFirstParagraphLoop' \
 	-e '/^ *\(--include-current\|--include-master\|--include-base\|--include-all\|--branches BRANCH \[\.\.\.\] ;\)/b removeOptionLoop' \
-	-e '/^ *--no-pager/i\
-    --branch|-b BRANCH	Use BRANCH instead of the current branch.\
-    --exclude-base	Do not include the base branch (the branch without the\
-			${GIT_CLONEBR_SEPARATOR}1 suffix).\
-    --reverse		Iterate from highest offset to lowest.\
-    --start-branch|-S N	Skip the first N branches.' \
+	-e "/^ *--no-pager/i\\
+    --branch|-b BRANCH	Use BRANCH instead of the current branch.\\
+    --exclude-base	Do not include the base branch (the branch without the\\
+			${GIT_STACKBR_SEPARATOR}1 suffix).\\
+    --reverse		Iterate from highest offset to lowest.\\
+    --start-branch|-S N	Skip the first N branches." \
 	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ ]\+ \)*git-localbrdo /\1\2'"$(basename "$1")"' [-b|--branch BRANCH] [--exclude-base] [--reverse] [--start-branch|-S N] /; s/ \[--include-current\] \[--include-master\] \[--include-base\] \[--include-all\] \[--branches BRANCH \[\.\.\.\] ;\]//; }' \
 	-e '/^Example:$/N' -e '/\(^\|\n\)Example: */{ s/\(^\|\n\)\(Example: *\)\?git-localbrdo .*/\1\2'"$(basename "$1") -n /; }" \
 	-e b -e :removeFirstParagraphLoop -e '{ /\(^\|\n\)$/{ s/^\(.*\n\)\?//; b; }; N; b removeFirstParagraphLoop; }' \
@@ -24,7 +24,7 @@ printUsage()
 
 isReverse=
 branchStartNum=
-typeset -a clonedbranchesArgs=()
+typeset -a stackedbranchesArgs=()
 typeset -a localbrrefdoArgs=()
 while [ $# -ne 0 ]
 do
@@ -33,11 +33,11 @@ do
 	--branch|-b)	if [ "$2" = '{}' ]; then
 			    localbrrefdoArgs+=("$1" "${2:?}")
 			else
-			    clonedbranchesArgs+=("$1" "${2:?}")
+			    stackedbranchesArgs+=("$1" "${2:?}")
 			fi
 			shift; shift
 			;;
-	--exclude-base) clonedbranchesArgs+=("$1"); shift;;
+	--exclude-base) stackedbranchesArgs+=("$1"); shift;;
 	--reverse)	shift; isReverse=t;;
 	--start-branch|-S)
 			shift; branchStartNum="${1:?}"; shift;;
@@ -46,7 +46,7 @@ do
     esac
 done
 
-readarray -t branches < <(eval 'git-clonedbranches "${clonedbranchesArgs[@]}"' "${isReverse:+| tac}"; printf '\n%d\n' "$?")	# Exit status from the process substitution is lost; return the actual exit status via an appended additional line.
+readarray -t branches < <(eval 'git-stackedbranches "${stackedbranchesArgs[@]}"' "${isReverse:+| tac}"; printf '\n%d\n' "$?")	# Exit status from the process substitution is lost; return the actual exit status via an appended additional line.
 [ ${branches[-1]} -ne 0 ] && exit ${branches[-1]}
 unset 'branches[-1]'; [ -z "${branches[-1]}" ] && unset 'branches[-1]'
 
@@ -60,7 +60,7 @@ if [ -n "$branchStartNum" ]; then
 	    branchesPlural=es
 	    branchesAuxiliaryVerb=are
 	fi
-	printf >&2 'ERROR: There %s only %d cloned branch%s.\n' "$branchesAuxiliaryVerb" ${#branches[@]} "$branchesPlural"
+	printf >&2 'ERROR: There %s only %d stacked branch%s.\n' "$branchesAuxiliaryVerb" ${#branches[@]} "$branchesPlural"
 	exit 99
     fi
     branches=("${selectedBranches[@]}")

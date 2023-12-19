@@ -1,0 +1,95 @@
+#!/bin/bash
+set -o pipefail
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--edit|-i|--interactive] -c|--command "COMMANDLINE" [...] | --exec SIMPLECOMMAND [...] ; [...] [REBASE-ARGS ...] [<upstream>] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Rebase with the original interactive rebase todo list programmatically
+manipulated by the passed COMMAND(s).
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --edit|-i|--interactive
+			Edit the manipulated rebase todo list in the editor (to
+			do additional manual edits or just to confirm it).
+    --command|-c CMD	Modify the rebase todo list by piping the net
+			instructions (without comments or empty lines) through
+			CMD.
+    --exec CMD [...] ;	Modify the rebase todo list by piping the net
+			instructions (without comments or empty lines) through
+			CMD; all following arguments are taken to be arguments
+			to the COMMAND until an argument consisting of ';' is
+			encountered.
+HELPTEXT
+}
+
+if [ -z "$GIT_REBASETODOLISTCOMMAND_COMMANDS" ]; then
+    isEdit=
+    commands=
+    typeset -a rebaseArgs=()
+    while [ $# -ne 0 ]
+    do
+	case "$1" in
+	    --help|-h|-\?)  shift; printLongUsage "$0"; exit 0;;
+	    --edit|--interactive|-i)
+			    shift; isEdit=t;;
+	    --command|-c)   shift; commands+="${commands:+ | }${1:?}"; shift;;
+	    --exec)	    shift
+			    cmd=
+			    while [ $# -gt 0 -a "$1" != ';' ]
+			    do
+				printf -v quotedArg '%q' "$1"
+				cmd="${cmd}${cmd:+ }${quotedArg}"
+				shift
+			    done
+			    if [ $# -eq 0 ]; then
+				echo 'ERROR: --exec command must be concluded with ;!'; echo; printUsage "$0"
+				exit 2
+			    fi >&2
+			    shift
+			    commands+="${commands:+ | }${cmd}"
+			    ;;
+	    --)		    rebaseArgs+=("$1"); shift; break;;
+	    *)		    rebaseArgs+=("$1"); shift;;
+	esac
+    done
+
+    if [ -z "$commands" ]; then
+	echo 'ERROR: No COMMAND(s) specified; need to pass -c|--command "COMMANDLINE", or --exec SIMPLECOMMAND [...] ;.'
+	echo
+	printUsage "$0"
+	exit 2
+    fi >&2
+
+    [ "$isEdit" ] \
+	&& commands+=' | tempedit --basename git-rebase-todo'
+
+    GIT_REBASETODOLISTCOMMAND_COMMANDS="$commands" \
+	exec git -c sequence.editor="${BASH_SOURCE[0]}" rebase --interactive "${rebaseArgs[@]}" "$@"
+else
+    if [ $# -ne 1 ]; then
+	echo >&2 'ASSERT: Invalid editor invocation from git rebase: No file to edit.'
+	exit 3
+    fi
+
+    rebaseFilespec="${1:?}"
+    sed -e '/^[[:space:]]*$/d' -e '/^#/d' -- "$rebaseFilespec" \
+	| eval "${GIT_REBASETODOLISTCOMMAND_COMMANDS:?}"
+fi

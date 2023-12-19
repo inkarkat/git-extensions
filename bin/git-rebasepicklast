@@ -1,0 +1,25 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Rebase and just pick the last [N] commits; all preceding commits will be
+discarded.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--edit|-i|--interactive] [-n|--count N] [REBASE-ARGS ...] [<upstream>] [-?|-h|--help]'
+}
+
+count=1
+typeset -a rebaseArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--count|-n)	shift; count="${1:?}"; shift;;
+	--)		rebaseArgs+=("$1"); shift; break;;
+	*)		rebaseArgs+=("$1"); shift;;
+    esac
+done
+
+exec git-rebase-todo-list-command --exec tail -n${count} \; "${rebaseArgs[@]}" "$@"

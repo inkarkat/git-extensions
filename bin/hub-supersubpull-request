@@ -2,6 +2,8 @@
 set -o pipefail
 shopt -qs extglob
 
+: ${HUB_SUPERSUBPULLREQUEST_SUBMODULE_END=;}
+
 readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
 
 printUsage()
@@ -12,7 +14,7 @@ submodules [from the passed SUBMODULE(s)] that are on the same branch as the
 superproject.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[HUB-PULL-REQUEST-ARGS ...] [--for -|--for SUBMODULE [...] ;] [-?|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[HUB-PULL-REQUEST-ARGS ...] [--for -|--for SUBMODULE [...] ${HUB_SUPERSUBPULLREQUEST_SUBMODULE_END}] [-?|--help]"
 }
 
 remote="$(git-trackedremote 2>/dev/null)" || remote='origin'
@@ -30,13 +32,13 @@ do
 			if [ "$1" = - ]; then
 			    subdoArgs+=("$1"); shift
 			else
-			    while [ $# -gt 0 -a "$1" != ';' ]
+			    while [ $# -gt 0 -a "$1" != "$HUB_SUPERSUBPULLREQUEST_SUBMODULE_END" ]
 			    do
 				subdoArgs+=("$1")
 				shift
 			    done
 			    if [ $# -eq 0 ]; then
-				echo 'ERROR: --for must be concluded with ;!'; echo; printUsage "$0"
+				echo "ERROR: --for must be concluded with '${HUB_SUPERSUBPULLREQUEST_SUBMODULE_END}'"; echo; printUsage "$0"
 				exit 2
 			    fi >&2
 			    subdoArgs+=("$1")
@@ -80,15 +82,16 @@ else
 	printf -v quotedMessage '%q' "$message"
 	quotedArgs=; [ $# -eq 0 ] || printf -v quotedArgs ' %q' "$@"
 
-	hub subsamebrdo --subdo-command-name "${scriptName#hub-}" ${head:+--branch "$head"} --no-git-color --interactive --status-99-is-noop "${subdoArgs[@]}" --command "\\
-	    hub-existspr --base $base ${head:+--head "$head"} --print | outputAndPrintf 'Note: Submodule pull request already exists; skipping:\n' \\
-		&& exit 99; \\
-	    logs=\"\$( \\
-		withSeparator \\
-		    --command 'git l ${remote}/${base}..${head} -- | markdownEscape' \\
-		    --command 'hub-logForPullRequest ${remote}/${base}..${head} --' \\
-	    )\"; \\
-	    hub-wrapper pull-request --base $base ${head:+--head "$head"} --message ${quotedMessage}\$'\\n\\n'\"\$logs\" --edit${quotedArgs};"
+	GIT_SUBDO_SUBMODULE_END="$HUB_SUPERSUBPULLREQUEST_SUBMODULE_END" \
+	    hub subsamebrdo --subdo-command-name "${scriptName#hub-}" ${head:+--branch "$head"} --no-git-color --interactive --status-99-is-noop "${subdoArgs[@]}" --command "\\
+		hub-existspr --base $base ${head:+--head "$head"} --print | outputAndPrintf 'Note: Submodule pull request already exists; skipping:\n' \\
+		    && exit 99; \\
+		logs=\"\$( \\
+		    withSeparator \\
+			--command 'git l ${remote}/${base}..${head} -- | markdownEscape' \\
+			--command 'hub-logForPullRequest ${remote}/${base}..${head} --' \\
+		)\"; \\
+		hub-wrapper pull-request --base $base ${head:+--head "$head"} --message ${quotedMessage}\$'\\n\\n'\"\$logs\" --edit${quotedArgs};"
     }
 fi
 

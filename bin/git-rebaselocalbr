@@ -1,6 +1,7 @@
 #!/bin/bash
 shopt -qs extglob
 
+: ${GIT_REBASELOCALBR_BRANCHES_END=;}
 : ${GIT_REBASELOCALBR_SOURCE_COMMAND:=git-localbr}
 
 printUsage()
@@ -12,7 +13,7 @@ branch.<name>.remote and branch.<name>.merge) head.
 After that, you can push all branches via to the default (or passed, if you did
 not pass a remote to this command) remote via git push -f --all.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--continue|--skip|--abort] [--upstream <remote>/<branch>] [--push|--push-to <remote>] [--include-current] [--include-master] [--include-base] [--include-all] [--branches BRANCH [...] ;] [-n N|--count N] [-i|--interactive] [-y|--yes] [options] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[--continue|--skip|--abort] [--upstream <remote>/<branch>] [--push|--push-to <remote>] [--include-current] [--include-master] [--include-base] [--include-all] [--branches BRANCH [...] ${GIT_REBASELOCALBR_BRANCHES_END}] [-n N|--count N] [-i|--interactive] [-y|--yes] [options] [-?|-h|--help]"
 }
 
 branchNum=
@@ -32,13 +33,13 @@ do
 	--color)	shift; shift;;
 	--include-*)	gitLocalbrArgs+=("$1"); shift;;
 	--branches)	shift
-			while [ $# -gt 0 -a "$1" != ';' ]
+			while [ $# -gt 0 -a "$1" != "$GIT_REBASELOCALBR_BRANCHES_END" ]
 			do
 			    sourceBranches+=("$1")
 			    shift
 			done
 			if [ $# -eq 0 ]; then
-			    echo 'ERROR: --branches must be concluded with ;!'; echo; printUsage "$0"
+			    echo "ERROR: --branches must be concluded with '${GIT_REBASELOCALBR_BRANCHES_END}'"; echo; printUsage "$0"
 			    exit 2
 			fi >&2
 			shift

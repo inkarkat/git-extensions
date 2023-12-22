@@ -1,13 +1,14 @@
 #!/bin/bash
 shopt -qs extglob
 
+: ${GIT_ARCHIVELOCALBR_BRANCHES_END=;}
 : ${GIT_ARCHIVELOCALBR_SOURCE_COMMAND:=git-localbr}
 
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--branches BRANCH [...] ;] [-n N|--count N] [-q|--quiet] [-y|--yes] [-f|--force] [-m <msg>|--message=<msg>|-F <file>|--file=<file>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[--branches BRANCH [...] ${GIT_ARCHIVELOCALBR_BRANCHES_END}] [-n N|--count N] [-q|--quiet] [-y|--yes] [-f|--force] [-m <msg>|--message=<msg>|-F <file>|--file=<file>] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -34,9 +35,9 @@ HELPDESCRIPTION
     --yes|-y		Skip the confirmation.
     --force|-f		Force archiving of those branches that have not been
 			fully merged.
-    --branches BRANCH [...] ;
+    --branches BRANCH [...] $GIT_ARCHIVELOCALBR_BRANCHES_END
 			Only archive the following BRANCH(es); i.e. all
-			following arguments until an argument consisting of ';'
+			following arguments until an argument consisting of '${GIT_ARCHIVELOCALBR_BRANCHES_END}'
 			is encountered.
 HELPTEXT
 }
@@ -62,13 +63,13 @@ do
 	--@(message|file)=*)
 			gitArchiveArgs+=("$1"); shift;;
 	--branches)	shift
-			while [ $# -gt 0 -a "$1" != ';' ]
+			while [ $# -gt 0 -a "$1" != "$GIT_ARCHIVELOCALBR_BRANCHES_END" ]
 			do
 			    sourceBranches+=("$1")
 			    shift
 			done
 			if [ $# -eq 0 ]; then
-			    echo 'ERROR: --branches must be concluded with ;!'; echo; printUsage "$0"
+			    echo "ERROR: --branches must be concluded with '${GIT_ARCHIVELOCALBR_BRANCHES_END}'"; echo; printUsage "$0"
 			    exit 2
 			fi >&2
 			shift

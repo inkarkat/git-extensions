@@ -2,6 +2,7 @@
 set -o pipefail
 shopt -qs extglob
 
+: ${GIT_LOCALBRDO_BRANCHES_END=;}
 : ${GIT_LOCALBRDO_SOURCE_COMMAND:=git-localbr}
 
 hasProgressNotification=; type -t progressNotification >/dev/null && hasProgressNotification=t
@@ -10,7 +11,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[-q|--quiet] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success] [--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [--interrupt-on-failure|--interrupt-on EXIT_STATUS] [--continue|--abort|--stashed] [--include-current] [--include-master] [--include-base] [--include-all] [--branches BRANCH [...] ;] [--detach] [(--submodules|--queried-submodules) [--submodules-recursive]] [-B N|--max-branch N] [[--not] -P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...]] [-?|-h|--help]'
+    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[-q|--quiet] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" "[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success] [--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [--interrupt-on-failure|--interrupt-on EXIT_STATUS] [--continue|--abort|--stashed] [--include-current] [--include-master] [--include-base] [--include-all] [--branches BRANCH [...] ${GIT_LOCALBRDO_BRANCHES_END}] [--detach] [(--submodules|--queried-submodules) [--submodules-recursive]] [-B N|--max-branch N] [[--not] -P|--predicate-command \"COMMANDLINE\" [...]] [-c|--command \"COMMANDLINE\" [-c ...] | [--] SIMPLECOMMAND [...]] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -85,7 +86,7 @@ current Git branch before the command output.
 			branch.
     --branches BRANCH [...] ;
 			Only iterate over the following BRANCH(es); i.e. all
-			following arguments until an argument consisting of ';'
+			following arguments until an argument consisting of '${GIT_LOCALBRDO_BRANCHES_END}'
 			is encountered.
     --stashed		Don't create a temporary stash in case the working copy
 			is dirty (as an optimization in case you know you're
@@ -163,13 +164,13 @@ do
 	--stashed)	    shift; isStashed=t;;
 	--include-*)	    gitLocalbrArgs+=("$1"); shift;;
 	--branches)	    shift
-			    while [ $# -gt 0 -a "$1" != ';' ]
+			    while [ $# -gt 0 -a "$1" != "$GIT_LOCALBRDO_BRANCHES_END" ]
 			    do
 				sourceBranches+=("$1")
 				shift
 			    done
 			    if [ $# -eq 0 ]; then
-				echo 'ERROR: --branches must be concluded with ;!'; echo; printUsage "$0"
+				echo "ERROR: --branches must be concluded with '${GIT_LOCALBRDO_BRANCHES_END}'"; echo; printUsage "$0"
 				exit 2
 			    fi >&2
 			    shift

@@ -2,6 +2,7 @@
 set -o pipefail
 shopt -qs extglob
 
+: ${GIT_BRREFDO_BRANCHES_END=;}
 : ${GIT_BRREFDO_SOURCE_COMMAND:=git-abr}
 : ${GIT_BRREFDO_COMMANDNAME:=$(basename -- "$0")}
 : ${GIT_BRREFDO_WHAT:=branches}
@@ -12,7 +13,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s%s %s\n' "$GIT_BRREFDO_COMMANDNAME" '[--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" "[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success] [--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS]${GIT_BRREFDO_ADDITIONAL_ARGS:+ }${GIT_BRREFDO_ADDITIONAL_ARGS} [--branches BRANCH [...] ;] [-B N|--max-branch N] [[--not] -P|--predicate-command \"COMMANDLINE\" [...]] [-c|--command \"COMMANDLINE\" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]"
+    printf 'Usage: %q %s%s %s\n' "$GIT_BRREFDO_COMMANDNAME" '[--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" "[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success] [--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS]${GIT_BRREFDO_ADDITIONAL_ARGS:+ }${GIT_BRREFDO_ADDITIONAL_ARGS} [--branches BRANCH [...] ${GIT_BRREFDO_BRANCHES_END}] [-B N|--max-branch N] [[--not] -P|--predicate-command \"COMMANDLINE\" [...]] [-c|--command \"COMMANDLINE\" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -73,9 +74,9 @@ current Git branch before the command output.
 			Git command, it can also be passed as such:
 			    $(basename "$1") [...] [--] SIMPLECOMMAND
 			The string {} is replaced with the current branch name.
-    --branches BRANCH [...] ;
+    --branches BRANCH [...] $GIT_BRREFDO_BRANCHES_END
 			Only iterate over the following BRANCH(es); i.e. all
-			following arguments until an argument consisting of ';'
+			following arguments until an argument consisting of '${GIT_BRREFDO_BRANCHES_END}'
 			is encountered.
 Note: For paging and headers, this command has to control Git's color output.
 Pass --no-git-color if "git SIMPLECOMMAND" does not support the --color=...
@@ -134,13 +135,13 @@ do
 	--@(${GIT_BRREFDO_LONG_PARAMS:-[]}))
 			    gitBrArgs+=("$1" "$2"); shift; shift;;
 	--branches)	    shift
-			    while [ $# -gt 0 -a "$1" != ';' ]
+			    while [ $# -gt 0 -a "$1" != "$GIT_BRREFDO_BRANCHES_END" ]
 			    do
 				sourceBranches+=("$1")
 				shift
 			    done
 			    if [ $# -eq 0 ]; then
-				echo 'ERROR: --branches must be concluded with ;!'; echo; printUsage "$0"
+				echo "ERROR: --branches must be concluded with '${GIT_BRREFDO_BRANCHES_END}'"; echo; printUsage "$0"
 				exit 2
 			    fi >&2
 			    shift

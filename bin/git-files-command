@@ -1,5 +1,7 @@
 #!/bin/bash
 
+: ${GIT_FILESCOMMAND_EXEC_END=;}
+
 printUsage()
 {
     cat <<HELPTEXT
@@ -11,10 +13,10 @@ Execute GIT-COMMAND with a list of files that is obtained from SOURCE-COMMAND
 - replacing FILES in the following +(N) arguments and appending those
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '--source-command SOURCE-COMMANDLINE|--source-exec COMMAND [...] ; GIT-COMMAND [GIT-COMMAND-ARGS ...] [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '--source-command SOURCE-COMMANDLINE|--source-exec COMMAND [...] ; --keep-position GIT-COMMAND SOURCE-COMMAND [GIT-COMMAND-ARGS ... FILES ...]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '--source-command SOURCE-COMMANDLINE|--source-exec COMMAND [...] ; [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '--source-command SOURCE-COMMANDLINE|--source-exec COMMAND [...] ; [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "--source-command \"SOURCE-COMMANDLINE\"|--source-exec COMMAND [...] $GIT_FILESCOMMAND_EXEC_END GIT-COMMAND [GIT-COMMAND-ARGS ...] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "--source-command \"SOURCE-COMMANDLINE\"|--source-exec COMMAND [...] $GIT_FILESCOMMAND_EXEC_END --keep-position GIT-COMMAND SOURCE-COMMAND [GIT-COMMAND-ARGS ... FILES ...]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "--source-command \"SOURCE-COMMANDLINE\"|--source-exec COMMAND [...] $GIT_FILESCOMMAND_EXEC_END [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "--source-command \"SOURCE-COMMANDLINE\"|--source-exec COMMAND [...] $GIT_FILESCOMMAND_EXEC_END [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [...]"
 }
 sourceCommand=
 case "$1" in
@@ -22,14 +24,14 @@ case "$1" in
     --source-command)	shift; sourceCommand+="${sourceCommand:+; }${1:?}"; shift;;
     --source-exec)	shift
 			cmd=
-			while [ $# -gt 0 -a "$1" != ';' ]
+			while [ $# -gt 0 -a "$1" != "$GIT_FILESCOMMAND_EXEC_END" ]
 			do
 			    printf -v quotedArg '%q' "$1"
 			    cmd="${cmd}${cmd:+ }${quotedArg}"
 			    shift
 			done
 			if [ $# -eq 0 ]; then
-			    echo 'ERROR: --source-exec command must be concluded with ;!'; echo; printUsage "$0"
+			    echo "ERROR: --source-exec command must be concluded with '${GIT_FILESCOMMAND_EXEC_END}'"; echo; printUsage "$0"
 			    exit 2
 			fi >&2
 			shift

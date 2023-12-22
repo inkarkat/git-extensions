@@ -1,12 +1,14 @@
 #!/bin/bash
 
+: ${GIT_SUBDO_SUBMODULE_END=;}
+
 hasProgressNotification=; type -t progressNotification >/dev/null && hasProgressNotification=t
 
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: [GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES=99] %q %s%s %s\n' "$(basename "$1")" '[--recursive] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success] [--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [<revision-range>] [--since <date>] [--after <date>] [--for -|--for SUBMODULE [...] ;] [-j|--include-superproject|-J|--include-superproject-last] [[--not] -P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]'
+    printf 'Usage: [GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES=99] %q %s%s %s\n' "$(basename "$1")" '[--recursive] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" "[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success] [--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [<revision-range>] [--since <date>] [--after <date>] [--for -|--for SUBMODULE [...] ${GIT_SUBDO_SUBMODULE_END}] [-j|--include-superproject|-J|--include-superproject-last] [[--not] -P|--predicate-command \"COMMANDLINE\" [...]] [-c|--command \"COMMANDLINE\" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]"
     echo
     printf 'Usage: [GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES=99] %q %s%s %s\n' "$(basename "$1")" '--repeat [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success] [--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [-j|--include-superproject|-J|--include-superproject-last] [-c|--command "COMMANDLINE" [-c ...]] [[--] SIMPLECOMMAND [...]]'
 }
@@ -64,9 +66,9 @@ the command output.
     <revision-range>|--since <date>|--after <date>
 			Only consider submodules that have undergone changes in
 			the passed revision range.
-    --for SUBMODULE [...] ;
+    --for SUBMODULE [...] $GIT_SUBDO_SUBMODULE_END
 			Only consider the following SUBMODULE(s); i.e. all
-			following arguments until an argument consisting of ';'
+			following arguments until an argument consisting of '${GIT_SUBDO_SUBMODULE_END}'
 			is encountered.
     --for -		Only consider the SUBMODULE(s) read from stdin.
     --include-superproject|-j
@@ -172,16 +174,16 @@ do
 					submoduleArgs+=("$line")
 					submodules["$line"]=t
 				    done
-				    submoduleArgs+=(';')
+				    submoduleArgs+=("$GIT_SUBDO_SUBMODULE_END")
 				else
-				    while [ $# -gt 0 -a "$1" != ';' ]
+				    while [ $# -gt 0 -a "$1" != "$GIT_SUBDO_SUBMODULE_END" ]
 				    do
 					submoduleArgs+=("$1")
 					submodules["$1"]=t
 					shift
 				    done
 				    if [ $# -eq 0 ]; then
-					echo 'ERROR: --for must be concluded with ;!'; echo; printUsage "$0"
+					echo "ERROR: --for must be concluded with '${GIT_SUBDO_SUBMODULE_END}'"; echo; printUsage "$0"
 					exit 2
 				    fi >&2
 				    submoduleArgs+=("$1")

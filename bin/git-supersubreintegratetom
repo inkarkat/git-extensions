@@ -1,5 +1,8 @@
 #!/bin/bash
 
+: ${GIT_REINTEGRATE_EXEC_END=;}
+: ${GIT_SUPERSUBREINTEGRATETOM_SUBMODULE_END=;}
+
 readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
 
 : ${GIT_SUPERSUBREINTEGRATETOM_RECENT_FETCH_AGE:=15m}
@@ -9,8 +12,8 @@ printShortUsage()
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
-    printf 'Usage: GIT_REINTEGRATE_CHECK_COMMAND=CMD|GIT_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" '[--fast-forward-integrate] [-y|--yes] [--same-branch|--for -|--for SUBMODULE [...] ;] [...]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[...] --no-checks | -c|--command "CHECK-COMMANDLINE" [-c ...] | --exec SIMPLECOMMAND [...] ; [...]'
+    printf 'Usage: GIT_REINTEGRATE_CHECK_COMMAND=CMD|GIT_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" "[--fast-forward-integrate] [-y|--yes] [--same-branch|--for -|--for SUBMODULE [...] ${GIT_SUPERSUBREINTEGRATETOM_SUBMODULE_END}] [...]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[...] --no-checks | -c|--command \"CHECK-COMMANDLINE\" [-c ...] | --exec SIMPLECOMMAND [...] $GIT_REINTEGRATE_EXEC_END [...]"
     printf 'Usage: echo CHECK-COMMANDLINES | %q %s\n' "$(basename "$1")" '[...] [--bare|[--initial-status NUM] [--trailing-prompt|--no-trailing-prompt] [--no-output-no-prompt] [--no-output-no-error] [--emulate-prompt]] [--no-success-no-count|--no-count-on N] [--exit-on-success|--exit-on-failure|--exit-on NUM] [--worst-status] [--comment COMMENT] [--summarize-failed ERROR-TEXT [--summarize-failed-separator SEP]] -'
     printf 'Usage: %q %s - <<EOF\n  CHECK-COMMANDLINE\n...\nEOF\n' "$(basename "$1")" '[...]'
 }
@@ -59,9 +62,9 @@ HELPDESCRIPTION
 			superproject. By default, covers submodules that are
 			modified in the superproject's current branch to master
 			in my GitHub clone.
-    --for SUBMODULE [...] ;
+    --for SUBMODULE [...] $GIT_SUPERSUBREINTEGRATETOM_SUBMODULE_END
 			Only consider the following SUBMODULE(s); i.e. all
-			following arguments until an argument consisting of ';'
+			following arguments until an argument consisting of '${GIT_SUPERSUBREINTEGRATETOM_SUBMODULE_END}'
 			is encountered.
     --for -		Only consider the SUBMODULE(s) read from stdin.
 For all other arguments see ffintegrateto.
@@ -104,13 +107,13 @@ do
 				affectedSubmodules+=("$line")
 			    done
 			else
-			    while [ $# -gt 0 -a "$1" != ';' ]
+			    while [ $# -gt 0 -a "$1" != "$GIT_SUPERSUBREINTEGRATETOM_SUBMODULE_END" ]
 			    do
 				affectedSubmodules+=("$1")
 				shift
 			    done
 			    if [ $# -eq 0 ]; then
-				echo 'ERROR: --for must be concluded with ;!'; echo; printUsage "$0"
+				echo "ERROR: --for must be concluded with '${GIT_SUPERSUBREINTEGRATETOM_SUBMODULE_END}'"; echo; printUsage "$0"
 				exit 2
 			    fi >&2
 			    shift   # the ;

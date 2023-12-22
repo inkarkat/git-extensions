@@ -1,6 +1,9 @@
 #!/bin/bash
 shopt -qs extglob
 
+: ${GIT_SUPERSUBHASH_EXEC_END=;}
+: ${GIT_SUPERSUBHASH_SUBMODULE_END=;}
+
 readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
 
 hasProgressNotification=; type -t progressNotification >/dev/null && hasProgressNotification=t
@@ -9,7 +12,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s%s\n' "$(basename "$1")" "${hasProgressNotification:+[--progress SINK] }" '[-r|--revision REVISION|-C|--revision-exec GIT-COMMAND [...] ;|-c|--revision-command COMMANDLINE] [-a|--all] [<since>..<until>|--since <date>|--max-count <number>|-n <number>|COMMIT-LIMITING-ARGS] [--pretty[=<format>]] [-b|--branch BRANCH] [--for -|--for SUBMODULE [...] ;] [-?|-h|--help]'
+    printf 'Usage: %q %s%s\n' "$(basename "$1")" "${hasProgressNotification:+[--progress SINK] }" "[-r|--revision REVISION|-C|--revision-exec GIT-COMMAND [...] ${GIT_SUPERSUBHASH_EXEC_END}|-c|--revision-command \"COMMANDLINE\"] [-a|--all] [<since>..<until>|--since <date>|--max-count <number>|-n <number>|COMMIT-LIMITING-ARGS] [--pretty[=<format>]] [-b|--branch BRANCH] [--for -|--for SUBMODULE [...] ${GIT_SUPERSUBHASH_SUBMODULE_END}] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -32,9 +35,9 @@ HELPDESCRIPTION
     cat <<HELPTEXT
     --revision|-r REVISION
 			Use REVISION instead of the submodule's HEAD.
-    --revision-exec|-C GIT-COMMAND [...] ;
+    --revision-exec|-C GIT-COMMAND [...] $GIT_SUPERSUBHASH_EXEC_END
 			Execute GIT-COMMAND (comprised of all following
-			arguments until an argument consisting of ';' is
+			arguments until an argument consisting of '${GIT_SUPERSUBHASH_EXEC_END}' is
 			encountered) in each submodule to obtain the revision
 			that is used.
     --revision-command|-c COMMANDLINE
@@ -53,9 +56,9 @@ HELPDESCRIPTION
 			tags and commit summary output format when output is to
 			the terminal, just commit hash if not.
     --branch|-b BRANCH	Only consider submodules that have BRANCH checked out.
-    --for SUBMODULE [...] ;
+    --for SUBMODULE [...] ${GIT_SUPERSUBHASH_SUBMODULE_END}
 			Only consider the following SUBMODULE(s); i.e. all
-			following arguments until an argument consisting of ';'
+			following arguments until an argument consisting of '${GIT_SUPERSUBHASH_SUBMODULE_END}'
 			is encountered.
     --for -		Only consider the SUBMODULE(s) read from stdin.
 
@@ -97,14 +100,14 @@ do
 	--revision-exec)
 			shift
 			cmd='git-wrapper'
-			while [ $# -gt 0 -a "$1" != ';' ]
+			while [ $# -gt 0 -a "$1" != "$GIT_SUPERSUBHASH_EXEC_END" ]
 			do
 			    printf -v quotedArg '%q' "$1"
 			    cmd="${cmd}${cmd:+ }${quotedArg}"
 			    shift
 			done
 			if [ $# -eq 0 ]; then
-			    echo 'ERROR: --revision-exec command must be concluded with ;!'; echo; printUsage "$0"
+			    echo "ERROR: --revision-exec command must be concluded with '${GIT_SUPERSUBHASH_EXEC_END}'"; echo; printUsage "$0"
 			    exit 2
 			fi >&2
 			shift
@@ -128,13 +131,13 @@ do
 			if [ "$1" = - ]; then
 			    subdoArgs+=("$1"); shift
 			else
-			    while [ $# -gt 0 -a "$1" != ';' ]
+			    while [ $# -gt 0 -a "$1" != "$GIT_SUPERSUBHASH_SUBMODULE_END" ]
 			    do
 				subdoArgs+=("$1")
 				shift
 			    done
 			    if [ $# -eq 0 ]; then
-				echo 'ERROR: --for must be concluded with ;!'; echo; printUsage "$0"
+				echo "ERROR: --for must be concluded with '${GIT_SUPERSUBHASH_SUBMODULE_END}'"; echo; printUsage "$0"
 				exit 2
 			    fi >&2
 			    subdoArgs+=("$1")

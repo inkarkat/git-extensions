@@ -1,6 +1,7 @@
 #!/bin/bash
 set -o pipefail
 
+: ${GIT_DIFFLINES_EXEC_END=;}
 : ${GIT_DIFFLINES_FILE_MARKER='{+}'}
 fileMarker="$GIT_DIFFLINES_FILE_MARKER"; unset GIT_DIFFLINES_FILE_MARKER
 : ${GIT_DIFFLINES_NUMBER_MARKER='{}'}
@@ -10,7 +11,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[--only-new|--only-old|--only-removed --number-format LFMT]|[--number-format LFMT [--sort-key=KEYDEF]] [-c|--command \"COMMANDLINE\" [...] | --exec SIMPLECOMMAND [...] ${numberMarker:+[}${numberMarker}${numberMarker:+] [...]} ; [...]] [<diff-options>] [<commit> [<commit>]] [--] [<path>...] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[--only-new|--only-old|--only-removed --number-format LFMT]|[--number-format LFMT [--sort-key=KEYDEF]] [-c|--command \"COMMANDLINE\" [...] | --exec SIMPLECOMMAND [...] ${numberMarker:+[}${numberMarker}${numberMarker:+] [...]} $GIT_DIFFLINES_EXEC_END [...]] [<diff-options>] [<commit> [<commit>]] [--] [<path>...] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -49,11 +50,11 @@ HELPDESCRIPTION
 			is replaced with the filespec}.
 			Line numbers ${numberMarker:+either }are appended${numberMarker:+ or replace any $numberMarker
 			marker} inside COMMANDLINE.
-    --exec COMMAND [...] ;
+    --exec COMMAND [...] $GIT_DIFFLINES_EXEC_END
 			Execute COMMAND for each diffed file${fileMarker:+; ${fileMarker} is replaced
 			with the filespec};
 			all following arguments are taken to be arguments to the
-			COMMAND until an argument consisting of ';' is
+			COMMAND until an argument consisting of '${GIT_DIFFLINES_EXEC_END}' is
 			encountered. Line numbers ${numberMarker:+either }are appended${numberMarker:+ or replace
 			any $numberMarker marker} inside COMMANDLINE.
 HELPTEXT
@@ -88,7 +89,7 @@ do
 			cmd=
 			printf -v escapedFileMarker %q "$fileMarker"
 			printf -v escapedNumberMarker %q "$numberMarker"
-			while [ $# -gt 0 -a "$1" != ';' ]
+			while [ $# -gt 0 -a "$1" != "$GIT_DIFFLINES_EXEC_END" ]
 			do
 			    printf -v quotedArg '%q' "$1"
 			    quotedArg="${quotedArg//"$escapedFileMarker"/$fileMarker}"	# %q escapes {}, we don't want that to have it interpolated later.
@@ -96,7 +97,7 @@ do
 			    forwardedArgs+=("$1"); shift
 			done
 			if [ $# -eq 0 ]; then
-			    echo 'ERROR: --exec command must be concluded with ;!'; echo; printUsage "$0"
+			    echo "ERROR: --exec command must be concluded with '${GIT_DIFFLINES_EXEC_END}'"; echo; printUsage "$0"
 			    exit 2
 			fi >&2
 			forwardedArgs+=("$1"); shift

@@ -1,13 +1,15 @@
 #!/bin/bash
 shopt -qs extglob
 
+: ${GIT_ONELINELOGANDDECORATIONS_ARGS_END=;}
+
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--full-decorations] [--decorate-refs=<pattern> [-i|--include <pattern>] [-e|--exclude <pattern>]] [<log-options>] [<revision range>] ...'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '... [--commit-log-args <log-options> [...] ;] [--] <path> [...]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '... [--full-decorations] --commit-log-args <log-options> [...] ; [--] [<path> ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "... [--commit-log-args <log-options> [...] ${GIT_ONELINELOGANDDECORATIONS_ARGS_END}] [--] <path> [...]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "... [--full-decorations] --commit-log-args <log-options> [...] $GIT_ONELINELOGANDDECORATIONS_ARGS_END [--] [<path> ...]"
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --only-decorations [--] [<path> ...] [-?|-h|--help]'
 }
@@ -39,7 +41,7 @@ HELPDESCRIPTION
     --only-decorations	Only show commits that are decorated with any ref names.
 			Other (not tagged, not tip of a branch) commits are
 			omitted.
-    --commit-log-args <log-options> [...] ;
+    --commit-log-args <log-options> [...] $GIT_ONELINELOGANDDECORATIONS_ARGS_END
 			These log options are only used for filtering the
 			non-decorated commits, as an alternative or supplement
 			to filtering by <path>.
@@ -107,13 +109,13 @@ do
 	--graph)	gitGraphLogArg=("$1"); shift;;
 	--commit-log-args)
 			shift
-			while [ $# -gt 0 -a "$1" != ';' ]
+			while [ $# -gt 0 -a "$1" != "$GIT_ONELINELOGANDDECORATIONS_ARGS_END" ]
 			do
 			    gitCommitLogArgs+=("$1")
 			    shift
 			done
 			if [ $# -eq 0 ]; then
-			    echo 'ERROR: --commit-log-args must be concluded with ;!'; echo; printUsage "$0"
+			    echo "ERROR: --commit-log-args must be concluded with '${GIT_ONELINELOGANDDECORATIONS_ARGS_END}'"; echo; printUsage "$0"
 			    exit 2
 			fi >&2
 			shift

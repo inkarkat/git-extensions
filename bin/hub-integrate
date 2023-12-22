@@ -2,6 +2,8 @@
 set -o pipefail
 shopt -qs extglob
 
+: ${HUB_INTEGRATE_EXEC_END=;}
+
 readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
 
 printShortUsage()
@@ -128,12 +130,12 @@ do
 	--no-checks)	shift; printChecksIgnoredNote() { :; };;
 	--command|-c)	shift; shift; printChecksIgnoredNote;;
 	--exec)		shift
-			while [ $# -gt 0 -a "$1" != ';' ]
+			while [ $# -gt 0 -a "$1" != "$HUB_INTEGRATE_EXEC_END" ]
 			do
 			    shift
 			done
 			if [ $# -eq 0 ]; then
-			    echo 'ERROR: --exec command must be concluded with ;!'; echo; printUsage "$0"
+			    echo "ERROR: --exec command must be concluded with '${HUB_INTEGRATE_EXEC_END}'"; echo; printUsage "$0"
 			    exit 2
 			fi >&2
 			shift

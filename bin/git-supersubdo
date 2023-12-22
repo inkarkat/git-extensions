@@ -1,6 +1,8 @@
 #!/bin/bash
 set -o pipefail
 
+: ${GIT_SUBDO_SUBMODULE_END=;}
+
 readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
 
 printShortUsage()
@@ -99,13 +101,13 @@ do
 				if [ "$1" = - ]; then
 				    subdoArgs+=("$1"); shift
 				else
-				    while [ $# -gt 0 -a "$1" != ';' ]
+				    while [ $# -gt 0 -a "$1" != "$GIT_SUBDO_SUBMODULE_END" ]
 				    do
 					subdoArgs+=("$1")
 					shift
 				    done
 				    if [ $# -eq 0 ]; then
-					echo 'ERROR: --for must be concluded with ;!'; echo; printUsage "$0"
+					echo "ERROR: --for must be concluded with '${GIT_SUBDO_SUBMODULE_END}'"; echo; printUsage "$0"
 					exit 2
 				    fi >&2
 				    subdoArgs+=("$1")

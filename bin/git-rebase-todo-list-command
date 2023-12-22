@@ -1,11 +1,13 @@
 #!/bin/bash
 set -o pipefail
 
+: ${GIT_REBASETODOLISTCOMMAND_EXEC_END=;}
+
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--edit|-i|--interactive] -c|--command "COMMANDLINE" [...] | --exec SIMPLECOMMAND [...] ; [...] [REBASE-ARGS ...] [<upstream>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[--edit|-i|--interactive] -c|--command \"COMMANDLINE\" [...] | --exec SIMPLECOMMAND [...] $GIT_REBASETODOLISTCOMMAND_EXEC_END [...] [REBASE-ARGS ...] [<upstream>] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -32,10 +34,10 @@ HELPDESCRIPTION
     --command|-c CMD	Modify the rebase todo list by piping the net
 			instructions (without comments or empty lines) through
 			CMD.
-    --exec CMD [...] ;	Modify the rebase todo list by piping the net
+    --exec CMD [...] $GIT_REBASETODOLISTCOMMAND_EXEC_END	Modify the rebase todo list by piping the net
 			instructions (without comments or empty lines) through
 			CMD; all following arguments are taken to be arguments
-			to the COMMAND until an argument consisting of ';' is
+			to the COMMAND until an argument consisting of '${GIT_ONELINELOGANDDECORATIONS_ARGS_END}' is
 			encountered.
 HELPTEXT
 }
@@ -53,14 +55,14 @@ if [ -z "$GIT_REBASETODOLISTCOMMAND_COMMANDS" ]; then
 	    --command|-c)   shift; commands+="${commands:+ | }${1:?}"; shift;;
 	    --exec)	    shift
 			    cmd=
-			    while [ $# -gt 0 -a "$1" != ';' ]
+			    while [ $# -gt 0 -a "$1" != "$GIT_ONELINELOGANDDECORATIONS_ARGS_END" ]
 			    do
 				printf -v quotedArg '%q' "$1"
 				cmd="${cmd}${cmd:+ }${quotedArg}"
 				shift
 			    done
 			    if [ $# -eq 0 ]; then
-				echo 'ERROR: --exec command must be concluded with ;!'; echo; printUsage "$0"
+				echo "ERROR: --exec command must be concluded with '${GIT_ONELINELOGANDDECORATIONS_ARGS_END}'"; echo; printUsage "$0"
 				exit 2
 			    fi >&2
 			    shift
@@ -72,7 +74,7 @@ if [ -z "$GIT_REBASETODOLISTCOMMAND_COMMANDS" ]; then
     done
 
     if [ -z "$commands" ]; then
-	echo 'ERROR: No COMMAND(s) specified; need to pass -c|--command "COMMANDLINE", or --exec SIMPLECOMMAND [...] ;.'
+	echo "ERROR: No COMMAND(s) specified; need to pass -c|--command \"COMMANDLINE\", or --exec SIMPLECOMMAND [...] $GIT_ONELINELOGANDDECORATIONS_ARGS_END"
 	echo
 	printUsage "$0"
 	exit 2

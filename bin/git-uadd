@@ -6,15 +6,20 @@ printUsage()
 Add upstream repository (read-only) and fetch it.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'URL [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[URL] [-?|-h|--help]'
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
-if [ $# -ne 1 ]; then
-    printUsage "$0" >&2
-    exit 2
-fi
+case $# in
+    0)	url="$(hub-urepo --remote)" || exit $?
+	printf 'Upstream is %s\n' "$url"
+	;;
+    1)	url="${1:?}"; shift;;
+    *)	printUsage "$0" >&2
+	exit 2
+	;;
+esac
 
-git remote add -f upstream "$@" \
+git remote add -f upstream "$url" \
     && git-remote-setreadonly upstream

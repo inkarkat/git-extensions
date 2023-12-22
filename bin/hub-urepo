@@ -1,0 +1,67 @@
+#!/bin/bash
+# Source: https://stackoverflow.com/a/18586164/813602
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--ultimate] [--remote|--ssh|--url] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Print the parent repository that this repository was forked from (based on the
+origin remote).
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+Print the parent repository that this repository was forked from (based on the
+origin remote).
+    --ultimate		Use the ultimate source for the network, not the direct
+			parent his repo was forked from.
+    --remote		Print the remote URL for cloning the parent repo.
+    --ssh		Print the remote SSH for cloning the parent repo.
+    --url		Print the GitHub URL of the parent repo.
+HELPTEXT
+}
+
+where='parent'
+what='full_name'
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+
+	--ultimate)	shift; where='source';;
+	--remote)	shift; what='clone_url';;
+	--ssh)		shift; what='ssh_url';;
+	--url)		shift; what='html_url';;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+remoteRepositoryArg=("$(hub-userrepo "$(git-remote-url origin)")") || exit $?
+owner="${remoteRepositoryArg[0]%%/*}"
+repo="${remoteRepositoryArg[0]#*/}"
+
+exec gh api --template "{{.${where}.${what}}}{{\"\\n\"}}" "/repos/${owner}/${repo}"

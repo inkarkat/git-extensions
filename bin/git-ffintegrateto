@@ -14,7 +14,7 @@ printShortUsage()
     echo
     printf 'Usage: GIT_REINTEGRATE_CHECK_COMMAND=CMD|GIT_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" '[...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" "[...] --no-checks | -c|--command \"CHECK-COMMANDLINE\" [-c ...] | --exec SIMPLECOMMAND [...] $GIT_FFINTEGRATETO_EXEC_END [--exec ...]"
-    printf 'Usage: echo CHECK-COMMANDLINES | %q %s\n' "$(basename "$1")" '[...] [--bare|[--initial-status NUM] [--trailing-prompt|--no-trailing-prompt] [--no-output-no-prompt] [--no-output-no-error] [--emulate-prompt]] [--no-success-no-count|--no-count-on N] [--exit-on-success|--exit-on-failure|--exit-on NUM] [--worst-status] [--comment COMMENT] [--summarize-failed ERROR-TEXT [--summarize-failed-separator SEP]] -'
+    printf 'Usage: echo CHECK-COMMANDLINES | %q %s\n' "$(basename "$1")" "[...] [--bare|$(runWithPrompt --get-short-usage 2>/dev/null)] -"
     printf 'Usage: %q %s - <<EOF\n  CHECK-COMMANDLINE\n...\nEOF\n' "$(basename "$1")" '[...]'
 }
 printUsage()
@@ -84,23 +84,11 @@ HELPDESCRIPTION
     --no-checks		Don't run any default \$GIT_REINTEGRATE_CHECK_COMMAND /
 			\$GIT_CHECK_COMMAND.
     --yes		Don't query for confirmation of remote mutations.
-    --bare		    Do not print a status line before and after
-			    launching the COMMAND.
-    --emulate-prompt	    Customizations of the prompt emulation around
-    --initial-status NUM    COMMAND; cp. runWithPrompt
-    --trailing-prompt
-    --no-trailing-prompt
-    --no-output-no-prompt
-    --no-output-no-error
-    --no-success-no-count   Stop on condition / summarize at end; cp. runWith
-    --no-count-on N
-    --exit-on-success
-    --exit-on-failure	    (This also works with --bare.)
-    --exit-on NUM
-    --worst-status
-    --comment COMMENT
-    --summarize-failed ERROR-TEXT
-    --summarize-failed-separator SEP
+    --bare		Do not print a status line before and after launching
+			the COMMAND.
+HELPTEXT
+    runWithPrompt --get-long-usage 2>/dev/null
+    cat <<HELPTEXT
 The answers to some questions can be preconfigured via these boolean config
 settings; when not configured (true or false), the user will be prompted every
 time:
@@ -238,7 +226,7 @@ do
 			bashArgs+=(-e); runWithPromptArgs+=("$1"); shift;;
 	--trailing-prompt|--no-trailing-prompt|--no-output-no-prompt|--no-output-no-error|--no-success-no-count|--exit-on-success|--emulate-prompt|--worst-status)
 			runWithPromptArgs+=("$1"); shift;;
-	--initial-status|--no-count-on|--exit-on|--comment|--summarize-failed|--summarize-failed-separator)
+	--initial-status|--no-count-on|--exit-on|--exit-unless|--comment|--summarize-failed|--summarize-failed-separator)
 			runWithPromptArgs+=("$1" "$2"); shift; shift;;
 
 	--message|-m|--file|-F)

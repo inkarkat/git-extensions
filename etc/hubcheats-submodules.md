@@ -4,7 +4,11 @@ superproject: `$ git com && git ofetchup-hushed`
 ## a) start top-down
 superproject: Create a branch: `$ git omco -b feat-4711/super-cool`
 submodules: `$ c SUBMODULE1 git cosuperbr`
-(or with querying: `$ git subconewbr --query|SUBMODULE1 SUBMODULE2`)
+  with querying: `$ git subconewbr --query|SUBMODULE1 SUBMODULE2`
+  after uncommitted changes:
+   `$ git subuntrackeddo cosuperbr`
+   `$ git subdirtydo cosuperbr`
+   `$ git substageabledo cosuperbr`
 ## b) start bottom-up
 submodule(s): Create branch: `$ git checkoutbranch -b feat-4711/super-cool`
 superproject: Create branch: `$ git checkoutbranch -b $(git substdo --no-header brname | sort -u | singleLineOrSuppressAndError)`

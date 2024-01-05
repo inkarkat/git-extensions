@@ -1,5 +1,8 @@
 #!/bin/bash
 
+: ${GIT_DERELICT_AGE=1y}
+: ${GIT_DERELICT_REMOTE_NAME:=derelict}
+
 printUsage()
 {
     cat <<HELPTEXT
@@ -21,5 +24,15 @@ case $# in
 	;;
 esac
 
-git remote add -f upstream "$url" \
-    && git-remote-setreadonly upstream
+set -e
+git remote add -f upstream "$url"
+git-remote-setreadonly upstream
+
+[ -n "$GIT_DERELICT_AGE" ] || exit 0
+readarray -t upstreamBranches < <(git rbrrefdo-wrapper upstream)
+if git-commitage --older "$GIT_DERELICT_AGE" "${upstreamBranches[@]}" \
+    && git commitage --with-revision "${upstreamBranches[@]}" | reldate --epoch-lines \
+    && userBinaryChoice --keep-prompt --introduction "The last commit of all of upstream's branches is older than $GIT_DERELICT_AGE." --question "Rename upstream to $GIT_DERELICT_REMOTE_NAME?" --yes-no
+then
+    git remote rename upstream "$GIT_DERELICT_REMOTE_NAME"
+fi

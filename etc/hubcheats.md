@@ -78,6 +78,12 @@ hub is a command-line wrapper for git that makes you better at GitHub.
 → (creates a new project on GitHub with the name of current directory)
 `$ git push origin master`
 
+### Forking an abandoned project
+- Recommended to rename the upstream remote to derelict, so that hub won't list
+  upstream issues / PRs any longer.
+  `$ git remote rename upstream derelict`
+  (My git-uadd detects and offers this automatically.)
+
 # Using GitHub for work
 
 ### whitelist your GitHub Enterprise hostname

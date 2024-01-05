@@ -1,0 +1,171 @@
+#!/bin/bash
+shopt -qs extglob
+
+printUsage()
+{
+    cat <<HELPDESCRIPTION
+Show the age (time of commit) in seconds since the Epoch (or seconds passed with
+-d|--diff) of HEAD / the commits in the passed range. With -v|--with-revision,
+appends a tab and the commit hash and subject to each.
+HELPDESCRIPTION
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-d|--diff] [-v|--with-revision] [<commit> ...]|([<log-options>] [<revision-range>] [[--] <path>...]) [-?|-h|--help]'
+    printf 'Usage: reldate --epoch "$(%q %s)"\n' "$(basename "$1")" '[<commit> ...]|([<log-options>] [<revision-range>] [[--] <path>...])'
+    printf 'Usage: %q %s | reldate --epoch-lines\n' "$(basename "$1")" '[<commit> ...]|([<log-options>] [<revision-range>] [[--] <path>...])'
+    echo
+    cat <<HELPDESCRIPTION
+Test whether the age of [all] commits is greater / smaller than AGE.
+SUFFIX may be 's' for seconds (the default), 'm' for minutes, 'h' for hours, 'd'
+for days, 'w' for weeks, 'mo' for months, 'y' for years, 'g' for generations.
+HELPDESCRIPTION
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX] [<commit> ...]|([<log-options>] [<revision-range>] [[--] <path>...])'
+    echo
+    cat <<HELPDESCRIPTION
+Test whether the age of [all] commits falls inside / outside TIMESLOT.
+TIMESLOT can be one of second|minute|hour|day|week|month|year, or
+every N seconds|minutes|hours|days|weeks|months|years|generations, which doesn't
+translate to a fixed age, but instead ensures that this falls into / outside the
+slot.
+For example, 'day' could mean an age difference of only seconds, if the one is
+before midnight and the other shortly after midnight.
+HELPDESCRIPTION
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '-w|--within|-W|--without second|minute|hour|day|week|month|year|every N (seconds|minutes|hours|days|weeks|months|years|generations) [<commit> ...]|([<log-options>] [<revision-range>] [[--] <path>...])'
+    echo
+    cat <<HELPTEXT
+EXIT STATUS:
+    0	Complete success.
+    1	The comparison failed; at least one commit did not pass it.
+    2	Bad invocation, wrong or missing command-line arguments.
+    4	The passed <revision-range> / <path> did not yield any commits.
+HELPTEXT
+}
+
+getSpan()
+{
+    local divider="$1"; shift
+    divider="${divider#every }"
+    divider="${divider% +([a-z])}"
+    printf '%d' "$divider"
+}
+parseTime()
+{
+    case "$1" in
+	+([0-9])?(s))			age="${1%s}";;
+	+([0-9])m)			age=$((${1%m} * 60));;
+	+([0-9])h)			age=$((${1%h} * 3600));;
+	+([0-9])d)			age=$((${1%d} * 86400));;
+	+([0-9])w)			age=$((${1%w} * 86400 * 7));;
+	+([0-9])mo)			age=$((${1%mo} * 86400 * 30));;
+	+([0-9])y)			age=$((${1%y} * 86400 * 365));;
+	+([0-9])g)			age=$((${1%g} * 86400 * 9131));;
+	second)				timeformat='%s';;
+	minute)				timeformat='%F_%H:%M';;
+	hour)				timeformat='%F_%H';;
+	day)				timeformat='%F';;
+	week)				timeformat='%G_%V';;
+	month)				timeformat='%Y_%m';;
+	year)				timeformat='%Y';;
+	every\ +([0-9])\ seconds)	age="$(getSpan "$1")"; timedivider=1;;
+	every\ +([0-9])\ minutes)	age="$(getSpan "$1")"; timedivider=60;;
+	every\ +([0-9])\ hours)		age="$(getSpan "$1")"; timedivider=3600;;
+	every\ +([0-9])\ days)		age="$(getSpan "$1")"; timedivider=86400;;
+	every\ +([0-9])\ weeks)		age="$(getSpan "$1")"; timedivider=$((86400 * 7));;
+	every\ +([0-9])\ months)	age="$(getSpan "$1")"; timedivider=$((86400 * 30));;
+	every\ +([0-9])\ years)		age="$(getSpan "$1")"; timedivider=$((86400 * 365));;
+	every\ +([0-9])\ generations)	age="$(getSpan "$1")"; timedivider=$((86400 * 9131));;
+	*)				printf >&2 'ERROR: Invalid age/TIMESLOT: "%s".\n' "$1"; printUsage "$0" >&2; exit 2;;
+    esac
+}
+
+spanCompareOp=
+formatCompareOp=
+isDiff=
+formatAddendum=
+typeset -a logArgs=()
+typeset -a revisions=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--diff|-d)	shift; isDiff=t;;
+	--with-revision|-v)
+			shift; formatAddendum=$'\t%h\t%s';;
+	--newer|-n)	shift; parseTime "$1"; shift; spanCompareOp=-lt;;
+	--older|-o)	shift; parseTime "$1"; shift; spanCompareOp=-gt;;
+	-lt|-le|-eq|-ne|-ge|-gt)
+			spanCompareOp="$1"; shift; parseTime "$1"; shift;;
+	--within|-w)	shift; parseTime "$1"; spanCompareOp='-ge'; formatCompareOp='='; shift;;
+	--without|-W)	shift; parseTime "$1"; spanCompareOp='-le'; formatCompareOp='!='; shift;;
+	--)		logArgs+=("$1"); shift; break;;
+	*)		if git rev-parse --verify --quiet "${1:?}" >/dev/null 2>&1; then
+			    revisions+=("$1")
+			else
+			    logArgs+=("$1")
+			fi
+			shift
+			;;
+	*)		break;;
+    esac
+done
+[ ${#revisions[@]} -eq 0 -a ${#logArgs[@]} -eq 0 -a $# -eq 0 ] && revisions=(HEAD)
+[ ${#revisions[@]} -eq 0 ] \
+    && typeset -a gitCommand=(log) \
+    || typeset -a gitCommand=(show --no-patch)
+set -- "${revisions[@]}" "${logArgs[@]}" "$@"
+
+getEpoch()
+{
+    git "${gitCommand[@]}" --pretty="tformat:%ct${formatAddendum}" "$@" || return 4
+}
+calculateTimeRange()
+{
+    local epoch="${1:?}"; shift
+    local now="$(date +%s)"
+
+    if [ -n "$timeformat" ]; then
+	local nowTime fileTime
+	nowTime="$(date --date "@$now" "+$timeformat")" || exit 3
+	fileTime="$(date --date "@$epoch" "+$timeformat")" || exit 3
+	[ "$fileTime" $formatCompareOp "$nowTime" ]
+    elif [ -n "$timedivider" ]; then
+	local nowDivision fileDivision
+	nowDivision="$((now / timedivider))"
+	fileDivision="$((epoch / timedivider))"
+	[ $age $spanCompareOp $((nowDivision - fileDivision)) ]
+    else
+	[ $((now - epoch)) $spanCompareOp $age ]
+    fi
+}
+
+if [ -n "$spanCompareOp" ]; then
+    if [ -n "$formatAddendum" ]; then
+	echo 'ERROR: Cannot combine -r|--with-revision with AGE comparison.'
+	echo
+	printUsage "$0"
+	exit 2
+    fi >&2
+
+    exitStatus=3
+    compareStatus=0
+    while IFS=$'\n' read -r epoch || { exitStatus="$epoch"; break; }	# Exit status from the process substitution (<(getEpoch)) is lost; return the actual exit status via an incomplete (i.e. missing the newline) last line.
+    do
+	calculateTimeRange "$epoch" || compareStatus=1
+    done < <(getEpoch "$@"; printf %d "$?")
+    exit $((exitStatus > 0 ? exitStatus : compareStatus))
+elif [ "$isDiff" ]; then
+    now="$(date +%s)"
+    exitStatus=3
+    while IFS=$'\t' read -r epoch addendum || { exitStatus="$epoch"; break; }	# Exit status from the process substitution (<(getEpoch)) is lost; return the actual exit status via an incomplete (i.e. missing the newline) last line.
+    do
+	if [ -n "$formatAddendum" ]; then
+	    printf '%d	%s\n' "$((now - epoch))" "$addendum"
+	else
+	    printf '%d\n' "$((now - epoch))"
+	fi
+    done < <(getEpoch "$@"; printf %d "$?")
+    exit $exitStatus
+else
+    getEpoch "$@"
+fi

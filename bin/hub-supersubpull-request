@@ -52,7 +52,15 @@ do
 done
 set -- "${args[@]}" "$@"
 
+goToSuperproject() { :; }
 if git issubmodule; then
+    goToSuperproject()
+    {
+	cd "${superprojectRoot:?}" || exit 3
+	header "../$(git-wcname)"
+	goToSuperproject() { :; }
+    }
+
     superprojectRoot="$(git superproject)" || exit 3
     submoduleRoot="$PWD"
     cd "$superprojectRoot" || exit 3
@@ -107,8 +115,13 @@ if ! hub-existspr --base "$base" ${head:+--head "$head"} --print | outputAndPrin
 fi
 echo
 
-handleSubmodules "$@" || exit $?
+handleSubmodules "$@"; status=$?
+case $status in
+    0|99)   ;;
+    *)	    exit $status;;
+esac
 
+goToSuperproject
 exec tempedit \
     --basename PULLREQ_EDITMSG \
     --sink-exec sed -e 1d -e '2{/^$/d}' -- {} \; \

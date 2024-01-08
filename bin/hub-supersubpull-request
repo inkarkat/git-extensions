@@ -52,7 +52,15 @@ do
 done
 set -- "${args[@]}" "$@"
 
+goToSuperproject() { :; }
 if git issubmodule; then
+    goToSuperproject()
+    {
+	cd "${superprojectRoot:?}" || exit 3
+	header "../$(git-wcname)"
+	goToSuperproject() { :; }
+    }
+
     superprojectRoot="$(git superproject)" || exit 3
     submoduleRoot="$PWD"
     cd "$superprojectRoot" || exit 3
@@ -109,6 +117,7 @@ echo
 
 handleSubmodules "$@" || exit $?
 
+goToSuperproject
 exec tempedit \
     --basename PULLREQ_EDITMSG \
     --sink-exec sed -e 1d -e '2{/^$/d}' -- {} \; \

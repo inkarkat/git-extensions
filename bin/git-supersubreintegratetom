@@ -346,8 +346,9 @@ completeSubmoduleReintegrationInSuperproject()
 	*)  local pendingSubmoduleCnt=$((${#affectedSubmodules[@]} - ${#unintegratedSubmodules[@]} + 1))
 	    local affectedSubmodulesPlural=s affectedSubmodulesAuxiliaryVerb=have; if [ ${#affectedSubmodules[@]} -eq 1 ]; then affectedSubmodulesPlural=; affectedSubmodulesAuxiliaryVerb=has; fi
 	    if git-dirty --ignore-submodules=dirty -- "${affectedSubmodules[@]}"; then
-		if [ $pendingSubmoduleCnt -eq 1 ]; then
+		if [ $pendingSubmoduleCnt -eq 1 -o $pendingSubmoduleCnt -gt ${#affectedSubmodules[@]} ]; then
 		    # The first pending submodule creates a separate integration commit.
+		    # Also, when the entire submodule fast-forward-integration was interrupted, all submodules have been integrated but none yet updated in the superproject, we want a separate commit, no amend to a (likely unrelated) previous superproject commit.
 		    local commitMessage; printf -v commitMessage 'Housekeeping: Reintegrate submodule%s %s' "$affectedSubmodulesPlural" "$(joinBy ', ' "${affectedSubmodules[@]}")"
 		    git add -- "${affectedSubmodules[@]}" \
 			&& git-wrapper commit --edit --message "$commitMessage" \

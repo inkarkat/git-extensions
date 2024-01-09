@@ -285,6 +285,17 @@ fetchFirst()
     fi
 }
 
+handleWorkflow()
+{
+    if hub-workflow-status --has-workflow; then
+	if [ "$HUB" ]; then
+	    export GIT_REINTEGRATE_PRE_PUSH_COMMAND="printf '\nWaiting for the GitHub action to validate the build on the branch before pushing.\n'; hub-workflow-status --revision HEAD --latest --is completed --concluded success --wait 'The fast-forward-integrated branch build'"
+	else
+	    export GIT_REINTEGRATE_PRE_PUSH_COMMAND="printf '\nNote: Wait for the GitHub action to validate the build on the branch before pushing.\n'"
+	fi
+    fi
+}
+
 reintegrateSubmodule()
 {
     if [ "$HUB" ] && [ ! "$isFastForwardIntegration" ]; then
@@ -436,14 +447,7 @@ reintegrateSuperproject()
     fi
 
     fetchFirst
-
-    if hub-workflow-status --has-workflow; then
-	if [ "$HUB" ]; then
-	    export GIT_REINTEGRATE_PRE_PUSH_COMMAND="printf '\nWaiting for the GitHub action to validate the build on the branch before pushing.\n'; hub-workflow-status --revision HEAD --latest --is completed --concluded success --wait 'The fast-forward-integrated branch build'"
-	else
-	    export GIT_REINTEGRATE_PRE_PUSH_COMMAND="printf '\nNote: Wait for the GitHub action to validate the build on the branch before pushing.\n'"
-	fi
-    fi
+    handleWorkflow
 
     typeset -a ffintegratetoArgs=(--branch "$masterBranch" --push-branch "${integrateArgs[@]}" "${ffintegratetoArgs[@]}")
     [ "$isFastForwardIntegration" ] \

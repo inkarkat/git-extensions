@@ -343,23 +343,25 @@ completeSubmoduleReintegrationInSuperproject()
 		echo 'The reintegrated submodule(s) have been fast-forwarded; nothing to amend.'
 	    fi
 	    ;;
-	*)  local submoduleCnt=$((${#affectedSubmodules[@]} - ${#unintegratedSubmodules[@]} + 1))
+	*)  local pendingSubmoduleCnt=$((${#affectedSubmodules[@]} - ${#unintegratedSubmodules[@]} + 1))
 	    local affectedSubmodulesPlural=s affectedSubmodulesAuxiliaryVerb=have; if [ ${#affectedSubmodules[@]} -eq 1 ]; then affectedSubmodulesPlural=; affectedSubmodulesAuxiliaryVerb=has; fi
 	    if git-dirty --ignore-submodules=dirty -- "${affectedSubmodules[@]}"; then
-		if [ $submoduleCnt -eq 1 ]; then
+		if [ $pendingSubmoduleCnt -eq 1 ]; then
+		    # The first pending submodule creates a separate integration commit.
 		    local commitMessage; printf -v commitMessage 'Housekeeping: Reintegrate submodule%s %s' "$affectedSubmodulesPlural" "$(joinBy ', ' "${affectedSubmodules[@]}")"
 		    git add -- "${affectedSubmodules[@]}" \
 			&& git-wrapper commit --edit --message "$commitMessage" \
 			|| exit $?
 		else
-		    printf 'Amending the %d. reintegrated submodule to the previous superproject commit.\n' "$submoduleCnt"
+		    # Following pending submodules are amended to the original separate integration commit.
+		    printf 'Amending the %d. reintegrated submodule to the previous superproject commit.\n' "$pendingSubmoduleCnt"
 		    git add -- "${affectedSubmodules[@]}" \
 			&& git amen \
 			|| exit $?
 		fi
 	    else
 		[ "$isInvokedFromSubmodule" ] \
-		    && printf 'This (%d.) reintegrated submodule has been fast-forwarded; nothing to amend.\n' "$submoduleCnt" \
+		    && printf 'This (%d.) reintegrated submodule has been fast-forwarded; nothing to amend.\n' "$pendingSubmoduleCnt" \
 		    || printf 'The %d reintegrated submodule%s %s been fast-forwarded; nothing to amend.\n' "${#affectedSubmodules[@]}" "$affectedSubmodulesPlural" "$affectedSubmodulesAuxiliaryVerb"
 	    fi
 	    ;;

@@ -14,4 +14,8 @@ case "$1" in
 esac
 
 eval "typeset -a gitConfigArgs=($GIT_CONFIG_ARGS)"
-exec git -c submodule.recurse=false "${gitConfigArgs[@]}" pull --ff-only "$@"
+# XXX: Need to explicitly pass the fetch.recurseSubmodules config option so that
+# a value of "on-demand" overrides the submodule.recurse = true config option.
+exec git \
+	-c fetch.recurseSubmodules="$(git config --get fetch.recurseSubmodules)" "${gitConfigArgs[@]}" \
+	pull --ff-only "$@"

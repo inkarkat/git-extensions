@@ -27,5 +27,9 @@ done
 [ ${#fetchedRemotes[@]} -gt 0 ] || fetchedRemotes=("$(git trackedremote)") || fetchedRemotes=(origin)
 
 eval "typeset -a gitConfigArgs=($GIT_CONFIG_ARGS)"
-git -c submodule.recurse=false "${gitConfigArgs[@]}" fetch "${fetchArgs[@]}" "$@" || exit $?
+# XXX: Need to explicitly pass the fetch.recurseSubmodules config option so that
+# a value of "on-demand" overrides the submodule.recurse = true config option.
+exec git \
+	-c fetch.recurseSubmodules="$(git config --get fetch.recurseSubmodules)" "${gitConfigArgs[@]}" \
+	fetch "${fetchArgs[@]}" "$@" || exit $?
 git-fetchdate --set "${fetchedRemotes[@]}" || exit 3

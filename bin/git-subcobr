@@ -28,7 +28,9 @@ printLongUsage()
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
 For each configured submodule / passed SUBMODULE(s), check out the branch
-specified in the .gitmodules file (or master).
+specified in the .gitmodules file (or master) if the superproject currently
+references the tip of either the existing local branch or remote branch. Don't
+touch submodules that don't directly reference such a branch.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
@@ -47,9 +49,9 @@ HELPDESCRIPTION
 			start it at REV.
     --existing-local	Check out an existing local branch; don't touch
 			submodules that don't have such a branch.
-			This is the default.
-    --existing-remote	Check out an existing remote branch; don't touch
-			submodules that don't have such a remote branch.
+    --existing-remote	Reset to / create a local branch from an existing remote
+			branch; don't touch submodules that don't have such a
+			remote branch.
     --checkout		Check out / create a new local branch.
     --remote		Update the local branch to the tracked remote (without
 			logging).
@@ -74,8 +76,8 @@ isDirty=
 isUntracked=
 isRecursive=
 startPoint=
-checkoutAction=checkoutExistingLocal
-checkoutWhat='Update to tracked remote'
+checkoutAction=checkoutExistingReference
+checkoutWhat='Check out referenced local or remote'
 logArg=
 forceArg=
 prefix=
@@ -173,7 +175,6 @@ getSubmoduleStatus()
     local submodule="${1:?}"; shift
     local isPrependAdditionalInformation="$1"; shift
 
-    local subhash="$(git-subhash --short "$submodule" 2>/dev/null)"
     (
 	cd "$submodule" || exit 3
 
@@ -186,10 +187,6 @@ getSubmoduleStatus()
 	fi
 	hasRemoteBranch=; git-existsbr -- "${remote:?}/${submoduleBranches["$submodule"]}" && hasRemoteBranch=t
 
-	[ "$isPrependAdditionalInformation" ] && printf '%s\n' "$hasLocalBranch" "$hasRemoteBranch"
-
-	isSkipped && return
-
 	if [ "$hasLocalBranch" ]; then
 	    toBranchAction='switch to'
 	elif [ "$hasRemoteBranch" ]; then
@@ -199,6 +196,42 @@ getSubmoduleStatus()
 	fi
 
 	actionHint=
+	hasReference=
+	case "$checkoutAction" in
+	    # Need to check the reference before being able to say whether it is skipped or not.
+	    checkoutExistingReference)
+		if [ "$hasLocalBranch" ] && git-equals "${submoduleBranches["$submodule"]}" "${subhash:?}"; then
+		    # switch to
+		    hasReference=t
+		elif [ "$hasRemoteBranch" ] && git-equals "${remote}/${submoduleBranches["$submodule"]}" "${subhash:?}"; then
+		    if [ "$hasLocalBranch" ]; then
+			if remoteAheadBehindMessage="$(git-inout --ahead-behind "${submoduleBranches["$submodule"]}" "${remote}/${submoduleBranches["$submodule"]}")"; then
+			    actionHint=" and reset: $remoteAheadBehindMessage"
+			else
+			    actionHint=" (which is even with ${remote}/${submoduleBranches["$submodule"]})"
+			fi
+		    else
+			toBranchAction='check out to a new local branch'
+		    fi
+		    hasReference=t
+		else
+		    toBranchAction='ignore'
+		    actionHint=' as it is not directly referenced'
+		fi
+		;;
+	esac
+
+	[ "$isPrependAdditionalInformation" ] && printf '%s\n' \
+	    "$hasLocalBranch" \
+	    "$hasRemoteBranch" \
+	    "$hasReference"
+
+	if isSkipped; then
+	    # Skip the (costly) creation of the submoduleStatus if the submodule is skipped, anyway.
+	    printf '\n'
+	    return
+	fi
+
 	case "$checkoutAction" in
 	    checkoutStartPoint)
 		if startPointAheadBehindMessage="$(git-inout --ahead-behind "${submoduleBranches["$submodule"]}" "$startPoint" 2>/dev/null)"; then
@@ -222,6 +255,7 @@ getSubmoduleStatus()
 		[ "$hasRemoteBranch" ] && \
 		    actionHint=' and update';;
 	esac
+
 	currentBranchName="$(git-brname --real-branch-only 2>/dev/null)"
 	if [ "$currentBranchName" = "${submoduleBranches["$submodule"]}" ]; then
 	    printPrefixed "$GIT_SUBCOBR_COLOR_NOOP" "Already on %s%s" "$currentBranchName" "$actionHint"
@@ -230,7 +264,7 @@ getSubmoduleStatus()
 	else
 	    currentRev="$(git rev-parse --short HEAD)" || exit $?
 	    currentRevDescription="$(git-desc HEAD)"
-	    if git-equals "$subhash" "$currentRev"; then
+	    if git-equals "${subhash:?}" "$currentRev"; then
 		printPrefixed "$GIT_SUBCOBR_COLOR_ACTION" "Detached %s (%s); would %s %s%s" "$currentRevDescription" "$currentRev" "$toBranchAction" "${submoduleBranches["$submodule"]}" "$actionHint"
 	    else
 		printPrefixed "$GIT_SUBCOBR_COLOR_ACTION" "Detached %s (%s), modified from %s (%s); would %s %s%s" "$currentRevDescription" "$currentRev" "$(git-desc "$subhash")" "$subhash" "$toBranchAction" "${submoduleBranches["$submodule"]}" "$actionHint"
@@ -243,6 +277,9 @@ isSkipped()
 {
     if [ "$checkoutAction" = checkoutStartPoint ] && ! git rev-parse --verify --quiet "${startPoint:?}" >/dev/null 2>&1; then
 	printPrefixed "$GIT_SUBCOBR_COLOR_SKIP" "Skipping; no start point %s" "$startPoint"
+	return 0
+    elif [ "$checkoutAction" = checkoutExistingReference ] && [ ! "$hasReference" ]; then
+	printPrefixed "$GIT_SUBCOBR_COLOR_SKIP" "Skipping; no reference to %s" "${submoduleBranches["$submodule"]}"
 	return 0
     elif [ "$checkoutAction" = checkoutExistingLocal ] && [ ! "$hasLocalBranch" ]; then
 	printPrefixed "$GIT_SUBCOBR_COLOR_SKIP" "Skipping; no local branch %s" "${submoduleBranches["$submodule"]}"
@@ -277,6 +314,22 @@ checkoutStartPoint()
 	git-wrapper checkout $forceArg --track -B "$branch" "$startPoint"
     else
 	printf >&2 '%sSkipping; no start point %s%s\n' "$GIT_SUBCOBR_COLOR_SKIP" "$startPoint" "$GIT_SUBCOBR_COLOR_RESET"
+    fi
+}
+
+checkoutExistingReference()
+{
+    local branch="${1:?}"; shift
+    local remoteBranch="origin/$branch"
+    local hasBranch=
+    if git-existsbr -- "$branch" && hasBranch=t && git-equals "$branch" "${subhash:?}"; then
+	git-wrapper checkout $forceArg "$branch"
+    elif git-existsbr -- "$remoteBranch" && hasBranch=t && git-equals "$remoteBranch" "${subhash:?}"; then
+	git-wrapper checkout $forceArg --track -B "$branch" "$remoteBranch"
+    elif [ "$hasBranch" ]; then
+	printf >&2 '%sSkipping; branch %s not referenced in superproject%s\n' "$GIT_SUBCOBR_COLOR_SKIP" "$branch" "$GIT_SUBCOBR_COLOR_RESET"
+    else
+	printf >&2 '%sSkipping; no branch %s%s\n' "$GIT_SUBCOBR_COLOR_SKIP" "$branch" "$GIT_SUBCOBR_COLOR_RESET"
     fi
 }
 
@@ -373,6 +426,7 @@ readarray -t submoduleList < <(printf '%s\n' "${!submoduleBranches[@]}" | sort)
 for submodule in "${submoduleList[@]}"
 do
     [ ${#selectedSubmodules[@]} -eq 0 ] || [ "${selectedSubmodules["$submodule"]}" ] || continue
+    subhash="$(git-subhash --short "$submodule" 2>/dev/null)" || exit 3
 
     case "$action" in
 	status)
@@ -407,6 +461,7 @@ do
 	    {
 		IFS=$'\n' read -r hasLocalBranch
 		IFS=$'\n' read -r hasRemoteBranch
+		IFS=$'\n' read -r hasReference
 		IFS=$'\n' read -r submoduleStatus
 	    } < <(submoduleWidth=0 getSubmoduleStatus "$submodule" t)
 

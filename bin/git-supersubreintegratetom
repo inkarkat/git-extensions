@@ -402,9 +402,14 @@ reintegrateSuperproject()
 	1)  echo "Rebasing the single superproject commit on top of ${masterBranch}."
 	    integrateArgs=(--rebase-single)
 	    ;;
-	*)  # Disallow fast-forward to have a merge commit that maintains the history of
-	    # how the feature grew.
-	    echo "Maintaining the history of how the feature grew via a merge to ${masterBranch}."
+	*)  echo "Maintaining the history of how the feature grew via a merge to ${masterBranch}."
+	    if git-ismerge; then    # Sanity check
+		echo >&2 'ERROR: There is already a merge commit, but the integration to master did not happen yet. This looks like a failed fast-forward-integration?!'
+		exit 3
+	    fi
+
+	    # Disallow fast-forward to have a merge commit that maintains the history of how
+	    # the feature grew.
 	    ffintegratetoArgs=(--no-ff)
 	    ;;
     esac

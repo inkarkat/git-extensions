@@ -453,21 +453,22 @@ reintegrateSuperproject()
     handleWorkflow
 
     typeset -a ffintegratetoArgs=(--branch "$masterBranch" --push-branch "${integrateArgs[@]}" "${ffintegratetoArgs[@]}")
-    [ "$isFastForwardIntegration" ] \
-	&& ffintegratetoArgs+=(--no-push --no-delete --no-submodule-checkout --no-submodule-update) \
-	|| ffintegratetoArgs+=(--push-submodules --delete-merged-submodule-branches)
     if [ "$isFastForwardIntegration" ]; then
 	sourceBranch="$(git-brname --real-branch-only)"
+	ffintegratetoArgs+=(--no-push --no-delete --no-submodule-checkout --no-submodule-update)
 	git-ffintegrateto "${ffintegratetoArgs[@]}" "$@" || exit $?
 	fastforwardCommit
-    elif [ "$isHubIntegrate" ]; then
-	# Just merge / rebase $masterBranch to the current branch, run checks,
-	# push and delete submodule branches. With that, the superproject PR can
-	# do the remainder of the integration in and by GitHub.
-	git-ffintegrateto --no-merge "${ffintegratetoArgs[@]}" "$@" || exit $?
-	exec hub-integrate --make-ready "${integrateArgs[@]}" "$@"
     else
-	exec git-ffintegrateto "${ffintegratetoArgs[@]}" "$@"
+	ffintegratetoArgs+=(--push-submodules --delete-merged-submodule-branches)
+	if [ "$isHubIntegrate" ]; then
+	    # Just merge / rebase $masterBranch to the current branch, run checks,
+	    # push and delete submodule branches. With that, the superproject PR can
+	    # do the remainder of the integration in and by GitHub.
+	    git-ffintegrateto --no-merge "${ffintegratetoArgs[@]}" "$@" || exit $?
+	    exec hub-integrate --make-ready "${integrateArgs[@]}" "$@"
+	else
+	    exec git-ffintegrateto "${ffintegratetoArgs[@]}" "$@"
+	fi
     fi
 }
 

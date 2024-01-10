@@ -301,7 +301,9 @@ reintegrateSubmodule()
     if [ "$HUB" ] && [ ! "$isFastForwardIntegration" ]; then
 	if choice="$(git config --type bool --get reintegrate.submodule-in-hub)"; then
 	    case "$choice" in
-		true)   "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--interactive} integrate --make-ready "$@" && return;;
+		true)   "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--abort-on-failure --interactive} integrate --make-ready "$@"
+			exit $?
+			;;
 		false)  ;;
 		*)	printf >&2 'ASSERT: Invalid choice: %s\n' "$choice"; exit 3;;
 	    esac

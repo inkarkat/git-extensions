@@ -195,6 +195,8 @@ getSubmoduleStatus()
 	    toBranchAction='create new local branch'
 	fi
 
+	hasStartPoint=; git rev-parse --verify --quiet "${startPoint:?}" >/dev/null 2>&1 && hasStartPoint=t
+
 	actionHint=
 	hasReference=
 	case "$checkoutAction" in
@@ -222,6 +224,7 @@ getSubmoduleStatus()
 	esac
 
 	[ "$isPrependAdditionalInformation" ] && printf '%s\n' \
+	    "$hasStartPoint" \
 	    "$hasLocalBranch" \
 	    "$hasRemoteBranch" \
 	    "$hasReference"
@@ -275,7 +278,7 @@ getSubmoduleStatus()
 
 isSkipped()
 {
-    if [ "$checkoutAction" = checkoutStartPoint ] && ! git rev-parse --verify --quiet "${startPoint:?}" >/dev/null 2>&1; then
+    if [ "$checkoutAction" = checkoutStartPoint ] && [ ! "$hasStartPoint" ]; then
 	printPrefixed "$GIT_SUBCOBR_COLOR_SKIP" "Skipping; no start point %s" "$startPoint"
 	return 0
     elif [ "$checkoutAction" = checkoutExistingReference ] && [ ! "$hasReference" ]; then
@@ -459,6 +462,7 @@ do
 	    fi
 
 	    {
+		IFS=$'\n' read -r hasStartPoint
 		IFS=$'\n' read -r hasLocalBranch
 		IFS=$'\n' read -r hasRemoteBranch
 		IFS=$'\n' read -r hasReference

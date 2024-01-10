@@ -173,7 +173,6 @@ getSubmoduleStatus()
     local submodule="${1:?}"; shift
     local isPrependAdditionalInformation="$1"; shift
 
-    local subhash="$(git-subhash --short "$submodule" 2>/dev/null)"
     (
 	cd "$submodule" || exit 3
 
@@ -230,7 +229,7 @@ getSubmoduleStatus()
 	else
 	    currentRev="$(git rev-parse --short HEAD)" || exit $?
 	    currentRevDescription="$(git-desc HEAD)"
-	    if git-equals "$subhash" "$currentRev"; then
+	    if git-equals "${subhash:?}" "$currentRev"; then
 		printPrefixed "$GIT_SUBCOBR_COLOR_ACTION" "Detached %s (%s); would %s %s%s" "$currentRevDescription" "$currentRev" "$toBranchAction" "${submoduleBranches["$submodule"]}" "$actionHint"
 	    else
 		printPrefixed "$GIT_SUBCOBR_COLOR_ACTION" "Detached %s (%s), modified from %s (%s); would %s %s%s" "$currentRevDescription" "$currentRev" "$(git-desc "$subhash")" "$subhash" "$toBranchAction" "${submoduleBranches["$submodule"]}" "$actionHint"
@@ -373,6 +372,7 @@ readarray -t submoduleList < <(printf '%s\n' "${!submoduleBranches[@]}" | sort)
 for submodule in "${submoduleList[@]}"
 do
     [ ${#selectedSubmodules[@]} -eq 0 ] || [ "${selectedSubmodules["$submodule"]}" ] || continue
+    subhash="$(git-subhash --short "$submodule" 2>/dev/null)" || exit 3
 
     case "$action" in
 	status)

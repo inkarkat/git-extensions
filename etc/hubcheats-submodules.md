@@ -122,7 +122,7 @@ branches, check out the feature branch, fetch, and repeat.
   edit the file beforehand to have the additional info already in there.)
 
 # Switching between branches
-superproject: `$ git co BRANCH && git subcolocalbr --query|--all|SUBMODULE1 ...`
+superproject: `$ git co BRANCH && git subcobr --query|--all|SUBMODULE1 ...`
 or short `$ git cosub BRANCH`
 
 # Conflicts

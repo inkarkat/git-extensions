@@ -285,6 +285,17 @@ fetchFirst()
     fi
 }
 
+handleWorkflow()
+{
+    if hub-workflow-status --has-workflow; then
+	if [ "$HUB" ]; then
+	    export GIT_REINTEGRATE_PRE_PUSH_COMMAND="printf '\nWaiting for the GitHub action to validate the build on the branch before pushing.\n'; hub-workflow-status --revision HEAD --latest --is completed --concluded success --wait 'The fast-forward-integrated branch build'"
+	else
+	    export GIT_REINTEGRATE_PRE_PUSH_COMMAND="printf '\nNote: Wait for the GitHub action to validate the build on the branch before pushing.\n'"
+	fi
+    fi
+}
+
 reintegrateSubmodule()
 {
     if [ "$HUB" ] && [ ! "$isFastForwardIntegration" ]; then
@@ -332,23 +343,26 @@ completeSubmoduleReintegrationInSuperproject()
 		echo 'The reintegrated submodule(s) have been fast-forwarded; nothing to amend.'
 	    fi
 	    ;;
-	*)  local submoduleCnt=$((${#affectedSubmodules[@]} - ${#unintegratedSubmodules[@]} + 1))
+	*)  local pendingSubmoduleCnt=$((${#affectedSubmodules[@]} - ${#unintegratedSubmodules[@]} + 1))
 	    local affectedSubmodulesPlural=s affectedSubmodulesAuxiliaryVerb=have; if [ ${#affectedSubmodules[@]} -eq 1 ]; then affectedSubmodulesPlural=; affectedSubmodulesAuxiliaryVerb=has; fi
 	    if git-dirty --ignore-submodules=dirty -- "${affectedSubmodules[@]}"; then
-		if [ $submoduleCnt -eq 1 ]; then
+		if [ $pendingSubmoduleCnt -eq 1 -o $pendingSubmoduleCnt -gt ${#affectedSubmodules[@]} ]; then
+		    # The first pending submodule creates a separate integration commit.
+		    # Also, when the entire submodule fast-forward-integration was interrupted, all submodules have been integrated but none yet updated in the superproject, we want a separate commit, no amend to a (likely unrelated) previous superproject commit.
 		    local commitMessage; printf -v commitMessage 'Housekeeping: Reintegrate submodule%s %s' "$affectedSubmodulesPlural" "$(joinBy ', ' "${affectedSubmodules[@]}")"
 		    git add -- "${affectedSubmodules[@]}" \
 			&& git-wrapper commit --edit --message "$commitMessage" \
 			|| exit $?
 		else
-		    printf 'Amending the %d. reintegrated submodule to the previous superproject commit.\n' "$submoduleCnt"
+		    # Following pending submodules are amended to the original separate integration commit.
+		    printf 'Amending the %d. reintegrated submodule to the previous superproject commit.\n' "$pendingSubmoduleCnt"
 		    git add -- "${affectedSubmodules[@]}" \
 			&& git amen \
 			|| exit $?
 		fi
 	    else
 		[ "$isInvokedFromSubmodule" ] \
-		    && printf 'This (%d.) reintegrated submodule has been fast-forwarded; nothing to amend.\n' "$submoduleCnt" \
+		    && printf 'This (%d.) reintegrated submodule has been fast-forwarded; nothing to amend.\n' "$pendingSubmoduleCnt" \
 		    || printf 'The %d reintegrated submodule%s %s been fast-forwarded; nothing to amend.\n' "${#affectedSubmodules[@]}" "$affectedSubmodulesPlural" "$affectedSubmodulesAuxiliaryVerb"
 	    fi
 	    ;;
@@ -375,6 +389,11 @@ reintegrateSuperproject()
 {
     goToSuperproject
 
+    if [ "$(git-brname --real-branch-only 2>/dev/null)" = "$masterBranch" ]; then
+	echo >&2 "ERROR: Already on master branch; nothing to ${integrationType}integrate."
+	exit 4
+    fi
+
     typeset -a integrateArgs=() ffintegratetoArgs=()
     case $(git bomcount) in
 	0)  echo >&2 'ERROR: Expected at least one commit in the superproject on the branch, but none found.'
@@ -383,9 +402,14 @@ reintegrateSuperproject()
 	1)  echo "Rebasing the single superproject commit on top of ${masterBranch}."
 	    integrateArgs=(--rebase-single)
 	    ;;
-	*)  # Disallow fast-forward to have a merge commit that maintains the history of
-	    # how the feature grew.
-	    echo "Maintaining the history of how the feature grew via a merge to ${masterBranch}."
+	*)  echo "Maintaining the history of how the feature grew via a merge to ${masterBranch}."
+	    if git-ismerge; then    # Sanity check
+		echo >&2 'ERROR: There is already a merge commit, but the integration to master did not happen yet. This looks like a failed fast-forward-integration?!'
+		exit 3
+	    fi
+
+	    # Disallow fast-forward to have a merge commit that maintains the history of how
+	    # the feature grew.
 	    ffintegratetoArgs=(--no-ff)
 	    ;;
     esac
@@ -436,31 +460,25 @@ reintegrateSuperproject()
     fi
 
     fetchFirst
-
-    if hub-workflow-status --has-workflow; then
-	if [ "$HUB" ]; then
-	    export GIT_REINTEGRATE_PRE_PUSH_COMMAND="printf '\nWaiting for the GitHub action to validate the build on the branch before pushing.\n'; hub-workflow-status --revision HEAD --latest --is completed --concluded success --wait 'The fast-forward-integrated branch build'"
-	else
-	    export GIT_REINTEGRATE_PRE_PUSH_COMMAND="printf '\nNote: Wait for the GitHub action to validate the build on the branch before pushing.\n'"
-	fi
-    fi
+    handleWorkflow
 
     typeset -a ffintegratetoArgs=(--branch "$masterBranch" --push-branch "${integrateArgs[@]}" "${ffintegratetoArgs[@]}")
-    [ "$isFastForwardIntegration" ] \
-	&& ffintegratetoArgs+=(--no-push --no-delete --no-submodule-checkout --no-submodule-update) \
-	|| ffintegratetoArgs+=(--push-submodules --delete-merged-submodule-branches)
     if [ "$isFastForwardIntegration" ]; then
 	sourceBranch="$(git-brname --real-branch-only)"
+	ffintegratetoArgs+=(--no-push --no-delete --no-submodule-checkout --no-submodule-update)
 	git-ffintegrateto "${ffintegratetoArgs[@]}" "$@" || exit $?
 	fastforwardCommit
-    elif [ "$isHubIntegrate" ]; then
-	# Just merge / rebase $masterBranch to the current branch, run checks,
-	# push and delete submodule branches. With that, the superproject PR can
-	# do the remainder of the integration in and by GitHub.
-	git-ffintegrateto --no-merge "${ffintegratetoArgs[@]}" "$@" || exit $?
-	exec hub-integrate --make-ready "${integrateArgs[@]}" "$@"
     else
-	exec git-ffintegrateto "${ffintegratetoArgs[@]}" "$@"
+	ffintegratetoArgs+=(--push-submodules --delete-merged-submodule-branches)
+	if [ "$isHubIntegrate" ]; then
+	    # Just merge / rebase $masterBranch to the current branch, run checks,
+	    # push and delete submodule branches. With that, the superproject PR can
+	    # do the remainder of the integration in and by GitHub.
+	    git-ffintegrateto --no-merge "${ffintegratetoArgs[@]}" "$@" || exit $?
+	    exec hub-integrate --make-ready "${integrateArgs[@]}" "$@"
+	else
+	    exec git-ffintegrateto "${ffintegratetoArgs[@]}" "$@"
+	fi
     fi
 }
 

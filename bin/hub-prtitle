@@ -4,7 +4,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-i|--as-integration-message|--as-title-and-integration-message|-m|--as-merge-message|--only-ids] [-Q|--qualified-with-userrepo|-u|--url] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-i|--as-integration-message|--as-title-and-integration-message|--bare|-m|--as-merge-message|--only-ids] [-Q|--qualified-with-userrepo|-u|--url] [-?|-h|--help]'
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [COMMIT|PR-IDENTIFIER [...]]'
     echo
@@ -40,6 +40,7 @@ HELPDESCRIPTION
 			integrates the changes in this submodule. Includes the
 			PR title(s), separating line, followed by the references
 			(like --as-integration-message outputs).
+    --bare		Just print the title(s).
     --as-merge-message|-m
 			Output in a format suitable for a merge commit instead
 			of a plain list.
@@ -71,6 +72,7 @@ do
 			shift; action=integrationMessage;;
 	--as-title-and-integration-message)
 			shift; action=titleAndIntegrationMessage;;
+	--bare)		shift; action=title;;
 	--as-merge-message|-m)
 			shift; action=mergeMessage;;
 	--only-ids)	shift; action=onlyIds;;
@@ -119,7 +121,7 @@ integrationMessage()
     done
 }
 
-titleAndIntegrationMessage()
+title()
 {
     [ ${#titles[@]} -gt 0 ] || return 99
     local i; for ((i = 0; i < ${#identifiers[@]}; i++))
@@ -127,6 +129,11 @@ titleAndIntegrationMessage()
 	title="${titles[$i]}"
 	[ -z "$title" ] || printf '%s\n' "$title"
     done
+}
+
+titleAndIntegrationMessage()
+{
+    title || return $?
     printf '\n'
     local i; for ((i = 0; i < ${#identifiers[@]}; i++))
     do

@@ -38,6 +38,12 @@ Get the name of the default branch (without determining it if missing).
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '--get'
+    echo
+    cat <<HELPTEXT
+Check whether the current branch is the master branch.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--test'
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
@@ -46,6 +52,12 @@ case "$1" in
     --color)		shift; shift;;
     --set)		shift; setMasterBranchConfiguration "${1:?}"; exit $?;;
     --get)		shift; getMasterBranch; exit $?;;
+    --test)		shift
+			masterBranch="$(getMasterBranch)"
+			[ -n "$masterBranch" ] || masterBranch="$(${BASH_SOURCE[0]})" || exit 3
+			[ "$(git-brname --real-branch-only 2>/dev/null)" = "${masterBranch:?}" ]
+			exit $?
+			;;
 esac
 
 

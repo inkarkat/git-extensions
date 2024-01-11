@@ -179,9 +179,12 @@ checkForUnintegratedSubmodules()
 isDidFetch=
 fetchFirst()
 {
-    if [ ! "$isDidFetch" ] && "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} ofetchdate -gt "$GIT_SUPERSUBREINTEGRATETOM_RECENT_FETCH_AGE" --message $'\nLast fetched'; then
+    if [ ! "$isDidFetch" ] && "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} \
+	    ofetchdate -gt "$GIT_SUPERSUBREINTEGRATETOM_RECENT_FETCH_AGE" --message $'\nLast fetched'
+    then
 	echo 'Fetching origin first...'
-	"${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} ofetchonly-hushed --recurse-submodules=yes
+	"${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} \
+		ofetchonly-hushed --recurse-submodules=yes
 	isDidFetch=t
 	echo
     fi
@@ -203,31 +206,40 @@ reintegrateSubmodule()
     if [ "$HUB" ] && [ ! "$isFastForwardIntegration" ]; then
 	if choice="$(git config --type bool --get reintegrate.submodule-in-hub)"; then
 	    case "$choice" in
-		true)   "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--abort-on-failure --interactive} integrate --make-ready "$@"
+		true)   "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--abort-on-failure --interactive} \
+				integrate --make-ready "$@"
 			exit $?
 			;;
 		false)  ;;
 		*)	printf >&2 'ASSERT: Invalid choice: %s\n' "$choice"; exit 3;;
 	    esac
 	else
-	    "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--interactive} integrate --offer "$@" && return
+	    "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--interactive} \
+		    integrate --offer "$@" && return
 	fi
     fi
 
     fetchFirst
 
-    "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} bomsubmodules \
-	| negateThis "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} osuperhaspendingsubintegrations - || exit $?
+    "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} \
+	    bomsubmodules \
+	| negateThis "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} \
+		osuperhaspendingsubintegrations - \
+	    || exit $?
 
     local superMessage="$(withSeparator \
-	    --exec "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} prtitle --bare \; \
-	    --exec "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} boml \; \
+	    --exec "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} \
+		    prtitle --bare \; \
+	    --exec "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} \
+		    boml \; \
     )"
 
     [ "$isFastForwardIntegration" ] \
 	&& typeset -a submoduleReintegrationCommand=(ffintegratetom --push-branch --no-merge --mark-reverse-merge-done) \
 	|| typeset -a submoduleReintegrationCommand=(reintegratetom --no-delete)
-    "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--abort-on-failure --interactive} "${submoduleReintegrationCommand[@]}" --no-push --no-checks ${superMessage:+--merge-message-template "$superMessage"} || exit $?
+    "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--abort-on-failure --interactive} \
+	    "${submoduleReintegrationCommand[@]}" --no-push --no-checks ${superMessage:+--merge-message-template "$superMessage"} \
+	|| exit $?
 
     # Remaining steps (i.e. committing the submodule changes) happen in the superproject.
     completeSubmoduleReintegrationInSuperproject "$@"
@@ -471,7 +483,9 @@ else
     }
 fi
 
-if "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} mbr --test; then
+if "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} \
+	mbr --test
+then
     # Undo the change of the source command done by --same-branch; that wouldn't
     # work on an aborted fast-forward-integration (which we tentatively support
     # here; the real detection and confirmation happens below) where the
@@ -480,7 +494,10 @@ if "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header
     affectedSubmoduleSourceCommand=(bomsubmodules)  # all submodules touched by reintegrated commits that are not yet pushed to origin
 fi
 [ -n "${affectedSubmodules+t}" ] \
-    || readarray -t affectedSubmodules < <("${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} "${affectedSubmoduleSourceCommand[@]}")
+    || readarray -t affectedSubmodules < <(\
+	"${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} \
+		"${affectedSubmoduleSourceCommand[@]}"
+    )
 
 if [ ${#affectedSubmodules[@]} -eq 0 ]; then
     gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
@@ -501,7 +518,7 @@ if [ ${#unintegratedSubmodules[@]} -eq 0 ]; then
 
     readarray -t dirtySubmoduleReferences < <(
 	"${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} \
-	    dirty --ignore-submodules=dirty -- "${affectedSubmodules[@]}"
+		dirty --ignore-submodules=dirty -- "${affectedSubmodules[@]}"
     )
     if [ ${#dirtySubmoduleReferences[@]} -gt 0 ]; then
 	if [ ${#dirtySubmoduleReferences[@]} -eq 1 ]; then
@@ -568,7 +585,10 @@ else
 
     action=reintegrateSubmodule
 
-    if [ "$HUB" ] && "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--single-success --include-superproject} prcomments; then
+    if [ "$HUB" ] && \
+	"${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--single-success --include-superproject} \
+		prcomments
+    then
 	[ "$isInvokedFromSubmodule" ] \
 	    && question='Really integrate this submodule' \
 	    || question="Really integrate ${#affectedSubmodules[@]} submodule${affectedSubmodulesPlural}"
@@ -576,7 +596,10 @@ else
 	userBinaryChoice --keep-prompt --console --question "$question" --yes-no || exit 4
     fi
 
-    if [ "$HUB" ] && acceptStatus 0 99 "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--single-success --include-superproject} prapproval; then
+    if [ "$HUB" ] && \
+	acceptStatus 0 99 "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--single-success --include-superproject} \
+		prapproval
+    then
 	[ "$isInvokedFromSubmodule" ] \
 	    && question='Really integrate this submodule?' \
 	    || question="Really integrate ${#affectedSubmodules[@]} submodule${affectedSubmodulesPlural}?"

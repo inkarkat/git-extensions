@@ -374,7 +374,12 @@ reintegrateSuperproject()
     if [ "$isFastForwardIntegration" ]; then
 	sourceBranch="$(git-brname --real-branch-only)"
 	ffintegratetoArgs+=(--no-push --no-delete --no-submodule-checkout --no-submodule-update)
-	git-ffintegrateto "${ffintegratetoArgs[@]}" "$@" || exit $?
+	git-ffintegrateto "${ffintegratetoArgs[@]}" "$@" || {
+	    status=$?
+	    echo >&2 "After the ${integrationType}integration has been resumed (see above) successfully and updated branches have been pushed, resume with fast-forwarding of submodules, waiting for the GitHub action, and the final quasi-transactional push via"
+	    printRestartCommand
+	    exit $status
+	}
 	fastforwardCommit
     else
 	ffintegratetoArgs+=(--push-submodules --delete-merged-submodule-branches)
@@ -556,7 +561,7 @@ else
 	    --question "Assuming you've fixed the problem, updated and pushed all branches, shall I fast-forward the ${#affectedSubmodules[@]} submodule${affectedSubmodulesPlural} into $(git-mbr) now, wait for the GitHub action, and then push the branches quasi-transactionally?" \
 	    --ok-cancel || exit 4
 
-	handleWorkflow
+	[ -n "$GIT_REINTEGRATE_PRE_PUSH_COMMAND" ] || handleWorkflow
 	fastforwardCommit
 	exit $?
     fi

@@ -140,6 +140,26 @@ do
 done
 set -- "${reintegrateArgs[@]}" "$@"
 
+typeset -a unintegratedSubmodules=()
+checkForUnintegratedSubmodules()
+{
+    printf 'Checking for unintegrated submodules... '
+
+    # After a reintegration, the submodule already is on the master branch; this is easy to check.
+    # After a fast-forward integration, the submodule is still on the feature branch, and with rebasing there might not even be a merge commit. Therefore, we've asked ffintegrateto via --mark-reverse-merge-done to set a mark that we'll now check.
+    [ "$isFastForwardIntegration" ] \
+	&& local predicateCommand='! git-ffintegrateto --is-reverse-merge-done' \
+	|| local predicateCommand="branch=\$(git brname --real-branch-only 2>/dev/null) && [ \"\$branch\" != $masterBranch ]"
+
+    readarray -t unintegratedSubmodules < <(
+	"${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} \
+	    subdo --subdo-command-name "${scriptName#git-}" --no-header --no-pager --for "${affectedSubmodules[@]}" \; \
+		--predicate-command "$predicateCommand"
+    )
+
+    [ ${#unintegratedSubmodules[@]} -eq 0 ] || echo 'DONE.' # "If there are none, "No such submodules found." has already been printed.
+}
+
 isDidFetch=
 fetchFirst()
 {
@@ -440,25 +460,6 @@ fi >&2
 typeset -a superprojectSubmoduleExecutor=(git-subdo-core --subdo-command-name "${scriptName#git-}" --for "${affectedSubmodules[@]}" \;)
 typeset -a submoduleExecutor=(); [ "$isInvokedFromSubmodule" ] || submoduleExecutor=("${superprojectSubmoduleExecutor[@]}")
 
-typeset -a unintegratedSubmodules=()
-checkForUnintegratedSubmodules()
-{
-    printf 'Checking for unintegrated submodules... '
-
-    # After a reintegration, the submodule already is on the master branch; this is easy to check.
-    # After a fast-forward integration, the submodule is still on the feature branch, and with rebasing there might not even be a merge commit. Therefore, we've asked ffintegrateto via --mark-reverse-merge-done to set a mark that we'll now check.
-    [ "$isFastForwardIntegration" ] \
-	&& local predicateCommand='! git-ffintegrateto --is-reverse-merge-done' \
-	|| local predicateCommand="branch=\$(git brname --real-branch-only 2>/dev/null) && [ \"\$branch\" != $masterBranch ]"
-
-    readarray -t unintegratedSubmodules < <(
-	"${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} \
-	    subdo --subdo-command-name "${scriptName#git-}" --no-header --no-pager --for "${affectedSubmodules[@]}" \; \
-		--predicate-command "$predicateCommand"
-    )
-
-    [ ${#unintegratedSubmodules[@]} -eq 0 ] || echo 'DONE.' # "If there are none, "No such submodules found." has already been printed.
-}
 checkForUnintegratedSubmodules
 if [ ${#unintegratedSubmodules[@]} -eq 0 ]; then
     if [ ${#affectedSubmodules[@]} -eq 1 ]; then

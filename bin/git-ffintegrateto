@@ -611,10 +611,19 @@ elif [ ${#checkCommands[@]} -gt 0 ]; then
 fi || {
     status=$?
     echo >&2 "Checks failed; $targetIntegrationSourceBranch has been integrated into the current branch, but the current branch has not been ${isPushBranch:+pushed and }${isPerformTheMerge:+fast-forward-integrated to $targetBranch and }${isPush:+pushed or }${isKeepBranches:+not }deleted yet."
-    echo >&2 'Correct the problem by amending or adding commits, then invoke'
-    printRestartCommand	# If the current branch has been modified, the reintegration need to be restarted to be able to fast-forward. We cannot simply continue after the original integration commit has been left behind.
-    echo >&2 'to restart the fast-forwarding integration. If the checks just failed due to an external issue and you would like to try again, invoke'
-    printContinueCommand
+    if [ "$isRebase" ]; then
+	echo >&2 'Correct the problem by amending or adding commits, then invoke'
+	printContinueCommand
+	echo >&2 'Same if the checks just failed due to an external issue and you would like to try again.'
+	echo >&2 "If the problem required pulls from ${targetTrackedRemote} you need to restart the fast-forwarding integration via"
+	printRestartCommand	# If the remote source or target branches have been updated, the reintegration need to be restarted (i.e. a new rebase needs to happen) to be able to fast-forward.
+    else # merge
+	echo >&2 'Correct the problem by amending to the merge commit, then invoke'
+	printContinueCommand
+	echo >&2 'Same if the checks just failed due to an external issue and you would like to try again.'
+	echo >&2 "Alternatively, you can also undo the reverse merge and restart the fast-forwarding integration via"
+	printRestartCommand
+    fi
     exit $status
 }
 

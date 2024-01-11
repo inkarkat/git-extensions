@@ -12,7 +12,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--submodules|--all-submodules] [--no-submodule-recurse] [--filter-worktree-duplicates] [-a|--all] [-v|--verbose] [-q|--quiet|--color=(always|auto|never)|--no-color] [(+|-)(empty|dirty|private|stashed|noremote|outgoing|incoming|fallenbehind|behind|behindtags|wipcommit|nonmaster|unmergeddownstream|downstreambranches|inactivefork) ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--submodules|--all-submodules] [--no-submodule-recurse] [--filter-worktree-duplicates] [-a|--all] [-v|--verbose] [-q|--quiet|--color=(always|auto|never)|--no-color] [(+|-)(empty|dirty|private|stashed|noremote|outgoing|incoming|fallenbehind|behind|behindtags|wipcommit|nonmaster|unmergeddownstream|downstreambranches|todo|inactivefork) ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -86,6 +86,7 @@ deselected (from all checks on offer) via -name.
 - downstreambranches:
 	    a branch that only exists in origin, but not upstream; may represent
 	    concurrent work or a pull request
+- todo:	    a todo.txt file exists in the working copy root
 - inactivefork:
 	    my GitHub clone is up-to-date with upstream, has no non-master
 	    branches, and therefore can be archived (made read-only).
@@ -145,7 +146,7 @@ else
 fi
 
 isFirst=t
-declare -A checks=([empty]=t [dirty]=t [private]=t [stashed]=t [noremote]=t [outgoing]=t [incoming]=t [fallenbehind]=t [behind]=t [behindtags]=t [wipcommit]=t [nonmaster]=t [unmergeddownstream]=t [downstreambranches]=t [inactivefork]=t)
+declare -A checks=([empty]=t [dirty]=t [private]=t [stashed]=t [noremote]=t [outgoing]=t [incoming]=t [fallenbehind]=t [behind]=t [behindtags]=t [wipcommit]=t [nonmaster]=t [unmergeddownstream]=t [downstreambranches]=t [todo]=t [inactivefork]=t)
 while [ $# -gt 0 ]
 do
     case "$1" in
@@ -303,6 +304,31 @@ considerCheck downstreambranches \
     && git existsremote origin \
     && git existsremote upstream \
     && if findDownstreamBranches; then positiveCheck; fi
+
+hasTodo()
+{
+    if type -t todo-local.sh >/dev/null; then
+	# Use my own custom extension if it exists; it also considers submodules, has
+	# default task filtering, and the todo.sh formatting.
+	TODOTXT_VERBOSE=0 todo-local.sh | outputAndPrintf 'Open tasks:\n'
+	return ${PIPESTATUS[-1]}
+    else
+	local root; root="$(git root 2>/dev/null)" || return 1
+	local todoFilespec="${root}/todo.txt"
+	[ -s "$todoFilespec" ] || return 1
+
+	if type -t todo.sh >/dev/null; then
+	    # Use todo.sh for formatting.
+	    TODO_FILE="$todoFilespec" TODO_DIR="$root" TODOTXT_VERBOSE=0 todo.sh | outputAndPrintf 'Open tasks:\n'
+	else
+	    # Fall back to simple cat'ting of the file.
+	    headtail --separator-cut-what "... see $todoFilespec for the full list ..." -- "$todoFilespec" | outputAndPrintf 'Open tasks:\n'
+	fi
+	return ${PIPESTATUS[-1]}
+    fi
+}
+considerCheck todo \
+    && if hasTodo; then positiveCheck; fi
 
 findInactiveFork()
 {

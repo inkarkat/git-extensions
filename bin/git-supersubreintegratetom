@@ -140,140 +140,6 @@ do
 done
 set -- "${reintegrateArgs[@]}" "$@"
 
-isInvokedFromSubmodule=
-typeset -a superprojectExecutor=()
-goToSuperproject() { :; }
-if git issubmodule; then
-    isInvokedFromSubmodule=t
-    superprojectExecutor=(git superdo)
-    goToSuperproject()
-    {
-	local superprojectRoot; superprojectRoot="$(git superproject)" || exit 3
-	cd "$superprojectRoot" || exit 3
-	header "../$(git-wcname)"
-
-	superprojectExecutor=()
-	submoduleExecutor=("${superprojectSubmoduleExecutor[@]}")
-	goToSuperproject() { :; }
-    }
-elif ! git hassubmodules; then
-    echo >&2 'ERROR: This is a standalone repository that neither has submodules nor is included in a superproject.'
-    exit 2
-else
-    goToSuperproject()
-    {
-	header "$(git-wcname)"
-    }
-fi
-
-[ -n "${affectedSubmodules+t}" ] \
-    || readarray -t affectedSubmodules < <("${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} "${affectedSubmoduleSourceCommand[@]}")
-if [ ${#affectedSubmodules[@]} -eq 0 ]; then
-    gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
-    echo 'ERROR: Expected at least one affected submodule in the commits on the branch, but none found.'
-    printf 'Use %s superonlyreintegratetom instead if you just want to reintegrate the superproject.\n' "$gitCommand"
-    exit 3
-fi >&2
-typeset -a superprojectSubmoduleExecutor=(git-subdo-core --subdo-command-name "${scriptName#git-}" --for "${affectedSubmodules[@]}" \;)
-typeset -a submoduleExecutor=(); [ "$isInvokedFromSubmodule" ] || submoduleExecutor=("${superprojectSubmoduleExecutor[@]}")
-
-masterBranch="$(git-mbr)" || exit 3
-typeset -a unintegratedSubmodules=()
-checkForUnintegratedSubmodules()
-{
-    printf 'Checking for unintegrated submodules... '
-
-    # After a reintegration, the submodule already is on the master branch; this is easy to check.
-    # After a fast-forward integration, the submodule is still on the feature branch, and with rebasing there might not even be a merge commit. Therefore, we've asked ffintegrateto via --mark-reverse-merge-done to set a mark that we'll now check.
-    [ "$isFastForwardIntegration" ] \
-	&& local predicateCommand='! git-ffintegrateto --is-reverse-merge-done' \
-	|| local predicateCommand="branch=\$(git brname --real-branch-only 2>/dev/null) && [ \"\$branch\" != $masterBranch ]"
-
-    readarray -t unintegratedSubmodules < <(
-	"${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} \
-	    subdo --subdo-command-name "${scriptName#git-}" --no-header --no-pager --for "${affectedSubmodules[@]}" \; \
-		--predicate-command "$predicateCommand"
-    )
-
-    [ ${#unintegratedSubmodules[@]} -eq 0 ] || echo 'DONE.' # "If there are none, "No such submodules found." has already been printed.
-}
-checkForUnintegratedSubmodules
-if [ ${#unintegratedSubmodules[@]} -eq 0 ]; then
-    if [ ${#affectedSubmodules[@]} -eq 1 ]; then
-	echo 'The single submodule has been reintegrated already; now integrating the superproject.'
-    else
-	printf 'All %d submodules have been reintegrated already; now integrating the superproject.\n' ${#affectedSubmodules[@]}
-    fi
-
-    readarray -t dirtySubmoduleReferences < <(
-	"${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} \
-	    dirty --ignore-submodules=dirty -- "${affectedSubmodules[@]}"
-    )
-    if [ ${#dirtySubmoduleReferences[@]} -gt 0 ]; then
-	if [ ${#dirtySubmoduleReferences[@]} -eq 1 ]; then
-	    dirtySubmoduleReferencesPlural=
-	    dirtySubmoduleReferencesAuxiliaryVerb=has
-	else
-	    dirtySubmoduleReferencesPlural=s
-	    dirtySubmoduleReferencesAuxiliaryVerb=have
-	fi
-	dirtySubmoduleReferencesPlural=s; [ ${#dirtySubmoduleReferences[@]} -eq 1 ] && dirtySubmoduleReferencesPlural=
-
-	userBinaryChoice --keep-prompt \
-	    --introduction "Apparently the submodule ${integrationType}integration was interrupted and ${#dirtySubmoduleReferences[@]} submodule reference$dirtySubmoduleReferencesPlural $dirtySubmoduleReferencesAuxiliaryVerb not been committed yet." \
-	    --question "Update the changed submodule reference$dirtySubmoduleReferencesPlural in the superproject now?" \
-	    --yes-no || exit 4
-
-	action=completeSubmoduleReintegrationInSuperproject
-    else
-	if [ "$HUB" ] && hub-prcomments; then
-	    userBinaryChoice --keep-prompt --console --question "Really ${integrationType}integrate the superproject despite the open PR review comments?" --yes-no || exit 4
-	fi
-
-	if [ "$HUB" ] && acceptStatus 0 99 hub-prapproval; then
-	    userBinaryChoice --keep-prompt --console --question "Really ${integrationType}integrate the superproject?" --yes-no || exit 4
-	fi
-
-	action=reintegrateSuperproject
-    fi
-else
-    affectedSubmodulesPlural=s
-    if [ ${#affectedSubmodules[@]} -eq 1 ]; then
-	affectedSubmodulesPlural=
-	if [ "$isInvokedFromSubmodule" ]; then
-	    echo 'Integrating this single submodule.'
-	else
-	    echo 'Integrating the single submodule.'
-	fi
-    elif [ ${#unintegratedSubmodules[@]} -eq 1 ]; then
-	printf 'Integrating the last submodule (of %d).\n' ${#affectedSubmodules[@]}
-    else
-	if [ "$isInvokedFromSubmodule" ]; then
-	    printf 'Integrating submodule %d of %d.\n' $((${#affectedSubmodules[@]} - ${#unintegratedSubmodules[@]} + 1)) ${#affectedSubmodules[@]}
-	elif [ ${#affectedSubmodules[@]} -eq ${#unintegratedSubmodules[@]} ]; then
-	    printf 'Integrating all %d submodules.\n' ${#affectedSubmodules[@]}
-	else
-	    printf 'Integrating the remaining %d of %d submodules.\n' ${#unintegratedSubmodules[@]} ${#affectedSubmodules[@]}
-	fi
-    fi
-    action=reintegrateSubmodule
-
-    if [ "$HUB" ] && "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--single-success --include-superproject} prcomments; then
-	[ "$isInvokedFromSubmodule" ] \
-	    && question='Really integrate this submodule' \
-	    || question="Really integrate ${#affectedSubmodules[@]} submodule${affectedSubmodulesPlural}"
-	question+=' despite the open PR review comments?'
-	userBinaryChoice --keep-prompt --console --question "$question" --yes-no || exit 4
-    fi
-
-    if [ "$HUB" ] && acceptStatus 0 99 "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--single-success --include-superproject} prapproval; then
-	[ "$isInvokedFromSubmodule" ] \
-	    && question='Really integrate this submodule?' \
-	    || question="Really integrate ${#affectedSubmodules[@]} submodule${affectedSubmodulesPlural}?"
-	userBinaryChoice --keep-prompt --console --question "$question" --yes-no || exit 4
-    fi
-fi
-
 isDidFetch=
 fetchFirst()
 {
@@ -535,5 +401,140 @@ fastforwardCommit()
 
     printf '\n✓ Branch completely reintegrated.\n'
 }
+
+isInvokedFromSubmodule=
+typeset -a superprojectExecutor=()
+goToSuperproject() { :; }
+if git issubmodule; then
+    isInvokedFromSubmodule=t
+    superprojectExecutor=(git superdo)
+    goToSuperproject()
+    {
+	local superprojectRoot; superprojectRoot="$(git superproject)" || exit 3
+	cd "$superprojectRoot" || exit 3
+	header "../$(git-wcname)"
+
+	superprojectExecutor=()
+	submoduleExecutor=("${superprojectSubmoduleExecutor[@]}")
+	goToSuperproject() { :; }
+    }
+elif ! git hassubmodules; then
+    echo >&2 'ERROR: This is a standalone repository that neither has submodules nor is included in a superproject.'
+    exit 2
+else
+    goToSuperproject()
+    {
+	header "$(git-wcname)"
+    }
+fi
+
+masterBranch="$(git-mbr)" || exit 3
+[ -n "${affectedSubmodules+t}" ] \
+    || readarray -t affectedSubmodules < <("${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} "${affectedSubmoduleSourceCommand[@]}")
+if [ ${#affectedSubmodules[@]} -eq 0 ]; then
+    gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
+    echo 'ERROR: Expected at least one affected submodule in the commits on the branch, but none found.'
+    printf 'Use %s superonlyreintegratetom instead if you just want to reintegrate the superproject.\n' "$gitCommand"
+    exit 3
+fi >&2
+typeset -a superprojectSubmoduleExecutor=(git-subdo-core --subdo-command-name "${scriptName#git-}" --for "${affectedSubmodules[@]}" \;)
+typeset -a submoduleExecutor=(); [ "$isInvokedFromSubmodule" ] || submoduleExecutor=("${superprojectSubmoduleExecutor[@]}")
+
+typeset -a unintegratedSubmodules=()
+checkForUnintegratedSubmodules()
+{
+    printf 'Checking for unintegrated submodules... '
+
+    # After a reintegration, the submodule already is on the master branch; this is easy to check.
+    # After a fast-forward integration, the submodule is still on the feature branch, and with rebasing there might not even be a merge commit. Therefore, we've asked ffintegrateto via --mark-reverse-merge-done to set a mark that we'll now check.
+    [ "$isFastForwardIntegration" ] \
+	&& local predicateCommand='! git-ffintegrateto --is-reverse-merge-done' \
+	|| local predicateCommand="branch=\$(git brname --real-branch-only 2>/dev/null) && [ \"\$branch\" != $masterBranch ]"
+
+    readarray -t unintegratedSubmodules < <(
+	"${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} \
+	    subdo --subdo-command-name "${scriptName#git-}" --no-header --no-pager --for "${affectedSubmodules[@]}" \; \
+		--predicate-command "$predicateCommand"
+    )
+
+    [ ${#unintegratedSubmodules[@]} -eq 0 ] || echo 'DONE.' # "If there are none, "No such submodules found." has already been printed.
+}
+checkForUnintegratedSubmodules
+if [ ${#unintegratedSubmodules[@]} -eq 0 ]; then
+    if [ ${#affectedSubmodules[@]} -eq 1 ]; then
+	echo 'The single submodule has been reintegrated already; now integrating the superproject.'
+    else
+	printf 'All %d submodules have been reintegrated already; now integrating the superproject.\n' ${#affectedSubmodules[@]}
+    fi
+
+    readarray -t dirtySubmoduleReferences < <(
+	"${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} \
+	    dirty --ignore-submodules=dirty -- "${affectedSubmodules[@]}"
+    )
+    if [ ${#dirtySubmoduleReferences[@]} -gt 0 ]; then
+	if [ ${#dirtySubmoduleReferences[@]} -eq 1 ]; then
+	    dirtySubmoduleReferencesPlural=
+	    dirtySubmoduleReferencesAuxiliaryVerb=has
+	else
+	    dirtySubmoduleReferencesPlural=s
+	    dirtySubmoduleReferencesAuxiliaryVerb=have
+	fi
+	dirtySubmoduleReferencesPlural=s; [ ${#dirtySubmoduleReferences[@]} -eq 1 ] && dirtySubmoduleReferencesPlural=
+
+	userBinaryChoice --keep-prompt \
+	    --introduction "Apparently the submodule ${integrationType}integration was interrupted and ${#dirtySubmoduleReferences[@]} submodule reference$dirtySubmoduleReferencesPlural $dirtySubmoduleReferencesAuxiliaryVerb not been committed yet." \
+	    --question "Update the changed submodule reference$dirtySubmoduleReferencesPlural in the superproject now?" \
+	    --yes-no || exit 4
+
+	action=completeSubmoduleReintegrationInSuperproject
+    else
+	if [ "$HUB" ] && hub-prcomments; then
+	    userBinaryChoice --keep-prompt --console --question "Really ${integrationType}integrate the superproject despite the open PR review comments?" --yes-no || exit 4
+	fi
+
+	if [ "$HUB" ] && acceptStatus 0 99 hub-prapproval; then
+	    userBinaryChoice --keep-prompt --console --question "Really ${integrationType}integrate the superproject?" --yes-no || exit 4
+	fi
+
+	action=reintegrateSuperproject
+    fi
+else
+    affectedSubmodulesPlural=s
+    if [ ${#affectedSubmodules[@]} -eq 1 ]; then
+	affectedSubmodulesPlural=
+	if [ "$isInvokedFromSubmodule" ]; then
+	    echo 'Integrating this single submodule.'
+	else
+	    echo 'Integrating the single submodule.'
+	fi
+    elif [ ${#unintegratedSubmodules[@]} -eq 1 ]; then
+	printf 'Integrating the last submodule (of %d).\n' ${#affectedSubmodules[@]}
+    else
+	if [ "$isInvokedFromSubmodule" ]; then
+	    printf 'Integrating submodule %d of %d.\n' $((${#affectedSubmodules[@]} - ${#unintegratedSubmodules[@]} + 1)) ${#affectedSubmodules[@]}
+	elif [ ${#affectedSubmodules[@]} -eq ${#unintegratedSubmodules[@]} ]; then
+	    printf 'Integrating all %d submodules.\n' ${#affectedSubmodules[@]}
+	else
+	    printf 'Integrating the remaining %d of %d submodules.\n' ${#unintegratedSubmodules[@]} ${#affectedSubmodules[@]}
+	fi
+    fi
+
+    action=reintegrateSubmodule
+
+    if [ "$HUB" ] && "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--single-success --include-superproject} prcomments; then
+	[ "$isInvokedFromSubmodule" ] \
+	    && question='Really integrate this submodule' \
+	    || question="Really integrate ${#affectedSubmodules[@]} submodule${affectedSubmodulesPlural}"
+	question+=' despite the open PR review comments?'
+	userBinaryChoice --keep-prompt --console --question "$question" --yes-no || exit 4
+    fi
+
+    if [ "$HUB" ] && acceptStatus 0 99 "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--single-success --include-superproject} prapproval; then
+	[ "$isInvokedFromSubmodule" ] \
+	    && question='Really integrate this submodule?' \
+	    || question="Really integrate ${#affectedSubmodules[@]} submodule${affectedSubmodulesPlural}?"
+	userBinaryChoice --keep-prompt --console --question "$question" --yes-no || exit 4
+    fi
+fi
 
 $action "$@"

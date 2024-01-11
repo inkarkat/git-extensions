@@ -450,8 +450,17 @@ else
     }
 fi
 
+if "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} mbr --test; then
+    # Undo the change of the source command done by --same-branch; that wouldn't
+    # work on an aborted fast-forward-integration (which we tentatively support
+    # here; the real detection and confirmation happens below) where the
+    # superproject is already fast-forwarded by the submodules are still on the
+    # source branch.
+    affectedSubmoduleSourceCommand=(bomsubmodules)  # all submodules touched by reintegrated commits that are not yet pushed to origin
+fi
 [ -n "${affectedSubmodules+t}" ] \
     || readarray -t affectedSubmodules < <("${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} "${affectedSubmoduleSourceCommand[@]}")
+
 if [ ${#affectedSubmodules[@]} -eq 0 ]; then
     gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
     echo 'ERROR: Expected at least one affected submodule in the commits on the branch, but none found.'
@@ -519,6 +528,21 @@ else
 	else
 	    printf 'Integrating the remaining %d of %d submodules.\n' ${#unintegratedSubmodules[@]} ${#affectedSubmodules[@]}
 	fi
+    fi
+
+    if [ ! "$isInvokedFromSubmodule" ] && git-mbr --test; then
+	if [ ! "$isFastForwardIntegration" ]; then
+	    echo >&2 'ASSERT: Not on master branch.'; exit 3
+	fi
+
+	userBinaryChoice --keep-prompt \
+	    --introduction "Apparently the submodule ${integrationType}integration was interrupted after the superproject had been ${integrationType}integrated but the submodules are still on the ${integrationType}integrated source branch." \
+	    --question "Assuming you've fixed the problem, updated and pushed all branches, shall I fast-forward the ${#affectedSubmodules[@]} submodule${affectedSubmodulesPlural} into $(git-mbr) now, wait for the GitHub action, and then push the branches quasi-transactionally?" \
+	    --ok-cancel || exit 4
+
+	handleWorkflow
+	fastforwardCommit
+	exit $?
     fi
 
     action=reintegrateSubmodule

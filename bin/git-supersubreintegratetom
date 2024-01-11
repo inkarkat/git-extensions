@@ -81,6 +81,7 @@ ensureSourceBranch()
     printf %s "$sourceBranch"
 }
 
+typeset -a allArgs=("$@")
 typeset -a affectedSubmodules=()
 typeset -a affectedSubmoduleSourceCommand=(bomsubmodules)
 isSameBranch=
@@ -135,10 +136,25 @@ do
 	--delete-submodule-branch)
 			shift; exec hub-delete-merged-branches "$@" -- "$(ensureSourceBranch "$(git-ffintegrateto --print-merged-branch)")";;
 	--)		reintegrateArgs+=("$1"); shift; break;;
+	-)		reintegrateArgs+=("$1"); shift; isCheckFromStdin=t; break;;
 	*)		reintegrateArgs+=("$1"); shift;;
     esac
 done
 set -- "${reintegrateArgs[@]}" "$@"
+if [ "${!#}" = '-' ]; then
+    isCheckFromStdin=t
+fi
+
+printRestartCommand()
+{
+    local quotedConfigVariables='';  [ -n "$GIT_REINTEGRATE_PRE_PUSH_COMMAND" ] && printf -v quotedConfigVariables 'GIT_REINTEGRATE_PRE_PUSH_COMMAND=%q' "$GIT_REINTEGRATE_PRE_PUSH_COMMAND"
+    local gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
+    [ "$isCheckFromStdin" ] && printf >&2 'echo CHECK-COMMANDLINES | '
+    printf >&2 '$ %s%s %q' "${quotedConfigVariables}${quotedConfigVariables:+ }" "$gitCommand" "${scriptName#git-}"
+    printf >&2 ' %q' "${allArgs[@]}"
+    [ "$isCheckFromStdin" ] && printf >&2 ' -'
+    printf >&2 '\n'
+}
 
 typeset -a unintegratedSubmodules=()
 checkForUnintegratedSubmodules()

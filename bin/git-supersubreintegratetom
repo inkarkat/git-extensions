@@ -140,12 +140,6 @@ do
 done
 set -- "${reintegrateArgs[@]}" "$@"
 
-isOnMasterBranch()
-{
-    local masterBranch="${1:-$(git-mbr)}"; shift
-    [ "$(git-brname --real-branch-only 2>/dev/null)" = "${masterBranch:?}" ]
-}
-
 typeset -a unintegratedSubmodules=()
 checkForUnintegratedSubmodules()
 {
@@ -155,7 +149,7 @@ checkForUnintegratedSubmodules()
     # After a fast-forward integration, the submodule is still on the feature branch, and with rebasing there might not even be a merge commit. Therefore, we've asked ffintegrateto via --mark-reverse-merge-done to set a mark that we'll now check.
     [ "$isFastForwardIntegration" ] \
 	&& local predicateCommand='! git-ffintegrateto --is-reverse-merge-done' \
-	|| local predicateCommand="branch=\$(git brname --real-branch-only 2>/dev/null) && [ \"\$branch\" != $masterBranch ]"
+	|| local predicateCommand="! git-mbr --test"
 
     readarray -t unintegratedSubmodules < <(
 	"${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} \
@@ -285,13 +279,13 @@ sourceBranch=
 reintegrateSuperproject()
 {
     goToSuperproject
-    local masterBranch; masterBranch="$(git-mbr)" || exit 3
 
-    if isOnMasterBranch "$masterBranch"; then
+    if git-mbr --test; then
 	echo >&2 "ERROR: Already on master branch; nothing to ${integrationType}integrate."
 	exit 4
     fi
 
+    local masterBranch; masterBranch="$(git-mbr)" || exit 3
     typeset -a integrateArgs=() ffintegratetoArgs=()
     case $(git bomcount) in
 	0)  echo >&2 'ERROR: Expected at least one commit in the superproject on the branch, but none found.'

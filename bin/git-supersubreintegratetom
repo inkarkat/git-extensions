@@ -140,6 +140,12 @@ do
 done
 set -- "${reintegrateArgs[@]}" "$@"
 
+isOnMasterBranch()
+{
+    local masterBranch="${1:-$(git-mbr)}"; shift
+    [ "$(git-brname --real-branch-only 2>/dev/null)" = "${masterBranch:?}" ]
+}
+
 typeset -a unintegratedSubmodules=()
 checkForUnintegratedSubmodules()
 {
@@ -279,8 +285,9 @@ sourceBranch=
 reintegrateSuperproject()
 {
     goToSuperproject
+    local masterBranch; masterBranch="$(git-mbr)" || exit 3
 
-    if [ "$(git-brname --real-branch-only 2>/dev/null)" = "$masterBranch" ]; then
+    if isOnMasterBranch "$masterBranch"; then
 	echo >&2 "ERROR: Already on master branch; nothing to ${integrationType}integrate."
 	exit 4
     fi
@@ -375,7 +382,8 @@ reintegrateSuperproject()
 
 fastforwardCommit()
 {
-    printf '\nFast-forwarding submodule%s into %s:\n' "$affectedSubmodulesPlural" "$masterBranch"
+    : ${masterBranch:=$(git-mbr)}
+    printf '\nFast-forwarding submodule%s into %s:\n' "$affectedSubmodulesPlural" "${masterBranch:?}"
     "${submoduleExecutor[@]:?}" ${submoduleExecutor:+--no-header --no-pager --interactive} \
 	    reintegratetom --ff-only --no-push --no-delete --no-checks \
 	|| exit $?
@@ -448,7 +456,6 @@ else
     }
 fi
 
-masterBranch="$(git-mbr)" || exit 3
 [ -n "${affectedSubmodules+t}" ] \
     || readarray -t affectedSubmodules < <("${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} "${affectedSubmoduleSourceCommand[@]}")
 if [ ${#affectedSubmodules[@]} -eq 0 ]; then

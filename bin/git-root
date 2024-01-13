@@ -15,13 +15,12 @@ command(s)) in the root directory of this Git working copy.
 HELPTEXT
 }
 
-isNeedEval=
 typeset -a commands=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-	--command|-c)	shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
+	--command|-c)	shift; commands+=(${commands:+;} "$1"); shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -29,14 +28,10 @@ do
 done
 readonly gitCommand='git-wrapper'
 if [ $# -ne 0 ]; then
-    if [ "$isNeedEval" ]; then
-	# Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
-	# undo the effects of eval.
-	printf -v quotedSimpleCommand '%q ' "$gitCommand" "$@"
-	commands+=(${commands:+;} "${quotedSimpleCommand% }")
-    else
-	commands=("$gitCommand" "$@")
-    fi
+    # Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
+    # undo the effects of eval.
+    printf -v quotedSimpleCommand '%q ' "$gitCommand" "$@"
+    commands+=(${commands:+;} "${quotedSimpleCommand% }")
 fi
 root="$(git rev-parse --show-toplevel)" || exit 3
 
@@ -49,8 +44,4 @@ if ! cd "$root" 2>/dev/null; then
     printf >&2 'ERROR: Cannot chdir to %s!\n' "$root"
     exit 3
 fi
-if [ "$isNeedEval" ]; then
-    eval "${commands[@]}"
-else
-    exec "${commands[@]}"
-fi
+eval "${commands[@]}"

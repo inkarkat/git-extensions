@@ -45,7 +45,6 @@ branch=
 log="${GIT_LOGDELTA_DEFAULT_LOG:-graphical}"
 typeset -a colorArg=()
 isQuiet=
-isNeedEval=
 submoduleCommitProvider=
 typeset -a commands=()
 isRecord=
@@ -73,7 +72,7 @@ do
 	--branch|-b)	shift; branch="$1"; shift
 			submoduleCommitProvider=''  # FIXME: Currently, the commit IDs can only be retrieved for the current branch. Drop the submodule logging (as if --submodule ignore has been given) instead of showing wrong information.
 			;;
-	--command|-c)	shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
+	--command|-c)	shift; commands+=(${commands:+;} "$1"); shift;;
 	--record)	shift; isRecord=t;;
 	--from-record)	shift; record="${1:?}"; shift;;
 	--)		shift; break;;
@@ -82,14 +81,10 @@ do
     esac
 done
 if [ $# -ne 0 ]; then
-    if [ "$isNeedEval" ]; then
-	# Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
-	# undo the effects of eval.
-	printf -v quotedSimpleCommand '%q ' git-wrapper "$@"
-	commands+=(${commands:+;} "${quotedSimpleCommand% }")
-    else
-	commands=(git-wrapper "$@")
-    fi
+    # Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
+    # undo the effects of eval.
+    printf -v quotedSimpleCommand '%q ' git-wrapper "$@"
+    commands+=(${commands:+;} "${quotedSimpleCommand% }")
 fi
 if [ ! "$isRecord" ] && [ -z "$record" -a ${#commands[@]} -eq 0 ]; then
     echo 'ERROR: No COMMAND(s) specified; need to pass -c|--command "COMMANDLINE", or SIMPLECOMMAND (or use --record and then --from-record RECORD).'
@@ -147,13 +142,8 @@ typeset -A originalSubmoduleRevisions=()
 	)
     fi
 
-if [ "$isRecord" ]; then
-    exit
-elif [ "$isNeedEval" ]; then
-    eval "${commands[@]}"
-else
-    "${commands[@]}"
-fi; status=$?
+[ "$isRecord" ] && exit
+eval "${commands[@]}"; status=$?
 
 if [ -z "$originalRevision" ]; then
     [ -z "$log" ] || echo >&2 "Warning: Could not determine original revision${branch:+ on $branch}, no logging possible."

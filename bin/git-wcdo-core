@@ -107,7 +107,6 @@ isSkipForeign=
 typeset -a foreignCommands=()
 predicateComparison=-eq
 typeset -a predicateCommands=()
-isNeedEval=
 typeset -a commands=()
 isHeader=; type -t withHeader >/dev/null && isHeader=t
 isBranchName=
@@ -132,7 +131,7 @@ do
 	--foreign-command)	shift; foreignCommands+=(${foreignCommands:+;} "$1"); shift;;
 	--predicate-command|-P)	shift; predicateCommands+=(${predicateCommands:+&&} "$1"); shift;;
 	--not)			shift; predicateComparison=-ne;;
-	--command|-c)		shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
+	--command|-c)		shift; commands+=(${commands:+;} "$1"); shift;;
 	--no-pager)		shift; pager=();;
 	--no-header)		shift; isHeader=;;
 	--branch-name)		shift; isBranchName=t;;
@@ -220,18 +219,13 @@ if [ $# -gt 0 ]; then
 	gitCommand+=("${gitColorArg[@]}")
     fi
 
-    if [ "$isNeedEval" ]; then
-	# Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
-	# undo the effects of eval.
-	printf -v quotedSimpleCommand '%q ' "${gitCommand[@]}" "$@"
-	commands+=(${commands:+;} "${quotedSimpleCommand% }")
-    else
-	commands=("${gitCommand[@]}" "$@")
-    fi
+    # Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
+    # undo the effects of eval.
+    printf -v quotedSimpleCommand '%q ' "${gitCommand[@]}" "$@"
+    commands+=(${commands:+;} "${quotedSimpleCommand% }")
 fi
 if [ ${#commands[@]} -eq 0 ]; then
     isHeader=
-    isNeedEval=t
     commands=('echo "$ROOT"')
 fi
 
@@ -324,12 +318,7 @@ wcdo()
 	reportProgress "$header"
 	[ ! "$isInteractive" ] || header "${colorArg[@]}" --id "$GIT_WCDO_HEADER_ID" -- "$header"
 
-	if [ "$isNeedEval" ]; then
-	    typeset -a c=("${commands[@]}")
-	else
-	    typeset -a c=('"${commands[@]}"')
-	fi
-	(eval "${isHeader:+{}" "${c[@]}" "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_WCDO_HEADER_ID' -- '$header'}")
+	(eval "${isHeader:+{}" "${commands[@]}" "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_WCDO_HEADER_ID' -- '$header'}")
 	local newStatus=$?
 
 	abortIfDesired $newStatus

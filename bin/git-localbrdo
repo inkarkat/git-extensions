@@ -130,7 +130,6 @@ isHeader=; type -t withHeader >/dev/null && isHeader=t
 errorRedir='2>&1'
 isGitColor=t
 typeset -a colorArg=()
-isNeedEval=
 predicateComparison=-eq
 typeset -a predicateCommands=()
 typeset -a commands=()
@@ -183,7 +182,7 @@ do
 	--predicate-command|-P)
 			    shift; predicateCommands+=(${predicateCommands:+&&} "$1"); shift;;
 	--not)		    shift; predicateComparison=-ne;;
-	--command|-c)	    shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
+	--command|-c)	    shift; commands+=(${commands:+;} "$1"); shift;;
 	--)		    shift; break;;
 	-*)		    { echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		    break;;
@@ -229,14 +228,10 @@ if [ $# -gt 0 ]; then
 	gitCommand+=("${gitColorArg[@]}")
     fi
 
-    if [ "$isNeedEval" ]; then
-	# Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
-	# undo the effects of eval.
-	printf -v quotedSimpleCommand '%q ' "${gitCommand[@]}" "$@"
-	commands+=(${commands:+;} "${quotedSimpleCommand% }")
-    else
-	commands=("${gitCommand[@]}" "$@")
-    fi
+    # Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
+    # undo the effects of eval.
+    printf -v quotedSimpleCommand '%q ' "${gitCommand[@]}" "$@"
+    commands+=(${commands:+;} "${quotedSimpleCommand% }")
 fi
 
 if [ ! "$isStashed" -a -z "$iterationAction" -a ${#commands[@]} -gt 0 ]; then
@@ -260,7 +255,6 @@ readContext()
 	# Recall command-line from original / previous call, unless it is
 	# overridden by updated arguments provided to this invocation.
 	commands=("${originalCommands[@]}")
-	isNeedEval="$originalIsNeedEval"
     fi
 
     if [ -z "$originalBranch" ]; then
@@ -274,9 +268,8 @@ persistContext()
     useContextStore
 
     typeset -a originalCommands=("${commands[@]}")  # Persist under a different name so that the user can override the original commands.
-    local originalIsNeedEval="$isNeedEval"
 
-    typeset -p localBranches originalCommands originalIsNeedEval originalBranch \
+    typeset -p localBranches originalCommands originalBranch \
 	pager abortStatus abortComparison interruptStatus interruptComparison progressSink \
 	isInteractive isSingleSuccess isStatus99Noop isQuiet isHeader errorRedir \
 	colorArg isStashed anyCheckoutArgs iteratingCheckoutArgs \
@@ -409,12 +402,7 @@ localbrdo()
 	reportProgress "$branch"
 	[ ! "$isInteractive" ] || header "${colorArg[@]}" --id "$GIT_LOCALBRDO_HEADER_ID" -- "$branch"
 
-	if [ "$isNeedEval" ]; then
-	    typeset -a c=("${commands[@]}")
-	else
-	    typeset -a c=('"${commands[@]}"')
-	fi
-	if (eval "${isHeader:+{}" "${c[@]}" "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_LOCALBRDO_HEADER_ID' -- '$branch'}"); then
+	if (eval "${isHeader:+{}" "${commands[@]}" "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_LOCALBRDO_HEADER_ID' -- '$branch'}"); then
 	    local newStatus=0
 	    dirtyCheck
 	else

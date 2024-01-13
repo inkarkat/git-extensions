@@ -103,7 +103,6 @@ isInteractive=
 errorRedir='2>&1'
 isGitColor=t
 typeset -a colorArg=()
-isNeedEval=
 predicateComparison=-eq
 typeset -a predicateCommands=()
 typeset -a commands=()
@@ -150,7 +149,7 @@ do
 	--not)		    shift; predicateComparison=-ne;;
 	--predicate-command|-P)
 			    shift; predicateCommands+=(${predicateCommands:+&&} "$1"); shift;;
-	--command|-c)	    shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
+	--command|-c)	    shift; commands+=(${commands:+;} "$1"); shift;;
 	--)		    shift; break;;
 	-*)		    { echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		    break;;
@@ -195,14 +194,10 @@ if [ $# -gt 0 ]; then
 	gitCommand+=("${gitColorArg[@]}")
     fi
 
-    if [ "$isNeedEval" ]; then
-	# Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
-	# undo the effects of eval.
-	printf -v quotedSimpleCommand '%q ' "${gitCommand[@]}" "$@"
-	commands+=(${commands:+;} "${quotedSimpleCommand//\\\{\\\}/\{\}}")	# %q escapes {}, we don't want that to have it interpolated later.
-    else
-	commands=("${gitCommand[@]}" "$@")
-    fi
+    # Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
+    # undo the effects of eval.
+    printf -v quotedSimpleCommand '%q ' "${gitCommand[@]}" "$@"
+    commands+=(${commands:+;} "${quotedSimpleCommand//\\\{\\\}/\{\}}")	# %q escapes {}, we don't want that to have it interpolated later.
 fi
 
 if [ ${#sourceBranches[@]} -gt 0 ] && [ ! "$GIT_BRREFDO_SOURCE_SORTED" ]; then
@@ -224,7 +219,6 @@ if [ ${#commands[@]} -eq 0 ]; then
     fi
 
     isHeader=
-    isNeedEval=t
     commands=('echo {}')
 fi
 
@@ -262,12 +256,7 @@ brrefdo()
 	[ ! "$isInteractive" ] || header "${colorArg[@]}" --id "$GIT_BRREFDO_HEADER_ID" -- "$branch"
 
 	typeset -a interpolatedCommands=("${commands[@]//\{\}/$branch}")
-	if [ "$isNeedEval" ]; then
-	    typeset -a c=("${interpolatedCommands[@]}")
-	else
-	    typeset -a c=('"${interpolatedCommands[@]}"')
-	fi
-	(eval "${isHeader:+{}" "${c[@]}" "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_BRREFDO_HEADER_ID' -- '$branch'}")
+	(eval "${isHeader:+{}" "${interpolatedCommands[@]}" "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_BRREFDO_HEADER_ID' -- '$branch'}")
 	local newStatus=$?
 
 	abortIfDesired $newStatus

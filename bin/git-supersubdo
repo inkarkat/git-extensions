@@ -79,7 +79,6 @@ isInteractive=
 errorRedir='2>&1'
 isGitColor=t
 typeset -a colorArg=()
-isNeedEval=
 isSubmoduleCommands=t
 typeset -a superCommands=()
 typeset -a subCommands=()
@@ -128,14 +127,13 @@ do
 			    superCommands+=(${superCommands:+;} "$1")
 			    subCommands+=(${subCommands:+;} "$1")
 			fi
-			isNeedEval=t
 			shift
 			;;
 	--toplevel)	shift; superprojectArgs+=(--print-toplevel);;
 	--super-command)
-			shift; superCommands+=(${superCommands:+;} "$1"); isNeedEval=t; shift;;
+			shift; superCommands+=(${superCommands:+;} "$1"); shift;;
 	--submodule-command)
-			shift; subCommands+=(${subCommands:+;} "$1"); isNeedEval=t; shift;;
+			shift; subCommands+=(${subCommands:+;} "$1"); shift;;
 	--no-submodule-command)
 			shift; isSubmoduleCommands=;;
 	--)		shift; break;;
@@ -193,23 +191,16 @@ if [ $# -gt 0 ]; then
 	gitCommand+=("${gitColorArg[@]}")
     fi
 
-    if [ "$isNeedEval" ]; then
-	# Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
-	# undo the effects of eval.
-	printf -v quotedSimpleCommand '%q ' "${gitCommand[@]}" "$@"
-	if [ ${#superCommands[@]} -eq 0 -a ${#subCommands[@]} -gt 0 ] || [ ! "$isSubmoduleCommands" ]; then
-	    superCommands+=(${superCommands:+;} "${quotedSimpleCommand% }")
-	elif [ ${#superCommands[@]} -gt 0 -a ${#subCommands[@]} -eq 0 ]; then
-	    subCommands+=(${subCommands:+;} "${quotedSimpleCommand% }")
-	else
-	    superCommands+=(${superCommands:+;} "${quotedSimpleCommand% }")
-	    subCommands+=(${subCommands:+;} "${quotedSimpleCommand% }")
-	fi
-    elif [ ! "$isSubmoduleCommands" ]; then
-	superCommands=("${gitCommand[@]}" "$@")
+    # Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
+    # undo the effects of eval.
+    printf -v quotedSimpleCommand '%q ' "${gitCommand[@]}" "$@"
+    if [ ${#superCommands[@]} -eq 0 -a ${#subCommands[@]} -gt 0 ] || [ ! "$isSubmoduleCommands" ]; then
+	superCommands+=(${superCommands:+;} "${quotedSimpleCommand% }")
+    elif [ ${#superCommands[@]} -gt 0 -a ${#subCommands[@]} -eq 0 ]; then
+	subCommands+=(${subCommands:+;} "${quotedSimpleCommand% }")
     else
-	superCommands=("${gitCommand[@]}" "$@")
-	subCommands=("${gitCommand[@]}" "$@")
+	superCommands+=(${superCommands:+;} "${quotedSimpleCommand% }")
+	subCommands+=(${subCommands:+;} "${quotedSimpleCommand% }")
     fi
 fi
 if [ ${#superCommands[@]} -eq 0 -a ${#subCommands[@]} -eq 0 ]; then
@@ -226,12 +217,7 @@ execute()
 {
     [ ! "$isInteractive" ] || header "${colorArg[@]}" --id "$GIT_SUPERSUBDO_HEADER_ID" -- "$header"
 
-    if [ "$isNeedEval" ]; then
-	typeset -a c=("$@")
-    else
-	typeset -a c=('"$@"')
-    fi
-    (eval "${isHeader:+{}" "${c[@]}" "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_SUPERSUBDO_HEADER_ID' -- '$header'}")
+    (eval "${isHeader:+{}" "$@" "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_SUPERSUBDO_HEADER_ID' -- '$header'}")
 }
 
 : ${GIT_SUPERSUBDO_HEADER_ID:="supersubdo-$$-$RANDOM"}
@@ -258,13 +244,9 @@ fromSuperproject()
 {
     local superprojectName="$(git-wcname)"
     if [ ${#subCommands[@]} -gt 0 ]; then
-	local subdoCommand; [ "$isNeedEval" ] \
-	    && subdoCommand="${subCommands[*]} " \
-	    || printf -v subdoCommand '%q ' "${subCommands[@]}"
-
 	HEADER_PREFIX+="${superprojectName}/" \
 	GIT_SUBDO_HEADER_ID="$GIT_SUPERSUBDO_HEADER_ID" \
-	    git subsamebrdo --subdo-command-name "${scriptName#git-}" --no-pager "${colorArg[@]}" "${subdoArgs[@]}" --command "${subdoCommand% }" || exit $?
+	    git subsamebrdo --subdo-command-name "${scriptName#git-}" --no-pager "${colorArg[@]}" "${subdoArgs[@]}" --command "${subCommands[*]}" || exit $?
     fi
 
     if [ ${#superCommands[@]} -gt 0 ]; then

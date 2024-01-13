@@ -47,7 +47,6 @@ HELPTEXT
 isFromRoot=
 isSkipForeign=
 typeset -a foreignCommands=()
-isNeedEval=
 typeset -a commands=()
 while [ $# -ne 0 ]
 do
@@ -59,7 +58,7 @@ do
 	--from-root|-r)	    shift; isFromRoot=t;;
 	--skip-foreign|-s)  shift; isSkipForeign=t;;
 	--foreign-command)  shift; foreignCommands+=(${foreignCommands:+;} "$1"); shift;;
-	--command|-c)	    shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
+	--command|-c)	    shift; commands+=(${commands:+;} "$1"); shift;;
 	--)		    break;;
 	-*)		    { echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		    break;;
@@ -90,14 +89,10 @@ fi
 
 readonly gitCommand='git-wrapper'
 if [ $# -gt 0 ]; then
-    if [ "$isNeedEval" ]; then
-	# Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
-	# undo the effects of eval.
-	printf -v quotedSimpleCommand '%q ' "$gitCommand" "$@"
-	commands+=(${commands:+;} "${quotedSimpleCommand% }")
-    else
-	commands=("$gitCommand" "$@")
-    fi
+    # Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
+    # undo the effects of eval.
+    printf -v quotedSimpleCommand '%q ' "$gitCommand" "$@"
+    commands+=(${commands:+;} "${quotedSimpleCommand% }")
 fi
 if [ ${#commands[@]} -eq 0 ]; then
     echo 'ERROR: No COMMAND(s) specified; need to pass -c|--command "COMMANDLINE", or SIMPLECOMMAND.'
@@ -160,21 +155,6 @@ do
 	fi
     fi
 
-    if [ "$isNeedEval" ]; then
-	eval "${commands[@]}"
-    else
-	# Without eval, $FILE etc. are not evaluated in SIMPLECOMMAND; we have to do this manually.
-	typeset -a expandedCommands=()
-	for c in "${commands[@]}"
-	do
-	    case "$c" in
-		\$FILE)	expandedCommands+=("$FILE");;
-		\$ROOT)	expandedCommands+=("$ROOT");;
-		*)	expandedCommands+=("$c");;
-	    esac
-	done
-
-	"${expandedCommands[@]}"
-    fi || status=$?
+    eval "${commands[@]}" || status=$?
 done
 exit $status

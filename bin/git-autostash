@@ -16,7 +16,6 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-u|--include-untracked] [-a|--all] -c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...] [-?|-h|--help]'
 }
 
-isNeedEval=
 typeset -a commands=()
 typeset -a stashArgs=()
 while [ $# -ne 0 ]
@@ -27,7 +26,7 @@ do
 			shift;;
 	--color)	shift; shift;;
 	--include-untracked|-u|--all|-a) stashArgs+=("$1"); shift;;
-	--command|-c)	shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
+	--command|-c)	shift; commands+=(${commands:+;} "$1"); shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)  break;;
@@ -35,14 +34,10 @@ do
 done
 readonly gitCommand='git-wrapper'
 if [ $# -ne 0 ]; then
-    if [ "$isNeedEval" ]; then
-	# Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
-	# undo the effects of eval.
-	printf -v quotedSimpleCommand '%q ' "$gitCommand" "$@"
-	commands+=(${commands:+;} "${quotedSimpleCommand% }")
-    else
-	commands=("$gitCommand" "$@")
-    fi
+    # Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
+    # undo the effects of eval.
+    printf -v quotedSimpleCommand '%q ' "$gitCommand" "$@"
+    commands+=(${commands:+;} "${quotedSimpleCommand% }")
 fi
 if [ ${#commands[@]} -eq 0 ]; then
     echo 'ERROR: No COMMAND(s) specified; need to pass -c|--command "COMMANDLINE", or SIMPLECOMMAND.'
@@ -75,10 +70,4 @@ finally()
 trap 'finally' EXIT
 
 
-(
-    if [ "$isNeedEval" ]; then
-	eval "${commands[@]}"
-    else
-	"${commands[@]}"
-    fi
-); status=$?
+(eval "${commands[@]}"); status=$?

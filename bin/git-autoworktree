@@ -1,5 +1,7 @@
 #!/bin/bash
 
+: ${GIT_AUTOWORKTREE_COMMAND_JOINER=;}
+
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
@@ -49,7 +51,7 @@ path=
 isWipe=
 typeset -a leaveDetachedArg=()
 typeset -a leaveBranchArg=()
-typeset -a commands=()
+commands=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -72,7 +74,7 @@ do
 	--leave-detached)
 			shift; leaveDetachedArg=(--detach);;
 	--leave-branch)	shift; leaveBranchArg=("$1"); shift;;
-	--command|-c)	shift; commands+=(${commands:+;} "$1"); shift;;
+	--command|-c)	shift; commands+="${commands:+ $GIT_AUTOWORKTREE_COMMAND_JOINER }$1"; shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -88,9 +90,9 @@ if [ $# -ne 0 ]; then
     # Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
     # undo the effects of eval.
     printf -v quotedSimpleCommand '%q ' "$@"
-    commands+=(${commands:+;} "${quotedSimpleCommand% }")
+    commands+="${commands:+ $GIT_AUTOWORKTREE_COMMAND_JOINER }${quotedSimpleCommand% }"
 fi
-if [ ${#commands[@]} -eq 0 ]; then
+if [ -z "$commands" ]; then
     echo 'ERROR: No COMMAND(s) specified; need to pass -c|--command "COMMANDLINE", or SIMPLECOMMAND.'
     echo
     printUsage "$0"
@@ -132,4 +134,4 @@ finally()
 trap 'finally' EXIT
 
 
-(eval "${commands[@]}"); status=$?
+(eval "$commands"); status=$?

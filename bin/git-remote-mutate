@@ -1,5 +1,6 @@
 #!/bin/bash
 
+: ${GIT_REMOTEMUTATE_COMMAND_JOINER=;}
 : ${GIT_REMOTEMUTATE_ARGS_END=;}
 : ${GIT_REMOTEMUTATE_REMOTES=upstream}
 
@@ -31,7 +32,7 @@ remote="${1:?}"; shift
 message=
 isYes=
 typeset -a arguments=()
-typeset -a contextCommands=()
+contextCommands=
 typeset -a contextShortener=(headtail --separator-cutline)
 while [ $# -ne 0 ]
 do
@@ -51,7 +52,7 @@ do
 			shift
 			;;
 	--context-command)
-			shift; contextCommands+=(${contextCommand:+;} "$1"); shift;;
+			shift; contextCommands+="${contextCommand:+ $GIT_REMOTEMUTATE_COMMAND_JOINER }$1"; shift;;
 	--yes|-y)	shift; isYes=t;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
@@ -82,13 +83,13 @@ isUpToDate()
 confirmMutation()
 {
     concatenatedArguments="$(joinBy --empty "with $*" --last-separator ' and ' ', ' "${arguments[@]}")"
-    choice="$(userchoiceFromList --keep-prompt --question "${remote:?}: ${message:-Mutate}${concatenatedArguments:+ }${concatenatedArguments}" --no-cancel --ignore-case -- '[Y]es' '[N]o' ${contextCommands[*]:+'Show [C]ontext'} '[S]hell')" || exit $?
+    choice="$(userchoiceFromList --keep-prompt --question "${remote:?}: ${message:-Mutate}${concatenatedArguments:+ }${concatenatedArguments}" --no-cancel --ignore-case -- '[Y]es' '[N]o' ${contextCommands:+'Show [C]ontext'} '[S]hell')" || exit $?
     case "$choice" in
 	Yes) ;;
 	No) return 4;;
 	Show\ Context)
 	    echo "Context${contextShortener[*]:+ (abbreviated)} for: ${remote:?}: ${message:-Mutate}${concatenatedArguments:+ }${concatenatedArguments}"
-	    eval "${contextCommands[@]}" "${contextShortener:+|}" '"${contextShortener[@]}"'
+	    eval "$contextCommands" "${contextShortener:+|}" '"${contextShortener[@]}"'
 	    contextShortener=()
 	    confirmMutation "$@"
 	    ;;

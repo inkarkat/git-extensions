@@ -2,6 +2,8 @@
 set -o pipefail
 shopt -qs extglob
 
+: ${GIT_BRREFDO_COMMAND_JOINER=;}
+: ${GIT_BRREFDO_PREDICATECOMMAND_JOINER=&&}
 : ${GIT_BRREFDO_BRANCHES_END=;}
 : ${GIT_BRREFDO_SOURCE_COMMAND:=git-abr}
 : ${GIT_BRREFDO_COMMANDNAME:=$(basename -- "$0")}
@@ -104,8 +106,8 @@ errorRedir='2>&1'
 isGitColor=t
 typeset -a colorArg=()
 predicateComparison=-eq
-typeset -a predicateCommands=()
-typeset -a commands=()
+predicateCommands=
+commands=
 branchNum=
 typeset -a sourceBranches=()
 typeset -a gitBrArgs=()
@@ -148,8 +150,8 @@ do
 	--max-branch|-B)    shift; branchNum="$1"; shift;;
 	--not)		    shift; predicateComparison=-ne;;
 	--predicate-command|-P)
-			    shift; predicateCommands+=(${predicateCommands:+&&} "$1"); shift;;
-	--command|-c)	    shift; commands+=(${commands:+;} "$1"); shift;;
+			    shift; predicateCommands+="${predicateCommands:+ $GIT_BRREFDO_PREDICATECOMMAND_JOINER }$1"; shift;;
+	--command|-c)	    shift; commands+="${commands:+ $GIT_BRREFDO_COMMAND_JOINER }$1"; shift;;
 	--)		    shift; break;;
 	-*)		    { echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		    break;;
@@ -197,7 +199,7 @@ if [ $# -gt 0 ]; then
     # Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
     # undo the effects of eval.
     printf -v quotedSimpleCommand '%q ' "${gitCommand[@]}" "$@"
-    commands+=(${commands:+;} "${quotedSimpleCommand//\\\{\\\}/\{\}}")	# %q escapes {}, we don't want that to have it interpolated later.
+    commands+="${commands:+ $GIT_BRREFDO_COMMAND_JOINER }${quotedSimpleCommand//\\\{\\\}/\{\}}"	# %q escapes {}, we don't want that to have it interpolated later.
 fi
 
 if [ ${#sourceBranches[@]} -gt 0 ] && [ ! "$GIT_BRREFDO_SOURCE_SORTED" ]; then
@@ -212,14 +214,14 @@ fi
 [ -n "$branchNum" ]  && [ $branchNum -lt ${#branches[@]} ] \
     && branches=("${branches[@]:(-$branchNum)}")
 
-if [ ${#commands[@]} -eq 0 ]; then
-    if [ ${#predicateCommands[@]} -eq 0 ]; then
+if [ -z "$commands" ]; then
+    if [ -z "$predicateCommands" ]; then
 	printf '%s\n' "${branches[@]}"
 	exit 0
     fi
 
     isHeader=
-    commands=('echo {}')
+    commands='echo {}'
 fi
 
 if [ "$hasProgressNotification" ] && [ -n "$progressSink" ]; then
@@ -247,16 +249,16 @@ brrefdo()
     local branch status=
     for branch in "${branches[@]}"
     do
-	if [ ${#predicateCommands[@]} -gt 0 ]; then
-	    (eval "${predicateCommands[@]//\{\}/$branch}")
+	if [ -n "$predicateCommands" ]; then
+	    (eval "${predicateCommands//\{\}/$branch}")
 	    [ $? $predicateComparison 0 ] || continue
 	fi
 
 	reportProgress "$branch"
 	[ ! "$isInteractive" ] || header "${colorArg[@]}" --id "$GIT_BRREFDO_HEADER_ID" -- "$branch"
 
-	typeset -a interpolatedCommands=("${commands[@]//\{\}/$branch}")
-	(eval "${isHeader:+{}" "${interpolatedCommands[@]}" "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_BRREFDO_HEADER_ID' -- '$branch'}")
+	local interpolatedCommands="${commands//\{\}/$branch}"
+	(eval "${isHeader:+{}" "$interpolatedCommands" "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_BRREFDO_HEADER_ID' -- '$branch'}")
 	local newStatus=$?
 
 	abortIfDesired $newStatus

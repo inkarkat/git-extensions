@@ -1,6 +1,7 @@
 #!/bin/bash
 set -o pipefail
 
+: ${GIT_SUPERSUBDO_COMMAND_JOINER=;}
 : ${GIT_SUBDO_SUBMODULE_END=;}
 
 readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
@@ -80,8 +81,8 @@ errorRedir='2>&1'
 isGitColor=t
 typeset -a colorArg=()
 isSubmoduleCommands=t
-typeset -a superCommands=()
-typeset -a subCommands=()
+superCommands=
+subCommands=
 typeset -a subdoArgs=()
 typeset -a superprojectArgs=()
 while [ $# -ne 0 ]
@@ -119,21 +120,21 @@ do
 	--no-color|--color=*)	colorArg=("$1"); shift;;
 	--color)		colorArg=("$1" "$2"); shift; shift;;
 	--command|-c)	shift
-			if [ ${#superCommands[@]} -eq 0 -a ${#subCommands[@]} -gt 0 ] || [ ! "$isSubmoduleCommands" ]; then
-			    superCommands+=(${superCommands:+;} "$1")
-			elif [ ${#superCommands[@]} -gt 0 -a ${#subCommands[@]} -eq 0 ]; then
-			    subCommands+=(${subCommands:+;} "$1")
+			if [ -z "$superCommands" -a -n "$subCommands" ] || [ ! "$isSubmoduleCommands" ]; then
+			    superCommands+="${superCommands:+ $GIT_SUPERSUBDO_COMMAND_JOINER }$1"
+			elif [ -n "$superCommands" -a -z "$subCommands" ]; then
+			    subCommands+="${subCommands:+ $GIT_SUPERSUBDO_COMMAND_JOINER }$1"
 			else
-			    superCommands+=(${superCommands:+;} "$1")
-			    subCommands+=(${subCommands:+;} "$1")
+			    superCommands+="${superCommands:+ $GIT_SUPERSUBDO_COMMAND_JOINER }$1"
+			    subCommands+="${subCommands:+ $GIT_SUPERSUBDO_COMMAND_JOINER }$1"
 			fi
 			shift
 			;;
 	--toplevel)	shift; superprojectArgs+=(--print-toplevel);;
 	--super-command)
-			shift; superCommands+=(${superCommands:+;} "$1"); shift;;
+			shift; superCommands+="${superCommands:+ $GIT_SUPERSUBDO_COMMAND_JOINER }$1"; shift;;
 	--submodule-command)
-			shift; subCommands+=(${subCommands:+;} "$1"); shift;;
+			shift; subCommands+="${subCommands:+ $GIT_SUPERSUBDO_COMMAND_JOINER }$1"; shift;;
 	--no-submodule-command)
 			shift; isSubmoduleCommands=;;
 	--)		shift; break;;
@@ -194,16 +195,16 @@ if [ $# -gt 0 ]; then
     # Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
     # undo the effects of eval.
     printf -v quotedSimpleCommand '%q ' "${gitCommand[@]}" "$@"
-    if [ ${#superCommands[@]} -eq 0 -a ${#subCommands[@]} -gt 0 ] || [ ! "$isSubmoduleCommands" ]; then
-	superCommands+=(${superCommands:+;} "${quotedSimpleCommand% }")
-    elif [ ${#superCommands[@]} -gt 0 -a ${#subCommands[@]} -eq 0 ]; then
-	subCommands+=(${subCommands:+;} "${quotedSimpleCommand% }")
+    if [ -z "$superCommands" -a -n "$subCommands" ] || [ ! "$isSubmoduleCommands" ]; then
+	superCommands+="${superCommands:+ $GIT_SUPERSUBDO_COMMAND_JOINER }${quotedSimpleCommand% }"
+    elif [ -n "$superCommands" -a -z "$subCommands" ]; then
+	subCommands+="${subCommands:+ $GIT_SUPERSUBDO_COMMAND_JOINER }${quotedSimpleCommand% }"
     else
-	superCommands+=(${superCommands:+;} "${quotedSimpleCommand% }")
-	subCommands+=(${subCommands:+;} "${quotedSimpleCommand% }")
+	superCommands+="${superCommands:+ $GIT_SUPERSUBDO_COMMAND_JOINER }${quotedSimpleCommand% }"
+	subCommands+="${subCommands:+ $GIT_SUPERSUBDO_COMMAND_JOINER }${quotedSimpleCommand% }"
     fi
 fi
-if [ ${#superCommands[@]} -eq 0 -a ${#subCommands[@]} -eq 0 ]; then
+if [ -z "$superCommands" -a -z "$subCommands" ]; then
     echo 'ERROR: No COMMAND(s) specified; need to pass -c|--command|--super-command|--submodule-command "COMMANDLINE", or SIMPLECOMMAND.'
     echo
     printUsage "$0"
@@ -227,31 +228,31 @@ fromSubmodule()
     submoduleRoot="$(git root)" || exit $?
     superprojectRoot="$(git superproject "${superprojectArgs[@]}")" || exit 3
 
-    if [ ${#subCommands[@]} -gt 0 ]; then
+    if [ -n "$subCommands" ]; then
 	cd "$submoduleRoot" || exit 3
 	header="$(git-supersubpath)"
-	execute "${subCommands[@]}" || exit $?
+	execute "$subCommands" || exit $?
     fi
 
-    if [ ${#superCommands[@]} -gt 0 ]; then
+    if [ -n "$superCommands" ]; then
 	cd "$superprojectRoot" || exit 3
 	header="../$(git-wcname)"
-	execute "${superCommands[@]}" || exit $?
+	execute "$superCommands" || exit $?
     fi
 }
 
 fromSuperproject()
 {
     local superprojectName="$(git-wcname)"
-    if [ ${#subCommands[@]} -gt 0 ]; then
+    if [ -n "$subCommands" ]; then
 	HEADER_PREFIX+="${superprojectName}/" \
 	GIT_SUBDO_HEADER_ID="$GIT_SUPERSUBDO_HEADER_ID" \
-	    git subsamebrdo --subdo-command-name "${scriptName#git-}" --no-pager "${colorArg[@]}" "${subdoArgs[@]}" --command "${subCommands[*]}" || exit $?
+	    git subsamebrdo --subdo-command-name "${scriptName#git-}" --no-pager "${colorArg[@]}" "${subdoArgs[@]}" --command "$subCommands" || exit $?
     fi
 
-    if [ ${#superCommands[@]} -gt 0 ]; then
+    if [ -n "$superCommands" ]; then
 	header="$superprojectName"
-	execute "${superCommands[@]}" || exit $?
+	execute "$superCommands" || exit $?
     fi
 }
 

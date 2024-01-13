@@ -2,6 +2,8 @@
 set -o pipefail
 shopt -qs extglob
 
+: ${GIT_LOCALBRDO_COMMAND_JOINER=;}
+: ${GIT_LOCALBRDO_PREDICATECOMMAND_JOINER=&&}
 : ${GIT_LOCALBRDO_BRANCHES_END=;}
 : ${GIT_LOCALBRDO_SOURCE_COMMAND:=git-localbr}
 
@@ -131,8 +133,8 @@ errorRedir='2>&1'
 isGitColor=t
 typeset -a colorArg=()
 predicateComparison=-eq
-typeset -a predicateCommands=()
-typeset -a commands=()
+predicateCommands=
+commands=
 isStashed=
 branchNum=
 typeset -a sourceBranches=()
@@ -180,9 +182,9 @@ do
 			    anyCheckoutArgs+=("$1"); shift;;
 	--max-branch|-B)    shift; branchNum="$1"; shift;;
 	--predicate-command|-P)
-			    shift; predicateCommands+=(${predicateCommands:+&&} "$1"); shift;;
+			    shift; predicateCommands+="${predicateCommands:+ $GIT_LOCALBRDO_PREDICATECOMMAND_JOINER }$1"; shift;;
 	--not)		    shift; predicateComparison=-ne;;
-	--command|-c)	    shift; commands+=(${commands:+;} "$1"); shift;;
+	--command|-c)	    shift; commands+="${commands:+ $GIT_LOCALBRDO_COMMAND_JOINER }$1"; shift;;
 	--)		    shift; break;;
 	-*)		    { echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		    break;;
@@ -231,10 +233,10 @@ if [ $# -gt 0 ]; then
     # Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
     # undo the effects of eval.
     printf -v quotedSimpleCommand '%q ' "${gitCommand[@]}" "$@"
-    commands+=(${commands:+;} "${quotedSimpleCommand% }")
+    commands+="${commands:+ $GIT_LOCALBRDO_COMMAND_JOINER }${quotedSimpleCommand% }"
 fi
 
-if [ ! "$isStashed" -a -z "$iterationAction" -a ${#commands[@]} -gt 0 ]; then
+if [ ! "$isStashed" -a -z "$iterationAction" -a -n "$commands" ]; then
     readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
     exec git-autostash "${scriptName#git-}" --stashed "${args[@]}"
 fi
@@ -251,10 +253,10 @@ readContext()
     useContextStore
     source "${usedContextStore:?}" || exit 3
 
-    if [ ${#commands[@]} -eq 0 ]; then
+    if [ -z "$commands" ]; then
 	# Recall command-line from original / previous call, unless it is
 	# overridden by updated arguments provided to this invocation.
-	commands=("${originalCommands[@]}")
+	commands="$originalCommands"
     fi
 
     if [ -z "$originalBranch" ]; then
@@ -267,7 +269,7 @@ persistContext()
 {
     useContextStore
 
-    typeset -a originalCommands=("${commands[@]}")  # Persist under a different name so that the user can override the original commands.
+    local originalCommands="$commands"  # Persist under a different name so that the user can override the original commands.
 
     typeset -p localBranches originalCommands originalBranch \
 	pager abortStatus abortComparison interruptStatus interruptComparison progressSink \
@@ -351,11 +353,11 @@ case "$iterationAction" in
 	fi
 	[ -n "$branchNum" ]  && [ $branchNum -lt ${#localBranches[@]} ] \
 	    && localBranches=("${localBranches[@]:(-$branchNum)}")
-	if [ ${#predicateCommands[@]} -gt 0 ]; then
+	if [ -n "$predicateCommands" ]; then
 	    typeset -a filteredLocalBranches=()
 	    for branch in "${localBranches[@]}"
 	    do
-		(eval "${predicateCommands[@]//\{\}/$branch}")
+		(eval "${predicateCommands//\{\}/$branch}")
 		[ $? $predicateComparison 0 ] && filteredLocalBranches+=("$branch")
 	    done
 	    if [ ${#filteredLocalBranches[@]} -eq 0 ]; then
@@ -364,7 +366,7 @@ case "$iterationAction" in
 	    fi
 	    localBranches=("${filteredLocalBranches[@]}")
 	fi
-	if [ ${#commands[@]} -eq 0 ]; then
+	if [ -z "$commands" ]; then
 	    printf '%s\n' "${localBranches[@]}"
 	    exit 0
 	fi
@@ -402,7 +404,7 @@ localbrdo()
 	reportProgress "$branch"
 	[ ! "$isInteractive" ] || header "${colorArg[@]}" --id "$GIT_LOCALBRDO_HEADER_ID" -- "$branch"
 
-	if (eval "${isHeader:+{}" "${commands[@]}" "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_LOCALBRDO_HEADER_ID' -- '$branch'}"); then
+	if (eval "${isHeader:+{}" "$commands" "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_LOCALBRDO_HEADER_ID' -- '$branch'}"); then
 	    local newStatus=0
 	    dirtyCheck
 	else

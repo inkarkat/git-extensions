@@ -1,6 +1,7 @@
 #!/bin/bash
 set -o pipefail
 
+: ${GIT_DIFFLINES_COMMAND_JOINER=;}
 : ${GIT_DIFFLINES_EXEC_END=;}
 : ${GIT_DIFFLINES_FILE_MARKER='{+}'}
 fileMarker="$GIT_DIFFLINES_FILE_MARKER"; unset GIT_DIFFLINES_FILE_MARKER
@@ -68,7 +69,7 @@ numberFormat=$'%dn\n'
 isAsDiffTool=
 typeset -a allargs=()
 typeset -a forwardedArgs=()
-typeset -a commands=()
+commands=
 typeset -a sortArgs=()
 while [ $# -gt 0 ]
 do
@@ -84,7 +85,7 @@ do
 	--number-format)
 			forwardedArgs+=("$1" "${2?}"); shift; numberFormat="${1%$'\n'}"$'\n'; shift;;	# Both oldNewDiff and removedDiff algorithms need a trailing newline.
 	--sort-key)	forwardedArgs+=("$1" "${2?}"); shift; sortArgs+=(--key "${1?}"); shift;;
-	--command|-c)	forwardedArgs+=("$1" "${2?}"); shift; commands+=(${commands:+;} "$1"); shift;;
+	--command|-c)	forwardedArgs+=("$1" "${2?}"); shift; commands+="${commands:+ $GIT_DIFFLINES_COMMAND_JOINER }$1"; shift;;
 	--exec)		forwardedArgs+=("$1"); shift
 			cmd=
 			printf -v escapedFileMarker %q "$fileMarker"
@@ -101,13 +102,13 @@ do
 			    exit 2
 			fi >&2
 			forwardedArgs+=("$1"); shift
-			commands+=(${commands:+;} "$cmd")
+			commands+="${commands:+ $GIT_DIFFLINES_COMMAND_JOINER }${cmd}"
 			;;
 	*)		allargs+=("$1"); shift;;
     esac
 done
 set -- "${allargs[@]}"
-[ ${#commands[@]} -gt 0 ] || commands=("for number in $numberMarker; do printf '%s: %s\n' $fileMarker \$number; done")
+[ -n "$commands" ] || commands="for number in $numberMarker; do printf '%s: %s\n' $fileMarker \$number; done"
 
 formatDiff()
 {
@@ -155,10 +156,10 @@ execute()
     [ ${#numbers[@]} -gt 0 ] || return
 
     local quotedNumbers; printf -v quotedNumbers '%q ' "${numbers[@]}"; quotedNumbers="${quotedNumbers% }"
-    typeset -a interpolatedCommands=("${commands[@]//"$numberMarker"/$quotedNumbers}")
-    [ "${interpolatedCommands[*]}" = "${commands[*]}" ] && interpolatedCommands+=("$quotedNumbers")
-    interpolatedCommands=("${interpolatedCommands[@]//"$fileMarker"/$filespec}")
-    eval "${interpolatedCommands[@]}"
+    interpolatedCommands="${commands//"$numberMarker"/$quotedNumbers}"
+    [ "$interpolatedCommands" = "$commands" ] && interpolatedCommands+=" $quotedNumbers"
+    interpolatedCommands="${interpolatedCommands//"$fileMarker"/$filespec}"
+    eval "$interpolatedCommands"
 }
 
 if [ "$isAsDiffTool" ]; then

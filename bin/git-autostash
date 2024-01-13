@@ -1,6 +1,8 @@
 #!/bin/bash
 # See https://stackoverflow.com/a/15367176/813602
 
+: ${GIT_AUTOSTASH_COMMAND_JOINER=;}
+
 printUsage()
 {
     cat <<HELPTEXT
@@ -16,7 +18,7 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-u|--include-untracked] [-a|--all] -c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...] [-?|-h|--help]'
 }
 
-typeset -a commands=()
+commands=
 typeset -a stashArgs=()
 while [ $# -ne 0 ]
 do
@@ -26,7 +28,7 @@ do
 			shift;;
 	--color)	shift; shift;;
 	--include-untracked|-u|--all|-a) stashArgs+=("$1"); shift;;
-	--command|-c)	shift; commands+=(${commands:+;} "$1"); shift;;
+	--command|-c)	shift; commands+="${commands:+ $GIT_AUTOSTASH_COMMAND_JOINER }$1"; shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)  break;;
@@ -37,9 +39,9 @@ if [ $# -ne 0 ]; then
     # Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
     # undo the effects of eval.
     printf -v quotedSimpleCommand '%q ' "$gitCommand" "$@"
-    commands+=(${commands:+;} "${quotedSimpleCommand% }")
+    commands+="${commands:+ $GIT_AUTOSTASH_COMMAND_JOINER }${quotedSimpleCommand% }"
 fi
-if [ ${#commands[@]} -eq 0 ]; then
+if [ -z "$commands" ]; then
     echo 'ERROR: No COMMAND(s) specified; need to pass -c|--command "COMMANDLINE", or SIMPLECOMMAND.'
     echo
     printUsage "$0"
@@ -70,4 +72,4 @@ finally()
 trap 'finally' EXIT
 
 
-(eval "${commands[@]}"); status=$?
+(eval "$commands"); status=$?

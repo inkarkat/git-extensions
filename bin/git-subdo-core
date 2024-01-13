@@ -1,5 +1,7 @@
 #!/bin/bash
 
+: ${GIT_SUBDOCORE_COMMAND_JOINER=;}
+: ${GIT_SUBDOCORE_PREDICATECOMMAND_JOINER=&&}
 : ${GIT_SUBDO_SUBMODULE_END=;}
 
 hasProgressNotification=; type -t progressNotification >/dev/null && hasProgressNotification=t
@@ -128,8 +130,8 @@ isSingleSuccess=
 isStatus99Noop=
 predicateComparison=-eq
 predicateInversionArg=
-typeset -a predicateCommands=()
-typeset -a commands=()
+predicateCommands=
+commands=
 isHeader=; type -t withHeader >/dev/null && isHeader=t
 progressSink=
 isIncludeSuperproject=
@@ -148,9 +150,9 @@ do
 	--abort-on|-X)		shift; abortStatus="$1"; shift;;
 	--single-success)	shift; isSingleSuccess=t;;
 	--status-99-is-noop)	shift; isStatus99Noop=t;;
-	--predicate-command|-P)	shift; predicateCommands+=(${predicateCommands:+&&} "$1"); shift;;
+	--predicate-command|-P)	shift; predicateCommands+="${predicateCommands:+ $GIT_SUBDOCORE_PREDICATECOMMAND_JOINER }$1"; shift;;
 	--not)			predicateInversionArg="$1"; shift; predicateComparison=-ne;;
-	--command|-c)		shift; commands+=(${commands:+;} "$1"); shift;;
+	--command|-c)		shift; commands+="${commands:+ $GIT_SUBDOCORE_COMMAND_JOINER }$1"; shift;;
 	--recursive)		shift; submoduleRecurseArg=(--recursive);;
 	--no-pager)		shift; pager=();;
 	--no-header)		shift; isHeader=;;
@@ -264,11 +266,11 @@ if [ $# -gt 0 ]; then
     # Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
     # undo the effects of eval.
     printf -v quotedSimpleCommand '%q ' "${gitCommand[@]}" "$@"
-    commands+=(${commands:+;} "${quotedSimpleCommand% }")
+    commands+="${commands:+ $GIT_SUBDOCORE_COMMAND_JOINER }${quotedSimpleCommand% }"
 fi
-if [ ${#commands[@]} -eq 0 ]; then
+if [ -z "$commands" ]; then
     isHeader=
-    commands=('echo "${displaypath:-$superprojectName}"')
+    commands='echo "${displaypath:-$superprojectName}"'
 fi
 readonly RUNTIME_DIRSPEC="${XDG_RUNTIME_DIR:?}/git-extensions"
 readonly lastSubmoduleStoreFilespec="${RUNTIME_DIRSPEC}/${subdoCommandName:?}${GIT_SUBDO_STORE_ID:+-}${GIT_SUBDO_STORE_ID}${GIT_SUBDO_STORE_SUBJECT:+-}${GIT_SUBDO_STORE_SUBJECT-$(pathAsFilename --as-is --encode -- "$(git root)")}"
@@ -290,10 +292,10 @@ else
 
     printf -v quotedScriptFilespec %q "${BASH_SOURCE[0]}"
     quotedSubmoduleArgs=; [ ${#submoduleArgs[@]} -eq 0 ] || printf -v quotedSubmoduleArgs ' %q' "${submoduleArgs[@]}"
-    printf -v quotedPredicateCommands ' %q' "${predicateCommands[*]}"
+    printf -v quotedPredicateCommands ' %q' "$predicateCommands"
     readarray -t submoduleEnvironments < <(git submodule foreach --quiet "${submoduleRecurseArg[@]}" "$quotedScriptFilespec${quotedSubmoduleArgs}${predicateInversionArg:+ }${predicateInversionArg} --collect${quotedPredicateCommands}")
     if [ ${#submoduleEnvironments[@]} -eq 0 ]; then
-	[ -n "$GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES" ] || echo >&2 "No ${predicateCommands[@]:+such }submodules found."
+	[ -n "$GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES" ] || echo >&2 "No ${predicateCommands:+such }submodules found."
 	exit ${GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES:-99}
     fi
 
@@ -346,7 +348,7 @@ subdo()
 	reportProgress "${header:?}"
 	[ ! "$isInteractive" ] || header "${colorArg[@]}" --id "$GIT_SUBDO_HEADER_ID" -- "${header:?}"
 
-	(eval "${isHeader:+{}" ${predicateOutput:+printf %s\\\\n \"\$predicateOutput\"; }"${commands[@]}" "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_SUBDO_HEADER_ID' -- '${header:?}'}")
+	(eval "${isHeader:+{}" ${predicateOutput:+printf %s\\\\n \"\$predicateOutput\"; }"$commands" "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_SUBDO_HEADER_ID' -- '${header:?}'}")
 	local newStatus=$?
 
 	abortIfDesired $newStatus

@@ -2,6 +2,7 @@
 set -o pipefail
 shopt -qs extglob
 
+: ${GIT_FFINTEGRATETO_COMMAND_JOINER=&&}
 : ${GIT_FFINTEGRATETO_EXEC_END=;}
 
 readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
@@ -161,7 +162,7 @@ isBare=
 isDisableChecks=
 isCheckFromStdin=
 typeset -a checkCommandArgs=()
-typeset -a checkCommands=()
+checkCommands=
 typeset -a bashArgs=()
 runWithCommand=runWithPrompt
 typeset -a runWithPromptArgs=()
@@ -205,7 +206,7 @@ do
 			hasMergeResolutionArg=t; fastForwardArgs=("$1"); shift;;
 	--yes|-y)	gitRemoteMutateArgs+=("$1"); shift;;
 	--no-checks)	checkCommandArgs+=("$1"); shift; isDisableChecks=t;;
-	--command|-c)	checkCommandArgs+=("$1" "$2"); shift; checkCommands+=(${checkCommands:+&&} "$1"); shift;;
+	--command|-c)	checkCommandArgs+=("$1" "$2"); shift; checkCommands+="${checkCommands:+ $GIT_FFINTEGRATETO_COMMAND_JOINER }$1"; shift;;
 	--exec)		checkCommandArgs+=("$1"); shift
 			cmd=
 			while [ $# -gt 0 -a "$1" != "$GIT_FFINTEGRATETO_EXEC_END" ]
@@ -219,7 +220,7 @@ do
 			    exit 2
 			fi >&2
 			checkCommandArgs+=("$1"); shift
-			checkCommands+=(${checkCommands:+&&} "$cmd")
+			checkCommands+="${checkCommands:+ $GIT_FFINTEGRATETO_COMMAND_JOINER }${cmd}"
 			;;
 	--bare)		continueArgs+=("$1"); shift; isBare=t; runWithCommand=runWith;;
 	--exit-on-failure)
@@ -260,7 +261,7 @@ if [ "${!#}" = '-' ]; then
     isCheckFromStdin=t
     set -- "${@:1:$(($#-1))}"
 fi
-if [ "$isCheckFromStdin" ] && [ ${#checkCommands[@]} -gt 0 ]; then
+if [ "$isCheckFromStdin" ] && [ -n "$checkCommands" ]; then
     echo 'ERROR: Cannot combine CHECK-COMMANDLINE from stdin (-) with -c|--command|--exec.'
     echo
     printUsage "$0"
@@ -268,15 +269,15 @@ if [ "$isCheckFromStdin" ] && [ ${#checkCommands[@]} -gt 0 ]; then
 fi >&2
 if [ "$isDisableChecks" ]; then
     echo 'Checks are disabled.'
-    checkCommands=()
+    checkCommands=''
 else
     if [ "$isCheckFromStdin" ]; then
 	:
-    elif [ -n "$GIT_REINTEGRATE_CHECK_COMMAND" -a ${#checkCommands[@]} -eq 0 ]; then
-	checkCommands=("$GIT_REINTEGRATE_CHECK_COMMAND")
+    elif [ -n "$GIT_REINTEGRATE_CHECK_COMMAND" -a -z "$checkCommands" ]; then
+	checkCommands="$GIT_REINTEGRATE_CHECK_COMMAND"
 	checkCommandArgs+=(--command "$GIT_REINTEGRATE_CHECK_COMMAND")
-    elif [ -n "$GIT_CHECK_COMMAND" -a ${#checkCommands[@]} -eq 0 ]; then
-	checkCommands=("$GIT_CHECK_COMMAND")
+    elif [ -n "$GIT_CHECK_COMMAND" -a -z "$checkCommands" ]; then
+	checkCommands="$GIT_CHECK_COMMAND"
 	checkCommandArgs+=(--command "$GIT_CHECK_COMMAND")
     else
 	echo 'No checks to run.'
@@ -514,7 +515,7 @@ else
 	printf >&2 'Branch %s is already even with %s\n' "$targetIntegrationSourceBranch" "$sourceBranch"
 
 	# Don't run the checks.
-	checkCommands=()
+	checkCommands=''
 	isCheckFromStdin=
     else
 	if [ ! "$hasMergeResolutionArg" ]; then
@@ -552,7 +553,7 @@ else
 	if [ "$isRebase" ]; then
 	    git-wrapper rebase "$targetIntegrationSourceBranch" || {
 		status=$?
-		echo >&2 "After the branch has been successfully rebased (see above), you can continue (${isCheckFromStdin:+run checks and }${checkCommands[*]:+run checks and }${isPushBranch:+push and }${isPerformTheMerge:+fast-forward-integrate to $targetBranch and }${isPush:+push and }${isKeepBranches:+not }delete it) via"
+		echo >&2 "After the branch has been successfully rebased (see above), you can continue (${isCheckFromStdin:+run checks and }${checkCommands:+run checks and }${isPushBranch:+push and }${isPerformTheMerge:+fast-forward-integrate to $targetBranch and }${isPush:+push and }${isKeepBranches:+not }delete it) via"
 		printContinueCommand
 		exit $status
 	    }
@@ -565,7 +566,7 @@ else
 	    originalCommit="$(git rev-parse HEAD)"
 	    git-wrapper merge "${fastForwardArgs[@]:---no-ff}" "${mergeMessageArgs[@]}" "${mergeNoEditMessageArgs[@]}" "${mergeArgs[@]}" -- "$targetIntegrationSourceBranch" || {
 		status=$?
-		echo >&2 "After the branch has been merged (see above), you can continue (${isCheckFromStdin:+run checks and }${checkCommands[*]:+run checks and }${isPushBranch:+push and }${isPerformTheMerge:+fast-forward-integrate to $targetBranch and }${isPush:+push and }${isKeepBranches:+not }delete it) via"
+		echo >&2 "After the branch has been merged (see above), you can continue (${isCheckFromStdin:+run checks and }${checkCommands:+run checks and }${isPushBranch:+push and }${isPerformTheMerge:+fast-forward-integrate to $targetBranch and }${isPush:+push and }${isKeepBranches:+not }delete it) via"
 		printContinueCommand "${gitSubmoduleUpdateCommand}${gitSubmoduleUpdateCommand:+ && }git swapmergeparents"
 		exit $status
 	    }
@@ -606,8 +607,8 @@ if [ "$isCheckFromStdin" ]; then
     else
 	${runWithCommand:?} "${runWithPromptArgs[@]}"
     fi
-elif [ ${#checkCommands[@]} -gt 0 ]; then
-    (eval "${checkCommands[@]}")
+elif [ -n "$#checkCommand" ]; then
+    (eval "$checkCommands")
 fi || {
     status=$?
     echo >&2 "Checks failed; $targetIntegrationSourceBranch has been integrated into the current branch, but the current branch has not been ${isPushBranch:+pushed and }${isPerformTheMerge:+fast-forward-integrated to $targetBranch and }${isPush:+pushed or }${isKeepBranches:+not }deleted yet."

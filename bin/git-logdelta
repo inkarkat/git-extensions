@@ -1,6 +1,8 @@
 #!/bin/bash
 shopt -qs extglob
 
+: ${GIT_LOGDELTA_COMMAND_JOINER=;}
+
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
@@ -46,7 +48,7 @@ log="${GIT_LOGDELTA_DEFAULT_LOG:-graphical}"
 typeset -a colorArg=()
 isQuiet=
 submoduleCommitProvider=
-typeset -a commands=()
+commands=
 isRecord=
 record=
 while [ $# -ne 0 ]
@@ -72,7 +74,7 @@ do
 	--branch|-b)	shift; branch="$1"; shift
 			submoduleCommitProvider=''  # FIXME: Currently, the commit IDs can only be retrieved for the current branch. Drop the submodule logging (as if --submodule ignore has been given) instead of showing wrong information.
 			;;
-	--command|-c)	shift; commands+=(${commands:+;} "$1"); shift;;
+	--command|-c)	shift; commands+="${commands:+ $GIT_LOGDELTA_COMMAND_JOINER }$1"; shift;;
 	--record)	shift; isRecord=t;;
 	--from-record)	shift; record="${1:?}"; shift;;
 	--)		shift; break;;
@@ -84,9 +86,9 @@ if [ $# -ne 0 ]; then
     # Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
     # undo the effects of eval.
     printf -v quotedSimpleCommand '%q ' git-wrapper "$@"
-    commands+=(${commands:+;} "${quotedSimpleCommand% }")
+    commands+="${commands:+ $GIT_LOGDELTA_COMMAND_JOINER }${quotedSimpleCommand% }"
 fi
-if [ ! "$isRecord" ] && [ -z "$record" -a ${#commands[@]} -eq 0 ]; then
+if [ ! "$isRecord" ] && [ -z "$record" -a -z "$commands" ]; then
     echo 'ERROR: No COMMAND(s) specified; need to pass -c|--command "COMMANDLINE", or SIMPLECOMMAND (or use --record and then --from-record RECORD).'
     echo
     printUsage "$0"
@@ -143,7 +145,7 @@ typeset -A originalSubmoduleRevisions=()
     fi
 
 [ "$isRecord" ] && exit
-eval "${commands[@]}"; status=$?
+eval "$commands"; status=$?
 
 if [ -z "$originalRevision" ]; then
     [ -z "$log" ] || echo >&2 "Warning: Could not determine original revision${branch:+ on $branch}, no logging possible."

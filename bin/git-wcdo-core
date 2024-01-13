@@ -1,5 +1,7 @@
 #!/bin/bash
 
+: ${GIT_WCDOCORE_COMMAND_JOINER=;}
+: ${GIT_WCDOCORE_PREDICATECOMMAND_JOINER=&&}
 : ${GIT_WCDO_PROGRESS_WHAT=working copy}
 
 hasProgressNotification=; type -t progressNotification >/dev/null && hasProgressNotification=t
@@ -104,10 +106,10 @@ isSingleSuccess=
 isStatus99Noop=
 isSkipFiles=
 isSkipForeign=
-typeset -a foreignCommands=()
+foreignCommands=
 predicateComparison=-eq
-typeset -a predicateCommands=()
-typeset -a commands=()
+predicateCommands=
+commands=
 isHeader=; type -t withHeader >/dev/null && isHeader=t
 isBranchName=
 progressSink=
@@ -128,10 +130,10 @@ do
 	--status-99-is-noop)	shift; isStatus99Noop=t;;
 	--skip-files)		shift; isSkipFiles=t;;
 	--skip-foreign|-s)	shift; isSkipForeign=t;;
-	--foreign-command)	shift; foreignCommands+=(${foreignCommands:+;} "$1"); shift;;
-	--predicate-command|-P)	shift; predicateCommands+=(${predicateCommands:+&&} "$1"); shift;;
+	--foreign-command)	shift; foreignCommands+="${foreignCommands:+ $GIT_WCDOCORE_COMMAND_JOINER }$1"; shift;;
+	--predicate-command|-P)	shift; predicateCommands+="${predicateCommands:+ $GIT_WCDOCORE_PREDICATECOMMAND_JOINER }$1"; shift;;
 	--not)			shift; predicateComparison=-ne;;
-	--command|-c)		shift; commands+=(${commands:+;} "$1"); shift;;
+	--command|-c)		shift; commands+="${commands:+ $GIT_WCDOCORE_COMMAND_JOINER }$1"; shift;;
 	--no-pager)		shift; pager=();;
 	--no-header)		shift; isHeader=;;
 	--branch-name)		shift; isBranchName=t;;
@@ -222,11 +224,11 @@ if [ $# -gt 0 ]; then
     # Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
     # undo the effects of eval.
     printf -v quotedSimpleCommand '%q ' "${gitCommand[@]}" "$@"
-    commands+=(${commands:+;} "${quotedSimpleCommand% }")
+    commands+="${commands:+ $GIT_WCDOCORE_COMMAND_JOINER }${quotedSimpleCommand% }"
 fi
-if [ ${#commands[@]} -eq 0 ]; then
+if [ -z "$commands" ]; then
     isHeader=
-    commands=('echo "$ROOT"')
+    commands='echo "$ROOT"'
 fi
 
 readonly RUNTIME_DIRSPEC="${XDG_RUNTIME_DIR:?}/git-extensions"
@@ -275,7 +277,7 @@ wcdo()
 	    status=1; continue
 	fi
 	if ! ROOT=$(git root 2>/dev/null); then
-	    if [ ${#foreignCommands[@]} -gt 0 ]; then
+	    if [ -n "$foreignCommands" ]; then
 		if [ "$isHeader" ] || [ -n "$progressSink" ]; then
 		    header="${dirspec##*/}"
 		    [ "$isBranchName" ] && header="${header%.*} outside Git"
@@ -284,7 +286,7 @@ wcdo()
 		reportProgress "$header"
 		[ ! "$isInteractive" ] || header "${colorArg[@]}" --id "$GIT_WCDO_HEADER_ID" -- "$header"
 
-		(eval "${isHeader:+{}" "${foreignCommands[@]}" "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_WCDO_HEADER_ID' -- '$header'}")
+		(eval "${isHeader:+{}" "$foreignCommands" "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_WCDO_HEADER_ID' -- '$header'}")
 		local newStatus=$?
 
 		abortIfDesired $status
@@ -305,8 +307,8 @@ wcdo()
 	fi
 	NAME="${ROOT##*/}"
 
-	if [ ${#predicateCommands[@]} -gt 0 ]; then
-	    (eval "${predicateCommands[@]}")
+	if [ -n "$predicateCommands" ]; then
+	    (eval "$predicateCommands")
 	    [ $? $predicateComparison 0 ] || continue
 	fi
 
@@ -318,7 +320,7 @@ wcdo()
 	reportProgress "$header"
 	[ ! "$isInteractive" ] || header "${colorArg[@]}" --id "$GIT_WCDO_HEADER_ID" -- "$header"
 
-	(eval "${isHeader:+{}" "${commands[@]}" "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_WCDO_HEADER_ID' -- '$header'}")
+	(eval "${isHeader:+{}" "$commands" "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_WCDO_HEADER_ID' -- '$header'}")
 	local newStatus=$?
 
 	abortIfDesired $newStatus

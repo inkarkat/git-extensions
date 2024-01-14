@@ -3,6 +3,8 @@
 : ${GIT_SUBDOCORE_COMMAND_JOINER=;}
 : ${GIT_SUBDOCORE_PREDICATECOMMAND_JOINER=&&}
 : ${GIT_SUBDO_SUBMODULE_END=;}
+: ${GIT_SUBDO_SUBMODULEPATH_MARKER='{}'}
+submodulePathMarker="$GIT_SUBDO_SUBMODULEPATH_MARKER"; unset GIT_SUBDO_SUBMODULEPATH_MARKER
 
 hasProgressNotification=; type -t progressNotification >/dev/null && hasProgressNotification=t
 
@@ -80,8 +82,8 @@ the command output.
 			submodules.
     --predicate-command|-P CMD
 			Skip submodules where CMD (executed in the submodule
-			root) fails. The string {} is replaced with the relative
-			path to the submodule; all variables from "git submodule
+			root) fails.${submodulePathMarker:+ The string $submodulePathMarker is replaced with the relative
+			path to the submodule; }all variables from "git submodule
 			foreach" are available as well.
     --not		Invert the predicate so that those submodules are
 			skipped where CMD succeeds.
@@ -201,7 +203,7 @@ do
 
 				predicateOutput=
 				if [ $# -gt 0 ]; then
-				    predicateOutput="$(eval "${@//\{\}/$sm_path}")"
+				    predicateOutput="$(eval "${@//"$submodulePathMarker"/$sm_path}")"
 				    [ $? $predicateComparison 0 ] || exit 0
 				fi
 				printf '%s=%q; ' dirspec "${PWD:?}" name "${name:?}" sm_path "${sm_path:?}" displaypath "${displaypath:?}" sha1 "${sha1:?}" toplevel "${toplevel:?}" predicateOutput "${predicateOutput?}"; echo

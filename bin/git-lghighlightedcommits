@@ -1,5 +1,8 @@
 #!/bin/bash
 
+: ${GIT_LGHIGHLIGHTEDCOMMITS_ARGS_MARKER='{}'}
+argsMarker="$GIT_LGHIGHLIGHTEDCOMMITS_ARGS_MARKER"; unset GIT_LGHIGHLIGHTEDCOMMITS_ARGS_MARKER
+
 printUsage()
 {
     cat <<HELPTEXT
@@ -11,7 +14,7 @@ HELPTEXT
     cat <<HELPTEXT
 git ${GIT_LGHIGHLIGHT_LG}, with commits that result from GIT-LOG-COMMAND (which will be configured
 to output just commit hashes) highlighted. That argument and GIT-LOG-ARGUMENTS
-replace a {} marker in GIT-LOG-COMMAND or will be appended.
+${argsMarker:+replace a $argsMarker marker in GIT-LOG-COMMAND or }will be appended.
 With --with-log-args-except-last, the last argument will only be passed to
 GIT-LOG-COMMAND, but not to git ${GIT_LGHIGHLIGHT_LG}.
 HELPTEXT
@@ -45,7 +48,7 @@ if [ ${#commits[@]} -eq 0 ]; then
 
     typeset -a logArgs=(--pretty=tformat:%h "$@" "${lastArg[@]}")
     printf -v quotedLogArgs '%q ' "${logArgs[@]}"; quotedLogArgs="${quotedLogArgs% }"
-    interpolatedGitLogCommand="${gitLogCommand//\{\}/$quotedLogArgs}"
+    interpolatedGitLogCommand="${gitLogCommand//"$argsMarker"/$quotedLogArgs}"
     [ "$interpolatedGitLogCommand" = "$gitLogCommand" ] || logArgs=()
 
     readarray -t commits < <(eval "$interpolatedGitLogCommand" '"${logArgs[@]}"')

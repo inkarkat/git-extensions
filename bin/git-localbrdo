@@ -6,6 +6,8 @@ shopt -qs extglob
 : ${GIT_LOCALBRDO_PREDICATECOMMAND_JOINER=&&}
 : ${GIT_LOCALBRDO_BRANCHES_END=;}
 : ${GIT_LOCALBRDO_SOURCE_COMMAND:=git-localbr}
+: ${GIT_LOCALBRDO_BRANCH_MARKER='{}'}
+branchMarker="$GIT_LOCALBRDO_BRANCH_MARKER"; unset GIT_LOCALBRDO_BRANCH_MARKER
 
 hasProgressNotification=; type -t progressNotification >/dev/null && hasProgressNotification=t
 
@@ -76,9 +78,9 @@ current Git branch before the command output.
 			all invocations of COMMAND return that.
     --max-branch|-B N	Only consider the last committed N local branches.
     --predicate-command|-P CMD
-			Skip local branches where CMD fails. The string {}
+			Skip local branches where CMD fails.${branchMarker:+ The string $branchMarker
 			is replaced with the current branch name; the working
-			copy isn't switched yet.
+			copy isn't switched yet.}
     --not		Invert the predicate so that local branches are skipped
 			where CMD succeeds.
     --command|-c CMD	Execute the passed command line. When this is a simple
@@ -357,7 +359,7 @@ case "$iterationAction" in
 	    typeset -a filteredLocalBranches=()
 	    for branch in "${localBranches[@]}"
 	    do
-		(eval "${predicateCommands//\{\}/$branch}")
+		(eval "${predicateCommands//"$branchMarker"/$branch}")
 		[ $? $predicateComparison 0 ] && filteredLocalBranches+=("$branch")
 	    done
 	    if [ ${#filteredLocalBranches[@]} -eq 0 ]; then

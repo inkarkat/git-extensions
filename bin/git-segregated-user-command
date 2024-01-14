@@ -2,6 +2,7 @@
 set -o noglob -o pipefail
 
 : ${GIT_SEGREGATEDUSERCOMMAND_PREFIX_SEPARATOR:=:}
+authorMarker='{}'   # Note: Internal use only, no need to be configurable.
 
 printShortUsage()
 {
@@ -68,9 +69,9 @@ do
 	--no-pager)	shift; pager=();;
 	--prefixed)	shift
 			printf -v prefixSeparator %q "$GIT_SEGREGATEDUSERCOMMAND_PREFIX_SEPARATOR"
-			contextCommand="prefix --skip-empty -- {}${prefixSeparator}"
+			contextCommand="prefix --skip-empty -- ${authorMarker}${prefixSeparator}"
 			;;
-	--with-header)	shift; contextCommand="withHeader \"\${colorArg[@]}\" --id 'git-segregated-user-command-$$' -- {}";;
+	--with-header)	shift; contextCommand="withHeader \"\${colorArg[@]}\" --id 'git-segregated-user-command-$$' -- ${authorMarker}";;
 	--no-git-color)	shift; isGitColor=;;
 	--no-color|--color=*)
 			colorArg=("$1"); shift;;
@@ -161,7 +162,7 @@ iterateUsers()
     status=0
     for author in "${authors[@]}"
     do
-	eval 'executor "${gitColorArg[@]}" "${gitCommandArgs[@]}" "$@"' "${contextCommand:+|}${contextCommand//\{\}/\"${author}\"}" || status=$?
+	eval 'executor "${gitColorArg[@]}" "${gitCommandArgs[@]}" "$@"' "${contextCommand:+|}${contextCommand//"$authorMarker"/\"${author}\"}" || status=$?
     done
     return $status
 }

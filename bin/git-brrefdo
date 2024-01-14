@@ -8,6 +8,8 @@ shopt -qs extglob
 : ${GIT_BRREFDO_SOURCE_COMMAND:=git-abr}
 : ${GIT_BRREFDO_COMMANDNAME:=$(basename -- "$0")}
 : ${GIT_BRREFDO_WHAT:=branches}
+: ${GIT_BRREFDO_BRANCH_MARKER='{}'}
+branchMarker="$GIT_BRREFDO_BRANCH_MARKER"; unset GIT_BRREFDO_BRANCH_MARKER
 
 hasProgressNotification=; type -t progressNotification >/dev/null && hasProgressNotification=t
 
@@ -30,8 +32,8 @@ printLongUsage()
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
 Iterate over all / the last N ${GIT_BRREFDO_WHAT}${GIT_BRREFDO_WHAT_DETAILS:+ }${GIT_BRREFDO_WHAT_DETAILS} one by one
-and execute "git SIMPLECOMMAND" and/or COMMANDLINE for each branch, replacing {}
-with its name.
+and execute "git SIMPLECOMMAND" and/or COMMANDLINE for each branch${branchMarker:+, replacing $branchMarker
+with its name.}
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
@@ -68,14 +70,14 @@ current Git branch before the command output.
 			all invocations of COMMAND return that.
     --max-branch|-B N	Only consider the last N ${GIT_BRREFDO_WHAT}${GIT_BRREFDO_WHAT_DETAILS:+ }${GIT_BRREFDO_WHAT_DETAILS}.
     --predicate-command|-P CMD
-			Skip ${GIT_BRREFDO_WHAT} where CMD fails. The string {}
-			is replaced with the current branch name.
+			Skip ${GIT_BRREFDO_WHAT} where CMD fails.${branchMarker:+ The string $branchMarker
+			is replaced with the current branch name.}
     --not		Invert the predicate so that ${GIT_BRREFDO_WHAT} are
 			skipped where CMD succeeds.
     --command|-c CMD	Execute the passed command line. When this is a simple
 			Git command, it can also be passed as such:
-			    $(basename "$1") [...] [--] SIMPLECOMMAND
-			The string {} is replaced with the current branch name.
+			    $(basename "$1") [...] [--] SIMPLECOMMAND${branchMarker:+
+			The string $branchMarker is replaced with the current branch name.}
     --branches BRANCH [...] $GIT_BRREFDO_BRANCHES_END
 			Only iterate over the following BRANCH(es); i.e. all
 			following arguments until an argument consisting of '${GIT_BRREFDO_BRANCHES_END}'
@@ -199,7 +201,8 @@ if [ $# -gt 0 ]; then
     # Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
     # undo the effects of eval.
     printf -v quotedSimpleCommand '%q ' "${gitCommand[@]}" "$@"
-    commands+="${commands:+ $GIT_BRREFDO_COMMAND_JOINER }${quotedSimpleCommand//\\\{\\\}/\{\}}"	# %q escapes {}, we don't want that to have it interpolated later.
+    printf -v escapedBranchMarker %q "$branchMarker"
+    commands+="${commands:+ $GIT_BRREFDO_COMMAND_JOINER }${quotedSimpleCommand//"$escapedBranchMarker"/$branchMarker}"	# %q escapes {}, we don't want that to have it interpolated later.
 fi
 
 if [ ${#sourceBranches[@]} -gt 0 ] && [ ! "$GIT_BRREFDO_SOURCE_SORTED" ]; then
@@ -221,7 +224,7 @@ if [ -z "$commands" ]; then
     fi
 
     isHeader=
-    commands='echo {}'
+    commands="echo $branchMarker"
 fi
 
 if [ "$hasProgressNotification" ] && [ -n "$progressSink" ]; then
@@ -250,14 +253,14 @@ brrefdo()
     for branch in "${branches[@]}"
     do
 	if [ -n "$predicateCommands" ]; then
-	    (eval "${predicateCommands//\{\}/$branch}")
+	    (eval "${predicateCommands//"$branchMarker"/$branch}")
 	    [ $? $predicateComparison 0 ] || continue
 	fi
 
 	reportProgress "$branch"
 	[ ! "$isInteractive" ] || header "${colorArg[@]}" --id "$GIT_BRREFDO_HEADER_ID" -- "$branch"
 
-	local interpolatedCommands="${commands//\{\}/$branch}"
+	local interpolatedCommands="${commands//"$branchMarker"/$branch}"
 	(eval "${isHeader:+{}" "$interpolatedCommands" "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_BRREFDO_HEADER_ID' -- '$branch'}")
 	local newStatus=$?
 

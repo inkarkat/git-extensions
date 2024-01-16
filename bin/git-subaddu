@@ -1,0 +1,43 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Stage modified submodules, and show status.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[ADD-ARGS ...] [--] [<path> ...] [-?|-h|--help]'
+}
+
+typeset -a addArgs=()
+unset argFiles
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+	--)		addArgs+=("$1"); shift; typeset -a argFiles=("$@"); break;;
+	*)		addArgs+=("$1"); shift;;
+    esac
+done
+if [ -z ${argFiles+t} ]; then
+    # No files after -- captured yet; need to investigate parsed and
+    # remaining args from behind for files.
+    typeset -a argFiles=()
+    addArgs+=("$@")
+    while [ ${#addArgs[@]} -ne 0 ]
+    do
+	lastArg="${addArgs[-1]}"
+	[ -e "$lastArg" ] || break
+
+	argFiles=("$lastArg" "${argFiles[@]}")
+	addArgs=("${addArgs[@]:0:${#addArgs[@]}-1}")
+    done
+fi
+
+readarray -t submodules < <(git-subI "${argFiles[@]}")	# Note: git add --update $(git-sublist) would do (add ignored unchanged submodules), but sublist doesn't take a <path>.
+[ ${#submodules[@]} -gt 0 ] || exit 99
+
+git add --update "${addArgs[@]}"  "${submodules[@]}" && git status -sb

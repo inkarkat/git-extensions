@@ -146,12 +146,30 @@ parseCommand()
 
 	    --)		    let dashdashCnt+=1
 			    if [ "$GIT_DOEXTENSIONS_DASHDASH_ARGS_BEFORE_SIMPLECOMMAND" ]; then
-				if [ $dashdashCnt -eq 1 ]; then
-				    dashdashArgs+=("$1"); shift
-				else
-				    wcdoArgs+=("$1"); shift
-				    break
-				fi
+				case $dashdashCnt in
+				    1)	if [ ${#dashdashArgs[@]} -eq 0 ]; then
+					    # -- ARGS
+					    dashdashArgs+=("$1"); shift
+					else
+					    # ARGS ... --
+					    dashdashArgs+=("$1"); shift
+					    case "$1" in
+						--) shift; break;;  # XXX: ARGS ... -- --
+						-*) ;;
+						*)  break;;
+					    esac
+					fi
+					;;
+				    2)	# -- ARGS ... --
+					dashdashArgs+=("$1"); shift
+					case "$1" in
+					    --) shift; break;;  # XXX: ARGS ... -- --
+					    -*) ;;
+					    *)  break;;
+					esac
+					;;
+				    *)	wcdoArgs+=("$1"); shift; break;;
+				esac
 			    else
 				wcdoArgs+=("$1"); shift
 				break

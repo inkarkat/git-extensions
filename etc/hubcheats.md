@@ -71,12 +71,6 @@ hub is a command-line wrapper for git that makes you better at GitHub.
 ### put compare URL for a topic branch to clipboard
 `$ hub compare -u feature | cb`
 
-### create a repo for a new project
-`$ git init`
-`$ git add . && git commit -m "It begins."`
-`$ hub create -d "My new thing"`
-→ (creates a new project on GitHub with the name of current directory)
-`$ git push origin master`
 
 ### Forking an abandoned project
 - Recommended to rename the upstream remote to derelict, so that hub won't list

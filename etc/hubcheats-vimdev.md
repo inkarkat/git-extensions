@@ -17,8 +17,9 @@ Copy / sync all plugin files from ~/data/Unixhome/.vim to ~/tmp/vim
 `$ hub create -d "Plugin description from doc/*.txt"`
 `$ git opublish`
 `$ hub url`
-`$ hub labels set`
 - Add GitHub repo link to ~/Unixhome/.vim/thesaurus/vimscripts.txt
+`$ hub labels set`
+`$ gh repo edit --enable-discussions`
 
 # convert plugin from writebackups to GitHub - git flow
 

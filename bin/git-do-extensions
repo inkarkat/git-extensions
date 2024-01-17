@@ -90,6 +90,10 @@ Supports the following special commands and options:
 			    copy's for --same-branch, and consider those
 			    $GIT_DOEXTENSIONS_WHAT that have (not necessarily
 			    are on) that BRANCH.
+    --with-remote	    Only consider those $GIT_DOEXTENSIONS_WHAT that have
+			    a remote configured.
+    --without-remote	    Only consider purely local $GIT_DOEXTENSIONS_WHAT that do
+			    not have a remote configured.
 HELPTEXT
     [ "$GIT_DOEXTENSIONS_ADDITIONAL_EXTENSIONS" ] && printf '%s\n' "$GIT_DOEXTENSIONS_ADDITIONAL_EXTENSIONS"
     "$GIT_DOEXTENSIONS_WRAPPEE" --help 2>&1 | sed -e "${splitPattern}p" -e "1,${splitPattern}d"
@@ -143,6 +147,9 @@ parseCommand()
 			    ;;
 	    --same-branch)  shift; isSameBranch=t;;
 	    --branch|-b)    shift; branch="${1:?}"; shift;;
+	    --with-remote)  shift; wcdoArgs+=(--predicate-command 'git-existsremote');;
+	    --without-remote)
+			    shift; wcdoArgs+=(--predicate-command '! git-existsremote');;
 
 	    --)		    let dashdashCnt+=1
 			    if [ "$GIT_DOEXTENSIONS_DASHDASH_ARGS_BEFORE_SIMPLECOMMAND" ]; then

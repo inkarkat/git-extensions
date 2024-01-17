@@ -2,7 +2,7 @@
 shopt -qs extglob
 
 : ${GIT_DOEXTENSIONS_WRAPPEE:?}
-: ${GIT_DOEXTENSIONS_DASHDASH_ARGS_BEFORE_SIMPLECOMMAND?}
+: ${GIT_DOEXTENSIONS_DASHDASH_ARGS_BEFORE_SIMPLECOMMAND?}   # Flag whether there are -- ARGS [...] before a [-- SIMPLECOMMAND] (like in wcdo).
 : ${GIT_DOEXTENSIONS_WHAT:=CONFIGURED SUBJECTS}
 
 : ${SHELL:=bash}
@@ -97,6 +97,7 @@ HELPTEXT
 
 typeset -a wcdoArgs=()
 typeset -a wcdoCommandArgs=()
+let dashdashCnt=0
 typeset -a dashdashArgs=()
 typeset -a args=()
 typeset -a accumulationCommand=()
@@ -143,14 +144,41 @@ parseCommand()
 	    --same-branch)  shift; isSameBranch=t;;
 	    --branch|-b)    shift; branch="${1:?}"; shift;;
 
-	    --)		    if [ "$GIT_DOEXTENSIONS_DASHDASH_ARGS_BEFORE_SIMPLECOMMAND" ]; then
-				dashdashArgs+=("$1"); shift
+	    --)		    let dashdashCnt+=1
+			    if [ "$GIT_DOEXTENSIONS_DASHDASH_ARGS_BEFORE_SIMPLECOMMAND" ]; then
+				case $dashdashCnt in
+				    1)	if [ ${#dashdashArgs[@]} -eq 0 ]; then
+					    # -- ARGS
+					    dashdashArgs+=("$1"); shift
+					else
+					    # ARGS ... --
+					    dashdashArgs+=("$1"); shift
+					    case "$1" in
+						--) shift; break;;  # XXX: ARGS ... -- --
+						-*) ;;
+						*)  break;;
+					    esac
+					fi
+					;;
+				    2)	# -- ARGS ... --
+					dashdashArgs+=("$1"); shift
+					case "$1" in
+					    --) shift; break;;  # XXX: ARGS ... -- --
+					    -*) ;;
+					    *)  break;;
+					esac
+					;;
+				    *)	wcdoArgs+=("$1"); shift; break;;
+				esac
 			    else
 				wcdoArgs+=("$1"); shift
+				break
 			    fi
-			    break
 			    ;;
 	    *)		    if [ "$GIT_DOEXTENSIONS_DASHDASH_ARGS_BEFORE_SIMPLECOMMAND" ]; then
+				if [ $dashdashCnt -ge 2 ]; then
+				    break   # Already saw -- ARGS ... --
+				fi
 				dashdashArgs+=("$1"); shift
 			    else
 				break

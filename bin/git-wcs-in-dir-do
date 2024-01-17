@@ -1,6 +1,10 @@
 #!/bin/bash
 shopt -qs extglob
 
+case ",${DEBUG:-}," in
+    *,git-wcs-in-dir-do:verbose,*) dump-args -- "$@";;
+esac
+
 printUsage()
 {
     git-wcdo --help 2>&1 | sed \
@@ -19,41 +23,80 @@ printUsage()
 	-e b -e :removeFirstParagraphLoop -e '{ /\(^\|\n\)$/{ s/^\(.*\n\)\?//; b; }; N; b removeFirstParagraphLoop }'
 }
 
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
 isQuiet=
 isForeign=
 isSkipSymlinks=
 compareOp=-d
-isDoneDirspecs=
+parseWcdo()
+{
+    # We need to extract certain information from the wcdo-args, and tweak the
+    # format a tiny bit, too.
+    while [ $# -ne 0 ]
+    do
+	case "$1" in
+	    --quiet|-q)	shift; isQuiet=t;;
+	    --foreign-command)
+			isForeign=t; shift; shift;;
+	    *)		shift;;
+	esac
+    done
+    if [ "${wcdoArgs[*]:(-1)}" = -- ]; then
+	# Remove a trailing --; we'll separately delimit any SIMPLECOMMAND in "${args[@]}".
+	wcdoArgs=("${wcdoArgs[@]:(-1)}")
+    fi
+}
 typeset -a dirspecs=()
-typeset -a wcdoArgs=()
-while [ $# -ne 0 ]
-do
-    case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-
-	-+([is]))	wcdoArgs+=("$1"); shift;;
-	--@(no-pager|no-header|branch-name|interactive|separate-errors|no-git-color|no-color|color=*|abort-on-failure|single-success|status-99-is-noop|skip-files|skip-foreign|repeat))
-			wcdoArgs+=("$1"); shift;;
-	-[cX])		wcdoArgs+=("$1" "$2"); shift; shift;;
-	--@(abort-on|color|command|progress|predicate-command))
-			wcdoArgs+=("$1" "$2"); shift; shift;;
-
-	--quiet|-q)	shift; isQuiet=t;;
-	--skip-symlinks)
+parseDashdash()
+{
+    # git-do-extensions doesn't understand our custom options, so they are
+    # intermingled with the dirspecs; we need to separate them on our own.
+    local isDoneDirspecs=
+    while [ $# -ne 0 ]
+    do
+	case "$1" in
+	    --skip-symlinks)
 			shift; isSkipSymlinks=t;;
-	--foreign-command)
-			wcdoArgs+=("$1" "$2"); isForeign=t; shift; shift;;
-	--worktrees)	shift; compareOp=-e;;
-	--)		shift; [ "$isDoneDirspecs" ] && break || isDoneDirspecs=t;;
-	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
-	*)		if [ "$isDoneDirspecs" ]; then
-			    break
-			else
-			    dirspecs+=("$1"); shift
-			fi
+	    --worktrees)
+			shift; compareOp=-e;;
+	    --)		shift; [ ${#dirspecs[@]} -eq 0 ] || isDoneDirspecs=t;;
+	    *)		[ "$isDoneDirspecs" ] \
+			    && args+=("$1") \
+			    || dirspecs+=("$1")
+			shift
 			;;
-    esac
-done
+	esac
+    done
+}
+
+# Use git-do-extensions for parsing; this avoids duplicating the wcdo-args once
+# more, and allows us to handle the options added by the extension (like
+# --dirty), too.
+GIT_DOEXTENSIONS_WRAPPEE=git-wcs-in-dir-do
+GIT_DOEXTENSIONS_DASHDASH_ARGS_BEFORE_SIMPLECOMMAND=t
+: ${GIT_DOEXTENSIONS_WHAT:=working copies}
+source git-do-extensions || exit 3
+
+parseCommand "$@"
+parseWcdo "${wcdoArgs[@]}"
+parseDashdash "${dashdashArgs[@]}"
+
+case ",${DEBUG:-}," in
+    *,git-wcs-in-dir-do,*)
+	    dump-args "$GIT_DOEXTENSIONS_WRAPPEE" "${wcdoCommandArgs[@]}" "${wcdoArgs[@]}" "${dirspecs[@]}" "${args[@]}"
+	    ;;
+    *,git-wcs-in-dir-do:verbose,*)
+	    dump-args -a wcdoCommandArgs -- "${wcdoCommandArgs[@]}"
+	    dump-args -a wcdoArgs -- "${wcdoArgs[@]}"
+	    dump-args -a dashdashArgs -- "${dashdashArgs[@]}"
+	    dump-args -a dirspecs -- "${dirspecs[@]}"
+	    dump-args -a args -- "${args[@]}"
+	;;
+esac
+
 if [ ${#dirspecs[@]} -eq 0 ]; then
     echo "ERROR: No DIRSPEC(s)."
     echo
@@ -87,4 +130,4 @@ fi
 
 GIT_WCDO_STORE_SUBCOMMAND='wcs-in-dir' \
 GIT_WCDO_STORE_SUBJECT="${GIT_WCDO_STORE_SUBJECT-$(pathAsFilename --as-is --encode -- "${dirspecs[0]}")-${#dirspecs[@]}}" \
-    exec git-wcdo "${wcdoArgs[@]}" "${wcs[@]}" -- "$@"
+    exec git-wcdo "${wcdoCommandArgs[@]}" "${wcdoArgs[@]}" "${wcs[@]}" -- "${args[@]}"

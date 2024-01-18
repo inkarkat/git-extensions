@@ -29,6 +29,7 @@ hub is a command-line wrapper for git that makes you better at GitHub.
 `$ hub fork`
 → (forking repo on GitHub...)
 → `git remote add YOUR_USER git://github.com/YOUR_USER/hub.git`
+`$ gh repo set-default` (select my fork)
 
 ### push the changes to your new remote
 `$ git push YOUR_USER feature`

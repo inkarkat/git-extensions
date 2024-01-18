@@ -93,7 +93,14 @@ readonly gitCommand='git-wrapper'
 if [ $# -gt 0 ]; then
     # Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
     # undo the effects of eval.
-    printf -v quotedSimpleCommand '%q ' "$gitCommand" "$@"
+    # Due to quoting, $FILE etc. would not be evaluated in SIMPLECOMMAND; we have
+    # skip shell quoting for these variables.
+    quotedSimpleCommand=
+    for c in "$gitCommand" "$@"
+    do
+	[[ "$c" =~ ^\$(FILE|ROOT)$ ]] || printf -v c %q "$c"
+	quotedSimpleCommand+="$c "
+    done
     commands+="${commands:+ $GIT_INSIDE_COMMAND_JOINER }${quotedSimpleCommand% }"
 fi
 if [ -z "$commands" ]; then

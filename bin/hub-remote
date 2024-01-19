@@ -36,5 +36,12 @@ if [ -z "$remote" ]; then
 		;;
     esac
 fi
-[ -n "$remote" ] || exit 3
+if [ -z "$remote" ]; then
+    # XXX: When the script's output is not to a terminal (e.g. command
+    # substitution), gh does not print its error message. We have to give a sensible
+    # error so that the user knows what's wrong.
+    echo >&2 'No default remote repository has been set yet. Please run "gh repo set-default" to select a default remote repository first.'
+    exit 3
+fi
+
 printf '%s\n' "$remote"

@@ -25,14 +25,19 @@ fi
 # configuration under remote.<remote>.gh-resolved. We can query that to obtain
 # the selected value.
 # Source: https://github.com/cli/cli/issues/2300#issuecomment-717476725
-remote="$(git config --local --get-regexp '\.gh-resolved$' | cut -f2 -d.)"
+obtainRemote()
+{
+    git config --local --get-regexp '\.gh-resolved$' | cut -f2 -d.
+}
+
+remote="$(obtainRemote)"
 if [ -z "$remote" ]; then
     readarray -t remotes < <(git remote)
     case ${#remotes[@]} in
 	0)	printf >&2 'ERROR: No remotes defined.\n'; exit 3;;
 	1)	remote="${remotes[0]}";;
 	*)	gh repo view --json name --template '{{""}}'	# Note: Any repo query will do.
-		remote="$(git config --local --get-regexp '\.gh-resolved$' | cut -f2 -d.)"
+		remote="$(obtainRemote)"
 		;;
     esac
 fi

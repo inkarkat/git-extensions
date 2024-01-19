@@ -25,21 +25,36 @@ fi
 # configuration under remote.<remote>.gh-resolved. We can query that to obtain
 # the selected value.
 # Source: https://github.com/cli/cli/issues/2300#issuecomment-717476725
-remote="$(git config --local --get-regexp '\.gh-resolved$' | cut -f2 -d.)"
+obtainRemote()
+{
+    # Note: In gh 2.42.0, there's now "gh repo set-default --view", but this prints
+    # the owner/repo instead of the remote name. We could resolve this through "git
+    # remote", but the parsing is more involved than simply reading the internal
+    # config.
+    git config --local --get-regexp '\.gh-resolved$' | cut -f2 -d.
+}
+
+remote="$(obtainRemote)"
 if [ -z "$remote" ]; then
     readarray -t remotes < <(git remote)
     case ${#remotes[@]} in
 	0)	printf >&2 'ERROR: No remotes defined.\n'; exit 3;;
 	1)	remote="${remotes[0]}";;
-	*)	gh repo view --json name --template '{{""}}'	# Note: Any repo query will do.
-		remote="$(git config --local --get-regexp '\.gh-resolved$' | cut -f2 -d.)"
+	*)	# gh 2.42.0 has a dedicated command to set the default remote; for older gh versions, any repo query will trigger the prompt.
+		{
+		    gh repo set-default 2>/dev/null \
+			|| gh repo view --json name --template '{{""}}'
+		} </dev/tty >/dev/tty # Need to give terminal access to make gh prompt for input.
+		remote="$(obtainRemote)"
 		;;
     esac
 fi
 if [ -z "$remote" ]; then
-    # XXX: When the script's output is not to a terminal (e.g. command
-    # substitution), gh does not print its error message. We have to give a sensible
-    # error so that the user knows what's wrong.
+    # XXX: When gh somehow could not prompt for the remote (no terminal)
+    # it complains "repository required when not running interactively" followed by
+    # its lengthy usage. We suppress all of that (see above), and instead give a
+    # sensible error here so that the user knows what's wrong and how it can be
+    # fixed.
     echo >&2 'No default remote repository has been set yet. Please run "gh repo set-default" to select a default remote repository first.'
     exit 3
 fi

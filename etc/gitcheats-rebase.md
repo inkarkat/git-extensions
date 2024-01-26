@@ -67,10 +67,18 @@ It may help to have both our and their changes separately:
 > hint: use --reapply-cherry-picks to include skipped commits
   and show unexpected conflicts.
   Use `$ git rebase --fork-point <upstream>` then to find a closer ancestor.
+`$ git trbbaselg` # show the original commit
 
 # getting out
 
 `$ git rbq` # Cancels the whole rebase and returns to the original state.
+`$ git trbwipe` # Undo the rebase after it's completed.
 `$ git rbs` # Skips the current patch as if you had initially deleted the line.
 `$ git rbe` # Edit the todo list to change following choices (e.g. if you realize that a following patch needs editing, too)
 `$ git rbu` # Undo the last rebase commit. Effectively squashes this patch with the previous one.
+
+# after a rebase
+My trb... variants cover the range to before the last rebase, so:
+`$ git trbd` to ensure that a rebase of fixups actually ends up with the same
+.          end result (when manual merge conflict resolution occurred) - no
+.          differences should be shown

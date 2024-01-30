@@ -148,9 +148,8 @@ fi
 printRestartCommand()
 {
     local quotedConfigVariables='';  [ -n "$GIT_REINTEGRATE_PRE_PUSH_COMMAND" ] && printf -v quotedConfigVariables 'GIT_REINTEGRATE_PRE_PUSH_COMMAND=%q' "$GIT_REINTEGRATE_PRE_PUSH_COMMAND"
-    local gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
     [ "$isCheckFromStdin" ] && printf >&2 'echo CHECK-COMMANDLINES | '
-    printf >&2 '$ %s%s %q' "${quotedConfigVariables}${quotedConfigVariables:+ }" "$gitCommand" "${scriptName#git-}"
+    printf >&2 '$ %s%s %q' "${quotedConfigVariables}${quotedConfigVariables:+ }" "${gitCommand:?}" "${scriptName#git-}"
     printf >&2 ' %q' "${allArgs[@]}"
     [ "$isCheckFromStdin" ] && printf >&2 ' -'
     printf >&2 '\n'
@@ -235,7 +234,7 @@ reintegrateSubmodule()
     )"
 
     [ "$isFastForwardIntegration" ] \
-	&& typeset -a submoduleReintegrationCommand=(ffintegratetom --push-branch --no-merge --mark-reverse-merge-done) \
+	&& typeset -a submoduleReintegrationCommand=(ffintegratetom --push-branch --no-merge --merge-suggestion "You can continue the fast-forward-integration of the next submodule or the superproject now via ${gitCommand:?} ${scriptName#git-}${isFastForwardIntegration:+ --fast-forward-integrate}" --mark-reverse-merge-done) \
 	|| typeset -a submoduleReintegrationCommand=(reintegratetom --no-delete)
     "${submoduleExecutor[@]:-git-wrapper}" ${submoduleExecutor:+--abort-on-failure --interactive} \
 	    "${submoduleReintegrationCommand[@]}" --no-push --no-checks ${superMessage:+--merge-message-template "$superMessage"} \
@@ -296,8 +295,7 @@ completeSubmoduleReintegrationInSuperproject()
     elif userBinaryChoice --keep-prompt --question "${integrationType^}integrate the superproject now?" --yes-no; then
 	reintegrateSuperproject "$@"
     else
-	local gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
-	printf 'Continue with the %sintegration of the superproject via $ %s %q' "$integrationType" "$gitCommand" "${scriptName#git-}"
+	printf 'Continue with the %sintegration of the superproject via $ %s %q' "$integrationType" "${gitCommand:?}" "${scriptName#git-}"
 	[ $# -eq 0 ] || printf ' %q' "$@"
 	printf '\n'
     fi
@@ -456,6 +454,7 @@ fastforwardCommit()
     printf '\n✓ Branch completely reintegrated.\n'
 }
 
+gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
 isInvokedFromSubmodule=
 typeset -a superprojectExecutor=()
 goToSuperproject() { :; }
@@ -499,9 +498,8 @@ fi
     )
 
 if [ ${#affectedSubmodules[@]} -eq 0 ]; then
-    gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
     echo 'ERROR: Expected at least one affected submodule in the commits on the branch, but none found.'
-    printf 'Use %s superonlyreintegratetom instead if you just want to reintegrate the superproject.\n' "$gitCommand"
+    printf 'Use %s superonlyreintegratetom instead if you just want to reintegrate the superproject.\n' "${gitCommand:?}"
     exit 3
 fi >&2
 typeset -a superprojectSubmoduleExecutor=(git-subdo-core --subdo-command-name "${scriptName#git-}" --for "${affectedSubmodules[@]}" \;)

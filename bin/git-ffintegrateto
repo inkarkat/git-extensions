@@ -143,6 +143,7 @@ esac
 isContinue=
 isKeepBranches=
 isPerformTheMerge=t
+isMergeSuggestion=t
 unset isPush
 typeset -a pushArg=()
 isPushBranch=
@@ -181,6 +182,8 @@ do
 	--continue)	shift; isContinue=t;;
 	--no-delete)	continueArgs+=("$1"); shift; isKeepBranches=t;;
 	--no-merge)	continueArgs+=("$1"); shift; isPerformTheMerge=;;
+	--no-merge-suggestion)
+			continueArgs+=("$1"); shift; isMergeSuggestion=;;
 	--push)		continueArgs+=("$1"); pushArg=("$1"); shift; isPush=t;;
 	--no-push)	continueArgs+=("$1"); pushArg=("$1"); shift; isPush=;;
 	--push-branch)	continueArgs+=("$1"); shift; isPushBranch=t;;
@@ -669,9 +672,9 @@ fi
 typeset -a reintegratetoArgs=(--ff-only --no-checks --branch "$targetBranch"${isKeepBranches:+ --no-delete} "${pushArg[@]}" "${reintegrateArgs[@]}" "${gitRemoteMutateArgs[@]}")
 if [ "$isPerformTheMerge" ]; then
     exec git-reintegrateto "${reintegratetoArgs[@]}"
-else
+elif [ "$isMergeSuggestion" ]; then
     gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
     printf 'You can fast-forward-integrate the current %s into %s via:\n' "$sourceBranch" "$targetBranch"
     printIntegrationCommand reintegrateto '' '' "${reintegratetoArgs[@]}"
-    exit $status
 fi
+exit $status

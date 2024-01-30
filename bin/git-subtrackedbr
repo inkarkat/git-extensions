@@ -46,12 +46,20 @@ END {
     for (i = 1; i <= existingSubmoduleNum; ++i) {
 	submodule = existingSubmodules[i]
 	if (selectedSubmoduleNum == 0 || submodule in selectedSubmodules) {
+	    delete selectedSubmodules[submodule]
 	    submoduleName = name[submodule]
 	    if (submoduleName == "") {
 		print "ERROR: Could not locate submodule \"" submodule "\" in .gitmodules" > "/dev/stderr"
+		status=3
 	    } else {
 		print (selectedSubmoduleNum == 1 ? "" : submodule "\t") (branch[submoduleName] == "" ? "master" : branch[submoduleName]) # "git submodule update --remote" defaults to master.
 	    }
 	}
     }
+
+    for (submodule in selectedSubmodules) {
+	print "ERROR: No submodule \"" submodule "\" found." > "/dev/stderr"
+	status=1
+    }
+    exit(status)
 }'

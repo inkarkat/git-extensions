@@ -4,6 +4,7 @@
 : ${GIT_SUPERSUBREINTEGRATETOM_SUBMODULE_END=;}
 
 readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
+gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
 
 : ${GIT_SUPERSUBREINTEGRATETOM_RECENT_FETCH_AGE:=15m}
 
@@ -69,6 +70,105 @@ HELPDESCRIPTION
     --for -		Only consider the SUBMODULE(s) read from stdin.
 For all other arguments see ffintegrateto.
 HELPTEXT
+	cat <<CONTINUATIONHELP
+
+CONTINUATION:
+If a submodule integration fails (merge conflict or build problem), first
+resolve the problem there and follow the continuation hints.
+CONTINUATIONHELP
+    if [ "$isFastForwardIntegration" ]; then
+	cat <<CONTINUATIONHELP
+Integrated submodules remain on the source branch, but may have a reverse-merge
+commit. That merge or alternatively (rebased) commits have been pushed; the
+source branch is even with the remote.
+The integrated superproject is fast-forward-integrated, checks are run, then the
+reintegrated source branch pushed and already fast-forwarded locally to the
+master branch, which is ahead of the remote.
+
+If the GitHub action fails and needs fixing (a problem that the local checks did
+not detect), first undo the local fast-forward and go back to the source branch:
+superproject (master>): $ git owipe # Undo the local fast-forward of master.
+superproject (master) : $ git cosublb (or cossbr) # Checkout the source branch
+						    again, also in submodules.
+Then continue with the next paragraph, as if a local check had failed.
+Pushing the superproject is unlikely to fail, but if it does, the remedy is the
+same as if the GitHub action failed.
+
+If checks fail (due to incompatible changes from others), the superproject
+remains on the source branch, but may have a reverse-merge commit. The
+integration hasn't been pushed yet, the source branch usually is ahead of the
+remote.
+
+If the problem can be fixed directly in the superproject, just do so and amend
+to a merge commit; in case of rebasing you can also add dedicated fix commit(s).
+
+If an (already integrated) submodule needs to be modified, and we have ...
+a) amends to short-lived feature without API changes:
+   Unmerge the submodule if necessary (following the source branch), then add
+   fix commits and reintegrate again:
+   submodule (feat>): $ git ismerge && git wipecommit --parent-number 2
+   submodule (feat) : $ git commit / amend ...
+b) across-submodule API changes / maintain history of how the feature grew:
+   Unmerge the superproject (following the source branch), the submodule if
+   necessary, then add fix commits and reintegrate again:
+   superproject (feat>): $ git ismerge && git wipecommit --parent-number 2
+   superproject (feat) : $ git subcobr --all # Check out source branch(es) again
+   submodule (feat>): $ git ismerge && git wipecommit --parent-number 2
+   submodule (feat) : $ git commit / amend ...
+Push any updated source branch(es), then restart the reintegration via:
+$ ${gitCommand:?} ${scriptName#git-}${isFastForwardIntegration:+ --fast-forward-integrate}
+The submodule will be recognized as unintegrated and integrated again.
+CONTINUATIONHELP
+    else
+	cat <<CONTINUATIONHELP
+Integrated submodules may have a reverse-merge commit and are already
+fast-forwarded locally to the master branch, which is ahead of the remote. The
+push will only happen after the successful local reintegration of the
+superproject.
+
+If pushing the superproject fails (someone else sneaked in a merge in front of
+you), or if the GitHub action fails and needs fixing (a problem that the local
+checks did not detect), first undo the local fast-forward and go back to the
+source branch:
+superproject (master>): $ git owipe # Undo the local fast-forward of master.
+superproject (master) : $ git cosublb (or cossbr) # Checkout the source branch
+						    again, also in submodules.
+If the problem can be fixed directly in the superproject, just do so and amend
+to a merge commit; in case of rebasing you can also add dedicated fix commit(s).
+If an (already integrated and pushed) submodule needs to be modified, the fixes
+there have to be done on the master branch; the corresponding commits amended or
+added as a submodule update, and the superproject reintegration restarted.
+
+If checks fail (due to incompatible changes from others), the superproject
+remains on the source branch, but may have a reverse-merge commit. The
+superproject integration hasn't been pushed yet, the source branch usually is
+ahead of the remote.
+
+If the problem can be fixed directly in the superproject, just do so and amend
+to a merge commit; in case of rebasing you can also add dedicated fix commit(s).
+
+If an (already integrated) submodule needs to be modified, first undo its local
+fast-forward:
+submodule (master>): $ git owipe # Undo the local fast-forward of master.
+If we have ...
+a) amends to short-lived feature without API changes:
+   submodule(master): $ git cosuperbr # Checkout the source branch again.
+   Unmerge the submodule if necessary (following the source branch), then add
+   fix commits and reintegrate again:
+   submodule (feat>): $ git ismerge && git wipecommit --parent-number 2
+   submodule (feat) : $ git commit / amend ...
+b) across-submodule API changes / maintain history of how the feature grew:
+   Unmerge the superproject (following the source branch), the submodule if
+   necessary, then add fix commits and reintegrate again:
+   superproject (feat>): $ git ismerge && git wipecommit --parent-number 2
+   superproject (feat) : $ git subcobr --all # Check out source branch(es) again
+   submodule (feat>): $ git ismerge && git wipecommit --parent-number 2
+   submodule (feat) : $ git commit / amend ...
+Push any updated source branch(es), then restart the reintegration via:
+$ ${gitCommand:?} ${scriptName#git-}
+The submodule will be recognized as unintegrated and integrated again.
+CONTINUATIONHELP
+    fi
 }
 
 ensureSourceBranch()
@@ -454,7 +554,6 @@ fastforwardCommit()
     printf '\n✓ Branch completely reintegrated.\n'
 }
 
-gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
 isInvokedFromSubmodule=
 typeset -a superprojectExecutor=()
 goToSuperproject() { :; }

@@ -20,7 +20,7 @@ currentBranchName="$(git-brname --real-branch-only 2>/dev/null)"
 readarray -t existingSubmodules < <(git-sublist)
 
 IFS=$'\n'
-git config --file .gitmodules -l 2>/dev/null | \
+git config --file .gitmodules --list 2>/dev/null | \
     awk -F = \
 	-v "currentBranchName=${currentBranchName//\\/\\\\}" \
 	-v "selectedSubmoduleList=${*//\\/\\\\}" \
@@ -47,7 +47,7 @@ END {
 	submodule = existingSubmodules[i]
 	if (selectedSubmoduleNum == 0 || submodule in selectedSubmodules) {
 	    if (path[submodule] == "") {
-		print "ERROR: Could not locate submodule \"" submodule "\" in .gitmodules." > "/dev/stderr"
+		print "ERROR: Could not locate submodule \"" submodule "\" in .gitmodules" > "/dev/stderr"
 	    } else {
 		print (selectedSubmoduleNum == 1 ? "" : path[submodule] "\t") (branch[submodule] == "" ? "master" : branch[submodule]) # "git submodule update --remote" defaults to master.
 	    }

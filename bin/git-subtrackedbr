@@ -34,22 +34,23 @@ BEGIN {
 {
     key = $1
     $1 = ""; sub(OFS, "")
-    submodule = gensub(/^submodule\.|\.[^.]+$/, "", "g", key)
+    submoduleName = gensub(/^submodule\.|\.[^.]+$/, "", "g", key)
 }
 key ~ /.path$/ {
-    path[submodule] = $0
+    name[$0] = submoduleName
 }
 key ~ /.branch$/ {
-    branch[submodule] = ($0 == "." ? currentBranchName : $0)
+    branch[submoduleName] = ($0 == "." ? currentBranchName : $0)
 }
 END {
     for (i = 1; i <= existingSubmoduleNum; ++i) {
 	submodule = existingSubmodules[i]
 	if (selectedSubmoduleNum == 0 || submodule in selectedSubmodules) {
-	    if (path[submodule] == "") {
+	    submoduleName = name[submodule]
+	    if (submoduleName == "") {
 		print "ERROR: Could not locate submodule \"" submodule "\" in .gitmodules" > "/dev/stderr"
 	    } else {
-		print (selectedSubmoduleNum == 1 ? "" : path[submodule] "\t") (branch[submodule] == "" ? "master" : branch[submodule]) # "git submodule update --remote" defaults to master.
+		print (selectedSubmoduleNum == 1 ? "" : submodule "\t") (branch[submoduleName] == "" ? "master" : branch[submoduleName]) # "git submodule update --remote" defaults to master.
 	    }
 	}
     }

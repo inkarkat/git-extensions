@@ -62,7 +62,14 @@ superproject (will integrate all affected submodules) / each submodule:
 ## peer review of integration (optional)
 `$ gh pr ready`
 
-## merge the superproject
+# Merging
+## 0) Reintegrate submodules, then superproject
+Without branch protection, first submodules can be reintegrated and pushed.
+After that, any superproject references should be updated, and the superproject
+reintegrated as well. Each is done (individually) via
+`$ hub reintegratetom`
+
+## A) Reintegrate submodules, then branch-protected superproject
 Because of the `master` branch protection, we cannot do a local merge and push
 master; the GitHub action must have successfully built the resulting merge
 commit to accept a push. So we need to do a local rebase / merge of `master`
@@ -73,44 +80,14 @@ a) `$ hub supersubreintegratetom`
 b) just the superproject, no submodules involved:
   `$ hub superonlyreintegratetom`
 
-## Transactional only local merges, then remote updates in bulk at the end:
-### Prepare transaction:
-Note: Need to do a reverse integration (i.e. master to branch) because
-submodule changes must be pushed so that the superproject can reference them,
-but should not be visible on master yet.
-First ffintegrate the submodules; --no-merge stops short of the actual
-reintegration; submodules are still on their feature branch:
-`$ git subsamebrdo --interactive ffintegratetom --push-branch --no-merge --no-checks`
-Then ffintegrate the superproject; here, the merge will happen (locally):
-0) submodule branch(es) have been fast-forwarded: that creates no commit on
-   master, so no action here
-   `$ git ffintegratetom --no-push --push-branch --no-delete --no-submodule-checkout --no-submodule-update --rebase-single`
-   This will be the case if you've just recently started the feature and it was
-   an automated process (like updating metadata files everywhere).
-a) amends to short-lived feature without API changes:
-   `$ git amenu`
-   `$ git ffintegratetom --no-push --push-branch --no-delete --no-submodule-checkout --no-submodule-update --rebase-single`
-b) across-submodule API changes / maintain history of how the feature grew:
-   `$ git cu -m 'feat-4711 Housekeeping: Reintegrate [...] submodule(s)'`   (no-op if all submodule branch(es) have been fast-forwarded)
-   `$ git ffintegratetom --no-push --push-branch --no-delete --no-submodule-checkout --no-submodule-update --no-ff`
-If the **GitHub action** does not **trigger** (if this is just a merge commit affecting
-submodule references but no actual files in the superproject), trigger it
-manually in GitHub.
-The superproject now will be on master already, it must **not be pushed to origin**
-**until the submodules have been reintegrated**.
-`$ hub showsubdo --interactive reintegratetom --ff-only --no-push --no-delete --no-checks`
-The submodules are now on master, too. Everything just needs to be pushed.
-### Commit transaction:
-Now **wait until the GitHub action** has built the superproject's pushed feature
-branch successfully, then conclude by pushing all master branches and cleaning
-up branches.
-Note: There's no real transactional handling across repos; reintegration may
-fail at any point. This just limits the critical time period.
-`$ hub showsubdo --interactive opush && git opush`
-If any of the pushes fail, you still have the local branches; wipe the master
-branches, check out the feature branch, fetch, and repeat.
-`$ hub showsubdo --include-superproject --interactive oldeletelb`
-
+## B) Quasi-transactional only local merges, then remote updates in bulk at the end
+This does a fast-forward-integration of both submodules and superproject.
+There's virtually no point in time where the superproject references aren't yet
+up-to-date. The downside is increased complexity, especially when a merge fails
+due to concurrent merges.
+a) `$ hub supersubffintegratetom`
+b) just the superproject, no submodules involved:
+  `$ hub ffintegratetom`
 
 # Rules
 - When checking out branches, do so everywhere (especially both in the

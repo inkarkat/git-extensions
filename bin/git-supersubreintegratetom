@@ -13,7 +13,7 @@ printShortUsage()
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
-    printf 'Usage: GIT_REINTEGRATE_CHECK_COMMAND=CMD|GIT_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" "[--fast-forward-integrate] [-y|--yes] [--same-branch|--for -|--for SUBMODULE [...] ${GIT_SUPERSUBREINTEGRATETOM_SUBMODULE_END}] [...]"
+    printf 'Usage: GIT_REINTEGRATE_CHECK_COMMAND=CMD|GIT_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" "[--fast-forward-integrate] [-y|--yes] [--force-pending-subintegrations] [--same-branch|--for -|--for SUBMODULE [...] ${GIT_SUPERSUBREINTEGRATETOM_SUBMODULE_END}] [...]"
     printf 'Usage: %q %s\n' "$(basename "$1")" "[...] --no-checks | -c|--command \"CHECK-COMMANDLINE\" [-c ...] | --exec SIMPLECOMMAND [...] $GIT_REINTEGRATE_EXEC_END [--exec ...]"
     printf 'Usage: echo CHECK-COMMANDLINES | %q %s\n' "$(basename "$1")" "[...] [--bare [--exit-on-failure]|$(runWithPrompt --get-short-usage 2>/dev/null)] -"
     printf 'Usage: %q %s - <<EOF\n  CHECK-COMMANDLINE\n...\nEOF\n' "$(basename "$1")" '[...]'
@@ -59,6 +59,9 @@ HELPDESCRIPTION
 			commit, at the cost of more complexity, especially when
 			a push fails due to concurrent third-party updates.
     --yes		Don't query for confirmation of remote mutations.
+    --force-pending-subintegrations
+			Don't abort when pending submodule changes to be
+			incorporated into the superproject are found.
     --same-branch	Cover all submodules that are on the same branch as the
 			superproject. By default, covers submodules that are
 			modified in the superproject's current branch to master
@@ -189,6 +192,7 @@ typeset -a reintegrateArgs=()
 isFastForwardIntegration=
 integrationType='re'
 typeset -a gitRemoteMutateArgs=()
+onPendingSubintegrations=abortOnPendingSubintegrations
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -196,6 +200,8 @@ do
 	--fast-forward-integrate)
 			shift; isFastForwardIntegration=t; integrationType='fast-forward-';;
 	--yes|-y)	gitRemoteMutateArgs+=("$1"); reintegrateArgs+=("$1"); shift;;
+	--force-pending-subintegrations)
+			shift; onPendingSubintegrations=warnAboutPendingSubintegrations;;
 	--same-branch)	shift
 			affectedSubmoduleSourceCommand=(subsamebrdo --subdo-command-name "${scriptName#git-}")
 			isSameBranch=t
@@ -253,6 +259,16 @@ printRestartCommand()
     printf >&2 ' %q' "${allArgs[@]}"
     [ "$isCheckFromStdin" ] && printf >&2 ' -'
     printf >&2 '\n'
+}
+
+abortOnPendingSubintegrations()
+{
+    echo >&2 'Note: To accept pending subintegrations into this reintegration, pass the --force-pending-subintegrations override.'
+    exit $?
+}
+warnAboutPendingSubintegrations()
+{
+    echo >&2 'Warning: Due to --force-pending-subintegrations, pending subintegrations will be incorporated into this reintegration.'
 }
 
 typeset -a unintegratedSubmodules=()
@@ -324,7 +340,7 @@ reintegrateSubmodule()
 	    bomsubmodules \
 	| negateThis "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} \
 		osuperhaspendingsubintegrations - \
-	    || exit $?
+	    || $onPendingSubintegrations
 
     local superMessage="$(withSeparator \
 	    --exec "${superprojectExecutor[@]:-git-wrapper}" ${superprojectExecutor:+--no-header --no-pager} \

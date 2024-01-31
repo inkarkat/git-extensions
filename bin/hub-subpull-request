@@ -44,7 +44,9 @@ set -- "${args[@]}" "$@"
 getSuperMessage()
 {
     local isInSubmodule="${1?}"; shift
-    git ${isInSubmodule:+superdo --no-header} lo "${remote}/${base}..${head}" -- | markdownEscape
+    withSeparator \
+	    --command "git ${isInSubmodule:+superdo --no-header} lo ${remote}/${base}..${head} -- | markdownEscape" \
+	    --command "git ${isInSubmodule:+superdo --no-header} superchanges --as markdown ${remote}/${base}..${head}"
 }
 
 if [ -n "$superMessage" ] || git issubmodule; then

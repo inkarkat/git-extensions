@@ -1,0 +1,133 @@
+#!/bin/bash
+set -o pipefail
+shopt -qs extglob
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--since <date>|--max-count <number>|-n <number>|<range> [--as markdown] [<log-args> ...] [--] [<path> ...] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+List changes (i.e. commit titles) in the superproject (omitting commits that
+just cover submodules) done in the commits in the passed <range>.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --as markdown	Render repo and ranges as (GitHub-flavored) Markdown:
+			- Add the superproject's repo name and a link to the
+			  changes (that link naturally includes inner commits
+			  that just target submodules).
+			- Convert the log lines to list items.
+HELPTEXT
+}
+
+hasColor=t
+typeset -a colorArg=(--color=always)
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+if [ ! -t 1 ]; then
+    hasColor=
+    colorArg=()
+    pager=()
+fi
+logPostProcessor=
+typeset -a rangeArgs=()
+typeset -a rangeModificationArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--color=auto)	shift;;
+	--no-color|--color=never)
+			colorArg=("$1"); shift; hasColor=;;
+	--color=always)	colorArg=("$1"); shift; hasColor=t;;
+	--color=*)	colorArg=("$1"); shift;;
+	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); case "$2" in never) hasColor=;; always) hasColor=t;; esac; shift; shift;;
+
+	--as)		shift
+			case "$1" in
+			    markdown)	logPostProcessor=logAsMarkdown
+					hasColor=; colorArg=(--no-color)
+					;;
+			    *)		printf 'ERROR: Invalid renderer: %s\n' "$1"
+					echo
+					printUsage "$0"
+					exit 2
+					;;
+			esac >&2
+			shift
+			;;
+
+	--since)	rangeArgs+=("$1" "$2"); shift; shift;;
+	--max-count|-n)	rangeArgs+=("$1" "$2"); shift; shift;;
+	--max-count=*|-+([0-9]))
+			rangeArgs+=("$1"); shift;;
+	--follow)	rangeModificationArgs+=("$1"); shift;;
+	--)		break;;
+	*)		if [ ${#rangeArgs[@]} -eq 0 ]; then
+			    rangeArgs+=("$1"); shift
+			else
+			    break
+			fi
+			;;
+    esac
+done
+if [ ${#rangeArgs[@]} -eq 0 ]; then
+    echo 'ERROR: Need <range>.'
+    exit 2
+fi
+
+logAsMarkdown()
+{
+    # Extract the first and last commit ID and append those as two additional lines.
+    # Remove the commit IDs from the log lines, and put a * list bullet in front
+    # instead.
+    typeset -a transformedOutput=()
+    readarray -t transformedOutput < <(sed \
+	    -e '1h' -e '$H' \
+	    -e 's/^\([[:xdigit:]]\+ \)\(.*\)$/* \2/' \
+	    -e '${ G; s/\n\([[:xdigit:]]\+\) [^\n]*\n\([[:xdigit:]]\+\) .*$/\n\1\n\2/}' \
+    )
+
+    # Capture the extracted commit IDs. For the range, we need to use the parent of
+    # the start commit to obtain the base commit.
+    local headCommit="${transformedOutput[-2]}"
+    local baseCommit="$(git-commitid --short -- "${transformedOutput[-1]}^")"
+
+    local userRepoUrl="$(
+	# XXX: hub-url may append the path to the current branch, which is
+	# not what we need here; "git ourl" would have the right format, but
+	# is hard-coded to use the "origin" remote (which hub-url likely
+	# also uses, but maybe also when renamed).
+	hub-url -- \# | sed -e 's@/#$@@'
+    )"
+    [ -z "$userRepoUrl" ] \
+	|| printf '%s [%s..%s](%s/compare/%s...%s):\n' "${userRepoUrl##*/}" "$baseCommit" "$headCommit" "$userRepoUrl" "$baseCommit" "$headCommit"
+
+    printf '%s\n' "${transformedOutput[@]:0:${#transformedOutput[@]}-2}"
+}
+
+obtainLog()
+{
+    git log --pretty=tformat:'%C(cyan)%h%Creset %s' "${colorArg[@]}" "${rangeModificationArgs[@]}" "${rangeArgs[@]}" -- "${filespecs[@]}"
+}
+
+readarray -t filespecs < <(git-showsubmodules --invert-match "${rangeModificationArgs[@]}" "${rangeArgs[@]}" "$@")
+[ ${#filespecs[@]} -gt 0 ] || exit 99
+
+eval 'obtainLog' \
+    "${logPostProcessor:+|}$logPostProcessor" \
+    "${pager:+|}" '"${pager[@]}"'

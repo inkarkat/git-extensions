@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--intermediate] ([--cached] [--to COMMIT])|<since>..<until>|--since <date>|--max-count <number>|-n <number>|COMMIT-LIMITING-ARGS] [[--] <path>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-v|--invert-match] [--intermediate] ([--cached] [--to COMMIT])|<since>..<until>|--since <date>|--max-count <number>|-n <number>|COMMIT-LIMITING-ARGS] [[--] <path>...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -25,15 +25,24 @@ HELPDESCRIPTION
     echo
     printShortUsage "$1"
     cat <<HELPTEXT
-    --intermediate  submodules that are again the same, but were changed and
-		    then changed back, are included, too
+    --invert-match|-v
+		    Only show non-submodule files that were modified.
+    --intermediate  Submodules that are again the same, but were changed and
+		    then changed back, are included, too.
 HELPTEXT
 }
 
-case "$1" in
-    --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
-esac
-
-
-git-showfiles --diff-merges=first-parent "$@" | \
-    git-subfilter
+typeset -a subfilterArgs=()
+typeset -a showfilesArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--invert-match|-v)
+			subfilterArgs+=("$1"); shift;;
+	--)		showfilesArgs+=("$1"); shift; break;;
+	*)		showfilesArgs+=("$1"); shift;;
+    esac
+done
+git-showfiles --diff-merges=first-parent "${showfilesArgs[@]}" "$@" \
+    | git-subfilter "${subfilterArgs[@]}"

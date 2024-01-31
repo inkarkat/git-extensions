@@ -41,8 +41,17 @@ do
 done
 set -- "${args[@]}" "$@"
 
+getSuperMessage()
+{
+    local isInSubmodule="${1?}"; shift
+    withSeparator \
+	    --command "git ${isInSubmodule:+superdo --no-header} lo ${remote}/${base}..${head} -- | markdownEscape" \
+	    --command "git ${isInSubmodule:+superdo --no-header} superchanges --as markdown ${remote}/${base}..${head}"
+}
+
 if [ -n "$superMessage" ] || git issubmodule; then
-    [ -n "$superMessage" ] || superMessage="$(git superdo --no-header lo "${remote}/${base}..${head}" -- | markdownEscape)" \
+    [ -n "$superMessage" ] \
+	|| superMessage="$(getSuperMessage t)" \
 	|| echo >&2 'Note: Found no corresponding changes in superproject.'
 
     # Do this for each submodule, even if invoked in the superproject, as each
@@ -64,6 +73,6 @@ if [ -n "$superMessage" ] || git issubmodule; then
 
     exec hub-wrapper pull-request --base "$base" ${head:+--head "$head"} --message "${superMessage}${superMessage:+$'\n\n'}$message" --edit "$@"
 else
-    superMessage="$(git lo "${remote}/${base}..${head}" | markdownEscape)" || exit $?
+    superMessage="$(getSuperMessage '')" || exit $?
     exec hub-wrapper subsamebrdo --subdo-command-name "${scriptName#hub-}" ${head:+--branch "$head"} --no-git-color --interactive "${scriptName#hub-}" --base "$base" ${head:+--head "$head"} --super-message "$superMessage"
 fi

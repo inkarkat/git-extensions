@@ -28,6 +28,10 @@ elif [[ "$url" =~ ^[[:alnum:]]+://[^/]+/([^/]+/[^/]+).*$ ]]; then
     printf '%s\n' "${BASH_REMATCH[1]}"
 elif [[ "$url" =~ ^git@[^:]+:([^/]+/[^/]+)\.git.*$ ]]; then
     printf '%s\n' "${BASH_REMATCH[1]}"
+elif [[ "$url" =~ ^\.\./(.+)\.git$ ]]; then
+    repoName="${BASH_REMATCH[1]}"
+    url="$("${BASH_SOURCE[0]}")" || exit $?
+    printf '%s\n' "${url%/*}/${repoName}"
 else
     printf >&2 'ERROR: Unknown URL: %s\n' "$url"
     exit 3

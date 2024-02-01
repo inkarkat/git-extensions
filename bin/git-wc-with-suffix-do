@@ -9,16 +9,28 @@ esac
 
 printUsage()
 {
-    cat <<HELPTEXT
-Execute "git SIMPLECOMMAND" and/or COMMANDLINE on each passed WORKING-COPY, with
---worktrees also on clones / worktrees that sit next to WORKING-COPY, but have a
-suffix (e.g. WC.alt) in the directory name. With --suffix, a worktree with
-WC.SUFFIX is preferred if it exists, but it falls back to using the plain WC.
-(If you want to only execute in WC.SUFFIX, you can directly pass the SUFFIX in
-the WORKING-COPY arguments to git-wcdo.)
-HELPTEXT
-    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[--suffix SUFFIX|--worktrees] [-q|--quiet|--ignore-nonexisting] [--untracked|--dirty|--wips [(+|-)CHECK [(+|-)...]]|--same-branch] [--no-pager] [--no-header|--branch-name]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success] [--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [--skip-files] [-s|--skip-foreign|--foreign-command "COMMANDLINE" [...]] [-P|--predicate-command "COMMANDLINE" [...]] [-c|--command "COMMANDLINE" [-c ...]] [--] WORKING-COPY [...] [-- SIMPLECOMMAND ...] [-?|-h|--help]'
+    git-wcdo --help 2>&1 | sed \
+	-e '1s#^.*$#Execute "git SIMPLECOMMAND" and/or COMMANDLINE on each passed WORKING-COPY, but have a suffix (e.g. WC.alt) in the directory name.#' \
+	-e '2b removeFirstParagraphLoop' \
+	-e '/^ *--no-pager/i\
+    --quiet|-q		Do not complain when no working copies are found or a\
+			passed DIRSPEC is not a directory.\
+    --worktrees		Also include clones / worktrees that sit next to\
+			WORKING-COPY, but have a suffix (e.g. WC.alt) in the\
+			directory name.\
+    --suffix SUFFIX	The optional file extension (e.g. .alt) in the working\
+			copy directory name. A worktree with WC.SUFFIX is\
+			preferred if it exists, but it falls back to using the\
+			plain WC. (If you want to only execute in WC.SUFFIX,\
+			you can directly pass the SUFFIX in the WORKING-COPY\
+			arguments to git-wcdo.' \
+	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ ]\+ \)*git-wcdo /\1\2'"$(basename "$1")"' [-q|--quiet] [--worktrees] [--suffix SUFFIX] /; }' \
+	-e b -e :removeFirstParagraphLoop -e '{ /\(^\|\n\)$/{ s/^\(.*\n\)\?//; b; }; N; b removeFirstParagraphLoop }'
 }
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
 
 suffix=
 isWorktrees=

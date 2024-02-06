@@ -1,0 +1,61 @@
+#!/bin/bash
+
+: ${GIT_DERELICT_AGE=1y}
+: ${GIT_DERELICT_REMOTE_NAME:=derelict}
+
+printUsage()
+{
+    cat <<HELPTEXT
+Check whether the ${remote:-REMOTE} is older than $GIT_DERELICT_AGE [and [offer to] rename it
+to ${GIT_DERELICT_REMOTE_NAME}-{owner} if it is].
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [--offer|--rename] [-?|-h|--help]"
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+remote="${1:?}"; shift
+
+preAction=:
+action=:
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --offer)		shift; preAction=offerRename; action=rename;;
+    --rename)		shift; action=rename;;
+esac
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+[ -n "$GIT_DERELICT_AGE" ] || exit 0
+
+getDerelictRepoName()
+{
+    local remoteRepository="$(hub-userrepo "$(git-remote-url "$remote")")"
+    local owner="${remoteRepository%%/*}"
+    printf %s "${GIT_DERELICT_REMOTE_NAME}${owner:+-}${owner}"
+}
+
+offerRename()
+{
+    git commitage --with-revision "${remoteBranches[@]}" | reldate --epoch-lines
+    userBinaryChoice --keep-prompt --introduction "The last commit of all of ${remote}'s branches is older than $GIT_DERELICT_AGE." --question "Rename ${remote} to ${derelictRepoName}?" --yes-no
+}
+
+rename()
+{
+    git remote rename "${remote:?}" "${derelictRepoName:?}"
+}
+
+if ! git-existsremote "$remote"; then
+    printf >&2 'ERROR: No such remote: %s\n' "$remote"
+    exit 2
+fi
+readarray -t remoteBranches < <(git rbrrefdo-wrapper "$remote")
+git-commitage --older "$GIT_DERELICT_AGE" "${remoteBranches[@]}" \
+    && derelictRepoName="$(getDerelictRepoName)" \
+    && $preAction \
+    && $action

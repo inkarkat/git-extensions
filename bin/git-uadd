@@ -1,8 +1,5 @@
 #!/bin/bash
 
-: ${GIT_DERELICT_AGE=1y}
-: ${GIT_DERELICT_REMOTE_NAME:=derelict}
-
 printUsage()
 {
     cat <<HELPTEXT
@@ -27,21 +24,4 @@ esac
 set -e
 git remote add -f upstream "$url"
 git-remote-setreadonly upstream
-
-[ -n "$GIT_DERELICT_AGE" ] || exit 0
-
-getDerelictRepoName()
-{
-    local remoteRepository="$(hub-userrepo "$(git-remote-url upstream)")"
-    local owner="${remoteRepository%%/*}"
-    printf %s "${GIT_DERELICT_REMOTE_NAME}${owner:+-}${owner}"
-}
-
-readarray -t upstreamBranches < <(git rbrrefdo-wrapper upstream)
-if git-commitage --older "$GIT_DERELICT_AGE" "${upstreamBranches[@]}" \
-    && git commitage --with-revision "${upstreamBranches[@]}" | reldate --epoch-lines \
-    && derelictRepoName="$(getDerelictRepoName)" \
-    && userBinaryChoice --keep-prompt --introduction "The last commit of all of upstream's branches is older than $GIT_DERELICT_AGE." --question "Rename upstream to ${derelictRepoName}?" --yes-no
-then
-    git remote rename upstream "$derelictRepoName"
-fi
+git-rderelict upstream --offer

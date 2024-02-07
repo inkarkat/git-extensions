@@ -10,7 +10,7 @@ Check whether the ${remote:-REMOTE} is older than $GIT_DERELICT_AGE [and [offer 
 to ${GIT_DERELICT_REMOTE_NAME}-{owner} / delete it if it is].
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [--offer|--rename|--delete] [--no-fetch] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [--list|--offer|--rename|--delete] [--no-fetch] [-?|-h|--help]"
 }
 
 case "$1" in
@@ -28,6 +28,7 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
+	--list)		shift; preAction=list;;
 	--offer)	shift; preAction=offerRename; action=rename;;
 	--rename)	shift; action=rename;;
 	--delete)	shift; action=delete;;
@@ -51,9 +52,14 @@ getDerelictRepoName()
     printf %s "${GIT_DERELICT_REMOTE_NAME}${owner:+-}${owner}"
 }
 
-offerRename()
+list()
 {
     git commitage --with-revision "${remoteBranches[@]}" | reldate --epoch-lines
+}
+
+offerRename()
+{
+    list
     local choice; choice="$(userchoiceFromList \
 	--keep-prompt --introduction "The last commit of all of ${remote}'s branches is older than $GIT_DERELICT_AGE." --no-cancel --ignore-case \
 	-- "[R]ename ${remote} to ${derelictRepoName}" "[D]elete ${remote}" '[K]eep'

@@ -10,7 +10,7 @@ Check whether the ${remote:-REMOTE} is older than $GIT_DERELICT_AGE [and [offer 
 to ${GIT_DERELICT_REMOTE_NAME}-{owner} / delete it if it is].
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [--offer|--rename|--delete] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [--offer|--rename|--delete] [--no-fetch] [-?|-h|--help]"
 }
 
 case "$1" in
@@ -18,14 +18,25 @@ case "$1" in
 esac
 remote="${1:?}"; shift
 
+isFetch=t
 preAction=:
 action=:
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --offer)		shift; preAction=offerRename; action=rename;;
-    --rename)		shift; action=rename;;
-    --delete)		shift; action=delete;;
-esac
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+	--offer)	shift; preAction=offerRename; action=rename;;
+	--rename)	shift; action=rename;;
+	--delete)	shift; action=delete;;
+	--no-fetch)	shift; isFetch=;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 if [ $# -ne 0 ]; then
     printUsage "$0" >&2
     exit 2
@@ -70,6 +81,14 @@ if ! git-existsremote "$remote"; then
     printf >&2 'ERROR: No such remote: %s\n' "$remote"
     exit 2
 fi
+
+if [ "$isFetch" ] && git-fetchdate --remote "$remote" -gt "$GIT_DERELICT_AGE"; then
+    printf >&2 'Fetching %s first...\n' "$remote"
+    # XXX: Don't use "git-wrapper fetch" there, because that would use my hub-fetch
+    # extension if we got invoked via hub.
+    git-fetch "$remote"
+fi
+
 readarray -t remoteBranches < <(git rbrrefdo-wrapper "$remote")
 git-commitage --older "$GIT_DERELICT_AGE" "${remoteBranches[@]}" \
     && derelictRepoName="$(getDerelictRepoName)" \

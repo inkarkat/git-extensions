@@ -7,10 +7,10 @@ printUsage()
 {
     cat <<HELPTEXT
 Check whether the ${remote:-REMOTE} is older than $GIT_DERELICT_AGE [and [offer to] rename it
-to ${GIT_DERELICT_REMOTE_NAME}-{owner} if it is].
+to ${GIT_DERELICT_REMOTE_NAME}-{owner} / delete it if it is].
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [--offer|--rename] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [--offer|--rename|--delete] [-?|-h|--help]"
 }
 
 case "$1" in
@@ -24,6 +24,7 @@ case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
     --offer)		shift; preAction=offerRename; action=rename;;
     --rename)		shift; action=rename;;
+    --delete)		shift; action=delete;;
 esac
 if [ $# -ne 0 ]; then
     printUsage "$0" >&2
@@ -42,12 +43,27 @@ getDerelictRepoName()
 offerRename()
 {
     git commitage --with-revision "${remoteBranches[@]}" | reldate --epoch-lines
-    userBinaryChoice --keep-prompt --introduction "The last commit of all of ${remote}'s branches is older than $GIT_DERELICT_AGE." --question "Rename ${remote} to ${derelictRepoName}?" --yes-no || return 4
+    local choice; choice="$(userchoiceFromList \
+	--keep-prompt --introduction "The last commit of all of ${remote}'s branches is older than $GIT_DERELICT_AGE." --no-cancel --ignore-case \
+	-- "[R]ename ${remote} to ${derelictRepoName}" "[D]elete ${remote}" '[K]eep'
+    )" || exit $?
+    action="${choice,,}"
+    action="${action%% *}"
 }
 
 rename()
 {
     git remote rename "${remote:?}" "${derelictRepoName:?}"
+}
+
+delete()
+{
+    git remote remove "${remote:?}"
+}
+
+keep()
+{
+    :
 }
 
 if ! git-existsremote "$remote"; then

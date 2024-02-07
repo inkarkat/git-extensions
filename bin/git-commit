@@ -8,6 +8,46 @@ elif [ "$*" = '--all --amend --reuse-message=HEAD' -o "$*" = '--all --amend --re
     exit 1
 fi
 
+typeset -a messageDirectArgs=()
+typeset -a messageFileArgs=()
+convertMessageFileArgsToDirectArgs()
+{
+    [ ${#messageFileArgs[@]} -gt 0 ] || return
+
+    if [ "${messageFileArgs[1]}" = - ]; then
+	messageDirectArgs+=(--message "$(</dev/stdin)")
+    else
+	messageDirectArgs+=(--message "$(<"${messageFileArgs[1]}")")
+    fi || exit $?
+    messageFileArgs=()
+}
+typeset -a commitArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--message|-m)	convertMessageFileArgsToDirectArgs
+			messageDirectArgs+=("$1" "${2?}"); shift; shift
+			;;
+	--file|-F)	if [ ${#messageDirectArgs[@]} -gt 0 -o ${#messageFileArgs[@]} -gt 0 ]; then
+			    # XXX: Git (2.43.0) commit supports multiple -m, but only one -F, and no mix of -m and -F.
+			    convertMessageFileArgsToDirectArgs
+			    shift
+			    if [ "$1" = - ]; then
+				messageDirectArgs+=(--message "$(</dev/stdin)")
+			    else
+				messageDirectArgs+=(--message "$(<"${1?}")")
+			    fi || exit $?
+			    shift
+			else
+			    messageFileArgs+=("$1" "${2?}"); shift; shift
+			fi
+			;;
+	--)		commitArgs+=("$1"); shift; break;;
+	*)		commitArgs+=("$1"); shift;;
+    esac
+done
+set -- "${messageDirectArgs[@]}" "${messageFileArgs[@]}" "${commitArgs[@]}" "$@"
+
 eval "typeset -a gitConfigArgs=($GIT_CONFIG_ARGS)"
 command git "${gitConfigArgs[@]}" commit "$@" || exit $?
 

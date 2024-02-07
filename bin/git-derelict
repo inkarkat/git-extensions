@@ -1,0 +1,49 @@
+#!/bin/bash
+set -o pipefail
+
+: ${GIT_DERELICT_AGE=1y}
+: ${GIT_DERELICT_REMOTE_NAME:=derelict}
+
+printUsage()
+{
+    cat <<HELPTEXT
+List any remote that is older than $GIT_DERELICT_AGE or [offer to] rename it to
+${GIT_DERELICT_REMOTE_NAME}-{owner} / delete it if it is.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[--list|--offer|--rename|--delete] [--no-fetch] [-?|-h|--help]"
+}
+
+isHeader=
+action=list
+typeset -a rderelictArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-fetch)	rderelictArgs+=("$1"); shift;;
+	--list)		rderelictArgs+=("$1"); shift; action=:; isHeader=t;;
+	--)		break;;
+	*)		rderelictArgs+=("$1"); shift; action=:;;
+    esac
+done
+
+list()
+{
+    printf '%s\n' "$remote"
+}
+
+: ${GIT_DERELICT_HEADER_ID:="derelict-$$-$RANDOM"}
+status=
+while IFS=$'\n' read -r remote
+do
+    [[ "$remote" =~ ^"$GIT_DERELICT_REMOTE_NAME"(-|$) ]] && continue
+
+    if eval 'git-rderelict "$remote" "${rderelictArgs[@]}" "$@"' "${isHeader:+| withHeader --id '$GIT_DERELICT_HEADER_ID' -- '$remote'}"; then
+	$action
+	status=0
+    else
+	: ${status:=$?}
+    fi
+done < <(git remote)
+exit ${status:-99}

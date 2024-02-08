@@ -28,6 +28,9 @@ do
 	--message|-m)	convertMessageFileArgsToDirectArgs
 			messageDirectArgs+=("$1" "${2?}"); shift; shift
 			;;
+	--message=*)	convertMessageFileArgsToDirectArgs
+			messageDirectArgs+=("$1"); shift
+			;;
 	--file|-F)	if [ ${#messageDirectArgs[@]} -gt 0 -o ${#messageFileArgs[@]} -gt 0 ]; then
 			    # XXX: Git (2.43.0) commit supports multiple -m, but only one -F, and no mix of -m and -F.
 			    convertMessageFileArgsToDirectArgs
@@ -35,11 +38,25 @@ do
 			    if [ "$1" = - ]; then
 				messageDirectArgs+=(--message "$(</dev/stdin)")
 			    else
-				messageDirectArgs+=(--message "$(<"${1?}")")
+				messageDirectArgs+=(--message "$(<"${1:?}")")
 			    fi || exit $?
 			    shift
 			else
 			    messageFileArgs+=("$1" "${2?}"); shift; shift
+			fi
+			;;
+	--file=*)	filespec="${1#--file=}"; shift
+			if [ ${#messageDirectArgs[@]} -gt 0 -o ${#messageFileArgs[@]} -gt 0 ]; then
+			    # XXX: Git (2.43.0) commit supports multiple -m, but only one -F, and no mix of -m and -F.
+			    convertMessageFileArgsToDirectArgs
+			    shift
+			    if [ "$filespec" = - ]; then
+				messageDirectArgs+=(--message "$(</dev/stdin)")
+			    else
+				messageDirectArgs+=(--message "$(<"${filespec:?}")")
+			    fi || exit $?
+			else
+			    messageFileArgs+=(--file "${filespec:?}"); shift; shift
 			fi
 			;;
 	--)		commitArgs+=("$1"); shift; break;;

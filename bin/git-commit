@@ -66,11 +66,25 @@ do
 	*)		commitArgs+=("$1"); shift;;
     esac
 done
-set -- "${messageDirectArgs[@]}" "${messageFileArgs[@]}" "${editArgs[@]}" "${commitArgs[@]}" "$@"
+
+# Extension: If a commit template is available (and no message was given via
+# command-line arguments), use it. The default editing behavior is not affected
+# by this. In order to avoid accidental pick up of old templates, they have the
+# previous commit's ID in their name.
+gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit 3
+commitTemplateFileBase="${gitDir}/commit-template-"
+commitTemplateFilespec="${commitTemplateFileBase}$(git-commitid HEAD)"
+if [ ${#messageDirectArgs[@]} -eq 0 -a ${#messageFileArgs[@]} -eq 0 -a -r "$commitTemplateFilespec" ]; then
+    messageFileArgs+=(--file "$commitTemplateFilespec")
+    [ ${#editArgs[@]} -gt 0 ] || editArgs+=(--edit)
+fi
+
+set -- "${messageDirectArgs[@]}" "${messageFileArgs[@]}" "${editArgs[@]}" "${noEditArgs[@]}" "${commitArgs[@]}" "$@"
 
 eval "typeset -a gitConfigArgs=($GIT_CONFIG_ARGS)"
 command git "${gitConfigArgs[@]}" commit "$@" || exit $?
 
+rm --force -- "$commitTemplateFileBase"* 2>/dev/null	# Clean up old commit templates after a successful commit.
 if [ -t 1 ]; then
     : ${GIT_COMMIT_NOTE_PREFIX=[3;36m}
     : ${GIT_COMMIT_NOTE_SUFFIX=[0m}

@@ -21,6 +21,7 @@ convertMessageFileArgsToDirectArgs()
     fi || exit $?
     messageFileArgs=()
 }
+typeset -a editArgs=()
 typeset -a commitArgs=()
 while [ $# -ne 0 ]
 do
@@ -59,11 +60,13 @@ do
 			    messageFileArgs+=(--file "${filespec:?}"); shift; shift
 			fi
 			;;
+	--edit|-e|--no-edit)
+			editArgs+=("$1"); shift;;
 	--)		commitArgs+=("$1"); shift; break;;
 	*)		commitArgs+=("$1"); shift;;
     esac
 done
-set -- "${messageDirectArgs[@]}" "${messageFileArgs[@]}" "${commitArgs[@]}" "$@"
+set -- "${messageDirectArgs[@]}" "${messageFileArgs[@]}" "${editArgs[@]}" "${commitArgs[@]}" "$@"
 
 eval "typeset -a gitConfigArgs=($GIT_CONFIG_ARGS)"
 command git "${gitConfigArgs[@]}" commit "$@" || exit $?

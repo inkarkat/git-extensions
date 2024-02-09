@@ -1,0 +1,66 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Print the current commit template.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+    echo
+    cat <<HELPTEXT
+Print the filespec of the current commit template.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--get-filespec'
+    echo
+    cat <<HELPTEXT
+Save input as the commit template for a commit based on the current HEAD.
+HELPTEXT
+    echo
+    printf 'Usage: echo TEXT | %q %s\n' "$(basename "$1")" '--save'
+    echo
+    cat <<HELPTEXT
+Delete any residual commit template(s).
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--clean'
+}
+
+action=print
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --get-filespec)	shift; action=getFilespec;;
+    --save)		shift; action=save;;
+    --clean)		shift; action=clean;;
+    -*)			{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+esac
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+print()
+{
+    [ -r "${commitTemplateFilespec:?}" ] && cat -- "$commitTemplateFilespec"
+}
+
+getFilespec()
+{
+    [ -r "${commitTemplateFilespec:?}" ] && printf '%s\n' "$commitTemplateFilespec"
+}
+
+save()
+{
+    exec cat > "${commitTemplateFilespec:?}"
+}
+
+clean()
+{
+    exec rm --force -- "${commitTemplateFileBase:?}"* 2>/dev/null	# Clean up old commit templates; e.g. after a successful commit.
+}
+
+gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit 3
+commitTemplateFileBase="${gitDir}/commit-template-"
+commitTemplateFilespec="${commitTemplateFileBase}$(git-commitid HEAD)"
+$action "$@"

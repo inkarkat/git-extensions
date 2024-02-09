@@ -14,11 +14,8 @@ done
 
 # Extension: Save the stash's message as a commit template, so that it can be
 # reused for the commit.
-gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit 3
-commitTemplateFileBase="${gitDir}/commit-template-"
-commitTemplateFilespec="${commitTemplateFileBase}$(git-commitid HEAD)"
 git lo1 "$stash" -- 2>/dev/null \
     | sed -e '1s#^\(WIP on\|On\) \((no branch)\|[^[:space:]]\+\): ##' \
-    > "$commitTemplateFilespec"
+    | git-committemplate --save
 
 exec git stash ${GIT_STASH_COMMAND:-pop} "${allargs[@]}" "$@"

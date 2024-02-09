@@ -1,24 +1,56 @@
 #!/bin/bash
 shopt -qs extglob
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-N|--commit] [REVERT-ARGS ...] <commit> [...] [-?|-h|--help]'
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-e|--edit|-p|--patch|-s|--selected] [-N|--commit [--no-edit]] <commit> [--] [<pathspec> ...]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
-Apply the reverted changes only to the index and working copy without commiting
-(-N|--commit undoes that change in default behavior)
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Apply the reverted changes only to the index and working copy without commiting.
 The index does not have to match the HEAD commit, so you can revert multiple
 commits in a row.
-HELPTEXT
+HELPDESCRIPTION
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-N|--commit] [REVERT-ARGS ...] <commit> [...] [-?|-h|--help]'
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --edit|-e		Open the reverse diff in an editor and let the user edit
+			it.
+    --patch|-p		Interactively choose hunks of reversing patches.
+    --selected|-s	Interactively select (from changed files or passed list
+			of files) files to revert.
+    --commit|-N		Restore the default behavior and directly commit each
+			undo of <commit> individually, in the order given.
+			(This means that it's probably most conflict-free to go
+			from recent commits to earlier ones.)
+HELPTEXT
 }
 
+addCommand=add
+typeset -a addArgs=()
 typeset -a commitArg=(--no-commit)
 typeset -a revertArgs=()
+typeset -a revertEditArgs=()
+unset addFiles
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
@@ -28,10 +60,78 @@ do
 	--commit|-N)	shift; commitArg=();;
 	--no-commit|-n)	shift; commitArg=(--no-commit);;
 
-	--)		revertArgs+=("$1"); shift; break;;
+	--edit|-e|--patch|-p)
+			addArgs+=("$1"); shift;;
+	--selected|-s)	shift; addCommand=addselected;;
+
+	--no-edit)	revertEditArgs+=("$1"); shift;; # Note: --edit is interpreted as an option for "git add".
+	--)		shift; typeset -a addFiles=("$@"); break;;
 	*)		revertArgs+=("$1"); shift;;
     esac
 done
-set -- "${revertArgs[@]}" "$@"
+if [ -z ${addFiles+t} ]; then
+    # No files after -- captured yet; need to investigate parsed and
+    # remaining args from behind for files.
+    typeset -a addFiles=()
+    revertArgs+=("$@")
+    while [ ${#revertArgs[@]} -ne 0 ]
+    do
+	lastArg="${revertArgs[-1]}"
+	[ -e "$lastArg" ] || break
 
-exec git revert "${commitArg[@]}" "$@"
+	addFiles=("$lastArg" "${addFiles[@]}")
+	revertArgs=("${revertArgs[@]:0:${#revertArgs[@]}-1}")
+    done
+fi
+# All arguments have been parsed into revertArgs and addFiles; don't use $@.
+
+# Reverting of the entire commit(s).
+[ ${#addArgs[@]} -eq 0 -a ${#addFiles[@]} -eq 0 ] \
+    && exec git revert "${commitArg[@]}" "${revertEditArgs[@]}" "${revertArgs[@]}"
+
+# Revert parts of the commit.
+# Source: https://link-intersystems.com/blog/2015/04/19/how-to-partially-revert-a-commit-in-git/
+if [ ${#revertArgs[@]} -ne 1 ]; then
+    echo 'ERROR: Need a single <commit> to revert parts of.'
+    echo
+    printUsage "$0"
+    exit 2
+elif git-dirty --print-error; then
+    exit 1
+fi >&2
+
+set -e
+commit="${revertArgs[0]}"
+branch="$(git-brname --real-branch-only)"
+trap 'git checkout --force "$branch" 2>/dev/null' EXIT
+
+# Checkout the commit that contains the changes you want to revert in detached HEAD state.
+git-detach "$commit"
+
+# Reset the index to the previous commit.
+git reset HEAD~
+
+# Select the changes you want to revert.
+git $addCommand "${addArgs[@]}" -- "${addFiles[@]}"
+
+# Create a commit that only contains the changes you want to revert.
+printf -v commitMessage 'Partial revert of "%s"\n\nThis reverts parts of commit %s.' "$(git l1 "$commit")" "$(git-commitid "$commit")"
+git commit --message "$commitMessage"
+reversionCommit="$(git-commitid HEAD)"
+
+# Revert the isolated changes on top of the original branch.
+trap EXIT
+git checkout --force --quiet "$branch"
+git revert --no-commit "$reversionCommit"   # Note: Don't directly commit (on --commit) because the commit message would reference the intermediate partial commit, not the original.
+if [ "${commitArg[*]}" = '--no-commit' ]; then
+    # Extension: Save the revert message as a commit template, so that it can be
+    # reused for the commit.
+    gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit 3
+    commitTemplateFileBase="${gitDir}/commit-template-"
+    commitTemplateFilespec="${commitTemplateFileBase}$(git-commitid HEAD)"
+    printf '%s\n' "$commitMessage" > "$commitTemplateFilespec"
+else
+    # Use the message from the reversion commit as the template for editing.
+    [ ${#revertEditArgs[@]} -eq 0 ] && revertEditArgs+=(--edit)
+    git-wrapper commit "${revertEditArgs[@]}" --message "$commitMessage"
+fi

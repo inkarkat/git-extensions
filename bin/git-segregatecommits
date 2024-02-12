@@ -1,0 +1,58 @@
+#!/bin/bash
+shopt -qs extglob
+
+printUsage()
+{
+    git-segregatecommit --help 2>&1 | sed \
+	-e '1s#^.*$#Split the individual commits in the current branch that are not in <upstream> via rebasing into separate commits for files matching PATH-GLOB / whose contents match PATTERN and optionally put TEXT before / after the commit subject (to allow easier recognition in a following git rebase / bifurcation).#' \
+	-e '2b removeFirstParagraphLoop' \
+	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ ]\+ \)*git-segregatecommit /\1\2'"$(basename "$1")"' /; s/ \[-?|-h|--help\]/ [REBASE-ARGS ...] <upstream>&/ }' \
+	-e b -e :removeFirstParagraphLoop -e '{ /\(^\|\n\)$/{ s/^\(.*\n\)\?//; b; }; N; b removeFirstParagraphLoop; }'
+
+    cat <<HELPADDENDUM
+
+SEE ALSO:
+- git-bifurcate can be used to distribute the commits that were split by this
+  command onto different branches. The TEXT optionally added to the commit
+  subject can help with that.
+HELPADDENDUM
+}
+
+typeset -a rebaseArgs=()
+typeset -a segregateCommitArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+
+	-+([e]))
+			segregateCommitArgs+=("$1"); shift;;
+	--@(edit|no-edit|not|and|or))
+			segregateCommitArgs+=("$1"); shift;;
+	-[m])		segregateCommitArgs+=("$1" "${2?}"); shift; shift;;
+	--message=*)	segregateCommitArgs+=("$1"); shift;;
+	[^+]=*)		segregateCommitArgs+=("$1"); shift;;
+	--@(subject-prefix|subject-suffix|subject|message|path|grep))
+			segregateCommitArgs+=("$1" "${2?}"); shift; shift;;
+	--)		shift; rebaseArgs+=("$@"); set --;;
+	*)		rebaseArgs+=("$1"); shift;;
+    esac
+done
+if [ ${#rebaseArgs[@]} -eq 0 -o ${#segregateCommitArgs[@]} -eq 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+branch=HEAD
+if [ ${#rebaseArgs[@]} -ge 2 ] && git-commitid --quiet --no-error "${rebaseArgs[-1]}" && git-commitid --quiet --no-error "${rebaseArgs[-2]}"; then
+    # <upstream> <branch> variant: Move <branch> off rebaseArgs onto $@, so that it
+    # doesn't get reapplied to git-bifurcate.
+    branch="${rebaseArgs[-1]}"
+    set -- "$branch"
+    rebaseArgs=("${rebaseArgs[@]:0:$((${#rebaseArgs[@]}-1))}")
+fi
+
+originalCommit="$(git-commitid "$branch")" || exit 3
+export GIT_SEGREGATECOMMIT_FINAL_MESSAGE=''
+git-wrapper rebase --exec git-segregatecommit "${segregateCommitArgs[@]}" \; "${rebaseArgs[@]}" "$@" || exit $?
+git-onelinelog "${originalCommit}.."

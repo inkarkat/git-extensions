@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--last-only] [--accept-single] [--single-only] [--range-is-last] [--pass-file-args] [--explicit-file-args] [--one-more] [--allow-outside-workingcopy] ... --since <date>|--max-count <number>|-<number>|-n <number>|<range>|--range <range> [--range ...] [GIT-COMMAND-ARGS ...] [--] [FILE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--last-only] [--accept-single] [--single-only] [--range-is-last] [--pass-file-args] [--explicit-file-args|--no-file-args] [--one-more] [--allow-outside-workingcopy] ... --since <date>|--max-count <number>|-<number>|-n <number>|<range>|--range <range> [--range ...] [GIT-COMMAND-ARGS ...] [--] [FILE ...] [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [GIT-COMMAND-ARGS ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... COMMITS ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
@@ -46,6 +46,8 @@ HELPDESCRIPTION
     --explicit-file-args
 		    FILE arguments are only parsed when explicitly separated via
 		    an -- argument.
+    --no-file-args  Do not parse FILE arguments at all. Anything after --
+		    belongs to GIT-COMMAND.
     --one-more	    Offer the first commit [affecting FILE(s)] after the range
 		    as well.
     --allow-outside-workingcopy
@@ -59,6 +61,7 @@ action=getSelected
 isRangeLastArg=
 isPassFileArgs=
 isExplicitFileArgs=
+isFileArgs=t
 isAllowOutsideWorkingCopy=
 typeset -a commandOnSelectedArgs=()
 while [ $# -ne 0 ]
@@ -74,6 +77,8 @@ do
 			shift; isPassFileArgs=t;;
 	--explicit-file-args)
 			shift; isExplicitFileArgs=t;;
+	--no-file-args)
+			shift; isFileArgs=;;
 	--one-more)	shift;
 			if [ -n "$GIT_SELECTEDCOMMIT_COMMAND" ]; then
 			    echo >&2 'ERROR: --one-more cannot be combined with a custom $GIT_SELECTEDCOMMIT_COMMAND.'
@@ -165,11 +170,16 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
-	--)		shift; typeset -a files=("$@"); break;;
+	--)		if [ "$isFileArgs" ]; then
+			    shift; typeset -a files=("$@"); break
+			else
+			    gitCommandArgs+=("$@"); set --
+			fi
+			;;
 	*)		gitCommandArgs+=("$1"); shift;;
     esac
 done
-if [ -z "${files+t}" ] && [ ! "$isExplicitFileArgs" ]; then
+if [ -z "${files+t}" ] && [ ! "$isExplicitFileArgs" ] && [ "$isFileArgs" ]; then
     # No files after -- captured yet; need to investigate parsed and
     # remaining args from behind for files.
     typeset -a files=()

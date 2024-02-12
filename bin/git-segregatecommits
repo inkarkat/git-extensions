@@ -6,7 +6,10 @@ printUsage()
     git-segregatecommit --help 2>&1 | sed \
 	-e '1s#^.*$#Split the individual commits in the current branch that are not in <upstream> via rebasing into separate commits for files matching PATH-GLOB / whose contents match PATTERN and optionally put TEXT before / after the commit subject (to allow easier recognition in a following git rebase / bifurcation).#' \
 	-e '2b removeFirstParagraphLoop' \
-	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ ]\+ \)*git-segregatecommit /\1\2'"$(basename "$1")"' /; s/ \[-?|-h|--help\]/ [REBASE-ARGS ...] <upstream>&/ }' \
+	-e '/^ *--dry-run|-n/i\
+    --and-bifurcate	Automatically invoke git-bifurcate to distribute the\
+			segregated commits onto different branches.' \
+	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ ]\+ \)*git-segregatecommit /\1\2'"$(basename "$1")"' /; s/ \[-?|-h|--help\]/ [--and-bifurcate] [REBASE-ARGS ...] <upstream>&/ }' \
 	-e b -e :removeFirstParagraphLoop -e '{ /\(^\|\n\)$/{ s/^\(.*\n\)\?//; b; }; N; b removeFirstParagraphLoop; }'
 
     cat <<HELPADDENDUM
@@ -20,10 +23,13 @@ HELPADDENDUM
 
 typeset -a rebaseArgs=()
 typeset -a segregateCommitArgs=()
+isBifurcate=
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--and-bifurcate)
+			shift; isBifurcate=t;;
 
 	-+([e]))
 			segregateCommitArgs+=("$1"); shift;;
@@ -55,4 +61,8 @@ fi
 originalCommit="$(git-commitid "$branch")" || exit 3
 export GIT_SEGREGATECOMMIT_FINAL_MESSAGE=''
 git-wrapper rebase --exec git-segregatecommit "${segregateCommitArgs[@]}" \; "${rebaseArgs[@]}" "$@" || exit $?
-git-onelinelog "${originalCommit}.."
+if [ "$isBifurcate" ]; then
+    exec git-bifurcate "${rebaseArgs[@]}"   # No "$@", as that contains only the [<branch>] that was applied by the first rebase already.
+else
+    git-onelinelog "${originalCommit}.."
+fi

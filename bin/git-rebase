@@ -18,9 +18,17 @@ HELPTEXT
 addExec()
 {
     local cmd="${1:?}"; shift
-    # exec commands cannot contain newlines.
+
+    # XXX: Git rebase uses the default shell, which isn't necessarily Bash.
+    # It also has a problem of dropping a trailing space when it's
+    # backslash-escaped. By converting \n to a literal newline, the following fix
+    # will be applied to escaped newlines as well.
+    type -t changeQuoting >/dev/null && cmd="$(printf %s "$cmd" | changeQuoting)"
+
+    # XXX: exec commands cannot contain newlines.
     cmd="${cmd//$'\\\n'/ }"
     cmd="${cmd//$'\n'/; }"
+
     rebaseArgs+=(--exec "$cmd")
 }
 

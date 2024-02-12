@@ -1,14 +1,17 @@
 #!/bin/bash
 
+: ${GIT_REBASE_EXEC_END=;}
+
 printUsage()
 {
     cat <<HELPTEXT
 Reapply commits on top of another base tip.
 Also considers submodules and automatically checks out resulting versions
 (unless --no-submodule-update is given).
+Supports my command-passing conventions (-c|--command and --exec ... ;)
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-submodule-update] [<rebase-args> ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[--no-submodule-update] [-c|-x|--command COMMANDLINE|--exec SIMPLECOMMAND [...] ${GIT_REBASE_EXEC_END} [-c ...]]  [<rebase-args> ...] [-?|-h|--help]"
 }
 
 isSubmoduleUpdate=t
@@ -22,6 +25,29 @@ do
 	--color)	shift; shift;;
 	--no-submodule-update)
 			shift; isSubmoduleUpdate=;;
+	--command|-c|-x)
+			shift; rebaseArgs+=(--exec "${1:?}"); shift;;
+	--exec)		shift
+			if ! contains "$GIT_REBASE_EXEC_END" "$@"; then
+			    # Also support the build-in --exec as well (though I prefer -c|--command).
+			    rebaseArgs+=(--exec "$1"); shift
+			    continue
+			fi
+
+			cmd=
+			while [ $# -gt 0 -a "$1" != "$GIT_REBASE_EXEC_END" ]
+			do
+			    printf -v quotedArg '%q' "$1"
+			    cmd+="${cmd:+ }${quotedArg}"
+			    shift
+			done
+			if [ $# -eq 0 ]; then
+			    echo "ERROR: --exec command must be concluded with '${GIT_REBASE_EXEC_END}'"; echo; printUsage "$0"
+			    exit 2
+			fi >&2
+			shift
+			rebaseArgs+=(--exec "$cmd")
+			;;
 	--)		rebaseArgs+=("$1"); shift; break;;
 	*)		rebaseArgs+=("$1"); shift;;
     esac

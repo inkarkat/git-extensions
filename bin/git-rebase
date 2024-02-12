@@ -8,11 +8,11 @@ printUsage()
 Reapply commits on top of another base tip.
 Also considers submodules and automatically checks out resulting versions
 (unless --no-submodule-update is given).
-Supports my command-passing conventions (-c|--command and --exec ... ;) and
-running build checks from stdin / preconfigured.
+Supports my command-passing conventions (-c|--command and --exec ... ;, git
+SIMPLECOMMAND after --) and running build checks from stdin / preconfigured.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[--no-submodule-update] [--check|-|-c|-x|--command COMMANDLINE|--exec SIMPLECOMMAND [...] ${GIT_REBASE_EXEC_END} [-c ...]]  [<rebase-args> ...] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[--no-submodule-update] [--check|-|-c|-x|--command COMMANDLINE|--exec SIMPLECOMMAND [...] ${GIT_REBASE_EXEC_END} [-c ...]]  [<rebase-args> ...] [-- SIMPLECOMMAND ...] [-?|-h|--help]"
 }
 
 addExec()
@@ -72,7 +72,14 @@ do
 			checkCommands="$(</dev/stdin)"
 			addExec "${checkCommands:?}"
 			;;
-	--)		rebaseArgs+=("$1"); shift; break;;
+	--)		shift
+			if [ $# -gt 0 ]; then
+			    printf -v quotedSimpleCommand ' %q' "$@"
+			    addExec "git-wrapper${quotedSimpleCommand}"
+			    set --
+			fi
+			break
+			;;
 	*)		rebaseArgs+=("$1"); shift;;
     esac
 done

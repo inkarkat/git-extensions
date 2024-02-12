@@ -1,0 +1,265 @@
+#!/bin/bash
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-n|--dry-run] [-e|--edit|--no-edit] ([^=PREFIX|--subject-prefix PREFIX|+=SUFFIX|--subject-suffix SUFFIX|-s|--subject TEXT|-m|--message=MESSAGE] ([--not] --path PATH-GLOB|--grep PATTERN|--grep PATTERN) [--and|--or ...]) ... [^=PREFIX|...] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Split the last commit into separate commits for files matching PATH-GLOB / whose
+contents match PATTERN; each separate commit's message may be modified as well.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --dry-run|-n	Just show which files would be selected for a commit.
+    --subject-prefix PREFIX|^=PREFIX
+			Prepend PREFIX to the commit subject for the following
+			selected files / files not selected by any of the
+			previous selectors.
+    --subject-suffix SUFFIX|+=SUFFIX
+			Append SUFFIX to the commit subject for the following
+			selected files / files not selected by any of the
+			previous selectors.
+    --subject|-s TEXT	Use TEXT as the commit subject for the following
+			selected files / files not selected by any of the
+			previous selectors.
+    --message|-m MESSAGE
+			Use MESSAGE as the commit message for the following
+			selected files / files not selected by any of the
+			previous selectors.
+    --edit|-e		Further edit the commit message when a subject extension
+			or MESSAGE is given.
+    --no-edit		Keep the original commit message without launching an
+			editor.
+    --path PATH-GLOB	Select files matching PATH-GLOB for a commit.
+    --grep PATTERN	Select files whose contents match PATTERN for a commmit.
+    --not		Invert the following condition.
+    --and		Only files selected by both the preceding and following
+			condition are selected.
+    --or		All files selected by the preceding or the following
+			condition are selected.
+EXIT STATUS:
+    0	Complete success.
+    1	Failed to commit.
+    2	Bad invocation, wrong or missing command-line arguments.
+    3	Internal error or failed assertion.
+    99	No file(s) got selected; nothing committed.
+HELPTEXT
+}
+
+currentSelector=
+isInverted=
+pendingCombinator=
+assertCurrentSelector()
+{
+    if [ -z "$currentSelector" ]; then
+	printUsage "$0" >&2
+	exit 2
+    fi
+}
+typeset -a selectors=()
+typeset -a subjects=()
+typeset -a subjectModifiers=()
+addSelector()
+{
+    case "$pendingCombinator" in
+	and)
+	    assertCurrentSelector
+	    # Logical And just means further filtering.
+	    currentSelector+=" | ${1:?}";;
+	or) assertCurrentSelector
+	    printf -v quotedSelector '%q' "$currentSelector"
+	    # Duplicate the input files and pass them through both selectors, then
+	    # de-duplicate the results.
+	    currentSelector="ytee --command $quotedSelector -- ${1:?} | sort --unique"
+	    ;;
+	'') if [ -n "$currentSelector" ]; then
+		selectors+=("$currentSelector")
+	    fi
+	    currentSelector="${1?}"
+
+	    # The previous subject.
+	    subjects+=("$subject"); subject=''
+	    subjectModifiers+=("$subjectModifier"); subjectModifier=''
+	    ;;
+	*)  printf >&2 'ASSERT: Invalid pendingCombinator: %s\n' "$pendingCombinator"; exit 3;;
+    esac
+    isInverted=
+    pendingCombinator=''
+}
+
+unset subjectModifier
+unset subject
+addSubject()
+{
+    if [ -n "$subjectModifier" ]; then
+	printf 'ERROR: Need either --path or --grep selector to %s the commit subject.\n' "$subjectModifier"
+	echo
+	printUsage "$0"
+	exit 2
+    fi >&2
+    subjectModifier="${1?}"; shift
+    subject="${1?}"; shift
+}
+
+editArg=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--subject-prefix)
+			shift; addSubject prepend "${1:?}"; shift;;
+	^=*)		addSubject prepend "${1#^=}"; shift;;
+	--subject-suffix)
+			shift; addSubject append "${1:?}"; shift;;
+	+=*)		addSubject append "${1#+=}"; shift;;
+	--subject|-s)	shift; addSubject replace "${1:?}"; shift;;
+	--message|-m)	shift; addSubject replace-all "${1:?}"; shift;;
+
+	--edit|-e|--no-edit)
+			editArg="$1"; shift;;
+
+	--not)		shift; isInverted=t;;
+	--path)		shift
+			path="${1:?}"; shift
+			printf -v quotedPath '%q' "${path%/}"
+			addSelector "linesToArgs globmatch --directories --files-${isInverted:+not-}matching $quotedPath"
+			;;
+	--grep)		shift
+			printf -v quotedPattern '%q' "${1:?}"; shift
+			[ "$isInverted" ] \
+			    && grepArg=--files-without-match \
+			    || grepArg=--files-with-matches
+			addSelector "filegrep $grepArg -e $quotedPattern"
+			;;
+	--and|--or)	pendingCombinator="${1#--}"; shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+addSelector ''
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+elif [ ${#selectors[@]} -eq 0 ]; then
+    echo 'ERROR: Need either --path or --grep selector.'
+    echo
+    printUsage "$0"
+    exit 2
+fi >&2
+
+originalCommit="$(git-commitid HEAD)" || exit 3
+{
+    IFS=$'\n' read -r originalAuthor
+    IFS=$'\n' read -r originalDate
+    IFS=$'\n' read -r originalSubject
+    originalMessage="$(</dev/stdin)"
+} < <(git log --max-count 1 --pretty=tformat:'%an <%ae>%n%ai%n%B')
+
+message=
+commitSelection()
+{
+    local subjectModifier="${1?}"; shift
+    local subject="${1?}"; shift
+    case "$subjectModifier" in
+	prepend)	message="${subject:?} ${originalSubject}${originalMessage:+$'\n'}${originalMessage}"; : ${editArg:=--no-edit};;
+	append)		message="${originalSubject} ${subject:?}${originalMessage:+$'\n'}${originalMessage}"; : ${editArg:=--no-edit};;
+	replace)	message="${subject:?}${originalMessage:+$'\n'}${originalMessage}"; : ${editArg:=--no-edit};;
+	replace-all)	message="${subject:?}"; : ${editArg:=--no-edit};;
+	'')		message="${originalSubject}${originalMessage:+$'\n'}${originalMessage}"; : ${editArg:=--edit};;
+	*)		printf >&2 'ASSERT: Invalid subjectModifier: %s\n' "$subjectModifier"; exit 3;;
+    esac
+
+    git commit --quiet --author "$originalAuthor" --date "$originalDate" --message "$message" "$editArg"
+}
+
+typeset -A filespecs=()
+while IFS=$'\n' read -r file
+do
+    filespecs["$file"]=t
+done < <(git show --pretty=format: --name-only --diff-filter=r)
+typeset -A renamedFilespecs=()
+while IFS=$'\t' read -r _ old new
+do
+    renamedFilespecs["$new"]="$old"
+    filespecs["$new"]=t
+done < <(git show --pretty=format: --name-status --diff-filter=R)
+
+git reset --quiet "${originalCommit}^" || exit 3
+undo()
+{
+    git reset --quiet --hard "$originalCommit"
+}
+
+let filesNum=${#filespecs[@]}
+let doneCnt=0
+didSelect=
+separator=
+for ((i = 0; i <= ${#selectors[@]}; i++))
+do
+    selector="${selectors[i]}"
+    if [ -n "$selector" ]; then
+	readarray -t selectedFilespecs < <(printf '%s\n' "${!filespecs[@]}" | eval "$selector")
+    else
+	# The last iteration picks up everything not yet selected.
+	if [ ! "$didSelect" ]; then
+	    # Nothing got selected; this likely isn't what the user had in mind.
+	    # Instead of re-creating the original commit, just roll back.
+	    echo >&2 'Note: No file(s) got selected; rolling back to the original commit.'
+	    undo
+	    exit 99
+	fi
+	selectedFilespecs=("${!filespecs[@]}")
+    fi
+    [ ${#selectedFilespecs[@]} -gt 0 ] || continue
+    didSelect=t
+    let selectedFilesNum=${#selectedFilespecs[@]}
+    let doneCnt+=selectedFilesNum
+
+    # Also add the (otherwise untracked) new filespec of renamed files.
+    for file in "${selectedFilespecs[@]}"
+    do
+	oldFilespec="${renamedFilespecs["$file"]}"
+	if [ -n "$oldFilespec" ]; then
+	    # Also commit the removal of the original file for renames.
+	    selectedFilespecs+=("$oldFilespec")
+	fi
+    done
+    if git add -- "${selectedFilespecs[@]}" \
+	&& commitSelection "${subjectModifiers[i]}" "${subjects[i]}"
+    then
+	selectedFilesNumPlural=s; [ $selectedFilesNum -eq 1 ] && selectedFilesNumPlural=
+	printf '%sSegregated %d file%s; %d/%d done: %s %s\n%s\n' \
+	    "$separator" \
+	    $selectedFilesNum "$selectedFilesNumPlural" $doneCnt $filesNum \
+	    "$(git-commitid --short HEAD)" "${message%%$'\n'*}" "$(git dstat HEAD^ HEAD)"
+	separator=$'\n'
+    else
+	undo
+	exit 1
+    fi
+
+    # Remove the committed file(s) from the inputs for further iterations.
+    for filespec in "${selectedFilespecs[@]}"
+    do
+	unset "filespecs[$filespec]"
+    done
+
+    [ ${#filespecs[@]} -gt 0 ] || break
+done
+[ -z "${GIT_SEGREGATECOMMIT_FINAL_MESSAGE+t}" ] || printf '%s\n' "$GIT_SEGREGATECOMMIT_FINAL_MESSAGE"

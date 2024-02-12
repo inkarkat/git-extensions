@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--last-only] [--accept-single] [--single-only] [--range-is-last] [--pass-file-args] [--one-more] [--allow-outside-workingcopy] ... --since <date>|--max-count <number>|-<number>|-n <number>|<range>|--range <range> [--range ...] [GIT-COMMAND-ARGS ...] [--] [FILE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--last-only] [--accept-single] [--single-only] [--range-is-last] [--pass-file-args] [--explicit-file-args] [--one-more] [--allow-outside-workingcopy] ... --since <date>|--max-count <number>|-<number>|-n <number>|<range>|--range <range> [--range ...] [GIT-COMMAND-ARGS ...] [--] [FILE ...] [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [GIT-COMMAND-ARGS ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... COMMITS ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
@@ -43,6 +43,9 @@ HELPDESCRIPTION
     --pass-file-args
 		    Pass FILE arguments also to GIT-COMMAND, and not just use
 		    them to determine the commits.
+    --explicit-file-args
+		    FILE arguments are only parsed when explicitly separated via
+		    an -- argument.
     --one-more	    Offer the first commit [affecting FILE(s)] after the range
 		    as well.
     --allow-outside-workingcopy
@@ -55,6 +58,7 @@ HELPTEXT
 action=getSelected
 isRangeLastArg=
 isPassFileArgs=
+isExplicitFileArgs=
 isAllowOutsideWorkingCopy=
 typeset -a commandOnSelectedArgs=()
 while [ $# -ne 0 ]
@@ -68,6 +72,8 @@ do
 			shift; isRangeLastArg=t;;
 	--pass-file-args)
 			shift; isPassFileArgs=t;;
+	--explicit-file-args)
+			shift; isExplicitFileArgs=t;;
 	--one-more)	shift;
 			if [ -n "$GIT_SELECTEDCOMMIT_COMMAND" ]; then
 			    echo >&2 'ERROR: --one-more cannot be combined with a custom $GIT_SELECTEDCOMMIT_COMMAND.'
@@ -163,7 +169,7 @@ do
 	*)		gitCommandArgs+=("$1"); shift;;
     esac
 done
-if [ -z "${files+t}" ]; then
+if [ -z "${files+t}" ] && [ ! "$isExplicitFileArgs" ]; then
     # No files after -- captured yet; need to investigate parsed and
     # remaining args from behind for files.
     typeset -a files=()

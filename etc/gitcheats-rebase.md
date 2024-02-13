@@ -23,7 +23,7 @@ will be replayed on top of `<upstream>`.
 # special use cases
 * `$ git rebase HEAD <feature> && git rebase HEAD @{-2}`
   Rebase `<feature>` to current branch and merge back to current
-* `$ git rebase master --onto <newbase>` <=> `$ git bmrbi --onto <newbase>`
+* `$ git rebase master --onto <newbase>` <=> `$ git bmrbni --onto <newbase>`
   Rebase the changes in the current branch (with regards to master) to appear
   as if they were committed onto `<newbase>`. Can be used to move a branch with
   a set of commits to another base commit.
@@ -45,6 +45,8 @@ d) `edit` to mark a commit for amending.
 e) `reword` to change the log message.
 f) `squash` to merge a commit with the previous one.
 g) `fixup` to merge a commit with the previous one and discard the log message.
+h) **split a commit** via `edit`, then `$ git reset HEAD^`. Add the parts
+   (`$ git adds / addh`) and commit; rinse and repeat, then continue rebasing.
 
 # during a rebase
 

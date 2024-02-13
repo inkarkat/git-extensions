@@ -80,8 +80,10 @@ if [ -z "$GIT_REBASETODOLISTCOMMAND_COMMANDS" ]; then
 	exit 2
     fi >&2
 
-    [ "$isEdit" ] \
-	&& commands+=' | tempedit --basename git-rebase-todo'
+    if [ "$isEdit" ]; then
+	printf -v quotedGitDir '%q' "$(git rev-parse --git-dir 2>/dev/null)"
+	commands+=" | TMPDIR=$quotedGitDir tempedit --basename git-rebase-todo"
+    fi
 
     GIT_REBASETODOLISTCOMMAND_COMMANDS="$commands" \
 	exec git -c sequence.editor="${BASH_SOURCE[0]}" rebase --interactive "${rebaseArgs[@]}" "$@"

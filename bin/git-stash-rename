@@ -35,7 +35,8 @@ fi
 revision="$(git rev-parse "$stash")" || exit $?
 originalMessage="$(git stash list | sed -ne "s/${stash}: //p")" || exit $?
 
-[ -n "${message+t}" ] || message="$(printf '%s\n' "$originalMessage" | tempedit --basename stash)" || exit $?
+gitDir="$(git rev-parse --git-dir 2>/dev/null)"
+[ -n "${message+t}" ] || message="$(printf '%s\n' "$originalMessage" | TMPDIR="$gitDir" tempedit --basename stash)" || exit $?
 
 git stash drop --quiet "$stash" || exit $?
 git stash store --message "$message" "$revision" || { status=$?; printf >&2 'ERROR: Failed to re-create stash of %s\n' "$revision"; exit $status; }

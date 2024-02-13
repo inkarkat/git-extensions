@@ -51,10 +51,12 @@ if [ -n "${message+t}" -a -z "$message" ]; then
     echo >&2 'Aborting stash due to empty message.'
     exit 1
 elif [ -z "$message" -a -z "${isEdit+t}" ] || [ "$isEdit" ]; then
+    gitDir="$(git rev-parse --git-dir 2>/dev/null)"
+
     # Git (2.43.0) defaults to "WIP on BRANCH|(no branch): %h %s", but when
     # --message is given it only prepends "On BRANCH|(no branch): "
     printf '%s\n' "${message:-$(git log --pretty=format:'%h %s' --max-count 1)}" \
-	| tempedit --basename STASH_EDITMSG --sink-exec "${BASH_SOURCE[0]}" --file {} "$@" \;
+	| TMPDIR="$gitDir" tempedit --basename STASH_EDITMSG --sink-exec "${BASH_SOURCE[0]}" --file {} "$@" \;
     # tempedit can pass the filespec to a sink (which we want to use as it's
     # dependent on the edit success); as "git stash push" only handles --message, do
     # a recursive call with --file that reads the file contents and turns it into

@@ -1,0 +1,27 @@
+#!/bin/bash
+set -o pipefail
+
+printUsage()
+{
+    cat <<HELPTEXT
+Reword the commit message of the last commit by piping its text through COMMAND.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'COMMAND [ARGUMENTS ...] [-?|-h|--help]'
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+if [ $# -eq 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+originalMessage="$(git lo1)" || exit 3
+newMessage="$(printf '%s\n' "$originalMessage" | "$@")" || exit $?
+
+[ "$newMessage" != "$originalMessage" ] || exit 0
+[ -n "$newMessage" ] || exit 4
+
+exec git-wrapper commit --amend --only --cleanup=strip --message "$newMessage"

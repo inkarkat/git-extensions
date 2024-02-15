@@ -17,6 +17,7 @@ if [ ! -t 1 ]; then
     defaultFormatter=()
 fi
 action=pullRequestList
+prAction=list	# XXX: hub pr (in version 2.14.2) does not default to "list" (like hub issue). DWIM and add this.
 format=
 defaultFormat='%pC%>(8)%i%Creset  %t%  l%n'
 issueFormatEmulation='%sC%>(8)%i%Creset  %t%  l'
@@ -30,19 +31,22 @@ do
 	--no-color)	colorArg=(--color=never); shift;; # XXX: --no-color is not supported by hub
 	--color=*)	colorArg=("$1"); shift;;
 	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); shift; shift;;
-	checkout|show)	action="command hub pr $1"; shift; pager=();;
+
 	--format|-f)	shift; format="${1:?}"; shift;;
 	--assignee=*|--creator=*|--mentioned=*)
 			args+=("$1"); shift; action=pullRequestsFromIssues;;
 	--browse)	shift; defaultFormat='%U%n'; issueFormatEmulation='%U'; formatter=(linesToArgs git-browse);;
 	--verbose|-v)	shift; defaultFormat="${defaultFormat/  /  %Ccyan%H%Creset → %Cblue%B%Creset	}"; formatter=("${defaultFormatter[@]}");;
 	--age)		shift; defaultFormat="${defaultFormat/  /  %cI	(%cr)	}"; issueFormatEmulation="${issueFormatEmulation/  / %cI	(%cr)	}"; formatter=("${defaultFormatter[@]}");;
+
+	checkout)	prAction="$1"; shift; pager=();;
+	list|show)	prAction="$1"; shift;;
+
 	--)		args+=("$1"); shift; break;;
 	*)		args+=("$1"); shift;;
     esac
 done
 set -- "${args[@]}" "$@"
-
 
 pullRequestsFromIssues()
 {
@@ -65,13 +69,7 @@ pullRequestsFromIssues()
 
 pullRequestList()
 {
-    # XXX: hub pr (in version 2.14.2) does not default to "list" (like hub issue)
-    # . DWIM and add this.
-    typeset -a defaultAction=()
-    [ $# -eq 0 -o "${1:0:1}" != - ] \
-	&& defaultAction=(list)
-
-    command hub pr "${defaultAction[@]}" --format "${format:-$defaultFormat}" "${colorArg[@]}" "$@"
+    command hub pr ${prAction:?} --format "${format:-$defaultFormat}" "${colorArg[@]}" "$@"
 }
 
 eval '$action "$@"' \

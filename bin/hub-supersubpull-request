@@ -76,7 +76,7 @@ if git issubmodule; then
 	local message
 	message="$(withSeparator \
 	    --command 'hub-superpr' \
-	    --command "git l ${remote}/${base}..${head} -- | markdownEscape" \
+	    --command "git l ${remote}/${base}..${head} --" \
 	    --command "hub-logForPullRequest ${remote}/${base}..${head} --" \
 	)" || exit $?
 
@@ -96,7 +96,7 @@ else
 		    && exit 99; \\
 		logs=\"\$( \\
 		    withSeparator \\
-			--command 'git l ${remote}/${base}..${head} -- | markdownEscape' \\
+			--command 'git l ${remote}/${base}..${head} --' \\
 			--command 'hub-logForPullRequest ${remote}/${base}..${head} --' \\
 		)\"; \\
 		hub-wrapper pull-request --base $base ${head:+--head "$head"} --message ${quotedMessage}\$'\\n\\n'\"\$logs\" --edit${quotedArgs};"
@@ -105,7 +105,7 @@ fi
 
 if ! hub-existspr --base "$base" ${head:+--head "$head"} --print | outputAndPrintf 'Note: Superproject pull request already exists; skipping:\n'; then
     message="$(withSeparator \
-	--command "git l ${remote}/${base}..${head} -- | markdownEscape" \
+	--command "git l ${remote}/${base}..${head} --" \
 	--command "hub-logForPullRequest ${remote}/${base}..${head} --" \
 	--command "git-servername --message -- $head" \
     )" || exit $?
@@ -129,6 +129,6 @@ TMPDIR="$gitDir" exec tempedit \
     --sink-exec gh pr edit --body-file - \; \
     -- withSeparator \
 	--command 'hub pr show -f "%t (← do not edit here)%n%n%b"' \
-	--command "git l ${remote}/${base}..${head} -- | markdownEscape" \
+	--command "git l ${remote}/${base}..${head} --" \
 	--command "git-subchanges ${remote}/${base}..${head} --no-color --include-pull-requests --qualified-with-userrepo --as markdown" \
 

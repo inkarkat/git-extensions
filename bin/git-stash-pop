@@ -1,16 +1,36 @@
 #!/bin/bash
 set -o pipefail
+shopt -qs extglob
 
 stash='stash@{0}'
 typeset -a allargs=()
+typeset -a indexArg=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--index)	indexArg=("$1"); shift;;
 	stash@*)	stash="$1"; shift;;
+	+([0-9]))	stash="stash@{$1}"; shift;;
 	*)		allargs+=("$1"); shift;;
     esac
 done
+
+if [ ${#indexArg[@]} -eq 0 ] && git-stash-isdual "$stash"; then
+    if git-staged | outputAndPrintf --stderr 'Note: Index is dirty:\n'; then
+	userBinaryChoice --keep-prompt --question 'But the stash is a dual stash.' 'Combine into working cop[Y]' '[C]ancel' \
+	    || exit 4
+    else
+	# DWIM: Apply the dual stash to both (clean) index and working copy.
+	indexArg=(--index)
+    fi
+else
+    # XXX: Git complains that local changes would be overwritten, and index isn't
+    # unstashed, but somehow (in Git 2.43.0) it still unstages a new file from the
+    # index?! We can give a better error.
+    [ ${#indexArg[@]} -gt 0 ] && git-staged | outputAndPrintf --stderr 'ERROR: Index must be clean:\n' \
+	&& exit 1
+fi
 
 # Extension: Save the stash's message as a commit template, so that it can be
 # reused for the commit.
@@ -18,4 +38,4 @@ git lo1 "$stash" -- 2>/dev/null \
     | sed -e '1s#^\(WIP on\|On\) \((no branch)\|[^[:space:]]\+\): ##' \
     | git-committemplate --save
 
-exec git stash ${GIT_STASH_COMMAND:-pop} "${allargs[@]}" "$@"
+exec git stash ${GIT_STASH_COMMAND:-pop} "${indexArg[@]}" "${allargs[@]}" "$@" "$stash"

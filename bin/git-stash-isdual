@@ -1,0 +1,27 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Test whether the last / passed <stash> has separate index and working copy
+changes, or is just a single change.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<stash>] [-?|-h|--help]'
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+stash="${1:-stash@{0\}}"; shift
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+single="$(git show --pretty=format: --diff-merges=first-parent "$stash")" || exit 3
+double="$(git show --pretty=format: --diff-merges=separate "$stash")" || exit 3
+
+# A single working copy change repeats the same change; a single index change
+# show just a single change.
+[ "$single" != "$double" ] && [ "${single}"$'\n\n'"${single}" != "$double" ]

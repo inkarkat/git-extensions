@@ -1,0 +1,35 @@
+#!/bin/bash
+set -o pipefail
+shopt -qs extglob
+
+printUsage()
+{
+    cat <<HELPTEXT
+Extension of "git stash show" that shows separate diffs for dual stash and
+allows filtering by <path>s.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[STASH-SHOW-ARGS ...] [--] [<path> ...] [-?|-h|--help]'
+}
+
+stash='stash@{0}'
+typeset -a allargs=()
+typeset -a diffmergesArg=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	stash@*)	stash="$1"; shift;;
+	+([0-9]))	stash="stash@{$1}"; shift;;
+	--diff-merges)	diffmergesArg=("$1" "${2?}"); shift; shift;;
+	--diff-merges=*)
+			diffmergesArg=("$1"); shift;;
+	--)		break;;
+	*)		allargs+=("$1"); shift;;
+    esac
+done
+
+[ ${#diffmergesArg[@]} -eq 0 ] && git-stash-isdual "$stash" \
+    && diffmergesArg=(--diff-merges=separate)
+
+exec git show "${diffmergesArg[@]:---diff-merges=first-parent}" "${allargs[@]}" "$stash" "$@"

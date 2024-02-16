@@ -31,7 +31,13 @@ fi
 
 [ "$isQuiet" ] && exec >/dev/null
 
+# XXX: Replacement removes a GPG signature:
+# warning: the original commit 'HEAD' has a gpg signature
+# warning: the signature will be removed in the replacement commit!
+# Re-add a signature on amending if the original merge commit had been signed.
+typeset -a signArgs=(); git-issigned HEAD && signArgs=(--gpg-sign)
+
 set -e
-git replace -g HEAD HEAD^2 HEAD^1
-git commit --amend --reuse-message=HEAD
+git replace -g HEAD HEAD^2 HEAD^1 2>/dev/null	# Suppress the signature removal warning; we'll undo that.
+git commit --amend --reuse-message=HEAD "${signArgs[@]}"
 git replace -d 'HEAD@{1}'

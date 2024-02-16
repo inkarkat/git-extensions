@@ -1,0 +1,48 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Test whether the last commit / <commit> is signed with a GPG key.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<commit>] [-?|-h|--help]'
+    echo
+    cat <<HELPTEXT
+Print the GPG signing information of the last commit / <commit>.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--print [<commit>] [-?|-h|--help]'
+}
+
+action=testSigning
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --no-color|--color=*)
+			shift;;
+    --color)		shift; shift;;
+    --print|-p)		shift; countArg=(); action=printSigning;;
+esac
+case $# in
+    0)	commit=HEAD;;
+    1)	commit="$1"; shift;;
+    *)	printUsage "$0" >&2; exit 2;;
+esac
+
+querySigning()
+{
+    local format="${1:?}"; shift
+    git show --pretty="format:$format" --no-patch "$commit"
+}
+
+testSigning()
+{
+    [ "$(querySigning '%G?')" != N ]
+}
+
+printSigning()
+{
+    querySigning '%GG'
+}
+
+$action

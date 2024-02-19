@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--last-only] [--accept-single] [--single-only] [--range-is-last] [--pass-file-args] [--explicit-file-args|--no-file-args] [--one-more] [--allow-outside-workingcopy] ... --since <date>|--max-count <number>|-<number>|-n <number>|<range>|--range <range> [--range ...] [GIT-COMMAND-ARGS ...] [--] [FILE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--all|--last-only] [--accept-single] [--single-only] [--range-is-last] [--pass-file-args] [--explicit-file-args|--no-file-args] [--one-more] [--allow-outside-workingcopy] ... --since <date>|--max-count <number>|-<number>|-n <number>|<range>|--range <range> [--range ...] [GIT-COMMAND-ARGS ...] [--] [FILE ...] [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [GIT-COMMAND-ARGS ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... COMMITS ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
@@ -36,6 +36,7 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
+    --all	    Choose all commits in the range without querying.
     --last-only	    Choose the last commit in the range without querying.
     --range-is-last The last (total last, or last of the -(N) / +(N)) argument
 		    is the range. Use if the range looks like A..B,  not --since
@@ -69,6 +70,7 @@ do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--last-only)	shift; action=getLast;;
+	--all)		shift; action=getAll;;
 	--accept-single|--single-only)
 			commandOnSelectedArgs+=("$1"); shift;;
 	--range-is-last)
@@ -261,13 +263,18 @@ getSelected()
     fi
 }
 
-getLast()
+getAll()
 {
     readarray -t commits < <(commitSource --pretty='tformat:%H')
     if [ ${#commits[@]} -eq 0 ]; then
 	echo >&2 'ERROR: No commits available.'
 	return 1
     fi
+}
+
+getLast()
+{
+    getAll || return $?
     commits=("${commits[$((${#commits[@]}-1))]}")
 }
 

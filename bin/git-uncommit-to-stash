@@ -1,0 +1,88 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Undo the last / N commit(s) / up to and including REVISION and stash those
+changes (in a single stash) instead.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-n N|--count N|-r|--revision REVISION] [--first-parent|--unmerge|--parent-number N] [-?|-h|--help]'
+    echo
+    cat <<HELPTEXT
+Move changes to <path>s from the last commit to the stash.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--patch] [--] <path> [...]'
+}
+
+commit='HEAD'
+typeset -a resetToCommitArgs=()
+typeset -a resetArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+	--patch)	resetArgs+=("$1"); shift;;
+	--parent-number)
+			resetToCommitArgs+=("$1" "${2:?}")
+			;;
+	--count|-n)	shift
+			if ! [[ "$1" =~ ^[0-9]+$ ]]; then
+			    printUsage "$0" >&2
+			    exit 2
+			fi
+			commit="HEAD~$(($1 - 1))"
+			shift
+			resetToCommitArgs+=(--revision "$commit");
+			;;
+	--revision|-r)	resetToCommitArgs+=("$1" "${2:?}"); shift; commit="${1:?}"; shift;;
+	--first-parent|--unmerge)
+			resetToCommitArgs+=("$1"); shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if [ $# -gt 0 ]; then
+    if [ ${#resetToCommitArgs[@]} -gt 0 ]; then
+	echo 'ERROR: Cannot combine [-n N|--count N|-r|--revision REVISION] [--first-parent|--unmerge|--parent-number N] with <path>s.'
+	echo
+	printUsage "$0"
+	exit 2
+    elif git-ismerge; then
+	echo 'ERROR: Cannot stash <path>s from a merge commit.'
+	exit 1
+    fi
+fi >&2
+git-dirty --print-error && exit 2   # Don't allow uncommitting to dirty working copy; any pending changes would be mixed with the commit's.
+
+range="${commit}^.."
+typeset -a stashArgs=()
+if [ "$commit" = 'HEAD' ] || git-count -eq 1 "$range"; then
+    message="$(git lo1)"
+else
+   # Need to edit the stash message if there are multiple commits to stash.
+   # Offer both the short logs as well as the (chronological) full commit messages
+   # as the stash message template.
+    message="$(withSeparator \
+	--exec git l "$range" \; \
+	--exec git log --pretty=format:"* %h %B" --reverse "$range" \; \
+    )"
+    stashArgs=(--edit)
+fi
+
+git-resetToCommit --soft "${resetToCommitArgs[@]}" || exit $?
+
+if [ $# -gt 0 ] || [ ${#resetArgs[@]} -gt 0 ]; then
+    git reset "${resetArgs[@]}" HEAD -- "$@"	# Note: This won't fail even if all <path>s do not exist.
+    if git-staged --quiet; then
+    	git commit --reuse-message ORIG_HEAD || exit $?
+    fi
+fi
+
+git-dirty --quiet || exit 99
+exec git-stash-push "${stashArgs[@]}" --message "$message"

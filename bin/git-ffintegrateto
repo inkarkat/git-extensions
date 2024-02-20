@@ -172,6 +172,7 @@ typeset -a gitRemoteMutateArgs=()
 typeset -a reintegrateArgs=()
 isFastForwardTargetToTracked=
 afterReverseMergeCommand=
+isPushMergeToSeparateIntegrationBranch=t    # TODO: --no-merge-to-separate-integration-branch
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -432,6 +433,13 @@ pushBranch()
     fi
 
     local pushBranch="$sourceBranch"
+    typeset -a pushRefspecArg=()
+    if [ "$isPushMergeToSeparateIntegrationBranch" ] && git-ismerge; then
+	pushBranch+='-integration'
+	pushRefspecArg=("HEAD:refs/heads/${pushBranch}")
+	pushBranchForceArg=(--force --force)	# Override any existing previous integration attempt; double-force to suppress "You're pushing to $pushBranch on origin, which is different from origin/${sourceBranch}." confirmation.
+    fi
+
     printf '\nPushing %s that got %s integrated into it:\n' "$pushBranch" "$targetBranch"
     [ ! "$didVisitSubmodules" ] || { header --first "$(git-wcname)"; didVisitSubmodules=; }
 
@@ -440,7 +448,7 @@ pushBranch()
     local quotedSourceBranch; printf -v quotedSourceBranch %q "$sourceBranch"
     # Push to the tracked remote (usually origin).
     git-remote-mutate "$sourceTrackedRemote" --message 'Push' --argument "$pushBranch" --context-command "git rev-range-outgoing $sourceTrackedRemote --color=always --one-more-command greyonelinelog --one-more-only-to-terminal lg --branch $quotedSourceBranch" "${gitRemoteMutateArgs[@]}" \
-	push "${pushBranchForceArg[@]}" "${pushBranchArgs[@]}" "$sourceTrackedRemote" || return $?
+	push "${pushBranchForceArg[@]}" "${pushBranchArgs[@]}" "$sourceTrackedRemote" "${pushRefspecArg[@]}" || return $?
 }
 
 targetTracks="$(git-tracks "$targetBranch" 2>/dev/null)"

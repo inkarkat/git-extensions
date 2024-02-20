@@ -431,14 +431,15 @@ pushBranch()
 	return 1    # Still continue with the branch deletion here, but following push errors will abort.
     fi
 
-    printf '\nPushing %s that got %s integrated into it:\n' "$sourceBranch" "$targetBranch"
+    local pushBranch="$sourceBranch"
+    printf '\nPushing %s that got %s integrated into it:\n' "$pushBranch" "$targetBranch"
     [ ! "$didVisitSubmodules" ] || { header --first "$(git-wcname)"; didVisitSubmodules=; }
 
     [ "$isRebase" ] && pushBranchForceArg=(--force) # Need to force-push when rebasing the current branch on top of <branch>.
     local sourceTrackedRemote="${sourceTracks%%/*}"
     local quotedSourceBranch; printf -v quotedSourceBranch %q "$sourceBranch"
     # Push to the tracked remote (usually origin).
-    git-remote-mutate "$sourceTrackedRemote" --message 'Push' --argument "$sourceBranch" --context-command "git rev-range-outgoing $sourceTrackedRemote --color=always --one-more-command greyonelinelog --one-more-only-to-terminal lg --branch $quotedSourceBranch" "${gitRemoteMutateArgs[@]}" \
+    git-remote-mutate "$sourceTrackedRemote" --message 'Push' --argument "$pushBranch" --context-command "git rev-range-outgoing $sourceTrackedRemote --color=always --one-more-command greyonelinelog --one-more-only-to-terminal lg --branch $quotedSourceBranch" "${gitRemoteMutateArgs[@]}" \
 	push "${pushBranchForceArg[@]}" "${pushBranchArgs[@]}" "$sourceTrackedRemote" || return $?
 }
 

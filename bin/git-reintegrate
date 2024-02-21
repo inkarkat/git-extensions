@@ -4,12 +4,13 @@ shopt -qs extglob
 
 : ${GIT_REINTEGRATE_COMMAND_JOINER=&&}
 : ${GIT_REINTEGRATE_EXEC_END=;}
+: ${GIT_REINTEGRATE_MERGE_INTEGRATION_BRANCH_SUFFIX:=-integration}
 
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--[no-]push] [--no-delete] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] [--ff-target-to-tracked] [--no-submodule-update] [--ignore-dirty-submodules] [-y|--yes] -b|--branch <branch> [...] | [--] <branch> [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--[no-]push] [--no-delete] [--delete-separate-integration-branch] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] [--ff-target-to-tracked] [--no-submodule-update] [--ignore-dirty-submodules] [-y|--yes] -b|--branch <branch> [...] | [--] <branch> [...] [-?|-h|--help]'
     echo
     printf 'Usage: GIT_REINTEGRATE_CHECK_COMMAND=CMD|GIT_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" '[...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" "[...] --no-checks | -c|--command \"CHECK-COMMANDLINE\" [-c ...] | --exec SIMPLECOMMAND [...] $GIT_REINTEGRATE_EXEC_END [--exec ...]"
@@ -45,6 +46,9 @@ HELPDESCRIPTION
 			command (but still check pull requests etc.)
     --no-delete		Don't delete the reintegrated branch(es) from local
 			repository and tracked remote.
+    --delete-separate-integration-branch
+			Also delete integration branch(es) that are separate
+			from the <branch>(es).
     --rebase-single	Rebase only if it's a single non-merge commit, else
 			merge.
     --ff-target-to-tracked
@@ -78,6 +82,7 @@ HELPTEXT
 typeset -a allArgs=("$@")
 isContinue=
 isKeepBranches=
+isDeleteSeparateIntegrationBranch=
 unset isPush
 hasMergeResolutionArg=
 isRebase=
@@ -110,6 +115,8 @@ do
 	--color)	shift; shift;;
 	--continue)	shift; isContinue=t;;
 	--no-delete)	continueArgs+=("$1"); shift; isKeepBranches=t;;
+	--delete-separate-integration-branch)
+			continueArgs+=("$1"); shift; isDeleteSeparateIntegrationBranch=t;;
 	--push)		continueArgs+=("$1"); shift; isPush=t;;
 	--no-push)	continueArgs+=("$1"); shift; isPush=;;
 	--branch|-b)	shift; branches+=("$1"); shift;;
@@ -321,6 +328,19 @@ choiceEvaluate()
 	false)	printf '%s %s (based on the %s config).\n' "$messagePrefix" "$negativeMessage" "$configKey"; return 1;;
 	*)	printf >&2 'ASSERT: Invalid choice: %s\n' "$choice"; exit 3;;
     esac
+}
+
+deleteMergedBranches()
+{
+    local status=0 branch remote
+    for branch
+    do
+	remote="$(git-trackedremote "$branch")" || continue
+	integrationBranch="${branch}${GIT_REINTEGRATE_MERGE_INTEGRATION_BRANCH_SUFFIX:?}"
+	git-existsremotebr "${remote:?}" "$integrationBranch" || continue
+	git-rdeletebr "$remote" "${gitRemoteMutateArgs[@]}" -- "$integrationBranch" || status=$?
+    done
+    return $status
 }
 
 targetBranch="$(git-brname --real-branch-only)" || exit $?
@@ -555,6 +575,10 @@ esac
 [ ! "$isKeepBranches" ] || exit $status
 
 printf '\nDeleting merged branch%s:\n' "$branchesPlural"
+# Note: Need to delete the separate integration branch first, because its
+# implementation depends on the existence of the local branch(es).
+[ ! "$isDeleteSeparateIntegrationBranch" ] \
+    || deleteMergedBranches "${branches[@]}" || status=$?
 hub-delete-merged-branches "${gitRemoteMutateArgs[@]}" -- "${branches[@]}" || status=$?
 
 printf '\n✓ Branch%s completely reintegrated.\n' "$branchesPlural"

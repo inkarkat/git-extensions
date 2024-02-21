@@ -4,6 +4,7 @@ shopt -qs extglob
 
 : ${GIT_FFINTEGRATETO_COMMAND_JOINER=&&}
 : ${GIT_FFINTEGRATETO_EXEC_END=;}
+: ${GIT_REINTEGRATE_MERGE_INTEGRATION_BRANCH_SUFFIX:=-integration}
 
 readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
 
@@ -432,6 +433,7 @@ deleteMergedSubmoduleBranches()
     git-showsubmodules "${targetIntegrationSourceBranch:?}..HEAD" | git-subdo --status-99-is-noop --for - --interactive delete-merged-branches "${gitRemoteMutateArgs[@]}" -- "$sourceBranch"
 }
 
+typeset -a reintegrateDeleteSeparateIntegrationBranchArg=()
 pushBranch()
 {
     if [ -z "$sourceTracks" ]; then
@@ -442,9 +444,10 @@ pushBranch()
     local pushBranch="$sourceBranch"
     typeset -a pushRefspecArg=()
     if [ "$isPushMergeToSeparateIntegrationBranch" ] && git-ismerge; then
-	pushBranch+='-integration'
+	pushBranch+="${GIT_REINTEGRATE_MERGE_INTEGRATION_BRANCH_SUFFIX:?}"
 	pushRefspecArg=("HEAD:refs/heads/${pushBranch}")
 	pushBranchForceArg=(--force --force)	# Override any existing previous integration attempt; double-force to suppress "You're pushing to $pushBranch on origin, which is different from origin/${sourceBranch}." confirmation.
+	reintegrateDeleteSeparateIntegrationBranchArg=(--delete-separate-integration-branch)
     fi
 
     printf '\nPushing %s that got %s integrated into it:\n' "$pushBranch" "$targetBranch"
@@ -685,7 +688,7 @@ fi
 
 [ "$didVisitSubmodules" ] && header "$(git-wcname)" || echo
 
-typeset -a reintegratetoArgs=(--ff-only --no-checks --branch "$targetBranch"${isKeepBranches:+ --no-delete} "${pushArg[@]}" "${reintegrateArgs[@]}" "${gitRemoteMutateArgs[@]}")
+typeset -a reintegratetoArgs=(--ff-only --no-checks --branch "$targetBranch"${isKeepBranches:+ --no-delete} "${pushArg[@]}" "${reintegrateArgs[@]}" "${gitRemoteMutateArgs[@]}" "${reintegrateDeleteSeparateIntegrationBranchArg[@]}")
 if [ "$isPerformTheMerge" ]; then
     exec git-reintegrateto "${reintegratetoArgs[@]}"
 elif [ -z "${mergeSuggestion+t}" ]; then

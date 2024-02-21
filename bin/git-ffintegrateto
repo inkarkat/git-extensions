@@ -11,7 +11,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '<branch>|-b|--branch <branch> [--[no-]push] [--push-branch [--force] [--recurse-submodules=on-demand]] [--push-submodules] [--delete-merged-submodule-branches] [--no-merge] [--no-delete] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] [--no-submodule-checkout] [--no-submodule-update] [-y|--yes] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '<branch>|-b|--branch <branch> [--[no-]push] [--push-branch [--force] [--recurse-submodules=on-demand]] [--push-submodules] [--delete-merged-submodule-branches] [--no-merge] [--no-delete] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] [--no-submodule-checkout] [--no-submodule-update] [--no-merge-to-separate-integration-branch] [-y|--yes] [-?|-h|--help]'
     echo
     printf 'Usage: GIT_REINTEGRATE_CHECK_COMMAND=CMD|GIT_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" '[...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" "[...] --no-checks | -c|--command \"CHECK-COMMANDLINE\" [-c ...] | --exec SIMPLECOMMAND [...] $GIT_FFINTEGRATETO_EXEC_END [--exec ...]"
@@ -82,6 +82,11 @@ HELPDESCRIPTION
 			Don't automatically check out resulting submodule
 			versions (after the fast-forward; the merge / rebase
 			will update submodules).
+    --no-merge-to-separate-integration-branch
+			Push a merge commit to the original source branch
+			instead of creating a separate remote branch for that.
+			This will pollute a pull request with additional commits
+			from the master branch and the merge commit itself!
     --no-checks		Don't run any default \$GIT_REINTEGRATE_CHECK_COMMAND /
 			\$GIT_CHECK_COMMAND.
     --yes		Don't query for confirmation of remote mutations.
@@ -172,7 +177,7 @@ typeset -a gitRemoteMutateArgs=()
 typeset -a reintegrateArgs=()
 isFastForwardTargetToTracked=
 afterReverseMergeCommand=
-isPushMergeToSeparateIntegrationBranch=t    # TODO: --no-merge-to-separate-integration-branch
+isPushMergeToSeparateIntegrationBranch=t
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -244,6 +249,8 @@ do
 	--@(strategy|strategy-option|gpg-sign))		mergeArgs+=("$1" "$2"); shift; shift;;
 	--no-submodule-checkout|--no-submodule-update)
 			reintegrateArgs+=("$1"); shift;;
+	--no-merge-to-separate-integration-branch)
+			shift; isPushMergeToSeparateIntegrationBranch=;;
 	--ff-target-to-tracked)
 			reintegrateArgs+=("$1"); shift; isFastForwardTargetToTracked=t;;
 

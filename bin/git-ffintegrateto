@@ -4,6 +4,7 @@ shopt -qs extglob
 
 : ${GIT_FFINTEGRATETO_COMMAND_JOINER=&&}
 : ${GIT_FFINTEGRATETO_EXEC_END=;}
+: ${GIT_REINTEGRATE_MERGE_INTEGRATION_BRANCH_SUFFIX:=-integration}
 
 readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
 
@@ -11,7 +12,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '<branch>|-b|--branch <branch> [--[no-]push] [--push-branch [--force] [--recurse-submodules=on-demand]] [--push-submodules] [--delete-merged-submodule-branches] [--no-merge] [--no-delete] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] [--no-submodule-checkout] [--no-submodule-update] [-y|--yes] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '<branch>|-b|--branch <branch> [--[no-]push] [--push-branch [--force] [--recurse-submodules=on-demand]] [--push-submodules] [--delete-merged-submodule-branches] [--no-merge] [--no-delete] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] [--no-submodule-checkout] [--no-submodule-update] [--no-merge-to-separate-integration-branch] [-y|--yes] [-?|-h|--help]'
     echo
     printf 'Usage: GIT_REINTEGRATE_CHECK_COMMAND=CMD|GIT_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" '[...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" "[...] --no-checks | -c|--command \"CHECK-COMMANDLINE\" [-c ...] | --exec SIMPLECOMMAND [...] $GIT_FFINTEGRATETO_EXEC_END [--exec ...]"
@@ -82,6 +83,11 @@ HELPDESCRIPTION
 			Don't automatically check out resulting submodule
 			versions (after the fast-forward; the merge / rebase
 			will update submodules).
+    --no-merge-to-separate-integration-branch
+			Push a merge commit to the original source branch
+			instead of creating a separate remote branch for that.
+			This will pollute a pull request with additional commits
+			from the master branch and the merge commit itself!
     --no-checks		Don't run any default \$GIT_REINTEGRATE_CHECK_COMMAND /
 			\$GIT_CHECK_COMMAND.
     --yes		Don't query for confirmation of remote mutations.
@@ -172,6 +178,7 @@ typeset -a gitRemoteMutateArgs=()
 typeset -a reintegrateArgs=()
 isFastForwardTargetToTracked=
 afterReverseMergeCommand=
+isPushMergeToSeparateIntegrationBranch=t
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -243,6 +250,8 @@ do
 	--@(strategy|strategy-option|gpg-sign))		mergeArgs+=("$1" "$2"); shift; shift;;
 	--no-submodule-checkout|--no-submodule-update)
 			reintegrateArgs+=("$1"); shift;;
+	--no-merge-to-separate-integration-branch)
+			shift; isPushMergeToSeparateIntegrationBranch=;;
 	--ff-target-to-tracked)
 			reintegrateArgs+=("$1"); shift; isFastForwardTargetToTracked=t;;
 
@@ -424,6 +433,7 @@ deleteMergedSubmoduleBranches()
     git-showsubmodules "${targetIntegrationSourceBranch:?}..HEAD" | git-subdo --status-99-is-noop --for - --interactive delete-merged-branches "${gitRemoteMutateArgs[@]}" -- "$sourceBranch"
 }
 
+typeset -a reintegrateDeleteSeparateIntegrationBranchArg=()
 pushBranch()
 {
     if [ -z "$sourceTracks" ]; then
@@ -431,15 +441,24 @@ pushBranch()
 	return 1    # Still continue with the branch deletion here, but following push errors will abort.
     fi
 
-    printf '\nPushing %s that got %s integrated into it:\n' "$sourceBranch" "$targetBranch"
+    local pushBranch="$sourceBranch"
+    typeset -a pushRefspecArg=()
+    if [ "$isPushMergeToSeparateIntegrationBranch" ] && git-ismerge; then
+	pushBranch+="${GIT_REINTEGRATE_MERGE_INTEGRATION_BRANCH_SUFFIX:?}"
+	pushRefspecArg=("HEAD:refs/heads/${pushBranch}")
+	pushBranchForceArg=(--force --force)	# Override any existing previous integration attempt; double-force to suppress "You're pushing to $pushBranch on origin, which is different from origin/${sourceBranch}." confirmation.
+	reintegrateDeleteSeparateIntegrationBranchArg=(--delete-separate-integration-branch)
+    fi
+
+    printf '\nPushing %s that got %s integrated into it:\n' "$pushBranch" "$targetBranch"
     [ ! "$didVisitSubmodules" ] || { header --first "$(git-wcname)"; didVisitSubmodules=; }
 
     [ "$isRebase" ] && pushBranchForceArg=(--force) # Need to force-push when rebasing the current branch on top of <branch>.
     local sourceTrackedRemote="${sourceTracks%%/*}"
     local quotedSourceBranch; printf -v quotedSourceBranch %q "$sourceBranch"
     # Push to the tracked remote (usually origin).
-    git-remote-mutate "$sourceTrackedRemote" --message 'Push' --argument "$sourceBranch" --context-command "git rev-range-outgoing $sourceTrackedRemote --color=always --one-more-command greyonelinelog --one-more-only-to-terminal lg --branch $quotedSourceBranch" "${gitRemoteMutateArgs[@]}" \
-	push "${pushBranchForceArg[@]}" "${pushBranchArgs[@]}" "$sourceTrackedRemote" || return $?
+    git-remote-mutate "$sourceTrackedRemote" --message 'Push' --argument "$pushBranch" --context-command "git rev-range-outgoing $sourceTrackedRemote --color=always --one-more-command greyonelinelog --one-more-only-to-terminal lg --branch $quotedSourceBranch" "${gitRemoteMutateArgs[@]}" \
+	push "${pushBranchForceArg[@]}" "${pushBranchArgs[@]}" "$sourceTrackedRemote" "${pushRefspecArg[@]}" || return $?
 }
 
 targetTracks="$(git-tracks "$targetBranch" 2>/dev/null)"
@@ -669,7 +688,7 @@ fi
 
 [ "$didVisitSubmodules" ] && header "$(git-wcname)" || echo
 
-typeset -a reintegratetoArgs=(--ff-only --no-checks --branch "$targetBranch"${isKeepBranches:+ --no-delete} "${pushArg[@]}" "${reintegrateArgs[@]}" "${gitRemoteMutateArgs[@]}")
+typeset -a reintegratetoArgs=(--ff-only --no-checks --branch "$targetBranch"${isKeepBranches:+ --no-delete} "${pushArg[@]}" "${reintegrateArgs[@]}" "${gitRemoteMutateArgs[@]}" "${reintegrateDeleteSeparateIntegrationBranchArg[@]}")
 if [ "$isPerformTheMerge" ]; then
     exec git-reintegrateto "${reintegratetoArgs[@]}"
 elif [ -z "${mergeSuggestion+t}" ]; then

@@ -16,6 +16,8 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--patch] [--] <path> [...]'
 }
 
+action=uncommitRange
+noopStatus=99
 commit='HEAD'
 typeset -a resetToCommitArgs=()
 typeset -a resetArgs=()
@@ -60,29 +62,34 @@ if [ $# -gt 0 ]; then
 fi >&2
 git-dirty --print-error && exit 2   # Don't allow uncommitting to dirty working copy; any pending changes would be mixed with the commit's.
 
-range="${commit}^.."
-typeset -a stashArgs=()
-if [ "$commit" = 'HEAD' ] || git-count -eq 1 "$range"; then
-    message="$(git lo1)"
-else
-   # Need to edit the stash message if there are multiple commits to stash.
-   # Offer both the short logs as well as the (chronological) full commit messages
-   # as the stash message template.
-    message="$(withSeparator \
-	--exec git l "$range" \; \
-	--exec git log --pretty=format:"* %h %B" --reverse "$range" \; \
-    )"
-    stashArgs=(--edit)
-fi
-
-git-resetToCommit --soft "${resetToCommitArgs[@]}" || exit $?
-
-if [ $# -gt 0 ] || [ ${#resetArgs[@]} -gt 0 ]; then
-    git reset "${resetArgs[@]}" HEAD -- "$@"	# Note: This won't fail even if all <path>s do not exist.
-    if git-staged --quiet; then
-    	git commit --reuse-message ORIG_HEAD || exit $?
+uncommitRange()
+{
+    range="${commit}^.."
+    typeset -a stashArgs=()
+    if [ "$commit" = 'HEAD' ] || git-count -eq 1 "$range"; then
+	message="$(git lo1)"
+    else
+    # Need to edit the stash message if there are multiple commits to stash.
+    # Offer both the short logs as well as the (chronological) full commit messages
+    # as the stash message template.
+	message="$(withSeparator \
+	    --exec git l "$range" \; \
+	    --exec git log --pretty=format:"* %h %B" --reverse "$range" \; \
+	)"
+	stashArgs=(--edit)
     fi
-fi
 
-git-dirty --quiet || exit 99
-exec git-stash-push "${stashArgs[@]}" --message "$message"
+    git-resetToCommit --soft "${resetToCommitArgs[@]}" || exit $?
+
+    if [ $# -gt 0 ] || [ ${#resetArgs[@]} -gt 0 ]; then
+	git reset "${resetArgs[@]}" HEAD -- "$@"	# Note: This won't fail even if all <path>s do not exist.
+	if git-staged --quiet; then
+	    git commit --reuse-message ORIG_HEAD || exit $?
+	fi
+    fi
+
+    git-dirty --quiet || exit $noopStatus
+    exec git-stash-push "${stashArgs[@]}" --message "$message"
+}
+
+$action "$@"

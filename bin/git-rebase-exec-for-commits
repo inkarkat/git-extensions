@@ -1,0 +1,140 @@
+#!/bin/bash
+
+: ${GIT_REBASEEXECFORCOMMITS_COMMITS_END=;}
+: ${GIT_REBASEEXECFORCOMMITS_EXEC_END=;}
+: ${GIT_REBASEEXECFORCOMMITS_NOOP_EXIT_STATUS:=0}
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" "--commits [COMMIT ...] $GIT_REBASEEXECFORCOMMITS_COMMITS_END [--edit|-i|--interactive] [-c|-x|--command COMMANDLINE|--exec SIMPLECOMMAND [...] ${GIT_REBASEEXECFORCOMMITS_EXEC_END} [-c ...]]  [<rebase-args> ...] [-- SIMPLECOMMAND ...] [-?|-h|--help]"
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Reapply commits up to the first commit of COMMIT(s) and execute COMMAND whenever
+HEAD is at a COMMIT. Basically, a selective git rebase --exec.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --commits COMMIT [...] ${GIT_REBASEEXECFORCOMMITS_COMMITS_END}
+			Execute -c|--command, --exec ... ; and/or
+			git SIMPLECOMMAND after applying the following
+			COMMIT(s); i.e. all following arguments until an
+			argument consisting of '${GIT_REBASEEXECFORCOMMITS_COMMITS_END}' is encountered.
+HELPTEXT
+}
+
+execCommandLines=
+addExec()
+{
+    local cmd="${1:?}"; shift
+
+    # XXX: Git rebase uses the default shell, which isn't necessarily Bash.
+    # It also has a problem of dropping a trailing space when it's
+    # backslash-escaped. By converting \n to a literal newline, the following fix
+    # will be applied to escaped newlines as well.
+    type -t changeQuoting >/dev/null && cmd="$(printf %s "$cmd" | changeQuoting)"
+
+    # XXX: exec commands cannot contain newlines.
+    cmd="${cmd//$'\\\n'/ }"
+    cmd="${cmd//$'\n'/; }"
+
+    execCommandLines+="${execCommandLines:+$'\n'}exec ${cmd}"
+}
+
+typeset -a rebaseTodoListArgs=()
+typeset -a rebaseArgs=()
+typeset -a commits=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+
+	--commits)	shift
+			while [ $# -gt 0 -a "$1" != "$GIT_REBASEEXECFORCOMMITS_COMMITS_END" ]
+			do
+			    commits+=("$1")
+			    shift
+			done
+			if [ $# -eq 0 ]; then
+			    echo "ERROR: --commits must be concluded with '${GIT_REBASEEXECFORCOMMITS_COMMITS_END}'"; echo; printUsage "$0"
+			    exit 2
+			fi >&2
+			shift
+			;;
+
+	--edit|--interactive|-i)
+			rebaseTodoListArgs+=("$1"); shift;;
+
+	--command|-c|-x)
+			shift; addExec "${1:?}"; shift;;
+	--exec)		shift
+			if ! contains "$GIT_REBASEEXECFORCOMMITS_EXEC_END" "$@"; then
+			    # Also support the build-in --exec as well (though I prefer -c|--command).
+			    addExec "${1:?}"; shift
+			    continue
+			fi
+
+			cmd=
+			while [ $# -gt 0 -a "$1" != "$GIT_REBASEEXECFORCOMMITS_EXEC_END" ]
+			do
+			    printf -v quotedArg '%q' "$1"
+			    cmd+="${cmd:+ }${quotedArg}"
+			    shift
+			done
+			if [ $# -eq 0 ]; then
+			    echo "ERROR: --exec command must be concluded with '${GIT_REBASEEXECFORCOMMITS_EXEC_END}'"; echo; printUsage "$0"
+			    exit 2
+			fi >&2
+			shift
+			addExec "$cmd"
+			;;
+	--)		shift
+			if [ $# -gt 0 ]; then
+			    printf -v quotedSimpleCommand ' %q' "$@"
+			    addExec "git-wrapper${quotedSimpleCommand}"
+			    set --
+			fi
+			break
+			;;
+	*)		rebaseArgs+=("$1"); shift;;
+    esac
+done
+
+if [ ${#commits[@]} -eq 0 ]; then
+    echo "ERROR: No --commits COMMIT(s) $GIT_REBASEEXECFORCOMMITS_COMMITS_END passed."
+    echo
+    printUsage "$0"
+    exit 2
+fi >&2
+
+readarray -t shortRevisions < <(printf '%s\n' "${commits[@]}" | git-graphsortrevs --abbrev-commit)
+firstRevision="${shortRevisions[-1]}"
+
+typeset -a sedArgs=()
+for shortRev in "${shortRevisions[@]}"
+do
+    sedArgs+=(-e "/^pick $shortRev /a\\
+${execCommandLines//\\/\\\\}"
+)
+done
+
+exec git-rebase-todo-list-command "${rebaseTodoListArgs[@]}" \
+    --exec sed "${sedArgs[@]}" \; \
+    "${rebaseArgs[@]}" "${firstRevision}^"

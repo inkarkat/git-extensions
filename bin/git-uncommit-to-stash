@@ -23,7 +23,7 @@ Move changes [to <path>s] from passed COMMIT(s) to the stash (individually, via
 rebasing).
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[--patch] --commits [COMMIT ...] $GIT_UNCOMMITTOSTASH_COMMITS_END [--] [<path> ...]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[--patch] --commits [COMMIT ...] $GIT_UNCOMMITTOSTASH_COMMITS_END [--edit|-i|--interactive] [--] [<path> ...]"
 }
 
 action=uncommitRange
@@ -32,6 +32,7 @@ commit='HEAD'
 typeset -a resetToCommitArgs=()
 typeset -a resetArgs=()
 typeset -a commits=()
+typeset -a rebaseExecForCommitsArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -59,7 +60,7 @@ do
 	--commits)	shift
 			while [ $# -gt 0 -a "$1" != "$GITUNCOMMITTOSTASH_COMMITS_END" ]
 			do
-			    commits+=("$1")
+			    commits+=("$(git-commitid --short "$1")") || exit 2
 			    shift
 			done
 			if [ $# -eq 0 ]; then
@@ -75,6 +76,8 @@ do
 			;;
 	--succeed-on-noop)
 			shift; noopStatus=0;;
+	--edit|-i|--interactive)
+			rebaseExecForCommitsArgs+=("$1"); shift;;
 
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
@@ -131,13 +134,12 @@ uncommitRange()
 
 rebaseCommits()
 {
-    local firstRevision; firstRevision="$(printf '%s\n' "${commits[@]}" | git-graphsortrevs | tail -n 1)" || exit 3
+    local firstRevision; firstRevision="$(printf '%s\n' "${commits[@]}" | git-graphsortrevs --abbrev-commit | tail -n 1)" || exit 3
     readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
     typeset -a noopArg=(--succeed-on-noop)	# Do not abort rebasing if a COMMIT doesn't have <path>s to stash.
-    exec git-rebase --interactive \
-	"${firstRevision}^" \
-	-- for-commits-command --commits "${commits[@]}" \; \
-		"${scriptName#git-}" "${noopArg[@]}" "${resetArgs[@]}" -- "$@"
+    exec git-rebase-exec-for-commits "${rebaseExecForCommitsArgs[@]}" \
+	--commits "${commits[@]}" \; \
+	    -- "${scriptName#git-}" "${noopArg[@]}" "${resetArgs[@]}" -- "$@"
 }
 
 $action "$@"

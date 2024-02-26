@@ -1,4 +1,7 @@
 #!/bin/bash
+set -o pipefail
+
+: ${GITUNCOMMITTOSTASH_COMMITS_END=;}
 
 printUsage()
 {
@@ -14,6 +17,13 @@ Move changes to <path>s from the last commit to the stash.
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--patch] [--] <path> [...]'
+    echo
+    cat <<HELPTEXT
+Move changes [to <path>s] from passed COMMIT(s) to the stash (individually, via
+rebasing).
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[--patch] --commits [COMMIT ...] $GIT_UNCOMMITTOSTASH_COMMITS_END [--] [<path> ...]"
 }
 
 action=uncommitRange
@@ -21,6 +31,7 @@ noopStatus=99
 commit='HEAD'
 typeset -a resetToCommitArgs=()
 typeset -a resetArgs=()
+typeset -a commits=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -44,6 +55,27 @@ do
 	--revision|-r)	resetToCommitArgs+=("$1" "${2:?}"); shift; commit="${1:?}"; shift;;
 	--first-parent|--unmerge)
 			resetToCommitArgs+=("$1"); shift;;
+
+	--commits)	shift
+			while [ $# -gt 0 -a "$1" != "$GITUNCOMMITTOSTASH_COMMITS_END" ]
+			do
+			    commits+=("$1")
+			    shift
+			done
+			if [ $# -eq 0 ]; then
+			    echo "ERROR: --commits must be concluded with '${GITUNCOMMITTOSTASH_COMMITS_END}'"; echo; printUsage "$0"
+			    exit 2
+			fi >&2
+			shift
+			if [ ${#commits[@]} -eq 0 ]; then
+			    echo 'ERROR: --commits must be followed by at least one ARGUMENT.'; echo; printUsage "$0"
+			    exit 2
+			fi >&2
+			action=rebaseCommits
+			;;
+	--succeed-on-noop)
+			shift; noopStatus=0;;
+
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -59,6 +91,11 @@ if [ $# -gt 0 ]; then
 	echo 'ERROR: Cannot stash <path>s from a merge commit.'
 	exit 1
     fi
+elif [ ${#resetToCommitArgs[@]} -gt 0 -a ${#commits[@]} -gt 0 ]; then
+    echo "ERROR: Cannot combine -n N|--count N|-r|--revision REVISION with --commits COMMIT [...] ${GIT_UNCOMMITTOSTASH_COMMITS_END}."
+    echo
+    printUsage "$0"
+    exit 2
 fi >&2
 git-dirty --print-error && exit 2   # Don't allow uncommitting to dirty working copy; any pending changes would be mixed with the commit's.
 
@@ -90,6 +127,17 @@ uncommitRange()
 
     git-dirty --quiet || exit $noopStatus
     exec git-stash-push "${stashArgs[@]}" --message "$message"
+}
+
+rebaseCommits()
+{
+    local firstRevision; firstRevision="$(printf '%s\n' "${commits[@]}" | git-graphsortrevs | tail -n 1)" || exit 3
+    readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
+    typeset -a noopArg=(--succeed-on-noop)	# Do not abort rebasing if a COMMIT doesn't have <path>s to stash.
+    exec git-rebase --interactive \
+	"${firstRevision}^" \
+	-- for-commits-command --commits "${commits[@]}" \; \
+		"${scriptName#git-}" "${noopArg[@]}" "${resetArgs[@]}" -- "$@"
 }
 
 $action "$@"

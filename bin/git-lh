@@ -2,6 +2,7 @@
 shopt -qs extglob
 
 typeset -a logArgs=()
+hashFormat='%H'
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -9,6 +10,9 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
+
+	--abbrev-commit|--abbrev|--abbrev=*)
+			logArgs+=("$1"); shift; hashFormat='%h';;
 
 	# Ignore options that influence commit formatting (we need just the
 	# hashes), and diff options.
@@ -23,4 +27,4 @@ do
     esac
 done
 
-exec git log --pretty=tformat:%H "${logArgs[@]}" "$@"
+exec git log --pretty="tformat:$hashFormat" "${logArgs[@]}" "$@"

@@ -1,20 +1,39 @@
 #!/bin/bash
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: [HUB_DELETEMERGEDBRANCHES_TIMEOUT_BASEEPOCH=EPOCH] [HUB_DELETEMERGEDBRANCHES_WAITTIME=SECONDS] %q %s\n' "$(basename "$1")" '[-y|--yes] [--] <branch>|<revision> [...] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 Delete all passed branch(es) locally as well as in the tracked remote (unless it
 has already been auto-deleted by GitHub).
-HELPTEXT
+HELPDESCRIPTION
     echo
-    printf 'Usage: [HUB_DELETEMERGEDBRANCHES_TIMEOUT_BASEEPOCH=EPOCH] [HUB_DELETEMERGEDBRANCHES_WAITTIME=SECONDS] %q %s\n' "$(basename "$1")" '[-y|--yes] [--] <branch>|<revision> [...] [-?|-h|--help]'
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --yes		Don't query for confirmation of remote mutations.
+HELPTEXT
 }
 
 typeset -a gitRemoteMutateArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;

@@ -1,0 +1,68 @@
+#!/bin/bash
+
+: ${GIT_FORCOMMITSCOMMAND_COMMITS_END=;}
+: ${GIT_FORCOMMITSCOMMAND_NOOP_EXIT_STATUS:=0}
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" "--commits [COMMIT ...] $GIT_FORCOMMITSCOMMAND_COMMITS_END GIT-COMMAND [...] [-?|-h|--help]"
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Execute GIT-COMMAND if the current HEAD is contained in COMMITS.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --commits COMMIT [...] ${GIT_FORCOMMITSCOMMAND_COMMITS_END}
+			Only consider the following COMMIT(s); i.e. all
+			following arguments until an argument consisting of
+			'${GIT_FORCOMMITSCOMMAND_COMMITS_END}' is encountered.
+EXIT STATUS:
+    0	Current HEAD not in COMMIT(s), or success of the GIT-COMMAND.
+    2	Bad invocation, wrong or missing command-line arguments.
+    *   any exit status from COMMAND(s)
+HELPTEXT
+}
+
+typeset -A commits=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--commits)	shift
+			while [ $# -gt 0 -a "$1" != "$GIT_FORCOMMITSCOMMAND_COMMITS_END" ]
+			do
+			    commit="$(git-commitid "$1")" || exit 2
+			    commits["$commit"]=t
+			    shift
+			done
+			if [ $# -eq 0 ]; then
+			    echo "ERROR: --commits must be concluded with '${GIT_FORCOMMITSCOMMAND_COMMITS_END}'"; echo; printUsage "$0"
+			    exit 2
+			fi >&2
+			shift
+			;;
+	--)		break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+
+thisCommit="$(git-commitid HEAD)" || exit 3
+[ "${commits["$thisCommit"]}" = t ] || exit $GIT_FORCOMMITSCOMMAND_NOOP_EXIT_STATUS
+
+exec git-wrapper "$@"

@@ -4,7 +4,6 @@ shopt -qs extglob
 
 : ${GIT_REINTEGRATE_COMMAND_JOINER=&&}
 : ${GIT_REINTEGRATE_EXEC_END=;}
-: ${GIT_REINTEGRATE_MERGE_INTEGRATION_BRANCH_SUFFIX:=-integration}
 
 printShortUsage()
 {
@@ -82,7 +81,7 @@ HELPTEXT
 typeset -a allArgs=("$@")
 isContinue=
 isKeepBranches=
-isDeleteSeparateIntegrationBranch=
+typeset -a deleteMergedBranchesArgs=()
 unset isPush
 hasMergeResolutionArg=
 isRebase=
@@ -116,7 +115,7 @@ do
 	--continue)	shift; isContinue=t;;
 	--no-delete)	continueArgs+=("$1"); shift; isKeepBranches=t;;
 	--delete-separate-integration-branch)
-			continueArgs+=("$1"); shift; isDeleteSeparateIntegrationBranch=t;;
+			continueArgs+=("$1"); deleteMergedBranchesArgs+=("$1"); shift;;
 	--push)		continueArgs+=("$1"); shift; isPush=t;;
 	--no-push)	continueArgs+=("$1"); shift; isPush=;;
 	--branch|-b)	shift; branches+=("$1"); shift;;
@@ -328,19 +327,6 @@ choiceEvaluate()
 	false)	printf '%s %s (based on the %s config).\n' "$messagePrefix" "$negativeMessage" "$configKey"; return 1;;
 	*)	printf >&2 'ASSERT: Invalid choice: %s\n' "$choice"; exit 3;;
     esac
-}
-
-deleteMergedBranches()
-{
-    local status=0 branch remote
-    for branch
-    do
-	remote="$(git-trackedremote "$branch")" || continue
-	integrationBranch="${branch}${GIT_REINTEGRATE_MERGE_INTEGRATION_BRANCH_SUFFIX:?}"
-	git-existsremotebr "${remote:?}" "$integrationBranch" || continue
-	git-rdeletebr "$remote" "${gitRemoteMutateArgs[@]}" -- "$integrationBranch" || status=$?
-    done
-    return $status
 }
 
 targetBranch="$(git-brname --real-branch-only)" || exit $?
@@ -575,11 +561,7 @@ esac
 [ ! "$isKeepBranches" ] || exit $status
 
 printf '\nDeleting merged branch%s:\n' "$branchesPlural"
-# Note: Need to delete the separate integration branch first, because its
-# implementation depends on the existence of the local branch(es).
-[ ! "$isDeleteSeparateIntegrationBranch" ] \
-    || deleteMergedBranches "${branches[@]}" || status=$?
-hub-delete-merged-branches "${gitRemoteMutateArgs[@]}" -- "${branches[@]}" || status=$?
+hub-delete-merged-branches "${deleteMergedBranchesArgs[@]}" "${gitRemoteMutateArgs[@]}" -- "${branches[@]}" || status=$?
 
 printf '\n✓ Branch%s completely reintegrated.\n' "$branchesPlural"
 exit $status

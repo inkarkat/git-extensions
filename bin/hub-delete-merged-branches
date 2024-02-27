@@ -1,10 +1,12 @@
 #!/bin/bash
 
+: ${GIT_REINTEGRATE_MERGE_INTEGRATION_BRANCH_SUFFIX:=-integration}
+
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: [HUB_DELETEMERGEDBRANCHES_TIMEOUT_BASEEPOCH=EPOCH] [HUB_DELETEMERGEDBRANCHES_WAITTIME=SECONDS] %q %s\n' "$(basename "$1")" '[-y|--yes] [--] <branch>|<revision> [...] [-?|-h|--help]'
+    printf 'Usage: [HUB_DELETEMERGEDBRANCHES_TIMEOUT_BASEEPOCH=EPOCH] [HUB_DELETEMERGEDBRANCHES_WAITTIME=SECONDS] %q %s\n' "$(basename "$1")" '[--delete-separate-integration-branch] [-y|--yes] [--] <branch>|<revision> [...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -25,11 +27,15 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
+    --delete-separate-integration-branch
+			Also delete integration branch(es) that are separate
+			from the <branch>(es), named <branch>${GIT_REINTEGRATE_MERGE_INTEGRATION_BRANCH_SUFFIX}.
     --yes		Don't query for confirmation of remote mutations.
 HELPTEXT
 }
 
 typeset -a gitRemoteMutateArgs=()
+isDeleteSeparateIntegrationBranch=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -37,6 +43,8 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
+	--delete-separate-integration-branch)
+			shift; isDeleteSeparateIntegrationBranch=t;;
 	--yes|-y)	gitRemoteMutateArgs+=("$1"); shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
@@ -93,6 +101,18 @@ do
 	trackedRemote='origin'
 	rldeletebrArgs=(--ignore-missing-in-origin)
     fi
+
+    # Note: Need to delete the separate integration branch first, because its
+    # implementation depends on the existence of the local branch(es).
+    if [ "$isDeleteSeparateIntegrationBranch" ]; then
+	integrationBranch="${branch}${GIT_REINTEGRATE_MERGE_INTEGRATION_BRANCH_SUFFIX:?}"
+	if git-existsremotebr "$trackedRemote" "$integrationBranch" \
+	    && git-rdeletebr "$trackedRemote" "${gitRemoteMutateArgs[@]}" -- "$integrationBranch"
+	then
+	    status=$(status99Reduction "$status" 99)
+	fi
+    fi
+
     if hasBranchBeenAutoDeletedOnMerge "$trackedRemote" "$branch"; then
 	printf >&2 "Note: GitHub already has automatically deleted the merged branch '%s' in %s.\\n" "$branch" "$trackedRemote"
 	if git-existsbr -- "$branch"; then

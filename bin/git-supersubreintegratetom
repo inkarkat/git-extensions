@@ -240,7 +240,7 @@ do
 			;;
 
 	--delete-submodule-branch)
-			shift; exec hub-delete-merged-branches "$@" -- "$(ensureSourceBranch "$(git-ffintegrateto --print-merged-branch)")";;
+			shift; exec hub-delete-merged-branches --delete-separate-integration-branch "$@" -- "$(ensureSourceBranch "$(git-ffintegrateto --print-merged-branch)")";;
 	--)		reintegrateArgs+=("$1"); shift; break;;
 	-)		reintegrateArgs+=("$1"); shift; isCheckFromStdin=t; break;;
 	*)		reintegrateArgs+=("$1"); shift;;
@@ -560,9 +560,9 @@ fastforwardCommit()
     printf '\nDeleting merged superproject and submodule branches:\n'
     sourceBranch="$(ensureSourceBranch "$sourceBranch")"
     if [ "$isSameBranch" ]; then
-	typeset -a affectedSubmoduleDeleteBranchCommand=(--include-superproject delete-merged-branches "${gitRemoteMutateArgs[@]}" -- "$sourceBranch")
+	typeset -a affectedSubmoduleDeleteBranchCommand=(--include-superproject delete-merged-branches --delete-separate-integration-branch "${gitRemoteMutateArgs[@]}" -- "$sourceBranch")
     else
-	hub-delete-merged-branches "${gitRemoteMutateArgs[@]}" -- "$sourceBranch"
+	hub-delete-merged-branches --delete-separate-integration-branch "${gitRemoteMutateArgs[@]}" -- "$sourceBranch"
 	typeset -a affectedSubmoduleDeleteBranchCommand=("${scriptName#git-}" --delete-submodule-branch "${gitRemoteMutateArgs[@]}")
     fi
     "${submoduleExecutor[@]:?}" ${submoduleExecutor:+--no-pager --interactive} "${affectedSubmoduleDeleteBranchCommand[@]}" || exit $?

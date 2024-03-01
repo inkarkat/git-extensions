@@ -112,17 +112,24 @@ done
 typeset -a statusFilterArg=(); [ -z "$statusFilter" ] || statusFilterArg=(--diff-filter="$statusFilter")
 
 if [ "$isIncludeIntermediate" ]; then
-    git-log --pretty='format:' "${gitNameStatusArg[@]}" "${renameArgs[@]}" "${statusFilterArg[@]}" "${allargs[@]}" "${logRange[@]}" "$@"
+    git-subdir-relativizer log --pretty='format:' "${gitNameStatusArg[@]}" "${renameArgs[@]}" "${statusFilterArg[@]}" "${allargs[@]}" "${logRange[@]}" "$@"
 elif [ -n "$range" ]; then
     if [ ${#diffRange[@]} -gt 0 ]; then
 	printUsage "$0" >&2
 	exit 2
     fi
     # Source: http://stackoverflow.com/a/1552353/813602
-    GIT_LOGLIMITTORANGECOMMAND_RANGE="$range" git-loglimit-to-range-command -2 diff LIMITRANGE "${gitNameStatusArg[@]}" "${renameArgs[@]}" "${statusFilterArg[@]}" "${allargs[@]}" "${logRange[@]}" "$@"
+    GIT_LOGLIMITTORANGECOMMAND_RANGE="$range" \
+	git-subdir-relativizer loglimit-to-range-command -2 \
+	    diff LIMITRANGE "${gitNameStatusArg[@]}" "${renameArgs[@]}" "${statusFilterArg[@]}" "${allargs[@]}" "${logRange[@]}" "$@"
 elif [ ${#diffRange[@]} -gt 0 ]; then
     # Source: http://stackoverflow.com/a/1552353/813602
-    git diff "${gitNameStatusArg[@]}" "${renameArgs[@]}" "${statusFilterArg[@]}" "${allargs[@]}" "${diffRange[@]}" "$@"
+    git-subdir-relativizer diff "${gitNameStatusArg[@]}" "${renameArgs[@]}" "${statusFilterArg[@]}" "${allargs[@]}" "${diffRange[@]}" "$@"
 else
-    git-loglimit-to-range-command -2 show LIMITRANGE --pretty='format:' "${gitNameStatusArg[@]}" "${renameArgs[@]}" "${statusFilterArg[@]}" "${allargs[@]}" "${logRange[@]}" "$@"
-fi | eval "$filter ${filter:+|} $sorter | sed -e '/^\$/d'" "${pager:+|}" '"${pager[@]}"'
+    git-subdir-relativizer loglimit-to-range-command -2 \
+	show LIMITRANGE --pretty='format:' "${gitNameStatusArg[@]}" "${renameArgs[@]}" "${statusFilterArg[@]}" "${allargs[@]}" "${logRange[@]}" "$@"
+fi \
+    | eval "$filter ${filter:+|}" \
+	"$sorter" \
+	"| sed -e '/^\$/d'" \
+	"${pager:+|}" '"${pager[@]}"'

@@ -32,12 +32,12 @@ esac
 export GIT_SELECTED_COMMAND_DEFAULT_FILES='git-unstaged --' # Only offer unstaged files; "git stash push --keep-index" does not touch the index and the legacy implementation needs a clean index, anyway.
 
 if [ "$canUseStashPush" ]; then
-    exec git-selected-command --filter '' "root stash push${pushArg:+ }${pushArg} --keep-index --" "$@"
+    exec git-selected-command --filter '' "stash push${pushArg:+ }${pushArg} --keep-index --" "$@"
 else
     if git-staged --quiet; then
 	echo 'ERROR: Index must be clean.' >&2
 	exit 1
     fi
 
-    git-selected-command --filter '' "root $addCommand --" "$@" && git-stashi || git unstage
+    git-selected-command --filter '' "$addCommand --" "$@" && git-stashi || git unstage
 fi

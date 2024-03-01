@@ -2,13 +2,15 @@
 set -o pipefail
 shopt -qs extglob
 
+: ${GIT_LOGREVS_REVISIONS_END=;}
+
 printUsage()
 {
     cat <<HELPTEXT
 Log the passed revisions R1, R2, ... in graph order, regardless of the order in
 which they've been passed.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[SHOW-ARGS ...] -r|--revision R1 [-r ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[SHOW-ARGS ...] -r|--revision R1 [-r ...] | --revisions R1 [...] $GIT_LOGREVS_REVISIONS_END [-?|-h|--help]"
     printf 'Usage: echo R1 R2 R3 | %q %s\n' "$(basename "$1")" '[SHOW-ARGS ...] [-?|-h|--help]'
 }
 
@@ -16,14 +18,24 @@ typeset -a graphSortRevsArgs=()
 isDashDash=
 isReverse=
 typeset -a showArgs=()
-typeset -a revisions=()
 maxCount=
 typeset -a patchArg=(--no-patch)
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-	--revision|-r)	graphSortRevsArgs+=("$1" "$2"); shift; revisions+=("$1"); shift;;
+	--revision|-r)	graphSortRevsArgs+=("$1" "$2"); shift; shift;;
+	--revisions)	graphSortRevsArgs+=("$1"); shift
+			while [ $# -gt 0 -a "$1" != "$GIT_LOGREVS_REVISIONS_END" ]
+			do
+			    graphSortRevsArgs+=("$1"); shift
+			done
+			if [ $# -eq 0 ]; then
+			    echo "ERROR: --revisions must be concluded with '${GIT_LOGREVS_REVISIONS_END}'"; echo; printUsage "$0"
+			    exit 2
+			fi >&2
+			graphSortRevsArgs+=("${GIT_GRAPHSORTREVS_REVISIONS_END:-;}"); shift
+			;;
 	--reverse)	shift; isReverse=t;;
 	--patch|-p|-u)	shift; patchArg=();;
 	--name-only|--name-status|--no-patch|-s)

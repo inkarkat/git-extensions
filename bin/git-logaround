@@ -57,6 +57,7 @@ typeset -a gitArgs=()
 typeset -a grepArgs=()
 typeset -a grepContextArgs=()
 typeset -a dateArgs=(--format '@%s')
+typeset -a dates=()
 isUtcTime=
 afterDuration=
 beforeDuration=
@@ -89,14 +90,14 @@ do
 	--date|-d)	shift
 			rev="$([ "$isUtcTime" ] && export TZ=UTC0; git lh1 --until="${1:?}")" || exit 2
 			grepArgs+=(-e "$rev")
-			dateArgs+=(--to "${1:?}")
+			dates+=("${1:?}")
 			shift
 			;;
 	--revision|-r)	shift
 			rev="$(git-commitid "${1:?}")" || exit 2
 			grepArgs+=(-e "$rev")
 			revDate="$(git log --max-count=1 --pretty='tformat:@%ct' "${1:?}")" || exit $?
-			dateArgs+=(--to "$revDate")
+			dates+=("$revDate")
 			shift
 			;;
 
@@ -124,10 +125,15 @@ else
 	beforeDuration="$GIT_LOGAROUND_DEFAULT_CONTEXTDURATION"
     fi
 
-    beforeDate="$(dateadd "${dateArgs[@]}" "+$beforeDuration")" || exit $?
-    afterDate="$(dateadd "${dateArgs[@]}" "-$afterDuration")" || exit $?
+    isFirst=t
+    for date in "${dates[@]}"
+    do
+	beforeDate="$(dateadd "${dateArgs[@]}" --to "$date" "+$beforeDuration")" || exit $?
+	afterDate="$(dateadd "${dateArgs[@]}" --to "$date" "-$afterDuration")" || exit $?
 
-    exec git-wrapper ${GIT_LOGAROUND_LOG_COMMAND:-log} --since="$afterDate" --until="$beforeDate" "${gitArgs[@]}" "$@"
+	[ "$isFirst" ] || echo '--'; isFirst=
+	git-wrapper ${GIT_LOGAROUND_LOG_COMMAND:-log} --since="$afterDate" --until="$beforeDate" "${gitArgs[@]}" "$@"
+    done
 fi
 
 

@@ -1,0 +1,59 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Check whether any previous commits / the commits in the passed <revision-range>
+contain:
+- fixup commit(s)
+- temporary or test commit(s)
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--severity-prefix PREFIX] [--range-hint HINT] [<log-options> ...] [<revision-range>] [-?|-h|--help]'
+}
+
+severityPrefix=
+rangeHint=
+typeset -a logArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--severity-prefix)
+			shift; severityPrefix="${1?}"; shift;;
+	--range-hint)	shift; rangeHint="${1?}"; shift;;
+	--)		logArgs+=("$1"); shift; break;;
+	*)		logArgs+=("$1"); shift;;
+    esac
+done
+set -- "${logArgs[@]}" "$@"
+
+commitTitles="$(git log --pretty=tformat:%s "$@")" || exit 5
+[ -n "$commitTitles" ] || exit 0
+
+typeset -A badCommitTitlePatterns=(
+    ['^\(amend\|fixup\|squash\)! ']=$'fixup! / amend! / squash!\nsquashed'
+    ['\(^\| \)\(TEMP\|TEST\): ']=$'temp / test\ndropped'
+)
+
+status=0
+separator=
+for pattern in "${!badCommitTitlePatterns[@]}"
+do
+    badCommitCount="$(printf '%s\n' "$commitTitles" | grep --count -e "$pattern")"
+    if [ $badCommitCount -gt 0 ]; then
+	status=1
+	what="${badCommitTitlePatterns["$pattern"]}"
+	what="${badCommitTitlePatterns["$pattern"]%%$'\n'*}"
+	remedy="${badCommitTitlePatterns["$pattern"]#*$'\n'}"
+	if [ $badCommitCount -eq 1 ]; then
+	    printf '%s%sThere is still a %s commit%s that should be %s:\n' "$separator" "${severityPrefix}${severityPrefix:+: }" "$what" "${rangeHint:+ }$rangeHint" "$remedy"
+	else
+	    printf '%s%sThere are still %d %s commits%s that should be %s:\n' "$separator" "${severityPrefix}${severityPrefix:+: }" "$badCommitCount" "$what" "${rangeHint:+ }$rangeHint" "$remedy"
+	fi
+	separator=$'\n'
+
+	git-lghighlight --grep "$pattern" "$@"
+    fi
+done
+exit $status

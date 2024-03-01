@@ -1,4 +1,5 @@
 #!/bin/bash
+shopt -qs extglob
 
 printUsage()
 {
@@ -12,4 +13,41 @@ case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
 
-exec git diff --name-only "$@"
+# "git diff" always uses paths relative to the working copy root, whereas "git
+# status" paths are relative to the current working directory. In order to use
+# git-st[iI]files as a drop-in replacement for git-stfiles, we need to translate
+# from working copy to current working directory.
+subdirRelativizer()
+{
+    local currentDir="${PWD%/}/"
+    local subdir="/${currentDir#${root%/}/}"
+
+    typeset -A replacements=(["$subdir"]='')	# Translations from current dir up to working copy dir.
+    typeset -a subPaths=("$subdir") # Ordered subpaths from longest (current) to shortest (/).
+
+    local upNav=''
+    while subdir="${subdir%%+([^/])/}" && upNav+='../'
+    do
+	subPaths+=("$subdir")
+	replacements["$subdir"]="$upNav"
+	[ "$subdir" = '/' ] && break
+    done
+
+    while IFS=$'\n' read -r filespec
+    do
+	for subdir in "${subPaths[@]}"
+	do
+	    if [[ "/${filespec}" =~ ^"$subdir"(.*)$ ]]; then
+		printf '%s%s\n' "${replacements["$subdir"]}" "${BASH_REMATCH[1]}"
+		break
+	    fi
+	done
+    done
+}
+
+relativizer=
+root="$(git root)" || exit 3
+[ "$PWD" = "$root" ] || relativizer=subdirRelativizer
+
+eval 'git diff --name-only "$@"' \
+    "${relativizer:+|} $relativizer"

@@ -9,7 +9,6 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [--] [<path>...] [-?|-h|--help]'
 }
 isQuiet=
-typeset -a diffArgs=(--name-only)
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -17,21 +16,16 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
-	--quiet|-q)	shift; isQuiet=t; diffArgs=(--quiet --exit-code);;
+	--quiet|-q)	shift; isQuiet=t;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
     esac
 done
 
-runDiff()
-{
-    git diff --cached "${diffArgs[@]}" -- "$@"
-}
-
 if [ "$isQuiet" ]; then
-    ! runDiff "$@"
+    ! git diff --cached --quiet --exit-code -- "$@"
 else
-    paths="$(runDiff "$@")"
+    paths="$(git-stifiles "$@")"
     [ -n "$paths" ] && printf '%s\n' "$paths"
 fi

@@ -10,24 +10,18 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [--] [<path>...] [-?|-h|--help]'
 }
 isQuiet=
-typeset -a diffArgs=(--name-only)
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
     --no-color|--color=*)
 			shift;;
     --color)		shift; shift;;
-    --quiet|-q)		shift; isQuiet=t; diffArgs=(--quiet --exit-code);;
+    --quiet|-q)		shift; isQuiet=t;;
     --)			shift;;
 esac
 
-runDiff()
-{
-    git diff "${diffArgs[@]}" -- "$@"
-}
-
 if [ "$isQuiet" ]; then
-    ! runDiff "$@"
+    ! git diff --quiet --exit-code -- "$@"
 else
-    paths="$(runDiff "$@")"
+    paths="$(git-stIfiles "$@")"
     [ -n "$paths" ] && printf '%s\n' "$paths"
 fi

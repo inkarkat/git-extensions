@@ -28,7 +28,7 @@ do
 done
 set -- "${logArgs[@]}" "$@"
 
-commitTitles="$(git log --pretty=tformat:%s "$@")" || exit 5
+commitTitles="$(git log --pretty='tformat:%h%s' "$@")" || exit 5
 [ -n "$commitTitles" ] || exit 0
 
 typeset -A badCommitTitlePatterns=(
@@ -37,23 +37,29 @@ typeset -A badCommitTitlePatterns=(
 )
 
 status=0
-separator=
+typeset -A allBadCommits=()
 for pattern in "${!badCommitTitlePatterns[@]}"
 do
-    badCommitCount="$(printf '%s\n' "$commitTitles" | grep --count -e "$pattern")"
-    if [ $badCommitCount -gt 0 ]; then
+    readarray -t badCommits < <(printf '%s\n' "$commitTitles" | grep -e "${pattern//^/}" | cut -d'' -f1)
+    if [ ${#badCommits[@]} -gt 0 ]; then
 	status=1
 	what="${badCommitTitlePatterns["$pattern"]}"
 	what="${badCommitTitlePatterns["$pattern"]%%$'\n'*}"
 	remedy="${badCommitTitlePatterns["$pattern"]#*$'\n'}"
-	if [ $badCommitCount -eq 1 ]; then
-	    printf '%s%sThere is still a %s commit%s that should be %s:\n' "$separator" "${severityPrefix}${severityPrefix:+: }" "$what" "${rangeHint:+ }$rangeHint" "$remedy"
+	if [ ${#badCommits[@]} -eq 1 ]; then
+	    printf '%sThere is still a %s commit%s that should be %s:\n' "${severityPrefix}${severityPrefix:+: }" "$what" "${rangeHint:+ }$rangeHint" "$remedy"
 	else
-	    printf '%s%sThere are still %d %s commits%s that should be %s:\n' "$separator" "${severityPrefix}${severityPrefix:+: }" "$badCommitCount" "$what" "${rangeHint:+ }$rangeHint" "$remedy"
+	    printf '%sThere are still %d %s commits%s that should be %s:\n' "${severityPrefix}${severityPrefix:+: }" "${#badCommits[@]}" "$what" "${rangeHint:+ }$rangeHint" "$remedy"
 	fi
-	separator=$'\n'
 
-	git-lghighlight --grep "$pattern" "$@"
+	for commit in "${badCommits[@]}"
+	do
+	    allBadCommits["$commit"]=t
+	done
     fi
 done
+
+if [ ${#allBadCommits[@]} -gt 0 ]; then
+    git-lghighlightedcommits "${!allBadCommits[@]}" "$@"
+fi
 exit $status

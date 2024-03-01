@@ -60,6 +60,12 @@ do
 done
 
 if [ ${#allBadCommits[@]} -gt 0 ]; then
-    git-lghighlightedcommits "${!allBadCommits[@]}" "$@"
+    if [ $# -eq 0 ]; then
+	# Just show the bad commits.
+	git-logrevs --pretty="tformat:$(git-onelinelog --print-format)" --revisions "${!allBadCommits[@]}" \;
+    else
+	# Highlight the bad commits within the <revision-range>.
+	git-lghighlightedcommits "${!allBadCommits[@]}" "$@"
+    fi
 fi
 exit $status

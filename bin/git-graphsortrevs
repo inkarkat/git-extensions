@@ -2,13 +2,15 @@
 set -o noglob -o pipefail
 shopt -qs extglob
 
+: ${GIT_GRAPHSORTREVS_REVISIONS_END=;}
+
 printUsage()
 {
     cat <<HELPTEXT
 Sort the passed revisions R1, R2, ... in graph order, regardless of the order in
 which they've been passed.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[LOG-ARGS ...] -r|--revision R1 [-r ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[LOG-ARGS ...] -r|--revision R1 [-r ...] | --revisions R1 [...] $GIT_GRAPHSORTREVS_REVISIONS_END [-?|-h|--help]"
     printf 'Usage: echo R1 R2 R3 | %q %s\n' "$(basename "$1")" '[LOG-ARGS ...] [-?|-h|--help]'
 }
 
@@ -22,6 +24,22 @@ do
 			shift;;
 	--color)	shift; shift;;
 	--revision|-r)	shift; revisions+=("$1"); shift;;
+	--revisions)	shift
+			while [ $# -gt 0 -a "$1" != "$GIT_GRAPHSORTREVS_REVISIONS_END" ]
+			do
+			    revisions+=("$1")
+			    shift
+			done
+			if [ $# -eq 0 ]; then
+			    echo "ERROR: --revisions must be concluded with '${GIT_GRAPHSORTREVS_REVISIONS_END}'"; echo; printUsage "$0"
+			    exit 2
+			fi >&2
+			shift
+			if [ ${#revisions[@]} -eq 0 ]; then
+			    echo 'ERROR: --revisions must be followed by at least one REV.'; echo; printUsage "$0"
+			    exit 2
+			fi >&2
+			;;
 
 	# Ignore options that influence commit formatting (we need just the
 	# hashes), and diff options.

@@ -1,0 +1,71 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Check whether any previous commits / the commits in the passed <revision-range>
+contain:
+- fixup commit(s)
+- temporary or test commit(s)
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--severity-prefix PREFIX] [--range-hint HINT] [<log-options> ...] [<revision-range>] [-?|-h|--help]'
+}
+
+severityPrefix=
+rangeHint=
+typeset -a logArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--severity-prefix)
+			shift; severityPrefix="${1?}"; shift;;
+	--range-hint)	shift; rangeHint="${1?}"; shift;;
+	--)		logArgs+=("$1"); shift; break;;
+	*)		logArgs+=("$1"); shift;;
+    esac
+done
+set -- "${logArgs[@]}" "$@"
+
+commitTitles="$(git log --pretty='tformat:%h%s' "$@")" || exit 5
+[ -n "$commitTitles" ] || exit 0
+
+typeset -A badCommitTitlePatterns=(
+    ['^\(amend\|fixup\|squash\)! ']=$'fixup! / amend! / squash!\nsquashed'
+    ['\(^\| \)\(TEMP\|TEST\): ']=$'temp / test\ndropped'
+)
+
+status=0
+typeset -A allBadCommits=()
+for pattern in "${!badCommitTitlePatterns[@]}"
+do
+    readarray -t badCommits < <(printf '%s\n' "$commitTitles" | grep -e "${pattern//^/}" | cut -d'' -f1)
+    if [ ${#badCommits[@]} -gt 0 ]; then
+	status=1
+	what="${badCommitTitlePatterns["$pattern"]}"
+	what="${badCommitTitlePatterns["$pattern"]%%$'\n'*}"
+	remedy="${badCommitTitlePatterns["$pattern"]#*$'\n'}"
+	if [ ${#badCommits[@]} -eq 1 ]; then
+	    printf '%sThere is still a %s commit%s that should be %s:\n' "${severityPrefix}${severityPrefix:+: }" "$what" "${rangeHint:+ }$rangeHint" "$remedy"
+	else
+	    printf '%sThere are still %d %s commits%s that should be %s:\n' "${severityPrefix}${severityPrefix:+: }" "${#badCommits[@]}" "$what" "${rangeHint:+ }$rangeHint" "$remedy"
+	fi
+
+	for commit in "${badCommits[@]}"
+	do
+	    allBadCommits["$commit"]=t
+	done
+    fi
+done
+
+if [ ${#allBadCommits[@]} -gt 0 ]; then
+    if [ $# -eq 0 ]; then
+	# Just show the bad commits.
+	git-logrevs --pretty="tformat:$(git-onelinelog --print-format)" --revisions "${!allBadCommits[@]}" \;
+    else
+	# Highlight the bad commits within the <revision-range>.
+	git-lghighlightedcommits "${!allBadCommits[@]}" "$@"
+    fi
+fi
+exit $status

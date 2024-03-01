@@ -37,37 +37,10 @@ if [ ${#branches[@]} -eq 0 ]; then
 fi >&2
 
 status=0
-typeset -A badCommitTitlePatterns=(
-    ['^\(amend\|fixup\|squash\)! ']=$'fixup! / amend! / squash!\nsquash'
-    ['\(^\| \)\(TEMP\|TEST\): ']=$'temp / test\ndrop'
-)
-separator=
 for branch in "${branches[@]}"
 do
     branchHint=; [ ${#branches[@]} -gt 1 ] && branchHint="on $branch"
-
     printf -v branchRange "$branchFormat" "$branch"
-    commitTitles="$(git log --pretty=tformat:%s "$branchRange")" || continue
-    [ -n "$commitTitles" ] || continue
-
-    for pattern in "${!badCommitTitlePatterns[@]}"
-    do
-	badCommitCount="$(printf '%s\n' "$commitTitles" | grep --count -e "$pattern")"
-	if [ $badCommitCount -gt 0 ]; then
-	    status=1
-
-	    what="${badCommitTitlePatterns["$pattern"]}"
-	    what="${badCommitTitlePatterns["$pattern"]%%$'\n'*}"
-	    remedy="${badCommitTitlePatterns["$pattern"]#*$'\n'}"
-	    if [ $badCommitCount -eq 1 ]; then
-		printf '%sThere is still a %s commit%s; please %s it first:\n' "$separator" "$what" "${branchHint:+ }$branchHint" "$remedy"
-	    else
-		printf '%sThere are still %d %s commits%s; please %s them first:\n' "$separator" "$badCommitCount" "$what" "${branchHint:+ }$branchHint" "$remedy"
-	    fi
-	    separator=$'\n'
-
-	    git-lghighlight --grep "$pattern" "$branchRange"
-	fi
-    done
+    git-commitcheck --severity-prefix 'ERROR' --range-hint "$branchHint" "$branchRange" || status=$?
 done
 exit $status

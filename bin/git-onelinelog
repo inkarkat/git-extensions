@@ -17,10 +17,12 @@ isTerminatorSemantics=t
 decorationFormat='%C(red bold)%d%Creset '
 typeset -a decorateLogArg=(--decorate)
 typeset -a logArgs=()
+isPrintFormat=
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--print-format)	shift; isPrintFormat=t;;
 	--no-decorate)	decorateLogArg=("$1"); shift; decorationFormat='';;
 	--decorate|--decorate=*)
 			decorateLogArg=("$1"); shift;;
@@ -39,6 +41,10 @@ FORMAT="%C(cyan)%h%Creset %Cgreen(%aN, ${GIT_ONELINELOG_DATEFORMAT:-%ar})%Creset
 if isColorOffArgument "$@"; then
     FORMAT=${FORMAT//%C\(+([^\)])\)/}
     FORMAT=${FORMAT//%C+([a-z])/}
+fi
+if [ "$isPrintFormat" ]; then
+    printf '%s\n' "$FORMAT"
+    exit 0
 fi
 
 reversePipeline=

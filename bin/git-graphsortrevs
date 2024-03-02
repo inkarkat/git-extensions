@@ -37,7 +37,7 @@ HELPTEXT
 }
 
 typeset -a logArgs=()
-typeset -a revisions=()
+typeset -A uniqueRevisions=()
 typeset -a grepArgs=()
 while [ $# -ne 0 ]
 do
@@ -48,11 +48,11 @@ do
 	--color)	shift; shift;;
 	--separate-discontinuous)
 			shift; grepArgs+=(--context=0);;
-	--revision|-r)	shift; revisions+=("$1"); shift;;
+	--revision|-r)	shift; uniqueRevisions["${1:?}"]=t; shift;;
 	--revisions)	shift
 			while [ $# -gt 0 -a "$1" != "$GIT_GRAPHSORTREVS_REVISIONS_END" ]
 			do
-			    revisions+=("$1")
+			    uniqueRevisions["${1:?}"]=t
 			    shift
 			done
 			if [ $# -eq 0 ]; then
@@ -60,7 +60,7 @@ do
 			    exit 2
 			fi >&2
 			shift
-			if [ ${#revisions[@]} -eq 0 ]; then
+			if [ ${#uniqueRevisions[@]} -eq 0 ]; then
 			    echo 'ERROR: --revisions must be followed by at least one REV.'; echo; printUsage "$0"
 			    exit 2
 			fi >&2
@@ -78,9 +78,12 @@ do
 	*)		logArgs+=("$1"); shift;;
     esac
 done
-if [ ${#revisions[@]} -eq 0 ]; then
+if [ ${#uniqueRevisions[@]} -eq 0 ]; then
     input="$(</dev/stdin)"
     IFS=$' \t' read -r -a revisions <<<"${input//$'\n'/ }"
+    readarray -t revisions < <(printf '%s\n' "${revisions[@]}" | sort --unique)
+else
+    typeset -a revisions=("${!uniqueRevisions[@]}")
 fi
 [ ${#revisions[@]} -eq 0 ] && exit 1
 

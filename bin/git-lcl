@@ -12,9 +12,36 @@ HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[LOG-ARGS ...] [<revision range>] [[--] <path>...] [-?|-h|--help]'
 }
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-esac
+
+isColor=; [ -t 1 ] && isColor=t
+typeset -a logArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+
+	--no-color|--color=never)
+			isColor=; shift;;
+	--color=always)	isColor=t; shift;;
+	--color=auto)	shift;;
+	--color)	case "$2" in
+			    always) isColor=t;;
+			    never)  isColor=;;
+			    auto)   ;;
+			    *)	    echo >&2 "ERROR: Invalid --color arg: $2"
+				    echo >&2
+				    printUsage "$0" >&2
+				    exit 2
+				    ;;
+			esac
+			shift; shift
+			;;
+
+	--)		logArgs+=("$1"); shift; break;;
+	*)		logArgs+=("$1"); shift;;
+    esac
+done
+set -- "${logArgs[@]}" "$@"
 
 contains()
 {
@@ -51,7 +78,7 @@ fi
 
 { git ${GIT_LCL_COMMAND:-lc} "${limitRevisionsArgs[@]}" "$@" | csplit --quiet --elide-empty-files --prefix "${tempDirspec}/log" --digits 4 - '/^commit [0-9a-fA-F]\+\( (from [0-9a-fA-F]\+)\)\?$/' '{*}'; } || exit $?
 
-if ! isColorOffArgument "$@"; then
+if [ "$isColor" ]; then
     pipethrough --piped -- colordiff --color=yes -- "${tempDirspec}"/log* 2>/dev/null
 fi
 

@@ -20,8 +20,8 @@ printLongUsage()
     # This is the long "man page" when launched with the help argument.
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
-Show log of commits around DATE|TIME|REVISION that fall into a timespan of the
-passed duration(s) (by default +/- ${GIT_LOGAROUND_DEFAULT_CONTEXTDURATION}).
+Show log of NUM commits around DATE|TIME|REVISION / commits that fall into a
+timespan of the passed duration(s) (by default +/- ${GIT_LOGAROUND_DEFAULT_CONTEXTDURATION}).
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
@@ -105,6 +105,22 @@ do
 	*)		gitArgs+=("$1"); shift;;
     esac
 done
+
+getBeforeDate()
+{
+    dateadd "${dateArgs[@]}" --to "${1:?}" "+$beforeDuration"
+}
+getAfterDate()
+{
+    dateadd "${dateArgs[@]}" --to "${1:?}" "-$afterDuration"
+}
+
+logRevisions()
+{
+    [ "$GIT_LOGAROUND_LOG_COMMAND" = onelinelog ] && GIT_LOGAROUND_LOG_COMMAND=lg
+    exec git-wrapper ${GIT_LOGAROUND_LOG_COMMAND:-log}revs --separate-discontinuous --revisions "${revisions[@]}" \; "${gitArgs[@]}" "$@"
+}
+
 if [ ${#grepContextArgs[@]} -gt 0 ]; then
     if [ -n "$afterDuration" -o -n "$beforeDuration" ]; then
 	echo 'ERROR: Cannot combine revisions and durations.'
@@ -121,23 +137,31 @@ if [ ${#grepContextArgs[@]} -gt 0 ]; then
     )
     [ ${#revisions[@]} -gt 0 ] || exit 99
 
-    [ "$GIT_LOGAROUND_LOG_COMMAND" = onelinelog ] && GIT_LOGAROUND_LOG_COMMAND=lg
-    exec git-wrapper ${GIT_LOGAROUND_LOG_COMMAND:-log}revs --revisions "${revisions[@]}" \; "${gitArgs[@]}" "$@"
+    logRevisions "$@"
 else
     if [ -z "$afterDuration" -a -z "$beforeDuration" ]; then
 	afterDuration="$GIT_LOGAROUND_DEFAULT_CONTEXTDURATION"
 	beforeDuration="$GIT_LOGAROUND_DEFAULT_CONTEXTDURATION"
     fi
 
-    isFirst=t
+    if [ ${#dates[@]} -eq 1 ]; then
+	# Optimization: For a single date, we can directly execute the log command.
+	beforeDate="$(getBeforeDate "$date")" || exit $?
+	afterDate="$(getAfterDate "$date")" || exit $?
+	exec git-wrapper ${GIT_LOGAROUND_LOG_COMMAND:-log} --since="$afterDate" --until="$beforeDate" "${gitArgs[@]}" "$@"
+    fi
+
+    # In order to handle date overlaps in commits, first build a list of unique commits, and only then log them.
+    typeset -a revisions=()
     for date in "${dates[@]}"
     do
-	beforeDate="$(dateadd "${dateArgs[@]}" --to "$date" "+$beforeDuration")" || exit $?
-	afterDate="$(dateadd "${dateArgs[@]}" --to "$date" "-$afterDuration")" || exit $?
-
-	[ "$isFirst" ] || echo '--'; isFirst=
-	git-wrapper ${GIT_LOGAROUND_LOG_COMMAND:-log} --since="$afterDate" --until="$beforeDate" "${gitArgs[@]}" "$@"
+	beforeDate="$(getBeforeDate "$date")" || exit $?
+	afterDate="$(getAfterDate "$date")" || exit $?
+	readarray -O ${#revisions[@]} -t revisions < <(git lh --since="$afterDate" --until="$beforeDate" "${gitArgs[@]}" "$@")
     done
+    [ ${#revisions[@]} -gt 0 ] || exit 99
+
+    logRevisions "$@"
 fi
 
 

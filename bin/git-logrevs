@@ -38,6 +38,12 @@ HELPDESCRIPTION
 HELPTEXT
 }
 
+typeset -a colorArg=(--color=always)
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+if [ ! -t 1 ]; then
+    colorArg=()
+    pager=()
+fi
 typeset -a graphSortRevsArgs=()
 isSeparateDiscontinuous=
 isDashDash=
@@ -49,6 +55,11 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--color=auto)	shift;;
+	--no-color|--color=*)
+			colorArg=("$1"); shift;;
+	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); shift; shift;;
+
 	--separate-discontinuous)
 			graphSortRevsArgs+=("$1"); shift; isSeparateDiscontinuous=t
 			tempDirspec="$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || { dirspec="${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM"; mkdir -p -- "$dirspec" && printf %s "$dirspec"; })" || exit $?
@@ -89,7 +100,25 @@ chunker()
 
 logRevs()
 {
-    $EXEC git ${GIT_LOGREVS_SHOW_COMMAND:-show} "${patchArg[@]}" "${showArgs[@]}" "$@"
+    $EXEC git ${GIT_LOGREVS_SHOW_COMMAND:-show} "${colorArg[@]}" "${patchArg[@]}" "${showArgs[@]}" "$@"
+}
+
+logWithDiscontinuousSeparator()
+{
+    let count=0
+    isFirst=t
+    for chunkFilespec in "${revisionsInOrder[@]}"
+    do
+	[ "$isFirst" ] || printf '%s\n' "$GIT_LOGREVS_SEPARATOR"; isFirst=
+	readarray -t chunkRevisions < "$chunkFilespec"
+	if [ -n "$chunkRevisionCount" ] && [ $((count + ${#chunkRevisions[@]})) -ge $chunkRevisionCount ]; then
+	    chunkRevisions=("${chunkRevisions[@]:0:$((chunkRevisionCount - count))}")
+	    [ ${#chunkRevisions[@]} -eq 0 ] || logRevs "${chunkRevisions[@]}"
+	    break
+	fi
+	logRevs "${chunkRevisions[@]}"
+	let count+=${#chunkRevisions[@]}
+    done
 }
 
 if [ "$isSeparateDiscontinuous" ]; then
@@ -117,20 +146,8 @@ if [ ! "$isDashDash" ]; then
 fi
 
 if [ "$isSeparateDiscontinuous" ]; then
-    let count=0
-    isFirst=t
-    for chunkFilespec in "${revisionsInOrder[@]}"
-    do
-	[ "$isFirst" ] || printf '%s\n' "$GIT_LOGREVS_SEPARATOR"; isFirst=
-	readarray -t chunkRevisions < "$chunkFilespec"
-	if [ -n "$chunkRevisionCount" ] && [ $((count + ${#chunkRevisions[@]})) -ge $chunkRevisionCount ]; then
-	    chunkRevisions=("${chunkRevisions[@]:0:$((chunkRevisionCount - count))}")
-	    [ ${#chunkRevisions[@]} -eq 0 ] || logRevs "${chunkRevisions[@]}"
-	    break
-	fi
-	logRevs "${chunkRevisions[@]}"
-	let count+=${#chunkRevisions[@]}
-    done
+    eval logWithDiscontinuousSeparator \
+	"${pager:+|}" '"${pager[@]}"'
 else
     EXEC=exec logRevs "${revisionsInOrder[@]}"
 fi

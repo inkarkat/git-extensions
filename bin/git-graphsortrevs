@@ -4,25 +4,50 @@ shopt -qs extglob
 
 : ${GIT_GRAPHSORTREVS_REVISIONS_END=;}
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[--separate-discontinuous] [LOG-ARGS ...] -r|--revision R1 [-r ...] | --revisions R1 [...] $GIT_GRAPHSORTREVS_REVISIONS_END [-?|-h|--help]"
+    printf 'Usage: echo R1 R2 R3 | %q %s\n' "$(basename "$1")" '[LOG-ARGS ...] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 Sort the passed revisions R1, R2, ... in graph order, regardless of the order in
 which they've been passed.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --separate-discontinuous
+			Add a "--" separator between revisions that do not
+			directly follow each other.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[LOG-ARGS ...] -r|--revision R1 [-r ...] | --revisions R1 [...] $GIT_GRAPHSORTREVS_REVISIONS_END [-?|-h|--help]"
-    printf 'Usage: echo R1 R2 R3 | %q %s\n' "$(basename "$1")" '[LOG-ARGS ...] [-?|-h|--help]'
 }
 
 typeset -a logArgs=()
 typeset -a revisions=()
+typeset -a grepArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
+	--separate-discontinuous)
+			shift; grepArgs+=(--context=0);;
 	--revision|-r)	shift; revisions+=("$1"); shift;;
 	--revisions)	shift
 			while [ $# -gt 0 -a "$1" != "$GIT_GRAPHSORTREVS_REVISIONS_END" ]
@@ -59,10 +84,10 @@ if [ ${#revisions[@]} -eq 0 ]; then
 fi
 [ ${#revisions[@]} -eq 0 ] && exit 1
 
-readarray -t revisionsInOrder < <(git lh "${logArgs[@]}" "$@" | grep --fixed-strings --file <(printf '%s\n' "${revisions[@]}"))
+readarray -t revisionsInOrder < <(git lh "${logArgs[@]}" "$@" | grep "${grepArgs[@]}" --fixed-strings --file <(printf '%s\n' "${revisions[@]}"))
 
-revisionDifference=$(($# - ${#revisionsInOrder[@]}))
-revisionDifference=$((${#revisions[@]} - ${#revisionsInOrder[@]}))
+typeset -a netRevisionsInOrder=(${revisionsInOrder[@]/#--/})	# Drop the separators; remove the holes by omitting the quoting, which is fine here as it's only hashes.
+revisionDifference=$((${#revisions[@]} - ${#netRevisionsInOrder[@]}))
 if [ $revisionDifference -gt 0 ]; then
     revisionDifferencePlural=s; [ $revisionDifference -eq 1 ] && revisionDifferencePlural=
     printf >&2 'ERROR: Did not find %d revision%s.\n' "$revisionDifference" "$revisionDifferencePlural"

@@ -1,0 +1,15 @@
+#!/bin/bash
+
+tempDirspec="$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || { dirspec="${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM"; mkdir -p -- "$dirspec" && printf %s "$dirspec"; })" || exit $?
+[ "$DEBUG" ] || trap 'rm -rf "$tempDirspec" 2>/dev/null' EXIT
+
+# Use git-lcl as the "git-show" of git-logrevs, so that the passed list of
+# commits is split into individual ones.
+# git-lcl is instructed (via --into) to accumulate the potentially multiple
+# invocations into the single tempdir.
+GIT_LCL_COMMAND=show \
+GIT_LOGREVS_SHOW_COMMAND="lcl --into $tempDirspec" \
+    git-logrevs --patch "$@" || exit $?
+
+# Explicitly trigger the display of the accumulated split commits.
+exec git-lcl --into "$tempDirspec" --show

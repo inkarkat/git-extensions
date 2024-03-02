@@ -114,7 +114,11 @@ if [ ${#grepContextArgs[@]} -gt 0 ]; then
     fi >&2
 
     [ ${#grepArgs[@]} -gt 0 ] || grepArgs=(-e "$(git-commitid HEAD)") || exit $?
-    readarray -t revisions < <(git lh "${gitArgs[@]}" "$@" | grep --fixed-strings --line-regexp "${grepContextArgs[@]}" "${grepArgs[@]}")
+    readarray -t revisions < <(
+	git lh "${gitArgs[@]}" "$@" \
+	    | grep --fixed-strings --line-regexp "${grepContextArgs[@]}" "${grepArgs[@]}" \
+	    | grep --invert-match --fixed-strings --line-regexp -e '--'
+    )
     [ ${#revisions[@]} -gt 0 ] || exit 99
 
     [ "$GIT_LOGAROUND_LOG_COMMAND" = onelinelog ] && GIT_LOGAROUND_LOG_COMMAND=lg

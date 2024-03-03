@@ -1,20 +1,51 @@
 #!/bin/bash
 set -o pipefail
-shopt -qs extglob
+shopt -qs extglob nullglob
 
 : ${GIT_LOGREVS_REVISIONS_END=;}
+printf -v defaultSeparator "%${COLUMNS:=80}s" '='; printf -v defaultSeparator %s "${defaultSeparator// /=}"
+: ${GIT_LOGREVS_SEPARATOR=$defaultSeparator}
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[--separate-discontinuous] [SHOW-ARGS ...] -r|--revision R1 [-r ...] | --revisions R1 [...] $GIT_LOGREVS_REVISIONS_END [-?|-h|--help]"
+    printf 'Usage: echo R1 R2 R3 | %q %s\n' "$(basename "$1")" '[--separate-discontinuous] [SHOW-ARGS ...] [-?|-h|--help]'
+}
 printUsage()
 {
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Log the passed revisions (full-length commit IDs) R1, R2, ... in graph order,
+regardless of the order in which they've been passed.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
     cat <<HELPTEXT
-Log the passed revisions R1, R2, ... in graph order, regardless of the order in
-which they've been passed.
+    --separate-discontinuous
+			Add a "${GIT_LOGREVS_SEPARATOR}" separator between revisions
+			that do not directly follow each other.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[SHOW-ARGS ...] -r|--revision R1 [-r ...] | --revisions R1 [...] $GIT_LOGREVS_REVISIONS_END [-?|-h|--help]"
-    printf 'Usage: echo R1 R2 R3 | %q %s\n' "$(basename "$1")" '[SHOW-ARGS ...] [-?|-h|--help]'
 }
 
+typeset -a colorArg=(--color=always)
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+if [ ! -t 1 ]; then
+    colorArg=()
+    pager=()
+fi
 typeset -a graphSortRevsArgs=()
+isSeparateDiscontinuous=
 isDashDash=
 isReverse=
 typeset -a showArgs=()
@@ -23,7 +54,17 @@ typeset -a patchArg=(--no-patch)
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--color=auto)	shift;;
+	--no-color|--color=*)
+			colorArg=("$1"); shift;;
+	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); shift; shift;;
+
+	--separate-discontinuous)
+			graphSortRevsArgs+=("$1"); shift; isSeparateDiscontinuous=t
+			tempDirspec="$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || { dirspec="${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM"; mkdir -p -- "$dirspec" && printf %s "$dirspec"; })" || exit $?
+			[ "$DEBUG" ] || trap 'rm -rf "$tempDirspec" 2>/dev/null' EXIT
+			;;
 	--revision|-r)	graphSortRevsArgs+=("$1" "$2"); shift; shift;;
 	--revisions)	graphSortRevsArgs+=("$1"); shift
 			while [ $# -gt 0 -a "$1" != "$GIT_LOGREVS_REVISIONS_END" ]
@@ -51,7 +92,47 @@ do
     esac
 done
 
-readarray -t revisionsInOrder < <(eval 'git-graphsortrevs "${graphSortRevsArgs[@]}" "$@"' ${isReverse:+ | tac}${maxCount:+ | head -n $maxCount})
+chunker()
+{
+    csplit --quiet --elide-empty-files --prefix "${tempDirspec}/chunk" --suppress-matched --digits 4 - '/^--$/' '{*}' \
+	&& printf '%s\n' "${tempDirspec}"/chunk*
+}
+
+logRevs()
+{
+    $EXEC git ${GIT_LOGREVS_SHOW_COMMAND:-show} "${colorArg[@]}" "${patchArg[@]}" "${showArgs[@]}" "$@"
+}
+
+logWithDiscontinuousSeparator()
+{
+    let count=0
+    isFirst=t
+    for chunkFilespec in "${revisionsInOrder[@]}"
+    do
+	[ "$isFirst" ] || printf '%s\n' "$GIT_LOGREVS_SEPARATOR"; isFirst=
+	readarray -t chunkRevisions < "$chunkFilespec"
+	if [ -n "$chunkRevisionCount" ] && [ $((count + ${#chunkRevisions[@]})) -ge $chunkRevisionCount ]; then
+	    chunkRevisions=("${chunkRevisions[@]:0:$((chunkRevisionCount - count))}")
+	    [ ${#chunkRevisions[@]} -eq 0 ] || logRevs "${chunkRevisions[@]}"
+	    break
+	fi
+	logRevs "${chunkRevisions[@]}"
+	let count+=${#chunkRevisions[@]}
+    done
+}
+
+if [ "$isSeparateDiscontinuous" ]; then
+    # Cannot use "head -n" for the max-count; this needs to be applied during
+    # chunking.
+    chunkRevisionCount=$maxCount
+    maxCount=''
+fi
+readarray -t revisionsInOrder < <(
+    eval 'git-graphsortrevs "${graphSortRevsArgs[@]}" "$@"' \
+	${isReverse:+| tac} \
+	${maxCount:+| head -n $maxCount} \
+	${isSeparateDiscontinuous:+| chunker}
+)
 [ ${#revisionsInOrder[@]} -eq 0 ] && exit 1
 
 # Drop [--] <path>; that's only relevant for the log command that provides the
@@ -64,4 +145,9 @@ if [ ! "$isDashDash" ]; then
     done
 fi
 
-exec git ${GIT_LOGREVS_SHOW_COMMAND:-show} "${patchArg[@]}" "${showArgs[@]}" "${revisionsInOrder[@]}"
+if [ "$isSeparateDiscontinuous" ]; then
+    eval logWithDiscontinuousSeparator \
+	"${pager:+|}" '"${pager[@]}"'
+else
+    EXEC=exec logRevs "${revisionsInOrder[@]}"
+fi

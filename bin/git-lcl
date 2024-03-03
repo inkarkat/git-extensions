@@ -12,9 +12,51 @@ HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[LOG-ARGS ...] [<revision range>] [[--] <path>...] [-?|-h|--help]'
 }
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-esac
+
+showPagedLogs()
+{
+    [ "$PAGER" = smartless ] && PAGER=less	# smartless does not page small outputs that fit the terminal, but we explicitly want to page through each date range separately.
+    "${PAGER:-less}" --RAW-CONTROL-CHARS "${tempDirspec}"/*
+}
+
+isColor=; [ -t 1 ] && isColor=t
+isInto=
+typeset -a logArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+
+	--no-color|--color=never)
+			isColor=; shift;;
+	--color=always)	isColor=t; shift;;
+	--color=auto)	shift;;
+	--color)	case "$2" in
+			    always) isColor=t;;
+			    never)  isColor=;;
+			    auto)   ;;
+			    *)	    echo >&2 "ERROR: Invalid --color arg: $2"
+				    echo >&2
+				    printUsage "$0" >&2
+				    exit 2
+				    ;;
+			esac
+			shift; shift
+			;;
+
+	--into)		shift; tempDirspec="${1:?}"; shift; isInto=t;;
+	--show)		shift
+			if [ -z "$tempDirspec" ]; then
+			    echo >&2 'ERROR: Need --into TEMPDIR before --show.'
+			    exit 2
+			fi
+			showPagedLogs; exit $?
+			;;
+	--)		logArgs+=("$1"); shift; break;;
+	*)		logArgs+=("$1"); shift;;
+    esac
+done
+set -- "${logArgs[@]}" "$@"
 
 contains()
 {
@@ -37,11 +79,13 @@ containsGlob()
     return 1
 }
 
-tempDirspec="$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || { dirspec="${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM"; mkdir -p -- "$dirspec" && printf %s "$dirspec"; })" || exit $?
-[ "$DEBUG" ] || trap 'rm -rf "$tempDirspec" 2>/dev/null' EXIT
+if [ -z "$tempDirspec" ]; then
+    tempDirspec="$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || { dirspec="${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM"; mkdir -p -- "$dirspec" && printf %s "$dirspec"; })" || exit $?
+    [ "$DEBUG" ] || trap 'rm -rf "$tempDirspec" 2>/dev/null' EXIT
+fi
 
 typeset -a limitRevisionsArgs=()
-if ! containsGlob '-+([0-9])' "$@" && ! contains '-n' "$@" && ! contains '--max-count' "$@"; then
+if [ "$GIT_LCL_COMMAND" != 'show' ] && ! containsGlob '-+([0-9])' "$@" && ! contains '-n' "$@" && ! contains '--max-count' "$@"; then
     # Limit the number of revisions that are read by default; splitting the
     # entire history usually is way too much.
     if ! [ -n "${GIT_LCL_DEFAULT_COUNT+t}" -a -z "$GIT_LCL_DEFAULT_COUNT" ]; then
@@ -49,11 +93,22 @@ if ! containsGlob '-+([0-9])' "$@" && ! contains '-n' "$@" && ! contains '--max-
     fi
 fi
 
-{ git ${GIT_LCL_COMMAND:-lc} "${limitRevisionsArgs[@]}" "$@" | csplit --elide-empty-files --prefix "${tempDirspec}/log" --digits 4 - '/^commit [0-9a-fA-F]\+\( (from [0-9a-fA-F]\+)\)\?$/' '{*}' >/dev/null; } || exit $?
+{ git ${GIT_LCL_COMMAND:-lc} "${limitRevisionsArgs[@]}" "$@" | csplit --quiet --elide-empty-files --prefix "${tempDirspec}/log" --digits 4 - '/^commit [0-9a-fA-F]\+\( (from [0-9a-fA-F]\+)\)\?$/' '{*}'; } || exit $?
 
-if ! isColorOffArgument "$@"; then
+if [ "$isColor" ]; then
     pipethrough --piped -- colordiff --color=yes -- "${tempDirspec}"/log* 2>/dev/null
 fi
+if [ "$isInto" ]; then
+    # Rename the newly added logs so that subsequent invocations don't overwrite
+    # them.
+    prefix="$(date +%s%N)"  # Use Epoch + nanoseconds to get a monotonically increasing prefix.
+    for filespec in "${tempDirspec}"/log*
+    do
+	filename="${filespec##*/}"
+	mv -- "$filespec" "${tempDirspec}/${prefix}${filename}"
+    done
 
-[ "$PAGER" = smartless ] && PAGER=less	# smartless does not page small outputs that fit the terminal, but we explicitly want to page through each date range separately.
-"${PAGER:-less}" --RAW-CONTROL-CHARS "${tempDirspec}"/log*
+    exit 0	# The client has passed the temp dir; it is also responsible for showing the contents (presumably after aggregating multiple "git-lcl --into" calls) via "git-lcl --into TEMPDIR --show.
+fi
+
+showPagedLogs

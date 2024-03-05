@@ -34,20 +34,26 @@ do
     esac
 done
 
-IFS=$'\t' read -r lastCommit originalMessage < <(
-    git log --pretty='tformat:%H %s' "${gitArgs[@]}" "${rangeArg[@]}" "$@" | \
-	sed -n -e 's/^\([[:xdigit:]]\+\) \(amend\|fixup\|squash\)! \(.*\)$/\1\t\3/p' | \
-	eval "${number:+sed -n -e "1,${number}p" | }" 'sed -n -e \$p'
+typeset -A targetCommits=()
+while IFS=$'\t' read -r lastCommit originalMessage
+do
+    fixupTargetCommit="$(git log --pretty='tformat:%H' --max-count 1 --grep "${originalMessage:?}" --fixed-strings "${rangeStart}${lastCommit:?}^" "${gitArgs[@]}" "$@")"
+    if [ -z "$fixupTargetCommit" ]; then
+	printf >&2 'ERROR: Could not find the original commit prior to %s with message: %s\n' "$lastCommit" "$originalMessage"
+	exit 3
+    fi
+    targetCommits["$fixupTargetCommit"]=t
+done < <(
+    git log --pretty='tformat:%H %s' "${gitArgs[@]}" "${rangeArg[@]}" "$@" \
+	| sed -n -e 's/^\([[:xdigit:]]\+\) \(amend\|fixup\|squash\)! \(.\+\)$/\1\t\3/p'
 )
-if [ -z "$lastCommit" -o -z "$originalMessage" ]; then
-    echo >&2 'No fixup / amend / squash commits found.'
-    exit 1
-fi
 
-lastFixupCommit="$(git log --pretty='tformat:%H' --max-count 1 --grep "$originalMessage" --fixed-strings "${rangeStart}${lastCommit}^" "${gitArgs[@]}" "$@")"
-if [ -z "$lastFixupCommit" ]; then
-    printf >&2 'ERROR: Could not find the original commit prior to %s with message: %s\n' "$lastCommit" "$originalMessage"
-    exit 1
-fi
+case ${#targetCommits[@]} in
+    0)	echo >&2 'No fixup / amend / squash commits found.'
+	exit 1
+	;;
+    1)	targetCommit="${!targetCommits[*]}";;
+    *)	targetCommit="$(git-logrevs --pretty='tformat:%H' --revisions "${!targetCommits[@]}" \; "${gitArgs[@]}" "$@" | tail -n 1)" || exit 3;;
+esac
 
-exec git-rbni "${lastFixupCommit}^"
+exec git-rbni "${targetCommit:?}^"

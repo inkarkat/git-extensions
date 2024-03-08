@@ -50,6 +50,7 @@ prefixRefFormat=
 additionalLogFormat=
 additionalRefFormat=
 typeset -a postAction=()
+typeset -a tagArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -65,9 +66,8 @@ do
 	--long|-l)	shift; additionalLogFormat='%aN'; additionalRefFormat='%(authorname)%(*authorname)';;
 	-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt)
 			postAction=(filterAge --field-separator $'\t' "$1" "$2"); shift; shift; prefixLogFormat='%ct'; prefixRefFormat='%(creatordate:unix)';;
-	--)		shift; break;;
-	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
-	*)		break;;
+	--)		tagArgs+=("$1"); shift; break;;
+	*)		tagArgs+=("$1"); shift;;
     esac
 done
 
@@ -84,4 +84,4 @@ ageByCreation()
     git tag --list --sort=creatordate --format="${prefixRefFormat}${prefixRefFormat:+%09}${isInfo:+%(creatordate:iso)%09(%(creatordate:relative)}${additionalRefFormat:+, }${additionalRefFormat}${isInfo:+)%09}%(refname:short)" "$@"
 }
 
-eval '$action "$@"' "${postAction:+|}" '"${postAction[@]}"' "${formatter:+|}" '"${formatter[@]}"' "${pager:+|}" '"${pager[@]}"'
+eval '$action "${tagArgs[@]}" "$@"' "${postAction:+|}" '"${postAction[@]}"' "${formatter:+|}" '"${formatter[@]}"' "${pager:+|}" '"${pager[@]}"'

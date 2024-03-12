@@ -39,13 +39,14 @@ listSubmodules()
 	exec git submodule foreach --quiet 'echo $sm_path'
     else
 	comm -12 \
-	    <(git config --blob "${revision}:.gitmodules" --get-regexp '^submodule\..*\.path$' 2>/dev/null \
-		| sed -e 's/^.*\.path //' \
-		| sort
-	    ) \
-	    <(git ls-tree -r "$revision" --name-only \
-		| sort
-	    )
+		<(git config --blob "${revision}:.gitmodules" --get-regexp '^submodule\..*\.path$' 2>/dev/null \
+		    | sed -e 's/^.*\.path //' \
+		    | sort
+		) \
+		<(git ls-tree -r "$revision" --name-only \
+		    | sort
+		) \
+	    | grep --invert-match --fixed-strings --line-regexp --file <(git-submodule-uninitialized --print)
     fi
 }
 

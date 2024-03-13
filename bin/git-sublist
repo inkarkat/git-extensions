@@ -7,13 +7,15 @@ printUsage()
 Show a list of all (initialized and at least once updated) submodules.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--recursive] [-r|--revision REVISION] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--recursive] [--name|--url|--userrepo|--reponame] [-r|--revision REVISION] [-?|-h|--help]'
 }
 
 action=listOneLevel
+postAction=
 revision=
 isRecursive=
 prefix=
+typeset -a subnameArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -24,6 +26,11 @@ do
 	--revision|-r)	shift; revision="$1"; shift;;
 	--recursive)	shift; isRecursive=t;;
 	--prefix)	shift; prefix="${prefix}$1"; shift;;
+	--name)		shift; postAction=subName;;
+	--url|--userrepo|--reponame)
+			subnameArgs+=("$1"); shift
+			postAction=subName
+			;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -33,6 +40,14 @@ if [ $# -ne 0 ]; then
     printUsage "$0" >&2
     exit 2
 fi
+
+subName()
+{
+    while IFS=$'\n' read -r submodulePath
+    do
+	(cd "$submodulePath" && exec git-subname "${subnameArgs[@]}")
+    done | sort --unique
+}
 
 listSubmodules()
 {
@@ -77,4 +92,5 @@ listOneLevel()
 }
 
 eval '$action "$@"' \
-    "${prefix:+| prefix "$prefix"}"
+    "${prefix:+| prefix "$prefix"}" \
+    "${postAction:+|}$postAction"

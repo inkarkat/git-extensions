@@ -21,6 +21,7 @@ remote="${1:?}"; shift
 isFetch=t
 preAction=:
 action=:
+notDerelictStatus=1
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -29,7 +30,7 @@ do
 			shift;;
 	--color)	shift; shift;;
 	--list)		shift; preAction=list;;
-	--offer)	shift; preAction=offerRename; action=rename;;
+	--offer)	shift; preAction=offerRename; action=rename; notDerelictStatus=0;;
 	--rename)	shift; action=rename;;
 	--delete)	shift; action=delete;;
 	--no-fetch)	shift; isFetch=;;
@@ -96,7 +97,10 @@ if [ "$isFetch" ] && git-fetchdate --remote "$remote" -gt "$GIT_DERELICT_AGE"; t
 fi
 
 readarray -t remoteBranches < <(git rbrrefdo-wrapper "$remote")
-git-commitage --older "$GIT_DERELICT_AGE" "${remoteBranches[@]}" \
-    && derelictRepoName="$(getDerelictRepoName)" \
-    && $preAction \
-    && $action
+if git-commitage --older "$GIT_DERELICT_AGE" "${remoteBranches[@]}"; then
+    derelictRepoName="$(getDerelictRepoName)" \
+	&& $preAction \
+	&& $action
+else
+    exit $notDerelictStatus
+fi

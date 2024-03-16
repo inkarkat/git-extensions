@@ -1877,9 +1877,15 @@
 	;; db: bare / basic diff without diff beautification (through delta)
 	;; diffbin: diff of hexdump (for binary files, without having to use gitattributes to set a diff driver); can also be used as a difftool
 	;; diffc: context diff; can also be used as a difftool
+	;; diffe: effective diff that just shows net lines added / removed; can also be used as a difftool
+	diffea = diffe --added	; effective diff that just shows net lines added; can also be used as a difftool
+	diffed = diffe --deleted	; effective diff that just shows net lines removed; can also be used as a difftool
 	diffy = diffY --suppress-common-lines	; side-by-side diff; can also be used as a difftool
 	;; diffY: side-by-side diff of the complete files; can also be used as a difftool
 	diffwithdiffc = customtool diff.tool diffc
+	diffwithdiffe = customtool diff.tool diffe
+	diffwithdiffea = customtool diff.tool diffea
+	diffwithdiffed = customtool diff.tool diffead
 	diffwithdiffy = customtool diff.tool diffy
 	diffwithdiff-y = customtool diff.tool diffY
 	dw = -c color.diff.old=red\\ reverse -c color.diff.new=green\\ reverse diff --color-words	; use word-based (not line-based) diff granularity
@@ -2164,6 +2170,9 @@
 	dplsg = selectedgcommit-command --pass-file-args -3 dplss --on-revision-selection COMMITS
 	dplschanged = selectedchangedcommit-command --pass-file-args -3 dplss --on-revision-selection COMMITS
 	dplstouched = selectedtouchedcommit-command --pass-file-args -3 dplss --on-revision-selection COMMITS
+	;; dpe:  ... with predecessor, either current HEAD or passed revision.
+	;; dpea: ... with predecessor, either current HEAD or passed revision.
+	;; dped: ... with predecessor, either current HEAD or passed revision.
 	;; dpy:  ... with predecessor, either current HEAD or passed revision.
 	;; dpY:  ... with predecessor, either current HEAD or passed revision.
 	adp = annotatediff --count=1
@@ -2887,6 +2896,9 @@
 	showw = -c color.diff.old=red\\ reverse -c color.diff.new=green\\ reverse wrapper show --color-words	; use word-based (not line-based) diff granularity
 	showc = -c color.diff.old=red\\ reverse -c color.diff.new=green\\ reverse wrapper show --color-words --word-diff-regex=.	; use character-based diff granularity
 	showa = -c color.diff.old=red\\ reverse -c color.diff.new=green\\ reverse wrapper show --color-words --word-diff-regex=(^|[^[:alnum:]_])[[:alnum:]_]+([^[:alnum:]_]|$)|[^[:space:]]	; use alnum-based diff granularity
+	;; showe: Log together with just net lines added / removed for a particular commit.
+	;; showea: Log together with just net lines added for a particular commit.
+	;; showed: Log together with just net lines removed for a particular commit.
 	;; showy: Log together with side-by-side diff for a particular commit.
 	;; showY: Log together with side-by-side diff of the complete files for a particular commit.
 	;; showh: Log together with just the modified file followed by the "TEXT" portion(s) of patch hunk headers of the diff for a particular commit. Condenses identical "TEXT" portions of hunks and completely omits logs that have no "TEXT" portion.
@@ -5594,6 +5606,12 @@
 	cmd = git-diffbin --as-difftool "$LOCAL" "$REMOTE"
 [difftool "diffc"]
 	cmd = git-diffc --as-difftool "$LOCAL" "$REMOTE"
+[difftool "diffe"]
+	cmd = git-diffe --as-difftool "$LOCAL" "$REMOTE"
+[difftool "diffea"]
+	cmd = git-diffe --added --as-difftool "$LOCAL" "$REMOTE"
+[difftool "diffed"]
+	cmd = git-diffe --deleted --as-difftool "$LOCAL" "$REMOTE"
 [difftool "diffy"]
 	cmd = git-diffY --as-difftool --suppress-common-lines "$LOCAL" "$REMOTE"
 [difftool "diffY"]

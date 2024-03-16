@@ -1,0 +1,60 @@
+#!/bin/bash
+set -o pipefail
+
+# Highlight diff output if available.
+hasColorDiff=
+type -t colordiff >/dev/null && [ -t 1 ] && hasColorDiff=t
+typeset -a pager=("${PAGER:-less}" --quit-on-intr --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+
+what='[+-]'
+whatArg=
+isAsDiffTool=
+typeset -a allargs=()
+while [ $# -gt 0 ]
+do
+    case "$1" in
+	--as-difftool) shift; isAsDiffTool=t;;
+	--no-color|--color=never)
+	    shift
+	    hasColorDiff=
+	    ;;
+	--color|--color=always)
+	    shift
+	    hasColorDiff=t
+	    ;;
+	--added|-a)
+	    whatArg="$1"; shift; what='+';;
+	--deleted|-d)
+	    whatArg="$1"; shift; what='-';;
+	--modified|-m)
+	    whatArg="$1"; shift; what='[+-]';;
+	*)
+	    allargs+=("$1")
+	    shift
+	    ;;
+    esac
+done
+set -- "${allargs[@]}"
+
+if [ "$isAsDiffTool" ]; then
+    if [ $# -eq 0 ]; then
+	echo >&2 'ERROR: No FILEs passed.'
+	exit 2
+    fi
+
+    ignoreColor=''; [ "$hasColorDiff" ] && ignoreColor='\(\x1b\[[0-9:;]*m\)*'
+    ${hasColorDiff:+color}diff --unified=0 "$@" \
+	| sed -n \
+	    -e "/^${ignoreColor}--- /{ N; /\\n${ignoreColor}+++ /d; }" \
+	    -e "/^${ignoreColor}@@ .* @@${ignoreColor}\$/d" \
+	    -e "/^${ignoreColor}${what}[[:space:]]*${ignoreColor}\$/d" \
+	    -e "s/^${ignoreColor:-\\(\\)}${what}/\\1/p" \
+
+    exit 0	# Need to return success to avoid that Git complains that the "external tool died".
+else
+    colorArg=--color=always; [ "$hasColorDiff" ] || colorArg=--no-color
+
+    readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
+    eval "git difftool --no-prompt --extcmd=\"$scriptName --as-difftool \$colorArg \$whatArg\" \"\$@\"" \
+	"${pager:+|}" '"${pager[@]}"'
+fi

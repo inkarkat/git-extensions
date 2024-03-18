@@ -1,0 +1,41 @@
+#!/bin/bash
+set -o pipefail
+
+printUsage()
+{
+    cat <<HELPTEXT
+One-line author, date, tags / branches and commit summary for commits that are
+both tagged and have tips of (local or remote) branches.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-i|--include <pattern> [-i ...]] [-e|--exclude <pattern> [-e ...]] [<log-options>] [<revision range>] [--] [<path> ...] [-?|-h|--help]'
+}
+
+typeset -a allargs=()
+typeset -a colorArg=(--color=always)
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+if [ ! -t 1 ]; then
+    colorArg=()
+    pager=()
+fi
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--color=auto)	shift;;
+	--no-color|--color=*)
+			colorArg=("$1"); shift;;
+	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); shift; shift;;
+	--)		break;;
+	*)		allargs+=("$1"); shift;;
+    esac
+done
+
+filterTagsWithBranches()
+{
+    grep -e '(tag: [^[:space:]]\+\(, tag: [^[:space:]]\+\)*, \([^t].*\|t[^a].*\|ta[^g].*\|tag[^:].*\|tag:[^ ].*\))'
+}
+
+git-onelinelog-and-decorations --only-decorations --decorate-refs=refs/tags/ --decorate-refs=refs/heads/ --decorate-refs=refs/remotes/ "${colorArg[@]}" "${allargs[@]}" "$@" \
+    | eval filterTagsWithBranches \
+    "${pager:+|}" '"${pager[@]}"'

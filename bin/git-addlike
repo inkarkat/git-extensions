@@ -37,6 +37,7 @@ do
     esac
 done
 
-git-showfiles "${commit:-HEAD}" -- "$@" | \
-    xargs --no-run-if-empty --delimiter '\n' git add && \
-	git status -sb
+git-showfiles "${commit:-HEAD}" -- "$@" \
+    | { xargs -n 1 --no-run-if-empty sh -c 'test -r "$1" && printf %s\\n "$1"' sh || :; } \
+    | xargs --no-run-if-empty --delimiter '\n' git add \
+	&& git status -sb

@@ -10,6 +10,7 @@ fi
 
 typeset -a messageDirectArgs=()
 typeset -a messageFileArgs=()
+typeset -a messageRefArgs=()
 convertMessageFileArgsToDirectArgs()
 {
     [ ${#messageFileArgs[@]} -gt 0 ] || return
@@ -60,6 +61,10 @@ do
 			    messageFileArgs+=(--file "${filespec:?}"); shift; shift
 			fi
 			;;
+	--reedit-message|--reuse-message|-c|-C)
+			messageRefArgs+=("$1" "${2?}"); shift; shift;;
+	--reedit-message=*|--reuse-message=*)
+			messageRefArgs+=("$1"); shift;;
 	--edit|-e|--no-edit)
 			editArgs+=("$1"); shift;;
 	--)		commitArgs+=("$1"); shift; break;;
@@ -71,14 +76,14 @@ done
 # command-line arguments), use it. The default editing behavior is not affected
 # by this. In order to avoid accidental pick up of old templates, they have the
 # previous commit's ID in their name.
-if [ ${#messageDirectArgs[@]} -eq 0 -a ${#messageFileArgs[@]} -eq 0 ] \
+if [ ${#messageDirectArgs[@]} -eq 0 -a ${#messageFileArgs[@]} -eq 0 -a ${#messageRefArgs[@]} -eq 0 ] \
     && commitTemplateFilespec="$(git-committemplate --get-filespec)"
 then
     messageFileArgs+=(--file "$commitTemplateFilespec")
     [ ${#editArgs[@]} -gt 0 ] || editArgs+=(--edit)
 fi
 
-set -- "${messageDirectArgs[@]}" "${messageFileArgs[@]}" "${editArgs[@]}" "${noEditArgs[@]}" "${commitArgs[@]}" "$@"
+set -- "${messageDirectArgs[@]}" "${messageFileArgs[@]}" "${messageRefArgs[@]}" "${editArgs[@]}" "${commitArgs[@]}" "$@"
 
 export GIT_COMMIT_CWD="$PWD"
 eval "typeset -a gitConfigArgs=($GIT_CONFIG_ARGS)"

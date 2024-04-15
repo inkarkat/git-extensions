@@ -1,8 +1,8 @@
 #!/bin/bash
 shopt -qs extglob
 
-: ${GIT_CREATEBR_PREFIX_PATTERN=}	# Optional POSIX-style extended regular expression anchored to the beginning of the branch name whose match is kept at the beginning.
-: ${GIT_CREATEBR_SUFFIX_PATTERN=}	# Optional POSIX-style extended regular expression anchored to the end of the branch name whose match is kept at the end.
+readonly prefixPattern="${GIT_CREATEBR_PREFIX_PATTERN-$GIT_BRANCH_PREFIX_PATTERN}"  # Optional POSIX-style extended regular expression anchored to the beginning of the branch name whose match is kept at the beginning.
+readonly suffixPattern="${GIT_CREATEBR_SUFFIX_PATTERN-$GIT_BRANCH_SUFFIX_PATTERN}"  # Optional POSIX-style extended regular expression anchored to the end of the branch name whose match is kept at the end.
 
 printUsage()
 {
@@ -58,8 +58,8 @@ esac
 
 if [ -n "$oldBranch" ]; then
     newBranch="$(replaceWith \
-	    ${GIT_CREATEBR_PREFIX_PATTERN:+--keep-prefix-pattern "$GIT_CREATEBR_PREFIX_PATTERN"} \
-	    ${GIT_CREATEBR_SUFFIX_PATTERN:+--keep-suffix-pattern "$GIT_CREATEBR_SUFFIX_PATTERN"} \
+	    ${prefixPattern:+--keep-prefix-pattern "$prefixPattern"} \
+	    ${suffixPattern:+--keep-suffix-pattern "$suffixPattern"} \
 	    -- "$oldBranch" "${branches[@]}" 2>/dev/null \
 	|| printf %s "${branches[0]}"
     )"

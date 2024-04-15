@@ -1,7 +1,7 @@
 #!/bin/bash
 
-: ${GIT_CHECKOUTBRANCH_PREFIX_PATTERN=}	# Optional POSIX-style extended regular expression anchored to the beginning of the branch name whose match is kept at the beginning.
-: ${GIT_CHECKOUTBRANCH_SUFFIX_PATTERN=}	# Optional POSIX-style extended regular expression anchored to the end of the branch name whose match is kept at the end.
+readonly prefixPattern="${GIT_CHECKOUTBRANCH_PREFIX_PATTERN-$GIT_BRANCH_PREFIX_PATTERN}"    # Optional POSIX-style extended regular expression anchored to the beginning of the branch name whose match is kept at the beginning.
+readonly suffixPattern="${GIT_CHECKOUTBRANCH_SUFFIX_PATTERN-$GIT_BRANCH_SUFFIX_PATTERN}"    # Optional POSIX-style extended regular expression anchored to the end of the branch name whose match is kept at the end.
 
 printUsage()
 {
@@ -39,8 +39,8 @@ fi >&2
 
 if oldBranch="$(git-brname --real-branch-only 2>/dev/null)"; then
     newBranch="$(replaceWith \
-	    ${GIT_CHECKOUTBRANCH_PREFIX_PATTERN:+--keep-prefix-pattern "$GIT_CHECKOUTBRANCH_PREFIX_PATTERN"} \
-	    ${GIT_CHECKOUTBRANCH_SUFFIX_PATTERN:+--keep-suffix-pattern "$GIT_CHECKOUTBRANCH_SUFFIX_PATTERN"} \
+	    ${prefixPattern:+--keep-prefix-pattern "$prefixPattern"} \
+	    ${suffixPattern:+--keep-suffix-pattern "$suffixPattern"} \
 	    -- "$oldBranch" "${branches[@]}" 2>/dev/null \
 	|| printf %s "${branches[0]}"
     )"

@@ -1,7 +1,7 @@
 #!/bin/bash
 
-: ${GIT_RENAMEBR_PREFIX_PATTERN=}	# Optional POSIX-style extended regular expression anchored to the beginning of the branch name whose match is kept at the beginning.
-: ${GIT_RENAMEBR_SUFFIX_PATTERN=}	# Optional POSIX-style extended regular expression anchored to the end of the branch name whose match is kept at the end.
+readonly prefixPattern="${GIT_RENAMEBR_PREFIX_PATTERN-$GIT_BRANCH_PREFIX_PATTERN}"  # Optional POSIX-style extended regular expression anchored to the beginning of the branch name whose match is kept at the beginning.
+readonly suffixPattern="${GIT_RENAMEBR_SUFFIX_PATTERN-$GIT_BRANCH_SUFFIX_PATTERN}"  # Optional POSIX-style extended regular expression anchored to the end of the branch name whose match is kept at the end.
 
 printUsage()
 {
@@ -29,8 +29,8 @@ if [ $# -eq 0 ]; then
 fi
 
 newBranch="$(replaceWith \
-	${GIT_RENAMEBR_PREFIX_PATTERN:+--keep-prefix-pattern "$GIT_RENAMEBR_PREFIX_PATTERN"} \
-	${GIT_RENAMEBR_SUFFIX_PATTERN:+--keep-suffix-pattern "$GIT_RENAMEBR_SUFFIX_PATTERN"} \
+	${prefixPattern:+--keep-prefix-pattern "$prefixPattern"} \
+	${suffixPattern:+--keep-suffix-pattern "$suffixPattern"} \
 	-- "$oldBranch" "$@" 2>/dev/null \
     || printf %s "$1"
 )"

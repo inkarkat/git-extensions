@@ -1,5 +1,8 @@
 #!/bin/bash
 
+: ${GIT_SUPERCOBR_PREFIX_PATTERN=}	# Optional POSIX-style extended regular expression anchored to the beginning of the branch name whose match is kept at the beginning.
+: ${GIT_SUPERCOBR_SUFFIX_PATTERN=}	# Optional POSIX-style extended regular expression anchored to the end of the branch name whose match is kept at the end.
+
 printUsage()
 {
     cat <<HELPTEXT
@@ -27,7 +30,11 @@ set -- "${checkoutbranchArgs[@]}" "$@"
 submoduleBranch="$(git-brname --real-branch-only)" || exit $?
 
 if [ ${#branches[@]} -gt 0 ]; then
-    newBranch="$(replaceWith -- "$submoduleBranch" "${branches[@]}" 2>/dev/null)" || exit $?
+    newBranch="$(replaceWith \
+	    ${GIT_SUPERCOBR_PREFIX_PATTERN:+--keep-prefix-pattern "$GIT_SUPERCOBR_PREFIX_PATTERN"} \
+	    ${GIT_SUPERCOBR_SUFFIX_PATTERN:+--keep-suffix-pattern "$GIT_SUPERCOBR_SUFFIX_PATTERN"} \
+	    -- "$submoduleBranch" "${branches[@]}" 2>/dev/null
+    )" || exit $?
 else
     newBranch="$submoduleBranch"
 fi

@@ -1,5 +1,8 @@
 #!/bin/bash
 
+: ${GIT_COSUPERBR_PREFIX_PATTERN=}	# Optional POSIX-style extended regular expression anchored to the beginning of the branch name whose match is kept at the beginning.
+: ${GIT_COSUPERBR_SUFFIX_PATTERN=}	# Optional POSIX-style extended regular expression anchored to the end of the branch name whose match is kept at the end.
+
 printUsage()
 {
     cat <<HELPTEXT
@@ -28,7 +31,11 @@ superprojectRoot="$(git superproject)" || exit 1
 superprojectBranch="$(cd "$superprojectRoot" && git-brname --real-branch-only)" || exit $?
 
 if [ ${#branches[@]} -gt 0 ]; then
-    newBranch="$(replaceWith -- "$superprojectBranch" "${branches[@]}" 2>/dev/null)" || exit $?
+    newBranch="$(replaceWith \
+	    ${GIT_COSUPERBR_PREFIX_PATTERN:+--keep-prefix-pattern "$GIT_COSUPERBR_PREFIX_PATTERN"} \
+	    ${GIT_COSUPERBR_SUFFIX_PATTERN:+--keep-suffix-pattern "$GIT_COSUPERBR_SUFFIX_PATTERN"} \
+	    -- "$superprojectBranch" "${branches[@]}" 2>/dev/null
+    )" || exit $?
 else
     newBranch="$superprojectBranch"
 fi

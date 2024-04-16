@@ -1,6 +1,7 @@
 #!/bin/bash
 
 : ${GIT_STACKBR_SEPARATOR=-}
+readonly suffixPattern="${GIT_STACKBR_SUFFIX_PATTERN-$GIT_BRANCH_SUFFIX_PATTERN}"
 
 printShortUsage()
 {
@@ -21,7 +22,8 @@ printLongUsage()
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
 Create a stacked follow-up branch of the current / passed branch by cloning and
-appending ${GIT_STACKBR_SEPARATOR}1 (${GIT_STACKBR_SEPARATOR}2, etc.) at the end of the branch name and switch to it.
+appending ${GIT_STACKBR_SEPARATOR}1 (${GIT_STACKBR_SEPARATOR}2, etc.) at the end of the branch name${suffixPattern:+ but possibly before
+a $suffixPattern match} and switch to it.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
@@ -76,13 +78,21 @@ esac
 
 # Handle stacking an existing stacked branch.
 let num=1
-branchBase="$branch"
-if [[ "$branchBase" =~ ^(.+)"${GIT_STACKBR_SEPARATOR}"([[:digit:]]+)$ ]]; then
+
+# XXX: This could be one match if we had lazy matching for the branchBase.
+if [[ "$branch" =~ ^(.+)"${GIT_STACKBR_SEPARATOR}"([[:digit:]]+)(${suffixPattern})?$ ]]; then
     branchBase="${BASH_REMATCH[1]}"
     num=$((BASH_REMATCH[2] + 1))
+    branchSuffix="${BASH_REMATCH[3]}"
+elif [[ "$branch" =~ ^(.+)(${suffixPattern})$ ]]; then
+    branchBase="${BASH_REMATCH[1]}"
+    branchSuffix="${BASH_REMATCH[2]}"
+else
+    branchBase="$branch"
+    branchSuffix=''
 fi
 
-while newBranch="${branchBase}${GIT_STACKBR_SEPARATOR}${num}" && git-existsbr -- "$newBranch"
+while newBranch="${branchBase}${GIT_STACKBR_SEPARATOR}${num}${branchSuffix}" && git-existsbr -- "$newBranch"
 do
     let num+=1
 done

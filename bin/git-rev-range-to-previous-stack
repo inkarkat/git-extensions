@@ -1,11 +1,12 @@
 #!/bin/bash
 
 : ${GIT_STACKBR_SEPARATOR=-}
+readonly suffixPattern="${GIT_STACKBR_SUFFIX_PATTERN-$GIT_BRANCH_SUFFIX_PATTERN}"
 
 printUsage()
 {
     git-rev-range --help 2>&1 | sed \
-	-e "1s#^.*\$#Print / execute GIT-COMMAND with the revision range to its [N]'th previous stacked branch (FOO${GIT_STACKBR_SEPARATOR}1 to FOO, FOO${GIT_STACKBR_SEPARATOR}2 to FOO${GIT_STACKBR_SEPARATOR}1, etc.)#" \
+	-e "1s#^.*\$#Print / execute GIT-COMMAND with the revision range to its [N]'th previous stacked branch (FOO${GIT_STACKBR_SEPARATOR}1 to FOO, FOO${GIT_STACKBR_SEPARATOR}2 to FOO${GIT_STACKBR_SEPARATOR}1${suffixPattern:+, or with an optional suffix FOO${GIT_STACKBR_SEPARATOR}1${suffixPattern} to FOO${suffixPattern}, FOO${GIT_STACKBR_SEPARATOR}2${suffixPattern} to FOO${GIT_STACKBR_SEPARATOR}1${suffixPattern}}, etc.)#" \
 	-e '2,/^- /{ /^- /p; d; }' \
 	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ ]\+ \)*git-rev-range /\1\2'"$(basename "$1")"' /; s/ -r|--revision REVISION \[-e|--end-revision END-REVISION|/ [-n|--previous-stack-number N] [--fallback-branch BRANCH] [-b|--branch BRANCH] [/; s/ GIT-COMMAND \[\.\.\.\]\?/& [-b|--branch BRANCH]/; }'
 }
@@ -45,7 +46,7 @@ done
 [ -n "$branchName" ] || branchName="$(git-brname --real-branch-only)" || exit $?
 
 previousStackedBranch=
-if [[ ! "$branchName" =~ ^(.+)"${GIT_STACKBR_SEPARATOR}"([[:digit:]]+)$ ]]; then
+if [[ ! "$branchName" =~ ^(.+)"${GIT_STACKBR_SEPARATOR}"([[:digit:]]+)(${suffixPattern})?$ ]]; then
     if [ -n "$fallbackBranch" ]; then
 	if [ $previousStackNumber -gt 1 ]; then
 	    printf >&2 'ERROR: Can only fall back to one branch, but -n|--previous-stack-number is %d.\n' $previousStackNumber
@@ -59,13 +60,14 @@ if [[ ! "$branchName" =~ ^(.+)"${GIT_STACKBR_SEPARATOR}"([[:digit:]]+)$ ]]; then
 fi
 if [ -z "$previousStackedBranch" ]; then
     branchBase="${BASH_REMATCH[1]}"
+    branchSuffix="${BASH_REMATCH[3]}"
     for ((num=BASH_REMATCH[2] - 1, encounteredStackCnt=0; num >= 0 && encounteredStackCnt < previousStackNumber; --num))
     do
-	previousStackedBranch="${branchBase}${GIT_STACKBR_SEPARATOR}${num}"
+	previousStackedBranch="${branchBase}${GIT_STACKBR_SEPARATOR}${num}${branchSuffix}"
 	if git-existsbr -- "$previousStackedBranch"; then
 	    let encounteredStackCnt+=1
-	elif [ $num -eq 0 ] && git-existsbr -- "$branchBase"; then	# Support the usual FOO in addition to the unlikely FOO-0 base branch name.
-	    previousStackedBranch="$branchBase"
+	elif [ $num -eq 0 ] && git-existsbr -- "${branchBase}${branchSuffix}"; then	# Support the usual FOO in addition to the unlikely FOO-0 base branch name.
+	    previousStackedBranch="${branchBase}${branchSuffix}"
 	    let encounteredStackCnt+=1
 	fi
     done

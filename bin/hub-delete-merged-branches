@@ -1,6 +1,7 @@
 #!/bin/bash
 
 : ${GIT_REINTEGRATE_MERGE_INTEGRATION_BRANCH_SUFFIX:=-integration}
+readonly suffixPattern="${GIT_REINTEGRATE_MERGE_INTEGRATION_BRANCH_SUFFIX_PATTERN-$GIT_BRANCH_SUFFIX_PATTERN}"	# Optional POSIX-style extended regular expression anchored to the end of the branch name whose match is kept at the end and GIT_REINTEGRATE_MERGE_INTEGRATION_BRANCH_SUFFIX is added in front of.
 
 printShortUsage()
 {
@@ -105,7 +106,14 @@ do
     # Note: Need to delete the separate integration branch first, because its
     # implementation depends on the existence of the local branch(es).
     if [ "$isDeleteSeparateIntegrationBranch" ]; then
-	integrationBranch="${branch}${GIT_REINTEGRATE_MERGE_INTEGRATION_BRANCH_SUFFIX:?}"
+	if [[ "$branch" =~ ^(.+)(${suffixPattern})$ ]]; then
+	    baseBranch="${BASH_REMATCH[1]}"
+	    branchSuffix="${BASH_REMATCH[2]}"
+	else
+	    baseBranch="$branch"
+	    branchSuffix=''
+	fi
+	integrationBranch="${baseBranch}${GIT_REINTEGRATE_MERGE_INTEGRATION_BRANCH_SUFFIX:?}${branchSuffix}"
 	if git-existsremotebr "$trackedRemote" "$integrationBranch" \
 	    && git-rdeletebr "$trackedRemote" "${gitRemoteMutateArgs[@]}" -- "$integrationBranch"
 	then

@@ -2,6 +2,7 @@
 set -o pipefail
 
 : ${GIT_STACKBR_SEPARATOR=-}
+readonly suffixPattern="${GIT_STACKBR_SUFFIX_PATTERN-$GIT_BRANCH_SUFFIX_PATTERN}"
 
 printShortUsage()
 {
@@ -22,7 +23,8 @@ printLongUsage()
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
 List all stacked branches that can be obtained from the current / passed branch
-by appending ${GIT_STACKBR_SEPARATOR}1 (${GIT_STACKBR_SEPARATOR}2, etc.) at the end of the branch name.
+by appending ${GIT_STACKBR_SEPARATOR}1 (${GIT_STACKBR_SEPARATOR}2, etc.) at the end of the branch name${suffixPattern:+ but possibly before
+a $suffixPattern match}.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
@@ -53,18 +55,26 @@ if [ $# -ne 0 ]; then
 fi
 [ -n "$branch" ] || branch="$(git-brname --real-branch-only)" || exit $?
 
-[[ "$branch" =~ ^(.+)"${GIT_STACKBR_SEPARATOR}"([[:digit:]]+)$ ]] \
-    && branchBase="${BASH_REMATCH[1]}" \
-    || branchBase="$branch"
+# XXX: This could be one match if we had lazy matching for the branchBase.
+if [[ "$branch" =~ ^(.+)"${GIT_STACKBR_SEPARATOR}"([[:digit:]]+)(${suffixPattern})?$ ]]; then
+    branchBase="${BASH_REMATCH[1]}"
+    branchSuffix="${BASH_REMATCH[3]}"
+elif [[ "$branch" =~ ^(.+)(${suffixPattern})$ ]]; then
+    branchBase="${BASH_REMATCH[1]}"
+    branchSuffix="${BASH_REMATCH[2]}"
+else
+    branchBase="$branch"
+    branchSuffix=''
+fi
 readarray -t branches < <(
-    git-localbr --include-all -- ${isIncludeBase:+"$branchBase"} "${branchBase}${GIT_STACKBR_SEPARATOR}+([0-9])" \
+    git-localbr --include-all -- ${isIncludeBase:+"${branchBase}${branchSuffix}"} "${branchBase}${GIT_STACKBR_SEPARATOR}+([0-9])${branchSuffix}" \
 	| sort --numeric-sort
 )
 
 if [ ${#branches[@]} -eq 0 ]; then
     printf >&2 'ERROR: %s branch is no local branch: %s\n' "$branchOrigin" "$branch"
     exit 2
-elif [ ${#branches[@]} -eq 1 -a "${branches[0]}" = "$branchBase" ]; then
+elif [ ${#branches[@]} -eq 1 -a "${branches[0]}" = "${branchBase}${branchSuffix}" ]; then
     printf >&2 'ERROR: %s branch has no stacked branches; there is no %s1 suffix: %s\n' "$branchOrigin" "$GIT_STACKBR_SEPARATOR" "${branches[0]}"
     exit 1
 fi

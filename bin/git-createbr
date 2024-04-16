@@ -1,6 +1,9 @@
 #!/bin/bash
 shopt -qs extglob
 
+readonly prefixPattern="${GIT_CREATEBR_PREFIX_PATTERN-$GIT_BRANCH_PREFIX_PATTERN}"  # Optional POSIX-style extended regular expression anchored to the beginning of the branch name whose match is kept at the beginning.
+readonly suffixPattern="${GIT_CREATEBR_SUFFIX_PATTERN-$GIT_BRANCH_SUFFIX_PATTERN}"  # Optional POSIX-style extended regular expression anchored to the end of the branch name whose match is kept at the end.
+
 printUsage()
 {
     cat <<HELPTEXT
@@ -54,7 +57,12 @@ case $# in
 esac
 
 if [ -n "$oldBranch" ]; then
-    newBranch="$(replaceWith -- "$oldBranch" "${branches[@]}" 2>/dev/null || printf %s "${branches[0]}")"
+    newBranch="$(replaceWith --pattern-is-optional \
+	    ${prefixPattern:+--keep-prefix-pattern "$prefixPattern"} \
+	    ${suffixPattern:+--keep-suffix-pattern "$suffixPattern"} \
+	    -- "$oldBranch" "${branches[@]}" 2>/dev/null \
+	|| printf %s "${branches[0]}"
+    )"
     [ "$oldBranch" != "$newBranch" ] || exit 4
 else
     newBranch="${branches[0]}"

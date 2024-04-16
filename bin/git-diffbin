@@ -1,74 +1,22 @@
 #!/bin/bash
-set -o pipefail
 
-if [ -z "$GIT_DIFFBIN_CONVERTER" ]; then
-    if type -t xxd >/dev/null; then
-	GIT_DIFFBIN_CONVERTER=xxd
+if [ -n "$GIT_DIFFBIN_CONVERTER" ]; then
+    :
+elif type -t xxd >/dev/null; then
+    converter=xxd
 
-	if [ -t 1 ]; then
-	    # Auto-size columns to terminal width.
-	    let octetNum=$(((${COLUMNS:-80} - 12) / 7 * 2))
-	    octetNum=$((octetNum > 256 ? 256 : octetNum))
-	    GIT_DIFFBIN_CONVERTER+=" -cols $octetNum"
-	fi
-    elif type -t hexdump >/dev/null; then
-	GIT_DIFFBIN_CONVERTER='hexdump -vC'
-    else
-	echo >&2 'ERROR: No suitable binary converter found. Please set GIT_DIFFBIN_CONVERTER.'
-	exit 2
+    if [ -t 1 ]; then
+	# Auto-size columns to terminal width.
+	let octetNum=$(((${COLUMNS:-80} - 12) / 7 * 2))
+	octetNum=$((octetNum > 256 ? 256 : octetNum))
+	converter+=" -cols $octetNum"
     fi
-    export GIT_DIFFBIN_CONVERTER    # Make available to the recursive --as-difftool invocation (as the terminal detection won't be off in there due to the pager).
-fi
-
-# Highlight diff output if available.
-hasColorDiff=
-type -t colordiff >/dev/null && [ -t 1 ] && hasColorDiff=t
-typeset -a pager=("${PAGER:-less}" --quit-on-intr --RAW-CONTROL-CHARS)
-
-# Use delta (which also acts as a pager) if available and configured.
-type -t delta >/dev/null \
-    && [ "$(git config --get core.pager)" = 'delta' ] && pager=(delta)
-
-[ -t 1 ] || pager=()
-
-isAsDiffTool=
-typeset -a allargs=()
-while [ $# -gt 0 ]
-do
-    case "$1" in
-	--as-difftool) shift; isAsDiffTool=t;;
-	--no-color|--color=never)
-	    shift
-	    hasColorDiff=
-	    ;;
-	--color|--color=always)
-	    shift
-	    hasColorDiff=t
-	    ;;
-	*)
-	    allargs+=("$1")
-	    shift
-	    ;;
-    esac
-done
-set -- "${allargs[@]}"
-
-if [ "$isAsDiffTool" ]; then
-    if [ $# -ne 2 ]; then
-	echo >&2 'ERROR: No 2 FILEs passed.'
-	exit 2
-    fi
-
-    ${hasColorDiff:+color}diff --unified \
-	--label "$1" \
-	--label "$2" \
-	<($GIT_DIFFBIN_CONVERTER -- "$1") \
-	<($GIT_DIFFBIN_CONVERTER -- "$2")
-    exit 0	# Need to return success to avoid that Git complains that the "external tool died".
+elif type -t hexdump >/dev/null; then
+    converter='hexdump -vC'
 else
-    colorArg=--color=always; [ "$hasColorDiff" ] || colorArg=--no-color
-
-    readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
-    eval "git difftool --no-prompt --extcmd=\"$scriptName --as-difftool \$colorArg\" \"\$@\"" \
-	"${pager:+|}" '"${pager[@]}"'
+    echo >&2 'ERROR: No suitable binary converter found. Please set GIT_DIFFBIN_CONVERTER.'
+    exit 2
 fi
+GIT_DIFFCONVERTED_CONVERTER="$converter --" \
+GIT_DIFFCONVERTED_WHAT='hexdump (for binary files, without having to use gitattributes to set a diff driver)' \
+    exec git-diffconverted "$@"

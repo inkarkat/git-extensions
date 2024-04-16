@@ -4,7 +4,8 @@ set -o pipefail
 printUsage()
 {
     cat <<HELPTEXT
-Show effective diff that just shows net lines added / removed.
+Show changes between commits as a unified diff ${GIT_DIFFCONVERTED_WHAT:-of the files converted by
+${GIT_DIFFCONVERTED_CONVERTER:-\$GIT_DIFFCONVERTED_CONVERTER}}.
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[<diff-options>] [<commit> [<commit>]] [--] [<path>...] [-?|-h|--help]'
@@ -14,13 +15,19 @@ case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
 
+: ${GIT_DIFFCONVERTED_CONVERTER:?}
+
 # Highlight diff output if available.
 hasColorDiff=
 type -t colordiff >/dev/null && [ -t 1 ] && hasColorDiff=t
-typeset -a pager=("${PAGER:-less}" --quit-on-intr --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+typeset -a pager=("${PAGER:-less}" --quit-on-intr --RAW-CONTROL-CHARS)
 
-what='[+-]'
-whatArg=
+# Use delta (which also acts as a pager) if available and configured.
+type -t delta >/dev/null \
+    && [ "$(git config --get core.pager)" = 'delta' ] && pager=(delta)
+
+[ -t 1 ] || pager=()
+
 isAsDiffTool=
 typeset -a allargs=()
 while [ $# -gt 0 ]
@@ -35,12 +42,6 @@ do
 	    shift
 	    hasColorDiff=t
 	    ;;
-	--added|-a)
-	    whatArg="$1"; shift; what='+';;
-	--deleted|-d)
-	    whatArg="$1"; shift; what='-';;
-	--modified|-m)
-	    whatArg="$1"; shift; what='[+-]';;
 	*)
 	    allargs+=("$1")
 	    shift
@@ -50,24 +51,21 @@ done
 set -- "${allargs[@]}"
 
 if [ "$isAsDiffTool" ]; then
-    if [ $# -eq 0 ]; then
-	echo >&2 'ERROR: No FILEs passed.'
+    if [ $# -ne 2 ]; then
+	echo >&2 'ERROR: No 2 FILEs passed.'
 	exit 2
     fi
 
-    ignoreColor=''; [ "$hasColorDiff" ] && ignoreColor='\(\x1b\[[0-9:;]*m\)*'
-    ${hasColorDiff:+color}diff --unified=0 "$@" \
-	| sed -n \
-	    -e "/^${ignoreColor}--- /{ N; /\\n${ignoreColor}+++ /d; }" \
-	    -e "/^${ignoreColor}@@ .* @@${ignoreColor}\$/d" \
-	    -e "/^${ignoreColor}${what}[[:space:]]*${ignoreColor}\$/d" \
-	    -e "s/^${ignoreColor:-\\(\\)}${what}/\\1/p" \
-
+    ${hasColorDiff:+color}diff --unified \
+	--label "$1" \
+	--label "$2" \
+	<($GIT_DIFFCONVERTED_CONVERTER "$1") \
+	<($GIT_DIFFCONVERTED_CONVERTER "$2")
     exit 0	# Need to return success to avoid that Git complains that the "external tool died".
 else
     colorArg=--color=always; [ "$hasColorDiff" ] || colorArg=--no-color
 
     readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
-    eval "git difftool --no-prompt --extcmd=\"$scriptName --as-difftool \$colorArg \$whatArg\" \"\$@\"" \
+    eval "git difftool --no-prompt --extcmd=\"$scriptName --as-difftool \$colorArg\" \"\$@\"" \
 	"${pager:+|}" '"${pager[@]}"'
 fi

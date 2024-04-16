@@ -4,6 +4,18 @@ set -o pipefail
 : ${GIT_DIFFY_FILE_PREFIX=[01;47m}
 : ${GIT_DIFFY_FILE_SUFFIX=[0m}
 
+printUsage()
+{
+    [ "$isSuppressCommonLines" ] \
+	&& local suppressNote='without common lines' \
+	|| local suppressNote='of the complete files'
+    cat <<HELPTEXT
+Show changes between commits as a side-by-side diff ${suppressNote}.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<diff-options>] [<commit> [<commit>]] [--] [<path>...] [-?|-h|--help]'
+}
+
 # Highlight diff output if available.
 hasColorDiff=; type -t colordiff >/dev/null && [ -t 1 ] && hasColorDiff=t
 
@@ -21,7 +33,8 @@ typeset -a diffArgs=()
 while [ $# -gt 0 ]
 do
     case "$1" in
-	--as-difftool) shift; isAsDiffTool=t;;
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--as-difftool)	shift; isAsDiffTool=t;;
 	--no-color|--color=never)
 	    shift
 	    isColor=

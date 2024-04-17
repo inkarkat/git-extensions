@@ -4,13 +4,13 @@
 # git-init: invalid function name
 _git_initAndCloneExtension()
 {
-    typeset command=$1
+    typeset command="$1"
     typeset -r gitCommand="$(which hub 2>/dev/null || which git)"
     shift
 
     "$gitCommand" "$command" "$@" || return $?
     if [ $# -gt 0 ]; then
-	eval "typeset repoOrDir=\${$#}"
+	typeset repoOrDir="${!#}"
 	typeset dir=${repoOrDir%.git}
 	[ -d "$dir" ] || \
 	    { dir="${dir##*/}"; [ -d "$dir" ]; } || \

@@ -4,13 +4,13 @@
 # git-init: invalid function name
 _git_initAndCloneExtension()
 {
-    typeset command=$1
+    typeset command="$1"
     typeset -r gitCommand="$(which hub 2>/dev/null || which git)"
     shift
 
     "$gitCommand" "$command" "$@" || return $?
     if [ $# -gt 0 ]; then
-	eval "typeset repoOrDir=\${$#}"
+	typeset repoOrDir="${!#}"
 	typeset dir=${repoOrDir%.git}
 	[ -d "$dir" ] || \
 	    { dir="${dir##*/}"; [ -d "$dir" ]; } || \
@@ -80,6 +80,16 @@ git-init()
 git-clone()
 {
     _git_initAndCloneExtension clone "$@"
+}
+git-oclone()
+{
+    if [ $# -eq 0 ]; then
+	echo >&2 'ERROR: No REPO-NAME passed.'
+	return 2
+    fi
+    local repoName="$1"; shift
+    local me; me="$(git me-in-github)" || return $?
+    _git_initAndCloneExtension clone "git@github.com:${me}/${repoName}" "$@"
 }
 # Avoids "git remote rename origin upstream" and automatically makes upstream
 # read-only.

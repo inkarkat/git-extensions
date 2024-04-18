@@ -4,7 +4,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [-f|--force] [-i|--ignore-missing-in-${remote}] [-I|--ignore-missing-local] [-y|--yes] [--] <branch> [...] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [-f|--force] [-i|--ignore-missing-in-${remote}] [-I|--ignore-missing-local] [-y|--yes] [--] [<branch> ...] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -18,7 +18,8 @@ printLongUsage()
     # This is the long "man page" when launched with the help argument.
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
-Delete <branch> from the local repository as well as ${remote:-REMOTE}.
+Delete the current branch (and detach) / passed <branch> from the local
+repository as well as ${remote:-REMOTE}.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
@@ -67,11 +68,10 @@ do
     esac
 done
 if [ $# -eq 0 ]; then
-    echo 'Need (at least one) <branch> to delete!'
-    echo
-    printUsage "$0"
-    exit 2
-fi >&2
+    branch="$(git-brname --real-branch-only)" || exit $?
+    git-detach || exit $?
+    set -- "$branch"
+fi
 
 
 # Need to determine remote branch names before deleting the local branches.

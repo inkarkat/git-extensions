@@ -3,9 +3,9 @@
 printUsage()
 {
     cat <<HELPTEXT
-Delete remote <branch> from ${remote:-REMOTE}.
+Delete the current branch / passed <branch> from ${remote:-REMOTE}.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [-i|--ignore-missing] [-y|--yes] [--] <branch> [...] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [-i|--ignore-missing] [-y|--yes] [--] [<branch> ...] [-?|-h|--help]"
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
@@ -32,11 +32,9 @@ do
     esac
 done
 if [ $# -eq 0 ]; then
-    echo 'Need (at least one) remote <branch> to delete!'
-    echo
-    printUsage "$0"
-    exit 2
-fi >&2
+    branch="$(git-brname --real-branch-only)" || exit $?
+    set -- "$branch"
+fi
 
 
 if [ "$isIgnoreMissing" ]; then

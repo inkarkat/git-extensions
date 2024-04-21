@@ -12,7 +12,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--submodules|--all-submodules] [--no-submodule-recurse] [--filter-worktree-duplicates] [-a|--all] [-v|--verbose] [-q|--quiet|--color=(always|auto|never)|--no-color] [(+|-)(empty|dirty|private|stashed|noremote|outgoing|incoming|fallenbehind|behind|behindtags|wipcommit|nonmaster|unmergeddownstream|downstreambranches|todo|inactivefork) ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--submodules|--all-submodules [--submodule-color=(always|auto|never)]] [--no-submodule-recurse] [--filter-worktree-duplicates] [-a|--all] [-v|--verbose] [-q|--quiet|--color=(always|auto|never)|--no-color] [(+|-)(empty|dirty|private|stashed|noremote|outgoing|incoming|fallenbehind|behind|behindtags|wipcommit|nonmaster|unmergeddownstream|downstreambranches|todo|inactivefork) ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -54,6 +54,9 @@ HELPDESCRIPTION
     --color=(always|auto|never)|--no-color
 			Influence the default coloring of output when output is
 			to the terminal.
+    --submodule-color=(always|auto|never)
+			Overrides the --color argument for the submodule
+			recursion itself (i.e. the submodule header coloring).
 
 Individual checks can be selected (from a baseline of no checks) via +name /
 deselected (from all checks on offer) via -name.
@@ -98,7 +101,8 @@ recurseSubmodules()
     HEADER_PREFIX="${HEADER_PREFIX}» " \
     GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES=0 \
     GIT_SUBDO_STORE_ID='wips' \
-	git-subdo-core --no-pager "${colorArg[@]}" --single-success "${subdoRecursiveArg[@]}" -- wips "${recursiveArgs[@]}"
+	git-subdo-core --no-pager "${submoduleColorArg[@]:-${colorArg[@]}}" --single-success "${subdoRecursiveArg[@]}" -- \
+		wips "${recursiveArgs[@]}"
 }
 printSubmoduleSeparator()
 {
@@ -112,6 +116,7 @@ positiveCheck() {
     exit 0
 }
 typeset -a colorArg=()
+typeset -a submoduleColorArg=()
 typeset -a gitColorConfigArg=()
 isSubmodules=
 isSubmodulesAlways=
@@ -125,6 +130,10 @@ do
 	--no-color|--color=*)
 			recursiveArgs+=("$1"); colorArg=("$1"); shift;;
 	--color)	recursiveArgs+=("$1" "$2"); colorArg=("$1" "$2"); shift; shift;;
+	--submodule-color=*)
+			recursiveArgs+=("$1"); submoduleColorArg=("--${1#--submodule-}"); shift;;
+	--submodule-color)
+			recursiveArgs+=("$1" "$2"); submoduleColorArg=(--color "$2"); shift; shift;;
 	--submodules)	shift; isSubmodules=t;;
 	--filter-worktree-duplicates)
 			shift; isFilterWorktreeDuplicates=t;;

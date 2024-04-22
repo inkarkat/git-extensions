@@ -87,16 +87,21 @@ do
 	*)			break;;
     esac
 done
-typeset -a uncoloredSimpleCommand=()
-while [ $# -ne 0 ]
-do
-    case "$1" in
-	--no-color|--color=*)	colorArg=("$1"); shift;;
-	--color)		colorArg=("$1" "$2"); shift; shift;;
-	*)			uncoloredSimpleCommand+=("$1"); shift;;
-    esac
-done
-set -- "${uncoloredSimpleCommand[@]}"
+if [ "$isGitColor" ] && [ ${#colorArg[@]} -eq 0 ]; then
+    # If we're handling SIMPLECOMMAND's coloring, extract a (user-provided) color
+    # argument and use that for the overall coloring, but only if git-wcdo didn't
+    # yet receive its own color argument (which takes precedence).
+    typeset -a uncoloredSimpleCommand=()
+    while [ $# -ne 0 ]
+    do
+	case "$1" in
+	    --no-color|--color=*)   colorArg=("$1"); shift;;
+	    --color)		    colorArg=("$1" "$2"); shift; shift;;
+	    *)			    uncoloredSimpleCommand+=("$1"); shift;;
+	esac
+    done
+    set -- "${uncoloredSimpleCommand[@]}"
+fi
 
 # With piping into withHeader / pager, we need to explicitly enable color for
 # Git, unless this command's output itself is redirected. Also don't do this if

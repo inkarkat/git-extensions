@@ -159,16 +159,21 @@ if [ ${#wcArgs[@]} -eq 0 ]; then
     printUsage "$0" >&2
     exit 2
 fi
-typeset -a uncoloredSimpleCommand=()
-while [ $# -ne 0 ]
-do
-    case "$1" in
-	--no-color|--color=*)	colorArg=("$1"); shift;;
-	--color)		colorArg=("$1" "$2"); shift; shift;;
-	*)			uncoloredSimpleCommand+=("$1"); shift;;
-    esac
-done
-set -- "${uncoloredSimpleCommand[@]}"
+if [ "$isGitColor" ] && [ ${#colorArg[@]} -eq 0 ]; then
+    # If we're handling SIMPLECOMMAND's coloring, extract a (user-provided) color
+    # argument and use that for the overall coloring, but only if git-wcdo didn't
+    # yet receive its own color argument (which takes precedence).
+    typeset -a uncoloredSimpleCommand=()
+    while [ $# -ne 0 ]
+    do
+	case "$1" in
+	    --no-color|--color=*)   colorArg=("$1"); shift;;
+	    --color)		    colorArg=("$1" "$2"); shift; shift;;
+	    *)			    uncoloredSimpleCommand+=("$1"); shift;;
+	esac
+    done
+    set -- "${uncoloredSimpleCommand[@]}"
+fi
 
 # If we're launched from within a Git operation (e.g. the external editor opened
 # by git commit), the environment variable GIT_DIR may have been set, and this

@@ -101,7 +101,7 @@ recurseSubmodules()
     HEADER_PREFIX="${HEADER_PREFIX}» " \
     GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES=0 \
     GIT_SUBDO_STORE_ID='wips' \
-	git-subdo-core --no-pager "${submoduleColorArg[@]:-${colorArg[@]}}" --single-success "${subdoRecursiveArg[@]}" -- \
+	git-subdo-core --no-pager "${subdoColorArg[@]}" "${submoduleColorArg[@]:-${colorArg[@]}}" --single-success "${subdoRecursiveArg[@]}" -- \
 		wips "${recursiveArgs[@]}"
 }
 printSubmoduleSeparator()
@@ -117,6 +117,7 @@ positiveCheck() {
 }
 typeset -a colorArg=()
 typeset -a submoduleColorArg=()
+typeset -a subdoColorArg=()
 typeset -a gitColorConfigArg=()
 isSubmodules=
 isSubmodulesAlways=
@@ -128,8 +129,8 @@ do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--no-color|--color=*)
-			recursiveArgs+=("$1"); colorArg=("$1"); shift;;
-	--color)	recursiveArgs+=("$1" "$2"); colorArg=("$1" "$2"); shift; shift;;
+			recursiveArgs+=("$1"); colorArg=("$1"); shift; subdoColorArg=(--no-git-color);;
+	--color)	recursiveArgs+=("$1" "$2"); colorArg=("$1" "$2"); shift; shift; subdoColorArg=(--no-git-color);;
 	--submodule-color=*)
 			recursiveArgs+=("$1"); submoduleColorArg=("--${1#--submodule-}"); shift;;
 	--submodule-color)

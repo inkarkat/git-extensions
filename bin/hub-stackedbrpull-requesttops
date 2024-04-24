@@ -6,7 +6,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-b|--branch BRANCH] [--exclude-base] [--start-branch|-S N] [HUB-PULL-REQUEST-ARGS ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-b|--branch BRANCH] [--exclude-base] [--start-branch|-S N] [--no-draft] [HUB-PULL-REQUEST-ARGS ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -32,6 +32,7 @@ HELPDESCRIPTION
     --exclude-base	Do not create a pull request for the base branch (the
 			branch without the ${GIT_STACKBR_SEPARATOR}1 suffix).
     --start-branch|-S N	Skip the first N branches.
+    --no-draft		Do not create draft pull requests for subsequent ones.
 
 The first pull request is made against the default / passed BASE branch, all
 subsequent ones are drafts made against the previous stacked branch.
@@ -49,6 +50,7 @@ HELPTEXT
 branchStartNum=
 typeset -a stackedbranchesArgs=()
 typeset -a firstPullrequestArgs=()
+typeset -a nodraftArg=()
 typeset -a pullrequestArgs=()
 while [ $# -ne 0 ]
 do
@@ -60,6 +62,7 @@ do
 			shift; branchStartNum="${1:?}"; shift;;
 	--base)		firstPullrequestArgs+=("$1" "${2:?}"); shift; shift;;
 	--head)		echo >&2 'ERROR: --head HEAD is not supported; use -b|--branch to specify the stacked branch.'; exit 2;;
+	--no-draft)	nodraftArg=("$1"); shift;;
 	--)		pullrequestArgs+=("$1"); shift; break;;
 	*)		pullrequestArgs+=("$1"); shift;;
     esac
@@ -94,6 +97,7 @@ firstPullRequestExists()
     # branches, but the hub-pull-requesttops command already implements the
     # reference to the previous pull request for us.
     prCommand=(hub-pull-requesttops --branch)
+    pullrequestArgs+=("${nodraftArg[@]}")
 }
 
 branchesPlural=es; [ ${#branches[@]} -eq 1 ] && branchesPlural=

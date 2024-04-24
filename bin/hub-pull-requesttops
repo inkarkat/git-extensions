@@ -3,11 +3,13 @@
 typeset -a branchArgs=()
 typeset -a pullrequestArgs=()
 typeset -a allargs=()
+typeset -a draftArg=(--draft)
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--branch|-b)	branchArgs+=("$1" "${2:?}"); pullrequestArgs+=(--head "${2:?}"); shift; shift;;
+	--no-draft)	draftArg=(); shift;;
 	--)		allargs+=("$1"); shift; break;;
 	*)		allargs+=("$1"); shift;;
     esac
@@ -23,4 +25,4 @@ if [ -n "$previousStackedPr" ]; then
     pullrequestArgs+=(--message "* Note: This is a follow-up on $previousStackedPr")
 fi
 
-exec git-rev-range-to-previous-stack --no-range "${branchArgs[@]}" --keep-position "${HUB_PULLREQUESTTO_COMMAND:-pull-request}" --base RANGE "${pullrequestArgs[@]}" "$@"
+exec git-rev-range-to-previous-stack --no-range "${branchArgs[@]}" --keep-position "${HUB_PULLREQUESTTO_COMMAND:-pull-request}" --base RANGE "${draftArg[@]}" "${pullrequestArgs[@]}" "$@"

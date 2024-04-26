@@ -41,11 +41,7 @@ If there are more outstanding follow-up branches:
    b) from submodule(s): `$ git psrb`
 8. superproject: Incorporate rebased submodule(s):
    a) amends to short-lived feature: `$ git amenu`
-   .  Rebase, dropping all earlier commits (we get these in rebased form from
-   .    the previous branch); just keep the last (feature branch) commit:
-   .    `$ git rev-range-to-previous-stack --no-range -2 rebasepicklast RANGE`
-   .    Accept the current, conflicted submodule(s):
-   .    `$ git addconflicts && git rbnc`
+   .  Rebase: `$ git pssuperrb`
    b) maintain history of how the feature grew: `$ git cu -m 'feat-4711 Housekeeping: Rebase [...] submodule(s)'`
    .  (If this rebasing was already done once, just amend to that housekeeping
    .  commit; no need for a separate commit.)

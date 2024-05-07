@@ -12,8 +12,18 @@ the same branch as the superproject.
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[HUB-PULL-REQUEST-ARGS ...] [-?|--help]'
+    echo
+    cat <<HELPTEXT
+Just print the would-be pull request message template for the current submodule
+/ for all submodules that are on the same branch as the superproject.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--print-message'
 }
 
+action=openPullRequest
+typeset -a recursiveArgs=()
+typeset -a recursionArgs=(--interactive)
 remote="$(git-trackedremote 2>/dev/null)" || remote='origin'
 base="$(git-mbr)" || exit $?
 head=
@@ -23,6 +33,8 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-\?)	shift; printUsage "$0"; exit 0;;
+	--print-message)
+			recursiveArgs+=("$1"); shift; action=printMessage; recursionArgs=();;
 	--base|-b)	shift; base="${1:?}"; shift;;
 	--head|-h)	shift; git-equals "${1:?}" HEAD || head="$1"; shift;;
 	--super-message)
@@ -49,6 +61,16 @@ getSuperMessage()
 	    --command "git ${isInSubmodule:+superdo --no-header} superchanges --as markdown ${remote}/${base}..${head}"
 }
 
+openPullRequest()
+{
+    exec hub-wrapper pull-request --base "$base" ${head:+--head "$head"} --message "$message" --edit "$@"
+}
+
+printMessage()
+{
+    printf '%s\n' "$message"
+}
+
 if [ -n "$superMessage" ] || git issubmodule; then
     [ -n "$superMessage" ] \
 	|| superMessage="$(getSuperMessage t)" \
@@ -71,8 +93,10 @@ if [ -n "$superMessage" ] || git issubmodule; then
 	--command "git-servername --message -- $head" \
     )" || exit $?
 
-    exec hub-wrapper pull-request --base "$base" ${head:+--head "$head"} --message "${superMessage}${superMessage:+$'\n\n'}$message" --edit "$@"
+    message="${superMessage}${superMessage:+$'\n\n'}$message"
+    $action "$@"
 else
     superMessage="$(getSuperMessage '')" || exit $?
-    exec hub-wrapper subsamebrdo --subdo-command-name "${scriptName#hub-}" ${head:+--branch "$head"} --no-git-color --interactive "${scriptName#hub-}" --base "$base" ${head:+--head "$head"} --super-message "$superMessage"
+    exec hub-wrapper subsamebrdo --subdo-command-name "${scriptName#hub-}" ${head:+--branch "$head"} --no-git-color "${recursionArgs[@]}" \
+	    "${scriptName#hub-}" "${recursiveArgs[@]}" --base "$base" ${head:+--head "$head"} --super-message "$superMessage"
 fi

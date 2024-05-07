@@ -9,8 +9,15 @@ Open a pull request for the superproject.
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[HUB-PULL-REQUEST-ARGS ...] [-?|--help]'
+    echo
+    cat <<HELPTEXT
+Just print the would-be pull request message template for the superproject.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--print-message'
 }
 
+action=openPullRequest
 remote="$(git-trackedremote 2>/dev/null)" || remote='origin'
 base="$(git-mbr)" || exit $?
 head=
@@ -19,6 +26,8 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-\?)	shift; printUsage "$0"; exit 0;;
+	--print-message)
+			shift; action=printMessage;;
 	--base|-b)	shift; base="${1:?}"; shift;;
 	--head|-h)	shift; git-equals "${1:?}" HEAD || head="$1"; shift;;
 	--)		args+=("$1"); shift; break;;
@@ -47,4 +56,14 @@ message="$(withSeparator \
     --command "git-servername --message -- $head" \
 )" || exit $?
 
-exec hub-wrapper pull-request --base "$base" ${head:+--head "$head"} "${submodulePullRequestArgs[@]}" --message "$message" --edit "$@"
+openPullRequest()
+{
+    exec hub-wrapper pull-request --base "$base" ${head:+--head "$head"} "${submodulePullRequestArgs[@]}" --message "$message" --edit "$@"
+}
+
+printMessage()
+{
+    printf '%s\n' "$message"
+}
+
+$action "$@"

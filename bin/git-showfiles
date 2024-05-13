@@ -126,8 +126,15 @@ elif [ ${#diffRange[@]} -gt 0 ]; then
     # Source: http://stackoverflow.com/a/1552353/813602
     git-subdir-relativizer diff "${gitNameStatusArg[@]}" "${renameArgs[@]}" "${statusFilterArg[@]}" "${allargs[@]}" "${diffRange[@]}" "$@"
 else
+    # Need to convert tags to commit ids, to avoid that "git show" also shows
+    # details about the tag itself.
+    typeset -a argsWithResolvedCommitIds=()
+    for arg in "${allargs[@]}" "$@"
+    do
+	argsWithResolvedCommitIds+=("$(git-commitid --no-error -- "$arg" || printf %s "$arg")")
+    done
     git-subdir-relativizer loglimit-to-range-command -2 \
-	show LIMITRANGE --pretty='format:' "${gitNameStatusArg[@]}" "${renameArgs[@]}" "${statusFilterArg[@]}" "${allargs[@]}" "$@"
+	show LIMITRANGE --pretty='format:' "${gitNameStatusArg[@]}" "${renameArgs[@]}" "${statusFilterArg[@]}" "${argsWithResolvedCommitIds[@]}"
 fi \
     | eval "$filter ${filter:+|}" \
 	"$sorter" \

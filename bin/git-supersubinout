@@ -1,6 +1,8 @@
 #!/bin/bash
 set -o pipefail
 
+: ${GIT_SUPERSUBINOUT_MESSAGE_SINK='&2'}
+
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
@@ -66,7 +68,7 @@ do
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--no-pager)	shift; pager=();;
 	--no-header)	shift; isHeader=;;
-	--message)	shift; messagePipeline=(outputAndPrintf --stderr '%s\n' "${1?}"); shift;;
+	--message)	shift; messagePipeline=(outputAndPrintf ${GIT_SUPERSUBINOUT_MESSAGE_SINK:+--output "$GIT_SUPERSUBINOUT_MESSAGE_SINK"} '%s\n' "${1?}"); shift;;
 	--color=auto)	shift;;
 	--no-color|--color=*)
 			colorArg=("$1"); shift;;
@@ -109,8 +111,8 @@ superSubInOut()
 	fi
 
 	eval 'git-inout "${colorArg[@]}" "${inoutArgs[@]}" --base "$base" "${submoduleRemote}${submoduleRemote:+/}${submoduleBase:-$(git-mbr)}"' \
-		"${messagePipeline:+|}" '"${messagePipeline[@]}"' \
-		"${isHeader:+| withHeader "${colorArg[@]}" --id '$GIT_SUPERSUBINOUT_HEADER_ID' -- '$submodule'}"
+		"${isHeader:+| withHeader "${colorArg[@]}" --id '$GIT_SUPERSUBINOUT_HEADER_ID' -- '$submodule'}" \
+		"${messagePipeline:+|}" '"${messagePipeline[@]}"'
     ) && { status=0; messagePipeline=(); } || : ${status:=$?}
     done
     return ${status:-99}

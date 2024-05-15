@@ -67,6 +67,48 @@ _git_cheat()
 }
 complete -F _git_cheat git-cheat hub-cheat
 
+_git_complete_filterAliasCounts()
+{
+    typeset -a compReplyWithoutAliasCounts=()
+    typeset -A aliasStems=()
+    local element; for element in "${COMPREPLY[@]}"
+    do
+	if [[ "$element" =~ ([1234567xqz]\ )$ ]]; then
+	    aliasStems["${element%${BASH_REMATCH[1]}}"]=t
+	else
+	    compReplyWithoutAliasCounts+=("$element")
+	fi
+    done
+
+    # Filter out aliases that have a count suffix, as long as we're not only
+    # completing that single alias stem itself.
+    if [ ${#aliasStems[@]} -gt 1 ]; then
+	COMPREPLY=("${!aliasStems[@]}" "${compReplyWithoutAliasCounts[@]}")
+    fi
+}
+_git_complete_filterVariants()
+{
+    typeset -a compReplyWithoutVariants=()
+    typeset -A aliasStems=()
+    local element; for element in "${COMPREPLY[@]}"
+    do
+	if [[ ! "$element" =~ (hi|lg|log)\ ?$ ]] \
+	    && [[ "$element" =~ ((last|lastst|lasti|last-i|adst|adi|ad-i|st|i|-i|g)\ ?)$ ]]
+	then
+	    aliasStems["${element%${BASH_REMATCH[1]}}"]=t
+	else
+	    compReplyWithoutVariants+=("$element")
+	fi
+    done
+    ####D DUMPARGS_SINK='&1' dump-args -a aliasStems -- "${!aliasStems[@]}" | surround -- '[s[1;1H[0K[37;44m[' '][0m[u' | noeol
+
+    # Filter out aliases that have a variant suffixes, as long as we're not only
+    # completing that single variant stem itself.
+    if [ ${#aliasStems[@]} -gt 1 ]; then
+	COMPREPLY=("${!aliasStems[@]}" "${compReplyWithoutVariants[@]}")
+    fi
+}
+
 _git_complete()
 {
     local IFS=$'\n'
@@ -130,6 +172,10 @@ _git_complete()
 	subAliases=("${subAliases[@]/#git-${COMP_WORDS[1]}-/}")
 	readarray -O ${#COMPREPLY[@]} -t COMPREPLY < <(compgen -W "${subAliases[*]}" -X "!${2}*")
     fi
+
+    # Need to filter in reverse order: First drop counts, then variants.
+    _git_complete_filterAliasCounts
+    _git_complete_filterVariants
 }
 complete -o bashdefault -o default -o nospace -F _git_complete git
 

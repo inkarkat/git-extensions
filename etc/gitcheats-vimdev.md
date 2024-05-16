@@ -1,4 +1,4 @@
-# creating
+# Vim plugin creation
 
 1. `$ git init vim-PluginName`
 2. `$ git flow init`
@@ -16,14 +16,11 @@
    `$ hub labels set`
    `$ gh repo edit --enable-discussions`
 
-# releases
+# Vim plugin releases
 
 1. Checks
    `$ runVimTests tests/[all.suite]`
-2. `$ git release start 1.00`
-   Inspect changed files list with `$ git stablefiles`
-   Check changelog with `$ git stablelg`
-   Inspect changes to prior release with `$ git stabled`
+2. `$ git release start 1.00` (`$ git cheat release`)
 3. Update changelog (at least with release date) in `doc/*.txt`
    - `:UpdateHelpAsReadme`
 4. `$ git release commit` (`$ git cu -m 'Release 1.00'`)

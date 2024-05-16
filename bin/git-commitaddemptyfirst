@@ -1,0 +1,44 @@
+#!/bin/bash
+# Source: https://stackoverflow.com/a/68279810/813602
+
+printUsage()
+{
+    cat <<HELPTEXT
+Insert a completely empty commit as the new initial root commit (to
+retroactively start with a clean slate, or to rebase and split the first
+commit).
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-e|--edit|--no-edit] [-m|--message MESSAGE] [-F|--file FILE] [-?|-h|--help]'
+}
+
+typeset -a commitMessageArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--message|-m|--file|-F|--edit|-e|--no-edit)
+			commitMessageArgs+=("$1" "$2"); shift; shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+git-dirty --print-error && exit 1
+
+set -o errexit
+
+branchName="$(git-brname --real-branch-only)"
+
+git checkout --orphan empty-initial-commit
+git rm -r --cached .
+git clean -d --force
+git-wrapper commit --allow-empty "${commitMessageArgs[@]}"
+git-wrapper checkout "$branchName"
+git-wrapper rebase empty-initial-commit
+git branch --delete empty-initial-commit

@@ -70,11 +70,16 @@ case $# in
 	;;
 esac
 
+getEffectiveBranch()
+{
+    effectiveBranch="$(git name-rev --name-only --exclude 'refs/tags/*' --exclude 'refs/remotes/*' --no-undefined "$commit" 2>/dev/null)" && \
+	git-existsbr -- "$effectiveBranch"
+}
+
 if branch=$(git symbolic-ref "$commit" 2>/dev/null); then
     printf '%s\n' "${remote}${remote:+/}${branch##refs/heads/}"
 elif [ "$isDetachedEffectiveBranch" ] && \
-    effectiveBranch="$(git name-rev --name-only --exclude 'refs/tags/*' --exclude 'refs/remotes/*' --no-undefined "$commit" 2>/dev/null)" && \
-    git-existsbr -- "$effectiveBranch"
+    getEffectiveBranch --exclude 'refs/remotes/*'
 then
     printf "${detachedBranchEmbellishment}\\n" "${remote}${remote:+/}${effectiveBranch}"
 elif tags=$(git tag --list --points-at "$commit" 2>/dev/null) && [ "$tags" ]; then

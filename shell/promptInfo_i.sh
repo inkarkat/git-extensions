@@ -6,7 +6,7 @@ if type ${BASH_VERSION:+-t} __git_ps1 >/dev/null 2>&1; then
     # large and complex to reimplement) to use my git-brname instead.
     # Note: Use --raw because the function will wrap in (...) if necessary
     # on its own.
-    functionmodify -e 's#git describe --contains --all HEAD#git-brname --detached-effective-branch --raw HEAD#' __git_ps1
+    functionmodify -e 's#git describe --contains --all HEAD#git-brname --detached-effective-branch --include-remote-branches --raw HEAD#' __git_ps1
 
     _PS1RCS_Git()
     {

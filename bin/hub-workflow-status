@@ -1,5 +1,6 @@
 #!/bin/bash
 set -o pipefail
+shopt -qs nullglob
 
 : ${HUB_WORKFLOWSTATUS_OWNER:='{owner}'}
 : ${HUB_WORKFLOWSTATUS_REPO:='{repo}'}
@@ -13,6 +14,7 @@ set -o pipefail
 : ${HUB_WORKFLOWSTATUS_COLOR_COMPLETED_FAILURE=[37;41m}
 : ${HUB_WORKFLOWSTATUS_COLOR_RESET=[0m}
 readonly WORKFLOW_ID_CONFIG_KEY=github.workflow-id
+readonly WORKFLOW_DIRPATH=.github/workflows
 
 printShortUsage()
 {
@@ -45,10 +47,12 @@ HELPDESCRIPTION
     --id WORKFLOW_ID|WORKFLOW_FILENAME
 			The ID of the workflow. You can also pass the workflow
 			file name. If not specified, will use the
-			${WORKFLOW_ID_CONFIG_KEY} config setting.
+			${WORKFLOW_ID_CONFIG_KEY} config setting, or fall back to a
+			single existing workflow in ${WORKFLOW_DIRPATH}.
     --user|-u USER	Limit to workflow runs of USER.
     --branch|-b BRANCH	Limit to workflow runs associated with BRANCH.
-    --current-branch|-B	Limit to workflow runs associated with the current branch.
+    --current-branch|-B	Limit to workflow runs associated with the current
+			branch.
     --pull-request|-P N	Limit to workflows associated with pull request N.
     --revision|-r REVISION
 			Limit to workflow runs that build REVISION.
@@ -192,8 +196,13 @@ fi
 if [ -z "$workflowId" ]; then
     workflowId="$(git config --get "$WORKFLOW_ID_CONFIG_KEY")"
     if [ -z "$workflowId" ]; then
+	workflowDirspec="$(git root)/${WORKFLOW_DIRPATH}"
+	typeset -a workflowFiles=("$workflowDirspec"/*.y{,a}ml)
+	[ ${#workflowFiles[@]} -eq 1 ] && workflowId="${workflowFiles[0]##*/}"
+    fi
+    if [ -z "$workflowId" ]; then
 	[ "$isWorkflowCheck" ] && exit 1
-	echo >&2 "ERROR: No workflow specified (via --id WORKFLOW_ID|WORKFLOW_FILENAME, \$HUB_WORKFLOWSTATUS_WORKFLOW_ID, or the $WORKFLOW_ID_CONFIG_KEY configuration)."
+	echo >&2 "ERROR: No workflow specified (via --id WORKFLOW_ID|WORKFLOW_FILENAME, \$HUB_WORKFLOWSTATUS_WORKFLOW_ID, or the $WORKFLOW_ID_CONFIG_KEY configuration), and there are ${#workflowFiles[@]} workflows in ${workflowDirspec}."
 	exit 2
     elif [ "$isWorkflowCheck" ]; then
 	exit 0

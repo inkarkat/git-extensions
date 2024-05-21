@@ -4,7 +4,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--real-branch-only] [--detached-effective-branch] [--raw] [--remote REMOTE] [<commit>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--real-branch-only] [--detached-effective-branch [--include-remote-branches]] [--raw] [--remote REMOTE] [<commit>] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -31,6 +31,9 @@ HELPDESCRIPTION
 			If there's a (not necessarily the only) local branch
 			for the detached commit, print that one instead of the
 			hash.
+    --include-remote-branches
+			Also consider remote (only REMOTE when --remote is
+			passed) branches if no local one exists.
     --raw		Avoid embellishments on tags or detached commits (so
 			that the result can be passed to other Git commands as a
 			revision).
@@ -40,6 +43,7 @@ HELPTEXT
 
 isRealBranchOnly=
 isDetachedEffectiveBranch=
+isRemoteBranch=
 tagEmbellishment='(tag: %s)'
 detachedBranchEmbellishment='(%s)'
 detachedEmbellishment='(%s...)'
@@ -55,6 +59,8 @@ do
 			shift; isRealBranchOnly=t;;
 	--detached-effective-branch)
 			shift; isDetachedEffectiveBranch=t;;
+	--include-remote-branches)
+			shift; isRemoteBranch=t;;
 	--raw)		shift; tagEmbellishment='%s'; detachedBranchEmbellishment='%s'; detachedEmbellishment='%s';;
 	--remote)	shift; remote="$1"; shift;;
 	--)		shift; break;;
@@ -76,13 +82,32 @@ getEffectiveBranch()
 	git-existsbr -- "$effectiveBranch"
 }
 
+getEffectiveRemoteBranch()
+{
+    typeset -a remoteExcludeArgs=()
+    [ -z "$remote" ] || for definedRemote in $(git remote)
+    do
+	[ "$definedRemote" = "$remote" ] && continue
+	remoteExcludeArgs+=("--exclude=refs/remotes/${definedRemote}/*")
+    done
+
+    effectiveBranch="$(git name-rev --name-only --exclude 'refs/tags/*' "${remoteExcludeArgs[@]}" --no-undefined "$commit" 2>/dev/null)" || return $?
+
+    effectiveBranch="${effectiveBranch#remotes/}"
+    git-existsbr -- "$effectiveBranch"
+}
+
 if branch=$(git symbolic-ref "$commit" 2>/dev/null); then
     printf '%s\n' "${remote}${remote:+/}${branch##refs/heads/}"
-elif [ "$isDetachedEffectiveBranch" ] && \
-    getEffectiveBranch --exclude 'refs/remotes/*'
+elif [ "$isDetachedEffectiveBranch" ] \
+    && getEffectiveBranch --exclude 'refs/remotes/*'
 then
     printf "${detachedBranchEmbellishment}\\n" "${remote}${remote:+/}${effectiveBranch}"
-elif tags=$(git tag --list --points-at "$commit" 2>/dev/null) && [ "$tags" ]; then
+elif [ "$isDetachedEffectiveBranch" ] && [ "$isRemoteBranch" ] \
+    && getEffectiveRemoteBranch
+then
+    printf "${detachedBranchEmbellishment}\\n" "$effectiveBranch"
+elif tags=$(git tag --list --points-at "$commit" 2>/dev/null) && [ -n "$tags" ]; then
     if [ "$isRealBranchOnly" ]; then
 	printf >&2 'ERROR: Checked out tag %s\n' "${tags//
 /, }"

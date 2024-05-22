@@ -1,5 +1,6 @@
 #!/bin/bash
 set -o pipefail
+shopt -qs extglob
 
 readonly EXCLUDED_TAGS_CONFIG_KEY='uptodate.excludedTags'
 
@@ -103,7 +104,7 @@ matcher()
 	for pattern in "${excludedPatterns[@]}"
 	do
 	    case "$tagName" in
-		$pattern)   continue 2;;
+		@($pattern))	continue 2;;
 	    esac
 	done
 	if [ ${#patterns[@]} -eq 0 ]; then
@@ -112,7 +113,7 @@ matcher()
 	    for pattern in "${patterns[@]}"
 	    do
 		case "$tagName" in
-		    $pattern)   printf '%s%s\n' "$tagName" "${remainder:+$'\t'}${remainder}"; continue;;
+		    @($pattern))    printf '%s%s\n' "$tagName" "${remainder:+$'\t'}${remainder}"; continue;;
 		esac
 	    done
 	fi

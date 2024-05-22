@@ -1,7 +1,9 @@
 #!/bin/bash
 set -o pipefail
+shopt -qs extglob
 
 readonly EXCLUDED_TAGS_CONFIG_KEY='uptodate.excludedTags'
+readonly INCLUDED_TAGS_CONFIG_KEY='uptodate.includedTags'
 
 printShortUsage()
 {
@@ -30,9 +32,13 @@ HELPDESCRIPTION
     --exclude|-e <pattern>
 			Only print tags not matching <pattern>. Takes precedence
 			over any passed [-l|--list] <pattern>.
-    --version-tags-only	Only print tags that are considered versions; i.e. do
-			not match the $EXCLUDED_TAGS_CONFIG_KEY config setting.
-    --no-version-tags	Omit tags that are considered versions.
+    --version-tags-only	Only print tags that are considered versions; i.e. match
+			both -l|--list <pattern> and the $INCLUDED_TAGS_CONFIG_KEY
+			config setting and do not match the
+			$EXCLUDED_TAGS_CONFIG_KEY config setting.
+    --no-version-tags	Omit tags that are considered versions; i.e. match the
+			$INCLUDED_TAGS_CONFIG_KEY config setting and do not match
+			the $EXCLUDED_TAGS_CONFIG_KEY config setting.
     --sort-by-age	Sort by tag date (ascending, oldest first) instead of
 			the default version number sorting.
 HELPTEXT
@@ -53,7 +59,9 @@ esac; shift
 verboseFormat=
 filter=
 typeset -a patterns=()
+typeset -a explicitlyIncludedPatterns=()
 typeset -a excludedPatterns=()
+typeset -a includedPatterns=()
 sortField='version:refname'
 while [ $# -ne 0 ]
 do
@@ -77,11 +85,13 @@ do
 	--version-tags-only)
 			shift
 			readarray -t excludedPatterns -O ${#excludedPatterns[@]} < <(git config --get-all "$EXCLUDED_TAGS_CONFIG_KEY")
+			readarray -t includedPatterns -O ${#includedPatterns[@]} < <(git config --get-all "$INCLUDED_TAGS_CONFIG_KEY")
 			filter='matcher'
 			;;
 	--no-version-tags)
 			shift
-			readarray -t patterns -O ${#patterns[@]} < <(git config --get-all "$EXCLUDED_TAGS_CONFIG_KEY")
+			readarray -t excludedPatterns -O ${#excludedPatterns[@]} < <(git config --get-all "$INCLUDED_TAGS_CONFIG_KEY")
+			readarray -t explicitlyIncludedPatterns -O ${#explicitlyIncludedPatterns[@]} < <(git config --get-all "$EXCLUDED_TAGS_CONFIG_KEY")
 			filter='matcher'
 			;;
 
@@ -100,19 +110,41 @@ matcher()
     local tagName remainder pattern
     while IFS=$'\t' read -r tagName remainder
     do
-	for pattern in "${excludedPatterns[@]}"
+	isExplicitlyIncluded=
+	for pattern in "${explicitlyIncludedPatterns[@]}"
 	do
 	    case "$tagName" in
-		$pattern)   continue 2;;
+		@($pattern))	isExplicitlyIncluded=t; break;;
 	    esac
 	done
+
+	if [ ! "$isExplicitlyIncluded" ]; then
+	    for pattern in "${excludedPatterns[@]}"
+	    do
+		case "$tagName" in
+		    @($pattern))	continue 2;;
+		esac
+	    done
+	fi
+
+	if [ ${#includedPatterns[@]} -gt 0 ]; then
+	    isIncluded=
+	    for pattern in "${includedPatterns[@]}"
+	    do
+		case "$tagName" in
+		    @($pattern))    isIncluded=t; break;;
+		esac
+	    done
+	    [ "$isIncluded" ] || continue
+	fi
+
 	if [ ${#patterns[@]} -eq 0 ]; then
 	    printf '%s%s\n' "$tagName" "${remainder:+$'\t'}${remainder}"
 	else
 	    for pattern in "${patterns[@]}"
 	    do
 		case "$tagName" in
-		    $pattern)   printf '%s%s\n' "$tagName" "${remainder:+$'\t'}${remainder}"; continue;;
+		    @($pattern))    printf '%s%s\n' "$tagName" "${remainder:+$'\t'}${remainder}"; continue;;
 		esac
 	    done
 	fi

@@ -531,8 +531,11 @@ fastforwardCommit()
     if hub-workflow-status --has-workflow; then
 	if [ "$HUB" ]; then
 	    eval "${GIT_REINTEGRATE_PRE_PUSH_COMMAND:?}" || {
+		status=$?
 		echo >&2 'Push preparation failed.'
-		exit 1
+		echo >&2 "To retry waiting for the GitHub action, and then do the final quasi-transactional push, execute"
+		printRestartCommand
+		exit $status
 	    }
 	else
 	    userBinaryChoice --keep-prompt --console --question $'\nPlease confirm that the GitHub action has successfully validated the build on the branch?' --ok-cancel || exit 4

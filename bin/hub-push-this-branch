@@ -34,14 +34,19 @@ if git-isdetached; then
 fi
 
 targetBranch="$(git-brname --real-branch-only)" || exit $?
-targetTracks="$(git-tracks 2>/dev/null)"
-targetTrackedRemote="${targetTracks%%/*}"
 printf -v quotedTargetBranch %q "$targetBranch"
+targetTracks="$(git-tracks 2>/dev/null)"
 
-if [ -z "$targetTracks" ]; then
-    printf >&2 "ERROR: Cannot push; no upstream configured for branch '%s'\\n" "$targetBranch"
-    exit 99
-elif [ "$targetTrackedRemote" = 'origin' ]; then
+if [ -n "$targetTracks" ]; then
+    targetTrackedRemote="${targetTracks%%/*}"
+    contextCommand="git rev-range-outgoing $targetTrackedRemote --color=always --one-more-command greyonelinelog --one-more-only-to-terminal lg --branch $quotedTargetBranch"
+else
+    typeset -a remotes=(); readarray -t remotes < <(git remote)
+    targetTrackedRemote="$(userchoiceFromList --keep-prompt --question "No upstream configured for branch '$targetBranch' yet; choose remote?" --ignore-case -- "${remotes[@]}")" \
+	|| exit 99
+    contextCommand="git rev-range-this-branch --color=always --one-more-command greyonelinelog --one-more-only-to-terminal lg --branch $quotedTargetBranch"
+fi
+if [ "$targetTrackedRemote" = 'origin' ]; then
     # First push to upstream; we usually want to catch up origin to
     # upstream, but keep it at the current state if pushing to upstream
     # failed.
@@ -52,7 +57,7 @@ elif [ "$targetTrackedRemote" = 'origin' ]; then
 fi
 if [ -n "$targetTrackedRemote" ]; then
     # Push to the tracked remote (usually origin).
-    git-remote-mutate "$targetTrackedRemote" --message 'Push' --argument "$targetBranch" --context-command "git rev-range-outgoing $targetTrackedRemote --color=always --one-more-command greyonelinelog --one-more-only-to-terminal lg --branch $quotedTargetBranch" "${gitRemoteMutateArgs[@]}" \
+    git-remote-mutate "$targetTrackedRemote" --message 'Push' --argument "$targetBranch" --context-command "$contextCommand" "${gitRemoteMutateArgs[@]}" \
 	push "$targetTrackedRemote" || exit $?
 fi
 if [ "$targetTrackedRemote" != 'origin' ]; then

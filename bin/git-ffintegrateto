@@ -437,11 +437,6 @@ deleteMergedSubmoduleBranches()
 typeset -a reintegrateDeleteSeparateIntegrationBranchArg=()
 pushBranch()
 {
-    if [ -z "$sourceTracks" ]; then
-	printf >&2 "ERROR: Cannot push; no upstream configured for the current branch '%s'\\n" "$sourceBranch"
-	return 1    # Still continue with the branch deletion here, but following push errors will abort.
-    fi
-
     local pushBranch="$sourceBranch"
     typeset -a pushRefspecArg=()
     if [ "$isPushMergeToSeparateIntegrationBranch" ] && git-ismerge; then
@@ -462,10 +457,21 @@ pushBranch()
     [ ! "$didVisitSubmodules" ] || { header --first "$(git-wcname)"; didVisitSubmodules=; }
 
     [ "$isRebase" ] && pushBranchForceArg=(--force) # Need to force-push when rebasing the current branch on top of <branch>.
-    local sourceTrackedRemote="${sourceTracks%%/*}"
+
     local quotedSourceBranch; printf -v quotedSourceBranch %q "$sourceBranch"
+    if [ -n "$sourceTracks" ]; then
+	local sourceTrackedRemote="${sourceTracks%%/*}"
+	local contextCommand="git rev-range-outgoing $sourceTrackedRemote --color=always --one-more-command greyonelinelog --one-more-only-to-terminal lg --branch $quotedSourceBranch"
+    else
+	typeset -a remotes=(); readarray -t remotes < <(git remote)
+	local sourceTrackedRemote; sourceTrackedRemote="$(userchoiceFromList --keep-prompt --question "No upstream configured for the current branch '$sourceBranch' yet; choose remote?" --ignore-case -- "${remotes[@]}")" \
+	    || return $?	# Still continue with the branch deletion here, but following push errors will abort.
+	printf -v quotedTargetBranch %q "$targetBranch"
+	local contextCommand="git rev-range --revision $quotedTargetBranch --end-revision $quotedSourceBranch --color=always --one-more-command greyonelinelog --one-more-only-to-terminal lg"
+    fi
+
     # Push to the tracked remote (usually origin).
-    git-remote-mutate "$sourceTrackedRemote" --message 'Push' --argument "$pushBranch" --context-command "git rev-range-outgoing $sourceTrackedRemote --color=always --one-more-command greyonelinelog --one-more-only-to-terminal lg --branch $quotedSourceBranch" "${gitRemoteMutateArgs[@]}" \
+    git-remote-mutate "$sourceTrackedRemote" --message 'Push' --argument "$pushBranch" --context-command "$contextCommand" "${gitRemoteMutateArgs[@]}" \
 	push "${pushBranchForceArg[@]}" "${pushBranchArgs[@]}" "$sourceTrackedRemote" "${pushRefspecArg[@]}" || return $?
 }
 

@@ -524,15 +524,18 @@ fastforwardCommit()
 {
     : ${masterBranch:=$(git-mbr)}
     printf '\nFast-forwarding submodule%s into %s:\n' "$affectedSubmodulesPlural" "${masterBranch:?}"
-    "${submoduleExecutor[@]:?}" ${submoduleExecutor:+--no-header --no-pager --interactive} \
+    acceptStatus 0 99 "${submoduleExecutor[@]:?}" ${submoduleExecutor:+--no-header --no-pager --interactive --status-99-is-noop} \
 	    reintegratetom --ff-only --no-push --no-delete --no-checks \
 	|| exit $?
 
     if hub-workflow-status --has-workflow; then
 	if [ "$HUB" ]; then
 	    eval "${GIT_REINTEGRATE_PRE_PUSH_COMMAND:?}" || {
+		status=$?
 		echo >&2 'Push preparation failed.'
-		exit 1
+		echo >&2 "To retry waiting for the GitHub action, and then do the final quasi-transactional push, execute"
+		printRestartCommand
+		exit $status
 	    }
 	else
 	    userBinaryChoice --keep-prompt --console --question $'\nPlease confirm that the GitHub action has successfully validated the build on the branch?' --ok-cancel || exit 4

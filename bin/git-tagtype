@@ -59,9 +59,9 @@ esac; shift
 verboseFormat=
 filter=
 typeset -a patterns=()
-typeset -a explicitlyIncludedPatterns=()
-typeset -a excludedPatterns=()
-typeset -a includedPatterns=()
+typeset -a explicitlyIncludedGlobs=()
+typeset -a excludedGlobs=()
+typeset -a includedGlobs=()
 sortField='version:refname'
 while [ $# -ne 0 ]
 do
@@ -79,19 +79,19 @@ do
 			;;
 	--list|-l)	shift; filter='matcher'; patterns+=("$1"); shift;;
 
-	--exclude|-e)	shift; excludedPatterns+=("${1:?}"); shift; filter='matcher';;
-	--exclude=*)	excludedPatterns+=("${1#--exclude=}"); shift; filter='matcher';;
-	-e*)		excludedPatterns+=("${1#-e}"); shift; filter='matcher';;
+	--exclude|-e)	shift; excludedGlobs+=("${1:?}"); shift; filter='matcher';;
+	--exclude=*)	excludedGlobs+=("${1#--exclude=}"); shift; filter='matcher';;
+	-e*)		excludedGlobs+=("${1#-e}"); shift; filter='matcher';;
 	--version-tags-only)
 			shift
-			readarray -t excludedPatterns -O ${#excludedPatterns[@]} < <(git config --get-all "$EXCLUDED_TAGS_CONFIG_KEY")
-			readarray -t includedPatterns -O ${#includedPatterns[@]} < <(git config --get-all "$INCLUDED_TAGS_CONFIG_KEY")
+			readarray -t excludedGlobs -O ${#excludedGlobs[@]} < <(git config --get-all "$EXCLUDED_TAGS_CONFIG_KEY")
+			readarray -t includedGlobs -O ${#includedGlobs[@]} < <(git config --get-all "$INCLUDED_TAGS_CONFIG_KEY")
 			filter='matcher'
 			;;
 	--no-version-tags)
 			shift
-			readarray -t excludedPatterns -O ${#excludedPatterns[@]} < <(git config --get-all "$INCLUDED_TAGS_CONFIG_KEY")
-			readarray -t explicitlyIncludedPatterns -O ${#explicitlyIncludedPatterns[@]} < <(git config --get-all "$EXCLUDED_TAGS_CONFIG_KEY")
+			readarray -t excludedGlobs -O ${#excludedGlobs[@]} < <(git config --get-all "$INCLUDED_TAGS_CONFIG_KEY")
+			readarray -t explicitlyIncludedGlobs -O ${#explicitlyIncludedGlobs[@]} < <(git config --get-all "$EXCLUDED_TAGS_CONFIG_KEY")
 			filter='matcher'
 			;;
 
@@ -111,7 +111,7 @@ matcher()
     while IFS=$'\t' read -r tagName remainder
     do
 	isExplicitlyIncluded=
-	for pattern in "${explicitlyIncludedPatterns[@]}"
+	for pattern in "${explicitlyIncludedGlobs[@]}"
 	do
 	    case "$tagName" in
 		@($pattern))	isExplicitlyIncluded=t; break;;
@@ -119,7 +119,7 @@ matcher()
 	done
 
 	if [ ! "$isExplicitlyIncluded" ]; then
-	    for pattern in "${excludedPatterns[@]}"
+	    for pattern in "${excludedGlobs[@]}"
 	    do
 		case "$tagName" in
 		    @($pattern))	continue 2;;
@@ -127,9 +127,9 @@ matcher()
 	    done
 	fi
 
-	if [ ${#includedPatterns[@]} -gt 0 ]; then
+	if [ ${#includedGlobs[@]} -gt 0 ]; then
 	    isIncluded=
-	    for pattern in "${includedPatterns[@]}"
+	    for pattern in "${includedGlobs[@]}"
 	    do
 		case "$tagName" in
 		    @($pattern))    isIncluded=t; break;;

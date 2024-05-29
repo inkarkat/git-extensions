@@ -659,9 +659,14 @@ if [ ${#unintegratedSubmodules[@]} -eq 0 ]; then
 	    exit 4
 	fi
 
+	isExistAffectedSubmoduleOnSourceBranch=t
+	"${submoduleExecutor[@]:?}" ${submoduleExecutor:+--no-header --no-pager} \
+		mbr --test \
+	    && isExistAffectedSubmoduleOnSourceBranch=
+
 	userBinaryChoice --keep-prompt \
-	    --introduction "Apparently the submodule ${integrationType}integration was interrupted after the superproject had been ${integrationType}integrated but the submodules are still on the ${integrationType}integrated source branch." \
-	    --question "Assuming you've fixed the problem, updated and pushed all branches, shall I fast-forward the ${#affectedSubmodules[@]} submodule${affectedSubmodulesPlural} into $(git-mbr) now, wait for the GitHub action, and then push the branches quasi-transactionally?" \
+	    --introduction "Apparently the submodule ${integrationType}integration was interrupted after the superproject had been ${integrationType}integrated${isExistAffectedSubmoduleOnSourceBranch:+ but submodules are still on the ${integrationType}integrated source branch}." \
+	    --question "Assuming you've fixed the problem, updated and pushed all branches, shall I ${isExistAffectedSubmoduleOnSourceBranch:+fast-forward those of the ${#affectedSubmodules[@]} submodule${affectedSubmodulesPlural} which are not yet on $(git-mbr) now, }wait for the GitHub action, and then push the branches quasi-transactionally?" \
 	    --ok-cancel || exit 4
 
 	goToSuperproject

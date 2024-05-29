@@ -3,6 +3,7 @@ shopt -qs extglob
 
 : ${GIT_CORRECT_REFERENCE_MESSAGE:=This corrects commit}
 : ${GIT_CORRECT_REFERENCE_REFERRER:=after}
+readonly INCLUDED_TAGS_CONFIG_KEY='correct.includedTags'
 
 printUsage()
 {
@@ -10,7 +11,8 @@ printUsage()
 Commit as a correction of passed revision(s) [from the working copy that FILE or
 DIR resides in] (when it's too late or cumbersome to fixup the existing commit).
 This just adds a reference to the prior commit(s) in the commit message (title
-and body).
+and body; in the title alternatively to a unique tag matched by the glob(s) in
+the $INCLUDED_TAGS_CONFIG_KEY config setting)).
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[<commit-arguments> ...] (<ref>|:/<pattern> [[--] FILE|DIR] ...) [-?|-h|--help]'
@@ -46,6 +48,7 @@ if [ $# -eq 0 ]; then
     echo >&2 'ERROR: Must pass <ref>|:/<pattern>.'
     exit 2
 fi
+
 lastFilespec=
 typeset -a filespecs=()
 typeset -a commitIds=()
@@ -63,7 +66,21 @@ do
 	filespecs=("$lastFilespec" "${filespecs[@]}")
 	commitIds=("$commitId" "${commitIds[@]}")
 	contextualizedCommitIds=("${repoContext}${repoContext:+@}${commitId}" "${contextualizedCommitIds[@]}")
-	contextualizedShortCommitIds=("${repoContext}${repoContext:+@}$(gitInWorkingCopy "$lastFilespec" commitid --short -- "$lastArg")" "${contextualizedShortCommitIds[@]}")
+
+	readarray -t includedGlobs < <(gitInWorkingCopy "$lastFilespec" config --get-all "$INCLUDED_TAGS_CONFIG_KEY")
+	if [ ${#includedGlobs[@]} -gt 0 ] \
+	    && readarray -t tags < <(gitInWorkingCopy "$lastFilespec" tag --points-at "$commitId" --list) \
+	    && [ ${#tags[@]} -gt 0 ] \
+	    && uniqueMatch="$(globmatch --values --unique-match "${includedGlobs[@]}" -- "${tags[@]}")" \
+	    && [ -n "$uniqueMatch" ]
+	then
+	    # XXX: "git tag --list" already supports globs, but not the GNU glob extensions.
+	    # My globmatch can also directly assert a single unique match for us.
+	    shortCommitRef="$uniqueMatch"
+	else
+	    shortCommitRef="$(gitInWorkingCopy "$lastFilespec" commitid --short -- "$lastArg")"
+	fi
+	contextualizedShortCommitIds=("${repoContext}${repoContext:+@}${shortCommitRef}" "${contextualizedShortCommitIds[@]}")
     else
 	break
     fi
@@ -83,8 +100,10 @@ cleanup()
 }
 [ "$DEBUG" ] || trap 'cleanup' EXIT
 {
+    refGlob='+([0-9A-Fa-f])'
+    [ ${#includedGlobs[@]} -eq 0 ] || refGlob="@(${refGlob}|$(joinBy '|' "${includedGlobs[@]}"))"
     IFS=$'\n' read -r titleLine
-    titleLine="${titleLine% (${GIT_CORRECT_REFERENCE_REFERRER}${GIT_CORRECT_REFERENCE_REFERRER:+ }?(+([^ ])@)+([0-9A-Fa-f])*(, +([^ ])@)+([0-9A-Fa-f]))}"
+    titleLine="${titleLine% (${GIT_CORRECT_REFERENCE_REFERRER}${GIT_CORRECT_REFERENCE_REFERRER:+ }?(+([^ ])@)${refGlob}*(, +([^ ])@)${refGlob})}"
 
     remainingLines="$(grep -v -e "^(${GIT_CORRECT_REFERENCE_MESSAGE} [[:xdigit:]]\\+\\(\\(,\\| and\\) [[:xdigit:]]\\+\\)*)\$")"
     remainingLines="${remainingLines%%+($'\n')}"

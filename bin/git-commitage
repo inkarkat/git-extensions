@@ -122,20 +122,20 @@ getEpoch()
 calculateTimeRange()
 {
     local epoch="${1:?}"; shift
-    local now="$(date +%s)"
+    local NOW; printf -v NOW '%(%s)T' -1
 
     if [ -n "$timeformat" ]; then
 	local nowTime fileTime
-	nowTime="$(date --date "@$now" "+$timeformat")" || exit 3
+	nowTime="$(date --date "@$NOW" "+$timeformat")" || exit 3
 	fileTime="$(date --date "@$epoch" "+$timeformat")" || exit 3
 	[ "$fileTime" $formatCompareOp "$nowTime" ]
     elif [ -n "$timedivider" ]; then
 	local nowDivision fileDivision
-	nowDivision="$((now / timedivider))"
+	nowDivision="$((NOW / timedivider))"
 	fileDivision="$((epoch / timedivider))"
 	[ $age $spanCompareOp $((nowDivision - fileDivision)) ]
     else
-	[ $((now - epoch)) $spanCompareOp $age ]
+	[ $((NOW - epoch)) $spanCompareOp $age ]
     fi
 }
 
@@ -155,14 +155,14 @@ if [ -n "$spanCompareOp" ]; then
     done < <(getEpoch "$@"; printf %d "$?")
     exit $((exitStatus > 0 ? exitStatus : compareStatus))
 elif [ "$isDiff" ]; then
-    now="$(date +%s)"
+    printf -v NOW '%(%s)T' -1
     exitStatus=3
     while IFS=$'\t' read -r epoch addendum || { exitStatus="$epoch"; break; }	# Exit status from the process substitution (<(getEpoch)) is lost; return the actual exit status via an incomplete (i.e. missing the newline) last line.
     do
 	if [ -n "$formatAddendum" ]; then
-	    printf '%d	%s\n' "$((now - epoch))" "$addendum"
+	    printf '%d	%s\n' "$((NOW - epoch))" "$addendum"
 	else
-	    printf '%d\n' "$((now - epoch))"
+	    printf '%d\n' "$((NOW - epoch))"
 	fi
     done < <(getEpoch "$@"; printf %d "$?")
     exit $exitStatus

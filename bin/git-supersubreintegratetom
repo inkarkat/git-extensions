@@ -505,7 +505,7 @@ reintegrateSuperproject()
 	    printRestartCommand
 	    exit $status
 	}
-	fastforwardCommit
+	fastforwardCommit "$@"
     else
 	ffintegratetoArgs+=(--push-submodules --delete-merged-submodule-branches)
 	if [ "$isHubIntegrate" ]; then
@@ -522,12 +522,16 @@ reintegrateSuperproject()
 
 fastforwardCommit()
 {
-    : ${masterBranch:=$(git-mbr)}
-    printf '\nFast-forwarding submodule%s into %s:\n' "$affectedSubmodulesPlural" "${masterBranch:?}"
+    printf '\nFast-forwarding submodule%s into %s:\n' "$affectedSubmodulesPlural" "${masterBranch:-$(git-mbr)}"
     acceptStatus 0 99 "${submoduleExecutor[@]:?}" ${submoduleExecutor:+--no-header --no-pager --interactive --status-99-is-noop} \
 	    reintegratetom --ff-only --no-push --no-delete --no-checks \
 	|| exit $?
 
+    transactionalPush "$@"
+}
+
+transactionalPush()
+{
     if hub-workflow-status --has-workflow; then
 	if [ "$HUB" ]; then
 	    eval "${GIT_REINTEGRATE_PRE_PUSH_COMMAND:?}" || {
@@ -542,7 +546,8 @@ fastforwardCommit()
 	fi
     fi
 
-    printf '\nFinal up-to-date check before pushing %s branches quasi-transactionally:\n' "$masterBranch"
+    : ${masterBranch:=$(git-mbr)}
+    printf '\nFinal up-to-date check before pushing %s branches quasi-transactionally:\n' "${masterBranch:?}"
     if ! "${submoduleExecutor[@]:?}" ${submoduleExecutor:+--no-pager --include-superproject-last} \
 	uptodate --tracked "origin/${masterBranch}"
     then
@@ -659,14 +664,21 @@ if [ ${#unintegratedSubmodules[@]} -eq 0 ]; then
 	    exit 4
 	fi
 
+	isExistAffectedSubmoduleOnSourceBranch=t
+	"${submoduleExecutor[@]:?}" ${submoduleExecutor:+--no-header --no-pager} \
+		mbr --test \
+	    && isExistAffectedSubmoduleOnSourceBranch=
+
 	userBinaryChoice --keep-prompt \
-	    --introduction "Apparently the submodule ${integrationType}integration was interrupted after the superproject had been ${integrationType}integrated but the submodules are still on the ${integrationType}integrated source branch." \
-	    --question "Assuming you've fixed the problem, updated and pushed all branches, shall I fast-forward the ${#affectedSubmodules[@]} submodule${affectedSubmodulesPlural} into $(git-mbr) now, wait for the GitHub action, and then push the branches quasi-transactionally?" \
+	    --introduction "Apparently the submodule ${integrationType}integration was interrupted after the superproject had been ${integrationType}integrated${isExistAffectedSubmoduleOnSourceBranch:+ but submodules are still on the ${integrationType}integrated source branch}." \
+	    --question "Assuming you've fixed the problem, updated and pushed all branches, shall I ${isExistAffectedSubmoduleOnSourceBranch:+fast-forward those of the ${#affectedSubmodules[@]} submodule${affectedSubmodulesPlural} which are not yet on $(git-mbr) now, }wait for the GitHub action, and then push the branches quasi-transactionally?" \
 	    --ok-cancel || exit 4
 
 	goToSuperproject
 	[ -n "$GIT_REINTEGRATE_PRE_PUSH_COMMAND" ] || handleWorkflow
-	action=fastforwardCommit
+	[ "$isExistAffectedSubmoduleOnSourceBranch" ] \
+	    && action=fastforwardCommit \
+	    || action=transactionalPush
     else
 	if [ "$HUB" ] && hub-prcomments; then
 	    userBinaryChoice --keep-prompt --console --question "Really ${integrationType}integrate the superproject despite the open PR review comments?" --yes-no || exit 4

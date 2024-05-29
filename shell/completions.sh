@@ -73,7 +73,7 @@ _git_complete_filterAliasCounts()
     typeset -A aliasStems=()
     local element; for element in "${COMPREPLY[@]}"
     do
-	if [[ "$element" =~ ([1234567xqz]\ )$ ]]; then
+	if [[ "$element" =~ .([1234567xqz]\ )$ ]]; then
 	    aliasStems["${element%${BASH_REMATCH[1]}}"]=t
 	else
 	    compReplyWithoutAliasCounts+=("$element")
@@ -93,7 +93,7 @@ _git_complete_filterVariants()
     local element; for element in "${COMPREPLY[@]}"
     do
 	if [[ ! "$element" =~ (hi|lg|log)\ ?$ ]] \
-	    && [[ "$element" =~ ((last|lastst|lasti|last-i|adst|adi|ad-i|st|i|-i|g)\ ?)$ ]]
+	    && [[ "$element" =~ .((last|lastst|lasti|last-i|adst|adi|ad-i|st|i|-i|g)\ ?)$ ]]
 	then
 	    aliasStems["${element%${BASH_REMATCH[1]}}"]=t
 	else

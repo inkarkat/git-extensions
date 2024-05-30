@@ -10,14 +10,28 @@ Rename the current branch / <oldbranch> to <newbranch>.
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" "[--] [<oldbranch>] <newbranch>|(OLD=NEW|^=PREFIX|+=SUFFIX [...]) [-?|-h|--help]"
+    echo
+    cat <<HELPTEXT
+Just print the resulting new branch name.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" "-p|--print ..."
 }
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
+
+action=renameBranch
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
 			shift;;
-    --color)		shift; shift;;
-    --)			shift;;
-esac
+	--color)	shift; shift;;
+	--print|-p)	shift; action=printBranch;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 if git-existsbr -- "$1"; then
     oldBranch="$1"; shift
 else
@@ -28,6 +42,18 @@ if [ $# -eq 0 ]; then
     exit 2
 fi
 
+renameBranch()
+{
+    local newBranch="${1:?}"; shift
+    exec git branch -m "${oldBranch:?}" "$newBranch"
+}
+
+printBranch()
+{
+    local newBranch="${1:?}"; shift
+    printf '%s\n' "$newBranch"
+}
+
 newBranch="$(replaceWith --pattern-is-optional \
 	${prefixPattern:+--keep-prefix-pattern "$prefixPattern"} \
 	${suffixPattern:+--keep-suffix-pattern "$suffixPattern"} \
@@ -36,4 +62,4 @@ newBranch="$(replaceWith --pattern-is-optional \
 )"
 [ "$oldBranch" != "$newBranch" ] || exit 4
 
-exec git branch -m "${oldBranch:?}" "${newBranch:?}"
+$action "$newBranch"

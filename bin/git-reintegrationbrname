@@ -1,0 +1,20 @@
+#!/bin/bash
+
+: ${GIT_REINTEGRATE_MERGE_INTEGRATION_BRANCH_SUFFIX:=-integration}
+readonly suffixPattern="${GIT_REINTEGRATE_MERGE_INTEGRATION_BRANCH_SUFFIX_PATTERN:-$GIT_BRANCH_SUFFIX_PATTERN}"	# Optional POSIX-style extended regular expression anchored to the end of the branch name whose match is kept at the end and GIT_REINTEGRATE_MERGE_INTEGRATION_BRANCH_SUFFIX is added in front of.
+
+printUsage()
+{
+    cat <<HELPTEXT
+Print the name of the integration branch name for the current / passed branch
+that would be used by git-ffintegrateto.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--from BRANCH] [-?|-h|--help]'
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+GIT_RENAMEBR_SUFFIX_PATTERN="$suffixPattern" git-renamebr --print "$@" "+=${GIT_REINTEGRATE_MERGE_INTEGRATION_BRANCH_SUFFIX:?}"

@@ -440,14 +440,7 @@ pushBranch()
     local pushBranch="$sourceBranch"
     typeset -a pushRefspecArg=()
     if [ "$isPushMergeToSeparateIntegrationBranch" ] && git-ismerge; then
-	if [[ "$pushBranch" =~ ^(.+)(${suffixPattern})$ ]]; then
-	    local baseBranch="${BASH_REMATCH[1]}"
-	    local branchSuffix="${BASH_REMATCH[2]}"
-	else
-	    local baseBranch="$pushBranch"
-	    local branchSuffix=''
-	fi
-	pushBranch="${baseBranch}${GIT_REINTEGRATE_MERGE_INTEGRATION_BRANCH_SUFFIX:?}${branchSuffix}"
+	pushBranch="$(GIT_RENAMEBR_SUFFIX_PATTERN="$suffixPattern" git-renamebr --print --from "$pushBranch" "+=${GIT_REINTEGRATE_MERGE_INTEGRATION_BRANCH_SUFFIX:?}")"
 	pushRefspecArg=("HEAD:refs/heads/${pushBranch}")
 	pushBranchForceArg=(--force --force)	# Override any existing previous integration attempt; double-force to suppress "You're pushing to $pushBranch on origin, which is different from origin/${sourceBranch}." confirmation.
 	reintegrateDeleteSeparateIntegrationBranchArg=(--delete-separate-integration-branch)

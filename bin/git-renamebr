@@ -10,6 +10,7 @@ Rename the current branch / <oldbranch> to <newbranch>.
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" "[--] [<oldbranch>] <newbranch>|(OLD=NEW|^=PREFIX|+=SUFFIX [...]) [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "--from <branch-name> [--] <newbranch>|(OLD=NEW|^=PREFIX|+=SUFFIX [...])"
     echo
     cat <<HELPTEXT
 Just print the resulting new branch name.
@@ -18,6 +19,7 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" "-p|--print ..."
 }
 
+oldBranch=
 action=renameBranch
 while [ $# -ne 0 ]
 do
@@ -26,13 +28,16 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
+	--from)		shift; oldBranch="${1:?}"; shift;;
 	--print|-p)	shift; action=printBranch;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
     esac
 done
-if git-existsbr -- "$1"; then
+if [ -n "$oldBranch" ]; then
+    :
+elif git-existsbr -- "$1"; then
     oldBranch="$1"; shift
 else
     oldBranch="$(git-brname --real-branch-only)" || exit $?

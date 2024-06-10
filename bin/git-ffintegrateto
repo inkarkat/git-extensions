@@ -459,6 +459,10 @@ pushBranch()
 	    || return $?	# Still continue with the branch deletion here, but following push errors will abort.
 	printf -v quotedTargetBranch %q "$targetBranch"
 	local contextCommand="git rev-range --revision $quotedTargetBranch --end-revision $quotedSourceBranch --color=always --one-more-command greyonelinelog --one-more-only-to-terminal lg"
+	if [ ${#pushRefspecArg[@]} -eq 0 ]; then
+	    # Need to specify the target refspec explicitly, as no upstream is configured.
+	    pushRefspecArg=("HEAD:refs/heads/${sourceBranch}")
+	fi
     fi
 
     # Push to the tracked remote (usually origin).

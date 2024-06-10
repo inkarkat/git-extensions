@@ -6,7 +6,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '--since <date>|--max-count <number>|-n <number>|<range> [--as markdown] [<log-args> ...] [--] [<path> ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--since <date>|--max-count <number>|-n <number>|<range> [--pretty=<format>|--as markdown] [<log-args> ...] [--] [<path> ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -32,6 +32,9 @@ HELPDESCRIPTION
 			  changes (that link naturally includes inner commits
 			  that just target submodules).
 			- Convert the log lines to list items.
+			Assumes that a custom --pretty=<format> keeps the
+			line-based output format with the short commit ID as the
+			first field.
 HELPTEXT
 }
 
@@ -46,6 +49,7 @@ fi
 logPostProcessor=
 typeset -a rangeArgs=()
 typeset -a rangeModificationArgs=()
+typeset -a gitPrettyArg=(--pretty=tformat:'%C(cyan)%h%Creset %s')
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -76,6 +80,7 @@ do
 	--max-count=*|-+([0-9]))
 			rangeArgs+=("$1"); shift;;
 	--follow)	rangeModificationArgs+=("$1"); shift;;
+	--pretty=*)	gitPrettyArg=("$1"); shift;;
 	--)		break;;
 	*)		if [ ${#rangeArgs[@]} -eq 0 ]; then
 			    rangeArgs+=("$1"); shift
@@ -122,7 +127,7 @@ logAsMarkdown()
 
 obtainLog()
 {
-    git log --pretty=tformat:'%C(cyan)%h%Creset %s' "${colorArg[@]}" "${rangeModificationArgs[@]}" "${rangeArgs[@]}" -- "${filespecs[@]}"
+    git log "${gitPrettyArg[@]}" "${colorArg[@]}" "${rangeModificationArgs[@]}" "${rangeArgs[@]}" -- "${filespecs[@]}"
 }
 
 readarray -t filespecs < <(git-showsubmodules --invert-match "${rangeModificationArgs[@]}" "${rangeArgs[@]}" "$@")

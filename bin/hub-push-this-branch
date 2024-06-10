@@ -52,18 +52,18 @@ if [ "$targetTrackedRemote" = 'origin' ]; then
     # failed.
     if git-existsbr "upstream/$targetBranch" && ! git-remote-isreadonly upstream; then
 	git-remote-mutate upstream --message 'Push' --argument "$targetBranch" --context-command "git uoutlg --color=always --branch $quotedTargetBranch" "${gitRemoteMutateArgs[@]}" \
-	    push upstream "$targetBranch" || exit $?
+	    push upstream "HEAD:refs/heads/${targetBranch}" || exit $?
     fi
 fi
 if [ -n "$targetTrackedRemote" ]; then
     # Push to the tracked remote (usually origin).
     git-remote-mutate "$targetTrackedRemote" --message 'Push' --argument "$targetBranch" --context-command "$contextCommand" "${gitRemoteMutateArgs[@]}" \
-	push "$targetTrackedRemote" "$targetBranch" || exit $?
+	push "$targetTrackedRemote" "HEAD:refs/heads/${targetBranch}" || exit $?
 fi
 if [ "$targetTrackedRemote" != 'origin' ]; then
     # Push to origin (if it's different from the tracked remote) last.
     if git-existsbr "origin/$targetBranch" && ! git-remote-isreadonly origin; then
 	git-remote-mutate origin --message 'Push' --argument "$targetBranch" --context-command "git ooutlg --color=always --branch $quotedTargetBranch" "${gitRemoteMutateArgs[@]}" \
-	    push origin "$targetBranch" || exit $?
+	    push origin "HEAD:refs/heads/${targetBranch}" || exit $?
     fi
 fi

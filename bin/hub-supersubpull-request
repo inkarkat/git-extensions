@@ -70,17 +70,13 @@ if git issubmodule; then
     {
 	cd "$submoduleRoot" || exit 3
 	header "$(git-wcname)"
-	hub-existspr --base "$base" ${head:+--head "$head"} --print | outputAndPrintf 'Note: Submodule pull request already exists; skipping:\n' \
-	    && return 99
-
-	local message
-	message="$(withSeparator \
+	local message; message="$(withSeparator \
 	    --command 'hub-superpr' \
 	    --command "git l ${remote}/${base}..${head} --" \
 	    --command "hub-logForPullRequest ${remote}/${base}..${head} --" \
 	)" || exit $?
 
-	hub-wrapper pull-request --base "$base" ${head:+--head "$head"} --message "$message" --edit "$@"
+	HUB_PULLREQUEST_WHAT=Submodule hub-wrapper pull-request --base "$base" ${head:+--head "$head"} --message "$message" --edit "$@"
     }
 else
     handleSubmodules()
@@ -92,27 +88,24 @@ else
 
 	GIT_SUBDO_SUBMODULE_END="$HUB_SUPERSUBPULLREQUEST_SUBMODULE_END" \
 	    hub subsamebrdo --subdo-command-name "${scriptName#hub-}" ${head:+--branch "$head"} --no-git-color --interactive --status-99-is-noop "${subdoArgs[@]}" --command "\\
-		hub-existspr --base $base ${head:+--head "$head"} --print | outputAndPrintf 'Note: Submodule pull request already exists; skipping:\n' \\
-		    && exit 99; \\
 		logs=\"\$( \\
 		    withSeparator \\
 			--command 'git l ${remote}/${base}..${head} --' \\
 			--command 'hub-logForPullRequest ${remote}/${base}..${head} --' \\
 		)\"; \\
-		hub-wrapper pull-request --base $base ${head:+--head "$head"} --message ${quotedMessage}\$'\\n\\n'\"\$logs\" --edit${quotedArgs};"
+		HUB_PULLREQUEST_WHAT=Submodule hub-wrapper pull-request --base $base ${head:+--head "$head"} --message ${quotedMessage}\$'\\n\\n'\"\$logs\" --edit${quotedArgs};"
     }
 fi
 
-if ! hub-existspr --base "$base" ${head:+--head "$head"} --print | outputAndPrintf 'Note: Superproject pull request already exists; skipping:\n'; then
-    message="$(withSeparator \
-	--command "git l ${remote}/${base}..${head} --" \
-	--command "hub-logForPullRequest ${remote}/${base}..${head} --" \
-	--command "git-servername --message -- $head" \
-    )" || exit $?
+message="$(withSeparator \
+    --command "git l ${remote}/${base}..${head} --" \
+    --command "hub-logForPullRequest ${remote}/${base}..${head} --" \
+    --command "git-servername --message -- $head" \
+)" || exit $?
+HUB_PULLREQUEST_WHAT=Superproject acceptStatus 0 99 \
     hub-wrapper pull-request --draft --base "$base" ${head:+--head "$head"} --message "$message" --edit "$@" \
 	|| userBinaryChoice --keep-prompt --console --question 'The superproject pull-request failed / was aborted; do you still want to continue with the submodules?' --yes-no \
 	|| exit 4
-fi
 echo
 
 handleSubmodules "$@"; status=$?

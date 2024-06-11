@@ -1,4 +1,5 @@
 #!/bin/bash
+set -o pipefail
 
 readarray -t defaultArgs < <(eval "git $GIT_CONFIG_ARGS config --get-all pull-request.defaultArg")
 set -- "${defaultArgs[@]}" "$@"
@@ -53,15 +54,17 @@ editPullRequestMessage()
 
 if hub-existspr ${base:+--base "$base"} ${head:+--head "$head"} --print | outputAndPrintf "${HUB_PULLREQUEST_WHAT:-A} pull request already exists:\\n"; then
     typeset -a choices=('[E]dit message body' '[S]kip' '[A]bort')
+    [ "$hasMessage" ] && choices=('[U]pdate message body from template' "${choices[@]}")
     choice="$(userchoiceFromList --ignore-case --no-cancel -- "${choices[@]}")" || exit $?
     case "$choice" in
-	Edit\ message\ body)
+	Update\ message\ body\ from\ template)
 	    gitDir="$(git rev-parse --git-dir 2>/dev/null)"
-	    TMPDIR="$gitDir" exec tempedit \
-		--basename PULLREQ_EDITMSG \
-		--sink-exec sed -e 1d -e '2{/^$/d}' -- {} \; \
-		--sink-exec gh pr edit --body-file - \; \
-		-- hub pr show -f $'%t (← do not edit here)\n\n%b'
+	    templateTempFilespec="$(git-commitMessagePrint "${args[@]}" \
+		| TMPDIR="$gitDir" tempfile \
+		    --quiet --basename PULLREQ_EDITMSG_TEMPLATE)" || exit 3
+	    [ "${DEBUG:-}" ] || trap 'rm -f -- "$templateTempFilespec" 2>/dev/null' EXIT
+	    editPullRequestMessage --editor-args -d -o "$templateTempFilespec" \;
+	    exit $?
 	    ;;
 	Edit\ message\ body)
 	    editPullRequestMessage; exit $?;;

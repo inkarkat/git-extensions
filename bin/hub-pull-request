@@ -43,13 +43,16 @@ typeset -a appendedPullRequestTemplateArgs=()
 
 editPullRequestMessage()
 {
+    # Need to update the matching pull request.
+    local prId; prId="${head:+$(hub pr show --head "$head" -f '%I')}"
+
     local gitDir="$(git rev-parse --git-dir 2>/dev/null)"
     TMPDIR="$gitDir" tempedit \
 	--basename PULLREQ_EDITMSG \
 	--sink-exec sed -e 1d -e '2{/^$/d}' -- {} \; \
-	--sink-exec gh pr edit --body-file - \; \
+	--sink-exec gh pr edit $prId --body-file - \; \
 	"$@" \
-	-- hub pr show -f $'%t (← do not edit here)\n\n%b'
+	-- hub pr show ${head:+--head "$head"} -f $'%t (← do not edit here)\n\n%b'
 }
 
 if hub-existspr ${base:+--base "$base"} ${head:+--head "$head"} --print | outputAndPrintf "${HUB_PULLREQUEST_WHAT:-A} pull request already exists:\\n"; then

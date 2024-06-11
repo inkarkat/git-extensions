@@ -1,0 +1,45 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Extract and print all commit messages passed to the command.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-m|--message=MESSAGE|-F|--file=FILE [...]] [IGNORED-ARGS ...] [-?|-h|--help]'
+}
+
+unset message
+addMessage()
+{
+    local text="${1?}"; shift
+    message+="${message:+$'\n\n'}${text%$'\n'}"
+}
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--message|-m)	shift; addMessage "$1"; shift;;
+	--message=*)	addMessage "${1#--message=}"; shift;;
+	--file|-F)	shift
+			if [ "$1" = - ]; then
+			    addMessage "$(</dev/stdin)"
+			else
+			    addMessage "$(<"${1:?}")"
+			fi || exit $?
+			shift
+			;;
+	--file=*)	filespec="${1#--file=}"; shift
+			if [ "$filespec" = - ]; then
+			    addMessage "$(</dev/stdin)"
+			else
+			    addMessage "$(<"${filespec:?}")"
+			fi || exit $?
+			;;
+	--)		shift; break;;
+	*)		shift;;
+    esac
+done
+[ -n "${message+t}" ] || exit 1
+
+printf '%s\n' "$message"

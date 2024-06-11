@@ -10,35 +10,17 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[STASH-PUSH-ARGS ...] [-e|--edit|--no-edit] [-m|--message=MESSAGE|-F|--file=FILE [...]] [-?|-h|--help]'
 }
 
-unset message
-addMessage()
-{
-    local text="${1?}"; shift
-    message+="${message:+$'\n\n'}${text%$'\n'}"
-}
 unset isEdit
+typeset -a messageArgs=()
 typeset -a stashPushArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-	--message|-m)	shift; addMessage "$1"; shift;;
-	--message=*)	addMessage "${1#--message=}"; shift;;
-	--file|-F)	shift
-			if [ "$1" = - ]; then
-			    addMessage "$(</dev/stdin)"
-			else
-			    addMessage "$(<"${1:?}")"
-			fi || exit $?
-			shift
-			;;
-	--file=*)	filespec="${1#--file=}"; shift
-			if [ "$filespec" = - ]; then
-			    addMessage "$(</dev/stdin)"
-			else
-			    addMessage "$(<"${filespec:?}")"
-			fi || exit $?
-			;;
+	--message|-m|--file|-F)
+			messageArgs+=("$1" "${2?}"); shift; shift;;
+	--message=*|--file=*)
+			messageArgs+=("$1"); shift;;
 	--edit|-e)	shift; isEdit=t;;
 	--no-edit)	shift; isEdit=;;
 	--)		stashPushArgs+=("$1"); shift; break;;
@@ -47,7 +29,9 @@ do
 done
 set -- "${stashPushArgs[@]}" "$@"
 
-if [ -n "${message+t}" -a -z "$message" ]; then
+if message="$(git-commitMessagePrint "${messageArgs[@]}")" \
+    && [ -z "$message" ]
+then
     echo >&2 'Aborting stash due to empty message.'
     exit 1
 elif [ -z "$message" -a -z "${isEdit+t}" ] || [ "$isEdit" ]; then

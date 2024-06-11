@@ -40,6 +40,17 @@ do
 done
 typeset -a appendedPullRequestTemplateArgs=()
 
+editPullRequestMessage()
+{
+    local gitDir="$(git rev-parse --git-dir 2>/dev/null)"
+    TMPDIR="$gitDir" tempedit \
+	--basename PULLREQ_EDITMSG \
+	--sink-exec sed -e 1d -e '2{/^$/d}' -- {} \; \
+	--sink-exec gh pr edit --body-file - \; \
+	"$@" \
+	-- hub pr show -f $'%t (← do not edit here)\n\n%b'
+}
+
 if hub-existspr ${base:+--base "$base"} ${head:+--head "$head"} --print | outputAndPrintf "${HUB_PULLREQUEST_WHAT:-A} pull request already exists:\\n"; then
     typeset -a choices=('[E]dit message body' '[S]kip' '[A]bort')
     choice="$(userchoiceFromList --ignore-case --no-cancel -- "${choices[@]}")" || exit $?
@@ -52,6 +63,8 @@ if hub-existspr ${base:+--base "$base"} ${head:+--head "$head"} --print | output
 		--sink-exec gh pr edit --body-file - \; \
 		-- hub pr show -f $'%t (← do not edit here)\n\n%b'
 	    ;;
+	Edit\ message\ body)
+	    editPullRequestMessage; exit $?;;
 	Skip)	exit 99;;
 	Abort)	exit 4;;
 	*)	printf >&2 'ASSERT: Unhandled choice: %s\n' "$choice"; exit 3;;

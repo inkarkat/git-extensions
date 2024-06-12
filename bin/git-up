@@ -114,8 +114,8 @@ else
 	    # switching to tags.
 	    logDeltaArgs+=(--branch "$remoteBranch")
 	else
-	    [ "${logDeltaArgs[*]}" = '--none' ] || echo >&2 "Warning: Could not determine corresponding ${remote:-REMOTE} branch, no logging possible."
-	    logDeltaArgs=(--none)
+	    contains --none "${logDeltaArgs[@]}" || echo >&2 "Warning: Could not determine corresponding ${remote:-REMOTE} branch, no logging possible."
+	    logDeltaArgs+=(--none)
 	fi
     elif git-isdetached; then
 	tagName="$(git istagged --print)"
@@ -132,8 +132,8 @@ else
 	    if git-existsbr -- "${remote}/${branch}"; then
 		logDeltaArgs+=(--branch "${remote}/${branch}")
 	    else
-		[ "${logDeltaArgs[*]}" = '--none' ] || echo >&2 "Warning: Detached working copy, and could not determine base / master ${remote:-REMOTE} branch, no logging possible."
-		logDeltaArgs=(--none)
+		contains --none "${logDeltaArgs[@]}" || echo >&2 "Warning: Detached working copy, and could not determine base / master ${remote:-REMOTE} branch, no logging possible."
+		logDeltaArgs+=(--none)
 	    fi
 	fi
     fi

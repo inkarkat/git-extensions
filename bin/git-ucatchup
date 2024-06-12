@@ -32,8 +32,18 @@ esac
 # > You asked to pull from the remote 'upstream', but did not specify
 # > a branch. Because this is not the default configured remote
 # > for your current branch, you must specify a branch on the command line.
-parsedArguments="$(git-parse-last-remotebr-argument --separate-remote-and-branch upstream "$@")" || exit $?
-eval "set -- $parsedArguments"
+if parsedArguments="$(git-parse-last-remotebr-argument --separate-remote-and-branch upstream "$@")"; then
+    eval "set -- $parsedArguments"
+else
+    if [ "$GIT_UP_FETCH" ]; then
+	# If we're also fetching, still do that, but omit the pull (which would fail due
+	# to the missing branch, anyway).
+	set -- --remote upstream --none "$@"
+	export GIT_UP_NO_UPDATE=t
+    else
+	exit 1
+    fi
+fi
 
 git-up "$@" || exit $?
 

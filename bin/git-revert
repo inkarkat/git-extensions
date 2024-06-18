@@ -59,7 +59,7 @@ typeset -a revertArgs=()
 typeset -a revertEditArgs=()
 unset addFiles
 action=revert
-typeset -a actionArgs=()
+isRebase=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -79,7 +79,7 @@ do
 
 	--no-edit)	revertEditArgs+=("$1"); shift;; # Note: --edit is interpreted as an option for "git add".
 	--fixup)	shift; action=fixup; commitArg=(--no-commit);;
-	--rebase)	actionArgs+=("$1"); shift;;
+	--rebase)	shift; isRebase=t;;
 	--correct)	shift; action=correct; commitArg=(--no-commit);;
 	--)		shift; typeset -a addFiles=("$@"); break;;
 	*)		revertArgs+=("$1"); shift;;
@@ -137,12 +137,12 @@ completeCorrect()
 {
     ensureClean
     command git revert "${commitArg[@]}" "${revertEditArgs[@]}" "${revertArgs[@]}" || return $?
-    git-correct "${actionArgs[@]}" "${revertArgs[@]}"
+    git-correct "${revertArgs[@]}"
 }
 
 partialCorrect()
 {
-    git-correct "${actionArgs[@]}" "${revertArgs[@]}"
+    git-correct "${revertArgs[@]}"
 }
 
 completeFixup()
@@ -160,13 +160,27 @@ completeFixup()
     for commit in "${revs[@]}"
     do
 	command git revert "${commitArg[@]}" "${revertEditArgs[@]}" "$commit" || return $?
-	git-fixup "${actionArgs[@]}" "$commit" || return $?
+	git-fixup "$commit" || return $?    # Don't directly pass --rebase here, it would lead to multiple rebases if multiple <commit>s are given.
     done
+
+    echo >&2 'Note: To directly get rid of the empty commit, use $ git wipecommit && git rbc'
+    if [ ${#revs[@]} -eq 1 ]; then
+	echo >&2 '      Alternatively, just $ git rbnc && git trbrbni --no-keep-empty'
+    else
+	echo >&2 '      Alternatively, just $ git rbnc each time and then once at the end'
+	echo >&2 '      clean up with $ git trbrbni --no-keep-empty'
+    fi
+
+    # Instead, do the rebase once at the end; we need to cover the earliest commit.
+    if [ "$isRebase" ]; then
+	earliestRev="$(git-graphsortrevs --revisions "${revs[@]}" \; | tail -n 1)" || return 3
+	git-autostash rbni "${earliestRev:?}^"
+    fi
 }
 
 partialFixup()
 {
-    git-fixup "${actionArgs[@]}" "${revertArgs[@]}"
+    git-fixup ${isRebase:+--rebase} "${revertArgs[@]}"
 }
 
 # Reverting of the entire commit(s).

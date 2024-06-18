@@ -1,5 +1,8 @@
 #!/bin/bash
 
+: ${GIT_COMMIT_SHOW_REUSE=t}
+: ${GIT_COMMIT_SHOW_REMOTE=t}
+
 if [ "$*" = '--amend --reuse-message=HEAD' -o "$*" = '--amend --reedit-message=HEAD' ] && ! git-staged --quiet; then
     echo >&2 'ERROR: Index is empty; nothing to amend.'
     exit 1
@@ -94,13 +97,18 @@ if [ -t 1 ]; then
     : ${GIT_COMMIT_NOTE_PREFIX=[3;36m}
     : ${GIT_COMMIT_NOTE_SUFFIX=[0m}
 
-    if root="$(git rev-parse --show-toplevel)" && \
-	shortCommitId="$(git-commitid --short HEAD)"
+    if [ "$GIT_COMMIT_SHOW_REUSE" ] \
+	&& root="$(git rev-parse --show-toplevel)" \
+	&& shortCommitId="$(git-commitid --short HEAD)"
     then
 	printf >/dev/tty '%sReuse this commit message via $ git inside lo1 %q -- %s%s\n' "$GIT_COMMIT_NOTE_PREFIX" "$shortCommitId" "${root/#${HOME}\//~\/}" "$GIT_COMMIT_NOTE_SUFFIX"
     fi
 
-    if git-existsremote origin && commitUrl="$(git lourl1)" && [ -n "$commitUrl" ]; then
+    if [ "$GIT_COMMIT_SHOW_REMOTE" ] \
+	&& git-existsremote origin \
+	&& commitUrl="$(git lourl1)" \
+	&& [ -n "$commitUrl" ]
+    then
 	printf >/dev/tty '%sView this commit in %s: %s%s\n' "$GIT_COMMIT_NOTE_PREFIX" 'origin' "$commitUrl" "$GIT_COMMIT_NOTE_SUFFIX"
     fi
 

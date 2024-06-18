@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-N|--commit] [REVERT-ARGS ...] <commit> [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-N|--commit|--correct|--fixup [--rebase]] [REVERT-ARGS ...] <commit> [...] [-?|-h|--help]'
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-e|--edit|-p|--patch|-s|--selected] [-N|--commit [--no-edit]] <commit> [--] [<pathspec> ...]'
 }
@@ -38,6 +38,17 @@ HELPDESCRIPTION
 			undo of <commit> individually, in the order given.
 			(This means that it's probably most conflict-free to go
 			from recent commits to earlier ones.)
+    --correct		Commit as a (single) correction of the original
+			<commit>(s) (when it's too late or cumbersome to fixup
+			the existing commit). This adds a reference to the prior
+			commit(s) in the commit message instead of alluding to
+			the revert.
+    --fixup		Commit with the intent of squashing this with the
+			original <commit> via interactive rebase later (now with
+			--rebase; this only makes sense for a single <commit> or
+			symbolic refs).
+			(This means that it's probably most conflict-free to go
+			from recent commits to earlier ones.)
 HELPTEXT
 }
 
@@ -47,6 +58,8 @@ typeset -a commitArg=(--no-commit)
 typeset -a revertArgs=()
 typeset -a revertEditArgs=()
 unset addFiles
+action=revert
+typeset -a actionArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -65,6 +78,9 @@ do
 	--selected|-s)	shift; addCommand=addselected;;
 
 	--no-edit)	revertEditArgs+=("$1"); shift;; # Note: --edit is interpreted as an option for "git add".
+	--fixup)	shift; action=fixup; commitArg=(--no-commit);;
+	--rebase)	actionArgs+=("$1"); shift;;
+	--correct)	shift; action=correct; commitArg=(--no-commit);;
 	--)		shift; typeset -a addFiles=("$@"); break;;
 	*)		revertArgs+=("$1"); shift;;
     esac
@@ -85,20 +101,61 @@ if [ -z "${addFiles+t}" ]; then
 fi
 # All arguments have been parsed into revertArgs and addFiles; don't use $@.
 
+ensureSingleCommit()
+{
+    if [ ${#revertArgs[@]} -ne 1 ]; then
+	echo 'ERROR: Need a single <commit> to revert parts of.'
+	echo
+	printUsage "$0"
+	exit 2
+    fi >&2
+}
+ensureClean()
+{
+    git-dirty --print-error >&2 && exit 1 || :
+}
+
+completeRevert()
+{
+    command git revert "${commitArg[@]}" "${revertEditArgs[@]}" "${revertArgs[@]}"
+}
+
+completeCorrect()
+{
+    ensureClean
+    command git revert "${commitArg[@]}" "${revertEditArgs[@]}" "${revertArgs[@]}" || return $?
+    git-correct "${actionArgs[@]}" "${revertArgs[@]}"
+}
+
+completeFixup()
+{
+    ensureClean
+
+    # Need to translate the <commit> refs into IDs first, as symbolic refs (like
+    # HEAD^) are influenced by the fixup commits themselves.
+    typeset -a revs=()
+    for commit in "${revertArgs[@]}"
+    do
+	revs+=("$(git-commitid -- "$commit")")
+    done
+
+    for commit in "${revs[@]}"
+    do
+	command git revert "${commitArg[@]}" "${revertEditArgs[@]}" "$commit" || return $?
+	git-fixup "${actionArgs[@]}" "$commit" || return $?
+    done
+}
+
 # Reverting of the entire commit(s).
-[ ${#addArgs[@]} -eq 0 -a ${#addFiles[@]} -eq 0 ] \
-    && exec git revert "${commitArg[@]}" "${revertEditArgs[@]}" "${revertArgs[@]}"
+if [ ${#addArgs[@]} -eq 0 -a ${#addFiles[@]} -eq 0 ]; then
+    complete${action^}; exit $?
+fi
+
+
 
 # Revert parts of the commit.
 # Source: https://link-intersystems.com/blog/2015/04/19/how-to-partially-revert-a-commit-in-git/
-if [ ${#revertArgs[@]} -ne 1 ]; then
-    echo 'ERROR: Need a single <commit> to revert parts of.'
-    echo
-    printUsage "$0"
-    exit 2
-elif git-dirty --print-error; then
-    exit 1
-fi >&2
+ensureSingleCommit && ensureClean
 
 set -e
 commit="${revertArgs[0]}"

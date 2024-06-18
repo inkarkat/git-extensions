@@ -7,7 +7,7 @@ printShortUsage()
     # skim the long one.
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-N|--commit|--correct|--fixup [--rebase]] [REVERT-ARGS ...] <commit> [...] [-?|-h|--help]'
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-e|--edit|-p|--patch|-s|--selected] [-N|--commit [--no-edit]] <commit> [--] [<pathspec> ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-e|--edit|-p|--patch|-s|--selected] [-N|--commit|--correct|--fixup [--rebase] [--no-edit]] <commit> [--] [<pathspec> ...]'
 }
 printUsage()
 {
@@ -120,10 +120,28 @@ completeRevert()
     command git revert "${commitArg[@]}" "${revertEditArgs[@]}" "${revertArgs[@]}"
 }
 
+partialRevert()
+{
+    if [ "${commitArg[*]}" = '--no-commit' ]; then
+	# Extension: Save the revert message as a commit template, so that it can be
+	# reused for the commit.
+	printf '%s\n' "$commitMessage" | git-committemplate --save
+    else
+	# Use the message from the reversion commit as the template for editing.
+	[ ${#revertEditArgs[@]} -eq 0 ] && revertEditArgs+=(--edit)
+	git-wrapper commit "${revertEditArgs[@]}" --message "$commitMessage"
+    fi
+}
+
 completeCorrect()
 {
     ensureClean
     command git revert "${commitArg[@]}" "${revertEditArgs[@]}" "${revertArgs[@]}" || return $?
+    git-correct "${actionArgs[@]}" "${revertArgs[@]}"
+}
+
+partialCorrect()
+{
     git-correct "${actionArgs[@]}" "${revertArgs[@]}"
 }
 
@@ -144,6 +162,11 @@ completeFixup()
 	command git revert "${commitArg[@]}" "${revertEditArgs[@]}" "$commit" || return $?
 	git-fixup "${actionArgs[@]}" "$commit" || return $?
     done
+}
+
+partialFixup()
+{
+    git-fixup "${actionArgs[@]}" "${revertArgs[@]}"
 }
 
 # Reverting of the entire commit(s).
@@ -180,12 +203,4 @@ reversionCommit="$(git-commitid HEAD)"
 trap EXIT
 git checkout --force --quiet "$branch"
 git revert --no-commit "$reversionCommit"   # Note: Don't directly commit (on --commit) because the commit message would reference the intermediate partial commit, not the original.
-if [ "${commitArg[*]}" = '--no-commit' ]; then
-    # Extension: Save the revert message as a commit template, so that it can be
-    # reused for the commit.
-    printf '%s\n' "$commitMessage" | git-committemplate --save
-else
-    # Use the message from the reversion commit as the template for editing.
-    [ ${#revertEditArgs[@]} -eq 0 ] && revertEditArgs+=(--edit)
-    git-wrapper commit "${revertEditArgs[@]}" --message "$commitMessage"
-fi
+partial${action^}

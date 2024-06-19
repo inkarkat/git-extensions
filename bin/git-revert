@@ -60,6 +60,7 @@ typeset -a revertEditArgs=()
 unset addFiles
 action=revert
 isRebase=
+earliestRev=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -80,6 +81,7 @@ do
 	--no-edit)	revertEditArgs+=("$1"); shift;; # Note: --edit is interpreted as an option for "git add".
 	--fixup)	shift; action=fixup; commitArg=(--no-commit);;
 	--rebase)	shift; isRebase=t;;
+	--rebase-from)	shift; isRebase=t; earliestRev="${1:?}"; shift;;
 	--correct)	shift; action=correct; commitArg=(--no-commit);;
 	--)		shift; typeset -a addFiles=("$@"); break;;
 	*)		revertArgs+=("$1"); shift;;
@@ -136,8 +138,15 @@ partialRevert()
 completeCorrect()
 {
     ensureClean
-    command git revert "${commitArg[@]}" "${revertEditArgs[@]}" "${revertArgs[@]}" || return $?
-    git-correct "${revertArgs[@]}"
+    if command git revert "${commitArg[@]}" "${revertEditArgs[@]}" "${revertArgs[@]}"; then
+	git-correct "${revertArgs[@]}"
+    else
+	status=$?
+	printf >&2 'Note: The revert failed; fix the conflicts and then conclude with: $ git correct'
+	printf >&2 ' %q' "${revertArgs[@]}"
+	printf >&2 '\n'
+	return $status
+    fi
 }
 
 partialCorrect()
@@ -156,14 +165,30 @@ completeFixup()
     do
 	revs+=("$(git-commitid -- "$commit")")
     done
+    set -- "${revs[@]}"
+    [ -n "$earliestRev" ] || earliestRev="$(git-graphsortrevs --revisions "${revs[@]}" \; | tail -n 1)" || return 3
 
-    for commit in "${revs[@]}"
+    while [ $# -gt 0 ]
     do
-	command git revert "${commitArg[@]}" "${revertEditArgs[@]}" "$commit" || return $?
-	git-fixup "$commit" || return $?    # Don't directly pass --rebase here, it would lead to multiple rebases if multiple <commit>s are given.
+	commit="$1"; shift
+	if command git revert "${commitArg[@]}" "${revertEditArgs[@]}" "$commit"; then
+	    git-fixup "$commit" || return $?    # Don't directly pass --rebase here, it would lead to multiple rebases if multiple <commit>s are given.
+	else
+	    status=$?
+	    if [ $# -eq 0 ]; then
+		printf >&2 'Note: The revert failed; fix the conflicts and then conclude with: $ git fixup %q%s\n' "$commit" "${isRebase:+ && git rbni $earliestRev}"
+		echo >&2   'Note: After the rebase, clean up empty commit(s) with $ git trbrbni --no-keep-empty'
+	    else
+		printf >&2 'Note: The revert failed; fix the conflicts and then continue with: $ git revert --fixup%s' "${isRebase:+ --rebase-from $earliestRev}"
+		printf >&2 ' %q' "${revertArgs[@]}"
+		printf >&2 '\n'
+	    fi
+	    return $status
+	fi
     done
 
-    echo >&2 'Note: To directly get rid of the empty commit, use $ git wipecommit && git rbc'
+    local rebaseNote=; [ -n "$isRebase" ] || rebaseNote=' (on the later rebase)'
+    echo >&2 "Note: To directly get rid of the empty commit${rebaseNote}, use \$ git wipecommit && git rbc"
     if [ ${#revs[@]} -eq 1 ]; then
 	echo >&2 '      Alternatively, just $ git rbnc && git trbrbni --no-keep-empty'
     else
@@ -172,10 +197,7 @@ completeFixup()
     fi
 
     # Instead, do the rebase once at the end; we need to cover the earliest commit.
-    if [ "$isRebase" ]; then
-	earliestRev="$(git-graphsortrevs --revisions "${revs[@]}" \; | tail -n 1)" || return 3
-	git-autostash rbni "${earliestRev:?}^"
-    fi
+    [ ! "$isRebase" ] || git-autostash rbni "${earliestRev:?}^"
 }
 
 partialFixup()

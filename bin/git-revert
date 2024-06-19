@@ -135,6 +135,12 @@ partialRevert()
     fi
 }
 
+partialManualRevert()
+{
+    echo >&2 'Note: The revert failed; fix the conflicts and then commit.'
+    commitArg=(--no-commit); partialRevert  # DWIM: Prime the commit message.
+}
+
 completeCorrect()
 {
     ensureClean
@@ -151,7 +157,12 @@ completeCorrect()
 
 partialCorrect()
 {
-    git-correct "${revertArgs[@]}"
+    git-correct "${commit:?}"
+}
+
+partialManualCorrect()
+{
+    printf >&2 'Note: The revert failed; fix the conflicts and then conclude with: $ git correct %q\n' "${commit:?}"
 }
 
 completeFixup()
@@ -202,7 +213,12 @@ completeFixup()
 
 partialFixup()
 {
-    git-fixup ${isRebase:+--rebase} "${revertArgs[@]}"
+    git-fixup ${isRebase:+--rebase} "${commit:?}"
+}
+
+partialManualFixup()
+{
+    printf >&2 'Note: The revert failed; fix the conflicts and then conclude with: $ git fixup${isRebase:+ --rebase}%q\n' "${commit:?}"
 }
 
 # Reverting of the entire commit(s).
@@ -238,5 +254,10 @@ reversionCommit="$(git-commitid HEAD)"
 # Revert the isolated changes on top of the original branch.
 trap EXIT
 git checkout --force --quiet "$branch"
-git revert --no-commit "$reversionCommit"   # Note: Don't directly commit (on --commit) because the commit message would reference the intermediate partial commit, not the original.
-partial${action^}
+if git revert --no-commit "$reversionCommit"; then   # Note: Don't directly commit (on --commit) because the commit message would reference the intermediate partial commit, not the original.
+    partial${action^}
+else
+    status=$?
+    partialManual${action^}
+    return $status
+fi

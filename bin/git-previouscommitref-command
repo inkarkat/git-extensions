@@ -1,0 +1,54 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Execute GIT-COMMAND with the last commit prior to the current commit found in
+the reflog
+- appended
+- replacing COMMITS argument(s) anywhere
+- replacing COMMITS in the following GIT-COMMAND and -(N-1) arguments
+- replacing COMMITS in the following +(N) arguments and appending those
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--keep-position GIT-COMMAND [... COMMITS ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [...]'
+}
+
+typeset -a args=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--)		args+=("$1"); shift; break;;
+	*)		args+=("$1"); shift;;
+    esac
+done
+set -- "${args[@]}" "$@"
+
+if [ $# -eq 0 ]; then
+    echo >&2 'ERROR: No GIT-COMMAND passed.'
+    exit 2
+fi
+
+typeset -a rangePositionArg=()
+case "$1" in
+    +[1-9])
+	;;
+    -[1-9])
+	;;
+    --keep-position)
+	;&
+    *)
+	# Without a -(N) / +(N) argument, the argument following GIT-COMMAND is
+	# taken as the range. We have two choices: Either parse off GIT-COMMAND
+	# to be able to insert --max-count=1 after it, or keep it at the very
+	# end but pass --range-is-last. Let's use the latter as it doesn't
+	# interfere that much with the other two variant.
+	rangePositionArg=(--range-is-last)
+	;;
+esac
+
+exec git-selectedref-command --previous-commits-only --accept-single "${rangePositionArg[@]}" "$@" --max-count=1

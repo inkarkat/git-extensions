@@ -23,7 +23,8 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-	--commits-only)	myArgs+=" $1"; shift;;
+	--?(previous-)commits-only)
+			myArgs+=" $1"; shift;;
 	--source)	shift
 			typeset -a reflogArgs=()
 			number=
@@ -32,6 +33,15 @@ do
 			do
 			    case "$1" in
 				--commits-only)	shift; filter=(awk --field-separator '\t' '$3 ~ /^( \([^)]+\))? commit[: ]/');;	# %d is either empty or has a space in front of the (...)
+				--previous-commits-only)
+						shift; filter=(awk --field-separator '\t' '
+						    $3 ~ /^( \([^)]+\))? commit[: ]/ {
+							if (isSubsequent || $3 !~ /^ \(HEAD -> [^)]+\) commit[: ]/) {
+							    print
+							}
+							isSubsequent = 1
+						    }
+						');;	# %d is either empty or has a space in front of the (...)
 				--since)	reflogArgs+=("$1" "$2"); shift; shift;;
 				--max-count)	shift; number="${1:?}"; shift;;
 				--max-count=*)	number="${1#--max-count=}"; shift;;

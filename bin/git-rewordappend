@@ -1,0 +1,41 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Append the passed commit message(s) to the original commit message.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--padded] [-m|--message=MESSAGE|-F|--file=FILE [...]] [-?|-h|--help]'
+}
+
+padding=
+typeset -a commitMessageArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--padded)	shift; padding=$'\n';;
+	--)		commitMessageArgs+=("$1"); shift; break;;
+	*)		commitMessageArgs+=("$1"); shift;;
+    esac
+done
+set -- "${commitMessageArgs[@]}" "$@"
+
+if [ $# -eq 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+appendMessage="$(git-commitMessagePrint "$@")" || exit $?
+[ -n "$appendMessage" ] || exit 99
+
+originalMessage="$(git lo1)" || exit 3
+if [[ "$originalMessage" != *$'\n'* ]]; then
+    # DWIM: Add separating newline if the original commit message is a pure subject
+    # without body.
+    padding=$'\n'
+fi
+
+git-wrapper commit --amend --only --cleanup=strip --message "${originalMessage}"$'\n'"${padding}${appendMessage}" || exit $?
+git lo1

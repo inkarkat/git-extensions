@@ -1,0 +1,53 @@
+#!/bin/bash
+shopt -qs extglob
+
+printUsage()
+{
+    command hub am --help 2>&1 | sed \
+	-e 's/\( am \)\(\[--signoff\] \)/\1[--closing] \2/g' \
+	-e '/-s, --signoff/i\
+	--closing\
+	    Append a "Closes #ID" line to the commit message.\
+' \
+	-e 's/<Maildir>/& | PR-URL | #ID/g'
+}
+
+isClosing=
+typeset -a amArgs=()
+typeset -a prUrls=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift
+			typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+			eval 'printUsage "$0"' \ "${pager:+|}" '"${pager[@]}"'
+			exit 0
+			;;
+	--closing)	shift; isClosing=t;;
+	\#+([0-9]))	prUrl="$(hub pr show --format '%U%n' "${1#\#}")" || exit $?; shift
+			prUrls+=("$prUrl");;
+	http?(s)://*/pull/+([0-9])) # Also capture PR URLs to be able to apply the --closing option to them as well.
+			prUrls+=("$1"); shift;;
+	--)		amArgs+=("$1"); shift; break;;
+	*)		amArgs+=("$1"); shift;;
+    esac
+done
+
+if [ "$isClosing" ]; then
+    # Need to apply each PR separately, to be able to append to the commit message
+    # right away (without rebasing later).
+    for prUrl in "${prUrls[@]}"
+    do
+	hub am "${amArgs[@]}" "$prUrl" "$@" || exit $?
+
+	if [[ "$prUrl" =~ pull/([0-9]+) ]]; then
+	    prId="${BASH_REMATCH[1]}"
+	    git rewordappend --padded --message "Closes #$prId" || exit $?
+	else
+	    echo >&2 "Cannot determine PR ID from URL: $prUrl"
+	    exit 3
+	fi
+    done
+else
+    exec hub am "${amArgs[@]}" "${prUrls[@]}" "$@"
+fi

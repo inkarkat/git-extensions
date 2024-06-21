@@ -14,7 +14,11 @@ typeset -a launcher=()
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)		shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift
+			typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+			eval 'printUsage "$0"' \ "${pager:+|}" '"${pager[@]}"'
+			exit 0
+			;;
 	--no-color|--color=*)	colorArg=("$1"); shift;;
 	--color)		colorArg=("$1" "$2"); shift; shift;;
 	--format|-f)		args+=("$1" "$2"); hasFormat=t; shift; shift;;

@@ -20,7 +20,7 @@
 
 1. Checks
    `$ runVimTests tests/[all.suite]`
-2. `$ git release start 1.00` (`$ git cheat release`)
+2. `$ git release start 1.00` (see `$ git cheat release` for detailed inspections)
 3. Update changelog (at least with release date) in `doc/*.txt`
    - `:UpdateHelpAsReadme`
 4. `$ git release commit` (`$ git cu -m 'Release 1.00'`)

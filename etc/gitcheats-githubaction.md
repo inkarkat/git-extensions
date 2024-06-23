@@ -1,6 +1,6 @@
 # GitHub Action releases
 
-1. `$ git release start v1` (`$ git cheat release`)
+1. `$ git release start v1` (see `$ git cheat release` for detailed inspections)
 2. Edit README.md and change NAME@master to NAME@v1
    `$ git cu -m 'Release: Update release version in Readme'`
 3. Freeze dependencies:

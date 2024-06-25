@@ -1,0 +1,24 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Apply the changes introduced by some existing commits.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<cherry-pick-args> ...] [-?|-h|--help]'
+}
+typeset -a cherrypickArgs=()
+typeset -a commitArg=(--no-commit)
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--commit)	shift; commitArg=();;
+	--)		cherrypickArgs+=("$1"); shift; break;;
+	*)		cherrypickArgs+=("$1"); shift;;
+    esac
+done
+set -- "${cherrypickArgs[@]}" "$@"
+
+exec git cherry-pick "${commitArg[@]}" "$@"

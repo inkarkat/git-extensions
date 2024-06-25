@@ -1,4 +1,5 @@
 #!/bin/bash
+shopt -qs extglob
 
 printUsage()
 {
@@ -6,19 +7,94 @@ printUsage()
 Apply the changes introduced by some existing commits.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<cherry-pick-args> ...] <ref>|:/<pattern> [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<cherry-pick-args> ...] (<ref>|:/<pattern> [[--] FILE|DIR] ...) [-?|-h|--help]'
 }
+
+gitInWorkingCopy()
+{
+    local workingCopyFilespec="${1?}"; shift
+    git ${workingCopyFilespec:+inside} "$@" ${workingCopyFilespec:+-- "$workingCopyFilespec"}
+}
+
 typeset -a cherrypickArgs=()
-typeset -a commitArg=(--no-commit)
+isSkipCommit=t
+typeset -a applyArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-	--commit)	shift; commitArg=();;
+	--commit)	shift; isSkipCommit=;;
+
+	-+([3Rvq]))	applyArgs+=("$1"); shift;;
+	--@(no-3way|3way|reverse|reject|unidiff-zero|no-add|allow-binary-replacement|binary|ignore-space-change|ignore-whitespace|verbose|quiet))
+			applyArgs+=("$1"); shift;;
+	-C)		applyArgs+=("$1" "${2?}"); shift; shift;;
+	-C+([0-9]))	applyArgs+=("$1"); shift;;
+	--@(exclude|include|whitespace|directory))
+			applyArgs+=("$1" "${2?}"); shift; shift;;
+	--@(exclude|include|whitespace|directory)=*)
+			applyArgs+=("$1"); shift;;
+
 	--)		cherrypickArgs+=("$1"); shift; break;;
 	*)		cherrypickArgs+=("$1"); shift;;
     esac
 done
 set -- "${cherrypickArgs[@]}" "$@"
+if [ $# -eq 0 ]; then
+    echo >&2 'ERROR: Must pass <ref>|:/<pattern>.'
+    exit 2
+fi
 
-exec git cherry-pick "${commitArg[@]}" "$@"
+isReferencesOtherWorkingCopy=
+lastFilespec=
+typeset -a filespecs=()
+typeset -a commitIds=()
+lastArg="${!#}"
+while [ -n "$lastArg" ]
+do
+    if [ "$lastArg" = -- ]; then
+	:
+    elif [ -e "$lastArg" ]; then
+	lastFilespec="$lastArg"
+	isReferencesOtherWorkingCopy=t
+    elif commitId="$(gitInWorkingCopy "$lastFilespec" commitid --no-error -- "$lastArg")"; then
+	filespecs=("$lastFilespec" "${filespecs[@]}")
+	commitIds=("$commitId" "${commitIds[@]}")
+    else
+	break
+    fi
+    [ $# -gt 1 ] || break
+    set -- "${@:1:$(($#-1))}"
+    lastArg="${!#}"
+done
+if [ ${#commitIds[@]} -eq 0 ]; then
+    printf >&2 'ERROR: No commit found for %s\n' "$lastArg"
+    exit 1
+fi
+
+if [ "$isReferencesOtherWorkingCopy" ]; then
+    nocommitForeign()
+    {
+	local filespec="${1:?}"; shift
+	local commit="${1:?}"; shift
+
+	gitInWorkingCopy "$filespec" git show --patch "$commit" \
+	    | git apply --index "${applyArgs[@]}"
+    }
+
+    commitForeign()
+    {
+	local filespec="${1:?}"; shift
+	local commit="${1:?}"; shift
+
+	gitInWorkingCopy "$filespec" git format-patch --stdout "${commit}^..HEAD" \
+	    | git am "${applyArgs[@]}"
+    }
+
+    for ((i = 0; i < ${#commitIds[@]}; i++))
+    do
+	${isSkipCommit:+no}commitForeign "${filespecs[i]}" "${commitIds[i]}" || exit $?
+    done
+else
+    exec git cherry-pick ${isSkipCommit:+--no-commit} "${commitIds[@]}"
+fi

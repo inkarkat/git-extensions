@@ -54,7 +54,14 @@ else
     contextCommand="git rev-range-this-branch --color=always --one-more-command greyonelinelog --one-more-only-to-terminal lg --branch $quotedTargetBranch"
 fi
 
-if [ "$targetTrackedRemote" = 'origin' ] && hasRemote upstream; then
+typeset -A pushRemotes=()
+[ "$targetTrackedRemote" = 'origin' ] && hasRemote upstream \
+    && pushRemotes[upstream]=t
+[ "$targetTrackedRemote" != 'origin' ] && hasRemote origin \
+    && pushRemotes[origin]=t
+pushRemotes["$targetTrackedRemote"]=t
+
+if [ "${pushRemotes[upstream]}" ]; then
     # First push to upstream; we usually want to catch up origin to
     # upstream, but keep it at the current state if pushing to upstream
     # failed.
@@ -66,7 +73,7 @@ if [ -n "$targetTrackedRemote" ]; then
     git-remote-mutate "$targetTrackedRemote" --message 'Push' --argument "$targetBranch" --context-command "$contextCommand" "${gitRemoteMutateArgs[@]}" \
 	push "$targetTrackedRemote" "HEAD:refs/heads/${targetBranch}" || exit $?
 fi
-if [ "$targetTrackedRemote" != 'origin' ] && hasRemote origin; then
+if [ "${pushRemotes[origin]}" ]; then
     # Push to origin (if it's different from the tracked remote) last.
     git-remote-mutate origin --message 'Push' --argument "$targetBranch" --context-command "git ooutlg --color=always --branch $quotedTargetBranch" "${gitRemoteMutateArgs[@]}" \
 	push origin "HEAD:refs/heads/${targetBranch}" || exit $?

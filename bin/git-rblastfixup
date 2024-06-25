@@ -34,6 +34,15 @@ do
     esac
 done
 
+findFixupCommits()
+{
+    # Note: I could almost directly use "git log --grep", but this covers the entire
+    # commit message, not just the first subject line. Anchoring with ^ doesn't
+    # work, neither.
+    git log --pretty='tformat:%H %s' "${gitArgs[@]}" "${rangeArg[@]}" "$@" \
+	| sed -n -e 's/^\([[:xdigit:]]\+\) \(amend\|fixup\|squash\)! \(.\+\)$/\1\t\3/p'
+}
+
 typeset -A targetCommits=()
 while IFS=$'\t' read -r lastCommit originalMessage
 do
@@ -44,8 +53,8 @@ do
     fi
     targetCommits["$fixupTargetCommit"]=t
 done < <(
-    git log --pretty='tformat:%H %s' "${gitArgs[@]}" "${rangeArg[@]}" "$@" \
-	| sed -n -e 's/^\([[:xdigit:]]\+\) \(amend\|fixup\|squash\)! \(.\+\)$/\1\t\3/p'
+    eval 'findFixupCommits "$@"' \
+	"${number:+| sed -n -e "1,${number}p"}"
 )
 
 case ${#targetCommits[@]} in

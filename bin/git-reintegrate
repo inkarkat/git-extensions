@@ -9,7 +9,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--[no-]push] [--no-delete] [--delete-separate-integration-branch] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] [--ff-target-to-tracked] [--no-submodule-update] [--ignore-dirty-submodules] [-y|--yes] -b|--branch <branch> [...] | [--] <branch> [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--[no-]push] [--no-delete] [--delete-separate-integration-branch] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] [--ff-target-to-tracked] [--no-submodule-update] [--ignore-dirty-submodules] [-y|--yes|--if-up-to-date] -b|--branch <branch> [...] | [--] <branch> [...] [-?|-h|--help]'
     echo
     printf 'Usage: GIT_REINTEGRATE_CHECK_COMMAND=CMD|GIT_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" '[...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" "[...] --no-checks | -c|--command \"CHECK-COMMANDLINE\" [-c ...] | --exec SIMPLECOMMAND [...] $GIT_REINTEGRATE_EXEC_END [--exec ...]"
@@ -63,6 +63,8 @@ HELPDESCRIPTION
     --no-checks		Don't run any default \$GIT_REINTEGRATE_CHECK_COMMAND /
 			\$GIT_CHECK_COMMAND.
     --yes		Don't query for confirmation of remote mutations.
+    --if-up-to-date	Only push the current branch if the branch is
+			up-to-date.
     --bare		Do not print a status line before and after launching
 			the COMMAND.
 HELPTEXT
@@ -104,6 +106,7 @@ runWithCommand=runWithPrompt
 typeset -a runWithPromptArgs=()
 typeset -a continueArgs=()
 typeset -a gitRemoteMutateArgs=()
+typeset -a hubPushThisBranchArgs=()
 typeset -a gitDirtyArgs=()
 while [ $# -ne 0 ]
 do
@@ -127,6 +130,8 @@ do
 	--ff-target-to-tracked)
 			shift; isFastForwardToTracked=t;;
 	--yes|-y)	gitRemoteMutateArgs+=("$1"); shift;;
+	--if-up-to-date)
+			hubPushThisBranchArgs+=("$1"); shift;;
 	--no-checks)	checkCommandArgs+=("$1"); shift; isDisableChecks=t;;
 	--command|-c)	checkCommandArgs+=("$1" "$2"); shift; checkCommands+="${checkCommands:+ $GIT_REINTEGRATE_COMMAND_JOINER }$1"; shift;;
 	--exec)		checkCommandArgs+=("$1"); shift
@@ -309,7 +314,7 @@ printContinueCommand()
     local -r scriptName="$(basename -- "${BASH_SOURCE[0]}")"
     [ "$isCheckFromStdin" ] && printf >&2 'echo CHECK-COMMANDLINES | '
     printf >&2 '$ %s%s%s %q' "${1}${1:+ && }" "${quotedConfigVariables}${quotedConfigVariables:+ }" "$gitCommand" "${scriptName#git-}"
-    printf >&2 ' %q' '--continue' ${isBare:+--bare} "${runWithPromptArgs[@]}" "${continueArgs[@]}" "${gitRemoteMutateArgs[@]}" "${checkCommandArgs[@]}"
+    printf >&2 ' %q' '--continue' ${isBare:+--bare} "${runWithPromptArgs[@]}" "${continueArgs[@]}" "${gitRemoteMutateArgs[@]}" "${hubPushThisBranchArgs[@]}" "${checkCommandArgs[@]}"
     printf >&2 -- ' --branch %q'  "${branches[@]}"
     [ "$isCheckFromStdin" ] && printf >&2 ' -'
     printf >&2 '\n'
@@ -536,7 +541,7 @@ if [ "$isPush" ]; then
     fi
 
     printf '\nPushing merged branch%s:\n' "$branchesPlural"
-    hub-push-this-branch "${gitRemoteMutateArgs[@]}" || status=$?
+    hub-push-this-branch "${hubPushThisBranchArgs[@]}" "${gitRemoteMutateArgs[@]}" || status=$?
 fi
 case $status in
     0)	;;
@@ -552,7 +557,7 @@ case $status in
 	    echo >&2 'This looks like a fast-forward integration. If updates were rejected because the remote contains work that you do not have locally, you can update and reattempt the fast-forward integration via'
 	    gitCommand='git'; [ -n "$HUB" ] && gitCommand='hub'
 	    printf >&2 '$ git fetch %q && %s reffintegrate' "$targetTrackedRemote" "$gitCommand"
-	    printf >&2 ' %q' --branch "${branches[0]}" "${gitRemoteMutateArgs[@]}"
+	    printf >&2 ' %q' --branch "${branches[0]}" "${gitRemoteMutateArgs[@]}" "${hubPushThisBranchArgs[@]}"
 	    printf >&2 '\n%s\n' "Note: Don't forget to pass any CHECK-COMMANDLINE arguments."
 	fi
 	exit $status;;

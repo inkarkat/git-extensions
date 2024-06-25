@@ -11,7 +11,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '<branch>|-b|--branch <branch> [--[no-]push] [--push-branch [--force] [--recurse-submodules=on-demand]] [--push-submodules] [--delete-merged-submodule-branches] [--no-merge] [--no-delete] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] [--no-submodule-checkout] [--no-submodule-update] [--no-merge-to-separate-integration-branch] [-y|--yes] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '<branch>|-b|--branch <branch> [--[no-]push [--if-up-to-date]] [--push-branch [--force] [--recurse-submodules=on-demand]] [--push-submodules] [--delete-merged-submodule-branches] [--no-merge] [--no-delete] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] [--no-submodule-checkout] [--no-submodule-update] [--no-merge-to-separate-integration-branch] [-y|--yes] [-?|-h|--help]'
     echo
     printf 'Usage: GIT_REINTEGRATE_CHECK_COMMAND=CMD|GIT_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" '[...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" "[...] --no-checks | -c|--command \"CHECK-COMMANDLINE\" [-c ...] | --exec SIMPLECOMMAND [...] $GIT_FFINTEGRATETO_EXEC_END [--exec ...]"
@@ -90,6 +90,7 @@ HELPDESCRIPTION
     --no-checks		Don't run any default \$GIT_REINTEGRATE_CHECK_COMMAND /
 			\$GIT_CHECK_COMMAND.
     --yes		Don't query for confirmation of remote mutations.
+    --if-up-to-date	Only push <branch> if the branch is up-to-date.
     --bare		Do not print a status line before and after launching
 			the COMMAND.
 HELPTEXT
@@ -213,7 +214,10 @@ do
 			shift; hasMergeResolutionArg=t; isRebaseSingle=t;;
 	--ff|--no-ff|--ff-only)
 			hasMergeResolutionArg=t; fastForwardArgs=("$1"); shift;;
-	--yes|-y)	gitRemoteMutateArgs+=("$1"); shift;;
+	--yes|-y)
+			gitRemoteMutateArgs+=("$1"); shift;;
+	--if-up-to-date)
+			reintegrateArgs+=("$1"); shift;;
 	--no-checks)	checkCommandArgs+=("$1"); shift; isDisableChecks=t;;
 	--command|-c)	checkCommandArgs+=("$1" "$2"); shift; checkCommands+="${checkCommands:+ $GIT_FFINTEGRATETO_COMMAND_JOINER }$1"; shift;;
 	--exec)		checkCommandArgs+=("$1"); shift

@@ -49,6 +49,8 @@ isReferencesOtherWorkingCopy=
 lastFilespec=
 typeset -a filespecs=()
 typeset -a commitIds=()
+typeset -a contextualizedCommitIds=()
+typeset -a contextualizedShortCommitIds=()
 lastArg="${!#}"
 while [ -n "$lastArg" ]
 do
@@ -60,6 +62,26 @@ do
     elif commitId="$(gitInWorkingCopy "$lastFilespec" commitid --no-error -- "$lastArg")"; then
 	filespecs=("$lastFilespec" "${filespecs[@]}")
 	commitIds=("$commitId" "${commitIds[@]}")
+
+	if [ "$isSkipCommit" ]; then
+	    repoContext="$([ -z "$lastFilespec" ] || gitInWorkingCopy "$lastFilespec" userrepo 2>/dev/null)"
+	    contextualizedCommitIds=("${repoContext}${repoContext:+@}${commitId}" "${contextualizedCommitIds[@]}")
+
+	    readarray -t includedGlobs < <(gitInWorkingCopy "$lastFilespec" config --get-all "$INCLUDED_TAGS_CONFIG_KEY")
+	    if [ ${#includedGlobs[@]} -gt 0 ] \
+		&& readarray -t tags < <(gitInWorkingCopy "$lastFilespec" tag --points-at "$commitId" --list) \
+		&& [ ${#tags[@]} -gt 0 ] \
+		&& uniqueMatch="$(globmatch --values --unique-match "${includedGlobs[@]}" -- "${tags[@]}")" \
+		&& [ -n "$uniqueMatch" ]
+	    then
+		# XXX: "git tag --list" already supports globs, but not the GNU glob extensions.
+		# My globmatch can also directly assert a single unique match for us.
+		shortCommitRef="$uniqueMatch"
+	    else
+		shortCommitRef="$(gitInWorkingCopy "$lastFilespec" commitid --short -- "$lastArg")"
+	    fi
+	    contextualizedShortCommitIds=("${repoContext}${repoContext:+@}${shortCommitRef}" "${contextualizedShortCommitIds[@]}")
+	fi
     else
 	break
     fi
@@ -71,6 +93,38 @@ if [ ${#commitIds[@]} -eq 0 ]; then
     printf >&2 'ERROR: No commit found for %s\n' "$lastArg"
     exit 1
 fi
+
+if [ "$isSkipCommit" ]; then
+    : ${GIT_CHERRYPICK_REFERENCE_REFERRER:=cp.}
+    {
+	refGlob='+([0-9A-Fa-f])'
+	[ ${#includedGlobs[@]} -eq 0 ] || refGlob="@(${refGlob}|$(joinBy '|' "${includedGlobs[@]}"))"
+	IFS=$'\n' read -r titleLine
+	titleLine="${titleLine% (${GIT_CHERRYPICK_REFERENCE_REFERRER}${GIT_CHERRYPICK_REFERENCE_REFERRER:+ }?(+([^ ])@)${refGlob}*(, +([^ ])@)${refGlob})}"
+	remainingLines="$(cat)"
+	remainingLines="${remainingLines%%+($'\n')}"
+    } < <(
+	# Use the original commit's message(s) as the base for committing.
+	for ((i = 0; i < ${#commitIds[@]}; i++))
+	do
+	    gitInWorkingCopy "${filespecs[i]}" lo1 "${commitIds[i]}"
+	    echo
+	done
+    )
+
+    [ "$isReferencesOtherWorkingCopy" ] \
+	&& referenceMessage='This relates to commit' \
+	|| referenceMessage='cherry picked from commit'
+
+    printf "%s (%s%s)\\n%s\\n\\n(${referenceMessage} %s)\\n" \
+	    "$titleLine" \
+	    "${GIT_CHERRYPICK_REFERENCE_REFERRER}${GIT_CHERRYPICK_REFERENCE_REFERRER:+ }" \
+	    "$(joinBy ', ' "${contextualizedShortCommitIds[@]}")" \
+	    "$remainingLines" \
+	    "$(joinBy --last-separator ' and ' ', ' "${contextualizedCommitIds[@]}")" \
+	| git-committemplate --save
+fi
+
 
 if [ "$isReferencesOtherWorkingCopy" ]; then
     nocommitForeign()

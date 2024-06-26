@@ -1,0 +1,25 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Log together with diff of the first commit [in the passed range].
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<log-args> ...] [--] [<path> ...] [-?|-h|--help]'
+}
+
+typeset -a showArgs=()
+typeset -a firstcommitArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-patch|-s)	showArgs+=("$1"); shift;;
+	--)		firstcommitArgs+=("$1"); shift; break;;
+	*)		firstcommitArgs+=("$1"); shift;;
+    esac
+done
+
+ref="$(git-firstcommit "${firstcommitArgs[@]}" "$@")" || exit $?
+exec git show "${showArgs[@]}" "$ref"

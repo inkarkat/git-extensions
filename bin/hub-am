@@ -1,6 +1,9 @@
 #!/bin/bash
 shopt -qs extglob
 
+printf -v defaultSeparator "%${COLUMNS:=80}s" '='; printf -v defaultSeparator %s "${defaultSeparator// /=}"
+: ${HUB_AM_SEPARATOR=$defaultSeparator}
+
 printUsage()
 {
     command hub am --help 2>&1 | sed \
@@ -36,8 +39,10 @@ done
 if [ "$isClosing" ]; then
     # Need to apply each PR separately, to be able to append to the commit message
     # right away (without rebasing later).
+    isFirst=t
     for prUrl in "${prUrls[@]}"
     do
+	[ "$isFirst" ] || printf '%s\n' "$HUB_AM_SEPARATOR"; isFirst=
 	hub am "${amArgs[@]}" "$prUrl" "$@" || exit $?
 
 	if [[ "$prUrl" =~ pull/([0-9]+) ]]; then

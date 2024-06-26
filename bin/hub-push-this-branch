@@ -1,23 +1,47 @@
 #!/bin/bash
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-y|--yes|--if-up-to-date] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 Push the current branch to all of: upstream (if writeable) / tracked remote /
 origin (in an order that makes sense).
-HELPTEXT
+HELPDESCRIPTION
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-y|--yes] [-?|-h|--help]'
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --if-up-to-date	Do not push if the branch is not up-to-date (in any
+			applicable remote).
+HELPTEXT
 }
+
+isUpToDateCheck=
 typeset -a gitRemoteMutateArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
 	--yes|-y)	gitRemoteMutateArgs+=("$1"); shift;;
+	--if-up-to-date)
+			isUpToDateCheck=t; shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -33,6 +57,13 @@ if git-isdetached; then
     exit 99
 fi
 
+hasRemote()
+{
+    local remote="${1:?}"; shift
+    git-existsbr "${remote}/${targetBranch}" \
+	&& ! git-remote-isreadonly "$remote"
+}
+
 targetBranch="$(git-brname --real-branch-only)" || exit $?
 printf -v quotedTargetBranch %q "$targetBranch"
 targetTracks="$(git-tracks 2>/dev/null)"
@@ -46,24 +77,39 @@ else
 	|| exit 99
     contextCommand="git rev-range-this-branch --color=always --one-more-command greyonelinelog --one-more-only-to-terminal lg --branch $quotedTargetBranch"
 fi
-if [ "$targetTrackedRemote" = 'origin' ]; then
+
+typeset -A pushRemotes=()
+[ "$targetTrackedRemote" = 'origin' ] && hasRemote upstream \
+    && pushRemotes[upstream]=t
+[ "$targetTrackedRemote" != 'origin' ] && hasRemote origin \
+    && pushRemotes[origin]=t
+pushRemotes["$targetTrackedRemote"]=t
+
+if [ "$isUpToDateCheck" ]; then
+    status=0
+    printf 'Final up-to-date check before pushing %s:\n' "$targetBranch"
+    for remote in "${!pushRemotes[@]}"
+    do
+	git-uptodate --tracked "${remote}/${targetBranch}" || status=$?
+    done
+    [ $status -eq 0 ] || exit $status
+    gitRemoteMutateArgs+=(--yes)
+fi
+
+if [ "${pushRemotes[upstream]}" ]; then
     # First push to upstream; we usually want to catch up origin to
     # upstream, but keep it at the current state if pushing to upstream
     # failed.
-    if git-existsbr "upstream/$targetBranch" && ! git-remote-isreadonly upstream; then
-	git-remote-mutate upstream --message 'Push' --argument "$targetBranch" --context-command "git uoutlg --color=always --branch $quotedTargetBranch" "${gitRemoteMutateArgs[@]}" \
-	    push upstream "HEAD:refs/heads/${targetBranch}" || exit $?
-    fi
+    git-remote-mutate upstream --message 'Push' --argument "$targetBranch" --context-command "git uoutlg --color=always --branch $quotedTargetBranch" "${gitRemoteMutateArgs[@]}" \
+	push upstream "HEAD:refs/heads/${targetBranch}" || exit $?
 fi
 if [ -n "$targetTrackedRemote" ]; then
     # Push to the tracked remote (usually origin).
     git-remote-mutate "$targetTrackedRemote" --message 'Push' --argument "$targetBranch" --context-command "$contextCommand" "${gitRemoteMutateArgs[@]}" \
 	push "$targetTrackedRemote" "HEAD:refs/heads/${targetBranch}" || exit $?
 fi
-if [ "$targetTrackedRemote" != 'origin' ]; then
+if [ "${pushRemotes[origin]}" ]; then
     # Push to origin (if it's different from the tracked remote) last.
-    if git-existsbr "origin/$targetBranch" && ! git-remote-isreadonly origin; then
-	git-remote-mutate origin --message 'Push' --argument "$targetBranch" --context-command "git ooutlg --color=always --branch $quotedTargetBranch" "${gitRemoteMutateArgs[@]}" \
-	    push origin "HEAD:refs/heads/${targetBranch}" || exit $?
-    fi
+    git-remote-mutate origin --message 'Push' --argument "$targetBranch" --context-command "git ooutlg --color=always --branch $quotedTargetBranch" "${gitRemoteMutateArgs[@]}" \
+	push origin "HEAD:refs/heads/${targetBranch}" || exit $?
 fi

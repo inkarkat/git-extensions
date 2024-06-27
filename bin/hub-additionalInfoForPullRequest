@@ -1,0 +1,29 @@
+#!/bin/bash
+
+readonly ADDITIONAL_INFO_COMMANDS_CONFIG_KEY='pull-request.additionalInfo'
+
+printUsage()
+{
+    cat <<HELPTEXT
+Generate additional information (from the $ADDITIONAL_INFO_COMMANDS_CONFIG_KEY config
+setting) added to the pull request message template for the HEAD / current
+branch.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[HEAD] [-?|-h|--help]'
+}
+
+export HEAD=
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    ?*)			HEAD="$1"; shift;;
+esac
+
+typeset -a additionalInfoCommands=()
+while IFS=$'\n' read -r cmd
+do
+    additionalInfoCommands+=(--command "$cmd")
+done < <(git config --get-all "$ADDITIONAL_INFO_COMMANDS_CONFIG_KEY")
+
+[ ${#additionalInfoCommands[@]} -eq 0 ] || \
+    exec withSeparator "${additionalInfoCommands[@]}"

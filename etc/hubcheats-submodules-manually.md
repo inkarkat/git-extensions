@@ -1,22 +1,22 @@
 ## a) peer review of submodules (optional)
 When only one / few submodules are affected, changes are not related, and the
 integration is trivial.
-a) from superproject: `$ withSeparator -c git\ boml -c git-servername\ -m | cb && hub subsamebrdo --no-git-color --interactive pull-request`
+a) from superproject: `$ withSeparator -c git\ boml -c hub-additionalInfoForPullRequest | cb && hub subsamebrdo --no-git-color --interactive pull-request`
    paste the server into the description text
-b) from submodule(s): `$ withSeparator -c git\ superdo\ --no-header\ boml -c git\ boml -c git-servername\ -m | cb && hub pull-request`
+b) from submodule(s): `$ withSeparator -c git\ superdo\ --no-header\ boml -c git\ boml -c hub-additionalInfoForPullRequest | cb && hub pull-request`
    paste the server into the description text
 
 ## b) peer review of superproject (optional)
 For similar, mechanical changes in all submodules that don't need to be
 reviewed separately.
-  `$ withSeparator -c git\ boml -c hub-bomsubchanges -c git-servername\ -m | cb && hub pull-request --draft`
+  `$ withSeparator -c git\ boml -c hub-bomsubchanges -c hub-additionalInfoForPullRequest | cb && hub pull-request --draft`
   paste the submodule PR references / changes + server into the description
   text
 
 ## c) peer review of superproject and submodules (optional)
 Recommended if several submodules are affected and the integration is
 non-trivial / covers multiple responsibilities.
-superproject: `git-servername -m | cb && hub pull-request --draft`
+superproject: `hub-additionalInfoForPullRequest | cb && hub pull-request --draft`
 a) from superproject: `$ hub integrationpr && hub subsamebrdo --no-git-color --interactive pull-request`
    paste the superproject PR reference into the description text
 b) from submodule(s): `$ hub superpr && hub pull-request`

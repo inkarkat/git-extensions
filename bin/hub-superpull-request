@@ -44,7 +44,10 @@ fi
 
 typeset -a submoduleMessageCommands=(--command "git-subchanges ${remote}/${base}..${head} --no-color --include-pull-requests --qualified-with-userrepo --as markdown")
 typeset -a submodulePullRequestArgs=(--draft)
-if ! git-showsubmodules "${remote}/${base}..${head}" >/dev/null; then
+readarray -t affectedSubmodules < <(git-showsubmodules "${remote}/${base}..${head}")
+if [ ${#affectedSubmodules[@]} -eq 0 ] \
+    || git-subdo --no-header --no-pager --for "${affectedSubmodules[@]}" \; mbr --test
+then
     submoduleMessageCommands=()
     submodulePullRequestArgs=()
 fi

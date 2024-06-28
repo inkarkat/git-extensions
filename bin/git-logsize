@@ -35,5 +35,31 @@ do
     esac
 done
 
-eval 'git -c core.attributesFile=<(echo "* -diff") onelinelog --stat "${colorArg[@]}" "${gitLogArgs[@]}" "$@"' \
+summarize()
+{
+    awk '
+/^ 1 file changed, / { next }
+
+match($0, / \| Bin ([[:digit:]]+) -> ([[:digit:]]+) bytes$/, matches) {
+    totalBefore += matches[1]
+    totalAfter += matches[2]
+    sub(/ \| Bin /, " | ")
+}
+
+match($0, /^ [[:digit:]]+ files changed, /) {
+    totalDifference = (totalBefore != "" && totalAfter != "" \
+	? " | " totalBefore " -> " totalAfter " bytes" \
+	: "" \
+    )
+    print substr($0, 1, RLENGTH - 2) totalDifference
+    totalBefore = totalAfter = ""
+    next
+}
+
+{ print }
+'
+}
+
+git -c core.attributesFile=<(echo "* -diff") onelinelog --stat "${colorArg[@]}" "${gitLogArgs[@]}" "$@" \
+    | eval 'summarize' \
     "${pager:+|}" '"${pager[@]}"'

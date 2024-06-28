@@ -40,22 +40,26 @@ summarize()
     awk '
 /^ 1 file changed, / { next }
 
-match($0, / \| Bin (\x1b\[[0-9:;]*m)?([[:digit:]]+)(\x1b\[[0-9:;]*m)? -> (\x1b\[[0-9:;]*m)?([[:digit:]]+)(\x1b\[[0-9:;]*m)? bytes$/, matches) {
-    colorPrefixBefore = matches[1]
-    totalBefore += matches[2]
-    colorSuffixBefore = matches[3]
-    colorPrefixAfter = matches[4]
-    totalAfter += matches[5]
-    colorSuffixAfter = matches[6]
+match($0, /^(.* )\| Bin (\x1b\[[0-9:;]*m)?([[:digit:]]+)(\x1b\[[0-9:;]*m)? -> (\x1b\[[0-9:;]*m)?([[:digit:]]+)(\x1b\[[0-9:;]*m)? bytes$/, matches) {
+    fileFieldLen = length(matches[1])
+    colorPrefixBefore = matches[2]
+    totalBefore += matches[3]
+    colorSuffixBefore = matches[4]
+    colorPrefixAfter = matches[5]
+    totalAfter += matches[6]
+    colorSuffixAfter = matches[7]
     sub(/ \| Bin /, " | ")
 }
 
 match($0, /^ [[:digit:]]+ files changed, /) {
-    totalDifference = (totalBefore != "" && totalAfter != "" \
-	? " | " colorPrefixBefore totalBefore colorSuffixBefore " -> " colorPrefixAfter totalAfter colorSuffixAfter " bytes" \
-	: "" \
-    )
-    print substr($0, 1, RLENGTH - 2) totalDifference
+    filesChangedPart = substr($0, 1, RLENGTH - 2)
+    if (totalBefore != "" && totalAfter != "") {
+	totalDifference = "| " colorPrefixBefore totalBefore colorSuffixBefore " -> " colorPrefixAfter totalAfter colorSuffixAfter " bytes"
+	printf("%-" fileFieldLen "s%s\n", filesChangedPart, totalDifference)
+    } else {
+	print(filesChangedPart)
+    }
+
     totalBefore = totalAfter = ""
     next
 }

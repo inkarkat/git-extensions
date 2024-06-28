@@ -40,15 +40,19 @@ summarize()
     awk '
 /^ 1 file changed, / { next }
 
-match($0, / \| Bin ([[:digit:]]+) -> ([[:digit:]]+) bytes$/, matches) {
-    totalBefore += matches[1]
-    totalAfter += matches[2]
+match($0, / \| Bin (\x1b\[[0-9:;]*m)?([[:digit:]]+)(\x1b\[[0-9:;]*m)? -> (\x1b\[[0-9:;]*m)?([[:digit:]]+)(\x1b\[[0-9:;]*m)? bytes$/, matches) {
+    colorPrefixBefore = matches[1]
+    totalBefore += matches[2]
+    colorSuffixBefore = matches[3]
+    colorPrefixAfter = matches[4]
+    totalAfter += matches[5]
+    colorSuffixAfter = matches[6]
     sub(/ \| Bin /, " | ")
 }
 
 match($0, /^ [[:digit:]]+ files changed, /) {
     totalDifference = (totalBefore != "" && totalAfter != "" \
-	? " | " totalBefore " -> " totalAfter " bytes" \
+	? " | " colorPrefixBefore totalBefore colorSuffixBefore " -> " colorPrefixAfter totalAfter colorSuffixAfter " bytes" \
 	: "" \
     )
     print substr($0, 1, RLENGTH - 2) totalDifference

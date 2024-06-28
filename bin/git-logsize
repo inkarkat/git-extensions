@@ -68,6 +68,18 @@ match($0, /^ [[:digit:]]+ files changed, /) {
 '
 }
 
-git -c core.attributesFile=<(echo "* -diff") onelinelog --stat "${colorArg[@]}" "${gitLogArgs[@]}" "$@" \
+readonly BINARY_GITATTRIBUTES_OVERRIDE='* -diff'    # Switch to binary difference, which just shows the difference in net file sizes.
+
+# Use $GIT_DIR/info/attributes file if possible because it has the highest precedence.
+gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit 3
+gitAttributesFilespec="${gitDir}/info/attributes"
+typeset -a gitConfigArgs=()
+[ ! -e "$gitAttributesFilespec" ] \
+    && printf '%s\n' "$BINARY_GITATTRIBUTES_OVERRIDE" > "$gitAttributesFilespec" \
+    && trap 'rm -f -- "$gitAttributesFilespec" 2>/dev/null' EXIT \
+    || gitConfigArgs=(-c core.attributesFile=<(printf '%s\n' "$BINARY_GITATTRIBUTES_OVERRIDE"))
+    # Fall back to a user-scoped override.
+
+git "${gitConfigArgs[@]}" onelinelog --stat "${colorArg[@]}" "${gitLogArgs[@]}" "$@" \
     | eval 'summarize' \
     "${pager:+|}" '"${pager[@]}"'

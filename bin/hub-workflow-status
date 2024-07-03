@@ -6,6 +6,7 @@ shopt -qs nullglob
 : ${HUB_WORKFLOWSTATUS_REPO:='{repo}'}
 : ${HUB_WORKFLOWSTATUS_WAIT_INTERVAL:=20s}
 : ${HUB_WORKFLOWSTATUS_WAIT_TIMEOUT:=20m}
+readonly WAIT_TIMEOUT_CONFIG_KEY='workflow-status.waitTimeout'
 : ${HUB_WORKFLOWSTATUS_COLOR_STATUS_COMPLETED=[37m}
 : ${HUB_WORKFLOWSTATUS_COLOR_STATUS_IN_PROGRESS=[1;34m}
 : ${HUB_WORKFLOWSTATUS_COLOR_STATUS_SCHEDULED=[36m}
@@ -217,12 +218,14 @@ if [ "$isWait" ]; then
 	exit 2
     fi >&2
 
+    waitTimeout="$(git config --get "$WAIT_TIMEOUT_CONFIG_KEY")"
+
     verb="$(joinBy --omit-empty ' and ' "$(joinBy ' or ' "${acceptedStates[@]}")" "$(joinBy --prefix 'a ' ' or ' "${acceptedConclusions[@]}")")"
     RETRY_SUCCEED_VERB="got $verb" \
     RETRY_FAIL_VERB="still is not ${verb}${action:+: %OUTPUT%}" \
     RETRY_ABORT_VERB="did not become ${verb}${action:+: %OUTPUT%}" \
 	retry "${retryArgs[@]}" --command-name "${waitWhat:-The workflow action}" ${action:+--verbose-or-none --verbose-output} \
-	    --interval "$HUB_WORKFLOWSTATUS_WAIT_INTERVAL" --abort-timeout "$HUB_WORKFLOWSTATUS_WAIT_TIMEOUT" \
+	    --interval "$HUB_WORKFLOWSTATUS_WAIT_INTERVAL" --abort-timeout "${waitTimeout:-$HUB_WORKFLOWSTATUS_WAIT_TIMEOUT}" \
 	    --alert --alert-after "$HUB_WORKFLOWSTATUS_WAIT_INTERVAL" \
 	    "${BASH_SOURCE[0]}" --print-all "${recursiveArgs[@]}" "$@"
     exit $?

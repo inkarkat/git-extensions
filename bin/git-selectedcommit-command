@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--all|--last-only] [--accept-single] [--single-only] [--range-is-last] [--pass-file-args] [--explicit-file-args|--no-file-args] [--one-more] [--allow-outside-workingcopy] ... --since <date>|--max-count <number>|-<number>|-n <number>|<range>|--range <range> [--range ...] [GIT-COMMAND-ARGS ...] [--] [FILE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--all|--last-only] [--accept-single] [--single-only [--with-range-from-end RANGE-SEP|--with-range-to-start RANGE-SEP]] [--range-is-last] [--pass-file-args] [--explicit-file-args|--no-file-args] [--one-more] [--allow-outside-workingcopy] ... --since <date>|--max-count <number>|-<number>|-n <number>|<range>|--range <range> [--range ...] [GIT-COMMAND-ARGS ...] [--] [FILE ...] [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [GIT-COMMAND-ARGS ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... COMMITS ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
@@ -38,6 +38,14 @@ HELPDESCRIPTION
     cat <<HELPTEXT
     --all	    Choose all commits in the range without querying.
     --last-only	    Choose the last commit in the range without querying.
+    --accept-single Accept a single commit without querying.
+    --single-only   The querying stops when one entry has been selected.
+    --with-range-from-end RANGE-SEP
+		    Pass a range from the earliest commit to the selected one
+		    instead of COMMIT.
+    --with-range-to-start RANGE-SEP
+		    Pass a range from the selected one to the latest one instead
+		    of COMMIT.
     --range-is-last The last (total last, or last of the -(N) / +(N)) argument
 		    is the range. Use if the range looks like A..B,  not --since
 		    or --max-count, and doesn't immediately follow GIT-COMMAND.
@@ -65,6 +73,8 @@ isExplicitFileArgs=
 isFileArgs=t
 isAllowOutsideWorkingCopy=
 typeset -a commandOnSelectedArgs=()
+withRange=
+rangeSep=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -73,6 +83,10 @@ do
 	--all)		shift; action=getAll;;
 	--accept-single|--single-only)
 			commandOnSelectedArgs+=("$1"); shift;;
+	--with-range-to-start)
+			shift; rangeSep="${1:?}"; shift; withRange=start;;
+	--with-range-from-end)
+			shift; rangeSep="${1:?}"; shift; withRange=end;;
 	--range-is-last)
 			shift; isRangeLastArg=t;;
 	--pass-file-args)
@@ -95,6 +109,9 @@ done
 
 if [ $# -eq 0 ]; then
     echo >&2 'ERROR: No GIT-COMMAND passed.'
+    exit 2
+elif [ -n "$withRange" ] && ! contains --single-only "${commandOnSelectedArgs[@]}"; then
+    echo >&2 'ERROR: Need --single-only for --with-range-to-start or --with-range-from-end.'
     exit 2
 fi
 
@@ -260,6 +277,19 @@ getSelected()
 	return 1
     elif [ $status -ne 0 ]; then
 	return $status
+    fi
+
+    if [ -n "$withRange" ]; then
+	if [ ${#commits[@]} -ne 1 ]; then
+	    printf >&2 'ASSERT: Expected a single commit; got %d.\n' "${#commits[@]}"; exit 3
+	fi
+
+	readarray -t allCommits < <(commitSource --pretty='tformat:%H')
+	case "$withRange" in
+	    start)  commits=("${commits[0]}${rangeSep}${allCommits[0]}");;
+	    end)    commits=("${allCommits[-1]}${rangeSep}${commits[0]}");;
+	    *)	    printf >&2 'ASSERT: Invalid withRange: %s\n' "$withRange"; exit 3;;
+	esac
     fi
 }
 

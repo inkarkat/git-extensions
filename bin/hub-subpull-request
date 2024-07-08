@@ -29,6 +29,7 @@ base="$(git-mbr)" || exit $?
 head=
 typeset -a args=()
 superMessage=
+unset superRelatedChanges
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -39,6 +40,8 @@ do
 	--head|-h)	shift; git-equals "${1:?}" HEAD || head="$1"; shift;;
 	--super-message)
 			shift; superMessage="${1:?}"; shift;;
+	--super-related-changes)
+			shift; superRelatedChanges="${1:?}"; shift;;
 	--existing-changes)
 			shift
 			currentSubmodule="${1?}"; shift
@@ -58,8 +61,13 @@ getSuperMessage()
     local isInSubmodule="${1?}"; shift
     withSeparator \
 	    --command "git ${isInSubmodule:+superdo --no-header} l ${remote}/${base}..${head} --" \
-	    --command "git ${isInSubmodule:+superdo --no-header} superchanges --pretty=tformat:%B ${remote}/${base}..${head} -- | markdownEscape" \
-	    --command "git ${isInSubmodule:+superdo --no-header} superchanges --as markdown ${remote}/${base}..${head}"
+	    --command "git ${isInSubmodule:+superdo --no-header} superchanges --pretty=tformat:%B ${remote}/${base}..${head} -- | markdownEscape"
+}
+
+getSuperRelatedChanges()
+{
+    local isInSubmodule="${1?}"; shift
+    git ${isInSubmodule:+superdo --no-header} superchanges --as markdown "${remote}/${base}..${head}"
 }
 
 openPullRequest()
@@ -76,14 +84,19 @@ if [ -n "$superMessage" ] || git issubmodule; then
     [ -n "$superMessage" ] \
 	|| superMessage="$(getSuperMessage t)" \
 	|| echo >&2 'Note: Found no corresponding changes in superproject.'
+    : ${superRelatedChanges="$(getSuperRelatedChanges t)"}
 
     # Do this for each submodule, even if invoked in the superproject, as each
     # submodule iteration adds a pull request.
     currentSubmodule="$(git-supersubpath)" || exit $?
     existingChanges="$(git superdo --no-header "${scriptName#hub-}" --base "$base" ${head:+--head "$head"} --existing-changes "$currentSubmodule")"
     typeset -a existingChangesCommand=()
-    if [ -n "$existingChanges" ]; then
-	printf -v echoExistingChanges 'printf %%s\\\\n%%s\\\\n %q %q' 'Related changes:' "$existingChanges"
+    readonly relatedChangesHeader='##### Related changes:'
+    if [ -n "$superRelatedChanges" -a -n "$existingChanges" ]; then
+	printf -v echoExistingChanges 'printf %%s\\\\n%%s\\\\n\\\\n%%s\\\\n %q %q %q' "$relatedChangesHeader" "$superRelatedChanges" "$existingChanges"
+	existingChangesCommand=(--command "$echoExistingChanges")
+    elif [ -n "$superRelatedChanges" -o -n "$existingChanges" ]; then
+	printf -v echoExistingChanges 'printf %%s\\\\n%%s\\\\n %q %q' "$relatedChangesHeader" "${superRelatedChanges}${existingChanges}"
 	existingChangesCommand=(--command "$echoExistingChanges")
     fi
 
@@ -98,6 +111,8 @@ if [ -n "$superMessage" ] || git issubmodule; then
     $action "$@"
 else
     superMessage="$(getSuperMessage '')" || exit $?
+    superRelatedChanges="$(getSuperRelatedChanges '')" || exit $?
+
     exec hub-wrapper subsamebrdo --subdo-command-name "${scriptName#hub-}" ${head:+--branch "$head"} --no-git-color "${recursionArgs[@]}" \
-	    "${scriptName#hub-}" "${recursiveArgs[@]}" --base "$base" ${head:+--head "$head"} --super-message "$superMessage"
+	    "${scriptName#hub-}" "${recursiveArgs[@]}" --base "$base" ${head:+--head "$head"} --super-message "$superMessage" --super-related-changes "$superRelatedChanges"
 fi

@@ -7,16 +7,24 @@ Show the most recent tag (only one if a commit has multiple tags) [starting from
 <commit>].
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--annotated-only] [<commit>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--annotated-only] [--] [<commit>] [-?|-h|--help]'
 }
+
 typeset -a describeAnnotatedOnlyArgs=(--tags)
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
 			shift;;
-    --color)		shift; shift;;
-    --annotated-only)	shift; describeAnnotatedOnlyArgs=();;
-esac
+	--color)	shift; shift;;
+	--annotated-only)
+			shift; describeAnnotatedOnlyArgs=();;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 if [ $# -gt 1 ]; then
     printUsage "$0" >&2
     exit 2

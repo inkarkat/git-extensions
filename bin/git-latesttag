@@ -25,11 +25,14 @@ do
 	*)		break;;
     esac
 done
-if [ $# -gt 1 ]; then
-    printUsage "$0" >&2
-    exit 2
-fi
-ref="${1:-HEAD}"; shift
+hasRef=
+case $# in
+    0)	ref='HEAD';;
+    1)	ref="${1:-HEAD}"; shift; hasRef=t;;
+    *)	printUsage "$0" >&2
+	exit 2
+	;;
+esac
 
 tag="$(git describe "${describeAnnotatedOnlyArgs[@]}" --abbrev=0 "$ref")" || exit $?
 ! git-equals "$tag" "$ref" || tag="$(git describe "${describeAnnotatedOnlyArgs[@]}" --abbrev=0 "${ref}^")" || exit $?

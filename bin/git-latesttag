@@ -7,22 +7,37 @@ Show the most recent tag (only one if a commit has multiple tags) [starting from
 <commit>].
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--annotated-only] [<commit>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--annotated-only] [--] [<commit>] [-?|-h|--help]'
 }
+
 typeset -a describeAnnotatedOnlyArgs=(--tags)
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
 			shift;;
-    --color)		shift; shift;;
-    --annotated-only)	shift; describeAnnotatedOnlyArgs=();;
+	--color)	shift; shift;;
+	--annotated-only)
+			shift; describeAnnotatedOnlyArgs=();;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+hasRef=
+case $# in
+    0)	ref='HEAD';;
+    1)	ref="${1:-HEAD}"; shift; hasRef=t;;
+    *)	printUsage "$0" >&2
+	exit 2
+	;;
 esac
-if [ $# -gt 1 ]; then
-    printUsage "$0" >&2
-    exit 2
-fi
-ref="${1:-HEAD}"; shift
 
 tag="$(git describe "${describeAnnotatedOnlyArgs[@]}" --abbrev=0 "$ref")" || exit $?
-! git-equals "$tag" "$ref" || tag="$(git describe "${describeAnnotatedOnlyArgs[@]}" --abbrev=0 "${ref}^")" || exit $?
+if git-equals "$tag" "$ref" \
+    && [ "$hasRef" ] && git-istag -- "$ref"
+then
+    tag="$(git describe "${describeAnnotatedOnlyArgs[@]}" --abbrev=0 "${ref}^")" || exit $?
+fi
 printf '%s\n' "$tag"

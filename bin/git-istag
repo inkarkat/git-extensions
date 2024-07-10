@@ -1,0 +1,32 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Test whether <commit> is a tag reference (or some other ref).
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-p|--print] [--] <commit> [-?|-h|--help]'
+}
+
+redir='>/dev/null 2>&1'
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+	--print|-p)	shift; redir='2>/dev/null';;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if [ $# -ne 1 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+ref="${1:?}"; shift
+
+eval "exec git rev-parse --verify --quiet \"\${ref}^{tag}\"${redir:+ }${redir}"

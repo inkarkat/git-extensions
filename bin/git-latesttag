@@ -35,5 +35,9 @@ case $# in
 esac
 
 tag="$(git describe "${describeAnnotatedOnlyArgs[@]}" --abbrev=0 "$ref")" || exit $?
-! git-equals "$tag" "$ref" || tag="$(git describe "${describeAnnotatedOnlyArgs[@]}" --abbrev=0 "${ref}^")" || exit $?
+if git-equals "$tag" "$ref" \
+    && [ "$hasRef" ] && git-istag -- "$ref"
+then
+    tag="$(git describe "${describeAnnotatedOnlyArgs[@]}" --abbrev=0 "${ref}^")" || exit $?
+fi
 printf '%s\n' "$tag"

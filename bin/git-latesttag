@@ -1,4 +1,5 @@
 #!/bin/bash
+shopt -qs extglob
 
 printUsage()
 {
@@ -7,10 +8,12 @@ Show the most recent tag (only one if a commit has multiple tags) [starting from
 <commit>].
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--annotated-only] [--] [<commit>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--annotated-only] [[-m|--match <pattern> [-m ...]] [-e|--exclude <pattern> [-e ...]] [--version-tags-only|--no-version-tags] [--] [<commit>] [-?|-h|--help]'
 }
 
 typeset -a describeAnnotatedOnlyArgs=(--tags)
+tagType='all'
+typeset -a tagFilterArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -19,7 +22,13 @@ do
 			shift;;
 	--color)	shift; shift;;
 	--annotated-only)
-			shift; describeAnnotatedOnlyArgs=();;
+			shift; describeAnnotatedOnlyArgs=(); tagType='annotated';;
+
+	--exclude|-e|--match|-m)
+			tagFilterArgs+=("$1" "${2:?}"); shift; shift;;
+	--exclude=*|-e*|--match=*|-m*|--version-tags-only|--no-version-tags)
+			tagFilterArgs+=("$1"); shift;;
+
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -34,10 +43,20 @@ case $# in
 	;;
 esac
 
-tag="$(git describe "${describeAnnotatedOnlyArgs[@]}" --abbrev=0 "$ref")" || exit $?
+typeset -a describeFilterArgs=()
+if [ "${#tagFilterArgs[@]}" -gt 0 ]; then
+    # Need to resolve all candidate tags and pass that to "git describe" because
+    # --no-version-tags requires a precedence of include patterns over exclude that
+    # isn't available and because we support extended globs (through external
+    # globbing) whereas "git describe" only has simple glob(7) patterns.
+    readarray -t candidateTags < <(git-tagtype "$tagType" "${tagFilterArgs[@]}")
+    describeFilterArgs+=("${candidateTags[@]/#/--match=}")
+fi
+
+tag="$(git describe "${describeAnnotatedOnlyArgs[@]}" "${describeFilterArgs[@]}" --abbrev=0 "$ref")" || exit $?
 if git-equals "$tag" "$ref" \
     && [ "$hasRef" ] && git-istag -- "$ref"
 then
-    tag="$(git describe "${describeAnnotatedOnlyArgs[@]}" --abbrev=0 "${ref}^")" || exit $?
+    tag="$(git describe "${describeAnnotatedOnlyArgs[@]}" "${describeFilterArgs[@]}" --abbrev=0 "${ref}^")" || exit $?
 fi
 printf '%s\n' "$tag"

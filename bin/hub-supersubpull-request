@@ -70,7 +70,7 @@ if git issubmodule; then
     {
 	cd "$submoduleRoot" || exit 3
 	header "$(git-wcname)"
-	local subBase; git-existsbr "${remote}/${base}" && subBase="$base" || subBase="$(git-mbr)"
+	local subBase; git-existsbr "${remote}/${base}" && subBase="$base" || subBase="$(git-master-command --keep-position rev-range-to-previous-stack --fallback-branch MASTER --no-range)"
 	local message; message="$(withSeparator \
 	    --command 'hub-superpr' \
 	    --command "git l ${remote}/${subBase}..${head} --" \
@@ -89,7 +89,7 @@ else
 
 	GIT_SUBDO_SUBMODULE_END="$HUB_SUPERSUBPULLREQUEST_SUBMODULE_END" \
 	    hub subsamebrdo --subdo-command-name "${scriptName#hub-}" ${head:+--branch "$head"} --no-git-color --interactive --status-99-is-noop "${subdoArgs[@]}" --command "\\
-		git-existsbr '${remote}/${base}' && subBase='$base' || subBase=\"\$(git-mbr)\"; \\
+		git-existsbr '${remote}/${base}' && subBase='$base' || subBase=\"\$(git-master-command --keep-position rev-range-to-previous-stack --fallback-branch MASTER --no-range)\"; \\
 		logs=\"\$( \\
 		    withSeparator \\
 			--command \"git l ${remote}/\${subBase}..${head} --\" \\

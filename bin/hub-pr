@@ -5,6 +5,7 @@ printUsage()
 {
     command hub pr --help 2>&1 | sed \
 	-e '/\[-f$/{ N; s/\n[[:space:]]*/ /; }' \
+	-e 's/\[-b BASE\]/[-b BASE [-b ...]]/g' \
 	-e 's/\[-f FORMAT\]/[--age|-v|--verbose|--browse|-f|--format FORMAT]/g'
 }
 
@@ -78,7 +79,11 @@ pullRequestsFromIssues()
 
 pullRequestList()
 {
-    command hub pr ${prAction:?} --format "${format:-$defaultFormat}" "${colorArg[@]}" "$@"
+    local status=0 base; for base in "${bases[@]:-}"
+    do
+	command hub pr ${prAction:?} ${base:+--base "$base"} --format "${format:-$defaultFormat}" "${colorArg[@]}" "$@" || status=$?
+    done
+    return $status
 }
 
 eval '$action "$@"' \

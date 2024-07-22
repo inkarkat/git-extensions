@@ -23,6 +23,7 @@ defaultFormat='%pC%>(8)%i%Creset  %t%  l%n'
 issueFormatEmulation='%sC%>(8)%i%Creset  %t%  l'
 typeset -a formatter=()
 typeset -a args=()
+typeset -a bases=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -46,6 +47,7 @@ do
 	checkout)	prAction="$1"; shift; pager=();;
 	list|show)	prAction="$1"; shift;;
 
+	--base|-b)	shift; bases+=("${1:?}"); shift;;
 	--)		args+=("$1"); shift; break;;
 	*)		args+=("$1"); shift;;
     esac
@@ -59,6 +61,9 @@ pullRequestsFromIssues()
     # format placeholders (like %B) are not available.
     if [ -n "$format" ]; then
 	echo >&2 'ERROR: Cannot use -f|--format here.'
+	exit 2
+    elif [ ${#bases[@]} -gt 0 ]; then
+	echo >&2 'ERROR: Cannot use -b|--base here.'
 	exit 2
     fi
 

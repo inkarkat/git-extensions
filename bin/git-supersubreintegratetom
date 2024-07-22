@@ -520,11 +520,12 @@ reintegrateSuperproject()
     fi
 }
 
+typeset -a reintegratetomArgs=()
 fastforwardCommit()
 {
     printf '\nFast-forwarding submodule%s into %s:\n' "$affectedSubmodulesPlural" "${masterBranch:-$(git-mbr)}"
     acceptStatus 0 99 "${submoduleExecutor[@]:?}" ${submoduleExecutor:+--no-header --no-pager --interactive --status-99-is-noop} \
-	    reintegratetom --ff-only --no-push --no-delete --no-checks \
+	    reintegratetom --ff-only --no-push --no-delete --no-checks "${reintegratetomArgs[@]}" \
 	|| exit $?
 
     transactionalPush "$@"
@@ -675,6 +676,7 @@ if [ ${#unintegratedSubmodules[@]} -eq 0 ]; then
 	    --ok-cancel || exit 4
 
 	goToSuperproject
+	reintegratetomArgs+=(--reattach)    # It's easy to disturb the delicate state of the superproject on master but submodules still on the integrated source branches. Allow the submodules to reattach to their local source branches if they've become detached (e.g. by a hasty superproject checkout).
 	[ -n "$GIT_REINTEGRATE_PRE_PUSH_COMMAND" ] || handleWorkflow
 	[ "$isExistAffectedSubmoduleOnSourceBranch" ] \
 	    && action=fastforwardCommit \

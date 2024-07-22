@@ -4,7 +4,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '<branch>|-b|--branch <branch> [--push] [--no-delete] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] [--no-submodule-checkout] [--no-submodule-update] [-y|--yes] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '<branch>|-b|--branch <branch> [--push] [--no-delete] [--rebase-single|--rebase|--ff|--ff-only|--no-ff|<merge-args> ...] [--no-submodule-checkout] [--no-submodule-update] [-y|--yes] [--reattach] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -40,6 +40,8 @@ HELPDESCRIPTION
 			Don't automatically check out resulting submodule
 			versions after merging the current branch to <branch>.
     --yes		Don't query for confirmation of remote mutations.
+    --reattach		Accept a detached HEAD state and reattach to a local
+			branch that directly references the HEAD commit.
 HELPTEXT
 }
 
@@ -50,7 +52,6 @@ case "$1" in
     --color)		shift; shift;;
 esac
 
-sourceBranch="$(git-brname --real-branch-only)" || exit $?
 targetBranch=
 case "$1" in
     -*)	;;
@@ -63,6 +64,7 @@ esac
 typeset -a checkoutArgs=()
 typeset -a reintegrateArgs=()
 isContinue=
+isReattach=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -77,6 +79,7 @@ do
 	--no-submodule-checkout)
 			shift; checkoutArgs+=(--no-recurse-submodules); reintegrateArgs+=(--ignore-dirty-submodules);;
 	--continue)	reintegrateArgs+=("$1"); shift; isContinue=t;;
+	--reattach)	shift; isReattach=t;;
 	--)		reintegrateArgs+=("$1"); shift; break;;
 	*)		reintegrateArgs+=("$1"); shift;;
     esac
@@ -87,6 +90,11 @@ if [ -z "$targetBranch" ]; then
 elif git-dirty --print-error; then
     exit 1
 fi >&2
+
+if ! sourceBranch="$(git-brname --real-branch-only 2>/dev/null)"; then
+    [ ! "$isReattach" ] || git-reattach --direct-only --local-only || exit 1
+fi
+sourceBranch="$(git-brname --real-branch-only)" || exit 1
 
 isOnTargetBranch=; [ "$targetBranch" = "$sourceBranch" ] && isOnTargetBranch=t
 if [ "$isOnTargetBranch" ] && [ ! "$isContinue" ]; then

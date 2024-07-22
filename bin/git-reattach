@@ -1,27 +1,60 @@
 #!/bin/bash
 shopt -qs extglob
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [-y|--yes] [--direct-only] [--local-only] [-f|--force] [--gui|--terminal|--none] [(--submodules|--queried-submodules) [--submodules-recursive]] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 Find a branch name that the detached commit is based on and check that out,
 looking first to the commit itself, then the first branch that comes after the
 detached commit, and thus contains it, then falling back to branch(es) that are
 reachable from the detached commit.
-HELPTEXT
+HELPDESCRIPTION
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [-y|--yes] [-f|--force] [--gui|--terminal|--none] [(--submodules|--queried-submodules) [--submodules-recursive]] [-?|-h|--help]'
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --quiet|-q		Suppress checkout messages.
+    --yes|-y		Do not ask for confirmation if this is no direct local
+			branch reattachment. Abort (instead of offering a
+			choice) if multiple contained candidate branches are
+			found.
+    --direct-only	Only consider (local or remote) branches that directly
+			reference the detached commit; no containment in any
+			direction.
+    --local-only	Do not consider (direct references of) remote branches,
+			only local branches.
+HELPTEXT
 }
 isYes=
+isDirectOnly=
+isLocalOnly=
 typeset -a checkoutArgs=()
+typeset -a checkoutLogArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
 	--yes|-y)	shift; isYes=t;;
+	--direct-only)	shift; isDirectOnly=t;;
+	--local-only)	shift; isLocalOnly=t;;
 	--force|-f|--quiet|-q|--submodules|--queried-submodules|--submodules-recursive)
 			checkoutArgs+=("$1"); shift;;
 	--@(gui|terminal|none))
@@ -42,14 +75,17 @@ fi
 
 branchName="$(git containedbranch HEAD 2>/dev/null)"
 if [ -n "$branchName" ]; then
-    if [ "$isYes" ] || git-equals "$branchName" HEAD; then
+    if git-equals "$branchName" HEAD; then
 	: # Directly on the detached branch, go for it!
-    else
-	userBinaryChoice --keep-prompt --question "'${branchName}' contains the current revision; forward to and check out that?" --yes-no || branchName=''
+	exec git-wrapper checkout "${checkoutArgs[@]}" "$branchName"
+    elif [ "$isDirectOnly" ]; then
+	branchName=''
+    elif [ ! "$isYes" ] && ! userBinaryChoice --keep-prompt --question "'${branchName}' contains the current revision; forward to and check out that?" --yes-no; then
+	branchName=''
     fi
 fi
 
-if [ -z "$branchName" ]; then
+if [ -z "$branchName" ] && [ ! "$isLocalOnly" ]; then
     while IFS=$'\n' read -r remoteBranch
     do
 	if git-equals "$remoteBranch" HEAD; then
@@ -60,6 +96,11 @@ if [ -z "$branchName" ]; then
 	    fi
 	fi
     done < <(git-rbr '')
+fi
+
+if [ -z "$branchName" ] && [ "$isDirectOnly" ]; then
+    printf >&2 'ERROR: No %sbranch directly references the detached commit.\n' "${isLocalOnly:+local }"
+    exit 1
 fi
 
 if [ -z "$branchName" ]; then

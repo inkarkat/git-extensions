@@ -19,6 +19,7 @@ and) merged.
 1. Go through all open pull requests and change the base branch from the
    to-be-integrated branch to master. (Without that, the PR will be
    automatically closed after the reintegration deletes that branch.)
+   `$ hub pr-rebase`
 
 ## After the reintegration of one branch
 1. superproject: Check out the next branch; e.g. via `$ git cossbr`

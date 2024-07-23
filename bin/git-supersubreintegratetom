@@ -75,7 +75,7 @@ For all other arguments see ffintegrateto.
 HELPTEXT
 	cat <<CONTINUATIONHELP
 
-CONTINUATION:
+${integrationType^^}INTEGRATION CONTINUATION:
 If a submodule integration fails (merge conflict or build problem), first
 resolve the problem there and follow the continuation hints.
 CONTINUATIONHELP
@@ -121,6 +121,16 @@ b) across-submodule API changes / maintain history of how the feature grew:
 Push any updated source branch(es), then restart the reintegration via:
 $ ${gitCommand:?} ${scriptName#git-}${isFastForwardIntegration:+ --fast-forward-integrate}
 The submodule will be recognized as unintegrated and integrated again.
+
+If an (already integrated) submodule needs to be updated due to concurrent
+commits on master:
+x) merge commit: Unmerge the submodule (following the source branch); the change
+   will make the submodule be recognized as unintegrated.
+y) rebase: You need to clear the reverse-merge mark manually, at least in the
+   affected submodule(s):
+   submodule (feat>): $ git ffintegrateto --clear-reverse-merge-done
+   But this can also simply be applied to all submodules:
+   $ git bmsubdo ffintegrateto --clear-reverse-merge-done
 CONTINUATIONHELP
     else
 	cat <<CONTINUATIONHELP
@@ -258,7 +268,7 @@ printRestartCommand()
     printf >&2 '$ %s%s %q' "${quotedConfigVariables}${quotedConfigVariables:+ }" "${gitCommand:?}" "${scriptName#git-}"
     printf >&2 ' %q' "${allArgs[@]}"
     [ "$isCheckFromStdin" ] && printf >&2 ' -'
-    printf >&2 '\n'
+    printf >&2 '\n\nConfused? See $ %s %s --help\n' ${gitCommand:?} "${scriptName#git-}${isFastForwardIntegration:+ --fast-forward-integrate}"
 }
 
 abortOnPendingSubintegrations()

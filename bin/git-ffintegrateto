@@ -17,6 +17,8 @@ printShortUsage()
     printf 'Usage: %q %s\n' "$(basename "$1")" "[...] --no-checks | -c|--command \"CHECK-COMMANDLINE\" [-c ...] | --exec SIMPLECOMMAND [...] $GIT_FFINTEGRATETO_EXEC_END [--exec ...]"
     printf 'Usage: echo CHECK-COMMANDLINES | %q %s\n' "$(basename "$1")" "[...] [--bare|$(runWithPrompt --get-short-usage 2>/dev/null)] -"
     printf 'Usage: %q %s - <<EOF\n  CHECK-COMMANDLINE\n...\nEOF\n' "$(basename "$1")" '[...]'
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--print-merged-branch|--clear-reverse-merge-done'
 }
 printUsage()
 {
@@ -124,6 +126,12 @@ checkReverseMarkDone()
     [ -r "${markStore:?}" ] || return 1
     < "$markStore" IFS=$'\n' read -r integrationRevision || return 3
     [ "${integrationRevision:?}" = "$(git-commitid HEAD)" ]
+}
+clearReverseMarkDone()
+{
+    local branchName; branchName="$(printMergedBranch)" || return 99
+    rm --force -- "${markStore:?}" || return 3
+    printf 'Cleared reverse merge of %s\n' "$branchName"
 }
 printMergedBranch()
 {
@@ -262,6 +270,8 @@ do
 			continueArgs+=("$1"); shift; afterReverseMergeCommand+="${afterReverseMergeCommand:+; }withMarkStore setReverseMarkDone";;
 	--is-reverse-merge-done)
 			shift; withMarkStore checkReverseMarkDone; exit $?;;
+	--clear-reverse-merge-done)
+			shift; withMarkStore clearReverseMarkDone; exit $?;;
 	--print-merged-branch)
 			shift; withMarkStore printMergedBranch; exit $?;;
 

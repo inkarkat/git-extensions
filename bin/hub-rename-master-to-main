@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -e -o pipefail
 
 printUsage()
 {
@@ -48,6 +48,7 @@ GIT_PUSH_ALLOW_PUBLISH_DIFFERENT=true git opublish
 # but we'd like to do this via the API.
 # Source: https://github.com/cli/cli/issues/929#issuecomment-629253585
 remoteRepository="$(hub-userrepo "$(git-remote-url origin)")"
-hub api --method PATCH -f default_branch=main "repos/${remoteRepository}"
+hub api --method PATCH -f default_branch=main "repos/${remoteRepository}" \
+    | jq --raw-output '.full_name + ": " + .default_branch'
 
 git odeletebr master

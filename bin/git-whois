@@ -21,6 +21,8 @@ isRangeLastArg=
 typeset -a rangeArgs=()
 typeset -a rangeModificationArgs=()
 typeset -a personFilter=()
+hubLookupFormat=%aN
+hubQueryTerm=fullname:
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -35,6 +37,7 @@ do
 			shift; isSelect=t; isSelectMany=t;;
 	--name|-n)	shift; personFilter=(sed -e 's# \+<[^ ]\+@[^ ]\+>$##');;
 	--email|-e)	shift; personFilter=(sed -e 's#^.* \+<\([^ ]\+@[^ ]\+\)>$#\1#');;
+	--via-email|-E)	shift; hubLookupFormat=%aE; hubQueryTerm=in:email;;
 
 	--range-is-last)
 			shift; isRangeLastArg=t;;
@@ -132,11 +135,11 @@ if [ "$HUB" ]; then
     # Source: https://stackoverflow.com/a/75888626/813602
 getCandidates()
 {
-    typeset -a users=(); readarray -t users < <(getFromLog '%aN' "$@" | sort --unique)
+    typeset -a users=(); readarray -t users < <(getFromLog "$hubLookupFormat" "$@" | sort --unique)
     local query=$'query {\n'
     for idx in "${!users[@]}"
     do
-	query+=" query${idx}: search(query: \"fullname: ${users[$idx]}\", type: USER, first: 1) { nodes { ... on User { login email } } }"$'\n'
+	query+=" query${idx}: search(query: \"${hubQueryTerm} ${users[$idx]}\", type: USER, first: 1) { nodes { ... on User { login email } } }"$'\n'
     done
     query+='}'
 

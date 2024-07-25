@@ -119,10 +119,11 @@ printPersons()
     eval 'printf %s\\n "$@"' "${personFilter:+|}" '"${personFilter[@]}"' "${personFilter:+|sort --unique}"
 }
 
-readarray -t candidates < <(
-    git log -i ${isShowFirstCandidate:+-1} --pretty='tformat:%aN <%aE>' "${@/#/--author=}" "${rangeArgs[@]}" "${rangeModificationArgs[@]}" \
-	| sort --unique
-)
+getCandidates()
+{
+    git log -i ${isShowFirstCandidate:+-1} --pretty='tformat:%aN <%aE>' "${@/#/--author=}" "${rangeArgs[@]}" "${rangeModificationArgs[@]}"
+}
+readarray -t candidates < <(getCandidates "$@" | sort --unique)
 
 if [ ${#candidates[@]} -eq 0 ]; then
     if [ "$isAcceptUnknown" -a \( $# -eq 1 -o $# -eq 2 \) ]; then

@@ -1,4 +1,5 @@
 #!/bin/bash
+set -o pipefail
 shopt -qs extglob
 
 printUsage()
@@ -116,13 +117,45 @@ fi
 
 printPersons()
 {
-    eval 'printf %s\\n "$@"' "${personFilter:+|}" '"${personFilter[@]}"' "${personFilter:+|sort --unique}"
+    eval 'printf %s\\n "$@"' \
+	"${personFilter:+|}" '"${personFilter[@]}"' \
+	"${personFilter:+|sort --unique}"
 }
 
+getFromLog()
+{
+    local format="${1:?}"; shift
+    git log -i ${isShowFirstCandidate:+-1} --pretty="tformat:${format}" "${@/#/--author=}" "${rangeArgs[@]}" "${rangeModificationArgs[@]}"
+}
+
+if [ "$HUB" ]; then
+    # Source: https://stackoverflow.com/a/75888626/813602
 getCandidates()
 {
-    git log -i ${isShowFirstCandidate:+-1} --pretty='tformat:%aN <%aE>' "${@/#/--author=}" "${rangeArgs[@]}" "${rangeModificationArgs[@]}"
+    typeset -a users=(); readarray -t users < <(getFromLog '%aN' "$@" | sort --unique)
+    local query=$'query {\n'
+    for idx in "${!users[@]}"
+    do
+	query+=" query${idx}: search(query: \"fullname: ${users[$idx]}\", type: USER, first: 1) { nodes { ... on User { login email } } }"$'\n'
+    done
+    query+='}'
+
+    local response
+    if response="$(gh api graphql --raw-field query="$query")"; then
+	printf '%s\n' "$response" | jq --raw-output '.data | to_entries[] | .value.nodes[] | .login + (if .email | length > 0 then " <" + .email + ">" else "" end)'
+    else
+	return 1
+	# Note: "gh api graphql" already extracts and prints the error message.
+	#printf '%s\n' "$response" | jq --raw-output '.errors | .[] | .message' >&2
+    fi
 }
+else
+getCandidates()
+{
+    getFromLog '%aN <%aE>' "$@"
+}
+fi
+
 readarray -t candidates < <(getCandidates "$@" | sort --unique)
 
 if [ ${#candidates[@]} -eq 0 ]; then

@@ -1,15 +1,45 @@
 #!/bin/bash
+set -o pipefail
 shopt -qs extglob
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-1|--first|-s|--select|-S|--select-many] [-n|--name|-e|--email] [--via-email|-E] [--accept-unknown] [--range-is-last|--since <date>|--max-count <number>|-<number>|--range <range> [--range ...]] AUTHOR-PATTERN [...]|NAME EMAIL@HOST|"NAME <EMAIL@HOST>" [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 Look up person(s) by name or email address, based on all previous committers to
-the repository. With --accept-unknown, will also accept new names in the form
-NAME EMAIL@HOST (two arguments) or "NAME <EMAIL@HOST>" (one argument) that are
-not yet found in the repository.
+the repository.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --first|-1		Show only the first (most recent) candidate found in
+			the commit logs.
+    --select|-s		Interactively select a candidate.
+    --select-many|-S	Interactively select multiple candidate(s).
+    --name|-n		Just print the person's name; drop the email address.
+    --email|-e		Just print the person's email address; drop the name.
+    --via-email|-E	In GitHub, look up the person by email address instead
+			of full name. (Note that a public configured email is
+			optional.)
+    --accept-unknown	Also accept new names in the form NAME EMAIL@HOST (two
+			arguments) or "NAME <EMAIL@HOST>" (one argument) that
+			are not yet found in the repository.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-1|--first|-s|--select|-S|--select-many] [-n|--name|-e|--email] [--accept-unknown] [--range-is-last|--since <date>|--max-count <number>|-<number>|--range <range> [--range ...]] AUTHOR-PATTERN [...]|NAME EMAIL@HOST|"NAME <EMAIL@HOST>" [-?|-h|--help]'
 }
 
 isAcceptUnknown=
@@ -20,10 +50,12 @@ isRangeLastArg=
 typeset -a rangeArgs=()
 typeset -a rangeModificationArgs=()
 typeset -a personFilter=()
+hubLookupFormat=%aN
+hubQueryTerm=fullname:
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
@@ -34,6 +66,7 @@ do
 			shift; isSelect=t; isSelectMany=t;;
 	--name|-n)	shift; personFilter=(sed -e 's# \+<[^ ]\+@[^ ]\+>$##');;
 	--email|-e)	shift; personFilter=(sed -e 's#^.* \+<\([^ ]\+@[^ ]\+\)>$#\1#');;
+	--via-email|-E)	shift; hubLookupFormat=%aE; hubQueryTerm=in:email;;
 
 	--range-is-last)
 			shift; isRangeLastArg=t;;
@@ -116,13 +149,46 @@ fi
 
 printPersons()
 {
-    eval 'printf %s\\n "$@"' "${personFilter:+|}" '"${personFilter[@]}"' "${personFilter:+|sort --unique}"
+    eval 'printf %s\\n "$@"' \
+	"${personFilter:+|}" '"${personFilter[@]}"' \
+	"${personFilter:+|sort --unique}"
 }
 
-readarray -t candidates < <(
-    git log -i ${isShowFirstCandidate:+-1} --pretty='tformat:%aN <%aE>' "${@/#/--author=}" "${rangeArgs[@]}" "${rangeModificationArgs[@]}" \
-	| sort --unique
-)
+getFromLog()
+{
+    local format="${1:?}"; shift
+    git log -i ${isShowFirstCandidate:+-1} --pretty="tformat:${format}" "${@/#/--author=}" "${rangeArgs[@]}" "${rangeModificationArgs[@]}"
+}
+
+if [ "$HUB" ]; then
+    # Source: https://stackoverflow.com/a/75888626/813602
+getCandidates()
+{
+    typeset -a users=(); readarray -t users < <(getFromLog "$hubLookupFormat" "$@" | sort --unique)
+    local query=$'query {\n'
+    for idx in "${!users[@]}"
+    do
+	query+=" query${idx}: search(query: \"${hubQueryTerm} ${users[$idx]}\", type: USER, first: 1) { nodes { ... on User { login email } } }"$'\n'
+    done
+    query+='}'
+
+    local response
+    if response="$(gh api graphql --raw-field query="$query")"; then
+	printf '%s\n' "$response" | jq --raw-output '.data | to_entries[] | .value.nodes[] | .login + (if .email | length > 0 then " <" + .email + ">" else "" end)'
+    else
+	return 1
+	# Note: "gh api graphql" already extracts and prints the error message.
+	#printf '%s\n' "$response" | jq --raw-output '.errors | .[] | .message' >&2
+    fi
+}
+else
+getCandidates()
+{
+    getFromLog '%aN <%aE>' "$@"
+}
+fi
+
+readarray -t candidates < <(getCandidates "$@" | sort --unique)
 
 if [ ${#candidates[@]} -eq 0 ]; then
     if [ "$isAcceptUnknown" -a \( $# -eq 1 -o $# -eq 2 \) ]; then

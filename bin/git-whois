@@ -2,15 +2,44 @@
 set -o pipefail
 shopt -qs extglob
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-1|--first|-s|--select|-S|--select-many] [-n|--name|-e|--email] [--via-email|-E] [--accept-unknown] [--range-is-last|--since <date>|--max-count <number>|-<number>|--range <range> [--range ...]] AUTHOR-PATTERN [...]|NAME EMAIL@HOST|"NAME <EMAIL@HOST>" [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 Look up person(s) by name or email address, based on all previous committers to
-the repository. With --accept-unknown, will also accept new names in the form
-NAME EMAIL@HOST (two arguments) or "NAME <EMAIL@HOST>" (one argument) that are
-not yet found in the repository.
+the repository.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --first|-1		Show only the first (most recent) candidate found in
+			the commit logs.
+    --select|-s		Interactively select a candidate.
+    --select-many|-S	Interactively select multiple candidate(s).
+    --name|-n		Just print the person's name; drop the email address.
+    --email|-e		Just print the person's email address; drop the name.
+    --via-email|-E	In GitHub, look up the person by email address instead
+			of full name. (Note that a public configured email is
+			optional.)
+    --accept-unknown	Also accept new names in the form NAME EMAIL@HOST (two
+			arguments) or "NAME <EMAIL@HOST>" (one argument) that
+			are not yet found in the repository.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-1|--first|-s|--select|-S|--select-many] [-n|--name|-e|--email] [--accept-unknown] [--range-is-last|--since <date>|--max-count <number>|-<number>|--range <range> [--range ...]] AUTHOR-PATTERN [...]|NAME EMAIL@HOST|"NAME <EMAIL@HOST>" [-?|-h|--help]'
 }
 
 isAcceptUnknown=
@@ -26,7 +55,7 @@ hubQueryTerm=fullname:
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;

@@ -1,11 +1,13 @@
 #!/bin/bash
 set -o pipefail
 
+: ${GIT_SUPERREVCOMMAND_REVISIONS_END=;}
+
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, they can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager|--separate-errors] [--no-git-color] [--first-only] [-r|--revision SUPERREV] [--] ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[--no-pager|--separate-errors] [--no-git-color] [--first-only] [-r|--revision SUBREV [-r ...] | --revisions SUBREV1 [...] $GIT_SUPERREVCOMMAND_REVISIONS_END] [--] ... [-?|-h|--help]"
     printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [... [-r|--revision SUPERREV] ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... SUPERREV ... [-r|--revision SUPERREV] ... ]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [... [-r|--revision SUPERREV] ...]'
@@ -59,7 +61,7 @@ HELPTEXT
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 errorRedir='2>&1'
-revision=
+typeset -a revisionGrepArgs=()
 isFirstOnly=
 isRemovals=
 isGitColor=t
@@ -83,8 +85,21 @@ do
 	--revision|-r)	if [ "$2" = SUPERREV ]; then
 			    args+=("$1" "$2"); shift; shift
 			else
-			    shift; revision="$(git-commitid "${1:?}")" || exit 2; shift
+			    shift
+			    revisionGrepArgs+=(-e "$(git-commitid "${1:?}")") || exit 2
+			    shift
 			fi
+			;;
+	--revisions)	shift
+			while [ $# -gt 0 -a "$1" != "$GIT_SUPERREVCOMMAND_REVISIONS_END" ]
+			do
+			    revisionGrepArgs+=(-e "$(git-commitid "${1:?}")"); shift
+			done
+			if [ $# -eq 0 ]; then
+			    echo "ERROR: --revisions must be concluded with '${GIT_SUPERREVCOMMAND_REVISIONS_END}'"; echo; printUsage "$0"
+			    exit 2
+			fi >&2
+			shift
 			;;
 	--)		break;;
 	*)		args+=("$1"); shift;;
@@ -191,7 +206,7 @@ else
     executor() { printf '%s\n' "$superprojectRevision"; }
 fi
 
-: ${revision:=$(git-commitid HEAD)}
+[ ${#revisionGrepArgs[@]} -gt 0 ] || revisionGrepArgs=("$(git-commitid HEAD)")
 submoduleRoot="$(git root)" || exit 3
 export -f executor
 
@@ -210,7 +225,7 @@ superrev()
 		+)  submoduleRange="${submoduleStartRev}${submoduleStartRev:+..}${BASH_REMATCH[2]}"
 		    submoduleStartRev=''
 		    if git lh "$submoduleRange" -- \
-			| grep --quiet --fixed-strings --line-regexp "$revision"
+			| grep --quiet --fixed-strings --line-regexp "${revisionGrepArgs[@]}"
 		    then
 			if [ "$isRemovals" ]; then
 			    [ -n "$previousSuperprojectRevision" ] || continue	# Can't execute; this change is still current.

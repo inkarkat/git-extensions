@@ -197,12 +197,13 @@ export -f executor
 
 superrev()
 {
-    local status=
     exec 3<&0
+    local superprojectDiff previousSuperprojectRevision='' currentSuperprojectRevision superprojectRevision submoduleStartRev submoduleRange status=
     while IFS=$'\n' read -r superprojectDiff
     do
 	if [[ "$superprojectDiff" =~ ^Superproject\ commit\ ([[:xdigit:]]+$) ]]; then
-	    superprojectRevision="${BASH_REMATCH[1]}"
+	    previousSuperprojectRevision="$currentSuperprojectRevision"
+	    currentSuperprojectRevision="${BASH_REMATCH[1]}"
 	elif [[ "$superprojectDiff" =~ ^([+-])Subproject\ commit\ ([[:xdigit:]]+$) ]]; then
 	    case "${BASH_REMATCH[1]}" in
 		-)  submoduleStartRev="${BASH_REMATCH[2]}";;
@@ -211,6 +212,12 @@ superrev()
 		    if git lh "$submoduleRange" -- \
 			| grep --quiet --fixed-strings --line-regexp "$revision"
 		    then
+			if [ "$isRemovals" ]; then
+			    [ -n "$previousSuperprojectRevision" ] || continue	# Can't execute; this change is still current.
+			    superprojectRevision="$previousSuperprojectRevision"
+			else
+			    superprojectRevision="$currentSuperprojectRevision"
+			fi
 			(cd "$superprojectRoot" && executor "$@" <&3) && : ${status:=0} || status=$?
 			[ "$isFirstOnly" ] && break
 		    fi

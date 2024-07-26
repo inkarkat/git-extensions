@@ -1,0 +1,143 @@
+#!/bin/bash
+set -o pipefail
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, they can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--first-only] [-r|--revision SUPERREV] [--] ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [... [-r|--revision SUPERREV] ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... SUPERREV ... [-r|--revision SUPERREV] ... ]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [... [-r|--revision SUPERREV] ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [... [-r|--revision SUPERREV] ...]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Execute GIT-COMMAND in the submodule's superproject for / print each
+superproject commit where the HEAD commit / passed -r|--revision SUBREV has been
+referenced (directly or as part of a submodule commit range)
+- appended
+- replacing SUPERREV argument(s) anywhere
+- replacing SUPERREV in the following GIT-COMMAND and -(N-1) arguments
+- replacing SUPERREV in the following +(N) arguments and appending those
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --no-pager		Do not page the output (so contents will scroll out of
+			view if there's too much output).
+    --first-only	Stop at the first found superproject revision; don't
+			look for further commits where SUBREV might have been
+			referenced.
+    --removals|-d	Use the following (later) superproject commit(s) that
+			went off SUBREV instead of the ones that went on.
+
+SEE ALSO:
+- git-subrev-command does the opposite translation of superproject revisions to
+  submodule commits.
+HELPTEXT
+}
+
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+revision=
+isFirstOnly=
+isRemovals=
+typeset -a args=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-pager)	shift; pager=();;
+	--first-only)	shift; isFirstOnly=t;;
+	--removals|-d)	shift; isRemovals=t;;
+
+	--revision|-r)	if [ "$2" = SUPERREV ]; then
+			    args+=("$1" "$2"); shift; shift
+			else
+			    shift; revision="$(git-commitid "${1:?}")" || exit 2; shift
+			fi
+			;;
+	--)		break;;
+	*)		args+=("$1"); shift;;
+    esac
+done
+set -- "${args[@]}" "$@"
+if ! superprojectRoot="$(git superproject)"; then
+    echo >&2 'ERROR: Not in a submodule.'
+    exit 2
+fi
+: ${revision:=$(git-commitid HEAD)}
+submoduleRoot="$(git root)" || exit 3
+executor() { printf '%s\n' "$superprojectRevision"; }
+
+isCountedAppend=
+typeset -a countedArgs=()
+[ $# -gt 0 ] && case "$1" in
+    +[1-9])
+	isCountedAppend=t;&
+    -[1-9])
+	typeset countedArgNum=${1#[+-]}
+	typeset countedArgNum=${1#-}
+	countedArgs=("${@:2:${countedArgNum}}")
+	set -- "${@:$((2 + countedArgNum))}"
+
+	executor()
+	{
+	    countedArgs=("${countedArgs[@]//SUPERREV/${superprojectRevision}}")
+
+	    [ "$isCountedAppend" ] \
+		&& git-wrapper "$@" "${countedArgs[@]}" \
+		|| git-wrapper "${countedArgs[@]}" "$@"
+	}
+	;;
+    --keep-position)
+	shift
+	countedArgs=("$@"); set --
+
+	executor()
+	{
+	    git-wrapper "${countedArgs[@]//SUPERREV/${superprojectRevision}}"
+	}
+	;;
+    *)	countedArgs=("$@"); set --
+	executor()
+	{
+	    git-wrapper "${countedArgs[@]}" "$superprojectRevision"
+	}
+	;;
+esac
+
+exec 3<&0
+while IFS=$'\n' read -r superprojectDiff
+do
+    if [[ "$superprojectDiff" =~ ^Superproject\ commit\ ([[:xdigit:]]+$) ]]; then
+	superprojectRevision="${BASH_REMATCH[1]}"
+    elif [[ "$superprojectDiff" =~ ^([+-])Subproject\ commit\ ([[:xdigit:]]+$) ]]; then
+	case "${BASH_REMATCH[1]}" in
+	    -)  submoduleStartRev="${BASH_REMATCH[2]}";;
+	    +)  submoduleRange="${submoduleStartRev}${submoduleStartRev:+..}${BASH_REMATCH[2]}"
+		submoduleStartRev=''
+		if git lh "$submoduleRange" -- \
+		    | grep --quiet --fixed-strings --line-regexp "$revision"
+		then
+		    (cd "$superprojectRoot" && executor "$@" <&3) && : ${status:=0} || status=$?
+		    [ "$isFirstOnly" ] && break
+		fi
+		;;
+
+	    *)  printf >&2 'ASSERT: Invalid diff sigil: %s\n' "${BASH_REMATCH[1]}"; exit 3;;
+	esac
+    fi
+done < <(cd "$superprojectRoot" && git -c diff.submodule=short log --patch --pretty='tformat:Superproject commit %H' -- "$submoduleRoot")
+exit ${status:-99}

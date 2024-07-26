@@ -7,7 +7,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, they can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[--no-pager|--separate-errors] [--no-git-color] [--first-only] [-r|--revision SUBREV [-r ...] | --revisions SUBREV1 [...] $GIT_SUPERREVCOMMAND_REVISIONS_END] [--] ... [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[--no-pager|--separate-errors] [--no-git-color] [-1|--first-only] [-r|--revision SUBREV [-r ...] | --revisions SUBREV1 [...] $GIT_SUPERREVCOMMAND_REVISIONS_END] [--] ... [-?|-h|--help]"
     printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [... [-r|--revision SUPERREV] ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... SUPERREV ... [-r|--revision SUPERREV] ... ]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [... [-r|--revision SUPERREV] ...]'
@@ -47,7 +47,7 @@ HELPDESCRIPTION
     --no-git-color	Do not pass a --color=... to "git SIMPLECOMMAND". (For
 			COMMANDLINE you have to insert "\${gitColorArg[@]}"
 			yourself.)
-    --first-only	Stop at the first found superproject revision; don't
+    --first-only|-1	Stop at the first found superproject revision; don't
 			look for further commits where SUBREV might have been
 			referenced.
     --removals|-d	Use the following (later) superproject commit(s) that
@@ -70,7 +70,7 @@ typeset -a args=()
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--no-pager)	shift; pager=();;
 	--separate-errors)
 			shift; errorRedir='';;
@@ -79,7 +79,8 @@ do
 			colorArg=("$1"); shift;;
 	--color)	colorArg=("$1" "$2"); shift; shift;;
 
-	--first-only)	shift; isFirstOnly=t; pager=();;
+	--first-only|-1)
+			shift; isFirstOnly=t; pager=();;
 	--removals|-d)	shift; isRemovals=t;;
 
 	--revision|-r)	if [ "$2" = SUPERREV ]; then

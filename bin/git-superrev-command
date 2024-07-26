@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, they can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager|--separate-errors] [--first-only] [-r|--revision SUPERREV] [--] ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager|--separate-errors] [--no-git-color] [--first-only] [-r|--revision SUPERREV] [--] ... [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [... [-r|--revision SUPERREV] ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... SUPERREV ... [-r|--revision SUPERREV] ... ]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [... [-r|--revision SUPERREV] ...]'
@@ -42,6 +42,9 @@ HELPDESCRIPTION
 			separate file descriptor and will not be paged. Useful
 			if you want to suppress errors or handle them
 			separately.
+    --no-git-color	Do not pass a --color=... to "git SIMPLECOMMAND". (For
+			COMMANDLINE you have to insert "\${gitColorArg[@]}"
+			yourself.)
     --first-only	Stop at the first found superproject revision; don't
 			look for further commits where SUBREV might have been
 			referenced.
@@ -59,6 +62,8 @@ errorRedir='2>&1'
 revision=
 isFirstOnly=
 isRemovals=
+isGitColor=t
+typeset -a colorArg=()
 typeset -a args=()
 while [ $# -ne 0 ]
 do
@@ -67,7 +72,12 @@ do
 	--no-pager)	shift; pager=();;
 	--separate-errors)
 			shift; errorRedir='';;
-	--first-only)	shift; isFirstOnly=t;;
+	--no-git-color)	shift; isGitColor=;;
+	--no-color|--color=*)
+			colorArg=("$1"); shift;;
+	--color)	colorArg=("$1" "$2"); shift; shift;;
+
+	--first-only)	shift; isFirstOnly=t; pager=();;
 	--removals|-d)	shift; isRemovals=t;;
 
 	--revision|-r)	if [ "$2" = SUPERREV ]; then
@@ -85,46 +95,105 @@ if ! superprojectRoot="$(git superproject)"; then
     echo >&2 'ERROR: Not in a submodule.'
     exit 2
 fi
+if [ "$isGitColor" ] && [ ${#colorArg[@]} -eq 0 ]; then
+    # If we're handling SIMPLECOMMAND's coloring, extract a (user-provided) color
+    # argument and use that for the overall coloring, but only if git-wcdo didn't
+    # yet receive its own color argument (which takes precedence).
+    typeset -a uncoloredSimpleCommand=()
+    while [ $# -ne 0 ]
+    do
+	case "$1" in
+	    --no-color|--color=*)   colorArg=("$1"); shift;;
+	    --color)		    colorArg=("$1" "$2"); shift; shift;;
+	    *)			    uncoloredSimpleCommand+=("$1"); shift;;
+	esac
+    done
+    set -- "${uncoloredSimpleCommand[@]}"
+fi
+
+# With piping into withHeader / pager, we need to explicitly enable color for
+# Git, unless this command's output itself is redirected. Also don't do this if
+# the user explicitly turned off color.
+gitColorArg=()
+if [ -n "$pager" -o -n "$isHeader" ] && isNeedColorArgumentWhenPiping "${colorArg[@]}"; then
+    colorArg=(--color=always)	# Force for withHeader
+    [ "$isGitColor" ] && gitColorArg=(--color=always)	# Force for Git
+fi
+
+typeset -a gitCommand=(git-wrapper)
+if [ $# -gt 0 ]; then
+    if [ ${#gitColorArg[@]} -gt 0 ]; then
+	# Simply appending gitColorArg doesn't work; many Git commands have a
+	# special <path> or <commit> part at the end. Place it just behind the
+	# Git subcommand by iterating arguments in the same way as the various
+	# git-*-command metaprograms, and moving anything that is in front from
+	# $@ to gitCommand.
+	case "$1" in
+	    [^-]*-command)  gitCommand+=("$1"); shift
+			    while [ $# -ne 0 ]
+			    do
+				case "$1" in
+				    --)		break;;
+				    -*)		gitCommand+=("$1"); shift;;
+				    *)		gitCommand+=("$1"); shift; break;;
+				esac
+			    done
+			    ;;
+	    *)		    while [ $# -ne 0 ]
+			    do
+				case "$1" in
+				    -c) gitCommand+=("$1" "$2"); shift; shift;;
+				    *)	gitCommand+=("$1"); shift; break;;
+				esac
+			    done
+	esac
+	gitCommand+=("${gitColorArg[@]}")
+    fi
+
+    isCountedAppend=
+    typeset -a countedArgs=()
+    case "$1" in
+	+[1-9])
+	    isCountedAppend=t;&
+	-[1-9])
+	    typeset countedArgNum=${1#[+-]}
+	    typeset countedArgNum=${1#-}
+	    countedArgs=("${@:2:${countedArgNum}}")
+	    set -- "${@:$((2 + countedArgNum))}"
+
+	    executor()
+	    {
+		countedArgs=("${countedArgs[@]//SUPERREV/${superprojectRevision}}")
+
+		[ "$isCountedAppend" ] \
+		    && "${gitCommand[@]}" "$@" "${countedArgs[@]}" \
+		    || "${gitCommand[@]}" "${countedArgs[@]}" "$@"
+	    }
+	    ;;
+	--keep-position)
+	    shift
+	    countedArgs=("$@"); set --
+
+	    executor()
+	    {
+		"${gitCommand[@]}" "${countedArgs[@]//SUPERREV/${superprojectRevision}}"
+	    }
+	    ;;
+	*)	countedArgs=("$@"); set --
+	    executor()
+	    {
+		"${gitCommand[@]}" "${countedArgs[@]}" "$superprojectRevision"
+	    }
+	    ;;
+    esac
+else
+    gitCommand=()
+    executor() { printf '%s\n' "$superprojectRevision"; }
+fi
+
 : ${revision:=$(git-commitid HEAD)}
 submoduleRoot="$(git root)" || exit 3
-executor() { printf '%s\n' "$superprojectRevision"; }
-
-isCountedAppend=
-typeset -a countedArgs=()
-[ $# -gt 0 ] && case "$1" in
-    +[1-9])
-	isCountedAppend=t;&
-    -[1-9])
-	typeset countedArgNum=${1#[+-]}
-	typeset countedArgNum=${1#-}
-	countedArgs=("${@:2:${countedArgNum}}")
-	set -- "${@:$((2 + countedArgNum))}"
-
-	executor()
-	{
-	    countedArgs=("${countedArgs[@]//SUPERREV/${superprojectRevision}}")
-
-	    [ "$isCountedAppend" ] \
-		&& git-wrapper "$@" "${countedArgs[@]}" \
-		|| git-wrapper "${countedArgs[@]}" "$@"
-	}
-	;;
-    --keep-position)
-	shift
-	countedArgs=("$@"); set --
-
-	executor()
-	{
-	    git-wrapper "${countedArgs[@]//SUPERREV/${superprojectRevision}}"
-	}
-	;;
-    *)	countedArgs=("$@"); set --
-	executor()
-	{
-	    git-wrapper "${countedArgs[@]}" "$superprojectRevision"
-	}
-	;;
-esac
+export -f executor
 
 superrev()
 {

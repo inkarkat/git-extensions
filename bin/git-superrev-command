@@ -2,12 +2,13 @@
 set -o pipefail
 
 : ${GIT_SUPERREVCOMMAND_REVISIONS_END=;}
+: ${GIT_SUPERREVCOMMAND_SEPARATOR=$'\n'}
 
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, they can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[--no-pager|--separate-errors] [--no-git-color] [-1|--first-only] [-r|--revision SUBREV [-r ...] | --revisions SUBREV1 [...] $GIT_SUPERREVCOMMAND_REVISIONS_END] [--] ... [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[--no-pager|--separate-errors] [--no-git-color] [-1|--first-only|--separate] [-r|--revision SUBREV [-r ...] | --revisions SUBREV1 [...] $GIT_SUPERREVCOMMAND_REVISIONS_END] [--] ... [-?|-h|--help]"
     printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [... [-r|--revision SUPERREV] ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... SUPERREV ... [-r|--revision SUPERREV] ... ]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [... [-r|--revision SUPERREV] ...]'
@@ -50,6 +51,8 @@ HELPDESCRIPTION
     --first-only|-1	Stop at the first found superproject revision; don't
 			look for further commits where SUBREV might have been
 			referenced.
+    --separate		Add a ${GIT_SUPERREVCOMMAND_SEPARATOR//
+/newline} between executions of GIT-COMMAND.
     --removals|-d	Use the following (later) superproject commit(s) that
 			went off SUBREV instead of the ones that went on.
 
@@ -63,6 +66,7 @@ typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 errorRedir='2>&1'
 typeset -a revisionGrepArgs=()
 isFirstOnly=
+separator=
 isRemovals=
 isGitColor=t
 typeset -a colorArg=()
@@ -81,6 +85,7 @@ do
 
 	--first-only|-1)
 			shift; isFirstOnly=t; pager=();;
+	--separate)	shift; separator="$GIT_SUPERREVCOMMAND_SEPARATOR";;
 	--removals|-d)	shift; isRemovals=t;;
 
 	--revision|-r)	if [ "$2" = SUPERREV ]; then
@@ -234,6 +239,7 @@ superrev()
 			else
 			    superprojectRevision="$currentSuperprojectRevision"
 			fi
+			[ -z "$status" ] || printf '%s' "$separator"
 			(cd "$superprojectRoot" && executor "$@" <&3) && : ${status:=0} || status=$?
 			[ "$isFirstOnly" ] && break
 		    fi

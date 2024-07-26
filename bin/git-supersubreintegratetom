@@ -388,12 +388,13 @@ completeSubmoduleReintegrationInSuperproject()
 	    fi
 	    ;;
 	*)  local pendingSubmoduleCnt=$((${#affectedSubmodules[@]} - ${#unintegratedSubmodules[@]} + 1))
-	    local affectedSubmodulesPlural=s affectedSubmodulesAuxiliaryVerb=have; if [ ${#affectedSubmodules[@]} -eq 1 ]; then affectedSubmodulesPlural=; affectedSubmodulesAuxiliaryVerb=has; fi
 	    if git-dirty --ignore-submodules=dirty -- "${affectedSubmodules[@]}"; then
 		if [ $pendingSubmoduleCnt -eq 1 -o $pendingSubmoduleCnt -gt ${#affectedSubmodules[@]} ]; then
+		    readarray -t modifiedSubmodules < <(git stfiles --ignore-submodules=dirty -- "${affectedSubmodules[@]}")
+		    modifiedSubmodulesPlural=s; [ ${#modifiedSubmodules[@]} -eq 1 ] && modifiedSubmodulesPlural=
 		    # The first pending submodule creates a separate integration commit.
 		    # Also, when the entire submodule fast-forward-integration was interrupted, all submodules have been integrated but none yet updated in the superproject, we want a separate commit, no amend to a (likely unrelated) previous superproject commit.
-		    local commitMessage; printf -v commitMessage 'Housekeeping: Reintegrate submodule%s %s' "$affectedSubmodulesPlural" "$(joinBy ', ' "${affectedSubmodules[@]}")"
+		    local commitMessage; printf -v commitMessage 'Housekeeping: Reintegrate submodule%s %s' "$modifiedSubmodulesPlural" "$(joinBy ', ' "${modifiedSubmodules[@]}")"
 		    git add -- "${affectedSubmodules[@]}" \
 			&& git-wrapper commit --edit --message "$commitMessage" \
 			|| exit $?
@@ -405,9 +406,12 @@ completeSubmoduleReintegrationInSuperproject()
 			|| exit $?
 		fi
 	    else
-		[ "$isInvokedFromSubmodule" ] \
-		    && printf 'This (%d.) reintegrated submodule has been fast-forwarded; nothing to amend.\n' "$pendingSubmoduleCnt" \
-		    || printf 'The %d reintegrated submodule%s %s been fast-forwarded; nothing to amend.\n' "${#affectedSubmodules[@]}" "$affectedSubmodulesPlural" "$affectedSubmodulesAuxiliaryVerb"
+		if [ "$isInvokedFromSubmodule" ]; then
+		    printf 'This (%d.) reintegrated submodule has been fast-forwarded; nothing to amend.\n' "$pendingSubmoduleCnt"
+		else
+		    local affectedSubmodulesPlural=s affectedSubmodulesAuxiliaryVerb=have; if [ ${#affectedSubmodules[@]} -eq 1 ]; then affectedSubmodulesPlural=; affectedSubmodulesAuxiliaryVerb=has; fi
+		    printf 'The %d reintegrated submodule%s %s been fast-forwarded; nothing to amend.\n' "${#affectedSubmodules[@]}" "$affectedSubmodulesPlural" "$affectedSubmodulesAuxiliaryVerb"
+		fi
 	    fi
 	    ;;
     esac

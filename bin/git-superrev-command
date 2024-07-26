@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, they can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--first-only] [-r|--revision SUPERREV] [--] ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager|--separate-errors] [--first-only] [-r|--revision SUPERREV] [--] ... [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [... [-r|--revision SUPERREV] ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... SUPERREV ... [-r|--revision SUPERREV] ... ]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [... [-r|--revision SUPERREV] ...]'
@@ -37,6 +37,11 @@ HELPDESCRIPTION
     cat <<HELPTEXT
     --no-pager		Do not page the output (so contents will scroll out of
 			view if there's too much output).
+    --separate-errors	Do not combine command output and command errors into
+			one (paged) stream. Error output will remain on its
+			separate file descriptor and will not be paged. Useful
+			if you want to suppress errors or handle them
+			separately.
     --first-only	Stop at the first found superproject revision; don't
 			look for further commits where SUBREV might have been
 			referenced.
@@ -50,6 +55,7 @@ HELPTEXT
 }
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+errorRedir='2>&1'
 revision=
 isFirstOnly=
 isRemovals=
@@ -59,6 +65,8 @@ do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--no-pager)	shift; pager=();;
+	--separate-errors)
+			shift; errorRedir='';;
 	--first-only)	shift; isFirstOnly=t;;
 	--removals|-d)	shift; isRemovals=t;;
 
@@ -118,26 +126,33 @@ typeset -a countedArgs=()
 	;;
 esac
 
-exec 3<&0
-while IFS=$'\n' read -r superprojectDiff
-do
-    if [[ "$superprojectDiff" =~ ^Superproject\ commit\ ([[:xdigit:]]+$) ]]; then
-	superprojectRevision="${BASH_REMATCH[1]}"
-    elif [[ "$superprojectDiff" =~ ^([+-])Subproject\ commit\ ([[:xdigit:]]+$) ]]; then
-	case "${BASH_REMATCH[1]}" in
-	    -)  submoduleStartRev="${BASH_REMATCH[2]}";;
-	    +)  submoduleRange="${submoduleStartRev}${submoduleStartRev:+..}${BASH_REMATCH[2]}"
-		submoduleStartRev=''
-		if git lh "$submoduleRange" -- \
-		    | grep --quiet --fixed-strings --line-regexp "$revision"
-		then
-		    (cd "$superprojectRoot" && executor "$@" <&3) && : ${status:=0} || status=$?
-		    [ "$isFirstOnly" ] && break
-		fi
-		;;
+superrev()
+{
+    local status=
+    exec 3<&0
+    while IFS=$'\n' read -r superprojectDiff
+    do
+	if [[ "$superprojectDiff" =~ ^Superproject\ commit\ ([[:xdigit:]]+$) ]]; then
+	    superprojectRevision="${BASH_REMATCH[1]}"
+	elif [[ "$superprojectDiff" =~ ^([+-])Subproject\ commit\ ([[:xdigit:]]+$) ]]; then
+	    case "${BASH_REMATCH[1]}" in
+		-)  submoduleStartRev="${BASH_REMATCH[2]}";;
+		+)  submoduleRange="${submoduleStartRev}${submoduleStartRev:+..}${BASH_REMATCH[2]}"
+		    submoduleStartRev=''
+		    if git lh "$submoduleRange" -- \
+			| grep --quiet --fixed-strings --line-regexp "$revision"
+		    then
+			(cd "$superprojectRoot" && executor "$@" <&3) && : ${status:=0} || status=$?
+			[ "$isFirstOnly" ] && break
+		    fi
+		    ;;
 
-	    *)  printf >&2 'ASSERT: Invalid diff sigil: %s\n' "${BASH_REMATCH[1]}"; exit 3;;
-	esac
-    fi
-done < <(cd "$superprojectRoot" && git -c diff.submodule=short log --patch --pretty='tformat:Superproject commit %H' -- "$submoduleRoot")
-exit ${status:-99}
+		*)  printf >&2 'ASSERT: Invalid diff sigil: %s\n' "${BASH_REMATCH[1]}"; exit 3;;
+	    esac
+	fi
+    done < <(cd "$superprojectRoot" && git -c diff.submodule=short log --patch --pretty='tformat:Superproject commit %H' -- "$submoduleRoot")
+    return ${status:-99}
+}
+
+eval 'superrev "$@"' \
+    "${pager:+$errorRedir |}" '"${pager[@]}"'

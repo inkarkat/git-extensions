@@ -1,0 +1,75 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Add empty DIR(s). With -E|--keep-empty, set it up so that any contained files
+will not be considered for version control.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-E|--keep-empty] [--] DIR [...] [-?|-h|--help]'
+}
+
+action=justAdd
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--keep-empty|-E)
+			shift; action=keepEmpty;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if [ $# -eq 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+justAdd()
+{
+    # Source: https://stackoverflow.com/a/8418403/813602
+    # Some have reservations about the .git prefix (and would prefer .keep), but I
+    # think the risk of clashes is minimal, and like the implied relation to version
+    # control.
+    local dirspec="${1:?}"; shift
+    local metaFilespec="${dirspec}/.gitkeep"
+    touch "$metaFilespec" \
+	&& git add --force -- "$metaFilespec"
+}
+
+keepEmpty()
+{
+    # Source: https://stackoverflow.com/a/932982/813602
+    local dirspec="${1:?}"; shift
+    local metaFilespec="${dirspec}/.gitignore"
+    {
+	cat > "$metaFilespec" <<'EOF'
+# Ignore everything in this directory
+*
+# Except this file
+!.gitignore
+EOF
+}   \
+	&& git add --force -- "$metaFilespec"
+}
+
+status=0
+for dirspec
+do
+    if [ -e "$dirspec" -a ! -d "$dirspec" ]; then
+	printf >&2 'ERROR: Not a directory: %s\n' "$dirspec"
+	status=2
+	continue
+    elif ! emptydir -- "$dirspec"; then
+	printf >&2 'ERROR: Directory not empty: %s\n' "$dirspec"
+	status=2
+	continue
+    fi
+
+    mkdir --parents -- "$dirspec" \
+	&& $action "$dirspec" \
+	|| status=$?
+done
+exit $status

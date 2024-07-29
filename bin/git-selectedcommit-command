@@ -242,9 +242,30 @@ if [ ${#rangeArgs[@]} -eq 0 ] && [ ! "$GIT_SELECTEDCOMMIT_NO_MANDATORY_RANGE" ];
     exit 2
 fi
 
-commitSource()
+logRange()
 {
     eval "git${files:+${isAllowOutsideWorkingCopy:+-inside}} ${GIT_SELECTEDCOMMIT_COMMAND:-log}" '"${rangeModificationArgs[@]}" "${rangeArgs[@]}" "$@" ${files:+${isAllowOutsideWorkingCopy:+\$FILE }--} "${files[@]}"'
+}
+
+commitSource()
+{
+    # DWIM: When the range is of the form R1^..R2, and R1 is a merge commit, only
+    # offer that commit itself, without its parents.
+    if [[ "${rangeArgs[*]}" =~ ^([^.]+)\^\.\.([^.]*)$ ]] \
+	&& startRev="${BASH_REMATCH[1]}" \
+	&& endRev="${BASH_REMATCH[2]}" \
+	&& eval "git${files:+${isAllowOutsideWorkingCopy:+-inside}} ismerge" '"$startRev" ${files:+${isAllowOutsideWorkingCopy:+\$FILE }--} "${files[@]}"'
+    then
+	# We still want intermediate merges, so it's not a matter of simply passing
+	# --first-parent. Omit the last (excluded) R1^ revision first, then separately
+	# log the R1^..R1 revision while omitting its parents there.
+	rangeArgs=("${startRev}..${endRev}")
+	logRange "$@"
+	rangeArgs=("${startRev}^..${startRev}")
+	logRange --first-parent "$@"
+    else
+	logRange "$@"
+    fi
 }
 
 appendMergeIndicator()

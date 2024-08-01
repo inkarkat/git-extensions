@@ -1,0 +1,86 @@
+#!/bin/bash
+set -o pipefail
+
+: ${GIT_COMMITKEYWORDTALLY_KEYWORD_FILE:=~/.vim/entries/vcsmessage/keywords.txt}
+
+keywordExpr="$(
+    field -F $'\t' --input "$GIT_COMMITKEYWORDTALLY_KEYWORD_FILE" 1 \
+	| sed -e 1d -e 's/:$//' -e 's/ /|/g' \
+	| joinBy - '|'
+)" || exit 3
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: git l[o]g [...] | %q %s\n' "$(basename "$1")" '[-n|--non-keywords] [--bare] [--no-percentages] [--percentage-threshold N] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Report counts and percentages of commit message keywords or subjects from the
+log input.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --non-keywords|-n	Ignore defined keywords and report only any other custom
+			SUBJECT: prefixes.
+    --bare		Just print the keywords themselves in alphabetic order..
+    --no-percentages	Just print keywords and their counts.
+    --percentage-threshold N
+			Only report counts and percentages if the percentage is
+			at least N%; i.e. omit infrequent keywords.
+
+Defined keywords: $(printf '%s\n' "${keywordExpr//|/, }")
+HELPTEXT
+}
+
+typeset -ra keywordExtractorArgs=(
+    --skip-regexp '^[[:upper:]]+-[[:digit:]]+ '
+    --MATCHER "^(${keywordExpr}): " -r '\1' --name tally --global
+    --skip-regexp '^[^[:space:]]+: ' --global
+)
+typeset -ra nonkeywordExtractorArgs=(
+    --skip-regexp '^[[:upper:]]+-[[:digit:]]+ '
+    --skip-regexp "^(${keywordExpr}): " --global
+    --MATCHER '^([^[:space:]]+): ' -r '\1' --name tally --global
+)
+typeset -a extractorArgs=("${keywordExtractorArgs[@]}")
+typeset -a extractMatchesArgs=()
+typeset -a extractMatchesPercentageArgs=(--name-percentages tally)
+matcher=match-count
+reportOrder=count-desc
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+	--non-keywords|-n)
+			shift; extractorArgs=("${nonkeywordExtractorArgs[@]}");;
+	--bare)		shift; matcher=matches; reportOrder=match-asc;;
+	--no-percentages)
+			shift; extractMatchesPercentageArgs=();;
+	--percentage-threshold)
+			shift; extractMatchesArgs+=("--name-percentage-threshold" "${1:?}"); shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+
+EXTRACTMATCHES_CONCATENATED_PREFIX='' EXTRACTMATCHES_CONCATENATED_SEPARATOR=$'\n' \
+    exec extractMatches --to concatenated --report-order "$reportOrder" --summary-only \
+	"${extractMatchesArgs[@]}" "${extractMatchesPercentageArgs[@]}" "${extractorArgs[@]/#--MATCHER/--$matcher}" "$@"

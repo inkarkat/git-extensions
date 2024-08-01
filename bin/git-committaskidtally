@@ -1,0 +1,63 @@
+#!/bin/bash
+set -o pipefail
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: git l[o]g [...] | %q %s\n' "$(basename "$1")" '[--bare] [--no-percentages] [--percentage-threshold N] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Report counts and percentages of external task IDs at the beginning of the
+commit summary from the log input.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --bare		Just print the task IDs themselves in alphabetic order.
+    --no-percentages	Just print task IDs and their counts.
+    --percentage-threshold N
+			Only report counts and percentages if the percentage is
+			at least N%; i.e. omit infrequent task IDs.
+HELPTEXT
+}
+
+typeset -a extractMatchesArgs=()
+typeset -a extractMatchesPercentageArgs=(--name-percentages tally)
+matcher=match-count
+reportOrder=count-desc
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+	--bare)		shift; matcher=matches; reportOrder=match-asc;;
+	--no-percentages)
+			shift; extractMatchesPercentageArgs=();;
+	--percentage-threshold)
+			shift; extractMatchesArgs+=("--name-percentage-threshold" "${1:?}"); shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+
+EXTRACTMATCHES_CONCATENATED_PREFIX='' EXTRACTMATCHES_CONCATENATED_SEPARATOR=$'\n' \
+    exec extractMatches --to concatenated --report-order "$reportOrder" --summary-only \
+	"${extractMatchesArgs[@]}" "${extractMatchesPercentageArgs[@]}" \
+	--$matcher '(^[[:upper:]]+-[[:digit:]]+) ' -r '\1' --name tally \
+	"$@"

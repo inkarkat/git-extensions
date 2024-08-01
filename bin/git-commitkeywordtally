@@ -9,23 +9,60 @@ keywordExpr="$(
 	| joinBy - '|'
 )" || exit 3
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: git l[o]g [...] | %q %s\n' "$(basename "$1")" '[--percentage-threshold N] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 Report counts and percentages of commit message keywords from the log input.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --percentage-threshold N
+			Only report counts and percentages if the percentage is
+			at least N%; i.e. omit infrequent keywords.
+
 Defined keywords: $(printf '%s\n' "${keywordExpr//|/, }")
 HELPTEXT
-    echo
-    printf 'Usage: git l[o]g ... | %q %s\n' "$(basename "$1")" '[--name-percentage-threshold N] [-?|-h|--help]'
 }
 
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-esac
+typeset -ra keywordExtractorArgs=(
+    --skip-regexp '^[[:upper:]]+-[[:digit:]]+ '
+    --match-count "^(${keywordExpr}): " -r '\1' --name keyword --global
+    --skip-regexp '^[^[:space:]]+: ' --global
+)
+typeset -a extractorArgs=("${keywordExtractorArgs[@]}")
+typeset -a extractMatchesArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+	--percentage-threshold)
+			shift; extractMatchesArgs+=("--name-percentage-threshold" "${1:?}"); shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 
 EXTRACTMATCHES_CONCATENATED_PREFIX='' EXTRACTMATCHES_CONCATENATED_SEPARATOR=$'\n' \
     exec extractMatches --to concatenated --report-order count-desc --summary-only \
-	"$@" --name-percentages keyword \
-	--skip-regexp '^[[:upper:]]+-[[:digit:]]+ ' \
-	--match-count "^(${keywordExpr}): " -r '\1' --name keyword --global \
-	--skip-regexp '^[^[:space:]]+: ' --global
+	"${extractMatchesArgs[@]}" --name-percentages keyword "${extractorArgs[@]}" "$@"

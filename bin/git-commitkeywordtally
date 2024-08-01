@@ -1,0 +1,31 @@
+#!/bin/bash
+set -o pipefail
+
+: ${GIT_COMMITKEYWORDTALLY_KEYWORD_FILE:=~/.vim/entries/vcsmessage/keywords.txt}
+
+keywordExpr="$(
+    field -F $'\t' --input "$GIT_COMMITKEYWORDTALLY_KEYWORD_FILE" 1 \
+	| sed -e 1d -e 's/:$//' -e 's/ /|/g' \
+	| joinBy - '|'
+)" || exit 3
+
+printUsage()
+{
+    cat <<HELPTEXT
+Report counts and percentages of commit message keywords from the log input.
+Defined keywords: $(printf '%s\n' "${keywordExpr//|/, }")
+HELPTEXT
+    echo
+    printf 'Usage: git l[o]g ... | %q %s\n' "$(basename "$1")" '[--name-percentage-threshold N] [-?|-h|--help]'
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+EXTRACTMATCHES_CONCATENATED_PREFIX='' EXTRACTMATCHES_CONCATENATED_SEPARATOR=$'\n' \
+    exec extractMatches --to concatenated --report-order count-desc --summary-only \
+	"$@" --name-percentages keyword \
+	--skip-regexp '^[[:upper:]]+-[[:digit:]]+ ' \
+	--match-count "^(${keywordExpr}): " -r '\1' --name keyword --global \
+	--skip-regexp '^[^[:space:]]+: ' --global

@@ -36,7 +36,7 @@ HELPDESCRIPTION
     cat <<HELPTEXT
     --non-keywords|-n	Ignore defined keywords and report only any other custom
 			SUBJECT: prefixes.
-    --bare		Just print the keywords themselves.
+    --bare		Just print the keywords themselves in alphabetic order..
     --no-percentages	Just print keywords and their counts.
     --percentage-threshold N
 			Only report counts and percentages if the percentage is
@@ -60,6 +60,7 @@ typeset -a extractorArgs=("${keywordExtractorArgs[@]}")
 typeset -a extractMatchesArgs=()
 typeset -a extractMatchesPercentageArgs=(--name-percentages tally)
 matcher=match-count
+reportOrder=count-desc
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -69,7 +70,7 @@ do
 	--color)	shift; shift;;
 	--non-keywords|-n)
 			shift; extractorArgs=("${nonkeywordExtractorArgs[@]}");;
-	--bare)		shift; matcher=matches;;
+	--bare)		shift; matcher=matches; reportOrder=match-asc;;
 	--no-percentages)
 			shift; extractMatchesPercentageArgs=();;
 	--percentage-threshold)
@@ -81,5 +82,5 @@ do
 done
 
 EXTRACTMATCHES_CONCATENATED_PREFIX='' EXTRACTMATCHES_CONCATENATED_SEPARATOR=$'\n' \
-    exec extractMatches --to concatenated --report-order count-desc --summary-only \
+    exec extractMatches --to concatenated --report-order "$reportOrder" --summary-only \
 	"${extractMatchesArgs[@]}" "${extractMatchesPercentageArgs[@]}" "${extractorArgs[@]/#--MATCHER/--$matcher}" "$@"

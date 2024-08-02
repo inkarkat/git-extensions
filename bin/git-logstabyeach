@@ -17,7 +17,7 @@ Show a combined short one-line diffstat for each user that authored commits
 separately (descending by impact, starting with the most changes).
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--csv] [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
 }
 
 typeset -a logArgs=()
@@ -25,10 +25,16 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--csv)		shift; formatter=(toCsv);;
 	--)		logArgs+=("$1"); shift; break;;
 	*)		logArgs+=("$1"); shift;;
     esac
 done
+
+toCsv()
+{
+    sed -e 's# files\? changed\| insertions\?(+)\|deletions\?(-)##g'
+}
 
 
 evaluateChanges()

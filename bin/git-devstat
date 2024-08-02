@@ -1,0 +1,24 @@
+#!/bin/bash
+set -o pipefail
+
+[ "$HUB" ] \
+    && identifyCommand=userrepo \
+    || identifyCommand=wcname
+
+git-wrapper "$@" "$identifyCommand" | joinBy --prefix 'Git statistics for ' --summarize-larger '7 repositories' - ', '
+
+header 'Commits by author'
+git-wrapper "$@" whodid --csv | sumField -F , --group-by 2 --sort-by -result --result-first --output-separator $'\t' 1
+
+header 'Changed files / additions / deletions by author'
+git-wrapper "$@" logstabyeach --csv | sumField -F , --group-by 1 --sort-by -result --result-first --output-separator $'\t' 2 3 4
+
+git-wrapper "$@" lmine | git committaskidtally | withHeader 'My most commits by task ID'
+
+header 'My most frequent commit areas'
+git-wrapper "$@" lomine | git commitkeywordtally
+
+if [ "$HUB" ]; then
+    header 'Pull requests from me'
+    hub-wrapper "$@" prsfromme --state all | wcl
+fi

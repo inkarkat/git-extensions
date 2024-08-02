@@ -3,6 +3,13 @@ set -o pipefail
 
 : ${GIT_LOGSTABYEACH_FILE_FACTOR:=100}	# Factor by which a file change is rated vs. an added or deleted line.
 
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+typeset -a formatter=(column -s , -t)
+if [ ! -t 1 ]; then
+    pager=()
+    formatter=()
+fi
+
 printUsage()
 {
     cat <<HELPTEXT
@@ -10,11 +17,31 @@ Show a combined short one-line diffstat for each user that authored commits
 separately (descending by impact, starting with the most changes).
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--csv] [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
 }
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-esac
+
+typeset -a logArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--csv)		shift; formatter=(toCsv);;
+	--)		logArgs+=("$1"); shift; break;;
+	*)		logArgs+=("$1"); shift;;
+    esac
+done
+
+toCsv()
+{
+    # There is always a "0 files changed", but insertions or deletions may be
+    # missing altogether. Add dummy values so that we'll always end up with 4
+    # columns.
+    sed \
+	-e '/ insertions\?(+)/!s#$#, 0 insertions(+)#'\
+	-e '/ deletions\?(-)/!s#$#, 0 deletions(-)#'\
+	-e 's# files\? changed\| insertions\?(+)\|deletions\?(-)##g'
+}
+
 
 evaluateChanges()
 {
@@ -42,13 +69,6 @@ sortByChanges()
 	field --field-separator ' ' --remove 1
 }
 
-typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
-typeset -a formatter=(column -s , -t)
-if [ ! -t 1 ]; then
-    pager=()
-    formatter=()
-fi
-
 GIT_SEGREGATEDUSERCOMMAND_PREFIX_SEPARATOR=, \
-    git-segregated-user-command --prefixed --with-log-args -2 logsta USERFILTER "$@" | \
+    git-segregated-user-command --prefixed --with-log-args -2 logsta USERFILTER "${logArgs[@]}" "$@" | \
 	eval 'sortByChanges' "${formatter:+|}" '"${formatter[@]}"' "${pager:+|}" '"${pager[@]}"'

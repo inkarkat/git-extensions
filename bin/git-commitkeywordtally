@@ -13,7 +13,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: git l[o]g [...] | %q %s\n' "$(basename "$1")" '[-n|--non-keywords] [--bare] [--no-percentages] [--percentage-threshold N] [-?|-h|--help]'
+    printf 'Usage: git l[o]g [...] | %q %s\n' "$(basename "$1")" '[-n|--non-keywords] [--bare] [--no-percentages] [--percentage-threshold N] [-N|--against-total-commits N] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -41,6 +41,9 @@ HELPDESCRIPTION
     --percentage-threshold N
 			Only report counts and percentages if the percentage is
 			at least N%; i.e. omit infrequent keywords.
+    --against-total-commits|-N N
+			Calculate percentages against N instead of them being
+			relative to all commits with keywords.
 
 Defined keywords: $(printf '%s\n' "${keywordExpr//|/, }")
 HELPTEXT
@@ -58,7 +61,8 @@ typeset -ra nonkeywordExtractorArgs=(
 )
 typeset -a extractorArgs=("${keywordExtractorArgs[@]}")
 typeset -a extractMatchesArgs=()
-typeset -a extractMatchesPercentageArgs=(--name-percentages tally)
+typeset -a extractMatchesPercentageArgs=(--name-percentages tally-)
+typeset -a extractMatchesTotalArgs=()
 matcher=match-count
 reportOrder=count-desc
 while [ $# -ne 0 ]
@@ -75,6 +79,8 @@ do
 			shift; extractMatchesPercentageArgs=();;
 	--percentage-threshold)
 			shift; extractMatchesArgs+=("--name-percentage-threshold" "${1:?}"); shift;;
+	--against-total-commits|-N)
+			shift; extractMatchesTotalArgs=(--percentage-total tally- "${1:?}"); shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -84,4 +90,4 @@ done
 EXTRACTMATCHES_CONCATENATED_PREFIX='' EXTRACTMATCHES_CONCATENATED_SEPARATOR=$'\n' \
 EXTRACTMATCHES_COUNT_BEFORE_TEXT=t EXTRACTMATCHES_COUNT_PREFIX='' EXTRACTMATCHES_COUNT_SUFFIX=$'\t' EXTRACTMATCHES_NAME_PERCENTAGES_TEMPLATE=$'\\1\t\\2%' \
     exec extractMatches --to concatenated --report-order "$reportOrder" --summary-only \
-	"${extractMatchesArgs[@]}" "${extractMatchesPercentageArgs[@]}" "${extractorArgs[@]/#--MATCHER/--$matcher}" "$@"
+	"${extractMatchesArgs[@]}" "${extractMatchesTotalArgs[@]}" "${extractMatchesPercentageArgs[@]}" "${extractorArgs[@]/#--MATCHER/--$matcher}" "$@"

@@ -57,7 +57,11 @@ collectStats()
 
     if [ "$HUB" ]; then
 	header "${colorArg[@]}" 'Pull requests from me'
-	hub-wrapper "$@" prsfromme --state all | wcl
+	# XXX: hub-prsfromme doesn't support custom --format together with by-author
+	# filtering. Use gh instead.
+	git-me-in-github-command --author= -5 exec gh pr list ME --limit 9999 --state all --json state --template '{{range .}}{{.state}}{{"\n"}}{{end}}' \
+	    | grep-count-each-unique-match -e '.*' \
+	    | sort -nr
     fi
 }
 

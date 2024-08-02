@@ -40,6 +40,19 @@ done
     && identifyCommand=userrepo \
     || identifyCommand=wcname
 
+hubStats()
+{
+    local ghClass="${1:?}"; shift
+    local what="${1:?}"; shift
+
+    header "${colorArg[@]}" "$what from me"
+    # XXX: hub-prsfromme doesn't support custom --format together with by-author
+    # filtering. Use gh instead.
+    git-wrapper "$@" me-in-github-command --author= -5 exec gh "$ghClass" list ME --limit 9999 --state all --json state --template '{{range .}}{{.state}}{{"\n"}}{{end}}' \
+	| grep-count-each-unique-match -e '.*' \
+	| sort -nr
+}
+
 collectStats()
 {
     git-wrapper "$@" "$identifyCommand" | joinBy --prefix 'Git statistics for ' --summarize-larger '7 repositories' - ', '
@@ -56,12 +69,8 @@ collectStats()
     git-wrapper "$@" lomine | git commitkeywordtally
 
     if [ "$HUB" ]; then
-	header "${colorArg[@]}" 'Pull requests from me'
-	# XXX: hub-prsfromme doesn't support custom --format together with by-author
-	# filtering. Use gh instead.
-	git-me-in-github-command --author= -5 exec gh pr list ME --limit 9999 --state all --json state --template '{{range .}}{{.state}}{{"\n"}}{{end}}' \
-	    | grep-count-each-unique-match -e '.*' \
-	    | sort -nr
+	hubStats issue 'Issues' "$@"
+	hubStats pr 'Pull requests' "$@"
     fi
 }
 

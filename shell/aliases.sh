@@ -480,6 +480,56 @@ alias vimgitstifiles='commandOnSelected --command '"${_aliases_vim}"' --generato
 
 
 
+# sgitstIfiles [<path>] [-- SELECTIONs ...]
+#			Print selected modified but not staged filespecs.
+alias sgitstIfiles='commandOnSelected --generator "git-stIfiles" --entries'
+
+# ygitstIfiles [<path>] [-- SELECTIONs ...]
+#			Yank selected modified but not staged filespecs.
+alias ygitstIfiles='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git-stIfiles" --entries'
+
+# lgitstIfiles [<path>] [-- SELECTIONs ...]
+#			View selected modified but not staged files with the
+#			pager.
+alias lgitstIfiles='commandOnSelected --command "${PAGER:-less}" --generator "git-stIfiles" --entries'
+
+# vgitstIfiles [<path>] [-- SELECTIONs ...]
+#			Edit selected modified but not staged files in GVIM.
+alias vgitstIfiles='commandOnSelected --command SendToGVIM --generator "git-stIfiles" --entries'
+
+# vimgitstIfiles [<path>] [-- SELECTIONs ...]
+#			Edit selected modified but not staged files in Vim.
+alias vimgitstIfiles='commandOnSelected --command '"${_aliases_vim}"' --generator "git-stIfiles" --entries'
+
+
+
+# sgitstuntracked [<path>] [-- SELECTIONs ...]
+#			Print selected new files not yet added to version
+#			control.
+alias sgitstuntracked='commandOnSelected --generator "git stuntracked" --entries'
+
+# ygitstuntracked [<path>] [-- SELECTIONs ...]
+#			Yank selected new files not yet added to version
+#			control.
+alias ygitstuntracked='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git stuntracked" --entries'
+
+# lgitstuntracked [<path>] [-- SELECTIONs ...]
+#			View selected new files not yet added to version
+#			control.
+alias lgitstuntracked='commandOnSelected --command "${PAGER:-less}" --generator "git stuntracked" --entries'
+
+# vgitstuntracked [<path>] [-- SELECTIONs ...]
+#			Edit selected new files not yet added to version
+#			control.
+alias vgitstuntracked='commandOnSelected --command SendToGVIM --generator "git stuntracked" --entries'
+
+# vimgitstuntracked [<path>] [-- SELECTIONs ...]
+#			Edit selected new files not yet added to version
+#			control.
+alias vimgitstuntracked='commandOnSelected --command '"${_aliases_vim}"' --generator "git stuntracked" --entries'
+
+
+
 # sgitgf [<GREP-OPTIONS> ...] [-e] PATTERN [<path> ...] [-- SELECTIONs ...]
 #			Print selected filespecs that match PATTERN.
 # sgitgF [<GREP-OPTIONS> ...] [-e] PATTERN [<path> ...] [-- SELECTIONs ...]

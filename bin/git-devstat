@@ -64,7 +64,7 @@ collectStats()
 {
     git-wrapper "$@" wcname | joinBy --prefix "Git statistics${authorWhat:+ on $authorWhat} for " --summarize-larger '7 repositories' - ', '
 
-    myTotalCommits=$(git-wrapper "$@" count "${authorArgs[@]}" | sumField 1) || return $?
+    totalCommits=$(git-wrapper "$@" count "${authorArgs[@]}" | sumField 1) || return $?
 
     header "${colorArg[@]}" 'Commits by author'
     git-wrapper "$@" whodid --csv \
@@ -77,12 +77,12 @@ collectStats()
 	| truncateLongTail -F $'\t' "${truncateLongTailArgs[@]}" 1
 
     git-wrapper "$@" l "${authorArgs[@]}" \
-	| git committaskidtally --against-total-commits ${myTotalCommits:-} \
+	| git committaskidtally --against-total-commits ${totalCommits:-} \
 	| truncateLongTail -F $'\t' "${truncateLongTailArgs[@]}" 1 \
 	| withHeader "${colorArg[@]}" "Most commits${authorWhat:+ from $authorWhat} by task ID"
 
     git-wrapper "$@" lo "${authorArgs[@]}" \
-	| git commitkeywordtally --against-total-commits ${myTotalCommits:-} \
+	| git commitkeywordtally --against-total-commits ${totalCommits:-} \
 	| truncateLongTail -F $'\t' "${truncateLongTailArgs[@]}" 1 \
 	| withHeader "${colorArg[@]}" "Most frequent commit areas${authorWhat:+ from $authorWhat}"
 }

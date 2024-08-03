@@ -17,6 +17,7 @@ typeset -a authorPatterns=()
 isResolvedAuthors=
 typeset -a logArgs=()
 typeset -a colorArg=(--color=always)
+typeset -a highlighter=()
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
 if [ ! -t 1 ]; then
     colorArg=()
@@ -53,8 +54,12 @@ if [ ${#authorPatterns[@]} -gt 0 ]; then
 	1)  authorWhat="${authors[0]}";;
 	*)  authorWhat="${#authors[@]} authors";;
     esac
+
     truncateLongTailArgs=("${authors[@]/#/--include=\\t}")
     truncateLongTailArgs=("${truncateLongTailArgs[@]/%/\$}")
+
+    highlighter=("${authors[@]/#/--regexp=$'\t'}")
+    highlighter=(highlight "${colorArg[@]}" --lines "${highlighter[@]/%/\$}")
 fi
 
 collectStats()
@@ -75,4 +80,5 @@ collectStats()
 }
 
 eval 'collectStats "${logArgs[@]}" "$@"' \
+    "${highlighter:+|}" '"${highlighter[@]}"' \
     "${pager:+|}" '"${pager[@]}"'

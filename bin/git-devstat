@@ -10,7 +10,8 @@ GIT-ITERATOR-COMMAND Git repositories:
 - Changed files / additions / deletions of me vs. others
 - My most commits by task ID
 - My most frequent commit areas
-- [GitHub] Number of authored issues / pull requests per state
+- [GitHub] Number of issues of me vs. others per state
+- [GitHub] Number of pull requests of me vs. others per state
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[GIT-ITERATOR-COMMAND ...] [-?|-h|--help]'
@@ -40,19 +41,6 @@ done
     && identifyCommand=userrepo \
     || identifyCommand=wcname
 
-hubStats()
-{
-    local ghClass="${1:?}"; shift
-    local what="${1:?}"; shift
-
-    header "${colorArg[@]}" "$what from me"
-    # XXX: hub-prsfromme doesn't support custom --format together with by-author
-    # filtering. Use gh instead.
-    git-wrapper "$@" me-in-github-command --author= -5 exec gh "$ghClass" list ME --limit 9999 --state all --json state --template '{{range .}}{{.state}}{{"\n"}}{{end}}' \
-	| grep-count-each-unique-match -e '.*' \
-	| sort -nr
-}
-
 collectStats()
 {
     git-wrapper "$@" "$identifyCommand" | joinBy --prefix "Git${HUB:+[Hub]} statistics for " --summarize-larger '7 repositories' - ', '
@@ -80,8 +68,15 @@ collectStats()
 	| truncateLongTail -F $'\t' 1
 
     if [ "$HUB" ]; then
-	hubStats issue 'Issues' "$@"
-	hubStats pr 'Pull requests' "$@"
+	header "${colorArg[@]}" 'Issues by author'
+	hub issue --state all --format $'%au\t%S%n' \
+	    | aggregateField -F $'\t' --total-and-unique-counts --result-first --group-by 1 --sort-by -result 2 \
+	    | truncateLongTail -F $'\t' 1
+
+	header "${colorArg[@]}" 'Pull requests by author'
+	hub pr list --state all --format $'%au\t%pS%n' \
+	    | aggregateField -F $'\t' --total-and-unique-counts --result-first --group-by 1 --sort-by -result 2 \
+	    | truncateLongTail -F $'\t' 1
     fi
 }
 

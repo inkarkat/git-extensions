@@ -13,7 +13,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: git l[o]g [...] | %q %s\n' "$(basename "$1")" '[-n|--non-keywords] [--bare] [--no-percentages] [--percentage-threshold N] [-N|--against-total-commits N] [-?|-h|--help]'
+    printf 'Usage: git l[o]g [...] | %q %s\n' "$(basename "$1")" '[-s|--scopes] [--bare] [--no-percentages] [--percentage-threshold N] [-N|--against-total-commits N] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -27,15 +27,15 @@ printLongUsage()
     # This is the long "man page" when launched with the help argument.
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
-Report counts and percentages of commit message keywords or subjects from the
-log input.
+Report counts and percentages of commit message keywords or scopes from the log
+input.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
-    --non-keywords|-n	Ignore defined keywords and report only any other custom
-			SUBJECT: prefixes (like scopes).
+    --scopes|-s		Ignore defined keywords and report only any other custom
+			SUBJECT: prefixes (scopes).
     --bare		Just print the keywords themselves in alphabetic order..
     --no-percentages	Just print keywords and their counts.
     --percentage-threshold N
@@ -58,7 +58,7 @@ typeset -ra keywordExtractorArgs=(
     --MATCHER "^(${keywordExpr}): " -r '\1' --name tally --global
     --skip-regexp '^[^[:space:]]+: ' --global
 )
-typeset -ra nonkeywordExtractorArgs=(
+typeset -ra scopeExtractorArgs=(
     --skip-regexp '^[[:upper:]]+-[[:digit:]]+ '
     --skip-regexp "^(${keywordExpr}): " --global
     --MATCHER '^([^[:space:]]+): ' -r '\1' --name tally --global
@@ -76,8 +76,7 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
-	--non-keywords|-n)
-			shift; extractorArgs=("${nonkeywordExtractorArgs[@]}");;
+	--scopes|-s)	shift; extractorArgs=("${scopeExtractorArgs[@]}");;
 	--bare)		shift; matcher=matches; reportOrder=match-asc;;
 	--no-percentages)
 			shift; extractMatchesPercentageArgs=();;

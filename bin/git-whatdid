@@ -35,7 +35,7 @@ SEE ALSO:
 HELPTEXT
 }
 what='prefixes'
-pattern='^[^:]+:$'
+pattern='^[^:[:space:]]+:$'
 filterPattern=
 typeset -a gitLogArgs=()
 while [ $# -ne 0 ]
@@ -47,7 +47,7 @@ do
 	--color)	shift; shift;;
 	--match|-m)	shift; pattern="$1"; shift;;
 	--keywords|-k)	shift; what='keywords'; filterPattern='^([[:upper:]]+|[[:upper:]][:digit:]]+[[:upper:]]|[[:upper:]][[:lower:]]+):$';;
-	--scope|-s)	shift; what='scopes'; filterPattern='^[^:[:upper:]][^:]+:$';;
+	--scope|-s)	shift; what='scopes'; filterPattern='^[^:[:space:][:upper:]][^:]+:$';;
 	--)		gitLogArgs+=("$@"); shift; break;;
 	*)		gitLogArgs+=("$1"); shift;;
     esac
@@ -55,15 +55,15 @@ done
 
 whatdid()
 {
-    git log --pretty=tformat:%s "${gitLogArgs[@]}" \
-	| awk \
+    git log --pretty=tformat:%B "${gitLogArgs[@]}" \
+	| awk -F '[ ]' \
 	    -v what="$what" \
 	    -v pattern="$pattern" \
 	    -v filterPattern="$filterPattern" \
 '
 {
     commitCount += 1
-    for (i = 1; i <= NF && $i ~ pattern; i++) {
+    for (i = ($1 ~ /^[[:upper:]]+-[[:digit:]]+/ ? 2 : 1); i <= NF && $i ~ pattern; i++) {
 	if (filterPattern == "" || $i ~ filterPattern) {
 	    prefix[$i] += 1
 	    prefixCount += 1
@@ -97,4 +97,5 @@ END {
 }
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
-eval 'whatdid' "${pager:+|}" '"${pager[@]}"'
+eval 'whatdid' \
+    "${pager:+|}" '"${pager[@]}"'

@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-m|--match PATTERN|-t|--tags|-s|--scope] [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-m|--match PATTERN|-k|--keywords|-s|--scopes] [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -21,19 +21,21 @@ printLongUsage()
     cat <<HELPDESCRIPTION
 Summarizes commit title prefixes (like "Refactoring:") that appear at the
 beginning, according to frequency in the passed commit range.
-    --match|-m PATTERN	Match (extended AWK regexp) PATTERN.
-    --tags|-t		Only match official tags ("Foo:" or "FOO:").
-    --scope|-s		Only match scope prefixes (that characterize a file or
-			module).
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
     cat <<HELPTEXT
-
+    --match|-m PATTERN	Match (extended AWK regexp) PATTERN.
+    --keywords|-k	Only match commit keywords ("Foo:" or "FOO:").
+    --scopes|-s		Only match scope prefixes (that characterize a file or
+			module).
+SEE ALSO:
+- commitkeywordtally only recognizes my official keywords and works on arbitrary
+  log input
 HELPTEXT
 }
 what='prefixes'
-pattern='^[^:]+:$'
+pattern='^[^:[:space:]]+:$'
 filterPattern=
 typeset -a gitLogArgs=()
 while [ $# -ne 0 ]
@@ -44,8 +46,8 @@ do
 			shift;;
 	--color)	shift; shift;;
 	--match|-m)	shift; pattern="$1"; shift;;
-	--tags|-t)	shift; what='tags'; filterPattern='^([[:upper:]]+|[[:upper:]][:digit:]]+[[:upper:]]|[[:upper:]][[:lower:]]+):$';;
-	--scope|-s)	shift; what='scopes'; filterPattern='^[^:[:upper:]][^:]+:$';;
+	--keywords|-k)	shift; what='keywords'; filterPattern='^([[:upper:]]+|[[:upper:]][:digit:]]+[[:upper:]]|[[:upper:]][[:lower:]]+):$';;
+	--scopes|-s)	shift; what='scopes'; filterPattern='^[^:[:space:][:upper:]][^:]+:$';;
 	--)		gitLogArgs+=("$@"); shift; break;;
 	*)		gitLogArgs+=("$1"); shift;;
     esac
@@ -53,46 +55,47 @@ done
 
 whatdid()
 {
-    git log --pretty=tformat:%s "${gitLogArgs[@]}" \
-	| awk \
+    git log --pretty=tformat:%B "${gitLogArgs[@]}" \
+	| awk -F '[ ]' \
 	    -v what="$what" \
 	    -v pattern="$pattern" \
 	    -v filterPattern="$filterPattern" \
 '
 {
     commitCount += 1
-    for (i = 1; i <= NF && $i ~ pattern; i++) {
+    for (i = ($1 ~ /^[[:upper:]]+-[[:digit:]]+/ ? 2 : 1); i <= NF && $i ~ pattern; i++) {
 	if (filterPattern == "" || $i ~ filterPattern) {
-	    tag[$i] += 1
-	    tagCount += 1
+	    prefix[$i] += 1
+	    prefixCount += 1
 	}
     }
 }
 
-function tagCompare(i1, v1, i2, v2)
+function prefixCompare(i1, v1, i2, v2)
 {
     return (v1 == v2 ? (i1 == i2 ? 0 : i1 < i2 ? -1 : 1) : v1 < v2 ? 1 : -1)
 }
 END {
-    for (t in tag) {
-	len = length(t)
-	tagLength = (len > tagLength ? len : tagLength)
+    for (p in prefix) {
+	len = length(p)
+	prefixLength = (len > prefixLength ? len : prefixLength)
     }
 
-    PROCINFO["sorted_in"] = "tagCompare"
-    for (t in tag) {
-	tagProportion = (100 * tag[t] / tagCount)
-	commitProportion = (100 * tag[t] / commitCount)
+    PROCINFO["sorted_in"] = "prefixCompare"
+    for (p in prefix) {
+	prefixProportion = (100 * prefix[p] / prefixCount)
+	commitProportion = (100 * prefix[p] / commitCount)
 
-	tagReport = (tagProportion < 1 ? "" : sprintf("%2.f%% of %s", tagProportion, what))
+	prefixReport = (prefixProportion < 1 ? "" : sprintf("%2.f%% of %s", prefixProportion, what))
 	commitReport = (commitProportion < 1 ? "" : sprintf("%2.f%% of commits", commitProportion))
-	percentageReport = (tagReport == "" && commitReport == "" ? "" : " (" tagReport (tagReport != "" && commitReport != "" ? ", " : "") commitReport ")")
+	percentageReport = (prefixReport == "" && commitReport == "" ? "" : " (" prefixReport (prefixReport != "" && commitReport != "" ? ", " : "") commitReport ")")
 
-	printf "%-" tagLength "s %3d%s\n", t, tag[t], percentageReport
+	printf "%-" prefixLength "s %5d%s\n", p, prefix[p], percentageReport
     }
 }
 '
 }
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
-eval 'whatdid' "${pager:+|}" '"${pager[@]}"'
+eval 'whatdid' \
+    "${pager:+|}" '"${pager[@]}"'

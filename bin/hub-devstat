@@ -1,0 +1,84 @@
+#!/bin/bash
+set -o pipefail
+
+printUsage()
+{
+    cat <<HELPTEXT
+Collect statistics about GitHub contributions to the current / iterated by
+GIT-ITERATOR-COMMAND Git repositories:
+- Number of issues per state
+- Number of pull requests per state
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--resolved-authors] [--author=AUTHOR-PATTERN [--author=...]] [GIT-ITERATOR-COMMAND ...] [-?|-h|--help]'
+}
+
+typeset -a authorPatterns=()
+isResolvedAuthors=
+typeset -a logArgs=()
+typeset -a colorArg=(--color=always)
+typeset -a highlighter=()
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+if [ ! -t 1 ]; then
+    colorArg=()
+    pager=()
+fi
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--color=auto)	shift;;
+	--no-color|--color=*)
+			colorArg=("$1"); shift;;
+	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); shift; shift;;
+	--resolved-authors)
+			shift; isResolvedAuthors=t;;
+	--author=*)	authorPatterns+=("${1#--author=}"); shift;;
+	--)		logArgs+=("$1"); shift; break;;
+	*)		logArgs+=("$1"); shift;;
+    esac
+done
+
+typeset -a truncateLongTailArgs=()
+if [ ${#authorPatterns[@]} -gt 0 ]; then
+    typeset -a authors=()
+    if [ "$isResolvedAuthors" ]; then
+	authors=("${authorPatterns[@]%% <*>}")
+    else
+	readarray -t authors < <(hub-wrapper whois --name "${authorPatterns[@]}")
+    fi
+    case ${#authors[@]} in
+	0)  printf >&2 'ERROR: No authors found for: %s\n' "${authorPatterns[*]}"
+	    exit 2
+	    ;;
+	1)  authorWhat="${authors[0]}";;
+	*)  authorWhat="${#authors[@]} authors";;
+    esac
+
+    truncateLongTailArgs=("${authors[@]/#/--include=\\t}")
+    truncateLongTailArgs=("${truncateLongTailArgs[@]/%/\$}")
+
+    highlighter=("${authors[@]/#/--regexp=$'\t'}")
+    highlighter=(highlight "${colorArg[@]}" --lines "${highlighter[@]/%/\$}")
+fi
+
+collectStats()
+{
+    git-wrapper "$@" userrepo \
+	| joinBy --prefix "GitHub statistics${authorWhat:+ on $authorWhat} for " --summarize-larger '7 repositories' - ', ' \
+	| reversed "${colorArg[@]}"
+
+    header "${colorArg[@]}" 'Issues by author'
+    hub issue --state all --format $'%au\t%S%n' \
+	| aggregateField -F $'\t' --total-and-unique-counts --result-first --group-by 1 --sort-by -result 2 \
+	| truncateLongTail -F $'\t' "${truncateLongTailArgs[@]}" 1
+
+    header "${colorArg[@]}" 'Pull requests by author'
+    hub pr list --state all --format $'%au\t%pS%n' \
+	| aggregateField -F $'\t' --total-and-unique-counts --result-first --group-by 1 --sort-by -result 2 \
+	| truncateLongTail -F $'\t' "${truncateLongTailArgs[@]}" 1
+}
+
+eval 'collectStats "${logArgs[@]}" "$@"' \
+    "${highlighter:+|}" '"${highlighter[@]}"' \
+    "${pager:+|}" '"${pager[@]}"'

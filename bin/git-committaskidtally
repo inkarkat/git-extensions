@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: git l[o]g [...] | %q %s\n' "$(basename "$1")" '[--bare] [--no-percentages] [--percentage-threshold N] [-?|-h|--help]'
+    printf 'Usage: git l[o]g [...] | %q %s\n' "$(basename "$1")" '[--bare] [--no-percentages] [--percentage-threshold N] [-N|--against-total-commits N] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -31,13 +31,17 @@ HELPDESCRIPTION
     --percentage-threshold N
 			Only report counts and percentages if the percentage is
 			at least N%; i.e. omit infrequent task IDs.
+    --against-total-commits|-N N
+			Calculate percentages against N instead of them being
+			relative to all commits with keywords.
 HELPTEXT
 }
 
 typeset -a extractMatchesArgs=()
-typeset -a extractMatchesPercentageArgs=(--name-percentages tally)
+typeset -a extractMatchesPercentageArgs=(--name-percentages tally-)
 matcher=match-count
 reportOrder=count-desc
+typeset -a extractMatchesTotalArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -50,6 +54,8 @@ do
 			shift; extractMatchesPercentageArgs=();;
 	--percentage-threshold)
 			shift; extractMatchesArgs+=("--name-percentage-threshold" "${1:?}"); shift;;
+	--against-total-commits|-N)
+			shift; extractMatchesTotalArgs=(--percentage-total tally- "${1:?}"); shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -57,7 +63,8 @@ do
 done
 
 EXTRACTMATCHES_CONCATENATED_PREFIX='' EXTRACTMATCHES_CONCATENATED_SEPARATOR=$'\n' \
+EXTRACTMATCHES_COUNT_BEFORE_TEXT=t EXTRACTMATCHES_COUNT_PREFIX='' EXTRACTMATCHES_COUNT_SUFFIX=$'\t' EXTRACTMATCHES_NAME_PERCENTAGES_TEMPLATE=$'\\1\t\\2%' \
     exec extractMatches --to concatenated --report-order "$reportOrder" --summary-only \
-	"${extractMatchesArgs[@]}" "${extractMatchesPercentageArgs[@]}" \
+	"${extractMatchesArgs[@]}" "${extractMatchesTotalArgs[@]}" "${extractMatchesPercentageArgs[@]}" \
 	--$matcher '(^[[:upper:]]+-[[:digit:]]+) ' -r '\1' --name tally \
 	"$@"

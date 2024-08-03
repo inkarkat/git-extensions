@@ -13,7 +13,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: git l[o]g [...] | %q %s\n' "$(basename "$1")" '[-n|--non-keywords] [--bare] [--no-percentages] [--percentage-threshold N] [-?|-h|--help]'
+    printf 'Usage: git l[o]g [...] | %q %s\n' "$(basename "$1")" '[-s|--scopes] [--bare] [--no-percentages] [--percentage-threshold N] [-N|--against-total-commits N] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -27,22 +27,29 @@ printLongUsage()
     # This is the long "man page" when launched with the help argument.
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
-Report counts and percentages of commit message keywords or subjects from the
-log input.
+Report counts and percentages of commit message keywords or scopes from the log
+input.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
-    --non-keywords|-n	Ignore defined keywords and report only any other custom
-			SUBJECT: prefixes.
+    --scopes|-s		Ignore defined keywords and report only any other custom
+			SUBJECT: prefixes (scopes).
     --bare		Just print the keywords themselves in alphabetic order..
     --no-percentages	Just print keywords and their counts.
     --percentage-threshold N
 			Only report counts and percentages if the percentage is
 			at least N%; i.e. omit infrequent keywords.
+    --against-total-commits|-N N
+			Calculate percentages against N instead of them being
+			relative to all commits with keywords.
 
 Defined keywords: $(printf '%s\n' "${keywordExpr//|/, }")
+
+SEE ALSO:
+- whatdid directly performs and filters the log, and reports on both keywords
+  and (non-keyword) scopes by default
 HELPTEXT
 }
 
@@ -51,14 +58,15 @@ typeset -ra keywordExtractorArgs=(
     --MATCHER "^(${keywordExpr}): " -r '\1' --name tally --global
     --skip-regexp '^[^[:space:]]+: ' --global
 )
-typeset -ra nonkeywordExtractorArgs=(
+typeset -ra scopeExtractorArgs=(
     --skip-regexp '^[[:upper:]]+-[[:digit:]]+ '
     --skip-regexp "^(${keywordExpr}): " --global
     --MATCHER '^([^[:space:]]+): ' -r '\1' --name tally --global
 )
 typeset -a extractorArgs=("${keywordExtractorArgs[@]}")
 typeset -a extractMatchesArgs=()
-typeset -a extractMatchesPercentageArgs=(--name-percentages tally)
+typeset -a extractMatchesPercentageArgs=(--name-percentages tally-)
+typeset -a extractMatchesTotalArgs=()
 matcher=match-count
 reportOrder=count-desc
 while [ $# -ne 0 ]
@@ -68,13 +76,14 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
-	--non-keywords|-n)
-			shift; extractorArgs=("${nonkeywordExtractorArgs[@]}");;
+	--scopes|-s)	shift; extractorArgs=("${scopeExtractorArgs[@]}");;
 	--bare)		shift; matcher=matches; reportOrder=match-asc;;
 	--no-percentages)
 			shift; extractMatchesPercentageArgs=();;
 	--percentage-threshold)
 			shift; extractMatchesArgs+=("--name-percentage-threshold" "${1:?}"); shift;;
+	--against-total-commits|-N)
+			shift; extractMatchesTotalArgs=(--percentage-total tally- "${1:?}"); shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -82,5 +91,6 @@ do
 done
 
 EXTRACTMATCHES_CONCATENATED_PREFIX='' EXTRACTMATCHES_CONCATENATED_SEPARATOR=$'\n' \
+EXTRACTMATCHES_COUNT_BEFORE_TEXT=t EXTRACTMATCHES_COUNT_PREFIX='' EXTRACTMATCHES_COUNT_SUFFIX=$'\t' EXTRACTMATCHES_NAME_PERCENTAGES_TEMPLATE=$'\\1\t\\2%' \
     exec extractMatches --to concatenated --report-order "$reportOrder" --summary-only \
-	"${extractMatchesArgs[@]}" "${extractMatchesPercentageArgs[@]}" "${extractorArgs[@]/#--MATCHER/--$matcher}" "$@"
+	"${extractMatchesArgs[@]}" "${extractMatchesTotalArgs[@]}" "${extractMatchesPercentageArgs[@]}" "${extractorArgs[@]/#--MATCHER/--$matcher}" "$@"

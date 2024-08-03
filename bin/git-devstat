@@ -4,17 +4,19 @@ set -o pipefail
 printUsage()
 {
     cat <<HELPTEXT
-Collect statistics about my contributions to the current / iterated by
+Collect statistics about contributions to the current / iterated by
 GIT-ITERATOR-COMMAND Git repositories:
-- Number of commits of me vs. others
-- Changed files / additions / deletions of me vs. others
-- My most commits by task ID
-- My most frequent commit areas
+- number of commits by author
+- changed files / additions / deletions by author
+- most commits by task ID [for author]
+- most frequent commit areas [for author]
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[GIT-ITERATOR-COMMAND ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--author=AUTHOR-PATTERN [--author=...]] [GIT-ITERATOR-COMMAND ...] [-?|-h|--help]'
 }
 
+typeset -a authorPatterns=()
+typeset -a authorArgs=()
 typeset -a logArgs=()
 typeset -a colorArg=(--color=always)
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
@@ -30,36 +32,52 @@ do
 	--no-color|--color=*)
 			colorArg=("$1"); shift;;
 	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); shift; shift;;
+	--author=*)	authorArgs+=("$1"); authorPatterns+=("${1#--author=}"); shift;;
 	--)		logArgs+=("$1"); shift; break;;
 	*)		logArgs+=("$1"); shift;;
     esac
 done
 
+typeset -a truncateLongTailArgs=()
+if [ ${#authorPatterns[@]} -gt 0 ]; then
+    typeset -a authors=()
+    readarray -t authors < <(git-whois --name "${authorPatterns[@]}")
+    case ${#authors[@]} in
+	0)  printf >&2 'ERROR: No authors found for: %s\n' "${authorPatterns[*]}"
+	    exit 2
+	    ;;
+	1)  authorWhat="${authors[0]}";;
+	*)  authorWhat="${#authors[@]} authors";;
+    esac
+    truncateLongTailArgs=("${authors[@]/#/--include=\\t}")
+    truncateLongTailArgs=("${truncateLongTailArgs[@]/%/\$}")
+fi
+
 collectStats()
 {
-    git-wrapper "$@" wcname | joinBy --prefix "Git statistics for " --summarize-larger '7 repositories' - ', '
+    git-wrapper "$@" wcname | joinBy --prefix "Git statistics${authorWhat:+ on $authorWhat} for " --summarize-larger '7 repositories' - ', '
 
-    myTotalCommits=$(git-wrapper "$@" countmine | sumField 1) || return $?
+    myTotalCommits=$(git-wrapper "$@" count "${authorArgs[@]}" | sumField 1) || return $?
 
     header "${colorArg[@]}" 'Commits by author'
     git-wrapper "$@" whodid --csv \
 	| sumField -F , --group-by 2 --sort-by -result --result-first --output-separator $'\t' 1 \
-	| truncateLongTail -F $'\t' 1
+	| truncateLongTail -F $'\t' "${truncateLongTailArgs[@]}" 1
 
     header "${colorArg[@]}" 'Changed files / additions / deletions by author'
     git-wrapper "$@" logstabyeach --csv \
 	| sumField -F , --group-by 1 --sort-by -result --result-first --output-separator $'\t' 2 3 4 \
-	| truncateLongTail -F $'\t' 1
+	| truncateLongTail -F $'\t' "${truncateLongTailArgs[@]}" 1
 
-    git-wrapper "$@" lmine \
+    git-wrapper "$@" l "${authorArgs[@]}" \
 	| git committaskidtally --against-total-commits ${myTotalCommits:-} \
-	| truncateLongTail -F $'\t' 1 \
-	| withHeader "${colorArg[@]}" 'My most commits by task ID'
+	| truncateLongTail -F $'\t' "${truncateLongTailArgs[@]}" 1 \
+	| withHeader "${colorArg[@]}" "Most commits${authorWhat:+ from $authorWhat} by task ID"
 
-    header "${colorArg[@]}" 'My most frequent commit areas'
-    git-wrapper "$@" lomine \
+    git-wrapper "$@" lo "${authorArgs[@]}" \
 	| git commitkeywordtally --against-total-commits ${myTotalCommits:-} \
-	| truncateLongTail -F $'\t' 1
+	| truncateLongTail -F $'\t' "${truncateLongTailArgs[@]}" 1 \
+	| withHeader "${colorArg[@]}" "Most frequent commit areas${authorWhat:+ from $authorWhat}"
 }
 
 eval 'collectStats "${logArgs[@]}" "$@"' \

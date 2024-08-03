@@ -10,8 +10,6 @@ GIT-ITERATOR-COMMAND Git repositories:
 - Changed files / additions / deletions of me vs. others
 - My most commits by task ID
 - My most frequent commit areas
-- [GitHub] Number of issues of me vs. others per state
-- [GitHub] Number of pull requests of me vs. others per state
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[GIT-ITERATOR-COMMAND ...] [-?|-h|--help]'
@@ -37,13 +35,9 @@ do
     esac
 done
 
-[ "$HUB" ] \
-    && identifyCommand=userrepo \
-    || identifyCommand=wcname
-
 collectStats()
 {
-    git-wrapper "$@" "$identifyCommand" | joinBy --prefix "Git${HUB:+[Hub]} statistics for " --summarize-larger '7 repositories' - ', '
+    git-wrapper "$@" wcname | joinBy --prefix "Git statistics for " --summarize-larger '7 repositories' - ', '
 
     myTotalCommits=$(git-wrapper "$@" countmine | sumField 1) || return $?
 
@@ -66,18 +60,6 @@ collectStats()
     git-wrapper "$@" lomine \
 	| git commitkeywordtally --against-total-commits ${myTotalCommits:-} \
 	| truncateLongTail -F $'\t' 1
-
-    if [ "$HUB" ]; then
-	header "${colorArg[@]}" 'Issues by author'
-	hub issue --state all --format $'%au\t%S%n' \
-	    | aggregateField -F $'\t' --total-and-unique-counts --result-first --group-by 1 --sort-by -result 2 \
-	    | truncateLongTail -F $'\t' 1
-
-	header "${colorArg[@]}" 'Pull requests by author'
-	hub pr list --state all --format $'%au\t%pS%n' \
-	    | aggregateField -F $'\t' --total-and-unique-counts --result-first --group-by 1 --sort-by -result 2 \
-	    | truncateLongTail -F $'\t' 1
-    fi
 }
 
 eval 'collectStats "${logArgs[@]}" "$@"' \

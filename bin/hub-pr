@@ -45,7 +45,7 @@ do
 	--verbose|-v)	shift; defaultFormat="${defaultFormat/  /  %Ccyan%H%Creset → %Cblue%B%Creset	}"; formatter=("${defaultFormatter[@]}");;
 	--age)		shift; defaultFormat="${defaultFormat/  /  %cI	(%cr)	}"; issueFormatEmulation="${issueFormatEmulation/  / %cI	(%cr)	}"; formatter=("${defaultFormatter[@]}");;
 
-	checkout)	prAction="$1"; shift; pager=();;
+	checkout)	action=pullRequestOther; prAction="$1"; shift; pager=();;
 	list|show)	prAction="$1"; shift;;
 
 	--base|-b)	shift; bases+=("${1:?}"); shift;;
@@ -85,6 +85,11 @@ pullRequestList()
 	command hub pr ${prAction:?} ${base:+--base "$base"} --format "${format:-$defaultFormat}" "${colorArg[@]}" "$@" || status=$?
     done
     return $status
+}
+
+pullRequestOther()
+{
+    exec hub pr ${prAction:?} "$@"
 }
 
 eval '$action "$@"' \

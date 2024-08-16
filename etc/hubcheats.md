@@ -40,22 +40,21 @@ hub is a command-line wrapper for git that makes you better at GitHub.
 
 # As an open-source maintainer
 
-### fetch from multiple trusted forks, even if they don't yet exist as remotes
-`$ hub fetch mislav,cehoffman`
-→ `git remote add mislav git://github.com/mislav/hub.git`
-→ `git remote add cehoffman git://github.com/cehoffman/hub.git`
-→ `git fetch --multiple mislav cehoffman`
-
 ### check out a pull request for review
-`$ hub pr checkout 134`
-  or
-`$ hub checkout https://github.com/github/hub/pull/134`
+`$ hub checkout [https://github.com/github/hub/pull/]134`
 (creates a new local branch _username-branchname_) with the contents of the pull request)
 → `git fetch origin pull/134/head:BRANCHNAME`
 → `git checkout BRANCHNAME`
 
+### check out a pull request for local amending / merging
+`$ hub checkout [https://github.com/github/hub/pull/]134`
+(creates a new local branch _username-branchname_) with the contents of the pull request)
+`$ git amend ...`
+`$ git push`
+- Reintegrate in GitHub or locally
+
 ### directly apply all commits from a pull request to the current branch
-`$ hub am -3 https://github.com/github/hub/pull/134`
+`$ hub am -3 [https://github.com/github/hub/pull/]134`
 
 ### cherry-pick a GitHub URL
 `$ hub cherry-pick https://github.com/xoebus/hub/commit/177eeb8`
@@ -71,6 +70,12 @@ hub is a command-line wrapper for git that makes you better at GitHub.
 
 ### put compare URL for a topic branch to clipboard
 `$ hub compare -u feature | cb`
+
+### fetch from multiple trusted forks, even if they don't yet exist as remotes
+`$ hub fetch mislav,cehoffman`
+→ `git remote add mislav git://github.com/mislav/hub.git`
+→ `git remote add cehoffman git://github.com/cehoffman/hub.git`
+→ `git fetch --multiple mislav cehoffman`
 
 
 ### Forking an abandoned project

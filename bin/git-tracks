@@ -18,5 +18,14 @@ case "$1" in
     --push)		shift; keyword='push';;
 esac
 
-branch="$(git rev-parse --abbrev-ref "${1}@{${keyword}}" 2>/dev/null)" \
-    && printf '%s\n' "$branch"
+if branch="$(git rev-parse --abbrev-ref "${1}@{${keyword}}" 2>/dev/null)"; then
+    printf '%s\n' "$branch"
+elif sourceBranch="${1:-$(git-brname --real-branch-only)}" \
+    && remote="$(git config "branch.${sourceBranch}.remote")" \
+    && merge="$(git config "branch.${sourceBranch}.merge")"
+then
+    printf '%s\n' "${remote}/${merge#refs/heads/}"
+else
+    printf >&2 'ERROR: No remote branch found for %s\n' "${1:-the current branch.}"
+    exit 1
+fi

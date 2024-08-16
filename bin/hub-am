@@ -12,7 +12,7 @@ printUsage()
 	--closing\
 	    Append a "Closes #ID" line to the commit message.\
 ' \
-	-e 's/<Maildir>/& | PR-URL | #ID/g'
+	-e 's/<Maildir>/& | PR-URL | #ID|ID/g'
 }
 
 isClosing=
@@ -27,7 +27,7 @@ do
 			exit 0
 			;;
 	--closing)	shift; isClosing=t;;
-	\#+([0-9]))	prUrl="$(hub pr show --format '%U%n' "${1#\#}")" || exit $?; shift
+	?(\#)+([0-9]))	prUrl="$(hub pr show --format '%U%n' "${1#\#}")" || exit $?; shift
 			prUrls+=("$prUrl");;
 	http?(s)://*/pull/+([0-9])) # Also capture PR URLs to be able to apply the --closing option to them as well.
 			prUrls+=("$1"); shift;;

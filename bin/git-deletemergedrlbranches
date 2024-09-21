@@ -1,0 +1,49 @@
+#!/bin/bash
+shopt -qs extglob
+
+printUsage()
+{
+    cat <<HELPTEXT
+Delete branches that are interactively selected from ${remote:-REMOTE} branches
+and from the local repository as well that have already been merged into HEAD /
+the passed COMMIT(s).
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [-f|--force] [-i|--ignore-missing-in-${remote}] [-y|--yes] [COMMIT ...] [-?|-h|--help]"
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+remote="${1:?}"; shift
+typeset -a rldeletebrArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--get-branches)	shift
+			typeset -a mergedArgs=()
+			for commit
+			do
+			    mergedArgs+=(--merged="$commit")
+			done
+			[ ${#mergedArgs[@]} -gt 0 ] || mergedArgs=(--merged=HEAD)
+			comm -12 \
+			    <(git-rbr "$remote" "${mergedArgs[@]}" | git-filter-out-persistent-branches --remote "$remote" | sed -ne "s#^${remote}/##p" | sort) \
+			    <(git-br --list "${mergedArgs[@]}" | git-filter-out-persistent-branches | sort)
+			exit
+			;;
+
+	-+([fiy]))	rldeletebrArgs+=("$1"); shift;;
+	--@(force|ignore-missing-in${remote}|yes))
+			rldeletebrArgs+=("$1"); shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+
+quotedArgs=; [ $# -eq 0 ] || printf -v quotedArgs ' %q' "$@"
+printf -v GIT_SELECTED_COMMAND_DEFAULT_FILES '%q %q --get-branches%s' "${BASH_SOURCE[0]}" "$remote" "$quotedArgs"; export GIT_SELECTED_COMMAND_DEFAULT_FILES
+printf -v quotedDeleteCommand '%q ' rldeletebr "$remote" "${rldeletebrArgs[@]}"
+exec git-selected-command "${quotedDeleteCommand% }"

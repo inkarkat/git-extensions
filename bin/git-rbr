@@ -1,5 +1,6 @@
 #!/bin/bash
 set -o pipefail
+shopt -qs extglob
 
 printUsage()
 {
@@ -22,7 +23,7 @@ if [ $# -eq 0 ]; then
 fi
 remote="$1"; shift
 
-typeset -a sortArgs=()
+typeset -a branchArgs=()
 postProcessingAction=
 while [ $# -ne 0 ]
 do
@@ -31,8 +32,10 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
-	--sort)		sortArgs+=("$1" "$2"); shift; shift;;
-	--sort=*)	sortArgs+=("$1"); shift;;
+	--@(merged|no-merged|contains|no-contains|points-at|sort))
+			branchArgs+=("$1" "$2"); shift; shift;;
+	--@(merged|no-merged|contains|no-contains|points-at|sort)=*)
+			branchArgs+=("$1"); shift;;
 	-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt)
 			printf -v postProcessingAction 'augmentLines --prepend -- git log --max-count 1 --pretty=tformat:%%ct | filterAge --field-separator %q %q %q' $'\t' "$1" "$2"
 			shift; shift;;
@@ -45,7 +48,7 @@ done
 
 remoteBranchQuery()
 {
-    git branch "${sortArgs[@]}" --remotes --list --format '%(refname:lstrip=2)' "${@/#/${remote}${remote:+/}}" \
+    git branch "${branchArgs[@]}" --remotes --list --format '%(refname:lstrip=2)' "${@/#/${remote}${remote:+/}}" \
 	| sed -e "/^${remote:-[^/]\\+}\/HEAD$/d"
 }
 eval 'remoteBranchQuery "$@"' "${postProcessingAction:+|}$postProcessingAction"

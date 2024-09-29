@@ -9,8 +9,17 @@ attributed as co-authors.
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[AUTHOR-PATTERN|NAME EMAIL@HOST|"NAME <EMAIL@HOST>" [...]] [-- <commit-args> ...] [-?|-h|--help]'
+    echo
+    cat <<HELPTEXT
+Attribute other author(s) whose "NAME <EMAIL@HOST>" combo(s) are either passed
+or selected from all previous committers (via passed AUTHOR-PATTERN(s)) as
+co-authors to the last commit.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--amend [AUTHOR-PATTERN|NAME EMAIL@HOST|"NAME <EMAIL@HOST>" [...]] [-?|-h|--help]'
 }
 
+isAmend=
 typeset -a candidateArgs=()
 while [ $# -ne 0 ]
 do
@@ -19,6 +28,7 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
+	--amend)	shift; isAmend=t;;
 	--)		shift; break;;
 	*)		if [ $# -ge 2 ] && ! [[ "$1" =~ @ ]] && [[ "$2" =~ ^[^\ ]+@[^\ ]+$ ]]; then
 			    candidateArgs+=("$1" "$2"); shift; shift
@@ -35,5 +45,5 @@ if [ ${#coauthors[@]} -eq 0 ]; then
     exit 4
 fi
 
-git-wrapper commit "$@" || exit $?
+[ "$isAmend" ] || git-wrapper commit "$@" || exit $?
 exec git-rewordappend --quiet --padded --message "${coauthors[*]/#/Co-authored-by: }"

@@ -6,16 +6,18 @@ printUsage()
 Append the passed commit message(s) to the original commit message.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--padded] [-m|--message=MESSAGE|-F|--file=FILE [...]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--padded] [-q|--quiet] [-m|--message=MESSAGE|-F|--file=FILE [...]] [-?|-h|--help]'
 }
 
 padding=
+isQuiet=
 typeset -a commitMessageArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--padded)	shift; padding=$'\n';;
+	--quiet|-q)	shift; isQuiet=t;;
 	--)		commitMessageArgs+=("$1"); shift; break;;
 	*)		commitMessageArgs+=("$1"); shift;;
     esac
@@ -38,4 +40,4 @@ if [[ "$originalMessage" != *$'\n'* ]]; then
 fi
 
 git-wrapper commit --amend --only --cleanup=strip --message "${originalMessage}"$'\n'"${padding}${appendMessage}" || exit $?
-git lo1
+[ "$isQuiet" ] || git lo1

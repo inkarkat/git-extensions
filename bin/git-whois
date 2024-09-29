@@ -6,7 +6,10 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-1|--first|-s|--select|-S|--select-many] [-n|--name|-e|--email] [--via-email|-E] [--accept-unknown] [--range-is-last|--since <date>|--max-count <number>|-<number>|--range <range> [--range ...]] AUTHOR-PATTERN [...]|NAME EMAIL@HOST|"NAME <EMAIL@HOST>" [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-1|--first|-s|--select|-S|--select-many] [-n|--name|-e|--email] [--via-email|-E] [--accept-unknown] [--range-is-last|--since <date>|--max-count <number>|-<number>|--range <range> [--range ...]] AUTHOR-PATTERN [...] [-?|-h|--help]'
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... --accept-unknown AUTHOR-PATTERN [...]|NAME EMAIL@HOST|"NAME <EMAIL@HOST>"'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... --accept-unknown --select-many AUTHOR-PATTERN|NAME EMAIL@HOST|"NAME <EMAIL@HOST>" [...]'
 }
 printUsage()
 {
@@ -191,21 +194,31 @@ fi
 readarray -t candidates < <(getCandidates "$@" | sort --unique)
 
 if [ ${#candidates[@]} -eq 0 ]; then
-    if [ "$isAcceptUnknown" -a \( $# -eq 1 -o $# -eq 2 \) ]; then
-	case $# in
-	    1)	person="$1";;
-	    2)	person="$1 <$2>";;
-	esac
-	if [[ "$person" =~ ^[^\ ].*[^\ ]\ \<[^\ ]+@[^\ ]+\>$ ]]; then
-	    printPersons "$person"
-	    exit
-	else
-	    printf >&2 'ERROR: Did not pass a valid NAME <EMAIL@HOST>: %s\n' "$person"
-	    exit 2
-	fi
+    if [ "$isAcceptUnknown" ]; then
+	typeset -a newPersons=()
+	while [ $# -gt 0 ]
+	do
+	    if ! [[ "$1" =~ @ ]] && [[ "$2" =~ ^[^\ ]+@[^\ ]+$ ]]; then
+		person="$1 <$2>"; shift; shift
+	    else
+		person="$1"; shift
+	    fi
+	    if [[ "$person" =~ ^[^\ ].*[^\ ]\ \<[^\ ]+@[^\ ]+\>$ ]]; then
+		newPersons+=("$person")
+	    else
+		printf >&2 'ERROR: Did not pass a valid NAME <EMAIL@HOST>: %s\n' "$person"
+		exit 2
+	    fi
+	done
     fi
 
-    exit 1
+    [ ${#newPersons[@]} -gt 0 ] || exit 1
+    if [ ${#newPersons[@]} -gt 1 ] && [ ! "$isSelectMany" ]; then
+	printf >&2 'Note: %d new persons passed; ignoring all but the first.\n' ${#newPersons[@]}
+	newPersons=("${newPersons[0]}")
+    fi
+    printPersons "${newPersons[@]}"
+    exit 0
 fi
 
 if [ "$isShowFirstCandidate" ]; then

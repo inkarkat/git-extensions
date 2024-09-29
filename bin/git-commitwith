@@ -6,10 +6,10 @@ printUsage()
     cat <<HELPTEXT
 Commit with other author(s) whose "NAME <EMAIL@HOST>" combo(s) are either passed
 or selected from all previous committers (via passed AUTHOR-PATTERN(s))
-attributed as co-authors.
+attributed as co-authors / ACTION-BY.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[AUTHOR-PATTERN|NAME EMAIL@HOST|"NAME <EMAIL@HOST>" [...]] [-- <commit-args> ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--attribution ACTION-BY] [AUTHOR-PATTERN|NAME EMAIL@HOST|"NAME <EMAIL@HOST>" [...]] [-- <commit-args> ...] [-?|-h|--help]'
     echo
     cat <<HELPTEXT
 Attribute other author(s) whose "NAME <EMAIL@HOST>" combo(s) are either passed
@@ -17,9 +17,10 @@ or selected from all previous committers (via passed AUTHOR-PATTERN(s)) as
 co-authors to the last commit.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '--amend [AUTHOR-PATTERN|NAME EMAIL@HOST|"NAME <EMAIL@HOST>" [...]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--attribution ACTION-BY] --amend [AUTHOR-PATTERN|NAME EMAIL@HOST|"NAME <EMAIL@HOST>" [...]] [-?|-h|--help]'
 }
 
+attribution='Co-authored-by'
 isAmend=
 typeset -a candidateArgs=()
 while [ $# -ne 0 ]
@@ -29,6 +30,7 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
+	--attribution)	shift; attribution="${1:?}"; shift;;
 	--amend)	shift; isAmend=t;;
 	--)		shift; break;;
 	*)		if [ $# -ge 2 ] && ! [[ "$1" =~ @ ]] && [[ "$2" =~ ^[^\ ]+@[^\ ]+$ ]]; then
@@ -40,14 +42,14 @@ do
     esac
 done
 
-readarray -t coauthors < <(git-whois --accept-unknown --select-many "${candidateArgs[@]}")
-if [ ${#coauthors[@]} -eq 0 ]; then
+readarray -t attributees < <(git-whois --accept-unknown --select-many "${candidateArgs[@]}")
+if [ ${#attributees[@]} -eq 0 ]; then
     echo >&2 'ERROR: No author(s).'
     exit 4
 fi
 
 [ "$isAmend" ] || git-wrapper commit "$@" || exit $?
 
-typeset -a paddedArg=(--padded); git lo1 | tail -n 1 | grep --quiet "^Co-authored-by: " && paddedArg=()
+typeset -a paddedArg=(--padded); git lo1 | tail -n 1 | grep --quiet "^${attribution}: " && paddedArg=()
 IFS=$'\n'
-exec git-rewordappend --quiet "${paddedArg[@]}" --message "${coauthors[*]/#/Co-authored-by: }"
+exec git-rewordappend --quiet "${paddedArg[@]}" --message "${attributees[*]/#/${attribution}: }"

@@ -1,4 +1,5 @@
 #!/bin/bash
+set -o pipefail
 
 printUsage()
 {
@@ -46,4 +47,6 @@ if [ ${#coauthors[@]} -eq 0 ]; then
 fi
 
 [ "$isAmend" ] || git-wrapper commit "$@" || exit $?
-exec git-rewordappend --quiet --padded --message "${coauthors[*]/#/Co-authored-by: }"
+
+typeset -a paddedArg=(--padded); git lo1 | tail -n 1 | grep --quiet "^Co-authored-by: " && paddedArg=()
+exec git-rewordappend --quiet "${paddedArg[@]}" --message "${coauthors[*]/#/Co-authored-by: }"

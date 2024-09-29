@@ -22,6 +22,7 @@ HELPTEXT
 
 attribution='Co-authored-by'
 isAmend=
+typeset -a quietArg=(--quiet)
 typeset -a candidateArgs=()
 while [ $# -ne 0 ]
 do
@@ -31,7 +32,7 @@ do
 			shift;;
 	--color)	shift; shift;;
 	--attribution)	shift; attribution="${1:?}"; shift;;
-	--amend)	shift; isAmend=t;;
+	--amend)	shift; isAmend=t; quietArg=();;
 	--)		shift; break;;
 	*)		if [ $# -ge 2 ] && ! [[ "$1" =~ @ ]] && [[ "$2" =~ ^[^\ ]+@[^\ ]+$ ]]; then
 			    candidateArgs+=("$1" "$2"); shift; shift
@@ -52,4 +53,4 @@ fi
 
 typeset -a paddedArg=(--padded); git lo1 | tail -n 1 | grep --quiet "^${attribution}: " && paddedArg=()
 IFS=$'\n'
-exec git-rewordappend --quiet "${paddedArg[@]}" --message "${attributees[*]/#/${attribution}: }"
+exec git-rewordappend "${quietArg[@]}" "${paddedArg[@]}" --message "${attributees[*]/#/${attribution}: }"

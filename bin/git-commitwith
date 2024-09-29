@@ -1,0 +1,39 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Commit with other author(s) whose "NAME <EMAIL@HOST>" combo(s) are either passed
+or selected from all previous committers (via passed AUTHOR-PATTERN(s))
+attributed as co-authors.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[AUTHOR-PATTERN|NAME EMAIL@HOST|"NAME <EMAIL@HOST>" [...]] [-- <commit-args> ...] [-?|-h|--help]'
+}
+
+typeset -a candidateArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+	--)		shift; break;;
+	*)		if [ $# -ge 2 ] && ! [[ "$1" =~ @ ]] && [[ "$2" =~ ^[^\ ]+@[^\ ]+$ ]]; then
+			    candidateArgs+=("$1" "$2"); shift; shift
+			else
+			    candidateArgs+=("$1"); shift
+			fi
+			;;
+    esac
+done
+
+readarray -t coauthors < <(git-whois --accept-unknown --select-many "${candidateArgs[@]}")
+if [ ${#coauthors[@]} -eq 0 ]; then
+    echo >&2 'ERROR: No author(s).'
+    exit 4
+fi
+
+git-wrapper commit "$@" || exit $?
+exec git-rewordappend --quiet --padded --message "${coauthors[*]/#/Co-authored-by: }"

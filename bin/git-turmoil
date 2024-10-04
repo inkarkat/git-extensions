@@ -1,0 +1,117 @@
+#!/bin/bash
+set -o pipefail
+
+: ${GIT_TURMOIL_FILE_FACTOR:=100}	# Factor by which a file change is rated vs. an added or deleted line.
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--reverse] [--keep-turmoil] [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+    printf 'Usage: git log --[short]stat --color=always [<log-options>] [<revision range>] [[--] <path>...] | %q %s\n' "$(basename "$1")" '--stdin [--reverse] [--keep-turmoil]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Sort a Git log that includes a --shortstat containing line(s) with the total
+number of modified files, as well as number of added and deleted lines
+descending by impact, starting with the entries having the most changes.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --stdin		Read the log from stdin instead of invoking git-log.
+    --reverse		Sort in ascending order, starting with the smallest
+			changes.
+    --keep-turmoil	Keep the turmoil numbers prepended in the shortstat
+			lines.
+HELPTEXT
+}
+
+typeset -a sortOrderArg=(--reverse)
+typeset -a processTurmoilArgs=(-e 's#^[[:digit:]]\+ ##')
+typeset -a logArgs=()
+typeset -a colorArg=(--color=always)
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+if [ ! -t 1 ]; then
+    colorArg=()
+    pager=()
+fi
+typeset -a sourceCommand=(git-log)
+sourceStatArg=--shortstat
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--color=auto)	shift;;
+	--no-color|--color=*)
+			colorArg=("$1"); shift;;
+	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); shift; shift;;
+	--stdin)	shift; sourceCommand=();;
+	--stat*|--shortstat)
+			sourceStatArg="$1"; shift;;
+	--reverse)	shift; sortOrderArg=();;
+	--keep-turmoil)	shift; processTurmoilArgs=(-e 's#^\([[:digit:]]\+\) #Turmoil \1, #');;
+	--)		logArgs+=("$1"); shift; break;;
+	*)		logArgs+=("$1"); shift;;
+    esac
+done
+set -- "${logArgs[@]}" "$@"
+if [ ${#sourceCommand[@]} -eq 0 ] && [ $# -gt 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+evaluateChanges()
+{
+    # Note: The shortstat line usually has a leading space; but let's accept also
+    # those without it.
+    awk --field-separator '^ |, ' \
+	-v "fileFactor=$GIT_TURMOIL_FILE_FACTOR" \
+'
+$1 ~ / files? changed$/ || ($1 == "" && $2 ~ / files? changed$/) {
+    result = 0
+    resultFactor = fileFactor
+    for (i = 1; i <= NF; ++i) {
+	if (match($i, /^[[:digit:]]+ /)) {
+	    result += substr($i, RSTART, RLENGTH - 1) * resultFactor
+	    resultFactor = 1
+	}
+    }
+
+    printf("%s %s%s\n", result, $0, zeroJoinedPreviousLines)
+    zeroJoinedPreviousLines = ""
+    next
+}
+{
+    zeroJoinedPreviousLines = zeroJoinedPreviousLines "\0" $0
+}
+END {
+    if (zeroJoinedPreviousLines != "") {
+	printf("0 %s\n", zeroJoinedPreviousLines)
+    }
+}
+'
+}
+
+sortByChanges()
+{
+    evaluateChanges | \
+	sort --numeric --key=1,1 "${sortOrderArg[@]}" | \
+	sed "${processTurmoilArgs[@]}" -e 's#\d000#\n#g' -e 's#^\([^\n]*\)\n\(.*\)$#\2\n\1#'
+}
+
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+eval "\"\${sourceCommand[@]}\" ${sourceCommand:+$sourceStatArg \"\${colorArg[@]\}\"} \"\$@\"" \
+    "${sourceCommand:+| }sortByChanges" \
+    "${pager:+|}" '"${pager[@]}"'

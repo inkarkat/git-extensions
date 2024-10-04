@@ -67,9 +67,12 @@ done
 
 readonly FULL_DATE_EXPR="+%F 03:00"
 todayTimestamp="$(date "$FULL_DATE_EXPR")" || todayTimestamp='yesterday'
-thisWeekTimestamp="$(date -d "last Monday" "$FULL_DATE_EXPR")"
-thisMonthTimestamp="$(date -d "$(date "+%Y-%m-01")" "$FULL_DATE_EXPR")"
-thisYearTimestamp="$(date -d "$(date "+%Y-01-01")" "$FULL_DATE_EXPR")"
+weekToDate="$(date -d "last Monday" "$FULL_DATE_EXPR")"
+oneWeekDate="$(date -d "7 days ago" "$FULL_DATE_EXPR")"
+monthToDate="$(date -d "$(date "+%Y-%m-01")" "$FULL_DATE_EXPR")"
+oneMonthDate="$(date -d "30 days ago" "$FULL_DATE_EXPR")"
+yearToDate="$(date -d "$(date "+%Y-01-01")" "$FULL_DATE_EXPR")"
+oneYearDate="$(date -d "365 days ago" "$FULL_DATE_EXPR")"
 
 tally()
 {
@@ -115,12 +118,14 @@ if [ "$customRange" ]; then
 	"$overallTally"
     )
 else
-    typeset -a tallies=(
-	"$(tally "today" "$todayTimestamp")"
-	"$(tally "this week" "$thisWeekTimestamp")"
-	"$(tally "this month" "$thisMonthTimestamp")"
-	"$(tally "this year" "$thisYearTimestamp")"
-	"$overallTally"
-    )
+    typeset -a tallies=()
+    tallies+=("$(tally "today" "$todayTimestamp")")
+    [ "$weekToDate" = "$oneWeekDate" ] || tallies+=("$(tally "week-to-date" "$weekToDate")")
+    tallies+=("$(tally "one week" "$oneWeekDate")")
+    [ "$monthToDate" = "$oneMonthDate" ] ||tallies+=("$(tally "month-to-date" "$monthToDate")")
+    tallies+=("$(tally "one month" "$oneMonthDate")")
+    [ "$yearToDate" = "$oneYearDate" ] ||tallies+=("$(tally "year-to-date" "$yearToDate")")
+    tallies+=("$(tally "one year" "$oneYearDate")")
+    tallies+=("$overallTally")
 fi
 joinBy '; ' "${tallies[@]}"

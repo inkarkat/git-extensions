@@ -1,8 +1,6 @@
 #!/bin/bash
 set -o pipefail
 
-: ${GIT_LOGSTABYEACH_FILE_FACTOR:=100}	# Factor by which a file change is rated vs. an added or deleted line.
-
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
 typeset -a formatter=(column -s , -t)
 if [ ! -t 1 ]; then
@@ -31,6 +29,13 @@ do
     esac
 done
 
+joinPrefixes()
+{
+    # The author is on a separate line before the shortstat; we need to join those
+    # two lines together.
+    sed -e 'N; s#\n#,#'
+}
+
 toCsv()
 {
     # There is always a "0 files changed", but insertions or deletions may be
@@ -43,32 +48,9 @@ toCsv()
 }
 
 
-evaluateChanges()
-{
-    awk --field-separator ', ' \
-	-v "fileFactor=$GIT_LOGSTABYEACH_FILE_FACTOR" \
-'
-{
-    result = 0
-    resultFactor = fileFactor
-    for (i = 1; i <= NF; ++i) {
-	if (match($i, /^[[:digit:]]+ /)) {
-	    result += substr($i, RSTART, RLENGTH - 1) * resultFactor
-	    resultFactor = 1
-	}
-    }
-
-    print result " " $0
-}
-'
-}
-sortByChanges()
-{
-    evaluateChanges | \
-	sort --numeric --key=1,1 --reverse | \
-	field --field-separator ' ' --remove 1
-}
-
-GIT_SEGREGATEDUSERCOMMAND_PREFIX_SEPARATOR=, \
+GIT_SEGREGATEDUSERCOMMAND_PREFIX_SEPARATOR=$'\n' \
     git-segregated-user-command --prefixed --with-log-args -2 logsta USERFILTER "${logArgs[@]}" "$@" | \
-	eval 'sortByChanges' "${formatter:+|}" '"${formatter[@]}"' "${pager:+|}" '"${pager[@]}"'
+	git-turmoil --stdin \
+	| eval joinPrefixes \
+	    "${formatter:+|}" '"${formatter[@]}"' \
+	    "${pager:+|}" '"${pager[@]}"'

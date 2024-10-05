@@ -4,18 +4,19 @@ shopt -qs extglob
 
 printShortUsage()
 {
+    local commonArguments='[--turmoil]'
     local distributionOverAutorangeArguments='[--no-footer|--final-footer-only|footer-only-on-change|--footer-every N] [--force-legends] [--as colorbox-calendar|green-[large-]calendar|...] [--over day|month|year|year-weekly|--weekly]'
     local distributionAutolinearArguments='-l|--linear [--color=(always|auto|never)|--no-color] [-w|--width W] [--no-today-base-date|--base-date today|"YYYY MM DD"] [--no-start-date] [--no-end-date] [--days-per-slot N|--slots-per-day N] [--reversed] [--as colorbox-calendar|green-[large-]calendar]'
     local logArguments='[<log-options>] [<revision range>] [[--] <path>...]'
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s %s %s\n' "$(basename "$1")" "$distributionOverAutorangeArguments" "$logArguments" '[-?|-h|--help]'
+    printf 'Usage: %q %s %s %s %s\n' "$(basename "$1")" "$commonArguments" "$distributionOverAutorangeArguments" "$logArguments" '[-?|-h|--help]'
     echo
-    printf 'Usage: %q %s %s %s\n' "$(basename "$1")" "$distributionAutolinearArguments" "$logArguments" '[-?|-h|--help]'
+    printf 'Usage: %q %s %s %s %s\n' "$(basename "$1")" "$commonArguments" "$distributionAutolinearArguments" "$logArguments" '[-?|-h|--help]'
     echo
-    printf 'Usage: %q %s %s | %q --stdin %s\n' "$(basename "$1")" '--log-only' "$logArguments" "$(basename "$1")" "$distributionOverAutorangeArguments"
+    printf 'Usage: %q %s %s %s | %q --stdin %s %s\n' "$(basename "$1")" '--log-only' "$commonArguments" "$logArguments" "$(basename "$1")" "$commonArguments" "$distributionOverAutorangeArguments"
     echo
-    printf 'Usage: %q %s %s | %q --stdin %s\n' "$(basename "$1")" '--log-only' "$logArguments" "$(basename "$1")" "$distributionAutolinearArguments"
+    printf 'Usage: %q %s %s %s | %q --stdin %s %s\n' "$(basename "$1")" '--log-only' "$commonArguments" "$logArguments" "$(basename "$1")" "$commonArguments" "$distributionAutolinearArguments"
 }
 printUsage()
 {
@@ -37,6 +38,9 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
+    --turmoil		Consider the impact of changes (i.e. total number of
+			modified files, as well as number of added and deleted
+			lines) instead of solely the number of commits.
     --linear|-l		Choose a linear representation in one line with
 			auto-scaling of the time instead of the fixed reporting
 			over day, month, years.
@@ -58,6 +62,7 @@ typeset -a distributionArgs=()
 typeset -a distributionBaseDateArg=()
 typeset -a distributionReversedArg=()
 typeset -a gitArgs=()
+typeset -a sourceLogCommand=(git log --pretty=tformat:'%ai')
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -83,6 +88,10 @@ do
 			printUsage "$0" >&2
 			exit 2
 			;;
+	--turmoil)	shift
+			sourceLogCommand=(git turmoil --pretty=format:'%ai' --shortstat --join-shortstat ' ' --keep-turmoil)
+			distributionArgs+=(--field-separator '[[:space:]:_/,-]' --count-field 9 --default-count 1)
+			;;
 	--)		gitArgs+=("$1"); shift; break;;
 	*)		gitArgs+=("$1"); shift;;
     esac
@@ -91,7 +100,7 @@ gitArgs+=("$@")
 
 getLogs()
 {
-    git log --pretty=tformat:'%ai' "${gitArgs[@]}"
+    "${sourceLogCommand[@]}" "${gitArgs[@]}"
 }
 
 printGraphFromObtainedLogs()

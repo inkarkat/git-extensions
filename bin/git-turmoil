@@ -8,7 +8,7 @@ printShortUsage()
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--reverse] [--keep-turmoil|--no-shortstat] [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
-    printf 'Usage: git log --[short]stat --color=always [<log-options>] [<revision range>] [[--] <path>...] | %q %s\n' "$(basename "$1")" '--stdin [--reverse] [--keep-turmoil|--no-shortstat]'
+    printf 'Usage: git log --[short]stat --color=always [<log-options>] [<revision range>] [[--] <path>...] | %q %s\n' "$(basename "$1")" '--stdin [--reverse] [--keep-turmoil|--no-shortstat|--join-shortstat SEP]'
 }
 printUsage()
 {
@@ -38,6 +38,9 @@ HELPDESCRIPTION
     --no-shortstat	Omit the shortstat lines from the output; they are only
 			used interally for ordering, only keep any other log
 			lines.
+    --join-shortstat SEP
+			Join the preceding log lines with the shortstat line
+			with SEP instead of a newline.
 HELPTEXT
 }
 
@@ -67,6 +70,15 @@ do
 	--reverse)	shift; sortOrderArg=();;
 	--keep-turmoil)	shift; processTurmoilArgs=(-e 's#^\([[:digit:]]\+\) #Turmoil \1, #');;
 	--no-shortstat)	shift; reassembleTurmoilArgs=(-e 's#^\([^\n]*\)\n\{1,2\}\(.*\)$#\2#');;   # Note: The shortstat is separated from the rest of the log output by an empty line.
+	--join-shortstat)
+			shift
+			literalSep="${1?}"
+			literalSep="${literalSep//\\/\\\\}"
+			literalSep="${literalSep//&/\\&}"
+			literalSep="${literalSep//$'\n'/\\n}"
+			reassembleTurmoilArgs=(-e 's#^\([^\n]*\)\n\{1,2\}\(.*\)$#\2'"${literalSep//#/\\#}"'\1#')
+			shift
+			;;
 	--)		logArgs+=("$1"); shift; break;;
 	*)		logArgs+=("$1"); shift;;
     esac

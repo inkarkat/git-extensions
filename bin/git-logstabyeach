@@ -54,13 +54,6 @@ do
     esac
 done
 
-joinPrefixes()
-{
-    # The author is on a separate line before the shortstat; we need to join those
-    # two lines together.
-    sed -e 'N; s#\n#,#'
-}
-
 toCsv()
 {
     # There is always a "0 files changed", but insertions or deletions may be
@@ -76,7 +69,6 @@ toCsv()
 
 GIT_SEGREGATEDUSERCOMMAND_PREFIX_SEPARATOR=$'\n' \
     git-segregated-user-command --prefixed --with-log-args -2 logsta USERFILTER "${logArgs[@]}" "$@" | \
-	git-turmoil --stdin "${turmoilArgs[@]}" \
-	| eval joinPrefixes \
+	eval 'git-turmoil --stdin --join-shortstat , "${turmoilArgs[@]}"' \
 	    "${formatter:+|}" '"${formatter[@]}"' \
 	    "${pager:+|}" '"${pager[@]}"'

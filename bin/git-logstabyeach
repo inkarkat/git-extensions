@@ -1,8 +1,6 @@
 #!/bin/bash
 set -o pipefail
 
-: ${GIT_LOGSTABYEACH_FILE_FACTOR:=100}	# Factor by which a file change is rated vs. an added or deleted line.
-
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
 typeset -a formatter=(column -s , -t)
 if [ ! -t 1 ]; then
@@ -10,22 +8,47 @@ if [ ! -t 1 ]; then
     formatter=()
 fi
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--csv] [--reverse] [--keep-turmoil] [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 Show a combined short one-line diffstat for each user that authored commits
 separately (descending by impact, starting with the most changes).
-HELPTEXT
+HELPDESCRIPTION
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--csv] [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --csv		Show the output in CSV format.
+    --reverse		Sort in ascending order, starting with the authors
+			having the smallest changes.
+    --keep-turmoil	Keep the turmoil numbers prepended.
+HELPTEXT
 }
 
 typeset -a logArgs=()
+typeset -a turmoilArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--csv)		shift; formatter=(toCsv);;
+	--reverse|--keep-turmoil)
+			turmoilArgs+=("$1"); shift;;
 	--)		logArgs+=("$1"); shift; break;;
 	*)		logArgs+=("$1"); shift;;
     esac
@@ -37,38 +60,15 @@ toCsv()
     # missing altogether. Add dummy values so that we'll always end up with 4
     # columns.
     sed \
-	-e '/ insertions\?(+)/!s#$#, 0 insertions(+)#'\
-	-e '/ deletions\?(-)/!s#$#, 0 deletions(-)#'\
+	-e 's/,Turmoil /, /' \
+	-e '/ insertions\?(+)/!s#$#, 0 insertions(+)#' \
+	-e '/ deletions\?(-)/!s#$#, 0 deletions(-)#' \
 	-e 's# files\? changed\| insertions\?(+)\|deletions\?(-)##g'
 }
 
 
-evaluateChanges()
-{
-    awk --field-separator ', ' \
-	-v "fileFactor=$GIT_LOGSTABYEACH_FILE_FACTOR" \
-'
-{
-    result = 0
-    resultFactor = fileFactor
-    for (i = 1; i <= NF; ++i) {
-	if (match($i, /^[[:digit:]]+ /)) {
-	    result += substr($i, RSTART, RLENGTH - 1) * resultFactor
-	    resultFactor = 1
-	}
-    }
-
-    print result " " $0
-}
-'
-}
-sortByChanges()
-{
-    evaluateChanges | \
-	sort --numeric --key=1,1 --reverse | \
-	field --field-separator ' ' --remove 1
-}
-
-GIT_SEGREGATEDUSERCOMMAND_PREFIX_SEPARATOR=, \
+GIT_SEGREGATEDUSERCOMMAND_PREFIX_SEPARATOR=$'\n' \
     git-segregated-user-command --prefixed --with-log-args -2 logsta USERFILTER "${logArgs[@]}" "$@" | \
-	eval 'sortByChanges' "${formatter:+|}" '"${formatter[@]}"' "${pager:+|}" '"${pager[@]}"'
+	eval 'git-turmoil --stdin --join-shortstat , "${turmoilArgs[@]}"' \
+	    "${formatter:+|}" '"${formatter[@]}"' \
+	    "${pager:+|}" '"${pager[@]}"'

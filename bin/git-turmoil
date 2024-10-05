@@ -7,8 +7,8 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--reverse] [--keep-turmoil] [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
-    printf 'Usage: git log --[short]stat --color=always [<log-options>] [<revision range>] [[--] <path>...] | %q %s\n' "$(basename "$1")" '--stdin [--reverse] [--keep-turmoil]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--reverse] [--keep-turmoil|--no-shortstat] [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+    printf 'Usage: git log --[short]stat --color=always [<log-options>] [<revision range>] [[--] <path>...] | %q %s\n' "$(basename "$1")" '--stdin [--reverse] [--keep-turmoil|--no-shortstat]'
 }
 printUsage()
 {
@@ -35,11 +35,15 @@ HELPDESCRIPTION
 			changes.
     --keep-turmoil	Keep the turmoil numbers prepended in the shortstat
 			lines.
+    --no-shortstat	Omit the shortstat lines from the output; they are only
+			used interally for ordering, only keep any other log
+			lines.
 HELPTEXT
 }
 
 typeset -a sortOrderArg=(--reverse)
 typeset -a processTurmoilArgs=(-e 's#^[[:digit:]]\+ ##')
+typeset -a reassembleTurmoilArgs=(-e 's#^\([^\n]*\)\n\(.*\)$#\2\n\1#')
 typeset -a logArgs=()
 typeset -a colorArg=(--color=always)
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
@@ -62,6 +66,7 @@ do
 			sourceStatArg="$1"; shift;;
 	--reverse)	shift; sortOrderArg=();;
 	--keep-turmoil)	shift; processTurmoilArgs=(-e 's#^\([[:digit:]]\+\) #Turmoil \1, #');;
+	--no-shortstat)	shift; reassembleTurmoilArgs=(-e 's#^\([^\n]*\)\n\{1,2\}\(.*\)$#\2#');;   # Note: The shortstat is separated from the rest of the log output by an empty line.
 	--)		logArgs+=("$1"); shift; break;;
 	*)		logArgs+=("$1"); shift;;
     esac
@@ -108,7 +113,7 @@ sortByChanges()
 {
     evaluateChanges | \
 	sort --numeric --key=1,1 "${sortOrderArg[@]}" | \
-	sed "${processTurmoilArgs[@]}" -e 's#\d000#\n#g' -e 's#^\([^\n]*\)\n\(.*\)$#\2\n\1#'
+	sed "${processTurmoilArgs[@]}" -e 's#\d000#\n#g' "${reassembleTurmoilArgs[@]}"
 }
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()

@@ -4,7 +4,7 @@ shopt -qs extglob
 
 printShortUsage()
 {
-    local commonArguments='[--turmoil]'
+    local commonArguments='[--authors|--turmoil]'
     local distributionOverAutorangeArguments='[--no-footer|--final-footer-only|footer-only-on-change|--footer-every N] [--force-legends] [--as colorbox-calendar|green-[large-]calendar|...] [--over day|month|year|year-weekly|--weekly]'
     local distributionAutolinearArguments='-l|--linear [--color=(always|auto|never)|--no-color] [-w|--width W] [--no-today-base-date|--base-date today|"YYYY MM DD"] [--no-start-date] [--no-end-date] [--days-per-slot N|--slots-per-day N] [--reversed] [--as colorbox-calendar|green-[large-]calendar]'
     local logArguments='[<log-options>] [<revision range>] [[--] <path>...]'
@@ -38,6 +38,9 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
+    --authors		Count the number of authors per day. Note that due to
+			the data dressing, this cannot be used over days or
+			year-weekly.
     --turmoil		Consider the impact of changes (i.e. total number of
 			modified files, as well as number of added and deleted
 			lines) instead of solely the number of commits.
@@ -88,6 +91,9 @@ do
 			printUsage "$0" >&2
 			exit 2
 			;;
+	--authors)	shift
+			sourceLogCommand=(logAuthorCounts)
+			;;
 	--turmoil)	shift
 			sourceLogCommand=(git turmoil --pretty=format:'%ai' --shortstat --join-shortstat ' ' --keep-turmoil)
 			distributionArgs+=(--field-separator '[[:space:]:_/,-]' --count-field 9 --default-count 1)
@@ -97,6 +103,12 @@ do
     esac
 done
 gitArgs+=("$@")
+
+logAuthorCounts()
+{
+    git log --date=format:%Y-%m-%d --pretty='format:%ad %aN' "$@" \
+	| sort --unique | field 1
+}
 
 getLogs()
 {

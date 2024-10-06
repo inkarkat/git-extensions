@@ -14,6 +14,7 @@ HELPTEXT
 typeset -a grepGrepArgs=()
 typeset -a logGrepArgs=()
 typeset -a logArgs=()
+typeset -a logPrettyArg=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -21,6 +22,7 @@ do
 	--grep)		grepGrepArgs+=(-e "$2"); logGrepArgs+=("$1" "$2"); shift; shift;;
 	--grep=*)	grepGrepArgs+=(-e "${1#--grep=}"); logGrepArgs+=("$1"); shift;;
 	--invert-grep)	grepGrepArgs+=(--invert-match); logArgs+=("$1"); shift;;
+	--pretty=*)	logPrettyArg=("$1"); shift;;
 	--)		logArgs+=("$1"); shift; break;;
 	*)		logArgs+=("$1"); shift;;
     esac
@@ -56,4 +58,4 @@ readarray -t commits < <(
 )
 [ ${#commits[@]} -gt 0 ] || exit 99
 
-exec git-wrapper ${GIT_LOGTITLEG_COMMAND:-logrevs} --revisions "${commits[@]}" \; "$@"
+exec git-wrapper ${GIT_LOGTITLEG_COMMAND:-logrevs} --revisions "${commits[@]}" \; "${logPrettyArg[@]}" "$@"

@@ -4,7 +4,7 @@ shopt -qs extglob
 
 printShortUsage()
 {
-    local commonArguments='[--authors|--files|--turmoil]'
+    local commonArguments='[--authors|--files [--diff-filter=[(A|C|D|M|R|T|U|X|B)...[*]] [--[no-]renames] [-M<n>|--find-renames[=<n>]] [-C<n>|--find-copies[=<n>]|--find-copies-harder]]|--files-added|--files-deleted|--turmoil]'
     local distributionOverAutorangeArguments='[--no-footer|--final-footer-only|footer-only-on-change|--footer-every N] [--force-legends] [--as colorbox-calendar|green-[large-]calendar|...] [--over day|month|year|year-weekly|--weekly]'
     local distributionAutolinearArguments='-l|--linear [--color=(always|auto|never)|--no-color] [-w|--width W] [--no-today-base-date|--base-date today|"YYYY MM DD"] [--no-start-date] [--no-end-date] [--days-per-slot N|--slots-per-day N] [--reversed] [--as colorbox-calendar|green-[large-]calendar]'
     local logArguments='[<log-options>] [<revision range>] [[--] <path>...]'
@@ -41,9 +41,12 @@ HELPDESCRIPTION
     --authors		Count the number of authors per day.
 			Note that due to the data dressing, this cannot be used
 			over days or year-weekly.
-    --files		Count the number of affected files per day.
+    --files		Count the number of affected files per day. This can be
+			further filtered via the --diff-filter option.
 			Note that due to the data dressing, this cannot be used
 			over days or year-weekly.
+    --files-added	Count the number of added files per day.
+    --files-deleted	Count the number of deleted files per day.
     --turmoil		Consider the impact of changes (i.e. total number of
 			modified files, as well as number of added and deleted
 			lines) instead of solely the number of commits.
@@ -94,12 +97,11 @@ do
 			printUsage "$0" >&2
 			exit 2
 			;;
-	--authors)	shift
-			sourceLogCommand=(logAuthorCounts)
-			;;
-	--files)	shift
-			sourceLogCommand=(logFileCounts)
-			;;
+	--authors)	shift; sourceLogCommand=(logAuthorCounts);;
+	--files)	shift; sourceLogCommand=(logFileCounts);;
+	--files-added)	shift; sourceLogCommand=(logFileCounts); gitArgs+=(--diff-filter=A);;
+	--files-deleted)
+			shift; sourceLogCommand=(logFileCounts); gitArgs+=(--diff-filter=D);;
 	--turmoil)	shift
 			sourceLogCommand=(git turmoil --pretty=format:'%ai' --shortstat --join-shortstat ' ' --keep-turmoil)
 			distributionArgs+=(--field-separator '[[:space:]:_/,-]' --count-field 9 --default-count 1)

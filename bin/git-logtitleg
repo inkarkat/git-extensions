@@ -1,0 +1,59 @@
+#!/bin/bash
+set -o pipefail
+
+printUsage()
+{
+    cat <<HELPTEXT
+Log only those commits where log subject (i.e. ignoring the message body) match
+the specified text or /regexp/.
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<log-options>] [<revision range>] [[--] <path>...] text|/regexp/ [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<log-options>] [<revision range>] [--invert-grep] --grep=<pattern> [[--] <path>...]'
+}
+
+typeset -a grepGrepArgs=()
+typeset -a logGrepArgs=()
+typeset -a logArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--grep)		grepGrepArgs+=(-e "$2"); logGrepArgs+=("$1" "$2"); shift; shift;;
+	--grep=*)	grepGrepArgs+=(-e "${1#--grep=}"); logGrepArgs+=("$1"); shift;;
+	--invert-grep)	grepGrepArgs+=(--invert-match); logArgs+=("$1"); shift;;
+	--)		logArgs+=("$1"); shift; break;;
+	*)		logArgs+=("$1"); shift;;
+    esac
+done
+set -- "${logArgs[@]}" "$@"
+if [ ${#logGrepArgs[@]} -eq 0 ]; then
+    # No --grep given; the last argument is the text or /regexp/.
+    if [ $# -eq 0 ]; then
+	printUsage "$0"
+	exit 2
+    fi
+
+    lastArg="${!#}"
+    searchString=$(printf '%s' "$lastArg" | sed -ne 's/^\([^a-zA-Z0-9]\)\(.*\)\1$/\2/p')
+    if [ -n "$searchString" ]; then
+	grepGrepArgs+=(-e "$searchString")
+	logGrepArgs+=(--grep "$searchString")
+    else
+	grepGrepArgs+=(-e "$lastArg" --fixed-strings)
+	logGrepArgs+=(--grep "$lastArg" --fixed-strings)
+    fi
+    set -- "${@:1:$(($#-1))}"
+fi
+
+# There's no way to limit "git log"'s matching to just the subject line, and
+# switching to --perl-regexp and using \A instead of ^ also doesn't work.
+# We have to filter the full-body matches by applying grep to the subject once
+# again, then extract the commit hashes and do the real logging of those.
+readarray -t commits < <(
+    git-wrapper log --pretty=$'tformat:%H\t%s' "${logGrepArgs[@]}" "$@" \
+	| grep "${grepGrepArgs[@]//^/$'\t'}" \
+	| field --field-separator $'\t' 1
+)
+[ ${#commits[@]} -gt 0 ] || exit 99
+
+exec git-wrapper ${GIT_LOGTITLEG_COMMAND:-logrevs} --revisions "${commits[@]}" \; "$@"

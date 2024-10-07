@@ -70,6 +70,7 @@ distributionCommand=distribution-over-autorange
 typeset -a distributionArgs=()
 typeset -a distributionBaseDateArg=()
 typeset -a distributionReversedArg=()
+typeset -a distributionMinArg=(--min 0)
 typeset -a gitArgs=()
 typeset -a sourceLogCommand=(git log --pretty=tformat:'%ai')
 while [ $# -ne 0 ]
@@ -84,8 +85,9 @@ do
 	--@(no-footer|final-footer-only|footer-only-on-change|no-splitting|weekly|force-legends|no-start-date|no-end-date|no-day-zoom|no-color|color=*))
 			distributionArgs+=("$1"); shift;;
 	-[w])           distributionArgs+=("$1" "$2"); shift; shift;;
-	--@(footer-every|graph-legend|footer-legend|as|over|color|width|days-per-slot|slots-per-day|min|max|scale))
+	--@(footer-every|graph-legend|footer-legend|as|over|color|width|days-per-slot|slots-per-day|max|scale))
 			distributionArgs+=("$1" "$2"); shift; shift;;
+	--min)		distributionMinArg=("$1" "$2"); shift; shift;;
 	--base-date)	distributionBaseDateArg=("$1" "$2"); shift; shift;;
 	--no-today-base-date)
 			distributionBaseDateArg=(); shift;;
@@ -149,7 +151,7 @@ printGraphFromInput()
 
 printGraph()
 {
-    $distributionCommand "${distributionBaseDateArg[@]}" "${distributionReversedArg[@]}" "${distributionArgs[@]}"
+    $distributionCommand "${distributionBaseDateArg[@]}" "${distributionReversedArg[@]}" "${distributionMinArg[@]}" "${distributionArgs[@]}"
 }
 
 $action

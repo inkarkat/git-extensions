@@ -9,7 +9,7 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[<commit-arguments> ...] [--] [<path> ...] [-?|-h|--help]'
 }
 typeset -a gitCommitArgs=()
-typeset -a mergeMessageArgs=()
+typeset -a commitMessageArgs=()
 mergeEditMessageArg=
 unset paths
 while [ $# -ne 0 ]
@@ -20,9 +20,9 @@ do
 			shift;;
 	--color)	shift; shift;;
 	--message|-m|--file|-F|--reedit-message|--reuse-message|-c|-C)
-			mergeMessageArgs+=("$1" "${2?}"); shift; shift;;
+			commitMessageArgs+=("$1" "${2?}"); shift; shift;;
 	--reedit-message=*|--reuse-message=*|--amend)
-			mergeMessageArgs+=("$1"); shift;;
+			commitMessageArgs+=("$1"); shift;;
 	--edit|-e|--no-edit)
 			mergeEditMessageArg="$1"; shift;;
 	--)		gitCommitArgs+=("$1"); shift; typeset -a paths=("$@"); break;;
@@ -68,11 +68,11 @@ if [ ! "$isAlreadyAdded" ] && git-staged --quiet; then
     trap restoreIndex EXIT
 fi
 
-[ -z "$mergeEditMessageArg" -a ${#mergeMessageArgs[@]} -eq 0 ] && mergeEditMessageArg='--edit'	# Do an interactive edit if nothing has been specified and no message is passed.
-if [ ${#mergeMessageArgs[@]} -eq 0 ]; then
+[ -z "$mergeEditMessageArg" -a ${#commitMessageArgs[@]} -eq 0 ] && mergeEditMessageArg='--edit'	# Do an interactive edit if nothing has been specified and no message is passed.
+if [ ${#commitMessageArgs[@]} -eq 0 ]; then
     # Synthesize the default merge message if no message [file] given.
-    mergeMessageArgs=(--message "$(printf '%s\n' "${untrackedFilespecs[@]}" | linesToArg basename | uniqueStable | joinBy --prefix 'Add ' --truncate-after 7 - ', ')")
+    commitMessageArgs=(--message "$(printf '%s\n' "${untrackedFilespecs[@]}" | linesToArg basename | uniqueStable | joinBy --prefix 'Add ' --truncate-after 7 - ', ')")
 fi
 
 [ "$isAlreadyAdded" ] || git add "${untrackedFilespecs[@]}" \
-    && git-wrapper commit $mergeEditMessageArg "${mergeMessageArgs[@]}"  "${gitCommitArgs[@]}"
+    && git-wrapper commit $mergeEditMessageArg "${commitMessageArgs[@]}"  "${gitCommitArgs[@]}"

@@ -101,6 +101,17 @@ HELPTEXT
     "$GIT_DOEXTENSIONS_WRAPPEE" --help 2>&1 | sed -e "${splitPattern}p" -e "1,${splitPattern}d"
 }
 
+logsDistributionExtension()
+{
+    # Supply any arguments both to the git-logdistribution that gets iterated over
+    # (it will pick the log options and ignore the distribution ones), and to the
+    # git-logdistribution that accumulates and graphs the data (it will pick the
+    # distribution options and ignore the log options).
+    printf -v quotedLogDistributionArgs '%q ' --log-only "$@"; quotedLogDistributionArgs="${quotedLogDistributionArgs% }"
+    wcdoArgs+=(--no-header --skip-files --no-git-color --command "$logDistributionCommand $quotedLogDistributionArgs")
+    accumulationCommand=(git-logdistribution --stdin "$@")
+}
+
 typeset -a wcdoArgs=()
 typeset -a wcdoCommandArgs=()
 let dashdashCnt=0
@@ -109,6 +120,7 @@ typeset -a args=()
 typeset -a accumulationCommand=()
 isSameBranch=
 branch=
+
 parseCommand()
 {
     while [ $# -ne 0 ]
@@ -237,15 +249,17 @@ parseCommand()
 		# be used.
 		logDistributionCommand="git ${1%logs-distribution}logdistribution"
 		shift
+		logsDistributionExtension "$@"
+		;;
+	    logs-distribution*)
+		# Synthesized new command; don't override "logdistribution" as the
+		# user may want to execute that separately on each repo, too.
 
-		# Supply any arguments both to the git-logdistribution that gets
-		# iterated over (it will pick the log options and ignore the
-		# distribution ones), and to the git-logdistribution that
-		# accumulates and graphs the data (it will pick the distribution
-		# options and ignore the log options).
-		printf -v quotedLogDistributionArgs '%q ' --log-only "$@"; quotedLogDistributionArgs="${quotedLogDistributionArgs% }"
-		wcdoArgs+=(--no-header --skip-files --no-git-color --command "$logDistributionCommand $quotedLogDistributionArgs")
-		accumulationCommand=(git-logdistribution --stdin "$@")
+		# Translate e.g. logs-distributionmine to "git logdistributionmine".
+		# This way, all filters supplied by my various variants can be used.
+		logDistributionCommand="git logdistribution${1#logs-distribution}"
+		shift
+		logsDistributionExtension "$@"
 		;;
 	    untracked-sh)
 		# Synthesized new command.

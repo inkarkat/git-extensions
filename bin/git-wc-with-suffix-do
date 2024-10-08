@@ -125,6 +125,8 @@ do
     wcWithSuffixes+=("$dir")
 done
 
+dashdashArgs=("${wcWithSuffixes[@]}" --)    # executeCommand() takes dashdashArgs as the working copies.
 GIT_WCDO_STORE_SUBCOMMAND='wc-with-suffix' \
 GIT_WCDO_STORE_SUBJECT="${GIT_WCDO_STORE_SUBJECT-$(pathAsFilename --as-is --encode -- "${wcWithSuffixes[0]}")-${#wcWithSuffixes[@]}}" \
-    exec git-wcdo-core "${wcdoCommandArgs[@]}" "${wcdoArgs[@]}" "${wcWithSuffixes[@]}" -- "${args[@]}"
+GIT_DOEXTENSIONS_WRAPPEE=git-wcdo-core \
+    executeCommand  # Do not invoke git-wcdo-core directly, so that a potential accumulationCommand is applied as well.

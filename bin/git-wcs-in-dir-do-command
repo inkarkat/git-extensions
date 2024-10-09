@@ -16,7 +16,9 @@ printUsage()
     git-wcs-in-dir-do --help 2>&1 | sed \
 	-e "1s#^.*\$#Execute \"git SIMPLECOMMAND\" and/or COMMANDLINE inside ${what:=CONFIGURED SUBJECTS} that are under Git source control. Considers a ${wrapper:-WRAPPER}-SIMPLECOMMAND wrapper.\\nLists all working copy's dirspecs if no command(s) are passed.${literalAdditionalHelp:+\\n}${literalAdditionalHelp//#/\\#}#" \
 	-e '2b removeFirstParagraphLoop' \
-	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ ]\+ \)*$git-wcs-in-dir-do /\1\2'"${wrapper:-$(basename "$1")}${additions:+ }$additions / }" \
+	-e "${GIT_WCSINDIRDOCOMMAND_ADDITIONAL_USAGE:+/^ *--no-pager/i\
+}${GIT_WCSINDIRDOCOMMAND_ADDITIONAL_USAGE:+\\}${GIT_WCSINDIRDOCOMMAND_ADDITIONAL_USAGE//$'\n'/$'\\\n'}" \
+	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ ]\+ \)*'"${GIT_DOEXTENSIONS_WRAPPER:-${GIT_DOEXTENSIONS_WRAPPEE:-git-wcs-in-dir-do}} /\\1\\2${wrapper:-$(basename "$1")}${additions:+ }${additions}${GIT_WCSINDIRDOCOMMAND_ADDITIONAL_ARGS:+ }${GIT_WCSINDIRDOCOMMAND_ADDITIONAL_ARGS} / }" \
 	-e b -e :removeFirstParagraphLoop -e '{ /\(^\|\n\)$/{ s/^\(.*\n\)\?//; b; }; N; b removeFirstParagraphLoop }'
 }
 case "$1" in

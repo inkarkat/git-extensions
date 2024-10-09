@@ -1,0 +1,41 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Do a quick commit with a short MESSAGE and ${GIT_WIPCOMMIT_QUICK_KEYWORD} keyword.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '-m|--message=MESSAGE [<commit-args> ...] [--] [<file>...] [-?|-h|--help]'
+    echo
+    cat <<HELPTEXT
+Do an incomplete commit with synthesized message and ${GIT_WIPCOMMIT_INCOMPLETE_KEYWORD} keyword (that
+should be reworded, rebased, or squashed before the merge).
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<commit-args> ...] [--] [<file>...] [-?|-h|--help]'
+}
+
+: ${GIT_WIPCOMMIT_INCOMPLETE_KEYWORD=FIXME:}
+: ${GIT_WIPCOMMIT_QUICK_KEYWORD=WIP:}
+
+keyword="$GIT_WIPCOMMIT_INCOMPLETE_KEYWORD"
+message=
+typeset -a commitArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--message|-m)	shift; message="${1:?}"; shift; keyword="$GIT_WIPCOMMIT_QUICK_KEYWORD";;
+	--message=*)	message="${1#--message=}"; shift; keyword="$GIT_WIPCOMMIT_QUICK_KEYWORD";;
+	--)		commitArgs+=("$1"); shift; break;;
+	*)		commitArgs+=("$1"); shift;;
+    esac
+done
+
+synthesizeDefaultMessage()
+{
+    printf 'WIP on %s' "$(git log --max-count 1 --pretty=format:'%h %s')"
+}
+
+exec git-wrapper commit --message "${keyword} ${message:-$(synthesizeDefaultMessage)}" "${commitArgs[@]}" "$@"

@@ -1,0 +1,49 @@
+#!/bin/bash
+set -o pipefail
+shopt -qs extglob
+
+printUsage()
+{
+    cat <<HELPTEXT
+Determine the maximum number of commits in a day in the given revision range.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+    echo
+    cat <<HELPTEXT
+Test whether the maximum number of commits in a day is greater / smaller than N.
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '-g|--greater|-s|--smaller|-lt|-le|-eq|-ne|-ge|-gt N [<log-options>] [<revision range>] [[--] <path>...]'
+}
+typeset -a compareArgs=()
+typeset -a logArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+	--greater|-g|--smaller|-s|-lt|-le|-eq|-ne|-ge|-gt)
+			compareArgs=("$1" "${2:?}"); shift; shift;;
+
+	# Ignore options that influence commit formatting (we need just the
+	# commit indicator), and diff options.
+	-+([cmtpuz]))	shift;;
+	--@(abbrev|abbrev-commit|no-abbrev-commit|oneline|no-notes|show-signature|relative-date|parents|children|left-right|graph|cc|patch|no-patch|raw|patch-with-raw|numstat|shortstat|summary|patch-with-stat|name-only|name-status|no-color))	shift;;
+	-[U])	shift; shift;;
+	--@(abbrev|pretty|format|notes|date|unified|stat|dirstat|submodule|color|word-diff|word-diff-regex|color-words)=*)	shift;;
+	--@(pretty|format|notes|date|unified|stat|dirstat|submodule|color|word-diff|word-diff-regex|color-words))	shift; shift;;
+	--)		logArgs+=("$1"); shift; break;;
+	*)		logArgs+=("$1"); shift;;
+    esac
+done
+
+# Note: This doesn't consider "late-night" commits done after midnight (until
+# 03:00) to be associated with the previous day.
+git log --pretty=tformat:%as "${logArgs[@]}" --no-patch "$@" \
+    | sort \
+    | uniq --count \
+    | field 1 \
+    | eval 'minmax --max' \
+    "${compareArgs:+| test \$(</dev/stdin)}" '"${compareArgs[@]}"'

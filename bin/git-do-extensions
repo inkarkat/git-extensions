@@ -103,6 +103,7 @@ HELPTEXT
 
 logsDistributionExtension()
 {
+    local logDistributionCommand="${1:?}"; shift
     # Supply any arguments both to the git-logdistribution that gets iterated over
     # (it will pick the log options and ignore the distribution ones), and to the
     # git-logdistribution that accumulates and graphs the data (it will pick the
@@ -241,25 +242,22 @@ parseCommand()
 		args=("$@")
 		;;
 	    *logs-distribution)
-		# Synthesized new command; don't override "logdistribution" as the
-		# user may want to execute that separately on each repo, too.
+		# Synthesized new command; don't override "logdistribution" as the user may want
+		# to execute that separately on each repo, too.
 
 		# Translate e.g. tdlogs-distribution to "git tdlogdistribution".
-		# This way, all ranges supplied by my various br...log variants can
-		# be used.
-		logDistributionCommand="git ${1%logs-distribution}logdistribution"
-		shift
-		logsDistributionExtension "$@"
+		# This way, all ranges supplied by my various br...log variants can be used.
+		logDistributionCommand="git ${1%logs-distribution}logdistribution"; shift
+		logsDistributionExtension "$logDistributionCommand" "$@"
 		;;
 	    logs-distribution*)
-		# Synthesized new command; don't override "logdistribution" as the
-		# user may want to execute that separately on each repo, too.
+		# Synthesized new command; don't override "logdistribution" as the user may want
+		# to execute that separately on each repo, too.
 
 		# Translate e.g. logs-distributionmine to "git logdistributionmine".
 		# This way, all filters supplied by my various variants can be used.
-		logDistributionCommand="git logdistribution${1#logs-distribution}"
-		shift
-		logsDistributionExtension "$@"
+		logDistributionCommand="git logdistribution${1#logs-distribution}"; shift
+		logsDistributionExtension "$logDistributionCommand" "$@"
 		;;
 	    untracked-sh)
 		# Synthesized new command.

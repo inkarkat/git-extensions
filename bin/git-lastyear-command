@@ -8,21 +8,23 @@ printUsage()
 {
     cat <<HELPTEXT
 Execute GIT-COMMAND with a commit range that covers the entire fully passed
-(starting with month $GIT_LASTYEAR_COMMAND_START_MONTH) last year / previous N year / year YEAR
+(starting with month $GIT_LASTYEAR_COMMAND_START_MONTH) last [M] year[s] / previous N'th year[s] / year YEAR
+[and M previous]
 - appended
 - replacing LASTYEAR argument(s) anywhere
 - replacing LASTYEAR in the following GIT-COMMAND and -(N-1) arguments
 - replacing LASTYEAR in the following +(N) arguments and appending those
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-o|--offset N|--year YEAR] ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[(-o|--offset N|--year YEAR) [-n|--years M]] ... [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [...]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... LASTYEAR ... [-o|--offset N|--year YEAR] ...]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [... [-o|--offset N|--year YEAR] ...]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [... [-o|--offset N|--year YEAR] ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... LASTYEAR ... [(-o|--offset N|--year YEAR) [-n|--years M]] ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [... [(-o|--offset N|--year YEAR) [-n|--years M]] ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [... [(-o|--offset N|--year YEAR) [-n|--years M]] ...]'
 }
 
 year=
+count=1
 typeset -a args=()
 while [ $# -ne 0 ]
 do
@@ -30,6 +32,7 @@ do
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--offset|-o)	shift; year="$(($(date +%Y) - ${1:?}))"; shift;;
 	--year)		shift; year="${1:?}"; shift;;
+	--years|-n)	shift; count="${1:?}"; shift;;
 	--)		break;;
 	*)		args+=("$1"); shift;;
     esac
@@ -42,9 +45,8 @@ if [ $# -eq 0 ]; then
 fi
 
 yearOffset=-1; [ "$(date +%m)" -ge $GIT_LASTYEAR_COMMAND_START_MONTH ] && yearOffset=0
-
-endYear=$((year + yearOffset))
-startYear=$((endYear - 1))
+endYear=$((year + yearOffset + 1))
+startYear=$((endYear - count))
 
 typeset -a lastYearArgs=(
     --${GIT_LASTYEAR_OPTION_PREFIX}since="${startYear}-${GIT_LASTYEAR_COMMAND_START_MONTH}-01"

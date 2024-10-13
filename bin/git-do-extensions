@@ -150,7 +150,7 @@ logsDistributionExtension()
 typeset -a wcdoArgs=()
 typeset -a wcdoCommandArgs=()
 let dashdashCnt=0
-typeset -a dashdashArgs=()
+typeset -a dashdashArgs=()  # Including any -- (as executeCommand() needs to pass authentic arguments along).
 typeset -a unknownOptions=()   # Non-wcdo options after -- ARGS ... --; these must be handled by the client; executeCommand() ignores them.
 typeset -a args=()
 typeset -a accumulationCommand=()
@@ -206,9 +206,11 @@ parseCommand()
 				case $dashdashCnt in
 				    1)	if [ ${#dashdashArgs[@]} -eq 0 ]; then
 					    # -- ARGS
+					    dashdashArgs+=("$1"); shift
 					    shift
 					else
 					    # ARGS ... --
+					    dashdashArgs+=("$1"); shift
 					    shift
 					    case "$1" in
 						--) shift; break;;  # XXX: ARGS ... -- --
@@ -219,6 +221,7 @@ parseCommand()
 					fi
 					;;
 				    2)	# -- ARGS ... --
+					dashdashArgs+=("$1"); shift
 					shift
 					case "$1" in
 					    --) shift; break;;  # XXX: ARGS ... -- --

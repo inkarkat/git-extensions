@@ -33,6 +33,12 @@ Supports the following special commands and options:
 			    $GIT_DOEXTENSIONS_WHAT that fall into
 			    the logged range. * stands for any range variant
 			    (td, year, ...) or filter (mine, team, ...).
+    *countsleaderboard* [<log-options>] [<revision range>] [[--] <path>...]
+			    List $GIT_DOEXTENSIONS_WHAT
+			    ordered by the amount of commits in the logged range
+			    (omitting those without any commits).
+			    * stands for any range variant (td, year, ...) or
+			    filter (mine, team, ...).
     *logs-distribution* [LOGDISTRIBUTION-OPTIONS ...] [<log-options>] [<revision range>] [[--] <path>...]
 			    Print the distribution of the number of commits in
 			    $GIT_DOEXTENSIONS_WHAT that fall into
@@ -112,6 +118,21 @@ countsExtension()
     local quotedCountArgs=; [ $# -eq 0 ] || printf -v quotedCountArgs ' %q' "$@"
     wcdoArgs+=(--no-header --skip-files --no-git-color --command "${countCommand}${quotedCountArgs}")
     accumulationCommand=(sumField 1)
+}
+
+countsleaderboardExtension()
+{
+    local countCommand="${1:?}"; shift
+    local quotedCountArgs=; printf -v quotedCountArgs ' %q' --skip-empty "$@"
+    export HEADER_COLON=$'\t' HEADER_NEWLINE='' HEADER_SEPARATOR='' # Tab-separated single line header format for postprocessing.
+    wcdoArgs+=(--skip-files --no-git-color --command "${countCommand}${quotedCountArgs}")
+    accumulationCommand=(accumulateLeaderboard)
+}
+
+accumulateLeaderboard()
+{
+    sort --field-separator $'\t' --key 2,2 --numeric-sort --reverse \
+	| column -s $'\t' -t
 }
 
 logsDistributionExtension()
@@ -253,6 +274,22 @@ parseCommand()
 		shift
 		wcdoArgs+=(--no-header --skip-files --foreign-command 'pwd' --command :)
 		args=("$@")
+		;;
+	    *countsleaderboard)
+		# Synthesized new command.
+
+		# Translate e.g. tdcountsleaderboard to "git tdcount".
+		# This way, all ranges supplied by my various br...log variants can be used.
+		countCommand="git ${1%countsleaderboard}count"; shift
+		countsleaderboardExtension "$countCommand" "$@"
+		;;
+	    countsleaderboard*)
+		# Synthesized new command.
+
+		# Translate e.g. countsleaderboardmine to "git countmine".
+		# This way, all filters supplied by my various variants can be used.
+		countCommand="git count${1#countsleaderboard}"; shift
+		countsleaderboardExtension "$countCommand" "$@"
 		;;
 	    *counts)
 		# Synthesized new command; don't override "count" as the user may want to count

@@ -33,7 +33,7 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-	--offset|-o)	shift; year="$(($(date +%Y) - ${1:?}))"; shift;;
+	--offset|-o)	shift; year="$(($(date +%Y) - ${1:?} - 1))"; shift;;
 	--year)		shift; year="${1:?}"; shift;;
 	--years|-n)	shift; count="${1:?}"; shift;;
 	--no-range)	shift; isRange=;;
@@ -45,13 +45,16 @@ do
     esac
 done
 set -- "${args[@]}" "$@"
-: ${year:=$(date +%Y)}
 if [ $# -eq 0 ]; then
     echo >&2 'ERROR: No GIT-COMMAND passed.'
     exit 2
 fi
 
-yearOffset=-1; [ "$(date +%m)" -ge $GIT_LASTYEAR_COMMAND_START_MONTH ] && yearOffset=0
+if [ -z "$year" ]; then
+    year=$(date +%Y)
+    yearOffset=-2; [ "$(date +%m)" -ge $GIT_LASTYEAR_COMMAND_START_MONTH ] && yearOffset=-1
+fi
+
 endYear=$((year + yearOffset + 1))
 startYear=$((endYear - count))
 

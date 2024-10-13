@@ -16,13 +16,16 @@ Execute GIT-COMMAND with a commit range that covers the entire fully passed
 - replacing LASTYEAR in the following +(N) arguments and appending those
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[(-o|--offset N|--year YEAR) [-n|--years M]] ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-range|--range|--with-range RANGE] [--one-more] [(-o|--offset N|--year YEAR) [-n|--years M]] ... [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... LASTYEAR ... [(-o|--offset N|--year YEAR) [-n|--years M]] ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [... [(-o|--offset N|--year YEAR) [-n|--years M]] ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [... [(-o|--offset N|--year YEAR) [-n|--years M]] ...]'
 }
 
+unset isRange
+isShowOneMore=
+range='..'
 year=
 count=1
 typeset -a args=()
@@ -33,6 +36,10 @@ do
 	--offset|-o)	shift; year="$(($(date +%Y) - ${1:?}))"; shift;;
 	--year)		shift; year="${1:?}"; shift;;
 	--years|-n)	shift; count="${1:?}"; shift;;
+	--no-range)	shift; isRange=;;
+	--range)	shift; isRange=t;;
+	--with-range)	shift; isRange=t; range="${1:?}"; shift;;
+	--one-more)	shift; isShowOneMore=t;;
 	--)		break;;
 	*)		args+=("$1"); shift;;
     esac
@@ -48,10 +55,22 @@ yearOffset=-1; [ "$(date +%m)" -ge $GIT_LASTYEAR_COMMAND_START_MONTH ] && yearOf
 endYear=$((year + yearOffset + 1))
 startYear=$((endYear - count))
 
-typeset -a lastYearArgs=(
-    --${GIT_LASTYEAR_OPTION_PREFIX}since="${startYear}-${GIT_LASTYEAR_COMMAND_START_MONTH}-01"
-    --${GIT_LASTYEAR_OPTION_PREFIX}until="${endYear}-${GIT_LASTYEAR_COMMAND_START_MONTH}-01"
-)
+if [ -z "${isRange+t}" ] && [ ! "$isShowOneMore" ]; then
+    # For commands that don't require a range and don't require a single commit
+    # (i.e. the log variants), we can directly inject the --since argument.
+    typeset -a lastYearArgs=(
+	--${GIT_LASTYEAR_OPTION_PREFIX}since="${startYear}-${GIT_LASTYEAR_COMMAND_START_MONTH}-01"
+	--${GIT_LASTYEAR_OPTION_PREFIX}until="${endYear}-${GIT_LASTYEAR_COMMAND_START_MONTH}-01"
+    )
+else
+    readarray -t revisions < <(git lh --since "${startYear}-${GIT_LASTYEAR_COMMAND_START_MONTH}-01" --until="${endYear}-${GIT_LASTYEAR_COMMAND_START_MONTH}-01")
+    [ ${#revisions[@]} -gt 0 ] || exit 1
+    if [ "$isRange" ]; then
+	lastYearArgs=("${revisions[-1]}${isShowOneMore:+^}^${range}${revisions[0]}")
+    else
+	lastYearArgs=("${revisions[-1]}${isShowOneMore:+^}" "${revisions[0]}")
+    fi
+fi
 [ -n "$GIT_LASTYEAR_DESCRIPTION_OPTION" ] \
     && lastYearArgs+=("$GIT_LASTYEAR_DESCRIPTION_OPTION" "FY-${startYear}")
 

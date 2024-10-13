@@ -50,11 +50,13 @@ isQuiet=
 isSkipSymlinks=
 compareOp=-d
 typeset -a dirspecs=()
-parseDashdashAndUnknownArgs()
+parseCustomInto()
 {
+    local intoVarName="${1?}"; shift
     # git-do-extensions doesn't understand our custom options, so they are
-    # intermingled with the dirspecs; we need to separate them on our own.
-    local isDoneDirspecs=
+    # intermingled with the dirspecs (if passed before them) or in the unknown
+    # options (if after the dashdash arguments); we need to separate them on our
+    # own.
     while [ $# -ne 0 ]
     do
 	case "$1" in
@@ -63,10 +65,12 @@ parseDashdashAndUnknownArgs()
 			shift; isSkipSymlinks=t;;
 	    --worktrees)
 			shift; compareOp=-e;;
-	    --)		shift; [ ${#dirspecs[@]} -eq 0 ] || isDoneDirspecs=t;;
-	    *)		[ "$isDoneDirspecs" ] \
-			    && args+=("$1") \
-			    || dirspecs+=("$1")
+	    *)		if [ -n "$intoVarName" ]; then
+			    eval "${intoVarName}+=(\"\$1\")"
+			else
+			    printf >&2 'ERROR: Unknown option: "%s"!\n' "$1"
+			    exit 2
+			fi
 			shift
 			;;
 	esac
@@ -83,7 +87,8 @@ source git-do-extensions || exit 3
 
 parseCommand "$@"
 parseWcdo "${wcdoArgs[@]}"
-parseDashdashAndUnknownArgs "${dashdashArgs[@]}" "${unknownArgs[@]}"
+parseCustomInto dirspecs "${dashdashArgs[@]}"
+parseCustomInto '' "${unknownOptions[@]}"
 
 case ",${DEBUG:-}," in
     *,git-wcs-in-dir-do,*)
@@ -92,7 +97,7 @@ case ",${DEBUG:-}," in
     *,git-wcs-in-dir-do:verbose,*)
 	    dump-args -a wcdoCommandArgs -- "${wcdoCommandArgs[@]}"
 	    dump-args -a wcdoArgs -- "${wcdoArgs[@]}"
-	    dump-args -a dashdashArgs -- "${dashdashArgs[@]}"
+	    dump-args -a unknownOptions -- "${unknownOptions[@]}"
 	    dump-args -a dirspecs -- "${dirspecs[@]}"
 	    dump-args -a args -- "${args[@]}"
 	;;

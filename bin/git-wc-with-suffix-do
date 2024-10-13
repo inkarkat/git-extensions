@@ -37,11 +37,12 @@ isWorktrees=
 isQuiet=
 isIgnoreNonexisting=
 typeset -a wcs=()
-parseDashdash()
+parseCustomInto()
 {
+    local intoVarName="${1?}"; shift
     # git-do-extensions doesn't understand our custom options, so they are
-    # intermingled with the wcs; we need to separate them on our own.
-    local isDoneWorkingCopies=
+    # intermingled with the wcs (if passed before them) or in the unknown arguments
+    # (if after the dashdash arguments); we need to separate them on our own.
     while [ $# -ne 0 ]
     do
 	case "$1" in
@@ -51,10 +52,12 @@ parseDashdash()
 	    --quiet|-q)	shift; isQuiet=t;;
 	    --ignore-nonexisting)
 			shift; isIgnoreNonexisting=t;;
-	    --)		shift; [ ${#wcs[@]} -eq 0 ] || isDoneWorkingCopies=t;;
-	    *)		[ "$isDoneWorkingCopies" ] \
-			    && args+=("$1") \
-			    || wcs+=("$1")
+	    *)		if [ -n "$intoVarName" ]; then
+			    eval "${intoVarName}+=(\"\$1\")"
+			else
+			    printf >&2 'ERROR: Unknown option: "%s"!\n' "$1"
+			    exit 2
+			fi
 			shift
 			;;
 	esac
@@ -74,7 +77,8 @@ if [ "${wcdoArgs[*]:(-1)}" = -- ]; then
     # Remove a trailing --; we'll separately delimit any SIMPLECOMMAND in "${args[@]}".
     wcdoArgs=("${wcdoArgs[@]:(-1)}")
 fi
-parseDashdash "${dashdashArgs[@]}"
+parseCustomInto wcs "${dashdashArgs[@]}"
+parseCustomInto '' "${unknownOptions[@]}"
 
 case ",${DEBUG:-}," in
     *,git-wc-with-suffix-do,*)
@@ -83,7 +87,6 @@ case ",${DEBUG:-}," in
     *,git-wc-with-suffix-do:verbose,*)
 	    dump-args -a wcdoCommandArgs -- "${wcdoCommandArgs[@]}"
 	    dump-args -a wcdoArgs -- "${wcdoArgs[@]}"
-	    dump-args -a dashdashArgs -- "${dashdashArgs[@]}"
 	    dump-args -a wcs -- "${wcs[@]}"
 	    dump-args -a args -- "${args[@]}"
 	;;

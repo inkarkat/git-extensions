@@ -7,28 +7,40 @@
 printUsage()
 {
     cat <<HELPTEXT
-Execute GIT-COMMAND with a commit range that covers the entire fully passed last
-year (starting with month $GIT_LASTYEAR_COMMAND_START_MONTH)
+Execute GIT-COMMAND with a commit range that covers the entire fully passed
+(starting with month $GIT_LASTYEAR_COMMAND_START_MONTH) last year / previous N year / year YEAR
 - appended
 - replacing LASTYEAR argument(s) anywhere
 - replacing LASTYEAR in the following GIT-COMMAND and -(N-1) arguments
 - replacing LASTYEAR in the following +(N) arguments and appending those
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND [...] [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '--keep-position GIT-COMMAND [... LASTYEAR ...]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-o|--offset N|--year YEAR] ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... LASTYEAR ... [-o|--offset N|--year YEAR] ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [... [-o|--offset N|--year YEAR] ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [... [-o|--offset N|--year YEAR] ...]'
 }
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-esac
+
+year=
+typeset -a args=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--offset|-o)	shift; year="$(($(date +%Y) - ${1:?}))"; shift;;
+	--year)		shift; year="${1:?}"; shift;;
+	--)		break;;
+	*)		args+=("$1"); shift;;
+    esac
+done
+set -- "${args[@]}" "$@"
+: ${year:=$(date +%Y)}
 if [ $# -eq 0 ]; then
     echo >&2 'ERROR: No GIT-COMMAND passed.'
     exit 2
 fi
 
-year="$(date +%Y)"
 yearOffset=-1; [ "$(date +%m)" -ge $GIT_LASTYEAR_COMMAND_START_MONTH ] && yearOffset=0
 
 endYear=$((year + yearOffset))

@@ -151,6 +151,7 @@ typeset -a wcdoArgs=()
 typeset -a wcdoCommandArgs=()
 let dashdashCnt=0
 typeset -a dashdashArgs=()
+typeset -a unknownArgs=()
 typeset -a args=()
 typeset -a accumulationCommand=()
 isSameBranch=
@@ -234,9 +235,11 @@ parseCommand()
 			    ;;
 	    *)		    if [ "$GIT_DOEXTENSIONS_DASHDASH_ARGS_BEFORE_SIMPLECOMMAND" ]; then
 				if [ $dashdashCnt -ge 2 ]; then
-				    break   # Already saw -- ARGS ... --
+				    # Already saw -- ARGS ... --
+				    unknownArgs+=("$1"); shift
+				else
+				    dashdashArgs+=("$1"); shift
 				fi
-				dashdashArgs+=("$1"); shift
 			    else
 				break
 			    fi

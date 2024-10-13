@@ -5,10 +5,10 @@ shopt -qs extglob
 printUsage()
 {
     cat <<HELPTEXT
-Count the amount of commits.
+Count the amount of commits. Omit a zero count with --skip-empty.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--skip-empty] [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
     echo
     cat <<HELPTEXT
 Test whether the number of commits is greater / smaller than N.
@@ -24,6 +24,7 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
+	--skip-empty)	shift; counter=(positiveCounter);;
 	--greater|-g|--smaller|-s|-lt|-le|-eq|-ne|-ge|-gt)
 			counter=(count "$1" "$2"); shift; shift;;
 
@@ -39,5 +40,11 @@ do
     esac
 done
 
-git log --pretty=tformat:x "${logArgs[@]}" --no-patch "$@" \
+positiveCounter()
+{
+    count=$(wc --lines)
+    [ "$count" -eq 0 ] || printf '%s\n' $count
+}
+
+git ${GIT_COUNT_LOG_COMMAND:-log} --pretty=tformat:x --no-patch "${logArgs[@]}" "$@" \
     | "${counter[@]}"

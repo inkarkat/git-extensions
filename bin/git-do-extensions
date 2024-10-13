@@ -28,11 +28,22 @@ printExtendedUsage()
 Supports the following special commands and options:
     repo-missing	    Show those $GIT_DOEXTENSIONS_WHAT that are
 			    not yet under Git source control.
-    *logs-distribution [LOGDISTRIBUTION-OPTIONS ...] [<log-options>] [<revision range>] [[--] <path>...]
+    *counts* [<log-options>] [<revision range>] [[--] <path>...]
+			    Count and add up the amount of commits in
+			    $GIT_DOEXTENSIONS_WHAT that fall into
+			    the logged range. * stands for any range variant
+			    (td, year, ...) or filter (mine, team, ...).
+    *countsleaderboard* [<log-options>] [<revision range>] [[--] <path>...]
+			    List $GIT_DOEXTENSIONS_WHAT
+			    ordered by the amount of commits in the logged range
+			    (omitting those without any commits).
+			    * stands for any range variant (td, year, ...) or
+			    filter (mine, team, ...).
+    *logs-distribution* [LOGDISTRIBUTION-OPTIONS ...] [<log-options>] [<revision range>] [[--] <path>...]
 			    Print the distribution of the number of commits in
 			    $GIT_DOEXTENSIONS_WHAT that fall into
-			    the logged range. * stands for any logdistribution
-			    range variant (td, year, ...).
+			    the logged range. * stands for any range variant
+			    (td, year, ...) or filter (mine, team, ...).
     untracked-sh [COMMAND ...]
 			    Open an interactive shell / execute COMMAND in those
 			    $GIT_DOEXTENSIONS_WHAT that have new files
@@ -101,8 +112,32 @@ HELPTEXT
     "$GIT_DOEXTENSIONS_WRAPPEE" --help 2>&1 | sed -e "${splitPattern}p" -e "1,${splitPattern}d"
 }
 
+countsExtension()
+{
+    local countCommand="${1:?}"; shift
+    local quotedCountArgs=; [ $# -eq 0 ] || printf -v quotedCountArgs ' %q' "$@"
+    wcdoArgs+=(--no-header --skip-files --no-git-color --command "${countCommand}${quotedCountArgs}")
+    accumulationCommand=(sumField 1)
+}
+
+countsleaderboardExtension()
+{
+    local countCommand="${1:?}"; shift
+    local quotedCountArgs=; printf -v quotedCountArgs ' %q' --skip-empty "$@"
+    export HEADER_COLON=$'\t' HEADER_NEWLINE='' HEADER_SEPARATOR='' # Tab-separated single line header format for postprocessing.
+    wcdoArgs+=(--skip-files --no-git-color --command "${countCommand}${quotedCountArgs}")
+    accumulationCommand=(accumulateLeaderboard)
+}
+
+accumulateLeaderboard()
+{
+    sort --field-separator $'\t' --key 2,2 --numeric-sort --reverse \
+	| column -s $'\t' -t
+}
+
 logsDistributionExtension()
 {
+    local logDistributionCommand="${1:?}"; shift
     # Supply any arguments both to the git-logdistribution that gets iterated over
     # (it will pick the log options and ignore the distribution ones), and to the
     # git-logdistribution that accumulates and graphs the data (it will pick the
@@ -240,26 +275,57 @@ parseCommand()
 		wcdoArgs+=(--no-header --skip-files --foreign-command 'pwd' --command :)
 		args=("$@")
 		;;
+	    *countsleaderboard)
+		# Synthesized new command.
+
+		# Translate e.g. tdcountsleaderboard to "git tdcount".
+		# This way, all ranges supplied by my various br...log variants can be used.
+		countCommand="git ${1%countsleaderboard}count"; shift
+		countsleaderboardExtension "$countCommand" "$@"
+		;;
+	    countsleaderboard*)
+		# Synthesized new command.
+
+		# Translate e.g. countsleaderboardmine to "git countmine".
+		# This way, all filters supplied by my various variants can be used.
+		countCommand="git count${1#countsleaderboard}"; shift
+		countsleaderboardExtension "$countCommand" "$@"
+		;;
+	    *counts)
+		# Synthesized new command; don't override "count" as the user may want to count
+		# separately each repo, too.
+
+		# Translate e.g. tdcounts to "git tdcount".
+		# This way, all ranges supplied by my various br...log variants can be used.
+		countCommand="git ${1%counts}count"; shift
+		countsExtension "$countCommand" "$@"
+		;;
+	    counts*)
+		# Synthesized new command; don't override "count" as the user may want to count
+		# separately each repo, too.
+
+		# Translate e.g. countsmine to "git countmine".
+		# This way, all filters supplied by my various variants can be used.
+		countCommand="git count${1#counts}"; shift
+		countsExtension "$countCommand" "$@"
+		;;
 	    *logs-distribution)
-		# Synthesized new command; don't override "logdistribution" as the
-		# user may want to execute that separately on each repo, too.
+		# Synthesized new command; don't override "logdistribution" as the user may want
+		# to execute that separately on each repo, too.
 
 		# Translate e.g. tdlogs-distribution to "git tdlogdistribution".
-		# This way, all ranges supplied by my various br...log variants can
-		# be used.
-		logDistributionCommand="git ${1%logs-distribution}logdistribution"
-		shift
-		logsDistributionExtension "$@"
+		# This way, all ranges supplied by my various br...log variants can be used.
+		logDistributionCommand="git ${1%logs-distribution}logdistribution"; shift
+		logsDistributionExtension "$logDistributionCommand" "$@"
 		;;
 	    logs-distribution*)
-		# Synthesized new command; don't override "logdistribution" as the
-		# user may want to execute that separately on each repo, too.
+		# Synthesized new command; don't override "logdistribution" as the user may want
+		# to execute that separately on each repo, too.
 
 		# Translate e.g. logs-distributionmine to "git logdistributionmine".
 		# This way, all filters supplied by my various variants can be used.
-		logDistributionCommand="git logdistribution${1#logs-distribution}"
-		shift
-		logsDistributionExtension "$@"
+		logDistributionCommand="git logdistribution${1#logs-distribution}"; shift
+		logsDistributionExtension "$logDistributionCommand" "$@"
 		;;
 	    untracked-sh)
 		# Synthesized new command.

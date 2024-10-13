@@ -129,6 +129,8 @@ if [ ${#wcs[@]} -eq 0 ]; then
     exit 1
 fi
 
+dashdashArgs=("${wcs[@]}" --)	# executeCommand() takes dashdashArgs as the working copies.
 GIT_WCDO_STORE_SUBCOMMAND='wcs-in-dir' \
 GIT_WCDO_STORE_SUBJECT="${GIT_WCDO_STORE_SUBJECT-$(pathAsFilename --as-is --encode -- "${dirspecs[0]}")-${#dirspecs[@]}}" \
-    exec git-wcdo-core "${wcdoCommandArgs[@]}" "${wcdoArgs[@]}" "${wcs[@]}" -- "${args[@]}"
+GIT_DOEXTENSIONS_WRAPPEE=git-wcdo-core \
+    executeCommand  # Do not invoke git-wcdo-core directly, so that a potential accumulationCommand is applied as well.

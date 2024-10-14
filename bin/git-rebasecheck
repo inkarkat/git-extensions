@@ -1,0 +1,81 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Check whether the commits that will be rebased reference other commits from that
+range via commit hashes in their commit messages. The history rewriting runs the
+risk of invalidating those references.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[REBASE-ARGS ...] [<upstream> [<branch>]] [-?|-h|--help]'
+}
+
+isAutosquash=
+isInteractive=
+typeset -a rebaseArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+	--autosquash)	rebaseArgs+=("$1"); shift; isAutosquash=t;;
+	--interactive|-i)
+			rebaseArgs+=("$1"); shift; isInteractive=t;;
+	--)		break;;
+	*)		rebaseArgs+=("$1"); shift;;
+    esac
+done
+
+[ "$isAutosquash" ] || [ "$isInteractive" ] || exit 0
+
+if [ ${#rebaseArgs[@]} -ge 2 ] && git rev-parse --verify --quiet "${rebaseArgs[-1]}" >/dev/null 2>&1 && git rev-parse --verify --quiet "${rebaseArgs[-2]}" >/dev/null 2>&1; then
+    # <upstream> <branch>
+    range="${rebaseArgs[-2]}..${rebaseArgs[-1]}"
+elif [ ${#rebaseArgs[@]} -ge 1 ] && git rev-parse --verify --quiet "${rebaseArgs[-1]}" >/dev/null 2>&1; then
+    # <upstream>
+    range="${rebaseArgs[-1]}..HEAD"
+else
+    exit 0
+fi
+
+typeset -A referencedCommits=()
+hashesExpr=
+hash=
+message=
+while IFS=$'\n' read -r line
+do
+    if [[ "$line" =~ ^[[:xdigit:]]+$ ]]; then
+	if [ -n "$message" ]; then
+	    referencedCommits["$hash"]="$message "
+	    hashesExpr+="${hashesExpr:+|}${hash}"
+	    message=''
+	fi
+	hash="${line:1}"
+    elif [ -n "$line" ]; then
+	message+=" $line"
+    fi
+done < <(git log --pretty=$'tformat:%h\n%B' "$range"; printf '00000000\n')
+
+typeset -A allReferencingCommits=()
+for hash in "${!referencedCommits[@]}"
+do
+    if [[ "${referencedCommits["$hash"]}" =~ [^[:alnum:]](${hashesExpr})[[:xdigit:]]*[^[:alnum:]] ]]; then
+	allReferencingCommits["$hash"]=t
+    fi
+done
+
+[ ${#allReferencingCommits[@]} -gt 0 ] || exit 0
+
+referencedCommitsPlural=s; [ ${#referencedCommits[@]} -eq 1 ] && referencedCommitsPlural=
+allReferencingCommitsPlural=s; [ ${#allReferencingCommits[@]} -eq 1 ] && allReferencingCommitsPlural=
+printf >&2 'Note: The following commit%s reference the commit%s that will be rebased:\n' "$allReferencingCommitsPlural" "$referencedCommitsPlural"
+git-lghighlightedcommits "${!allReferencingCommits[@]}" "$range"
+if [ "$isInteractive" ]; then
+    printf >&2 'Consider rewording those commits to update or remove the references, or cancel the rebase by aborting the editor.\n'
+    sleep 2 # Give the user a chance to read the message before the editor is invoked.
+else
+    userBinaryChoice --keep-prompt --question 'Really continue with the squashing rebase that potentially invalidates the references?' --yes-no
+fi

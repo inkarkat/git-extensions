@@ -161,6 +161,7 @@ parseCommand()
 {
     while [ $# -ne 0 ]
     do
+	case ",${DEBUG:-}," in *,git-do-extensions,*) printf >&2 '%sgit-do-extensions: Parsing %s\n' "$PS4" "$1";; esac
 	case "$1" in
 	    --help|-h|-\?)  shift; printExtendedUsage "$0"; exit 0;;
 
@@ -207,11 +208,9 @@ parseCommand()
 				    1)	if [ ${#dashdashArgs[@]} -eq 0 ]; then
 					    # -- ARGS
 					    dashdashArgs+=("$1"); shift
-					    shift
 					else
 					    # ARGS ... --
 					    dashdashArgs+=("$1"); shift
-					    shift
 					    case "$1" in
 						--) shift; break;;  # XXX: ARGS ... -- --
 						-*) ;;
@@ -222,7 +221,6 @@ parseCommand()
 					;;
 				    2)	# -- ARGS ... --
 					dashdashArgs+=("$1"); shift
-					shift
 					case "$1" in
 					    --) shift; break;;  # XXX: ARGS ... -- --
 					    -*) ;;
@@ -264,6 +262,7 @@ parseCommand()
 	fi
     fi
 
+    case ",${DEBUG:-}," in *,git-do-extensions,*) printf >&2 '%sgit-do-extensions: Additional args: ' "$PS4"; dump-args -- "$@";; esac
     if [ ${#wcdoCommandArgs[@]} -eq 0 -a $# -eq 0 ]; then
 	:
     elif [ "${1:0:1}" != '-' ]; then

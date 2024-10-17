@@ -219,7 +219,13 @@ joinSubmoduleLogs()
 {
     awk '
 /^Submodule / {
-    if (!match($0, /^Submodule ([^ ]+) ([[:xdigit:]]+)(\.\.\.?)([[:xdigit:]]+):$/, a)) {
+    if (match($0, /^Submodule ([^ ]+) ([[:xdigit:]]+)(\.\.\.?)([[:xdigit:]]+) \(new submodule\)$/, a)) {
+	# XXX: Range separator here is ..., but this is not a rebase.
+	submodule = a[1]
+	startRevision = a[2]
+	printJoinedSubmoduleLogs()
+	next
+    } else if (!match($0, /^Submodule ([^ ]+) ([[:xdigit:]]+)(\.\.\.?)([[:xdigit:]]+)( \([^)]+\):?$|:$)/, a)) {
 	print "ASSERT: Invalid submodule header: " $0 > "/dev/stderr"
 	exit(3)
     } else if (submodule != "" && submodule != a[1]) {

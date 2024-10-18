@@ -1,0 +1,128 @@
+#!/bin/bash
+
+: ${GIT_LASTMONTH_OPTION_PREFIX=}
+
+printUsage()
+{
+    cat <<HELPTEXT
+Execute GIT-COMMAND with a commit range that covers the entire fully passed last
+[M] month[s] / previous N'th month[s] / month MONTH [and M previous]
+- appended
+- replacing TIMESPAN argument(s) anywhere
+- replacing TIMESPAN in the following GIT-COMMAND and -(N-1) arguments
+- replacing TIMESPAN in the following +(N) arguments and appending those
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-range|--range|--with-range RANGE] [--one-more] [(-o|--offset N|--month MONTH) [-n|--months M]] ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... TIMESPAN ... [(-o|--offset N|--month MONTH) [-n|--months M]] ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [... [(-o|--offset N|--month MONTH) [-n|--months M]] ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [... [(-o|--offset N|--month MONTH) [-n|--months M]] ...]'
+}
+
+unset isRange
+isShowOneMore=
+range='..'
+offset=0
+count=1
+typeset -a args=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--offset|-o)	shift; offset=${1:?}; shift;;
+	--month)	shift
+			offset=$((10#$(date +%m) - 10#$(date --date "01-${1:?}-$(date +%Y)" +%m) - 1)) || exit 2
+			((offset < 0)) && let offset+=12
+			shift
+			;;
+	--months|-n)	shift; count="${1:?}"; shift;;
+	--no-range)	shift; isRange=;;
+	--range)	shift; isRange=t;;
+	--with-range)	shift; isRange=t; range="${1:?}"; shift;;
+	--one-more)	shift; isShowOneMore=t;;
+	--)		break;;
+	*)		args+=("$1"); shift;;
+    esac
+done
+set -- "${args[@]}" "$@"
+if [ $# -eq 0 ]; then
+    echo >&2 'ERROR: No GIT-COMMAND passed.'
+    exit 2
+fi
+
+calculateDate()
+{
+    local offset=${1:?}; shift
+    local year=$(date +%Y)
+    local month=$((10#$(date +%m) - offset))
+    if ((month <= 0)); then
+	let year+=$((month / 12 - 1))
+	month=$((month % 12 + 12))
+    fi
+    printf '%04d-%02d-01 03:00' $year $month
+}
+
+endDate="$(calculateDate $offset)"
+startDate="$(calculateDate $((offset + count)))"
+
+if [ -z "${isRange+t}" ] && [ ! "$isShowOneMore" ]; then
+    # For commands that don't require a range and don't require a single commit
+    # (i.e. the log variants), we can directly inject the --since argument.
+    typeset -a lastMonthArgs=(
+	--${GIT_LASTMONTH_OPTION_PREFIX}since="$startDate"
+	--${GIT_LASTMONTH_OPTION_PREFIX}until="$endDate"
+    )
+else
+    readarray -t revisions < <(git lh --since "$startDate" --until="$endDate")
+    [ ${#revisions[@]} -gt 0 ] || exit 1
+    if [ "$isRange" ]; then
+	lastMonthArgs=("${revisions[-1]}${isShowOneMore:+^}^${range}${revisions[0]}")
+    else
+	lastMonthArgs=("${revisions[-1]}${isShowOneMore:+^}" "${revisions[0]}")
+    fi
+fi
+
+
+isCountedAppend=
+case "$1" in
+    +[1-9])
+	isCountedAppend=t;&
+    -[1-9])
+	typeset countedArgNum=${1#[+-]}
+	typeset -a countedArgs=("${@:2:${countedArgNum}}")
+	set -- "${@:$((2 + countedArgNum))}"
+
+	typeset -a appendedArgs=()
+	for arg in "${countedArgs[@]}"
+	do
+	    if [ "$arg" = 'TIMESPAN' ]; then
+		appendedArgs+=("${lastMonthArgs[@]}")
+	    else
+		appendedArgs+=("$arg")
+	    fi
+	done
+
+	[ "$isCountedAppend" ] \
+	    && exec git-wrapper "$@" "${appendedArgs[@]}" \
+	    || exec git-wrapper "${appendedArgs[@]}" "$@"
+	;;
+    --keep-position)
+	shift
+
+	typeset -a appendedArgs=()
+	for arg
+	do
+	    if [ "$arg" = 'TIMESPAN' ]; then
+		appendedArgs+=("${lastMonthArgs[@]}")
+	    else
+		appendedArgs+=("$arg")
+	    fi
+	done
+
+	exec git-wrapper "${appendedArgs[@]}"
+	;;
+    *)
+	exec git-wrapper "$@" "${lastMonthArgs[@]}"
+	;;
+esac

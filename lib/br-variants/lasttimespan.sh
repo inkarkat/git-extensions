@@ -24,7 +24,7 @@ esac
 gitCommand="${1:-$GIT_LASTTIMESPAN_DEFAULT_COMMAND}"; shift
 case "$gitCommand" in
     (\
-l?(o)gg?(v)?(mine)|\
+l?(o)g?(v)g?(mine)|\
 lc?(l)g?(mine)|\
 lc?(h)|\
 lc@(?(l)?(f)|?(f)@(mine|team))|\

@@ -49,7 +49,7 @@ who@(when|first|last)|whatdid|churn\
 
     (\
 lc@(?(f)?(l)|?(f)@(mine|team))|\
-lh@(mine|team)\
+lh?(mine|team)\
 )
 	exec "git-${scopeCommand:?}" -3 "$gitCommand" --reverse TIMESPAN "$@";;
     # No lgx because there's no one-more with timespans.

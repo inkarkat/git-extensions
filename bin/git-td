@@ -19,8 +19,8 @@ case "$1" in
 esac
 
 
-subcommand="$1"; shift
-case "$subcommand" in
+gitCommand="$1"; shift
+case "$gitCommand" in
     (\
 l?(o)gg?(v)?(mine)|\
 lc?(l)g?(mine)|\
@@ -40,47 +40,47 @@ ss@(?([wcag])|changed|touched)|\
 sls?(g|changed|touched)|\
 dp[sg]|dpl?(s)[sg]|dpls@(changed|touched)\
 )
-	git-revision-command --keep-position today-command --revision REVISION -2 "$subcommand" TIMESPAN "$@";;
+	git-revision-command --keep-position today-command --revision REVISION -2 "$gitCommand" TIMESPAN "$@";;
 
     (\
 lc@(?(f)?(l)|?(f)@(mine|team))|\
 lh@(mine|team)\
 )
-	git-revision-command --keep-position today-command --revision REVISION -3 "$subcommand" --reverse TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION -3 "$gitCommand" --reverse TIMESPAN "$@";;
     lc?(f)by)
-	git-dashdash-default-command --with-files : today-command -6 others-command -3 "${subcommand%by}" --reverse AUTHORS TIMESPAN : "$@";;
+	exec git-dashdash-default-command --with-files : today-command -6 others-command -3 "${gitCommand%by}" --reverse AUTHORS TIMESPAN : "$@";;
 
     d)
-	git-revision-command --keep-position today-command --revision REVISION --no-range -2 diffuntil TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION --no-range -2 diffuntil TIMESPAN "$@";;
     dsta)
-	git-revision-command --keep-position today-command --revision REVISION --no-range -2 diffuntil TIMESPAN --shortstat "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION --no-range -2 diffuntil TIMESPAN --shortstat "$@";;
     dstat)
-	git-revision-command --keep-position today-command --revision REVISION --no-range -2 diffuntil TIMESPAN --stat --compact-summary "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION --no-range -2 diffuntil TIMESPAN --stat --compact-summary "$@";;
     ds)
-	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" git-selected-command "$scope d" "$@";;
+	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" exec git-selected-command "$scope d" "$@";;
     dss)
-	git-revision-command --keep-position today-command --revision REVISION -8 selectedcommit-command --single-only --with-range-from-end ^... -2 diff COMMITS TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION -8 selectedcommit-command --single-only --with-range-from-end ^... -2 diff COMMITS TIMESPAN "$@";;
     dsta?(t)byeach)
-	git-revision-command --keep-position today-command --revision REVISION -2 log${subcommand#d} TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION -2 log${gitCommand#d} TIMESPAN "$@";;
     dt)
-	git-revision-command --keep-position today-command --revision REVISION --no-range -2 difftooluntil TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION --no-range -2 difftooluntil TIMESPAN "$@";;
     d[lbwcayYr]|rl)
-	git-revision-command --keep-position today-command --revision REVISION --no-range -2 "diffuntil${subcommand#d}" TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION --no-range -2 "diffuntil${gitCommand#d}" TIMESPAN "$@";;
     ad)
-	git-revision-command --keep-position today-command --revision REVISION --no-range -2 annotatediffuntil TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION --no-range -2 annotatediffuntil TIMESPAN "$@";;
     adp)
-	git-revision-command --keep-position today-command --revision REVISION -6 selectedcommit-command --single-only -2 "$subcommand" COMMITS TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION -6 selectedcommit-command --single-only -2 "$gitCommand" COMMITS TIMESPAN "$@";;
     ma)
-	git-revision-command --keep-position today-command --revision REVISION --no-range --one-more -2 format-patch TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION --no-range --one-more -2 format-patch TIMESPAN "$@";;
 
     st|files|submodules)
-	git-revision-command --keep-position today-command --revision REVISION --range -2 "show$subcommand" TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION --range -2 "show$gitCommand" TIMESPAN "$@";;
     subdo)
-	git-revision-command --keep-position files-command --source-command "$scope submodules --revision REVISION" --keep-position subdo --for FILES \; "$@";;
+	exec git-revision-command --keep-position files-command --source-command "$scope submodules --revision REVISION" --keep-position subdo --for FILES \; "$@";;
     subchanges|superchanges|subrevl@(?(o)g|c))
-	git-revision-command --keep-position today-command --revision REVISION --range -2 "$subcommand" TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION --range -2 "$gitCommand" TIMESPAN "$@";;
     subrevdiff)
-	git-revision-command --keep-position today-command --revision REVISION --with-range ... -2 "$subcommand" TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION --with-range ... -2 "$gitCommand" TIMESPAN "$@";;
 
     # inout does not make sense because the second revision always is an ancestor of the first
     # iofiles does not make sense because the second revision always is an ancestor of the first
@@ -88,97 +88,97 @@ lh@(mine|team)\
     # io does not make sense because the second revision always is an ancestor of the first
     # ab does not make sense because the second revision always is an ancestor of the first
     revive)
-	git-revision-command --keep-position today-command --revision REVISION -3 "$subcommand" --all TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION -3 "$gitCommand" --all TIMESPAN "$@";;
     lby)
-	git-dashdash-default-command --with-files : today-command -5 others-command -2 l AUTHORS TIMESPAN : "$@";;
+	exec git-dashdash-default-command --with-files : today-command -5 others-command -2 l AUTHORS TIMESPAN : "$@";;
     lhby)
-	git-dashdash-default-command --with-files : today-command -6 others-command -3 lh --reverse AUTHORS TIMESPAN : "$@";;
+	exec git-dashdash-default-command --with-files : today-command -6 others-command -3 lh --reverse AUTHORS TIMESPAN : "$@";;
     compareourl)
-	git-branch-command --real-branch-name --keep-position rbrurl-compare-to-base --remote origin --base-command "$scope pred --branch" --base-to-rev --commit BRANCH "$@";;
+	exec git-branch-command --real-branch-name --keep-position rbrurl-compare-to-base --remote origin --base-command "$scope pred --branch" --base-to-rev --commit BRANCH "$@";;
     compareuurl)
-	git-branch-command --real-branch-name --keep-position rbrurl-compare-to-base --remote upstream --base-command "$scope pred --branch" --base-to-rev --commit BRANCH "$@";;
+	exec git-branch-command --real-branch-name --keep-position rbrurl-compare-to-base --remote upstream --base-command "$scope pred --branch" --base-to-rev --commit BRANCH "$@";;
     lghipassedfiles)
-	git-revision-command --keep-position today-command --revision REVISION -2 lghifiles TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION -2 lghifiles TIMESPAN "$@";;
     lghifiles)
-	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" git-selected-command "$scope lghipassedfiles" "$@";;
+	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" exec git-selected-command "$scope lghipassedfiles" "$@";;
     lgby)
-	git-dashdash-default-command --with-files : today-command -6 others-command TIMESPAN -2 onelinelog AUTHORS TIMESPAN : "$@";;
+	exec git-dashdash-default-command --with-files : today-command -6 others-command TIMESPAN -2 onelinelog AUTHORS TIMESPAN : "$@";;
     logby)
-	git-dashdash-default-command --with-files : today-command -6 others-command TIMESPAN -2 log AUTHORS TIMESPAN : "$@";;
+	exec git-dashdash-default-command --with-files : today-command -6 others-command TIMESPAN -2 log AUTHORS TIMESPAN : "$@";;
     lgfiles@(mine|team|by))
-	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" git-selected-command "$scope lg${subcommand#lgfiles}" "$@";;
+	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" exec git-selected-command "$scope lg${gitCommand#lgfiles}" "$@";;
 
     cors)
-	git-revision-command --keep-position today-command --revision REVISION -2 checkoutselectedrevisionselected TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION -2 checkoutselectedrevisionselected TIMESPAN "$@";;
     cops)
-	git-revision-command --keep-position today-command --revision REVISION -2 checkoutselectedpreviousselected TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION -2 checkoutselectedpreviousselected TIMESPAN "$@";;
 
     revert)
-	git-revision-command --keep-position today-command --revision REVISION -2 revertselectedcommit TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION -2 revertselectedcommit TIMESPAN "$@";;
     revert@(files|hunk))
-	git-revision-command --keep-position today-command --revision REVISION -2 "revertselected${subcommand#revert}" TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION -2 "revertselected${gitCommand#revert}" TIMESPAN "$@";;
     revert@(g|changed|touched|commit@(g|changed|touched)))
-	git-revision-command --keep-position today-command --revision REVISION -2 "$subcommand" TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION -2 "$gitCommand" TIMESPAN "$@";;
     revertcommit)
-	git-revision-command --keep-position today-command --revision REVISION -2 "${subcommand}selected" TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION -2 "${gitCommand}selected" TIMESPAN "$@";;
 
     @(correct|fix@(up|amend|wording))|commit@(identical|like|relate)|amendrelate)
-	git-revision-command --keep-position today-command --revision REVISION -2 "${subcommand}selected" TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION -2 "${gitCommand}selected" TIMESPAN "$@";;
     @(correct|fix@(up|amend|wording)|commit@(identical|like|relate)|amendrelate)@(g|changed|touched|st|i|I))
-	git-revision-command --keep-position today-command --revision REVISION -2 "$subcommand" TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION -2 "$gitCommand" TIMESPAN "$@";;
     fix@(up|amend|wording)rb)
-	git-revision-command --keep-position today-command --revision REVISION -2 "${subcommand%rb}selectedrb" TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION -2 "${gitCommand%rb}selectedrb" TIMESPAN "$@";;
 
     # tdrb is a no-op, because it iterates over the current range without touching fixups.
     rb?(n)i|segregate@(commits|andbifurcate)|bifurcate)
-	git-revision-command --keep-position today-command --revision REVISION -8 selectedcommit-command --single-only -4 previouscommit-command --commit COMMITS "$subcommand" TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION -8 selectedcommit-command --single-only -4 previouscommit-command --commit COMMITS "$gitCommand" TIMESPAN "$@";;
     rblastfixup)
-	git-revision-command --keep-position today-command --revision REVISION --one-more -2 "$subcommand" TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION --one-more -2 "$gitCommand" TIMESPAN "$@";;
     move-to-branch)
-	git-revision-command --keep-position today-command --revision REVISION --no-range --one-more +1 TIMESPAN uncommit-to-branch --exclude-commit "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION --no-range --one-more +1 TIMESPAN uncommit-to-branch --exclude-commit "$@";;
     uncommit-to-stash)
-	git-revision-command --keep-position today-command --revision REVISION -8 selectedcommit-command --pass-file-args -4 uncommit-to-branch --commits COMMITS ; TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION -8 selectedcommit-command --pass-file-args -4 uncommit-to-branch --commits COMMITS ; TIMESPAN "$@";;
     uncommit-to-branch)
-	git-revision-command --keep-position today-command --revision REVISION -7 selectedcommit-command --single-only -3 uncommit-to-branch --from COMMITS TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION -7 selectedcommit-command --single-only -3 uncommit-to-branch --from COMMITS TIMESPAN "$@";;
 
     createbr|stackbrfrom)
-	git-revision-command --keep-position today-command --revision REVISION -2 "${subcommand}selected" TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION -2 "${gitCommand}selected" TIMESPAN "$@";;
     detach)
-	git-revision-command --keep-position today-command --revision REVISION --range --one-more -2 "${subcommand}selected" TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION --range --one-more -2 "${gitCommand}selected" TIMESPAN "$@";;
     detach@(g|changed|touched))
-	git-revision-command --keep-position today-command --revision REVISION -2 "$subcommand" TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION -2 "$gitCommand" TIMESPAN "$@";;
     wipe)
-	git-revision-command --keep-position today-command --revision REVISION --range --one-more -2 "${subcommand}toselected" TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION --range --one-more -2 "${gitCommand}toselected" TIMESPAN "$@";;
     wipe@(g|changed|touched))
-	git-revision-command --keep-position today-command --revision REVISION -2 "wipeto${subcommand#wipe}" TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION -2 "wipeto${gitCommand#wipe}" TIMESPAN "$@";;
 
     base)
-	git-revision-command --keep-position today-command --revision REVISION --no-range -3 name-rev --name-only TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION --no-range -3 name-rev --name-only TIMESPAN "$@";;
     baselg)
-	git-revision-command --keep-position today-command --revision REVISION --no-range -2 lg1 TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION --no-range -2 lg1 TIMESPAN "$@";;
     bases)
-	git-revision-command --keep-position today-command --revision REVISION --no-range -2 show TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION --no-range -2 show TIMESPAN "$@";;
     pred)
-	git-revision-command --keep-position today-command --revision REVISION --no-range --one-more -3 name-rev --name-only TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION --no-range --one-more -3 name-rev --name-only TIMESPAN "$@";;
     predlg)
-	git-revision-command --keep-position today-command --revision REVISION --no-range --one-more -2 lg1 TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION --no-range --one-more -2 lg1 TIMESPAN "$@";;
     preds)
-	git-revision-command --keep-position today-command --revision REVISION --no-range --one-more -2 show TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION --no-range --one-more -2 show TIMESPAN "$@";;
 
     cat|cp)
-	git-revision-command --keep-position today-command --revision REVISION -2 "${subcommand}selectedonemore" TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION -2 "${gitCommand}selectedonemore" TIMESPAN "$@";;
 
     who@(created|lasttouched|did?(f)|owns|contributed|what)thosechangedfiles)
-	git-revision-command --keep-position files-command --source-command "$scope files --revision REVISION" "${subcommand%thosechangedfiles}" "$@";;
+	exec git-revision-command --keep-position files-command --source-command "$scope files --revision REVISION" "${gitCommand%thosechangedfiles}" "$@";;
     who@(created|lasttouched|did?(f)|owns|contributed|what)here)
-	git-revision-command --keep-position today-command --revision REVISION -2 "${subcommand%here}" TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION -2 "${gitCommand%here}" TIMESPAN "$@";;
     who@(when|first|last)|whatdid|churn)
-	git-revision-command --keep-position today-command --revision REVISION -2 "$subcommand" TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION -2 "$gitCommand" TIMESPAN "$@";;
 
     emaillog)
-	git-revision-command --keep-position today-command --revision REVISION -3 email-command log TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION -3 email-command log TIMESPAN "$@";;
     emaillc)
-	git-revision-command --keep-position today-command --revision REVISION -3 email-command show TIMESPAN "$@";;
+	exec git-revision-command --keep-position today-command --revision REVISION -3 email-command show TIMESPAN "$@";;
 
-    *)	printf >&2 'Unknown sub-command: %s\n' "$subcommand"; exit 2;;
+    *)	printf >&2 'Unknown sub-command: %s\n' "$gitCommand"; exit 2;;
 esac

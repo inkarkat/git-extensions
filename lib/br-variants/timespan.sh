@@ -38,9 +38,9 @@ lghi?(st|i|I)|\
 @(logg|changed|touched)@(files|versions|tags)|\
 @(changed|touched)l?(o)g?(v)?(mine)|\
 @(changed|touched)lc?(l)?(mine)|\
-where@(last|first)@(logg?(v)|showg)?(mine)|\
-where@(last|first)@(logg|changed|touched)@(files|version|tag)|\
-where@(last|first)@(changed|touched)@(log?(v)|show)?(mine)|\
+@(log?(v)|show)@(last|first)g?(mine)|\
+show@(files|version|tag)@(last|first)@(g|changed|touched)|\
+@(log?(v)|show)@(last|first)@(changed|touched)?(mine)|\
 ss@(?([wcag])|changed|touched)|\
 sls?(g|changed|touched)|\
 dp[sg]|dpl?(s)[sg]|dpls@(changed|touched)|\

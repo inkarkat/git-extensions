@@ -3,7 +3,7 @@ shopt -qs extglob
 
 : ${GIT_TIMESPAN_DEFAULT_COMMAND=${GIT_BRVARIANT_DEFAULT_COMMAND:-lg}}
 
-readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
+readonly scriptName="$(basename -- "$0")"
 readonly scope="${scriptName#git-}"
 
 printUsage()

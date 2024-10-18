@@ -40,7 +40,11 @@ where@(last|introduced)@(logg|changed|touched)@(files|version|tag)|\
 where@(last|introduced)@(changed|touched)@(log?(v)|show)?(mine)|\
 ss@(?([wcag])|changed|touched)|\
 sls?(g|changed|touched)|\
-dp[sg]|dpl?(s)[sg]|dpls@(changed|touched)\
+dp[sg]|dpl?(s)[sg]|dpls@(changed|touched)|\
+revert@(g|changed|touched|commit@(g|changed|touched))|\
+@(correct|fix@(up|amend|wording)|commit@(identical|like|relate)|amendrelate)@(g|changed|touched|st|i|I)|\
+detach@(g|changed|touched)|\
+who@(when|first|last)|whatdid|churn\
 )
 	exec git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 "$gitCommand" TIMESPAN "$@";;
 
@@ -119,15 +123,11 @@ lh@(mine|team)\
 	exec git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 revertselectedcommit TIMESPAN "$@";;
     revert@(files|hunk))
 	exec git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 "revertselected${gitCommand#revert}" TIMESPAN "$@";;
-    revert@(g|changed|touched|commit@(g|changed|touched)))
-	exec git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 "$gitCommand" TIMESPAN "$@";;
     revertcommit)
 	exec git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 "${gitCommand}selected" TIMESPAN "$@";;
 
     @(correct|fix@(up|amend|wording))|commit@(identical|like|relate)|amendrelate)
 	exec git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 "${gitCommand}selected" TIMESPAN "$@";;
-    @(correct|fix@(up|amend|wording)|commit@(identical|like|relate)|amendrelate)@(g|changed|touched|st|i|I))
-	exec git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 "$gitCommand" TIMESPAN "$@";;
     fix@(up|amend|wording)rb)
 	exec git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 "${gitCommand%rb}selectedrb" TIMESPAN "$@";;
 
@@ -147,8 +147,6 @@ lh@(mine|team)\
 	exec git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 "${gitCommand}selected" TIMESPAN "$@";;
     detach)
 	exec git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --range --one-more -2 "${gitCommand}selected" TIMESPAN "$@";;
-    detach@(g|changed|touched))
-	exec git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 "$gitCommand" TIMESPAN "$@";;
     wipe)
 	exec git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --range --one-more -2 "${gitCommand}toselected" TIMESPAN "$@";;
     wipe@(g|changed|touched))
@@ -174,8 +172,6 @@ lh@(mine|team)\
 	exec git-revision-command --keep-position files-command --source-command "$scope files --revision REVISION" "${gitCommand%thosechangedfiles}" "$@";;
     who@(created|lasttouched|did?(f)|owns|contributed|what)here)
 	exec git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 "${gitCommand%here}" TIMESPAN "$@";;
-    who@(when|first|last)|whatdid|churn)
-	exec git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 "$gitCommand" TIMESPAN "$@";;
 
     emaillog)
 	exec git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -3 email-command log TIMESPAN "$@";;

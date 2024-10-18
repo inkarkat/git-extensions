@@ -61,6 +61,11 @@ elif type -t "$gitAlias" >/dev/null; then
     shift
     fixPath
     $gitAlias "$@"
+elif [[ "$1" =~ [!-z][A-Z] ]]; then
+    # Translate "X" to "-x" to enable aliases with uppercase letters.
+    translatedAlias="$(echo "$1" | sed -e 's/[[:upper:]]/-\l\0/g')"
+    shift
+    exec "$wrappedCommand" "${gitConfigArgs[@]}" "$translatedAlias" "$@"
 else
     exec "$wrappedCommand" "${gitConfigArgs[@]}" "$@"
 fi

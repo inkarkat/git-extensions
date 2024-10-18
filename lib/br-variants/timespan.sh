@@ -1,6 +1,8 @@
 #!/bin/bash source-this-script
 shopt -qs extglob
 
+: ${GIT_TIMESPAN_DEFAULT_COMMAND=${GIT_BRVARIANT_DEFAULT_COMMAND:-lg}}
+
 readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
 readonly scope="${scriptName#git-}"
 
@@ -19,7 +21,7 @@ case "$1" in
 esac
 
 
-gitCommand="$1"; shift
+gitCommand="${1:-$GIT_TIMESPAN_DEFAULT_COMMAND}"; shift
 case "$gitCommand" in
     (\
 l?(o)gg?(v)?(mine)|\
@@ -180,5 +182,6 @@ lh@(mine|team)\
     emaillc)
 	exec git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -3 email-command show TIMESPAN "$@";;
 
-    *)	printf >&2 'Unknown sub-command: %s\n' "$gitCommand"; exit 2;;
+    '')	echo >&2 'ERROR: No GIT-COMMAND.'; echo >&2; printUsage "$0" >&2; exit 2;;
+    *)	printf >&2 "ERROR: '%s' cannot be used with a %s scope.\\n" "$gitCommand" "$scope"; exit 2;;
 esac

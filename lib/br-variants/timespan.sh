@@ -27,6 +27,8 @@ case "$gitCommand" in
 l?(o)gg?(v)?(mine)|\
 lc?(l)g?(mine)|\
 lc?(h)|\
+lc@(?(f)?(l)|?(f)@(mine|team))|\
+lh?(mine|team)|\
 @(l?(o)g?([fv])|l?(o)|count|logdistribution)?(mine|team)|\
 log@(mod|added|deleted|renamed)?(files)|glog|logbrowse|\
 lg@(rel|tagged|st|i|I)|\
@@ -48,14 +50,9 @@ who@(when|first|last)|whatdid|churn\
 )
 	exec git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 "$gitCommand" TIMESPAN "$@";;
 
-    (\
-lc@(?(f)?(l)|?(f)@(mine|team))|\
-lh?(mine|team)\
-)
-	exec git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -3 "$gitCommand" --reverse TIMESPAN "$@";;
     # No lgx because there's no one-more with timespans.
     lc?(f)by)
-	exec git-dashdash-default-command --with-files : "${scopeCommand:?}" -6 others-command -3 "${gitCommand%by}" --reverse AUTHORS TIMESPAN : "$@";;
+	exec git-dashdash-default-command --with-files : "${scopeCommand:?}" -6 others-command -2 "${gitCommand%by}" AUTHORS TIMESPAN : "$@";;
 
     d)
 	exec git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --no-range -2 diffuntil TIMESPAN "$@";;
@@ -96,10 +93,8 @@ lh?(mine|team)\
     # ab does not make sense because the second revision always is an ancestor of the first
     revive)
 	exec git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -3 "$gitCommand" --all TIMESPAN "$@";;
-    lby)
-	exec git-dashdash-default-command --with-files : "${scopeCommand:?}" -5 others-command -2 l AUTHORS TIMESPAN : "$@";;
-    lhby)
-	exec git-dashdash-default-command --with-files : "${scopeCommand:?}" -6 others-command -3 lh --reverse AUTHORS TIMESPAN : "$@";;
+    l?(h)by)
+	exec git-dashdash-default-command --with-files : "${scopeCommand:?}" -5 others-command -2 "${gitCommand%by}" AUTHORS TIMESPAN : "$@";;
     compareourl)
 	exec git-branch-command --real-branch-name --keep-position rbrurl-compare-to-base --remote origin --base-command "$scope pred --branch" --base-to-rev --commit BRANCH "$@";;
     compareuurl)

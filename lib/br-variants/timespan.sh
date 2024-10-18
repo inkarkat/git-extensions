@@ -13,7 +13,7 @@ Log variants that only cover changes committed ${scopeWhat:?}
 of the current / passed via -r|--revision REVISION.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--revision REVISION] GIT-COMMAND [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND [...] [-r|--revision REVISION] [...] [-?|-h|--help]'
 }
 
 case "$1" in

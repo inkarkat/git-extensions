@@ -1,6 +1,9 @@
 #!/bin/bash
 shopt -qs extglob
 
+readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
+readonly scope="${scriptName#git-}"
+
 subcommand="$1"; shift
 case "$subcommand" in
     (\
@@ -39,7 +42,7 @@ lh@(mine|team)\
     dstat)
 	git-revision-command --keep-position today-command --revision REVISION --no-range -2 diffuntil TIMESPAN --stat --compact-summary "$@";;
     ds)
-	GIT_SELECTED_COMMAND_DEFAULT_FILES='git-td files' git-selected-command 'td d' "$@";;
+	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" git-selected-command "$scope d" "$@";;
     dss)
 	git-revision-command --keep-position today-command --revision REVISION -8 selectedcommit-command --single-only --with-range-from-end ^... -2 diff COMMITS TIMESPAN "$@";;
     dsta?(t)byeach)
@@ -58,7 +61,7 @@ lh@(mine|team)\
     st|files|submodules)
 	git-revision-command --keep-position today-command --revision REVISION --range -2 "show$subcommand" TIMESPAN "$@";;
     subdo)
-	git-revision-command --keep-position files-command --source-command 'td submodules --revision REVISION' --keep-position subdo --for FILES \; "$@";;
+	git-revision-command --keep-position files-command --source-command "$scope submodules --revision REVISION" --keep-position subdo --for FILES \; "$@";;
     subchanges|superchanges|subrevl@(?(o)g|c))
 	git-revision-command --keep-position today-command --revision REVISION --range -2 "$subcommand" TIMESPAN "$@";;
     subrevdiff)
@@ -76,19 +79,19 @@ lh@(mine|team)\
     lhby)
 	git-dashdash-default-command --with-files : today-command -6 others-command -3 lh --reverse AUTHORS TIMESPAN : "$@";;
     compareourl)
-	git-branch-command --real-branch-name --keep-position rbrurl-compare-to-base --remote origin --base-command 'td pred --branch' --base-to-rev --commit BRANCH "$@";;
+	git-branch-command --real-branch-name --keep-position rbrurl-compare-to-base --remote origin --base-command "$scope pred --branch" --base-to-rev --commit BRANCH "$@";;
     compareuurl)
-	git-branch-command --real-branch-name --keep-position rbrurl-compare-to-base --remote upstream --base-command 'td pred --branch' --base-to-rev --commit BRANCH "$@";;
+	git-branch-command --real-branch-name --keep-position rbrurl-compare-to-base --remote upstream --base-command "$scope pred --branch" --base-to-rev --commit BRANCH "$@";;
     lghipassedfiles)
 	git-revision-command --keep-position today-command --revision REVISION -2 lghifiles TIMESPAN "$@";;
     lghifiles)
-	GIT_SELECTED_COMMAND_DEFAULT_FILES='git-td files' git-selected-command 'td lghipassedfiles' "$@";;
+	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" git-selected-command "$scope lghipassedfiles" "$@";;
     lgby)
 	git-dashdash-default-command --with-files : today-command -6 others-command TIMESPAN -2 onelinelog AUTHORS TIMESPAN : "$@";;
     logby)
 	git-dashdash-default-command --with-files : today-command -6 others-command TIMESPAN -2 log AUTHORS TIMESPAN : "$@";;
     lgfiles@(mine|team|by))
-	GIT_SELECTED_COMMAND_DEFAULT_FILES='git-td files' git-selected-command "td lg${subcommand#lgfiles}" "$@";;
+	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" git-selected-command "$scope lg${subcommand#lgfiles}" "$@";;
 
     cors)
 	git-revision-command --keep-position today-command --revision REVISION -2 checkoutselectedrevisionselected TIMESPAN "$@";;
@@ -151,7 +154,7 @@ lh@(mine|team)\
 	git-revision-command --keep-position today-command --revision REVISION -2 "${subcommand}selectedonemore" TIMESPAN "$@";;
 
     who@(created|lasttouched|did?(f)|owns|contributed|what)thosechangedfiles)
-	git-revision-command --keep-position files-command --source-command 'td files --revision REVISION' "${subcommand%thosechangedfiles}" "$@";;
+	git-revision-command --keep-position files-command --source-command "$scope files --revision REVISION" "${subcommand%thosechangedfiles}" "$@";;
     who@(created|lasttouched|did?(f)|owns|contributed|what)here)
 	git-revision-command --keep-position today-command --revision REVISION -2 "${subcommand%here}" TIMESPAN "$@";;
     who@(when|first|last)|whatdid|churn)

@@ -27,10 +27,10 @@ case "$gitCommand" in
 l?(o)gg?(v)?(mine)|\
 lc?(l)g?(mine)|\
 lc?(h)|\
-lc@(?(f)?(l)|?(f)@(mine|team))|\
+lc@(?(l)?(f)|?(f)@(mine|team))|\
 lh?(mine|team)|\
 @(l?(o)g?([fv])|l?(o)|count|logdistribution)?(mine|team)|\
-log@(mod|added|deleted|renamed)?(files)|glog|logbrowse|\
+log?(mod|added|deleted|renamed)?(files)|glog|logbrowse|\
 lg@(rel|tagged|st|i|I)|\
 @(l|tree)?([ou])url?(v)|\
 lghi?(st|i|I)|\
@@ -70,7 +70,7 @@ who@(when|first|last)|whatdid|churn\
 	$EXEC "git-${scopeCommand:?}" -2 "log${gitCommand#d}" TIMESPAN "$@";;
     dt)
 	$EXEC "git-${scopeCommand:?}" --no-range -2 difftooluntil TIMESPAN "$@";;
-    d[lbwcayYr]|rl)
+    d[lbwcayYr]|drl)
 	$EXEC "git-${scopeCommand:?}" --no-range -2 "diffuntil${gitCommand#d}" TIMESPAN "$@";;
     ad)
 	$EXEC "git-${scopeCommand:?}" --no-range -2 annotatediffuntil TIMESPAN "$@";;
@@ -127,7 +127,8 @@ who@(when|first|last)|whatdid|churn\
     fix@(up|amend|wording)rb)
 	$EXEC "git-${scopeCommand:?}" -2 "${gitCommand%rb}selectedrb" TIMESPAN "$@";;
 
-    # rb is a no-op, because it iterates over the current range without touching fixups.
+    rb)
+	$EXEC echo "Note: $gitCommand is a no-op, because it iterates over the current range without touching fixups.";;
     rb?(n)i|segregate@(commits|andbifurcate)|bifurcate)
 	$EXEC "git-${scopeCommand:?}" -8 selectedcommit-command --single-only -4 previouscommit-command --commit COMMITS "$gitCommand" TIMESPAN "$@";;
     rblastfixup)

@@ -53,6 +53,7 @@ lc@(?(f)?(l)|?(f)@(mine|team))|\
 lh@(mine|team)\
 )
 	exec git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -3 "$gitCommand" --reverse TIMESPAN "$@";;
+    # No lgx because there's no one-more with timespans.
     lc?(f)by)
 	exec git-dashdash-default-command --with-files : "${scopeCommand:?}" -6 others-command -3 "${gitCommand%by}" --reverse AUTHORS TIMESPAN : "$@";;
 

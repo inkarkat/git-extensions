@@ -50,7 +50,9 @@ who@(when|first|last)|whatdid|churn\
 )
 	$EXEC "git-${scopeCommand:?}" -2 "$gitCommand" TIMESPAN "$@";;
 
-    # No lgx because there's no one-more with timespans.
+    lgx)
+	# lgx is identical lg to because there's no one-more with timespans.
+	$EXEC "git-${scopeCommand:?}" -2 lg TIMESPAN "$@";;
     lc?(f)by)
 	$EXEC git-dashdash-default-command --with-files : "${scopeCommand:?}" -6 others-command -2 "${gitCommand%by}" AUTHORS TIMESPAN : "$@";;
 
@@ -86,11 +88,9 @@ who@(when|first|last)|whatdid|churn\
     subrevdiff)
 	$EXEC "git-${scopeCommand:?}" --with-range ... -2 "$gitCommand" TIMESPAN "$@";;
 
-    # inout does not make sense because the second revision always is an ancestor of the first
-    # iofiles does not make sense because the second revision always is an ancestor of the first
-    # iosubmodules does not make sense because the second revision always is an ancestor of the first
-    # io does not make sense because the second revision always is an ancestor of the first
-    # ab does not make sense because the second revision always is an ancestor of the first
+    inout|io?(files|submodules)|ab)
+	$EXEC echo "Note: $gitCommand does not make sense here because the second revision always is an ancestor of the first.";;
+
     revive)
 	$EXEC "git-${scopeCommand:?}" -3 "$gitCommand" --all TIMESPAN "$@";;
     l?(h)by)

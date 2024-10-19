@@ -186,37 +186,37 @@ alias vimgitlll='commandOnSelected --command '"${_aliases_vim}"' --generator "gi
 # sgitshowfilesteam [<path> ...] [-- SELECTIONs ...]
 #			Print selected filespecs modified by my team in our last
 #			commit.
-# sgitbymefiles [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+# sgitfileslastmine [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
 #			Print selected filespecs modified by me in the last /
 #			passed -r <commit> and directly preceding, as long as
 #			they also were by me.
-# sgitbyteamfiles [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+# sgitfileslastteam [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
 #			Print selected filespecs modified by my team in the last
 #			/ passed -r <commit> and directly preceding, as long as
 #			they also were by them.
-# sgitloggfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+# sgitfilesg [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
 # sgitchangedfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
 # sgittouchedfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# sgitwherelastloggfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# sgitwherelastchangedfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# sgitwherelasttouchedfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# sgitwhereintroducedloggfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# sgitwhereintroducedchangefiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# sgitwhereintroducedtouchedfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+# sgitshowfileslastg [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+# sgitshowfileslastchanged [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+# sgitshowfileslasttouched [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+# sgitshowfilesfirstg [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+# sgitshowfilesfirstchanged [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+# sgitshowfilesfirsttouched [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
 alias                   sgitshowfiles='commandOnSelected --generator "git showfiles" --entries'
 alias               sgitshowfilesmine='commandOnSelected --generator "git showfilesmine" --entries'
 alias               sgitshowfilesteam='commandOnSelected --generator "git showfilesteam" --entries'
-alias                   sgitbymefiles='commandOnSelected --generator "git bymefiles" --entries'
-alias                 sgitbyteamfiles='commandOnSelected --generator "git byteamfiles" --entries'
-alias                   sgitloggfiles='commandOnSelected --generator "git loggfiles" --entries'
+alias               sgitfileslastmine='commandOnSelected --generator "git fileslastmine" --entries'
+alias               sgitfileslastteam='commandOnSelected --generator "git fileslastteam" --entries'
+alias                      sgitfilesg='commandOnSelected --generator "git filesg" --entries'
 alias                sgitchangedfiles='commandOnSelected --generator "git changedfiles" --entries'
 alias                sgittouchedfiles='commandOnSelected --generator "git touchedfiles" --entries'
-alias          sgitwherelastloggfiles='commandOnSelected --generator "git wherelastloggfiles" --entries'
-alias       sgitwherelastchangedfiles='commandOnSelected --generator "git wherelastchangedfiles" --entries'
-alias       sgitwherelasttouchedfiles='commandOnSelected --generator "git wherelasttouchedfiles" --entries'
-alias    sgitwhereintroducedloggfiles='commandOnSelected --generator "git whereintroducedloggfiles" --entries'
-alias  sgitwhereintroducedchangefiles='commandOnSelected --generator "git whereintroducedchangefiles" --entries'
-alias sgitwhereintroducedtouchedfiles='commandOnSelected --generator "git whereintroducedtouchedfiles" --entries'
+alias              sgitshowfileslastg='commandOnSelected --generator "git showfileslastg" --entries'
+alias        sgitshowfileslastchanged='commandOnSelected --generator "git showfileslastchanged" --entries'
+alias        sgitshowfileslasttouched='commandOnSelected --generator "git showfileslasttouched" --entries'
+alias             sgitshowfilesfirstg='commandOnSelected --generator "git showfilesfirstg" --entries'
+alias      s gitshowfilesfirstchanged='commandOnSelected --generator "git showfilesfirstchanged" --entries'
+alias      s gitshowfilesfirsttouched='commandOnSelected --generator "git showfilesfirsttouched" --entries'
 
 # ygitshowfiles [<since>..<until>] [<path> ...] [-- SELECTIONs ...]
 #			Yank selected filespecs modified in passed commit or
@@ -226,38 +226,37 @@ alias sgitwhereintroducedtouchedfiles='commandOnSelected --generator "git wherei
 # ygitshowfilesteam [<path> ...] [-- SELECTIONs ...]
 #			Yank selected filespecs modified by my team in our last
 #			commit.
-# ygitbymefiles [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+# ygitfileslastmine [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
 #			Yank selected filespecs modified by me in the last /
 #			passed -r <commit> and directly preceding, as long as
 #			they also were by me.
-# ygitbyteamfiles [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+# ygitfileslastteam [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
 #			Yank selected filespecs modified by my team in the last
 #			/ passed -r <commit> and directly preceding, as long as
 #			they also were by them.
-# ygitloggfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+# ygitfilesg [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
 # ygitchangedfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
 # ygittouchedfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# ygitwherelastloggfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# ygitwherelastchangedfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# ygitwherelasttouchedfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# ygitwhereintroducedloggfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# ygitwhereintroducedchangefiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# ygitwhereintroducedtouchedfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+# ygitshowfileslastg [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+# ygitshowfileslastchanged [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+# ygitshowfileslasttouched [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+# ygitshowfilesfirstg [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+# ygitshowfilesfirstchanged [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+# ygitshowfilesfirsttouched [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
 alias                   ygitshowfiles='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git showfiles" --entries'
 alias               ygitshowfilesmine='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git showfilesmine" --entries'
 alias               ygitshowfilesteam='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git showfilesteam" --entries'
-alias                   ygitbymefiles='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git bymefiles" --entries'
-alias                 ygitbyteamfiles='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git byteamfiles" --entries'
-alias              ygitwherelastfiles='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git wherelastfiles" --entries'
-alias                   sgitloggfiles='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git loggfiles" --entries'
+alias               ygitfileslastmine='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git fileslastmine" --entries'
+alias               ygitfileslastteam='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git fileslastteam" --entries'
+alias                      sgitfilesg='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git filesg" --entries'
 alias                sgitchangedfiles='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git changedfiles" --entries'
 alias                sgittouchedfiles='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git touchedfiles" --entries'
-alias          sgitwherelastloggfiles='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git wherelastloggfiles" --entries'
-alias       sgitwherelastchangedfiles='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git wherelastchangedfiles" --entries'
-alias       sgitwherelasttouchedfiles='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git wherelasttouchedfiles" --entries'
-alias    sgitwhereintroducedloggfiles='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git whereintroducedloggfiles" --entries'
-alias  sgitwhereintroducedchangefiles='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git whereintroducedchangefiles" --entries'
-alias sgitwhereintroducedtouchedfiles='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git whereintroducedtouchedfiles" --entries'
+alias              sgitshowfileslastg='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git showfileslastg" --entries'
+alias        sgitshowfileslastchanged='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git showfileslastchanged" --entries'
+alias        sgitshowfileslasttouched='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git showfileslasttouched" --entries'
+alias             sgitshowfilesfirstg='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git showfilesfirstg" --entries'
+alias       sgitshowfilesfirstchanged='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git showfilesfirstchanged" --entries'
+alias       sgitshowfilesfirsttouched='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git showfilesfirsttouched" --entries'
 
 # lgitshowfiles [<since>..<until>] [<path> ...] [-- SELECTIONs ...]
 #			View selected files modified in passed commit or commit
@@ -268,37 +267,37 @@ alias sgitwhereintroducedtouchedfiles='commandOnSelected --command "printf %s\\\
 # lgitshowfilesteam [<path> ...] [-- SELECTIONs ...]
 #			View selected filespecs modified by my team in our last
 #			commit with the pager.
-# lgitbymefiles [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+# lgitfileslastmine [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
 #			View selected filespecs modified by me in the last /
 #			passed -r <commit> and directly preceding, as long as
 #			they also were by me with the pager.
-# lgitbyteamfiles [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+# lgitfileslastteam [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
 #			View selected filespecs modified by my team in the last
 #			/ passed -r <commit> and directly preceding, as long as
 #			they also were by them with the pager.
-# lgitloggfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+# lgitfilesg [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
 # lgitchangedfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
 # lgittouchedfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# lgitwherelastloggfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# lgitwherelastchangedfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# lgitwherelasttouchedfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# lgitwhereintroducedloggfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# lgitwhereintroducedchangefiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# lgitwhereintroducedtouchedfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+# lgitshowfileslastg [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+# lgitshowfileslastchanged [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+# lgitshowfileslasttouched [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+# lgitshowfilesfirstg [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+# lgitshowfilesfirstchanged [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+# lgitshowfilesfirsttouched [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
 alias                   lgitshowfiles='commandOnSelected --command "${PAGER:-less}" --generator "git showfiles" --entries'
 alias               lgitshowfilesmine='commandOnSelected --command "${PAGER:-less}" --generator "git showfilesmine" --entries'
 alias               lgitshowfilesteam='commandOnSelected --command "${PAGER:-less}" --generator "git showfilesteam" --entries'
-alias                   lgitbymefiles='commandOnSelected --command "${PAGER:-less}" --generator "git bymefiles" --entries'
-alias                 lgitbyteamfiles='commandOnSelected --command "${PAGER:-less}" --generator "git byteamfiles" --entries'
-alias                   lgitloggfiles='commandOnSelected --command "${PAGER:-less}" --generator "git loggfiles" --entries'
+alias               lgitfileslastmine='commandOnSelected --command "${PAGER:-less}" --generator "git fileslastmine" --entries'
+alias               lgitfileslastteam='commandOnSelected --command "${PAGER:-less}" --generator "git fileslastteam" --entries'
+alias                      lgitfilesg='commandOnSelected --command "${PAGER:-less}" --generator "git filesg" --entries'
 alias                lgitchangedfiles='commandOnSelected --command "${PAGER:-less}" --generator "git changedfiles" --entries'
 alias                lgittouchedfiles='commandOnSelected --command "${PAGER:-less}" --generator "git touchedfiles" --entries'
-alias          lgitwherelastloggfiles='commandOnSelected --command "${PAGER:-less}" --generator "git wherelastloggfiles" --entries'
-alias       lgitwherelastchangedfiles='commandOnSelected --command "${PAGER:-less}" --generator "git wherelastchangedfiles" --entries'
-alias       lgitwherelasttouchedfiles='commandOnSelected --command "${PAGER:-less}" --generator "git wherelasttouchedfiles" --entries'
-alias    lgitwhereintroducedloggfiles='commandOnSelected --command "${PAGER:-less}" --generator "git whereintroducedloggfiles" --entries'
-alias  lgitwhereintroducedchangefiles='commandOnSelected --command "${PAGER:-less}" --generator "git whereintroducedchangefiles" --entries'
-alias lgitwhereintroducedtouchedfiles='commandOnSelected --command "${PAGER:-less}" --generator "git whereintroducedtouchedfiles" --entries'
+alias              lgitshowfileslastg='commandOnSelected --command "${PAGER:-less}" --generator "git showfileslastg" --entries'
+alias        lgitshowfileslastchanged='commandOnSelected --command "${PAGER:-less}" --generator "git showfileslastchanged" --entries'
+alias        lgitshowfileslasttouched='commandOnSelected --command "${PAGER:-less}" --generator "git showfileslasttouched" --entries'
+alias             lgitshowfilesfirstg='commandOnSelected --command "${PAGER:-less}" --generator "git showfilesfirstg" --entries'
+alias       lgitshowfilesfirstchanged='commandOnSelected --command "${PAGER:-less}" --generator "git showfilesfirstchanged" --entries'
+alias       lgitshowfilesfirsttouched='commandOnSelected --command "${PAGER:-less}" --generator "git showfilesfirsttouched" --entries'
 
 # vgitshowfiles [<since>..<until>] [<path> ...] [-- SELECTIONs ...]
 #			Edit selected files modified in passed commit or commit
@@ -309,38 +308,37 @@ alias lgitwhereintroducedtouchedfiles='commandOnSelected --command "${PAGER:-les
 # vgitshowfilesteam [<path> ...] [-- SELECTIONs ...]
 #			Edit selected filespecs modified by my team in our last
 #			commit in GVIM.
-# vgitbymefiles [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+# vgitfileslastmine [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
 #			Edit selected filespecs modified by me in the last /
 #			passed -r <commit> and directly preceding, as long as
 #			they also were by me in GVIM.
-# vgitbyteamfiles [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+# vgitfileslastteam [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
 #			Edit selected filespecs modified by my team in the last
 #			/ passed -r <commit> and directly preceding, as long as
 #			they also were by them in GVIM.
-# vgitloggfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+# vgitfilesg [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
 # vgitchangedfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
 # vgittouchedfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# vgitwherelastloggfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# vgitwherelastchangedfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# vgitwherelasttouchedfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# vgitwhereintroducedloggfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# vgitwhereintroducedchangefiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# vgitwhereintroducedtouchedfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+# vgitshowfileslastg [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+# vgitshowfileslastchanged [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+# vgitshowfileslasttouched [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+# vgitshowfilesfirstg [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+# vgitshowfilesfirstchanged [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+# vgitshowfilesfirsttouched [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
 alias                   vgitshowfiles='commandOnSelected --command SendToGVIM --generator "git showfiles" --entries'
 alias               vgitshowfilesmine='commandOnSelected --command SendToGVIM --generator "git showfilesmine" --entries'
 alias               vgitshowfilesteam='commandOnSelected --command SendToGVIM --generator "git showfilesteam" --entries'
-alias                   vgitbymefiles='commandOnSelected --command SendToGVIM --generator "git bymefiles" --entries'
-alias                 vgitbyteamfiles='commandOnSelected --command SendToGVIM --generator "git byteamfiles" --entries'
-alias              vgitwherelastfiles='commandOnSelected --command SendToGVIM --generator "git wherelastfiles" --entries'
-alias                   vgitloggfiles='commandOnSelected --command SendToGVIM --generator "git loggfiles" --entries'
+alias               vgitfileslastmine='commandOnSelected --command SendToGVIM --generator "git fileslastmine" --entries'
+alias               vgitfileslastteam='commandOnSelected --command SendToGVIM --generator "git fileslastteam" --entries'
+alias                      vgitfilesg='commandOnSelected --command SendToGVIM --generator "git filesg" --entries'
 alias                vgitchangedfiles='commandOnSelected --command SendToGVIM --generator "git changedfiles" --entries'
 alias                vgittouchedfiles='commandOnSelected --command SendToGVIM --generator "git touchedfiles" --entries'
-alias          vgitwherelastloggfiles='commandOnSelected --command SendToGVIM --generator "git wherelastloggfiles" --entries'
-alias       vgitwherelastchangedfiles='commandOnSelected --command SendToGVIM --generator "git wherelastchangedfiles" --entries'
-alias       vgitwherelasttouchedfiles='commandOnSelected --command SendToGVIM --generator "git wherelasttouchedfiles" --entries'
-alias    vgitwhereintroducedloggfiles='commandOnSelected --command SendToGVIM --generator "git whereintroducedloggfiles" --entries'
-alias  vgitwhereintroducedchangefiles='commandOnSelected --command SendToGVIM --generator "git whereintroducedchangefiles" --entries'
-alias vgitwhereintroducedtouchedfiles='commandOnSelected --command SendToGVIM --generator "git whereintroducedtouchedfiles" --entries'
+alias              vgitshowfileslastg='commandOnSelected --command SendToGVIM --generator "git showfileslastg" --entries'
+alias        vgitshowfileslastchanged='commandOnSelected --command SendToGVIM --generator "git showfileslastchanged" --entries'
+alias        vgitshowfileslasttouched='commandOnSelected --command SendToGVIM --generator "git showfileslasttouched" --entries'
+alias             vgitshowfilesfirstg='commandOnSelected --command SendToGVIM --generator "git showfilesfirstg" --entries'
+alias       vgitshowfilesfirstchanged='commandOnSelected --command SendToGVIM --generator "git showfilesfirstchanged" --entries'
+alias       vgitshowfilesfirsttouched='commandOnSelected --command SendToGVIM --generator "git showfilesfirsttouched" --entries'
 
 # vimgitshowfiles [<since>..<until>] [<path> ...] [-- SELECTIONs ...]
 #			Edit selected files modified in passed commit or commit
@@ -351,38 +349,37 @@ alias vgitwhereintroducedtouchedfiles='commandOnSelected --command SendToGVIM --
 # vimgitshowfilesteam [<path> ...] [-- SELECTIONs ...]
 #			Edit selected filespecs modified by my team in our last
 #			commit in Vim.
-# vimgitbymefiles [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+# vimgitfileslastmine [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
 #			Edit selected filespecs modified by me in the last /
 #			passed -r <commit> and directly preceding, as long as
 #			they also were by me in Vim.
-# vimgitbyteamfiles [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+# vimgitfileslastteam [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
 #			Edit selected filespecs modified by my team in the last
 #			/ passed -r <commit> and directly preceding, as long as
 #			they also were by them in Vim.
-# vimgitloggfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+# vimgitfilesg [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
 # vimgitchangedfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
 # vimgittouchedfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# vimgitwherelastloggfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# vimgitwherelastchangedfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# vimgitwherelasttouchedfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# vimgitwhereintroducedloggfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# vimgitwhereintroducedchangefiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# vimgitwhereintroducedtouchedfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+# vimgitshowfileslastg [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+# vimgitshowfileslastchanged [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+# vimgitshowfileslasttouched [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+# vimgitshowfilesfirstg [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+# vimgitshowfilesfirstchanged [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+# vimgitshowfilesfirsttouched [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
 alias                   vimgitshowfiles='commandOnSelected --command '"${_aliases_vim}"' --generator "git showfiles" --entries'
 alias               vimgitshowfilesmine='commandOnSelected --command '"${_aliases_vim}"' --generator "git showfilesmine" --entries'
 alias               vimgitshowfilesteam='commandOnSelected --command '"${_aliases_vim}"' --generator "git showfilesteam" --entries'
-alias                   vimgitbymefiles='commandOnSelected --command '"${_aliases_vim}"' --generator "git bymefiles" --entries'
-alias                 vimgitbyteamfiles='commandOnSelected --command '"${_aliases_vim}"' --generator "git byteamfiles" --entries'
-alias              vimgitwherelastfiles='commandOnSelected --command '"${_aliases_vim}"' --generator "git wherelastfiles" --entries'
-alias                   vimgitloggfiles='commandOnSelected --command '"${_aliases_vim}"' --generator "git loggfiles" --entries'
+alias               vimgitfileslastmine='commandOnSelected --command '"${_aliases_vim}"' --generator "git fileslastmine" --entries'
+alias               vimgitfileslastteam='commandOnSelected --command '"${_aliases_vim}"' --generator "git fileslastteam" --entries'
+alias                      vimgitfilesg='commandOnSelected --command '"${_aliases_vim}"' --generator "git filesg" --entries'
 alias                vimgitchangedfiles='commandOnSelected --command '"${_aliases_vim}"' --generator "git changedfiles" --entries'
 alias                vimgittouchedfiles='commandOnSelected --command '"${_aliases_vim}"' --generator "git touchedfiles" --entries'
-alias          vimgitwherelastloggfiles='commandOnSelected --command '"${_aliases_vim}"' --generator "git wherelastloggfiles" --entries'
-alias       vimgitwherelastchangedfiles='commandOnSelected --command '"${_aliases_vim}"' --generator "git wherelastchangedfiles" --entries'
-alias       vimgitwherelasttouchedfiles='commandOnSelected --command '"${_aliases_vim}"' --generator "git wherelasttouchedfiles" --entries'
-alias    vimgitwhereintroducedloggfiles='commandOnSelected --command '"${_aliases_vim}"' --generator "git whereintroducedloggfiles" --entries'
-alias  vimgitwhereintroducedchangefiles='commandOnSelected --command '"${_aliases_vim}"' --generator "git whereintroducedchangefiles" --entries'
-alias vimgitwhereintroducedtouchedfiles='commandOnSelected --command '"${_aliases_vim}"' --generator "git whereintroducedtouchedfiles" --entries'
+alias              vimgitshowfileslastg='commandOnSelected --command '"${_aliases_vim}"' --generator "git showfileslastg" --entries'
+alias        vimgitshowfileslastchanged='commandOnSelected --command '"${_aliases_vim}"' --generator "git showfileslastchanged" --entries'
+alias        vimgitshowfileslasttouched='commandOnSelected --command '"${_aliases_vim}"' --generator "git showfileslasttouched" --entries'
+alias             vimgitshowfilesfirstg='commandOnSelected --command '"${_aliases_vim}"' --generator "git showfilesfirstg" --entries'
+alias       vimgitshowfilesfirstchanged='commandOnSelected --command '"${_aliases_vim}"' --generator "git showfilesfirstchanged" --entries'
+alias       vimgitshowfilesfirsttouched='commandOnSelected --command '"${_aliases_vim}"' --generator "git showfilesfirsttouched" --entries'
 
 
 

@@ -170,6 +170,9 @@ who@(when|first|last)|whatdid|churn\
     who@(created|lasttouched|did?(f)|owns|contributed|what)here)
 	$EXEC "git-${scopeCommand:?}" -2 "${gitCommand%here}" TIMESPAN "$@";;
 
+    activity?(mine|team))
+	$EXEC echo "Note: $gitCommmand would just trim activity to ${scopeWhat}.";;
+
     emaillog)
 	$EXEC "git-${scopeCommand:?}" -3 email-command log TIMESPAN "$@";;
     emaillc)

@@ -34,8 +34,7 @@ log?(mod|added|deleted|renamed)?(files)|glog|logbrowse|\
 lg@(rel|tagged|st|i|I)|\
 @(l|tree)?([ou])url?(v)|\
 lghi?(st|i|I)|\
-logg@(files|versions|tags)|\
-@(files|versions|tags)@(changed|touched)|\
+@(files|versions|tags)@(g|changed|touched)|\
 l?(o)g?(v)@(changed|touched)?(mine)|\
 lc?(l)@(changed|touched)?(mine)|\
 @(log?(v)|show)@(last|first)g?(mine)|\

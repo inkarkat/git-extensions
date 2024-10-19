@@ -186,11 +186,11 @@ alias vimgitlll='commandOnSelected --command '"${_aliases_vim}"' --generator "gi
 # sgitshowfilesteam [<path> ...] [-- SELECTIONs ...]
 #			Print selected filespecs modified by my team in our last
 #			commit.
-# sgitbymefiles [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+# sgitfileslastmine [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
 #			Print selected filespecs modified by me in the last /
 #			passed -r <commit> and directly preceding, as long as
 #			they also were by me.
-# sgitbyteamfiles [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+# sgitfileslastteam [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
 #			Print selected filespecs modified by my team in the last
 #			/ passed -r <commit> and directly preceding, as long as
 #			they also were by them.
@@ -206,8 +206,8 @@ alias vimgitlll='commandOnSelected --command '"${_aliases_vim}"' --generator "gi
 alias                   sgitshowfiles='commandOnSelected --generator "git showfiles" --entries'
 alias               sgitshowfilesmine='commandOnSelected --generator "git showfilesmine" --entries'
 alias               sgitshowfilesteam='commandOnSelected --generator "git showfilesteam" --entries'
-alias                   sgitbymefiles='commandOnSelected --generator "git bymefiles" --entries'
-alias                 sgitbyteamfiles='commandOnSelected --generator "git byteamfiles" --entries'
+alias                   sgitfileslastmine='commandOnSelected --generator "git fileslastmine" --entries'
+alias                 sgitfileslastteam='commandOnSelected --generator "git fileslastteam" --entries'
 alias                   sgitfilesg='commandOnSelected --generator "git filesg" --entries'
 alias                sgitchangedfiles='commandOnSelected --generator "git changedfiles" --entries'
 alias                sgittouchedfiles='commandOnSelected --generator "git touchedfiles" --entries'
@@ -226,11 +226,11 @@ alias      sgitshowfilesfirsttouched='commandOnSelected --generator "git showfil
 # ygitshowfilesteam [<path> ...] [-- SELECTIONs ...]
 #			Yank selected filespecs modified by my team in our last
 #			commit.
-# ygitbymefiles [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+# ygitfileslastmine [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
 #			Yank selected filespecs modified by me in the last /
 #			passed -r <commit> and directly preceding, as long as
 #			they also were by me.
-# ygitbyteamfiles [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+# ygitfileslastteam [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
 #			Yank selected filespecs modified by my team in the last
 #			/ passed -r <commit> and directly preceding, as long as
 #			they also were by them.
@@ -246,8 +246,8 @@ alias      sgitshowfilesfirsttouched='commandOnSelected --generator "git showfil
 alias                   ygitshowfiles='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git showfiles" --entries'
 alias               ygitshowfilesmine='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git showfilesmine" --entries'
 alias               ygitshowfilesteam='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git showfilesteam" --entries'
-alias                   ygitbymefiles='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git bymefiles" --entries'
-alias                 ygitbyteamfiles='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git byteamfiles" --entries'
+alias                   ygitfileslastmine='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git fileslastmine" --entries'
+alias                 ygitfileslastteam='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git fileslastteam" --entries'
 alias                   sgitfilesg='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git filesg" --entries'
 alias                sgitchangedfiles='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git changedfiles" --entries'
 alias                sgittouchedfiles='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git touchedfiles" --entries'
@@ -267,11 +267,11 @@ alias      sgitshowfilesfirsttouched='commandOnSelected --command "printf %s\\\\
 # lgitshowfilesteam [<path> ...] [-- SELECTIONs ...]
 #			View selected filespecs modified by my team in our last
 #			commit with the pager.
-# lgitbymefiles [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+# lgitfileslastmine [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
 #			View selected filespecs modified by me in the last /
 #			passed -r <commit> and directly preceding, as long as
 #			they also were by me with the pager.
-# lgitbyteamfiles [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+# lgitfileslastteam [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
 #			View selected filespecs modified by my team in the last
 #			/ passed -r <commit> and directly preceding, as long as
 #			they also were by them with the pager.
@@ -287,8 +287,8 @@ alias      sgitshowfilesfirsttouched='commandOnSelected --command "printf %s\\\\
 alias                   lgitshowfiles='commandOnSelected --command "${PAGER:-less}" --generator "git showfiles" --entries'
 alias               lgitshowfilesmine='commandOnSelected --command "${PAGER:-less}" --generator "git showfilesmine" --entries'
 alias               lgitshowfilesteam='commandOnSelected --command "${PAGER:-less}" --generator "git showfilesteam" --entries'
-alias                   lgitbymefiles='commandOnSelected --command "${PAGER:-less}" --generator "git bymefiles" --entries'
-alias                 lgitbyteamfiles='commandOnSelected --command "${PAGER:-less}" --generator "git byteamfiles" --entries'
+alias                   lgitfileslastmine='commandOnSelected --command "${PAGER:-less}" --generator "git fileslastmine" --entries'
+alias                 lgitfileslastteam='commandOnSelected --command "${PAGER:-less}" --generator "git fileslastteam" --entries'
 alias                   lgitfilesg='commandOnSelected --command "${PAGER:-less}" --generator "git filesg" --entries'
 alias                lgitchangedfiles='commandOnSelected --command "${PAGER:-less}" --generator "git changedfiles" --entries'
 alias                lgittouchedfiles='commandOnSelected --command "${PAGER:-less}" --generator "git touchedfiles" --entries'
@@ -308,11 +308,11 @@ alias      lgitshowfilesfirsttouched='commandOnSelected --command "${PAGER:-less
 # vgitshowfilesteam [<path> ...] [-- SELECTIONs ...]
 #			Edit selected filespecs modified by my team in our last
 #			commit in GVIM.
-# vgitbymefiles [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+# vgitfileslastmine [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
 #			Edit selected filespecs modified by me in the last /
 #			passed -r <commit> and directly preceding, as long as
 #			they also were by me in GVIM.
-# vgitbyteamfiles [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+# vgitfileslastteam [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
 #			Edit selected filespecs modified by my team in the last
 #			/ passed -r <commit> and directly preceding, as long as
 #			they also were by them in GVIM.
@@ -328,8 +328,8 @@ alias      lgitshowfilesfirsttouched='commandOnSelected --command "${PAGER:-less
 alias                   vgitshowfiles='commandOnSelected --command SendToGVIM --generator "git showfiles" --entries'
 alias               vgitshowfilesmine='commandOnSelected --command SendToGVIM --generator "git showfilesmine" --entries'
 alias               vgitshowfilesteam='commandOnSelected --command SendToGVIM --generator "git showfilesteam" --entries'
-alias                   vgitbymefiles='commandOnSelected --command SendToGVIM --generator "git bymefiles" --entries'
-alias                 vgitbyteamfiles='commandOnSelected --command SendToGVIM --generator "git byteamfiles" --entries'
+alias                   vgitfileslastmine='commandOnSelected --command SendToGVIM --generator "git fileslastmine" --entries'
+alias                 vgitfileslastteam='commandOnSelected --command SendToGVIM --generator "git fileslastteam" --entries'
 alias                   vgitfilesg='commandOnSelected --command SendToGVIM --generator "git filesg" --entries'
 alias                vgitchangedfiles='commandOnSelected --command SendToGVIM --generator "git changedfiles" --entries'
 alias                vgittouchedfiles='commandOnSelected --command SendToGVIM --generator "git touchedfiles" --entries'
@@ -349,11 +349,11 @@ alias      vgitshowfilesfirsttouched='commandOnSelected --command SendToGVIM --g
 # vimgitshowfilesteam [<path> ...] [-- SELECTIONs ...]
 #			Edit selected filespecs modified by my team in our last
 #			commit in Vim.
-# vimgitbymefiles [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+# vimgitfileslastmine [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
 #			Edit selected filespecs modified by me in the last /
 #			passed -r <commit> and directly preceding, as long as
 #			they also were by me in Vim.
-# vimgitbyteamfiles [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+# vimgitfileslastteam [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
 #			Edit selected filespecs modified by my team in the last
 #			/ passed -r <commit> and directly preceding, as long as
 #			they also were by them in Vim.
@@ -369,8 +369,8 @@ alias      vgitshowfilesfirsttouched='commandOnSelected --command SendToGVIM --g
 alias                   vimgitshowfiles='commandOnSelected --command '"${_aliases_vim}"' --generator "git showfiles" --entries'
 alias               vimgitshowfilesmine='commandOnSelected --command '"${_aliases_vim}"' --generator "git showfilesmine" --entries'
 alias               vimgitshowfilesteam='commandOnSelected --command '"${_aliases_vim}"' --generator "git showfilesteam" --entries'
-alias                   vimgitbymefiles='commandOnSelected --command '"${_aliases_vim}"' --generator "git bymefiles" --entries'
-alias                 vimgitbyteamfiles='commandOnSelected --command '"${_aliases_vim}"' --generator "git byteamfiles" --entries'
+alias                   vimgitfileslastmine='commandOnSelected --command '"${_aliases_vim}"' --generator "git fileslastmine" --entries'
+alias                 vimgitfileslastteam='commandOnSelected --command '"${_aliases_vim}"' --generator "git fileslastteam" --entries'
 alias                   vimgitfilesg='commandOnSelected --command '"${_aliases_vim}"' --generator "git filesg" --entries'
 alias                vimgitchangedfiles='commandOnSelected --command '"${_aliases_vim}"' --generator "git changedfiles" --entries'
 alias                vimgittouchedfiles='commandOnSelected --command '"${_aliases_vim}"' --generator "git touchedfiles" --entries'

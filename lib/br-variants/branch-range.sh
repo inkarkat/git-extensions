@@ -97,7 +97,12 @@ subchanges|superchanges|subrevl@(?(o)g|c)\
 	$EXEC git-branch-command --keep-position files-command --source-command "$scope submodules --branch ${scopeEndRevision:?}" --keep-position subdo --for FILES \; "$@";;
 
     inout|io?(files|submodules)|ab)
-	$EXEC git-branch-command --keep-position "$scopeCommand" ${scopeCommand:+-3} "$gitCommand" --base "${scopeRevision:?}" "${scopeEndRevision:?}" "$@";;
+	if [ -n "$scopeInoutNote" ]; then
+	    $EXEC echo "Note: ${gitCommand} ${scopeInoutNote}"
+	else
+	    $EXEC git-branch-command --keep-position "$scopeCommand" ${scopeCommand:+-3} "$gitCommand" --base "${scopeRevision:?}" "${scopeEndRevision:?}" "$@"
+	fi
+	;;
 
     revive)
 	$EXEC git-branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -3 "$gitCommand" --all RANGE "$@";;

@@ -1,7 +1,7 @@
 #!/bin/bash source-this-script
 shopt -qs extglob
 
-: ${GIT_TIMESPAN_DEFAULT_COMMAND=${GIT_BRVARIANT_DEFAULT_COMMAND:-lg}}
+: ${GIT_TIMESPAN_DEFAULT_COMMAND=${GIT_REVRANGE_DEFAULT_COMMAND:-lg}}
 
 readonly scriptName="$(basename -- "$0")"
 readonly scope="${scriptName#git-}"

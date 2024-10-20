@@ -1,7 +1,7 @@
 #!/bin/bash source-this-script
 shopt -qs extglob
 
-: ${GIT_REVRANGE_DEFAULT_COMMAND=${GIT_BRVARIANT_DEFAULT_COMMAND:-lg}}
+: ${GIT_BRVARIANT_DEFAULT_COMMAND=${GIT_REVRANGE_DEFAULT_COMMAND:-lg}}
 
 readonly scriptName="$(basename -- "$0")"
 readonly scope="${scriptName#git-}"
@@ -22,7 +22,7 @@ esac
 
 
 : ${EXEC:=exec}
-gitCommand="${1:-$GIT_TIMESPAN_DEFAULT_COMMAND}"; shift
+gitCommand="${1:-$GIT_BRVARIANT_DEFAULT_COMMAND}"; shift
 case "$gitCommand" in
     lc?(f)?(mine|team))
 	$EXEC git-branch-command --keep-position "${scopeCommand:?}" --keep-position rev-range --revision "${scopeRevision:?}" --end-revision BRANCH --one-more-command log --one-more-with-padding -2 "$gitCommand" RANGE "$@";;

@@ -20,6 +20,15 @@ case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
 
+onLocalBranch()
+{
+    if [ "$scopeNoLocalBranch" ]; then
+	$EXEC echo "Note: $gitCommand requires a local branch, but ${scope} does not provide one."
+    else
+	$EXEC "$@"
+    fi
+}
+
 
 : ${EXEC:=exec}
 gitCommand="${1:-$GIT_CUSTOMRANGEVARIANT_DEFAULT_COMMAND}"; shift
@@ -134,20 +143,20 @@ subchanges|superchanges|subrevl@(?(o)g|c)\
     @(correct|fix@(up|amend|wording))|commit@(identical|like|relate)|amendrelate)
 	$EXEC git-"${scopeCommand[@]}" -2 "${gitCommand}selected" RANGE "$@";;
     fix@(up|amend|wording)rb)
-	$EXEC git-"${scopeCommand[@]}" -2 "${gitCommand%rb}selectedrb" RANGE "$@";;
+	onLocalBranch git-"${scopeCommand[@]}" -2 "${gitCommand%rb}selectedrb" RANGE "$@";;
 
     rb)
-	$EXEC echo "Note: $gitCommand is a no-op, because it iterates over the current range without touching fixups. Use the dedicated check|command|exec to iterate over all branch commits. To rebase onto ${scopeWhat}, there's a dedicated alias outside of \"git ${scope}\".";;
+	onLocalBranch echo "Note: $gitCommand is a no-op, because it iterates over the current range without touching fixups. Use the dedicated check|command|exec to iterate over all branch commits. To rebase onto ${scopeWhat}, there's a dedicated alias outside of \"git ${scope}\".";;
     rb?(n)i|segregate@(commits|andbifurcate)|bifurcate)
-	$EXEC git-"${scopeCommand[@]}" --keep-position selectedcommit-command --single-only --range-is-last -5 previouscommit-command --commit COMMITS "$gitCommand" RANGE "$@";;
+	onLocalBranch git-"${scopeCommand[@]}" --keep-position selectedcommit-command --single-only --range-is-last -5 previouscommit-command --commit COMMITS "$gitCommand" RANGE "$@";;
     rblastfixup)
-	$EXEC git-"${scopeCommand[@]}" --one-more -2 "$gitCommand" RANGE "$@";;
+	onLocalBranch git-"${scopeCommand[@]}" --one-more -2 "$gitCommand" RANGE "$@";;
     move-to-branch)
-	$EXEC git-"${scopeCommand[@]}" --no-range -4 uncommit-to-branch --exclude-commit --from RANGE "$@";;
+	onLocalBranch git-"${scopeCommand[@]}" --no-range -4 uncommit-to-branch --exclude-commit --from RANGE "$@";;
     uncommit-to-stash)
-	$EXEC git-"${scopeCommand[@]}" --keep-position selectedcommit-command --pass-file-args --range-is-last -5 "$gitCommand" --commits COMMITS \; RANGE "$@";;
+	onLocalBranch git-"${scopeCommand[@]}" --keep-position selectedcommit-command --pass-file-args --range-is-last -5 "$gitCommand" --commits COMMITS \; RANGE "$@";;
     uncommit-to-branch)
-	$EXEC git-"${scopeCommand[@]}" --keep-position selectedcommit-command --single-only --range-is-last -4 "$gitCommand" --from COMMITS RANGE "$@";;
+	onLocalBranch git-"${scopeCommand[@]}" --keep-position selectedcommit-command --single-only --range-is-last -4 "$gitCommand" --from COMMITS RANGE "$@";;
 
     createbr|stackbrfrom)
 	$EXEC git-"${scopeCommand[@]}" -2 "${gitCommand}selected" RANGE "$@";;

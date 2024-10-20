@@ -111,9 +111,9 @@ subchanges|superchanges|subrevl@(?(o)g|c)\
     lhby)
 	$EXEC git-dashdash-default-command --with-files : branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -6 others-command -2 lh AUTHORS RANGE : "$@";;
     compareourl)
-	$EXEC git-branch-command --real-branch-name --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rbrurl-compare-to-base --remote origin --base "${scopeRevision:?}" --commit "${scopeEndRevision:?}" "$@";;
+	$EXEC git-branch-command --real-branch-name --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rbrurl-compare-to-base --remote origin --base "${scopeRevision:?}" --commit "${scopeEndRevision:?}" "${scopeCompareUrlArgs[@]}" "$@";;
     compareuurl)
-	$EXEC git-branch-command --real-branch-name --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rbrurl-compare-to-base --remote upstream --base "${scopeRevision:?}" --commit "${scopeEndRevision:?}" "$@";;
+	$EXEC git-branch-command --real-branch-name --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rbrurl-compare-to-base --remote upstream --base "${scopeRevision:?}" --commit "${scopeEndRevision:?}" "${scopeCompareUrlArgs[@]}" "$@";;
     lghipassedfiles)
 	$EXEC git-branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --one-more-command 'greyonelineloghighlight lghighlight' --one-more-only-to-terminal -2 lghifiles RANGE "$@";;
     lghifiles)

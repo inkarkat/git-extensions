@@ -169,9 +169,9 @@ detach@(g|changed|touched)\
     createbr|stackbrfrom)
 	$EXEC git-"${scopeCommand[@]}" -2 "${gitCommand}selected" RANGE "$@";;
     detach)
-	$EXEC git-"${scopeCommand[@]}" --one-more -2 "${gitCommand}selected" RANGE "$@";;
+	$EXEC git-"${scopeCommand[@]}" --one-more -2 "${gitCommand}selected" RANGE "$@";;   # Note: --one-more to be able to select one beyond the range.
     wipe)
-	$EXEC git-"${scopeCommand[@]}" --one-more -2 "${gitCommand}toselected" RANGE "$@";;
+	$EXEC git-"${scopeCommand[@]}" --one-more -2 "${gitCommand}toselected" RANGE "$@";; # Note: --one-more to be able to select one beyond the range.
     wipe@(g|changed|touched))
 	$EXEC git-"${scopeCommand[@]}" -2 "wipeto${gitCommand#wipe}" RANGE "$@";;
 

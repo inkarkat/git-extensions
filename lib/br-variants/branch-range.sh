@@ -153,7 +153,8 @@ subchanges|superchanges|subrevl@(?(o)g|c)\
 	if [ "$scopeRevision" = BRANCH ]; then
 	    $EXEC echo "Note: ${gitCommand} is a no-op, because it always yields HEAD as the starting point."
 	else
-	    $EXEC git-branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --keep-position selectedcommit-command --single-only --range-is-last -5 previouscommit-command --commit COMMITS "$gitCommand" RANGE "$@"
+	    typeset -a segregateArgs=(); [[ "$gitCommand" =~ ^segregate ]] && segregateArgs=(--explicit-file-args)  # Avoid that the second argument of --path PATH-GLOB is parsed off as a FILE for commit selection.
+	    $EXEC git-branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --keep-position selectedcommit-command --single-only --range-is-last "${segregateArgs[@]}" -5 previouscommit-command --commit COMMITS "$gitCommand" RANGE "$@"
 	fi
 	;;
     rblastfixup)

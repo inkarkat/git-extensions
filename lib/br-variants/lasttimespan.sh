@@ -130,7 +130,8 @@ who@(when|first|last)|whatdid|churn\
     rb)
 	$EXEC echo "Note: $gitCommand is a no-op, because it iterates over the current range without touching fixups.";;
     rb?(n)i|segregate@(commits|andbifurcate)|bifurcate)
-	$EXEC "git-${scopeCommand:?}" -8 selectedcommit-command --single-only -4 previouscommit-command --commit COMMITS "$gitCommand" TIMESPAN "$@";;
+	typeset -a segregateArgs=(); [[ "$gitCommand" =~ ^segregate ]] && segregateArgs=(--explicit-file-args)  # Avoid that the second argument of --path PATH-GLOB is parsed off as a FILE for commit selection.
+	$EXEC "git-${scopeCommand:?}" -8 selectedcommit-command --single-only "${segregateArgs[@]}" -4 previouscommit-command --commit COMMITS "$gitCommand" TIMESPAN "$@";;
     rblastfixup)
 	$EXEC "git-${scopeCommand:?}" --one-more -2 "$gitCommand" TIMESPAN "$@";;
     move-to-branch)

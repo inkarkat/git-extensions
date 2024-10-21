@@ -6,6 +6,7 @@ shopt -qs extglob
 
 readonly scriptName="$(basename -- "$0")"
 readonly scope="${scriptName#git-}"
+: ${scopeArgs=[-b|--branch BRANCH]}
 
 printUsage()
 {
@@ -13,7 +14,7 @@ printUsage()
 Log variants that cover ${scopeWhat:?}.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND [...] [-b|--branch BRANCH] [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "GIT-COMMAND [...] ${scopeArgs}${scopeArgs:+ [...] }[-?|-h|--help]"
 }
 
 case "$1" in

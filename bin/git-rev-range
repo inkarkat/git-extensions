@@ -42,7 +42,7 @@ isShowOneMoreOutput=
 showOneMoreCommand=
 isOneMorePadding=
 isOneMoreOnlyToTerminal=
-revision=
+unset revision
 revisionModifier=
 endRevision=
 range=..
@@ -52,7 +52,7 @@ do
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--no-color|--color=*)	colorArg=("$1"); shift;;
 	--color)		colorArg=("$1" "$2"); shift; shift;;
-	--revision|-r)	shift; revision="$1"; shift;;
+	--revision|-r)	shift; revision="${1?}"; shift;;
 	--end-revision|-e)	shift; endRevision="$1"; shift;;
 	--one-more|+1)	shift; isShowOneMore=t;;
 	--one-more-output)
@@ -75,7 +75,7 @@ do
 	*)		break;;
     esac
 done
-if [ -z "$revision" ]; then
+if [ -z "${revision+t}" ]; then
     echo "ERROR: Missing REVISION!"
     echo
     printUsage "$0"
@@ -143,11 +143,29 @@ oneMore()
     wrapper "$@"
 }
 
-if [ -z "$(git rev-list "${revision}..${endRevision}" -- 2>/dev/null)" ] && [ -n "$range" ]; then
+if [ -z "$(git rev-list "${revision}${revision:+${range:-..}}${endRevision:-HEAD}" -- 2>/dev/null)" ] && [ -n "$range" ]; then
     # Resulting range is empty (but we want a range); abort. Especially with
     # --one-more, we otherwise would use a single commit, and that could be
     # really confusing.
     exit 4
+fi
+
+if [ -z "$revision" ]; then
+    # No start revision means from the very first commit. Since we cannot go "one more" beyond it, completely drop the range.
+    revisionModifier=''
+    if [ -z "$range" ]; then
+	# No range means use the very first commit.
+	revision="$(git-firstcommit)" || exit 3
+    else
+	# Can't use a completely empty revision range; need to have at least an end revision.
+	: ${endRevision:=HEAD}
+    fi
+    range=''
+    isShowOneMore=
+    isShowOneMoreOutput=
+    showOneMoreCommand=
+    isOneMorePadding=
+    isOneMoreOnlyToTerminal=
 fi
 
 if [ $# -eq 0 ]; then
@@ -218,7 +236,7 @@ potentialPadding()
 }
 revRangeWithOneMore()
 {
-    local mergeBase; [ -n "$endRevision" ] && mergeBase="$(git merge-base "$revision" "$endRevision")"
+    local mergeBase; [ -n "$revision" -a -n "$endRevision" ] && mergeBase="$(git merge-base "$revision" "$endRevision")"
 
     if contains '--reverse' "${countedArgs[@]}" "$@"; then
 	# The (log) output is in reverse order, so the "one more" also needs to

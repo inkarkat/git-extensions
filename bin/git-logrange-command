@@ -47,38 +47,42 @@ HELPDESCRIPTION
 HELPTEXT
 }
 
-# Need to parse off --grep from anywhere first.
-# Same for --revision to determine the start revision.
+# Need to parse off all command-line arguments except for the GIT-COMMAND first,
+# so that parseOffFinalGrepArg doesn't mistakenly hold onto an accidental last
+# argument (like REVISION in -r REVISION).
 revision=
 typeset -a grepArgs=()
+typeset -a grepModificationArgs=()
+withLogArgs=
+typeset -a revRangeArgs=()
+isWithRange=t
 typeset -a allargs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--revision|-r)	shift; revision="$1"; shift;;
+
 	--grep)		grepArgs+=("$1" "$2"); shift; shift;;
 	--grep=*)	grepArgs+=("$1"); shift;;
+	--invert-grep)	grepModificationArgs+=("$1"); shift;;
+
+	--one-more|--one-more-output|--one-more-only-to-terminal|--one-more-with-padding)
+			revRangeArgs+=("$1"); shift;;
+	--no-range)	revRangeArgs+=("$1"); shift; isWithRange=;;
+	--one-more-command|--with-range)
+			revRangeArgs+=("$1" "${2:?}"); shift; shift;;
+
+	--with-log-args)
+			shift; withLogArgs=all;;
+	--with-log-args-except-last)
+			shift; withLogArgs=except-last;;
 	--)		break;;
 	*)		allargs+=("$1"); shift;;
     esac
 done
 set -- "${allargs[@]}" "$@"
-typeset -a finalGrepArg=()
-if [ ${#grepArgs[@]} -eq 0 ]; then
-    # No --grep given; the last argument is the text or /regexp/.
-    if [ $# -eq 0 ]; then
-	printUsage "$0"
-	exit 2
-    fi
 
-    finalGrepArg=("${!#}"); [ $# -eq 0 ] && set -- || set -- "${@:1:$(($#-1))}"
-fi
-
-typeset -a grepModificationArgs=()
-withLogArgs=
-typeset -a revRangeArgs=()
-isWithRange=t
 typeset -a logArgs=()
 captureLogArgs()
 {
@@ -87,19 +91,28 @@ captureLogArgs()
 	[ "$arg" = RANGE ] || logArgs+=("$arg")
     done
 }
+typeset -a finalGrepArg=()
+parseOffFinalGrepArg()
+{
+    [ ${#grepArgs[@]} -eq 0 -a ${#finalGrepArg[@]} -eq 0 ] || return 1
+
+    # No --grep given; the last argument is the text or /regexp/.
+    if [ $# -eq 0 ]; then
+	printUsage "$0"
+	exit 2
+    fi
+
+    finalGrepArg=("${!#}")
+    return 0
+}
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)		    shift; printLongUsage "$0"; exit 0;;
-	--revision|-r)		    shift; revision="$1"; shift;;
-	--invert-grep)		    grepModificationArgs+=("$1"); shift;;
-
-	--one-more|--one-more-output|--one-more-only-to-terminal|--one-more-with-padding)
-				    revRangeArgs+=("$1"); shift;;
-	--no-range)		    revRangeArgs+=("$1"); shift; isWithRange=;;
-	--one-more-command|--with-range)
-				    revRangeArgs+=("$1" "${2:?}"); shift; shift;;
-	--keep-position)	    revRangeArgs+=("$@"); shift; shift	# --keep-position GIT-COMMAND
+	--keep-position)	    if parseOffFinalGrepArg "$@"; then
+					[ $# -eq 0 ] || set -- "${@:1:$(($#-1))}"
+				    fi
+				    revRangeArgs+=("$@"); shift; shift	# --keep-position GIT-COMMAND
 				    captureLogArgs "$@"
 				    set --
 				    break
@@ -108,6 +121,9 @@ do
 				    revRangeArgs+=("$1" "${@:2:${1#-}}")
 				    shift ${1#-}    # GIT-COMMAND ARG1 ...
 				    shift   # -N
+				    if parseOffFinalGrepArg "$@"; then
+					[ $# -eq 0 ] || set -- "${@:1:$(($#-1))}"
+				    fi
 				    break
 				    ;;
 	+[0-9])			    revRangeArgs+=("$1" "${@:2:$((${1#+} + 1))}")   # include GIT-COMMAND here
@@ -115,17 +131,25 @@ do
 				    shift ${1#+}    # ARG1 ARG2 ARG3 ...
 				    shift   # +N
 				    shift # GIT-COMMAND
+				    if parseOffFinalGrepArg "$@"; then
+					[ $# -eq 0 ] || set -- "${@:1:$(($#-1))}"
+				    fi
 				    logArgs=("$@" "${logArgs[@]}")
 				    set --
 				    break
 				    ;;
-
-	--with-log-args)	    shift; withLogArgs=all;;
-	--with-log-args-except-last)
-				    shift; withLogArgs=except-last;;
 	*)			    break;;
     esac
 done
+if parseOffFinalGrepArg "$@"; then  # For plain GIT-COMMAND ... (where the range is appended).
+    if [ $# -eq 1 ]; then
+	# Have accidentally parsed the sole remaining GIT-COMMAND argument as the final
+	# grep argument. Not good.
+	printUsage "$0"
+	exit 2
+    fi
+    set -- "${@:1:$(($#-1))}"
+fi
 
 typeset sharedLogArgs=()
 case "$withLogArgs" in

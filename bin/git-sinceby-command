@@ -71,11 +71,12 @@ do
 			userFilterArgs+=("$1"); shift;;
 	--with-log-args-except-last)
 			shift; withLogArgs=except-last;;
-	--)		shift
-			if [ "$withLogArgs" = except-last ]; then
+	--)		if [ "$withLogArgs" = except-last ]; then
 			    allargs+=("${!#}")
-			    typeset -a files=("${@:1:$(($#-1))}")
+			    shift
+			    typeset -a files=(); [ $# -eq 0 ] || files=("${@:1:$(($#-1))}")
 			else
+			    shift
 			    typeset -a files=("$@")
 			fi
 			break
@@ -165,7 +166,9 @@ fi
 typeset sharedLogArgs=()
 case "$withLogArgs" in
     all)	    sharedLogArgs+=("$@" ${files[*]:+--} "${files[@]}");;
-    except-last)    sharedLogArgs+=("${@:1:$(($#-1))}" ${files[*]:+--} "${files[@]}");;
+    except-last)    [ $# -eq 0 ] || sharedLogArgs+=("${@:1:$(($#-1))}")
+		    sharedLogArgs+=(${files[*]:+--} "${files[@]}")
+		    ;;
 esac
 
 startRevision="$(git-firstcommit "${userFilterArgs[@]}" "${revision:-HEAD}" "${sharedLogArgs[@]}" ${files[*]:+--} "${files[@]}")" || exit $?

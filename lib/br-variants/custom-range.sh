@@ -8,6 +8,10 @@ readonly scriptName="$(basename -- "$0")"
 readonly scope="${scriptName#git-}"
 : ${scopeArgs=[-b|--branch BRANCH]}
 : ${scopeFinalArgs=}
+case " ${!scopeDiffCommandRangeArgs*} " in
+    *" scopeDiffCommandRangeArgs "*) ;;
+    *) scopeDiffCommandRangeArgs=(--with-range ...);;
+esac
 
 printUsage()
 {
@@ -90,9 +94,9 @@ detach@(g|changed|touched)\
 	$EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" "${scopeCommandLogAndLastArgs[@]:-${scopeCommandLogArgs[@]}}" --one-more-command log --one-more-with-padding others-command -2 "${gitCommand%by}" AUTHORS RANGE : "$@";;
 
     d?([lbwcayYrt]|rl)|dsta?(t)|ad|subrevdiff)
-	$EXEC git-"${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" --with-range ... -2 "$gitCommand" RANGE "$@";;
+	$EXEC git-"${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" "${scopeDiffCommandRangeArgs[@]}" -2 "$gitCommand" RANGE "$@";;
     ds)
-	$EXEC git-branch-command --keep-position files-command --source-command "$scope files --branch BRANCH" "${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" --branch BRANCH --with-range ... -2 diffselected RANGE "$@";;
+	$EXEC git-branch-command --keep-position files-command --source-command "$scope files --branch BRANCH" "${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" --branch BRANCH "${scopeDiffCommandRangeArgs[@]}" -2 diffselected RANGE "$@";;
     dss)
 	$EXEC git-"${scopeCommand[@]}" --keep-position selectedcommit-command "${scopeCommandLogArgs[@]}" --single-only --with-range-from-end ^... --range-is-last -3 diff COMMITS RANGE "$@";;
     dsta?(t)byeach)

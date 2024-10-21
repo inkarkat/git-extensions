@@ -35,68 +35,74 @@ onLocalBranch()
 gitCommand="${1:-$GIT_CUSTOMRANGEVARIANT_DEFAULT_COMMAND}"; shift
 case "$gitCommand" in
     lc?(f)?(mine|team))
-	$EXEC git-"${scopeCommand[@]}" --one-more-command log --one-more-with-padding -2 "$gitCommand" RANGE "$@";;
+	$EXEC git-"${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" --one-more-command log --one-more-with-padding -2 "$gitCommand" RANGE "$@";;
     lch)
-	$EXEC git-"${scopeCommand[@]}" --one-more-command showh --one-more-with-padding -2 "$gitCommand" RANGE "$@";;
+	$EXEC git-"${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" --one-more-command showh --one-more-with-padding -2 "$gitCommand" RANGE "$@";;
     (\
 lg?([fv])|\
 lg@(rel|tagged|st|i|I)\
 )
-	$EXEC git-"${scopeCommand[@]}" --one-more-command greyonelinelog --one-more-only-to-terminal -2 "$gitCommand" RANGE "$@";;
+	$EXEC git-"${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" --one-more-command greyonelinelog --one-more-only-to-terminal -2 "$gitCommand" RANGE "$@";;
     log?([fv]|files))
-	$EXEC git-"${scopeCommand[@]}" --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal -2 "$gitCommand" RANGE "$@";;
+	$EXEC git-"${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal -2 "$gitCommand" RANGE "$@";;
     lghi)
-	$EXEC git-"${scopeCommand[@]}" --one-more-command 'greyonelineloghighlight lghighlight' --one-more-only-to-terminal -2 "$gitCommand" RANGE "$@";;
+	$EXEC git-"${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" --one-more-command 'greyonelineloghighlight lghighlight' --one-more-only-to-terminal -2 "$gitCommand" RANGE "$@";;
     lghi?(st|i|I))
-	$EXEC git-"${scopeCommand[@]}" --one-more-command "greyonelineloghighlight $gitCommand" --one-more-only-to-terminal -2 "$gitCommand" RANGE "$@";;
+	$EXEC git-"${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" --one-more-command "greyonelineloghighlight $gitCommand" --one-more-only-to-terminal -2 "$gitCommand" RANGE "$@";;
 
     (\
 l?(o)g?(v)g?(mine)|\
 lc?(l)g?(mine)|\
+@(files|versions|tags)@(g|changed|touched)|\
+l?(o)g?(v)@(changed|touched)?(mine)|\
+@(log?(v)|show)@(last|first)g?(mine)|\
+@(files|version|tag)@(last|first)@(g|changed|touched)|\
+@(log?(v)|show)@(last|first)@(changed|touched)?(mine)|\
+lc?(l)@(changed|touched)?(mine)\
+)
+	$EXEC git-"${scopeCommand[@]}" "${scopeCommandLogAndLastArgs[@]:-${scopeCommandLogArgs[@]}}" -2 "$gitCommand" RANGE "$@";;
+(\
 lcl?(f)|\
 lh?(mine|team)|\
 l?(o)g?([fv])@(mine|team)|\
 @(l?(o)|count|logdistribution)?(mine|team)|\
 log?(mod|added|deleted|renamed)?(files)|glog|logbrowse|\
 @(l|tree)?([ou])url?(v)|\
-@(files|versions|tags)@(g|changed|touched)|\
-l?(o)g?(v)@(changed|touched)?(mine)|\
-lc?(l)@(changed|touched)?(mine)|\
-@(log?(v)|show)@(last|first)g?(mine)|\
-@(files|version|tag)@(last|first)@(g|changed|touched)|\
-@(log?(v)|show)@(last|first)@(changed|touched)?(mine)|\
 ss@(?([wcag])|changed|touched)|\
 sls?(g|changed|touched)|\
 dp[sg]|dpl?(s)[sg]|dpls@(changed|touched)|\
-revert@(g|changed|touched|commit@(g|changed|touched))|\
-@(correct|fix@(up|amend|wording)|commit@(identical|like|relate)|amendrelate)@(g|changed|touched|st|i|I)|\
-detach@(g|changed|touched)|\
 who@(when|first|last)|whatdid|churn|\
 activity?(mine|team)|\
 subchanges|superchanges|subrevl@(?(o)g|c)\
 )
+	$EXEC git-"${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" -2 "$gitCommand" RANGE "$@";;
+(\
+revert@(g|changed|touched|commit@(g|changed|touched))|\
+@(correct|fix@(up|amend|wording)|commit@(identical|like|relate)|amendrelate)@(g|changed|touched|st|i|I)|\
+detach@(g|changed|touched)\
+)
 	$EXEC git-"${scopeCommand[@]}" -2 "$gitCommand" RANGE "$@";;
 
     lgx)
-	$EXEC git-"${scopeCommand[@]}" -2 lg RANGE "$@";;
+	$EXEC git-"${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" -2 lg RANGE "$@";;
     lc?(f)by)
-	$EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" --one-more-command log --one-more-with-padding others-command -2 "${gitCommand%by}" AUTHORS RANGE : "$@";;
+	$EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" "${scopeCommandLogAndLastArgs[@]:-${scopeCommandLogArgs[@]}}" --one-more-command log --one-more-with-padding others-command -2 "${gitCommand%by}" AUTHORS RANGE : "$@";;
 
     d?([lbwcayYrt]|rl)|dsta?(t)|ad|subrevdiff)
-	$EXEC git-"${scopeCommand[@]}" --with-range ... -2 "$gitCommand" RANGE "$@";;
+	$EXEC git-"${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" --with-range ... -2 "$gitCommand" RANGE "$@";;
     ds)
-	$EXEC git-branch-command --keep-position files-command --source-command "$scope files --branch BRANCH" "${scopeCommand[@]}" --branch BRANCH --with-range ... -2 diffselected RANGE "$@";;
+	$EXEC git-branch-command --keep-position files-command --source-command "$scope files --branch BRANCH" "${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" --branch BRANCH --with-range ... -2 diffselected RANGE "$@";;
     dss)
-	$EXEC git-"${scopeCommand[@]}" --keep-position selectedcommit-command --single-only --with-range-from-end ^... --range-is-last -3 diff COMMITS RANGE "$@";;
+	$EXEC git-"${scopeCommand[@]}" --keep-position selectedcommit-command "${scopeCommandLogArgs[@]}" --single-only --with-range-from-end ^... --range-is-last -3 diff COMMITS RANGE "$@";;
     dsta?(t)byeach)
-	$EXEC git-"${scopeCommand[@]}" -2 "log${gitCommand#d}" RANGE "$@";;
+	$EXEC git-"${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" -2 "log${gitCommand#d}" RANGE "$@";;
     adp)
-	$EXEC git-"${scopeCommand[@]}" --keep-position selectedcommit-command --single-only --range-is-last -3 "$gitCommand" COMMITS RANGE "$@";;
+	$EXEC git-"${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" --keep-position selectedcommit-command --single-only --range-is-last -3 "$gitCommand" COMMITS RANGE "$@";;
     ma)
 	$EXEC git-"${scopeCommand[@]}" -2 format-patch RANGE "$@";;
 
     st|files|submodules)
-	$EXEC git-"${scopeCommand[@]}" -2 "show$gitCommand" RANGE "$@";;
+	$EXEC git-"${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" -2 "show$gitCommand" RANGE "$@";;
     subdo)
 	$EXEC git-branch-command --keep-position files-command --source-command "$scope submodules --branch BRANCH" --keep-position subdo --for FILES \; "$@";;
 
@@ -104,28 +110,28 @@ subchanges|superchanges|subrevl@(?(o)g|c)\
 	if [ -n "$scopeInoutNote" ]; then
 	    $EXEC echo "Note: ${gitCommand} ${scopeInoutNote}"
 	else
-	    $EXEC git-"${scopeCommand[@]}" --no-range -3 "$gitCommand" --base RANGE "$@"
+	    $EXEC git-"${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" --no-range -3 "$gitCommand" --base RANGE "$@"
 	fi
 	;;
 
     revive)
 	$EXEC git-"${scopeCommand[@]}" -3 "$gitCommand" --all RANGE "$@";;
     lby)
-	$EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" -5 others-command -2 l AUTHORS RANGE : "$@";;
+	$EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" -5 others-command -2 l AUTHORS RANGE : "$@";;
     lhby)
-	$EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" -6 others-command -2 lh AUTHORS RANGE : "$@";;
+	$EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" -6 others-command -2 lh AUTHORS RANGE : "$@";;
     compareourl)
-	$EXEC git-"${scopeCommand[@]}" -5 rbrurl-compare-to-base --remote origin --range RANGE --base-to-rev --commit-to-rev "$@";;
+	$EXEC git-"${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" -5 rbrurl-compare-to-base --remote origin --range RANGE --base-to-rev --commit-to-rev "$@";;
     compareuurl)
-	$EXEC git-"${scopeCommand[@]}" -5 rbrurl-compare-to-base --remote upstream --range RANGE --base-to-rev --commit-to-rev "$@";;
+	$EXEC git-"${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" -5 rbrurl-compare-to-base --remote upstream --range RANGE --base-to-rev --commit-to-rev "$@";;
     lghipassedfiles)
-	$EXEC git-"${scopeCommand[@]}" --one-more-command 'greyonelineloghighlight lghighlight' --one-more-only-to-terminal -2 lghifiles RANGE "$@";;
+	$EXEC git-"${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" --one-more-command 'greyonelineloghighlight lghighlight' --one-more-only-to-terminal -2 lghifiles RANGE "$@";;
     lghifiles)
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope lghipassedfiles" "$@";;
     lgby)
-	$EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" -7 others-command --range RANGE -2 onelinelog AUTHORS RANGE : "$@";;
+	$EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" "${scopeCommandLogAndLastArgs[@]:-${scopeCommandLogArgs[@]}}" -7 others-command --range RANGE -2 onelinelog AUTHORS RANGE : "$@";;
     logby)
-	$EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" -7 others-command --range RANGE -2 log AUTHORS RANGE : "$@";;
+	$EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" "${scopeCommandLogAndLastArgs[@]:-${scopeCommandLogArgs[@]}}" -7 others-command --range RANGE -2 log AUTHORS RANGE : "$@";;
     lgfiles@(mine|team|by))
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope lg${gitCommand#lgfiles}" "$@";;
 
@@ -188,12 +194,12 @@ subchanges|superchanges|subrevl@(?(o)g|c)\
     who@(created|lasttouched|did?(f)|owns|contributed|what)thosechangedfiles)
 	$EXEC git-branch-command --keep-position files-command --source-command "$scope files --branch BRANCH" "${gitCommand%thosechangedfiles}" "$@";;
     who@(created|lasttouched|did?(f)|owns|contributed|what)here)
-	$EXEC git-"${scopeCommand[@]}" -2 "${gitCommand%here}" RANGE "$@";;
+	$EXEC git-"${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" -2 "${gitCommand%here}" RANGE "$@";;
 
     emaillog)
-	$EXEC git-"${scopeCommand[@]}" -3 email-command log RANGE "$@";;
+	$EXEC git-"${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" -3 email-command log RANGE "$@";;
     emaillc)
-	$EXEC git-"${scopeCommand[@]}" -3 email-command lc RANGE "$@";;
+	$EXEC git-"${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" -3 email-command lc RANGE "$@";;
 
     '')	echo >&2 'ERROR: No GIT-COMMAND.'; echo >&2; printUsage "$0" >&2; exit 2;;
     *)	printf >&2 "ERROR: '%s' cannot be used with a %s scope.\\n" "$gitCommand" "$scope"; exit 2;;

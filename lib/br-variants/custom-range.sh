@@ -15,7 +15,7 @@ printUsage()
 Log variants that cover ${scopeWhat:?}.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" "GIT-COMMAND [...] ${scopeArgs}${scopeArgs:+ [...] }${scopeFinalArgs}${scopeFinalArgs:+ }[-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "GIT-COMMAND [...] ${scopeArgs}${scopeAdditionalArgs:+ }${scopeAdditionalArgs}${scopeArgs:+ [...] }${scopeFinalArgs}${scopeFinalArgs:+ }[-?|-h|--help]"
 }
 
 case "$1" in

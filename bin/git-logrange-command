@@ -5,10 +5,10 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--revision REVISION] [--no-range|--with-range ...|--last-only] [--one-more] [--with-log-args|--with-log-args-except-last] [--invert-grep] ... text|/regexp/ [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--revision REVISION] [--no-range|--with-range ...|--last-only] [--one-more] [--invert-grep] --grep=<pattern> ...'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--revision REVISION] [--no-range|--with-range RANGE] [--one-more|--one-more-output|--one-more-command GIT-COMMAND2|^[1|2] [--one-more-with-padding] [--one-more-only-to-terminal] [--with-log-args|--with-log-args-except-last|--pass-file-args] ... text|/regexp/ [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--revision REVISION] [--no-range|--with-range RANGE] [--one-more|--one-more-output|--one-more-command GIT-COMMAND2|^[1|2] [--one-more-with-padding] [--one-more-only-to-terminal] [--with-log-args|--with-log-args-except-last|--pass-file-args] [--invert-grep] --grep=<pattern> ...'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [...] [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... LOGRANGE ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... RANGE ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [...]'
 }
@@ -25,11 +25,11 @@ printLongUsage()
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
 Print / execute GIT-COMMAND with a revision range starting from the passed
-REVISION / the first found revision where ${GIT_LOGRANGE_RANGE_WHAT:?} and including all such following commits where ${GIT_LOGRANGE_RANGE_WHAT:?}
+REVISION / the most recent revision where ${GIT_LOGRANGE_RANGE_WHAT:?} and including all such following commits where ${GIT_LOGRANGE_RANGE_WHAT:?}
 - appended
-- replacing LOGRANGE argument(s) anywhere
-- replacing LOGRANGE in the following GIT-COMMAND and -(N-1) arguments
-- replacing LOGRANGE in the following +(N) arguments and appending those
+- replacing RANGE argument(s) anywhere
+- replacing RANGE in the following GIT-COMMAND and -(N-1) arguments
+- replacing RANGE in the following +(N) arguments and appending those
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
@@ -46,31 +46,24 @@ HELPDESCRIPTION
 		    be used when determining the revision range.
 HELPTEXT
 }
+
+# Need to parse off --grep from anywhere first.
+# Same for --revision to determine the start revision.
 revision=
-range=..
-isLastOnly=
-isShowOneMore=
 typeset -a grepArgs=()
-typeset -a grepModificationArgs=()
-withLogArgs=
+typeset -a allargs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)		    shift; printLongUsage "$0"; exit 0;;
-	--revision|-r)		    shift; revision="$1"; shift;;
-	--grep)			    grepArgs+=("$1" "$2"); shift; shift;;
-	--grep=*)		    grepArgs+=("$1"); shift;;
-	--invert-grep)		    grepModificationArgs+=("$1"); shift;;
-	--no-range)		    shift; range=;;
-	--with-range)		    shift; range="$1"; shift;;
-	--last-only)		    shift; isLastOnly=t; range=;;
-	--one-more)		    shift; isShowOneMore=t;;
-	--with-log-args)	    shift; withLogArgs=all;;
-	--with-log-args-except-last)
-				    shift; withLogArgs=except-last;;
-	*)			    break;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--revision|-r)	shift; revision="$1"; shift;;
+	--grep)		grepArgs+=("$1" "$2"); shift; shift;;
+	--grep=*)	grepArgs+=("$1"); shift;;
+	--)		break;;
+	*)		allargs+=("$1"); shift;;
     esac
 done
+set -- "${allargs[@]}" "$@"
 typeset -a finalGrepArg=()
 if [ ${#grepArgs[@]} -eq 0 ]; then
     # No --grep given; the last argument is the text or /regexp/.
@@ -82,47 +75,62 @@ if [ ${#grepArgs[@]} -eq 0 ]; then
     finalGrepArg=("${!#}"); [ $# -eq 0 ] && set -- || set -- "${@:1:$(($#-1))}"
 fi
 
-isCountedAppend=
-typeset -a countedArgs=()
-case "$1" in
-    +[1-9])
-	isCountedAppend=t;&
-    -[1-9])
-	typeset countedArgNum=${1#[+-]}
-	typeset countedArgNum=${1#-}
-	countedArgs=("${@:2:${countedArgNum}}")
-	set -- "${@:$((2 + countedArgNum))}"
+typeset -a grepModificationArgs=()
+withLogArgs=
+typeset -a revRangeArgs=()
+isWithRange=t
+typeset -a logArgs=()
+captureLogArgs()
+{
+    local arg; for arg
+    do
+	[ "$arg" = RANGE ] || logArgs+=("$arg")
+    done
+}
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)		    shift; printLongUsage "$0"; exit 0;;
+	--revision|-r)		    shift; revision="$1"; shift;;
+	--invert-grep)		    grepModificationArgs+=("$1"); shift;;
 
-	executor()
-	{
-	    countedArgs=("${countedArgs[@]//LOGRANGE/${revisionRange}}")
+	--one-more|--one-more-output|--one-more-only-to-terminal|--one-more-with-padding)
+				    revRangeArgs+=("$1"); shift;;
+	--no-range)		    revRangeArgs+=("$1"); shift; isWithRange=;;
+	--one-more-command|--with-range)
+				    revRangeArgs+=("$1" "${2:?}"); shift; shift;;
+	--keep-position)	    revRangeArgs+=("$@"); shift; shift	# --keep-position GIT-COMMAND
+				    captureLogArgs "$@"
+				    set --
+				    break
+				    ;;
+	-[0-9])			    captureLogArgs "${@:3:$((${1#-} - 1))}"  # without -N and GIT-COMMAND
+				    revRangeArgs+=("$1" "${@:2:${1#-}}")
+				    shift ${1#-}    # GIT-COMMAND ARG1 ...
+				    shift   # -N
+				    break
+				    ;;
+	+[0-9])			    revRangeArgs+=("$1" "${@:2:$((${1#+} + 1))}")   # include GIT-COMMAND here
+				    captureLogArgs "${@:2:${1#+}}"  # without +N and GIT-COMMAND
+				    shift ${1#+}    # ARG1 ARG2 ARG3 ...
+				    shift   # +N
+				    shift # GIT-COMMAND
+				    logArgs=("$@" "${logArgs[@]}")
+				    set --
+				    break
+				    ;;
 
-	    [ "$isCountedAppend" ] \
-		&& exec git-wrapper "$@" "${countedArgs[@]}" \
-		|| exec git-wrapper "${countedArgs[@]}" "$@"
-	}
-	;;
-    --keep-position)
-	shift
-	countedArgs=("$@"); set --
-
-	executor()
-	{
-	    exec git-wrapper "${countedArgs[@]//LOGRANGE/${revisionRange}}"
-	}
-	;;
-    *)	countedArgs=("$@"); set --
-	executor()
-	{
-	    exec git-wrapper "${countedArgs[@]}" "$revisionRange"
-	}
-	;;
-esac
+	--with-log-args)	    shift; withLogArgs=all;;
+	--with-log-args-except-last)
+				    shift; withLogArgs=except-last;;
+	*)			    break;;
+    esac
+done
 
 typeset sharedLogArgs=()
 case "$withLogArgs" in
-    all)	    sharedLogArgs+=("$@");;
-    except-last)    [ $# -eq 0 ] || sharedLogArgs+=("${@:1:$(($#-1))}");;
+    all)	    sharedLogArgs=("${logArgs[@]}" "$@");;
+    except-last)    sharedLogArgs=("${logArgs[@]}" "$@"); sharedLogArgs=("${sharedLogArgs[@]:0:$((${#sharedLogArgs[@]}-1))}");;
 esac
 
 if [ -z "$revision" ]; then
@@ -144,20 +152,10 @@ if [ -n "$firstDifferentRevision" ]; then
 	printf >&2 'The %s revision already does not match.\n' "$revision"
 	exit 1
     else
-	startRevision="${firstDifferentRevision}${isShowOneMore:+^}"
+	startRevision="$firstDifferentRevision"
     fi
 fi
 
-revisionSuffix=; [ "$isShowOneMore" ] && [ -z "$startRevision" -o -z "$range" ] && revisionSuffix='^'
-if [ "$isLastOnly" ]; then
-    revisionRange="${range:+${startRevision}${startRevision:+$range}}${revision}${revisionSuffix}"
-else
-    revisionRange="${startRevision}${startRevision:+$range}${range:+${revision}${revisionSuffix}}"
-fi
+[ "$isWithRange" ] || revision=''   # Prevent "ERROR: --end-revision cannot be combined with --no-range!"; we don't need the end revision, as --no-range drops that, anyway.
 
-if [ ${#countedArgs[@]} -eq 0 -a $# -eq 0 ]; then
-    printf '%s\n' "$revisionRange"
-    exit 0
-else
-    executor "$@"
-fi
+exec git-rev-range --revision "$startRevision" ${revision:+--end-revision "$revision"} "${revRangeArgs[@]}" "$@"

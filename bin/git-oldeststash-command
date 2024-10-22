@@ -1,0 +1,53 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Execute GIT-COMMAND with the reference to the oldest stash
+- appended
+- replacing STASHREF argument(s) anywhere
+- replacing STASHREF in the following GIT-COMMAND and -(N-1) arguments
+- replacing STASHREF in the following +(N) arguments and appending those
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--keep-position GIT-COMMAND [... STASHREF ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [...]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+if [ $# -eq 0 ]; then
+    echo >&2 'ERROR: No GIT-COMMAND passed.'
+    exit 2
+fi
+
+readarray -t stashRefs < <(git log --walk-reflogs --pretty="%gd" refs/stash 2>/dev/null)
+[ ${#stashRefs[@]} -gt 0 ] || exit 1
+oldestStashRef="${stashRefs[-1]}"
+
+isCountedAppend=
+case "$1" in
+    +[1-9])
+	isCountedAppend=t;&
+    -[1-9])
+	typeset countedArgNum=${1#[+-]}
+	typeset -a countedArgs=("${@:2:${countedArgNum}}")
+	set -- "${@:$((2 + countedArgNum))}"
+
+	countedArgs=("${countedArgs[@]//STASHREF/${oldestStashRef}}")
+
+	[ "$isCountedAppend" ] \
+	    && exec git-wrapper "$@" "${countedArgs[@]}" \
+	    || exec git-wrapper "${countedArgs[@]}" "$@"
+	;;
+    --keep-position)
+	shift
+	exec git-wrapper "${@//STASHREF/${oldestStashRef}}"
+	;;
+    *)
+	exec git-wrapper "$@" "${oldestStashRef}"
+	;;
+esac

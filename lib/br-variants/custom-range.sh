@@ -6,7 +6,8 @@ shopt -qs extglob
 
 readonly scriptName="$(basename -- "$0")"
 readonly scope="${scriptName#git-}"
-: ${scopeArgs=[-b|--branch BRANCH]}
+: ${scopeArgs=-b|--branch BRANCH}
+: ${scopeFilesCommandArgs=${scopeArgs#-[A-Za-z]|}}
 : ${scopeFinalArgs=}
 case " ${!scopeDiffCommandRangeArgs*} " in
     *" scopeDiffCommandRangeArgs "*) ;;
@@ -19,7 +20,7 @@ printUsage()
 Log variants that cover ${scopeWhat:?}.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" "GIT-COMMAND [...] ${scopeArgs}${scopeAdditionalArgs:+ }${scopeAdditionalArgs}${scopeArgs:+ [...] }${scopeFinalArgs}${scopeFinalArgs:+ }[-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "GIT-COMMAND [...] ${scopeArgs:+[}${scopeArgs}${scopeArgs:+]}${scopeAdditionalArgs:+ }${scopeAdditionalArgs}${scopeArgs:+ [...] }${scopeFinalArgs}${scopeFinalArgs:+ }[-?|-h|--help]"
 }
 
 case "$1" in
@@ -96,7 +97,7 @@ detach@(g|changed|touched)\
     d?([lbwcayYrt]|rl)|dsta?(t)|ad|subrevdiff)
 	$EXEC git-"${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" "${scopeDiffCommandRangeArgs[@]}" -2 "$gitCommand" RANGE "$@";;
     ds)
-	$EXEC git-branch-command --keep-position files-command --source-command "$scope files --branch BRANCH" "${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" --branch BRANCH "${scopeDiffCommandRangeArgs[@]}" -2 diffselected RANGE "$@";;
+	$EXEC git-branch-command --keep-position files-command --source-command "$scope files $scopeFilesCommandArgs" "${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" --branch BRANCH "${scopeDiffCommandRangeArgs[@]}" -2 diffselected RANGE "$@";;
     dss)
 	$EXEC git-"${scopeCommand[@]}" --keep-position selectedcommit-command "${scopeCommandLogArgs[@]}" --single-only --with-range-from-end ^... --range-is-last -3 diff COMMITS RANGE "$@";;
     dsta?(t)byeach)
@@ -109,7 +110,7 @@ detach@(g|changed|touched)\
     st|files|submodules)
 	$EXEC git-"${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" -2 "show$gitCommand" RANGE "$@";;
     subdo)
-	$EXEC git-branch-command --keep-position files-command --source-command "$scope submodules --branch BRANCH" --keep-position subdo --for FILES \; "$@";;
+	$EXEC git-branch-command --keep-position files-command --source-command "$scope submodules $scopeFilesCommandArgs" --keep-position subdo --for FILES \; "$@";;
 
     inout|io?(files|submodules)|ab)
 	if [ -n "$scopeInoutNote" ]; then
@@ -197,7 +198,7 @@ detach@(g|changed|touched)\
 	$EXEC git-"${scopeCommand[@]}" -2 "${gitCommand}selectedonemore" RANGE "$@";;
 
     who@(created|lasttouched|did?(f)|owns|contributed|what)thosechangedfiles)
-	$EXEC git-branch-command --keep-position files-command --source-command "$scope files --branch BRANCH" "${gitCommand%thosechangedfiles}" "$@";;
+	$EXEC git-branch-command --keep-position files-command --source-command "$scope files $scopeFilesCommandArgs" "${gitCommand%thosechangedfiles}" "$@";;
     who@(created|lasttouched|did?(f)|owns|contributed|what)here)
 	$EXEC git-"${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" -2 "${gitCommand%here}" RANGE "$@";;
 

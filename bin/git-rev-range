@@ -29,7 +29,7 @@ itself.
 --one-more-only-to-terminal invokes one-more only when output is to a terminal.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '-r|--revision REVISION [-e|--end-revision END-REVISION|--no-range|--with-range RANGE] [+1|--one-more|--one-more-output|--one-more-command GIT-COMMAND2|^[1|2] [--one-more-with-padding] [--one-more-only-to-terminal] ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '-r|--revision REVISION [-e|--end-revision END-REVISION [--last-only]|--no-range|--with-range RANGE] [+1|--one-more|--one-more-output|--one-more-command GIT-COMMAND2|^[1|2] [--one-more-with-padding] [--one-more-only-to-terminal] ... [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [...] [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... RANGE ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
@@ -42,6 +42,7 @@ isShowOneMoreOutput=
 showOneMoreCommand=
 isOneMorePadding=
 isOneMoreOnlyToTerminal=
+isLastOnly=
 unset revision
 revisionModifier=
 endRevision=
@@ -70,8 +71,9 @@ do
 			shift; isOneMorePadding=t;;
 	--one-more-only-to-terminal)
 			shift; isOneMoreOnlyToTerminal=t;;
-	--no-range)	shift; range='';;
-	--with-range)	shift; range="$1"; shift;;
+	--no-range)	shift; range=''; [ "$isLastOnly" ] && { printUsage "$0" >&2; exit 2; };;
+	--with-range)	shift; range="$1"; shift; [ "$isLastOnly" ] && { printUsage "$0" >&2; exit 2; };;
+	--last-only)	shift; isLastOnly=t; [ "$range" = .. ] || { printUsage "$0" >&2; exit 2; };;
 	*)		break;;
     esac
 done
@@ -160,6 +162,15 @@ if [ -z "$revision" ]; then
 	# Can't use a completely empty revision range; need to have at least an end revision.
 	: ${endRevision:=HEAD}
     fi
+    range=''
+    isShowOneMore=
+    isShowOneMoreOutput=
+    showOneMoreCommand=
+    isOneMorePadding=
+    isOneMoreOnlyToTerminal=
+elif [ "$isLastOnly" ]; then
+    revision=''
+    revisionModifier=''
     range=''
     isShowOneMore=
     isShowOneMoreOutput=

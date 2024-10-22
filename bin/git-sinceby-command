@@ -11,8 +11,8 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--revision REVISION] [--author=<pattern>|--committer=<pattern> ...] [--no-range|--with-range RANGE] [--one-more|--one-more-output|--one-more-command GIT-COMMAND2|^[1|2] [--one-more-with-padding] [--one-more-only-to-terminal] [--with-log-args|--with-log-args-except-last] ... [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [... --author=<pattern>|--committer=<pattern> [-r|--revision REVISION] ...] '
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--revision REVISION] [--author=<pattern>|--committer=<pattern> ...] [--no-range|--with-range RANGE] [--one-more|--one-more-output|--one-more-command GIT-COMMAND2|^[1|2] [--one-more-with-padding] [--one-more-only-to-terminal] [--with-log-args] [--files-for-range|--files-for-command] [--except-last] ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [... --author=<pattern>|--committer=<pattern> [-r|--revision REVISION] ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... RANGE ... --author=<pattern>|--committer=<pattern> [-r|--revision REVISION] ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [... --author=<pattern>|--committer=<pattern> [-r|--revision REVISION] ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [... --author=<pattern>|--committer=<pattern> [-r|--revision REVISION] ...]'
@@ -40,25 +40,31 @@ HELPDESCRIPTION
     echo
     printShortUsage "$1"
     cat <<HELPTEXT
-    --no-range	    Only use the first commit from the passed author.
-    --with-range ...
-		    Use ... instead of .. as the range specifier.
-    --one-more	    Include the commit preceding the author's first commit.
-    --with-log-args All GIT-COMMAND log arguments should also be used when
-		    determining the revision range. FILE arguments are passed to
-		    GIT-COMMAND as well.
-    --with-log-args-except-last
-		    All GIT-COMMAND log arguments expect the very last should
-		    also be used when determining the revision range.
+    --no-range		Only use the first commit from the passed author.
+    --with-range ...	Use ... instead of .. as the range specifier.
+    --one-more		Include the commit preceding the author's first commit.
+    --with-log-args	All GIT-COMMAND log arguments should also be used when
+			determining the authors.
+    FILE arguments by default are both used to determine the revision range and
+    passed to GIT-COMMAND.
+    --files-for-range	Only use FILE arguments to determine the revision range,
+			do not pass them to GIT-COMMAND.
+    --files-for-command Pass FILE arguments only to GIT-COMMAND, do not use them
+			to determine the revision range.
+    --except-last	The very last argument is special and should not be
+			parsed as log-args or FILE(s).
 HELPTEXT
 }
 
 revision=
 typeset userFilterArgs=()
-withLogArgs=
-typeset -a revRangeArgs=()
 isWithRange=t
+typeset -a specialLastArg=()
+typeset otherArgs=()
 typeset -a logArgs=()
+isFilesForRange=t
+isFilesForCommand=t
+unset files
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -73,36 +79,64 @@ do
 	--author=*|--committer=*)
 			userFilterArgs+=("$1"); shift;;
 
+	--no-range)	otherArgs+=("$1"); shift; isWithRange=;;
+
 	--with-log-args)
-			shift; withLogArgs=all;;
-	--with-log-args-except-last)
-			shift; withLogArgs=except-last;;
-	--no-range)	revRangeArgs+=("$1"); shift; isWithRange=;;
-	--)		break;;
-	*)		if { [ "$withLogArgs" = all ] || [ "$withLogArgs" = except-last -a $# -gt 1 ]; } \
+			shift; isWithLogArgs=t;;
+	--files-for-range)
+			shift; isFilesForCommand=;;
+	--files-for-command)
+			shift; isFilesForRange=;;
+	--except-last)
+			shift
+			if [ $# -gt 0 ]; then
+			    specialLastArg=("${!#}")
+			    set -- "${@:1:$(($#-1))}"
+			fi
+			;;
+	--)		shift
+			typeset -a files=("$@")
+			break
+			;;
+	*)		if [ "$isWithLogArgs" ] \
 			    && { countLogArgs '' "$1"; argCount=$?; [ $argCount -gt 0 ]; }
 			then
 			    while ((argCount-- > 0))
 			    do
 				logArgs+=("$1")
-				revRangeArgs+=("$1")
+				otherArgs+=("$1")
 				shift
 			    done
 			else
-			    revRangeArgs+=("$1")
+			    otherArgs+=("$1")
 			    shift
 			fi
 			;;
     esac
 done
+set -- "${otherArgs[@]}" "$@"
+if [ -z "${files+t}" ]; then
+    # No files after -- captured yet; need to investigate parsed and
+    # remaining args from behind for files.
+    typeset -a files=()
+    while [ $# -gt 0 ]
+    do
+	lastArg="${!#}"
+	[ -e "$lastArg" ] || break
+
+	files=("$lastArg" "${files[@]}")
+	set -- "${@:1:$(($#-1))}"
+    done
+fi
+
 if [ ${#userFilterArgs[@]} -eq 0 ]; then
-    author="$(git log --max-count 1 --pretty=format:'%aN <%aE>' "${revision:-HEAD}")" || exit $?
-    committer="$(git log --max-count 1 --pretty=format:'%cN <%cE>' "${revision:-HEAD}")" || exit $?
+    author="$(git log --max-count 1 --pretty=format:'%aN <%aE>' "${revision:-HEAD}" ${isFilesForRange:+-- "${files[@]}"})" || exit $?
+    committer="$(git log --max-count 1 --pretty=format:'%cN <%cE>' "${revision:-HEAD}" ${isFilesForRange:+-- "${files[@]}"})" || exit $?
     userFilterArgs+=(--author "$author")
     [ "$author" = "$committer" ] || userFilterArgs+=(--committer "$committer")
 fi
 
-startRevision="$(git-firstcommit "${userFilterArgs[@]}" "${revision:-HEAD}" "${logArgs[@]}")" || exit $?
+startRevision="$(git-firstcommit "${userFilterArgs[@]}" "${revision:-HEAD}" "${logArgs[@]}" ${isFilesForRange:+-- "${files[@]}"})" || exit $?
 [ "$isWithRange" ] || revision=''   # Prevent "ERROR: --end-revision cannot be combined with --no-range!"; we don't need the end revision, as --no-range drops that, anyway.
 
-exec git-rev-range --revision "${startRevision}^" ${revision:+--end-revision "$revision"} "${revRangeArgs[@]}" "$@"
+exec git-rev-range --revision "${startRevision}^" ${revision:+--end-revision "$revision"} "$@" ${isFilesForCommand:+${files:+--} "${files[@]}"} "${specialLastArg[@]}"

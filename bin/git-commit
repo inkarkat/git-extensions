@@ -14,6 +14,7 @@ fi
 typeset -a messageDirectArgs=()
 typeset -a messageFileArgs=()
 typeset -a messageRefArgs=()
+hasConflictingWithTemplateArgs=
 convertMessageFileArgsToDirectArgs()
 {
     [ ${#messageFileArgs[@]} -gt 0 ] || return
@@ -70,6 +71,8 @@ do
 			messageRefArgs+=("$1"); shift;;
 	--edit|-e|--no-edit)
 			editArgs+=("$1"); shift;;
+	--fixup)	commitArgs+=("$1" "${2?}"); shift; shift; hasConflictingWithTemplateArgs=t;;
+	--fixup=*)	commitArgs+=("$1"); shift; hasConflictingWithTemplateArgs=t;;
 	--)		commitArgs+=("$1"); shift; break;;
 	*)		commitArgs+=("$1"); shift;;
     esac
@@ -80,6 +83,7 @@ done
 # by this. In order to avoid accidental pick up of old templates, they have the
 # previous commit's ID in their name.
 if [ ${#messageDirectArgs[@]} -eq 0 -a ${#messageFileArgs[@]} -eq 0 -a ${#messageRefArgs[@]} -eq 0 ] \
+    && [ ! "$hasConflictingWithTemplateArgs" ] \
     && commitTemplateFilespec="$(git-committemplate --get-filespec)"
 then
     messageFileArgs+=(--file "$commitTemplateFilespec")

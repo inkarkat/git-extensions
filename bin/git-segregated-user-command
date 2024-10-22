@@ -111,6 +111,22 @@ if [ $# -eq 0 ]; then
     exit 2
 fi
 
+# Remove any --author= argument; these are only useful for limiting the source
+# user list, but would wreak havoc on the iteration. Do this in a second
+# iteration as --committer may be passed (by the user) after an --committer
+# parameter.
+typeset -a args=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--${filter})	shift; shift;;
+	--${filter}=*)	shift;;
+	--)		break;;
+	*)		args+=("$1"); shift;;
+    esac
+done
+set -- "${args[@]}"
+
 isCountedAppend=
 typeset -a countedArgs=()
 case "$1" in
@@ -156,19 +172,6 @@ if [ -n "$pager" -o -n "$contextCommand" ] && isNeedColorArgumentWhenPiping "${c
     colorArg=(--color=always)	# Force for withHeader
     [ "$isGitColor" ] && gitColorArg=(--color=always)	# Force for Git
 fi
-
-# Remove any --author= argument; these are only useful for limiting the source
-# user list, but would wreak havoc on the iteration.
-typeset -a gitCommandArgs=()
-while [ $# -ne 0 ]
-do
-    case "$1" in
-	--${filter})	shift; shift;;
-	--${filter}=*)	shift;;
-	--)		break;;
-	*)		gitCommandArgs+=("$1"); shift;;
-    esac
-done
 
 readarray -t authors < <(git log --pretty="tformat:${subjectPlaceholder}N" "${logArgs[@]}" | sort --unique)
 [ ${#authors[@]} -gt 0 ] || exit 99

@@ -131,8 +131,8 @@ if [ -z "${files+t}" ]; then
 fi
 
 if [ ${#userFilterArgs[@]} -eq 0 ]; then
-    author="$(git log --max-count 1 --pretty=format:'%aN <%aE>' "${revision:-HEAD}" ${isFilesForRange:+-- "${files[@]}"})" || exit $?
-    committer="$(git log --max-count 1 --pretty=format:'%cN <%cE>' "${revision:-HEAD}" ${isFilesForRange:+-- "${files[@]}"})" || exit $?
+    author="$(git log --max-count 1 --pretty=format:'%aN <%aE>' "${revision:-HEAD}" ${isFilesForRange:+-- "${files[@]}"} | sed -e 's/[][\$*.^]/\\&/g')" || exit $?
+    committer="$(git log --max-count 1 --pretty=format:'%cN <%cE>' "${revision:-HEAD}" ${isFilesForRange:+-- "${files[@]}"} | sed -e 's/[][\$*.^]/\\&/g')" || exit $?
     userFilterArgs+=(--author "$author")
     [ "$author" = "$committer" ] || userFilterArgs+=(--committer "$committer")
 fi

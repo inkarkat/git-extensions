@@ -1,13 +1,19 @@
 #!/bin/bash
 set -o noglob -o pipefail
 
+readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
+[ -d "$scriptDir" ] || { echo >&2 'ERROR: Cannot determine script directory!'; exit 3; }
+readonly projectDir="${scriptDir}/.."
+readonly libDir="${projectDir}/lib"
+source "${libDir}/logArgParser.sh" || exit 3
+
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--revision REVISION] [--author=<pattern>|--committer=<pattern> ...] [--no-range|--with-range RANGE] [--one-more|--one-more-output|--one-more-command GIT-COMMAND2|^[1|2] [--one-more-with-padding] [--one-more-only-to-terminal] [--with-log-args|--with-log-args-except-last|--pass-file-args] ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--revision REVISION] [--author=<pattern>|--committer=<pattern> ...] [--no-range|--with-range RANGE] [--one-more|--one-more-output|--one-more-command GIT-COMMAND2|^[1|2] [--one-more-with-padding] [--one-more-only-to-terminal] [--with-log-args|--with-log-args-except-last] ... [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [... --author=<pattern>|--committer=<pattern> [-r|--revision REVISION] ...] '
-    printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... USERRANGE ... --author=<pattern>|--committer=<pattern> [-r|--revision REVISION] ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... RANGE ... --author=<pattern>|--committer=<pattern> [-r|--revision REVISION] ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [... --author=<pattern>|--committer=<pattern> [-r|--revision REVISION] ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [... --author=<pattern>|--committer=<pattern> [-r|--revision REVISION] ...]'
 }
@@ -27,9 +33,9 @@ Print / execute GIT-COMMAND with a revision range starting from the current HEAD
 / passed REVISION to the very first commit from the passed author / committer(s)
 (or the author (+ committer if different) from the start revision)
 - appended
-- replacing USERRANGE argument(s) anywhere
-- replacing USERRANGE in the following GIT-COMMAND and -(N-1) arguments
-- replacing USERRANGE in the following +(N) arguments and appending those
+- replacing RANGE argument(s) anywhere
+- replacing RANGE in the following GIT-COMMAND and -(N-1) arguments
+- replacing RANGE in the following +(N) arguments and appending those
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
@@ -38,133 +44,65 @@ HELPDESCRIPTION
     --with-range ...
 		    Use ... instead of .. as the range specifier.
     --one-more	    Include the commit preceding the author's first commit.
-    --with-log-args All GIT-COMMAND arguments should also be used when
+    --with-log-args All GIT-COMMAND log arguments should also be used when
 		    determining the revision range. FILE arguments are passed to
 		    GIT-COMMAND as well.
     --with-log-args-except-last
-		    All GIT-COMMAND arguments expect the very last should also
-		    be used when determining the revision range.
-    --pass-file-args
-		    Pass FILE arguments also to GIT-COMMAND, and not just use
-		    them to determine the revision range.
+		    All GIT-COMMAND log arguments expect the very last should
+		    also be used when determining the revision range.
 HELPTEXT
 }
 
-# Need to parse off --author|--committer from anywhere first; these here select
-# the user and do not filter commits by author (for that we have "git logby").
-# Same for --revision to determine the start revision.
-# Same for --with-log-args-except-last to determine that the last argument is
-# not a file argument.
 revision=
 typeset userFilterArgs=()
 withLogArgs=
-typeset -a allargs=()
-unset files
+typeset -a revRangeArgs=()
+isWithRange=t
+typeset -a logArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+
+	# Need to parse off --author|--committer from anywhere first; these here select
+	# the user and do not filter commits by author.
+	# Same for --revision to determine the start revision.
 	--revision|-r)	shift; revision="$1"; shift;;
 	--author|--committer)
 			userFilterArgs+=("$1" "$2"); shift; shift;;
 	--author=*|--committer=*)
 			userFilterArgs+=("$1"); shift;;
+
+	--with-log-args)
+			shift; withLogArgs=all;;
 	--with-log-args-except-last)
 			shift; withLogArgs=except-last;;
-	--)		if [ "$withLogArgs" = except-last ]; then
-			    allargs+=("${!#}")
-			    shift
-			    typeset -a files=(); [ $# -eq 0 ] || files=("${@:1:$(($#-1))}")
+	--no-range)	revRangeArgs+=("$1"); shift; isWithRange=;;
+	--)		break;;
+	*)		if { [ "$withLogArgs" = all ] || [ "$withLogArgs" = except-last -a $# -gt 1 ]; } \
+			    && { countLogArgs '' "$1"; argCount=$?; [ $argCount -gt 0 ]; }
+			then
+			    while ((argCount-- > 0))
+			    do
+				logArgs+=("$1")
+				revRangeArgs+=("$1")
+				shift
+			    done
 			else
+			    revRangeArgs+=("$1")
 			    shift
-			    typeset -a files=("$@")
 			fi
-			break
 			;;
-	*)		allargs+=("$1"); shift;;
     esac
 done
-if [ -z "${files+t}" ]; then
-    # No files after -- captured yet; need to investigate parsed and
-    # remaining args from behind for files.
-    typeset -a files=()
-    allargs+=("$@")
-    while [ ${#allargs[@]} -ne 0 ]
-    do
-	lastArg="${allargs[-1]}"
-	[ -e "$lastArg" ] || break
-
-	files=("$lastArg" "${files[@]}")
-	allargs=("${allargs[@]:0:${#allargs[@]}-1}")
-    done
-fi
-set -- "${allargs[@]}"
-
-typeset -a revRangeArgs=()
-isPassFileArgs=
-isWithRange=t
-typeset -a logArgs=()
-captureLogArgs()
-{
-    local arg; for arg
-    do
-	[ "$arg" = RANGE ] || logArgs+=("$arg")
-    done
-}
-while [ $# -ne 0 ]
-do
-    case "$1" in
-	--help|-h|-\?)		    shift; printLongUsage "$0"; exit 0;;
-
-	--one-more|--one-more-output|--one-more-only-to-terminal|--one-more-with-padding)
-				    revRangeArgs+=("$1"); shift;;
-	--no-range)		    revRangeArgs+=("$1"); shift; isWithRange=;;
-	--one-more-command|--with-range)
-				    revRangeArgs+=("$1" "${2:?}"); shift; shift;;
-	--keep-position)	    revRangeArgs+=("$@"); shift; shift	# --keep-position GIT-COMMAND
-				    captureLogArgs "$@"
-				    set --
-				    break
-				    ;;
-	-[0-9])			    captureLogArgs "${@:3:$((${1#-} - 1))}"  # without -N and GIT-COMMAND
-				    revRangeArgs+=("$1" "${@:2:${1#-}}")
-				    shift ${1#-}    # GIT-COMMAND ARG1 ...
-				    shift   # -N
-				    break
-				    ;;
-	+[0-9])			    revRangeArgs+=("$1" "${@:2:$((${1#+} + 1))}")   # include GIT-COMMAND here
-				    captureLogArgs "${@:2:${1#+}}"  # without +N and GIT-COMMAND
-				    shift ${1#+}    # ARG1 ARG2 ARG3 ...
-				    shift   # +N
-				    shift # GIT-COMMAND
-				    logArgs=("$@" "${logArgs[@]}")
-				    set --
-				    break
-				    ;;
-
-	--with-log-args)	    shift; withLogArgs=all;;
-	# --with-log-args-except-last already parsed above.
-	--pass-file-args)	    shift; isPassFileArgs=t;;
-	*)			    break;;
-    esac
-done
-if [ "$isPassFileArgs" ]; then
-    set -- "$@" ${files[*]:+--} "${files[@]}"
-fi
-
 if [ ${#userFilterArgs[@]} -eq 0 ]; then
     author="$(git log --max-count 1 --pretty=format:'%aN <%aE>' "${revision:-HEAD}")" || exit $?
     committer="$(git log --max-count 1 --pretty=format:'%cN <%cE>' "${revision:-HEAD}")" || exit $?
     userFilterArgs+=(--author "$author")
     [ "$author" = "$committer" ] || userFilterArgs+=(--committer "$committer")
 fi
-typeset sharedLogArgs=()
-case "$withLogArgs" in
-    all)	    sharedLogArgs=("${logArgs[@]}" "$@" ${files[*]:+--} "${files[@]}");;
-    except-last)    sharedLogArgs=("${logArgs[@]}" "$@"); sharedLogArgs=("${sharedLogArgs[@]:0:$((${#sharedLogArgs[@]}-1))}" ${files[*]:+--} "${files[@]}");;
-esac
 
-startRevision="$(git-firstcommit "${userFilterArgs[@]}" "${revision:-HEAD}" "${sharedLogArgs[@]}" ${files[*]:+--} "${files[@]}")" || exit $?
+startRevision="$(git-firstcommit "${userFilterArgs[@]}" "${revision:-HEAD}" "${logArgs[@]}")" || exit $?
 [ "$isWithRange" ] || revision=''   # Prevent "ERROR: --end-revision cannot be combined with --no-range!"; we don't need the end revision, as --no-range drops that, anyway.
 
 exec git-rev-range --revision "$startRevision" ${revision:+--end-revision "$revision"} "${revRangeArgs[@]}" "$@"

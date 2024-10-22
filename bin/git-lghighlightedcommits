@@ -16,19 +16,20 @@ HELPTEXT
 git ${GIT_LGHIGHLIGHT_LG}, with commits that result from GIT-LOG-COMMAND (which will be configured
 to output just commit hashes) highlighted. That argument and GIT-LOG-ARGUMENTS
 ${argsMarker:+replace a $argsMarker marker in GIT-LOG-COMMAND or }will be appended.
-With --with-log-args-except-last, the last argument will only be passed to
-GIT-LOG-COMMAND, but not to git ${GIT_LGHIGHLIGHT_LG}.
+With --except-last, the last argument will only be passed to GIT-LOG-COMMAND,
+but not to git ${GIT_LGHIGHLIGHT_LG}.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--with-log-args-except-last] GIT-LOG-COMMAND [GIT-LOG-ARGUMENTS ...] [<revision range>] [[--] <path>...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--except-last] GIT-LOG-COMMAND [GIT-LOG-ARGUMENTS ...] [<revision range>] [[--] <path>...]'
 }
 typeset -a lastArg=()
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --with-log-args-except-last)
-			shift
-			[ $# -gt 0 ] && lastArg=("${!#}")
-			[ $# -eq 0 ] && set -- || set -- "${@:1:$(($#-1))}"
+    --except-last)	shift
+			if [ $# -gt 0 ]; then
+			    lastArg=("${!#}")
+			    set -- "${@:1:$(($#-1))}"
+			fi
 			;;
 esac
 if [ $# -eq 0 ]; then

@@ -3,21 +3,36 @@
 printUsage()
 {
     cat <<HELPTEXT
-Execute GIT-COMMAND with the reference to the oldest stash
+Execute GIT-COMMAND with the reference to the [N'th] oldest stash
 - appended
 - replacing STASHREF argument(s) anywhere
 - replacing STASHREF in the following GIT-COMMAND and -(N-1) arguments
 - replacing STASHREF in the following +(N) arguments and appending those
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND [...] [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '--keep-position GIT-COMMAND [... STASHREF ...]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-o|--offset N] ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND [... -o|--offset N ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--keep-position GIT-COMMAND [... STASHREF ... -o|--offset N ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [... -o|--offset N ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [... -o|--offset N ...]'
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
+
+# Need to parse off -o|--offset from anywhere first.
+offset=0
+typeset -a allargs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--offset|-o)	shift; offset=${1:?}; shift;;
+	--)		allargs+=("$1"); shift; break;;
+	*)		allargs+=("$1"); shift;;
+    esac
+done
+set -- "${allargs[@]}" "$@"
 
 if [ $# -eq 0 ]; then
     echo >&2 'ERROR: No GIT-COMMAND passed.'
@@ -25,8 +40,10 @@ if [ $# -eq 0 ]; then
 fi
 
 readarray -t stashRefs < <(git log --walk-reflogs --pretty="%gd" refs/stash 2>/dev/null)
-[ ${#stashRefs[@]} -gt 0 ] || exit 1
-oldestStashRef="${stashRefs[-1]}"
+[ ${#stashRefs[@]} -gt 0 ] || exit 99
+index=$((offset + 1))
+[ $index -le ${#stashRefs[@]} ] || exit 4
+oldestStashRef="${stashRefs[-$index]}"
 
 isCountedAppend=
 case "$1" in

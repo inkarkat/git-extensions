@@ -70,8 +70,14 @@ done
 [ ${#allReferencingCommits[@]} -gt 0 ] || exit 0
 
 referencedCommitsPlural=s; [ ${#referencedCommits[@]} -eq 1 ] && referencedCommitsPlural=
-allReferencingCommitsPlural=s; [ ${#allReferencingCommits[@]} -eq 1 ] && allReferencingCommitsPlural=
-printf >&2 'Note: The following commit%s reference the commit%s that will be rebased:\n' "$allReferencingCommitsPlural" "$referencedCommitsPlural"
+if [ ${#allReferencingCommits[@]} -eq 1 ]; then
+    allReferencingCommitsPlural=
+    allReferencingCommitsVerbEnding=s
+else
+    allReferencingCommitsPlural=s
+    allReferencingCommitsVerbEnding=
+fi
+printf >&2 'Note: The following commit%s reference%s the commit%s that will be rebased:\n' "$allReferencingCommitsPlural" "$allReferencingCommitsVerbEnding" "$referencedCommitsPlural"
 git-lghighlightedcommits "${!allReferencingCommits[@]}" "$range"
 if [ "$isInteractive" ]; then
     printf >&2 'Consider rewording those commits to update or remove the references, or cancel the rebase by aborting the editor.\n'

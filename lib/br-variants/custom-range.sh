@@ -94,7 +94,12 @@ detach@(g|changed|touched)\
     d?([lbwcayYrt]|rl)|dsta?(t)|ad|subrevdiff)
 	$EXEC git-"${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" "${scopeDiffCommandRangeArgs[@]}" -2 "$gitCommand" RANGE "$@";;
     ds)
-	$EXEC git-branch-command --keep-position files-command --source-command "$scope files $scopeFilesCommandArgs" "${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" --branch BRANCH "${scopeDiffCommandRangeArgs[@]}" -2 diffselected RANGE "$@";;
+	if [ "$scopeFilesCommandArgs" = '--branch BRANCH' ]; then
+	    $EXEC git-branch-command --keep-position files-command --source-command "$scope files $scopeFilesCommandArgs" "${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" --branch BRANCH "${scopeDiffCommandRangeArgs[@]}" -2 diffselected RANGE "$@"
+	else
+	    $EXEC git-"${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" --keep-position files-command --source-exec showfiles RANGE \; diffselected --log-range RANGE "$@"
+	fi
+	;;
     dss)
 	$EXEC git-"${scopeCommand[@]}" --keep-position selectedcommit-command "${scopeCommandLogArgs[@]}" --single-only --with-range-from-end ^... --range-is-last -3 diff COMMITS RANGE "$@";;
     dsta?(t)byeach)

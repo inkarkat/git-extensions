@@ -63,7 +63,7 @@ l?(o)g?(v)@(g|changed|touched)?(mine)|\
 @(files|versions|tags)@(g|changed|touched)|\
 @(files|version|tag)@(last|first)@(g|changed|touched)\
 )
-	$EXEC git-"${scopeCommand[@]}" "${scopeCommandLogAndLastArgs[@]:-${scopeCommandLogArgs[@]}}" -2 "$gitCommand" RANGE "$@";;
+	$EXEC git-"${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" "${scopeCommandLastArgs[@]}}" -2 "$gitCommand" RANGE "$@";;
 (\
 lcl?(f)|\
 lh?(mine|team)|\
@@ -89,7 +89,7 @@ detach@(g|changed|touched)\
     lgx)
 	$EXEC git-"${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" -2 lg RANGE "$@";;
     lc?(f)by)
-	$EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" "${scopeCommandLogAndLastArgs[@]:-${scopeCommandLogArgs[@]}}" --one-more-command log --one-more-with-padding others-command -2 "${gitCommand%by}" AUTHORS RANGE : "$@";;
+	$EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" "${scopeCommandLastArgs[@]}}" --one-more-command log --one-more-with-padding others-command -2 "${gitCommand%by}" AUTHORS RANGE : "$@";;
 
     d?([lbwcayYrt]|rl)|dsta?(t)|ad|subrevdiff)
 	$EXEC git-"${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" "${scopeDiffCommandRangeArgs[@]}" -2 "$gitCommand" RANGE "$@";;
@@ -132,9 +132,9 @@ detach@(g|changed|touched)\
     lghifiles)
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope lghipassedfiles" "$@";;
     lgby)
-	$EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" "${scopeCommandLogAndLastArgs[@]:-${scopeCommandLogArgs[@]}}" -7 others-command --range RANGE -2 onelinelog AUTHORS RANGE : "$@";;
+	$EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" "${scopeCommandLastArgs[@]}}" -7 others-command --range RANGE -2 onelinelog AUTHORS RANGE : "$@";;
     logby)
-	$EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" "${scopeCommandLogAndLastArgs[@]:-${scopeCommandLogArgs[@]}}" -7 others-command --range RANGE -2 log AUTHORS RANGE : "$@";;
+	$EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" "${scopeCommandLastArgs[@]}}" -7 others-command --range RANGE -2 log AUTHORS RANGE : "$@";;
     lgfiles@(mine|team|by))
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope lg${gitCommand#lgfiles}" "$@";;
 

@@ -96,8 +96,14 @@ do
 			fi
 			;;
 	--)		shift
-			typeset -a files=("$@")
-			break
+			# Only capture files after the last -- (to support intermediate wrapping GIT-COMMAND(s)).
+			if contains -- "$@"; then
+			    otherArgs+=(--)
+			else
+			    typeset -a files=("$@")
+			    set --
+			    break
+			fi
 			;;
 	*)		if [ "$isWithLogArgs" ] \
 			    && { countLogArgs '' "$1"; argCount=$?; [ $argCount -gt 0 ]; }
@@ -115,7 +121,7 @@ do
 			;;
     esac
 done
-set -- "${otherArgs[@]}" "$@"
+set -- "${otherArgs[@]}"
 typeset -a finalGrepArg=()
 if [ ${#grepArgs[@]} -eq 0 ]; then
     # No --grep given; the last argument is the text or /regexp/.

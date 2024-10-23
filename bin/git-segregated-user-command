@@ -106,8 +106,14 @@ do
 			fi
 			;;
 	--)		shift
-			typeset -a files=("$@")
-			break
+			# Only capture files after the last -- (to support intermediate wrapping GIT-COMMAND(s)).
+			if contains -- "$@"; then
+			    otherArgs+=(--)
+			else
+			    typeset -a files=("$@")
+			    set --
+			    break
+			fi
 			;;
 	*)		if [ "$isWithLogArgs" ] \
 			    && { countLogArgs '' "$1"; argCount=$?; [ $argCount -gt 0 ]; }
@@ -125,7 +131,7 @@ do
 			;;
     esac
 done
-set -- "${otherArgs[@]}" "$@"
+set -- "${otherArgs[@]}"
 if [ -z "${files+t}" ]; then
     # No files after -- captured yet; need to investigate parsed and
     # remaining args from behind for files.

@@ -1,5 +1,11 @@
 #!/bin/bash
 
+readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
+[ -d "$scriptDir" ] || { echo >&2 'ERROR: Cannot determine script directory!'; exit 3; }
+readonly projectDir="${scriptDir}/.."
+readonly libDir="${projectDir}/lib"
+source "${libDir}/logArgParser.sh" || exit 3
+
 printUsage()
 {
     cat <<HELPTEXT
@@ -9,6 +15,7 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[[--log-range] <range>] [N [M ...]] [--] [FILE ...] [-?|-h|--help]'
 }
 
+typeset -a allargs=()
 diffCommand="${GIT_DIFFSELECTED_DIFFCOMMAND:-diff}"
 while [ $# -ne 0 ]
 do
@@ -31,8 +38,22 @@ do
 	*..*)		diffCommand+=" $1"; export GIT_SELECTED_COMMAND_DEFAULT_FILES="git-showfiles ${1%%..*}...${1#*..}"; shift;;
 	--revision)	shift; diffCommand+=" ${1:?}"; export GIT_SELECTED_COMMAND_DEFAULT_FILES="git-showfiles $1"; shift;;
 	--revisions)	shift; diffCommand+=" ${1:?} ${2:?}"; export GIT_SELECTED_COMMAND_DEFAULT_FILES="git-showfiles $1..$2"; shift; shift;;
-	*)		break;;
+
+	--)		break;;
+	*)		if countLogArgs t "$1"; argCount=$?; [ $argCount -gt 0 ]
+			then
+			    while ((argCount-- > 0))
+			    do
+				printf -v quotedArg %q "$1"
+				diffCommand+=" $quotedArg"
+				shift
+			    done
+			else
+			    allargs+=("$1")
+			    shift
+			fi
+			;;
     esac
 done
 
-exec git-selected-command --filter '' "$diffCommand --" "$@"
+exec git-selected-command --filter '' "$diffCommand --" "${allargs[@]}" "$@"

@@ -97,7 +97,13 @@ detach@(g|changed|touched)\
 	if [ "$scopeFilesCommandArgs" = '--branch BRANCH' ]; then
 	    $EXEC git-branch-command --keep-position files-command --source-command "$scope files $scopeFilesCommandArgs" "${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" --branch BRANCH "${scopeDiffCommandRangeArgs[@]}" -2 diffselected RANGE "$@"
 	else
-	    $EXEC git-"${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" --keep-position files-command --source-exec showfiles RANGE \; diffselected --log-range RANGE "$@"
+	    # diffselected does not understand log args; these here are only used to determine the affected files and revision range.
+	    # Therefore, turn a configured --log-args-for-range into --log-args-only-for-range.
+	    [ "${scopeCommandLogArgs[*]}" = --log-args-for-range ] \
+		&& diffselectedLogArgs=(--log-args-only-for-range) \
+		|| diffselectedLogArgs=("${scopeCommandLogArgs[@]}")
+
+	    $EXEC git-"${scopeCommand[@]}" "${diffselectedLogArgs[@]}" --keep-position files-command --source-exec showfiles RANGE \; diffselected --log-range RANGE "$@"
 	fi
 	;;
     dss)

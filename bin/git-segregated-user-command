@@ -14,7 +14,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--prefixed|--with-header [--no-git-color]] [--committer] [--with-log-args] [--files-for-range|--files-for-command] [--except-last] ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--prefixed|--with-header [--no-git-color]] [--committer] [--log-args-for-range|--log-args-only-for-range] [--files-for-range|--files-for-command] [--except-last] ... [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... BASE ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
@@ -51,8 +51,13 @@ HELPDESCRIPTION
     --no-git-color	Do not pass a --color=... to GIT-COMMAND.
     --committer		Use committers and pass --committer instead of --author
 			to GIT-COMMAND.
-    --with-log-args	All GIT-COMMAND log arguments should also be used when
+    --log-args-for-range
+			All GIT-COMMAND log arguments should also be used when
 			determining the authors.
+    --log-args-only-for-range
+			All GIT-COMMAND log arguments should exclusively be used
+			when determining the authors but not passed to
+			GIT-COMMAND.
     FILE arguments by default are both used to determine the revision range and
     passed to GIT-COMMAND.
     --files-for-range	Only use FILE arguments to determine the revision range,
@@ -70,10 +75,11 @@ typeset -a colorArg=()
 filter=author
 subjectPlaceholder='%a'
 contextCommand=
-isWithLogArgs=
 typeset -a specialLastArg=()
 typeset otherArgs=()
 typeset -a logArgs=()
+isLogArgsForRange=
+isLogArgsForCommand=t
 isFilesForRange=t
 isFilesForCommand=t
 unset files
@@ -92,8 +98,10 @@ do
 			colorArg=("$1"); shift;;
 	--color)	colorArg=("$1" "$2"); shift; shift;;
 	--committer)	shift; filter=committer; subjectPlaceholder='%c';;
-	--with-log-args)
-			shift; isWithLogArgs=t;;
+	--log-args-for-range)
+			shift; isLogArgsForRange=t;;
+	--log-args-only-for-range)
+			shift; isLogArgsForRange=t; isLogArgsForCommand=;;
 	--files-for-range)
 			shift; isFilesForCommand=;;
 	--files-for-command)
@@ -115,13 +123,13 @@ do
 			    break
 			fi
 			;;
-	*)		if [ "$isWithLogArgs" ] \
+	*)		if { [ "$isLogArgsForRange" ] || [ ! "$isLogArgsForCommand" ]; } \
 			    && { countLogArgs '' "$1"; argCount=$?; [ $argCount -gt 0 ]; }
 			then
 			    while ((argCount-- > 0))
 			    do
 				logArgs+=("$1")
-				otherArgs+=("$1")
+				[ ! "$isLogArgsForCommand" ] || otherArgs+=("$1")
 				shift
 			    done
 			else
@@ -215,7 +223,7 @@ if [ -n "$pager" -o -n "$contextCommand" ] && isNeedColorArgumentWhenPiping "${c
     [ "$isGitColor" ] && gitColorArg=(--color=always)	# Force for Git
 fi
 
-readarray -t authors < <(git log --pretty="tformat:${subjectPlaceholder}N" "${logArgs[@]}" ${isFilesForRange:+-- "${files[@]}"} | sort --unique)
+readarray -t authors < <(git log --pretty="tformat:${subjectPlaceholder}N" ${isLogArgsForRange:+"${logArgs[@]}"} ${isFilesForRange:+-- "${files[@]}"} | sort --unique)
 [ ${#authors[@]} -gt 0 ] || exit 99
 
 iterateUsers()
@@ -223,7 +231,7 @@ iterateUsers()
     status=0
     for author in "${authors[@]}"
     do
-	eval 'executor "$@" "${gitColorArg[@]}" ${isFilesForCommand:+${files:+--} "${files[@]}"} "${specialLastArg[@]}"' \
+	eval 'executor ${isLogArgsForCommand:+"${logArgs[@]}"} "$@" "${gitColorArg[@]}" ${isFilesForCommand:+${files:+--} "${files[@]}"} "${specialLastArg[@]}"' \
 		"${contextCommand:+|}${contextCommand//"$authorMarker"/\"${author}\"}" \
 	    || status=$?
     done

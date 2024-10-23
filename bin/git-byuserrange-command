@@ -11,7 +11,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--revision REVISION] [--author=<pattern>|--committer=<pattern> ...] [--no-range|--with-range RANGE|--last-only] [--one-more|--one-more-output|--one-more-command GIT-COMMAND2|^[1|2] [--one-more-with-padding] [--one-more-only-to-terminal] [--with-log-args] [--files-for-range|--files-for-command] [--except-last] ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--revision REVISION] [--author=<pattern>|--committer=<pattern> ...] [--no-range|--with-range RANGE|--last-only] [--one-more|--one-more-output|--one-more-command GIT-COMMAND2|^[1|2] [--one-more-with-padding] [--one-more-only-to-terminal] [--log-args-for-range|--log-args-only-for-range] [--files-for-range|--files-for-command] [--except-last] ... [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [... --author=<pattern>|--committer=<pattern> [-r|--revision REVISION] ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... RANGE ... --author=<pattern>|--committer=<pattern> [-r|--revision REVISION] ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [... --author=<pattern>|--committer=<pattern> [-r|--revision REVISION] ...]'
@@ -46,8 +46,13 @@ HELPDESCRIPTION
     --with-range ...	Use ... instead of .. as the range specifier.
     --last-only		Only use the latest commit from the passed author.
     --one-more		Include the commit preceding the author's commit.
-    --with-log-args	All GIT-COMMAND log arguments should also be used when
+    --log-args-for-range
+			All GIT-COMMAND log arguments should also be used when
 			determining the authors.
+    --log-args-only-for-range
+			All GIT-COMMAND log arguments should exclusively be used
+			when determining the authors but not passed to
+			GIT-COMMAND.
     FILE arguments by default are both used to determine the revision range and
     passed to GIT-COMMAND.
     --files-for-range	Only use FILE arguments to determine the revision range,
@@ -65,6 +70,8 @@ isWithRange=t
 typeset -a specialLastArg=()
 typeset otherArgs=()
 typeset -a logArgs=()
+isLogArgsForRange=
+isLogArgsForCommand=t
 isFilesForRange=t
 isFilesForCommand=t
 unset files
@@ -84,8 +91,10 @@ do
 
 	--no-range)	otherArgs+=("$1"); shift; isWithRange=;;
 
-	--with-log-args)
-			shift; isWithLogArgs=t;;
+	--log-args-for-range)
+			shift; isLogArgsForRange=t;;
+	--log-args-only-for-range)
+			shift; isLogArgsForRange=t; isLogArgsForCommand=;;
 	--files-for-range)
 			shift; isFilesForCommand=;;
 	--files-for-command)
@@ -107,13 +116,13 @@ do
 			    break
 			fi
 			;;
-	*)		if [ "$isWithLogArgs" ] \
+	*)		if { [ "$isLogArgsForRange" ] || [ ! "$isLogArgsForCommand" ]; } \
 			    && { countLogArgs '' "$1"; argCount=$?; [ $argCount -gt 0 ]; }
 			then
 			    while ((argCount-- > 0))
 			    do
 				logArgs+=("$1")
-				otherArgs+=("$1")
+				[ ! "$isLogArgsForCommand" ] || otherArgs+=("$1")
 				shift
 			    done
 			else
@@ -146,7 +155,7 @@ if [ ${#userFilterArgs[@]} -eq 0 ]; then
 fi
 
 if [ -z "$revision" ]; then
-    revision="$(git log --max-count 1 --pretty=tformat:%H "${userFilterArgs[@]}" "${logArgs[@]}" ${isFilesForRange:+-- "${files[@]}"})"
+    revision="$(git log --max-count 1 --pretty=tformat:%H "${userFilterArgs[@]}" ${isLogArgsForRange:+"${logArgs[@]}"} ${isFilesForRange:+-- "${files[@]}"})"
     if [ -z "$revision" ]; then
 	echo >&2 'Could not find a commit from those user(s).'
 	exit 1
@@ -155,13 +164,13 @@ fi
 
 startRevision=
 < <(diff --unchanged-line-format= --old-line-format='%dn %L' --new-line-format= -- \
-    <(git log --first-parent --pretty=tformat:%H "$revision" "${logArgs[@]}" ${isFilesForRange:+-- "${files[@]}"}) \
-    <(git log --first-parent --pretty=tformat:%H "${userFilterArgs[@]}" "$revision" "${logArgs[@]}" ${isFilesForRange:+-- "${files[@]}"}) # Fortunately, "git log <revision> --follow -- <path>" also works; else, we would have to split logArgs into options and path arguments.
+    <(git log --first-parent --pretty=tformat:%H "$revision" ${isLogArgsForRange:+"${logArgs[@]}"} ${isFilesForRange:+-- "${files[@]}"}) \
+    <(git log --first-parent --pretty=tformat:%H "${userFilterArgs[@]}" "$revision" ${isLogArgsForRange:+"${logArgs[@]}"} ${isFilesForRange:+-- "${files[@]}"}) # Fortunately, "git log <revision> --follow -- <path>" also works; else, we would have to split logArgs into options and path arguments.
 ) IFS=' ' read -r firstDifferentCount firstDifferentRevision
 
 if [ -n "$firstDifferentRevision" ]; then
     if [ $firstDifferentCount -eq 1 ]; then
-	[ "$author" ] || author="$(git log --max-count 1 --pretty=format:'%aN <%aE>' "$revision" "${logArgs[@]}" ${isFilesForRange:+-- "${files[@]}"} 2>/dev/null)"
+	[ "$author" ] || author="$(git log --max-count 1 --pretty=format:'%aN <%aE>' "$revision" ${isLogArgsForRange:+"${logArgs[@]}"} ${isFilesForRange:+-- "${files[@]}"} 2>/dev/null)"
 	printf >&2 'The %s revision already is from another user (%s).\n' "$revision" "$author"
 	exit 1
     else
@@ -171,4 +180,4 @@ fi
 
 [ "$isWithRange" ] || revision=''   # Prevent "ERROR: --end-revision cannot be combined with --no-range!"; we don't need the end revision, as --no-range drops that, anyway.
 
-exec git-rev-range --revision "$startRevision" ${revision:+--end-revision "$revision"} "$@" ${isFilesForCommand:+${files:+--} "${files[@]}"} "${specialLastArg[@]}"
+exec git-rev-range --revision "$startRevision" ${revision:+--end-revision "$revision"} ${isLogArgsForCommand:+"${logArgs[@]}"} "$@" ${isFilesForCommand:+${files:+--} "${files[@]}"} "${specialLastArg[@]}"

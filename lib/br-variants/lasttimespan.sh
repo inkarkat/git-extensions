@@ -24,8 +24,11 @@ esac
 gitCommand="${1:-$GIT_LASTTIMESPAN_DEFAULT_COMMAND}"; shift
 case "$gitCommand" in
     (\
-l?(o)g?(v)g?(mine)|\
-lc?(l)g?(mine)|\
+lc?(l)@(g|changed|touched)?(mine)|\
+l?(o)g?(v)@(g|changed|touched)?(mine)|\
+@(log?(v)|show)@(last|first)@(g|changed|touched)?(mine)|\
+@(files|versions|tags)@(g|changed|touched)|\
+@(files|version|tag)@(last|first)@(g|changed|touched)|\
 lc?(h)|\
 lc@(?(l)?(f)|?(f)@(mine|team))|\
 lh?(mine|team)|\
@@ -34,12 +37,6 @@ log?(mod|added|deleted|renamed)?(files)|glog|logbrowse|\
 lg@(rel|tagged|st|i|I)|\
 @(l|tree)?([ou])url?(v)|\
 lghi?(st|i|I)|\
-@(files|versions|tags)@(g|changed|touched)|\
-l?(o)g?(v)@(changed|touched)?(mine)|\
-lc?(l)@(changed|touched)?(mine)|\
-@(log?(v)|show)@(last|first)g?(mine)|\
-@(files|version|tag)@(last|first)@(g|changed|touched)|\
-@(log?(v)|show)@(last|first)@(changed|touched)?(mine)|\
 ss@(?([wcag])|changed|touched)|\
 sls?(g|changed|touched)|\
 dp[sg]|dpl?(s)[sg]|dpls@(changed|touched)|\

@@ -47,8 +47,9 @@ lg@(rel|tagged|st|i|I)\
 	$EXEC git-branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --one-more-command "greyonelineloghighlight $gitCommand" --one-more-only-to-terminal -2 "$gitCommand" RANGE "$@";;
 
     (\
-l?(o)g?(v)g?(mine)|\
-lc?(l)g?(mine)|\
+lc?(l)@(g|changed|touched)?(mine)|\
+l?(o)g?(v)@(g|changed|touched)?(mine)|\
+@(log?(v)|show)@(last|first)@(g|changed|touched)?(mine)|\
 lcl?(f)|\
 lh?(mine|team)|\
 l?(o)g?([fv])@(mine|team)|\
@@ -56,11 +57,7 @@ l?(o)g?([fv])@(mine|team)|\
 log?(mod|added|deleted|renamed)?(files)|glog|logbrowse|\
 @(l|tree)?([ou])url?(v)|\
 @(files|versions|tags)@(g|changed|touched)|\
-l?(o)g?(v)@(changed|touched)?(mine)|\
-lc?(l)@(changed|touched)?(mine)|\
-@(log?(v)|show)@(last|first)g?(mine)|\
 @(files|version|tag)@(last|first)@(g|changed|touched)|\
-@(log?(v)|show)@(last|first)@(changed|touched)?(mine)|\
 ss@(?([wcag])|changed|touched)|\
 sls?(g|changed|touched)|\
 dp[sg]|dpl?(s)[sg]|dpls@(changed|touched)|\

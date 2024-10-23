@@ -57,14 +57,11 @@ lg@(rel|tagged|st|i|I)\
 	$EXEC git-"${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" --one-more-command "greyonelineloghighlight $gitCommand" --one-more-only-to-terminal -2 "$gitCommand" RANGE "$@";;
 
     (\
-l?(o)g?(v)g?(mine)|\
-lc?(l)g?(mine)|\
+lc?(l)@(g|changed|touched)?(mine)|\
+l?(o)g?(v)@(g|changed|touched)?(mine)|\
+@(log?(v)|show)@(last|first)@(g|changed|touched)?(mine)|\
 @(files|versions|tags)@(g|changed|touched)|\
-l?(o)g?(v)@(changed|touched)?(mine)|\
-@(log?(v)|show)@(last|first)g?(mine)|\
-@(files|version|tag)@(last|first)@(g|changed|touched)|\
-@(log?(v)|show)@(last|first)@(changed|touched)?(mine)|\
-lc?(l)@(changed|touched)?(mine)\
+@(files|version|tag)@(last|first)@(g|changed|touched)\
 )
 	$EXEC git-"${scopeCommand[@]}" "${scopeCommandLogAndLastArgs[@]:-${scopeCommandLogArgs[@]}}" -2 "$gitCommand" RANGE "$@";;
 (\

@@ -7,7 +7,6 @@ shopt -qs extglob
 readonly scriptName="$(basename -- "$0")"
 readonly scope="${scriptName#git-}"
 : ${scopeArgs=-b|--branch BRANCH}
-: ${scopeFilesCommandArgs=${scopeArgs#-[A-Za-z]|}}
 : ${scopeFinalArgs=}
 case " ${!scopeDiffCommandRangeArgs*} " in
     *" scopeDiffCommandRangeArgs "*) ;;
@@ -94,17 +93,13 @@ detach@(g|changed|touched)\
     d?([lbwcayYrt]|rl)|dsta?(t)|ad|subrevdiff)
 	$EXEC git-"${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" "${scopeDiffCommandRangeArgs[@]}" -2 "$gitCommand" RANGE "$@";;
     ds)
-	if [ "$scopeFilesCommandArgs" = '--branch BRANCH' ]; then
-	    $EXEC git-branch-command --keep-position files-command --source-command "$scope files $scopeFilesCommandArgs" "${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" --branch BRANCH "${scopeDiffCommandRangeArgs[@]}" -2 diffselected RANGE "$@"
-	else
-	    # diffselected does not understand log args; these here are only used to determine the affected files and revision range.
-	    # Therefore, turn a configured --log-args-for-range into --log-args-only-for-range.
-	    [ "${scopeCommandLogArgs[*]}" = --log-args-for-range ] \
-		&& diffselectedLogArgs=(--log-args-only-for-range) \
-		|| diffselectedLogArgs=("${scopeCommandLogArgs[@]}")
+	# diffselected does not understand log args; these here are only used to determine the affected files and revision range.
+	# Therefore, turn a configured --log-args-for-range into --log-args-only-for-range.
+	[ "${scopeCommandLogArgs[*]}" = --log-args-for-range ] \
+	    && diffselectedLogArgs=(--log-args-only-for-range) \
+	    || diffselectedLogArgs=("${scopeCommandLogArgs[@]}")
 
-	    $EXEC git-"${scopeCommand[@]}" "${diffselectedLogArgs[@]}" --keep-position files-command --source-exec showfiles RANGE \; diffselected --log-range RANGE "$@"
-	fi
+	$EXEC git-"${scopeCommand[@]}" "${diffselectedLogArgs[@]}" --keep-position files-command --source-exec showfiles RANGE \; diffselected --log-range RANGE "$@"
 	;;
     dss)
 	$EXEC git-"${scopeCommand[@]}" --keep-position selectedcommit-command "${scopeCommandLogArgs[@]}" --single-only --with-range-from-end ^... --range-is-last -3 diff COMMITS RANGE "$@";;
@@ -118,7 +113,7 @@ detach@(g|changed|touched)\
     st|files|submodules)
 	$EXEC git-"${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" -2 "show$gitCommand" RANGE "$@";;
     subdo)
-	$EXEC git-branch-command --keep-position files-command --source-command "$scope submodules $scopeFilesCommandArgs" --keep-position subdo --for FILES \; "$@";;
+	$EXEC git-"${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" --keep-position files-command --source-exec showfiles RANGE \; --keep-position subdo --for FILES \; "$@";;
 
     inout|io?(files|submodules)|ab)
 	if [ -n "$scopeInoutNote" ]; then
@@ -206,7 +201,7 @@ detach@(g|changed|touched)\
 	$EXEC git-"${scopeCommand[@]}" -2 "${gitCommand}selectedonemore" RANGE "$@";;
 
     who@(created|lasttouched|did?(f)|owns|contributed|what)thosechangedfiles)
-	$EXEC git-branch-command --keep-position files-command --source-command "$scope files $scopeFilesCommandArgs" "${gitCommand%thosechangedfiles}" "$@";;
+	$EXEC git-"${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" --keep-position files-command --source-exec showfiles RANGE \; "${gitCommand%thosechangedfiles}" "$@";;
     who@(created|lasttouched|did?(f)|owns|contributed|what)here)
 	$EXEC git-"${scopeCommand[@]}" "${scopeCommandLogArgs[@]}" -2 "${gitCommand%here}" RANGE "$@";;
 

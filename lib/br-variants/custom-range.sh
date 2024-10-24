@@ -49,11 +49,10 @@ withScoped()
 
 withAggregateCommit()
 {
-    local quotedCommand; printf -v quotedCommand '%q ' "$@"; quotedCommand="${quotedCommand% }"
     # FIXME: Extract FILE arguments and pass them to the source command.
     GIT_SELECTEDCOMMIT_NO_MANDATORY_RANGE=t \
     GIT_SELECTEDCOMMIT_COMMITS="GIT_REVRANGE_SEPARATE_ERRORS=t git-$scope log {} --no-header 2>/dev/null | uniqueStable" \
-	$EXEC git-selectedcommit-command "$quotedCommand"
+	$EXEC git-selectedcommit-command "$@"
 }
 
 : ${EXEC:=exec}
@@ -187,16 +186,45 @@ detach@(g|changed|touched)\
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope lg${gitCommand#lgfiles}" "$@";;
 
     cors)
-	$EXEC git-"${scopeCommand[@]}" -2 checkoutselectedrevisionselected RANGE "$@";;
+	if [ "$scopeAggregate" ]; then
+	    withAggregateCommit checkoutrevisionselected "$@"
+	else
+	    $EXEC git-"${scopeCommand[@]}" -2 checkoutselectedrevisionselected RANGE "$@"
+	fi
+	;;
     cops)
-	$EXEC git-"${scopeCommand[@]}" -2 checkoutselectedpreviousselected RANGE "$@";;
+	if [ "$scopeAggregate" ]; then
+	    withAggregateCommit checkoutpreviousselected "$@"
+	else
+	    $EXEC git-"${scopeCommand[@]}" -2 checkoutselectedpreviousselected RANGE "$@"
+	fi
+	;;
 
     revert)
-	$EXEC git-"${scopeCommand[@]}" -2 revertselectedcommit RANGE "$@";;
+	if [ "$scopeAggregate" ]; then
+	    withAggregateCommit revert "$@"
+	else
+	    $EXEC git-"${scopeCommand[@]}" -2 revertselectedcommit RANGE "$@"
+	fi
+	;;
     revert@(files|hunk))
-	$EXEC git-"${scopeCommand[@]}" -2 "revertselected${gitCommand#revert}"  RANGE "$@";;
+	if [ "$scopeAggregate" ]; then
+	    if [ "$gitCommand" = revertfiles ]; then
+		withAggregateCommit revert --selected "$@"
+	    else
+		withAggregateCommit revert --patch "$@"
+	    fi
+	else
+	    $EXEC git-"${scopeCommand[@]}" -2 "revertselected${gitCommand#revert}"  RANGE "$@"
+	fi
+	;;
     revertcommit)
-	$EXEC git-"${scopeCommand[@]}" -2 "${gitCommand}selected" RANGE "$@";;
+	if [ "$scopeAggregate" ]; then
+	    withAggregateCommit revertcommit "$@"
+	else
+	    $EXEC git-"${scopeCommand[@]}" -2 "${gitCommand}selected" RANGE "$@"
+	fi
+	;;
 
     @(correct|fix@(up|amend|wording))|commit@(identical|like|relate)|amendrelate)
 	$EXEC git-"${scopeCommand[@]}" -2 "${gitCommand}selected" RANGE "$@";;

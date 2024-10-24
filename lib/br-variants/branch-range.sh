@@ -16,7 +16,8 @@ printUsage()
 	local to='the current / passed via -b|--branch branch'
     fi
     cat <<HELPTEXT
-Covers the additions of ${from} versus ${to}.
+Covers the additions of ${from}
+versus ${to}.
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND [...] [-b|--branch BRANCH] [...] [-?|-h|--help]'

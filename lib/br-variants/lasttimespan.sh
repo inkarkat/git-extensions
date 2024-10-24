@@ -9,7 +9,7 @@ readonly scope="${scriptName#git-}"
 printUsage()
 {
     cat <<HELPTEXT
-Log variants that only cover changes committed ${scopeWhat:?}.
+Covers changes committed ${scopeWhat:?}.
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" "GIT-COMMAND [...] ${scopeArgs}${scopeArgs:+ [...] }[-?|-h|--help]"

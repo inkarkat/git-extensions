@@ -17,10 +17,9 @@ esac
 printUsage()
 {
     cat <<HELPTEXT
-Log variants that cover ${scopeWhat:?}.
+Covers ${scopeWhat:?}.
 HELPTEXT
     echo
-    local args=
     printf 'Usage: %q %s\n' "$(basename "$1")" "GIT-COMMAND ${scopeArgsOverride:-[...] ${scopeArgs:+[}${scopeArgs}${scopeArgs:+]}${scopeAdditionalArgs:+ }${scopeAdditionalArgs}${scopeArgs:+ [...] }${scopeFinalArgs}${scopeFinalArgs:+ }}[-?|-h|--help]"
 }
 

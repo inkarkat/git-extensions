@@ -43,14 +43,6 @@ if [ -z "$gitLogCommand" ]; then
     echo
     printShortUsage "$0"
     exit 2
-elif [ "$gitLogCommand" = show ]; then
-    # git log would follow all passed revisions; --max-count 1 would only handle
-    # a single passed revision. Therefore, use git show for the lookup as well,
-    # but omit the diff. Note: Need to pass TAGNAME^0 instead of just TAGNAME,
-    # as show will include the tagger in the output as well.
-    gitLookupCommand='show --no-patch)'
-else
-    gitLookupCommand="${gitLogCommand//lc/log}"
 fi >&2
 
 isDryRun=
@@ -73,12 +65,14 @@ do
     esac
 done
 
-readarray -t recipients < <(eval "git-wrapper $gitLookupCommand" '--pretty="tformat:$emailFormats" "${gitLogArgs[@]}"' | sort -u | grep -v '^noreply@')
+# Note: For "git show", need to pass TAGNAME^0 instead of just TAGNAME, as show
+# will include the tagger in the output as well.
+readarray -t recipients < <(eval "git-wrapper $gitLogCommand" '--no-patch --pretty="tformat:$emailFormats" "${gitLogArgs[@]}"' | sort -u | grep -v '^noreply@')
 if [ ${#recipients[@]} -eq 0 ]; then
     echo >&2 'No recipients found.'
     exit 1
 fi
-readarray -t people < <(eval "git-wrapper $gitLookupCommand" '--pretty="tformat:$peopleFormats" "${gitLogArgs[@]}"' | sort -u)
+readarray -t people < <(eval "git-wrapper $gitLogCommand" '--no-patch --pretty="tformat:$peopleFormats" "${gitLogArgs[@]}"' | sort -u)
 
 
 isColorOnArgument "${colorArg[@]}" && typeset colorArg=(--color=always) || typeset colorArg=(--no-color)

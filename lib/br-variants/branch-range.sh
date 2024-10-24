@@ -29,6 +29,7 @@ esac
 
 : ${EXEC:=exec}
 gitCommand="${1:-$GIT_BRVARIANT_DEFAULT_COMMAND}"; shift
+typeset -a revRangeAdditionalArgs=()
 case "$gitCommand" in
     lc?(f)?(mine|team))
 	$EXEC git-branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --one-more-command log --one-more-with-padding -2 "$gitCommand" RANGE "$@";;
@@ -72,8 +73,6 @@ subchanges|superchanges|subrevl@(?(o)g|c)\
 
     lgx)
 	$EXEC git-branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -2 lg RANGE "$@";;
-    lc?(f)by)
-	$EXEC git-branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} dashdash-default-command --with-files : others-command --keep-position rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --one-more-command log --one-more-with-padding --keep-position "${gitCommand%by}" AUTHORS RANGE : "$@";;
 
     d?([lbwcayYrt]|rl)|dsta?(t)|ad|subrevdiff)
 	$EXEC git-branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --with-range ... -2 "$gitCommand" RANGE "$@";;
@@ -103,9 +102,12 @@ subchanges|superchanges|subrevl@(?(o)g|c)\
 
     revive)
 	$EXEC git-branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -3 "$gitCommand" --all RANGE "$@";;
+    lc?(f)by)
+	revRangeAdditionalArgs=(--one-more-command log --one-more-with-padding)
+	;&
     l?(h|g|og)by)
 	[ "$gitCommand" = lgby ] && gitCommand='onelinelog'
-	$EXEC git-dashdash-default-command --with-files : branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -5 others-command -2 "${gitCommand%by}" AUTHORS RANGE : "$@";;
+	$EXEC git-dashdash-default-command --with-files : branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" "${revRangeAdditionalArgs[@]}" -5 others-command -2 "${gitCommand%by}" AUTHORS RANGE : "$@";;
     compareourl)
 	$EXEC git-branch-command --real-branch-name --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rbrurl-compare-to-base --remote origin --base "${scopeRevision:?}" --commit "${scopeEndRevision:?}" "${scopeCompareUrlArgs[@]}" "$@";;
     compareuurl)

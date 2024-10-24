@@ -49,6 +49,7 @@ withScoped()
 
 : ${EXEC:=exec}
 gitCommand="${1:-$GIT_CUSTOMRANGEVARIANT_DEFAULT_COMMAND}"; shift
+typeset -a revRangeAdditionalArgs=()
 case "$gitCommand" in
     lc?(f)?(mine|team))
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" --one-more-command log --one-more-with-padding -2 "$gitCommand" RANGE "$@";;
@@ -98,8 +99,6 @@ detach@(g|changed|touched)\
 
     lgx)
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -2 lg RANGE "$@";;
-    lc?(f)by)
-	$EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" "${scopeCommandLastArgs[@]}" --one-more-command log --one-more-with-padding others-command -2 "${gitCommand%by}" AUTHORS RANGE : "$@";;
 
     d?([lbwcayYrt]|rl)|dsta?(t)|ad|subrevdiff)
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" "${scopeDiffCommandRangeArgs[@]}" -2 "$gitCommand" RANGE "$@";;
@@ -160,12 +159,15 @@ detach@(g|changed|touched)\
 
     revive)
 	$EXEC git-"${scopeCommand[@]}" -3 "$gitCommand" --all RANGE "$@";;
+    lc?(f)by)
+	revRangeAdditionalArgs=(--one-more-command log --one-more-with-padding)
+	;&
     l?(h|g|og)by)
 	[ "$gitCommand" = lgby ] && gitCommand='onelinelog'
 	if [ "$scopeAggregate" ]; then
-	    $EXEC git-dashdash-default-command --with-files : others-command --keep-position "${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" "${scopeCommandLastArgs[@]}" -3 "${gitCommand%by}" AUTHORS RANGE : "$@"
+	    $EXEC git-dashdash-default-command --with-files : others-command --keep-position "${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" "${scopeCommandLastArgs[@]}" "${revRangeAdditionalArgs[@]}" -3 "${gitCommand%by}" AUTHORS RANGE : "$@"
 	else
-	    $EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" "${scopeCommandLastArgs[@]}" -5 others-command -2 "${gitCommand%by}" AUTHORS RANGE : "$@"
+	    $EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" "${scopeCommandLastArgs[@]}" "${revRangeAdditionalArgs[@]}" -5 others-command -2 "${gitCommand%by}" AUTHORS RANGE : "$@"
 	fi
 	;;
     compareourl)

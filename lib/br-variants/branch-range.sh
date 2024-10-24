@@ -103,10 +103,9 @@ subchanges|superchanges|subrevl@(?(o)g|c)\
 
     revive)
 	$EXEC git-branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -3 "$gitCommand" --all RANGE "$@";;
-    lby)
-	$EXEC git-dashdash-default-command --with-files : branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -5 others-command -2 l AUTHORS RANGE : "$@";;
-    lhby)
-	$EXEC git-dashdash-default-command --with-files : branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -5 others-command -2 lh AUTHORS RANGE : "$@";;
+    l?(h|g|og)by)
+	[ "$gitCommand" = lgby ] && gitCommand='onelinelog'
+	$EXEC git-dashdash-default-command --with-files : branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -5 others-command -2 "${gitCommand%by}" AUTHORS RANGE : "$@";;
     compareourl)
 	$EXEC git-branch-command --real-branch-name --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rbrurl-compare-to-base --remote origin --base "${scopeRevision:?}" --commit "${scopeEndRevision:?}" "${scopeCompareUrlArgs[@]}" "$@";;
     compareuurl)
@@ -115,10 +114,6 @@ subchanges|superchanges|subrevl@(?(o)g|c)\
 	$EXEC git-branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --one-more-command 'greyonelineloghighlight lghighlight' --one-more-only-to-terminal -2 lghifiles RANGE "$@";;
     lghifiles)
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope lghipassedfiles" "$@";;
-    lgby)
-	$EXEC git-dashdash-default-command --with-files : branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -7 others-command -2 onelinelog AUTHORS RANGE : "$@";;
-    logby)
-	$EXEC git-dashdash-default-command --with-files : branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -7 others-command -2 log AUTHORS RANGE : "$@";;
     lgfiles@(mine|team|by))
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope lg${gitCommand#lgfiles}" "$@";;
 

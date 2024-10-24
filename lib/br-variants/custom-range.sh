@@ -160,10 +160,9 @@ detach@(g|changed|touched)\
 
     revive)
 	$EXEC git-"${scopeCommand[@]}" -3 "$gitCommand" --all RANGE "$@";;
-    lby)
-	$EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" "${scopeCommandLastArgs[@]}" -5 others-command -2 l AUTHORS RANGE : "$@";;
-    lhby)
-	$EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" "${scopeCommandLastArgs[@]}" -5 others-command -2 lh AUTHORS RANGE : "$@";;
+    l?(h|g|og)by)
+	[ "$gitCommand" = lgby ] && gitCommand='onelinelog'
+	$EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" "${scopeCommandLastArgs[@]}" -5 others-command -2 "${gitCommand%by}" AUTHORS RANGE : "$@";;
     compareourl)
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -5 rbrurl-compare-to-base --remote origin --range RANGE --base-to-rev --commit-to-rev "$@";;
     compareuurl)
@@ -172,10 +171,6 @@ detach@(g|changed|touched)\
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" --one-more-command 'greyonelineloghighlight lghighlight' --one-more-only-to-terminal -2 lghifiles RANGE "$@";;
     lghifiles)
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope lghipassedfiles" "$@";;
-    lgby)
-	$EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" "${scopeCommandLastArgs[@]}" -5 others-command -2 onelinelog AUTHORS RANGE : "$@";;
-    logby)
-	$EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" "${scopeCommandLastArgs[@]}" -5 others-command -2 log AUTHORS RANGE : "$@";;
     lgfiles@(mine|team|by))
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope lg${gitCommand#lgfiles}" "$@";;
 

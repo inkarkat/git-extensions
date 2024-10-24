@@ -139,7 +139,16 @@ detach@(g|changed|touched)\
     st|files|submodules)
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -2 "show$gitCommand" RANGE "$@";;
     subdo)
-	withScoped submodules --keep-position subdo --for FILES \; "$@";;
+	if [ "$scopeAggregate" ]; then
+	    quotedArgs=; [ $# -eq 0 ] || printf -v quotedArgs ' %q' "$@"
+	    # FIXME: Extract FILE arguments and pass them to the source command.
+	    readarray -t submodules < <("git-$scope" submodules --no-header 2>/dev/null | sort --unique)
+	    [ ${#submodules[@]} -gt 0 ] || exit 99
+	    $EXEC git-subdo --for "${submodules[@]}" \; "$@"
+	else
+	    withScoped submodules --keep-position subdo --for FILES \; "$@"
+	fi
+	;;
 
     inout|io?(files|submodules)|ab)
 	if [ -n "$scopeInoutNote" ]; then

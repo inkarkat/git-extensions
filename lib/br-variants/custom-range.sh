@@ -20,7 +20,8 @@ printUsage()
 Log variants that cover ${scopeWhat:?}.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" "GIT-COMMAND [...] ${scopeArgs:+[}${scopeArgs}${scopeArgs:+]}${scopeAdditionalArgs:+ }${scopeAdditionalArgs}${scopeArgs:+ [...] }${scopeFinalArgs}${scopeFinalArgs:+ }[-?|-h|--help]"
+    local args=
+    printf 'Usage: %q %s\n' "$(basename "$1")" "GIT-COMMAND ${scopeArgsOverride:-[...] ${scopeArgs:+[}${scopeArgs}${scopeArgs:+]}${scopeAdditionalArgs:+ }${scopeAdditionalArgs}${scopeArgs:+ [...] }${scopeFinalArgs}${scopeFinalArgs:+ }}[-?|-h|--help]"
 }
 
 case "$1" in
@@ -38,7 +39,11 @@ onLocalBranch()
 
 withScopedFiles()
 {
-    $EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" --keep-position files-command --source-exec showfiles RANGE \; "$@"
+    if [ ${#scopeArgSyphon[@]} -gt 0 ]; then
+	$EXEC git-argsyphon-command "${scopeArgSyphon[@]}" --keep-position "${scopeCommand[@]}" ARGS "${argsForLogScopeCommands[@]}" --keep-position files-command --source-exec showfiles RANGE \; "$@"
+    else
+	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" --keep-position files-command --source-exec showfiles RANGE \; "$@"
+    fi
 }
 
 : ${EXEC:=exec}

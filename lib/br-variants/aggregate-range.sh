@@ -32,6 +32,17 @@ withAggregateCommit()
 	$EXEC git-selectedcommit-command "$@"
 }
 
+withAggregateCommitWithLastArg()
+{
+    local logCommand="${1:?}"; shift
+    local quotedLastArg=; [ $# -gt 0 ] && printf -v quotedLastArg %q "${!#}"
+    [ $# -eq 0 ] || set -- "${@:1:$(($#-1))}"
+    # FIXME: Extract FILE arguments and pass them to the source command.
+    GIT_SELECTEDCOMMIT_NO_MANDATORY_RANGE=t \
+    GIT_SELECTEDCOMMIT_COMMITS="GIT_REVRANGE_SEPARATE_ERRORS=t git-$scope $logCommand {} --no-header $quotedLastArg 2>/dev/null | uniqueStable" \
+	$EXEC git-selectedcommit-command "$@"
+}
+
 : ${EXEC:=exec}
 gitCommand="${1:-$GIT_AGGREGATERANGEVARIANT_DEFAULT_COMMAND}"; shift
 typeset -a revRangeAdditionalArgs=()
@@ -83,7 +94,7 @@ move-to-branch|uncommit-to-stash|uncommit-to-branch\
 	$EXEC echo "Note: $gitCommand cannot work across branches.";;
 
     wipe@(g|changed|touched))
-	$EXEC git-"${scopeCommand[@]}" -2 "wipeto${gitCommand#wipe}" RANGE "$@";;
+	withAggregateCommitWithLastArg "log${gitCommand#wipe}" wipe "$@";;
 
     base)
 	$EXEC git-"${scopeCommand[@]}" --no-range -3 name-rev --name-only RANGE "$@";;

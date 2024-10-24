@@ -162,7 +162,12 @@ detach@(g|changed|touched)\
 	$EXEC git-"${scopeCommand[@]}" -3 "$gitCommand" --all RANGE "$@";;
     l?(h|g|og)by)
 	[ "$gitCommand" = lgby ] && gitCommand='onelinelog'
-	$EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" "${scopeCommandLastArgs[@]}" -5 others-command -2 "${gitCommand%by}" AUTHORS RANGE : "$@";;
+	if [ "$scopeAggregate" ]; then
+	    $EXEC git-dashdash-default-command --with-files : others-command --keep-position "${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" "${scopeCommandLastArgs[@]}" -3 "${gitCommand%by}" AUTHORS RANGE : "$@"
+	else
+	    $EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" "${scopeCommandLastArgs[@]}" -5 others-command -2 "${gitCommand%by}" AUTHORS RANGE : "$@"
+	fi
+	;;
     compareourl)
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -5 rbrurl-compare-to-base --remote origin --range RANGE --base-to-rev --commit-to-rev "$@";;
     compareuurl)

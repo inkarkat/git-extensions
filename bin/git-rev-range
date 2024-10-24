@@ -29,7 +29,7 @@ itself.
 --one-more-only-to-terminal invokes one-more only when output is to a terminal.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '-r|--revision REVISION [-e|--end-revision END-REVISION [--last-only]|--no-range|--with-range RANGE] [+1|--one-more|--one-more-output|--one-more-command GIT-COMMAND2|^[1|2] [--one-more-with-padding] [--one-more-only-to-terminal] ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '-r|--revision REVISION [-e|--end-revision END-REVISION [--last-only]|--no-range|--with-range RANGE] [--reverse] [+1|--one-more|--one-more-output|--one-more-command GIT-COMMAND2|^[1|2] [--one-more-with-padding] [--one-more-only-to-terminal] ... [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [...] [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... RANGE ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
@@ -47,6 +47,7 @@ unset revision
 revisionModifier=
 endRevision=
 range=..
+isReverse=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -74,6 +75,7 @@ do
 	--no-range)	shift; range=''; [ "$isLastOnly" ] && { printUsage "$0" >&2; exit 2; };;
 	--with-range)	shift; range="$1"; shift; [ "$isLastOnly" ] && { printUsage "$0" >&2; exit 2; };;
 	--last-only)	shift; isLastOnly=t; [ "$range" = .. ] || { printUsage "$0" >&2; exit 2; };;
+	--reverse)	shift; isReverse=t;;
 	*)		break;;
     esac
 done
@@ -178,6 +180,13 @@ elif [ "$isLastOnly" ]; then
     showOneMoreCommand=
     isOneMorePadding=
     isOneMoreOnlyToTerminal=
+fi
+
+# Note: Only reversing after the checks.
+if [ "$isReverse" ]; then
+    tmp="$revision"
+    revision="$endRevision"
+    endRevision="$tmp"
 fi
 
 if [ $# -eq 0 ]; then

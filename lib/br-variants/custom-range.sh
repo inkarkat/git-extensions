@@ -227,12 +227,31 @@ detach@(g|changed|touched)\
 	;;
 
     @(correct|fix@(up|amend|wording))|commit@(identical|like|relate)|amendrelate)
-	$EXEC git-"${scopeCommand[@]}" -2 "${gitCommand}selected" RANGE "$@";;
+	if [ "$scopeAggregate" ]; then
+	    if [[ "$gitCommand" =~ ^fix ]]; then
+		$EXEC echo "Note: $gitCommand cannot work across branches."
+	    else
+		withAggregateCommit "$gitCommand" "$@"
+	    fi
+	else
+	    $EXEC git-"${scopeCommand[@]}" -2 "${gitCommand}selected" RANGE "$@"
+	fi
+	;;
     fix@(up|amend|wording)rb)
-	onLocalBranch git-"${scopeCommand[@]}" -2 "${gitCommand%rb}selectedrb" RANGE "$@";;
+	if [ "$scopeAggregate" ]; then
+	    $EXEC echo "Note: $gitCommand cannot work across branches."
+	else
+	    onLocalBranch git-"${scopeCommand[@]}" -2 "${gitCommand%rb}selectedrb" RANGE "$@"
+	fi
+	;;
 
     rb)
-	onLocalBranch echo "Note: $gitCommand is a no-op, because it iterates over the current range without touching fixups. Use the dedicated check|command|exec to iterate over all branch commits. To rebase onto ${scopeWhat}, there's a dedicated alias outside of \"git ${scope}\".";;
+	if [ "$scopeAggregate" ]; then
+	    $EXEC echo "Note: $gitCommand cannot work across branches."
+	else
+	    onLocalBranch echo "Note: $gitCommand is a no-op, because it iterates over the current range without touching fixups. Use the dedicated check|command|exec to iterate over all branch commits. To rebase onto ${scopeWhat}, there's a dedicated alias outside of \"git ${scope}\"."
+	fi
+	;;
     rb?(n)i|segregate@(commits|andbifurcate)|bifurcate)
 	typeset -a segregateArgs=(); [[ "$gitCommand" =~ ^segregate ]] && segregateArgs=(--explicit-file-args)  # Avoid that the second argument of --path PATH-GLOB is parsed off as a FILE for commit selection.
 	onLocalBranch git-"${scopeCommand[@]}" --keep-position selectedcommit-command --single-only --range-is-last "${segregateArgs[@]}" -5 previouscommit-command --commit COMMITS "$gitCommand" RANGE "$@";;

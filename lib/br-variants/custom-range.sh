@@ -47,6 +47,15 @@ withScoped()
     fi
 }
 
+withAggregateCommit()
+{
+    local quotedCommand; printf -v quotedCommand '%q ' "$@"; quotedCommand="${quotedCommand% }"
+    # FIXME: Extract FILE arguments and pass them to the source command.
+    GIT_SELECTEDCOMMIT_NO_MANDATORY_RANGE=t \
+    GIT_SELECTEDCOMMIT_COMMITS="GIT_REVRANGE_SEPARATE_ERRORS=t git-$scope log {} --no-header 2>/dev/null | uniqueStable" \
+	$EXEC git-selectedcommit-command "$quotedCommand"
+}
+
 : ${EXEC:=exec}
 gitCommand="${1:-$GIT_CUSTOMRANGEVARIANT_DEFAULT_COMMAND}"; shift
 typeset -a revRangeAdditionalArgs=()
@@ -119,11 +128,7 @@ detach@(g|changed|touched)\
 	;;
     dss)
 	if [ "$scopeAggregate" ]; then
-	    quotedArgs=; [ $# -eq 0 ] || printf -v quotedArgs ' %q' "$@"
-	    # FIXME: Extract FILE arguments and pass them to the source command.
-	    GIT_SELECTEDCOMMIT_NO_MANDATORY_RANGE=t \
-	    GIT_SELECTEDCOMMIT_COMMITS="GIT_REVRANGE_SEPARATE_ERRORS=t git-$scope log {} --no-header 2>/dev/null | uniqueStable" \
-		$EXEC git-selectedcommit-command "dp${quotedArgs}"
+	    withAggregateCommit dp "$@"
 	else
 	    $EXEC git-"${scopeCommand[@]}" --keep-position selectedcommit-command "${argsForLogScopeCommands[@]}" --single-only --with-range-from-end ^... --range-is-last -3 diff COMMITS RANGE "$@"
 	fi

@@ -109,7 +109,14 @@ detach@(g|changed|touched)\
 	[ "${argsForLogScopeCommands[*]}" = --log-args-for-range ] \
 	    && argsForLogScopeCommands=(--log-args-only-for-range)
 
-	withScoped files diffselected --log-range RANGE "$@"
+	if [ "$scopeAggregate" ]; then
+	    quotedArgs=; [ $# -eq 0 ] || printf -v quotedArgs ' %q' "$@"
+	    # FIXME: Extract FILE arguments and pass them to the source command.
+	    GIT_SELECTED_COMMAND_DEFAULT_FILES="GIT_REVRANGE_SEPARATE_ERRORS=t git-$scope files --no-header 2>/dev/null | sort --unique" \
+		$EXEC git-selected-command "$scope d${quotedArgs}"
+	else
+	    withScoped files diffselected --log-range RANGE "$@"
+	fi
 	;;
     dss)
 	$EXEC git-"${scopeCommand[@]}" --keep-position selectedcommit-command "${argsForLogScopeCommands[@]}" --single-only --with-range-from-end ^... --range-is-last -3 diff COMMITS RANGE "$@";;

@@ -161,9 +161,9 @@ detach@(g|changed|touched)\
     revive)
 	$EXEC git-"${scopeCommand[@]}" -3 "$gitCommand" --all RANGE "$@";;
     lby)
-	$EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -5 others-command -2 l AUTHORS RANGE : "$@";;
+	$EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" "${scopeCommandLastArgs[@]}" -5 others-command -2 l AUTHORS RANGE : "$@";;
     lhby)
-	$EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -5 others-command -2 lh AUTHORS RANGE : "$@";;
+	$EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" "${scopeCommandLastArgs[@]}" -5 others-command -2 lh AUTHORS RANGE : "$@";;
     compareourl)
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -5 rbrurl-compare-to-base --remote origin --range RANGE --base-to-rev --commit-to-rev "$@";;
     compareuurl)

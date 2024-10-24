@@ -4,8 +4,8 @@ shopt -qs extglob
 
 : ${GIT_CUSTOMRANGEVARIANT_DEFAULT_COMMAND=${GIT_REVRANGE_DEFAULT_COMMAND:-lg}}
 
-readonly scriptName="$(basename -- "$0")"
-readonly scope="${scriptName#git-}"
+[ -n "$scriptName" ] || readonly scriptName="$(basename -- "$0")"
+[ -n "$scope" ] || readonly scope="${scriptName#git-}"
 : ${scopeArgs=-b|--branch BRANCH}
 : ${scopeFinalArgs=}
 typeset -a argsForLogScopeCommands=("${scopeCommandLogArgs[@]}")
@@ -116,22 +116,9 @@ detach@(g|changed|touched)\
 	[ "${argsForLogScopeCommands[*]}" = --log-args-for-range ] \
 	    && argsForLogScopeCommands=(--log-args-only-for-range)
 
-	if [ "$scopeAggregate" ]; then
-	    quotedArgs=; [ $# -eq 0 ] || printf -v quotedArgs ' %q' "$@"
-	    # FIXME: Extract FILE arguments and pass them to the source command.
-	    GIT_SELECTED_COMMAND_DEFAULT_FILES="GIT_REVRANGE_SEPARATE_ERRORS=t git-$scope files --no-header 2>/dev/null | sort --unique" \
-		$EXEC git-selected-command "$scope d${quotedArgs}"
-	else
-	    withScoped files diffselected --log-range RANGE "$@"
-	fi
-	;;
+	withScoped files diffselected --log-range RANGE "$@";;
     dss)
-	if [ "$scopeAggregate" ]; then
-	    withAggregateCommit dp "$@"
-	else
-	    $EXEC git-"${scopeCommand[@]}" --keep-position selectedcommit-command "${argsForLogScopeCommands[@]}" --single-only --with-range-from-end ^... --range-is-last -3 diff COMMITS RANGE "$@"
-	fi
-	;;
+	$EXEC git-"${scopeCommand[@]}" --keep-position selectedcommit-command "${argsForLogScopeCommands[@]}" --single-only --with-range-from-end ^... --range-is-last -3 diff COMMITS RANGE "$@";;
     dsta?(t)byeach)
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -2 "log${gitCommand#d}" RANGE "$@";;
     adp)
@@ -142,16 +129,7 @@ detach@(g|changed|touched)\
     st|files|submodules)
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -2 "show$gitCommand" RANGE "$@";;
     subdo)
-	if [ "$scopeAggregate" ]; then
-	    quotedArgs=; [ $# -eq 0 ] || printf -v quotedArgs ' %q' "$@"
-	    # FIXME: Extract FILE arguments and pass them to the source command.
-	    readarray -t submodules < <("git-$scope" submodules --no-header 2>/dev/null | sort --unique)
-	    [ ${#submodules[@]} -gt 0 ] || exit 99
-	    $EXEC git-subdo --for "${submodules[@]}" \; "$@"
-	else
-	    withScoped submodules --keep-position subdo --for FILES \; "$@"
-	fi
-	;;
+	withScoped submodules --keep-position subdo --for FILES \; "$@";;
 
     inout|io?(files|submodules)|ab)
 	if [ -n "$scopeInoutNote" ]; then
@@ -168,12 +146,7 @@ detach@(g|changed|touched)\
 	;&
     l?(h|g|og)by)
 	[ "$gitCommand" = lgby ] && gitCommand='onelinelog'
-	if [ "$scopeAggregate" ]; then
-	    $EXEC git-dashdash-default-command --with-files : others-command --keep-position "${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" "${scopeCommandLastArgs[@]}" "${revRangeAdditionalArgs[@]}" -3 "${gitCommand%by}" AUTHORS RANGE : "$@"
-	else
-	    $EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" "${scopeCommandLastArgs[@]}" "${revRangeAdditionalArgs[@]}" -5 others-command -2 "${gitCommand%by}" AUTHORS RANGE : "$@"
-	fi
-	;;
+	$EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" "${scopeCommandLastArgs[@]}" "${revRangeAdditionalArgs[@]}" -5 others-command -2 "${gitCommand%by}" AUTHORS RANGE : "$@";;
     compareourl)
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -5 rbrurl-compare-to-base --remote origin --range RANGE --base-to-rev --commit-to-rev "$@";;
     compareuurl)
@@ -186,72 +159,24 @@ detach@(g|changed|touched)\
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope lg${gitCommand#lgfiles}" "$@";;
 
     cors)
-	if [ "$scopeAggregate" ]; then
-	    withAggregateCommit checkoutrevisionselected "$@"
-	else
-	    $EXEC git-"${scopeCommand[@]}" -2 checkoutselectedrevisionselected RANGE "$@"
-	fi
-	;;
+	$EXEC git-"${scopeCommand[@]}" -2 checkoutselectedrevisionselected RANGE "$@";;
     cops)
-	if [ "$scopeAggregate" ]; then
-	    withAggregateCommit checkoutpreviousselected "$@"
-	else
-	    $EXEC git-"${scopeCommand[@]}" -2 checkoutselectedpreviousselected RANGE "$@"
-	fi
-	;;
+	$EXEC git-"${scopeCommand[@]}" -2 checkoutselectedpreviousselected RANGE "$@";;
 
     revert)
-	if [ "$scopeAggregate" ]; then
-	    withAggregateCommit revert "$@"
-	else
-	    $EXEC git-"${scopeCommand[@]}" -2 revertselectedcommit RANGE "$@"
-	fi
-	;;
+	$EXEC git-"${scopeCommand[@]}" -2 revertselectedcommit RANGE "$@";;
     revert@(files|hunk))
-	if [ "$scopeAggregate" ]; then
-	    if [ "$gitCommand" = revertfiles ]; then
-		withAggregateCommit revert --selected "$@"
-	    else
-		withAggregateCommit revert --patch "$@"
-	    fi
-	else
-	    $EXEC git-"${scopeCommand[@]}" -2 "revertselected${gitCommand#revert}"  RANGE "$@"
-	fi
-	;;
+	$EXEC git-"${scopeCommand[@]}" -2 "revertselected${gitCommand#revert}"  RANGE "$@";;
     revertcommit)
-	if [ "$scopeAggregate" ]; then
-	    withAggregateCommit revertcommit "$@"
-	else
-	    $EXEC git-"${scopeCommand[@]}" -2 "${gitCommand}selected" RANGE "$@"
-	fi
-	;;
+	$EXEC git-"${scopeCommand[@]}" -2 "${gitCommand}selected" RANGE "$@";;
 
     @(correct|fix@(up|amend|wording))|commit@(identical|like|relate)|amendrelate)
-	if [ "$scopeAggregate" ]; then
-	    if [[ "$gitCommand" =~ ^fix ]]; then
-		$EXEC echo "Note: $gitCommand cannot work across branches."
-	    else
-		withAggregateCommit "$gitCommand" "$@"
-	    fi
-	else
-	    $EXEC git-"${scopeCommand[@]}" -2 "${gitCommand}selected" RANGE "$@"
-	fi
-	;;
+	$EXEC git-"${scopeCommand[@]}" -2 "${gitCommand}selected" RANGE "$@";;
     fix@(up|amend|wording)rb)
-	if [ "$scopeAggregate" ]; then
-	    $EXEC echo "Note: $gitCommand cannot work across branches."
-	else
-	    onLocalBranch git-"${scopeCommand[@]}" -2 "${gitCommand%rb}selectedrb" RANGE "$@"
-	fi
-	;;
+	onLocalBranch git-"${scopeCommand[@]}" -2 "${gitCommand%rb}selectedrb" RANGE "$@";;
 
     rb)
-	if [ "$scopeAggregate" ]; then
-	    $EXEC echo "Note: $gitCommand cannot work across branches."
-	else
-	    onLocalBranch echo "Note: $gitCommand is a no-op, because it iterates over the current range without touching fixups. Use the dedicated check|command|exec to iterate over all branch commits. To rebase onto ${scopeWhat}, there's a dedicated alias outside of \"git ${scope}\"."
-	fi
-	;;
+	onLocalBranch echo "Note: $gitCommand is a no-op, because it iterates over the current range without touching fixups. Use the dedicated check|command|exec to iterate over all branch commits. To rebase onto ${scopeWhat}, there's a dedicated alias outside of \"git ${scope}\".";;
     rb?(n)i|segregate@(commits|andbifurcate)|bifurcate)
 	typeset -a segregateArgs=(); [[ "$gitCommand" =~ ^segregate ]] && segregateArgs=(--explicit-file-args)  # Avoid that the second argument of --path PATH-GLOB is parsed off as a FILE for commit selection.
 	onLocalBranch git-"${scopeCommand[@]}" --keep-position selectedcommit-command --single-only --range-is-last "${segregateArgs[@]}" -5 previouscommit-command --commit COMMITS "$gitCommand" RANGE "$@";;

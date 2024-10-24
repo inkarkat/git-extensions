@@ -36,6 +36,10 @@ onLocalBranch()
     fi
 }
 
+withScopedFiles()
+{
+    $EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" --keep-position files-command --source-exec showfiles RANGE \; "$@"
+}
 
 : ${EXEC:=exec}
 gitCommand="${1:-$GIT_CUSTOMRANGEVARIANT_DEFAULT_COMMAND}"; shift
@@ -99,7 +103,7 @@ detach@(g|changed|touched)\
 	[ "${argsForLogScopeCommands[*]}" = --log-args-for-range ] \
 	    && argsForLogScopeCommands=(--log-args-only-for-range)
 
-	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" --keep-position files-command --source-exec showfiles RANGE \; diffselected --log-range RANGE "$@"
+	withScopedFiles diffselected --log-range RANGE "$@"
 	;;
     dss)
 	$EXEC git-"${scopeCommand[@]}" --keep-position selectedcommit-command "${argsForLogScopeCommands[@]}" --single-only --with-range-from-end ^... --range-is-last -3 diff COMMITS RANGE "$@";;
@@ -113,7 +117,7 @@ detach@(g|changed|touched)\
     st|files|submodules)
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -2 "show$gitCommand" RANGE "$@";;
     subdo)
-	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" --keep-position files-command --source-exec showfiles RANGE \; --keep-position subdo --for FILES \; "$@";;
+	withScopedFiles --keep-position subdo --for FILES \; "$@";;
 
     inout|io?(files|submodules)|ab)
 	if [ -n "$scopeInoutNote" ]; then
@@ -201,7 +205,7 @@ detach@(g|changed|touched)\
 	$EXEC git-"${scopeCommand[@]}" -2 "${gitCommand}selectedonemore" RANGE "$@";;
 
     who@(created|lasttouched|did?(f)|owns|contributed|what)thosechangedfiles)
-	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" --keep-position files-command --source-exec showfiles RANGE \; "${gitCommand%thosechangedfiles}" "$@";;
+	withScopedFiles "${gitCommand%thosechangedfiles}" "$@";;
     who@(created|lasttouched|did?(f)|owns|contributed|what)here)
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -2 "${gitCommand%here}" RANGE "$@";;
 

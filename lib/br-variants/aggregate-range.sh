@@ -66,6 +66,14 @@ case "$gitCommand" in
 	[ ${#submodules[@]} -gt 0 ] || exit 99
 	$EXEC git-subdo --for "${submodules[@]}" \; "$@";;
 
+    inout|io?(files|submodules)|ab)
+	if [ -n "$scopeInoutNote" ]; then
+	    $EXEC echo "Note: ${gitCommand} ${scopeInoutNote}"
+	else
+	    $EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" --with-range ' ' --reverse -3 "$gitCommand" RANGE "$@"
+	fi
+	;;
+
     lc?(f)by)
 	revRangeAdditionalArgs=(--one-more-command log --one-more-with-padding)
 	;&

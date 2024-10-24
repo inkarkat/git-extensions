@@ -120,9 +120,11 @@ move-to-branch|uncommit-to-stash|uncommit-to-branch\
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -2 "${gitCommand%here}" RANGE "$@";;
 
     emaillog)
-	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -3 email-command log RANGE "$@";;
+	GIT_REVRANGE_SEPARATE_ERRORS=t \
+	    $EXEC git-email-command "$scope log --no-header" "$@";;
     emaillc)
-	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -3 email-command lc RANGE "$@";;
+	GIT_REVRANGE_SEPARATE_ERRORS=t \
+	    $EXEC git-email-command "$scope lc --no-header" "$@";;
 
     '')	echo >&2 'ERROR: No GIT-COMMAND.'; echo >&2; printUsage "$0" >&2; exit 2;;
     *)	source "${BASH_SOURCE[0]/aggregate-/custom-}" "$gitCommand" "$@";;

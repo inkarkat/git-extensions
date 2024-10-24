@@ -24,6 +24,14 @@ case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
 
+withAggregateFiles()
+{
+    local quotedArgs=; [ $# -eq 0 ] || printf -v quotedArgs ' %q' "$@"
+    # FIXME: Extract FILE arguments and pass them to the source command.
+    GIT_SELECTED_COMMAND_DEFAULT_FILES="GIT_REVRANGE_SEPARATE_ERRORS=t git-$scope files --no-header 2>/dev/null | sort --unique" \
+	$EXEC git-"$@"
+}
+
 withAggregateCommit()
 {
     # FIXME: Extract FILE arguments and pass them to the source command.
@@ -48,10 +56,7 @@ gitCommand="${1:-$GIT_AGGREGATERANGEVARIANT_DEFAULT_COMMAND}"; shift
 typeset -a revRangeAdditionalArgs=()
 case "$gitCommand" in
     ds)
-	quotedArgs=; [ $# -eq 0 ] || printf -v quotedArgs ' %q' "$@"
-	# FIXME: Extract FILE arguments and pass them to the source command.
-	GIT_SELECTED_COMMAND_DEFAULT_FILES="GIT_REVRANGE_SEPARATE_ERRORS=t git-$scope files --no-header 2>/dev/null | sort --unique" \
-	    $EXEC git-selected-command "$scope d${quotedArgs}";;
+	withAggregateFiles selected-command "$scope d${quotedArgs}";;
     dss)
 	withAggregateCommit dp "$@";;
     subdo)
@@ -97,20 +102,20 @@ move-to-branch|uncommit-to-stash|uncommit-to-branch\
 	withAggregateCommitWithLastArg "log${gitCommand#wipe}" wipe "$@";;
 
     base)
-	$EXEC git-"${scopeCommand[@]}" --no-range -3 name-rev --name-only RANGE "$@";;
+	$EXEC git-"${scopeCommand[@]}" --no-git-color --no-range -3 name-rev --name-only RANGE "$@";;
     baselg)
 	$EXEC git-"${scopeCommand[@]}" --no-range -2 lg1 RANGE "$@";;
     bases)
 	$EXEC git-"${scopeCommand[@]}" --no-range -2 show RANGE "$@";;
     pred)
-	$EXEC git-"${scopeCommand[@]}" --no-range --one-more -3 name-rev --name-only RANGE "$@";;
+	$EXEC git-"${scopeCommand[@]}" --no-git-color --no-range --one-more -3 name-rev --name-only RANGE "$@";;
     predlg)
 	$EXEC git-"${scopeCommand[@]}" --no-range --one-more -2 lg1 RANGE "$@";;
     preds)
 	$EXEC git-"${scopeCommand[@]}" --no-range --one-more -2 show RANGE "$@";;
 
     who@(created|lasttouched|did?(f)|owns|contributed|what)thosechangedfiles)
-	withScoped files "${gitCommand%thosechangedfiles}" "$@";;
+	withAggregateFiles "${gitCommand%thosechangedfiles}" "$@";;
     who@(created|lasttouched|did?(f)|owns|contributed|what)here)
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -2 "${gitCommand%here}" RANGE "$@";;
 

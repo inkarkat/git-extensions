@@ -244,7 +244,13 @@ fi
 
 logRange()
 {
-    eval "git${files:+${isAllowOutsideWorkingCopy:+-inside}} ${GIT_SELECTEDCOMMIT_COMMAND:-log}" '"${rangeModificationArgs[@]}" "${rangeArgs[@]}" "$@" ${files:+${isAllowOutsideWorkingCopy:+\$FILE }--} "${files[@]}"'
+    if [ -n "$GIT_SELECTEDCOMMIT_COMMITS" ]; then
+	# Allow override of the entire commit source; the desired log format can be interpolated via {}.
+	local quotedArgs=; if [ $# -gt 0 ]; then printf -v quotedArgs '%q ' "$@"; quotedArgs="${quotedArgs% }"; fi
+	eval "${GIT_SELECTEDCOMMIT_COMMITS//\{\}/"$quotedArgs"}"
+    else
+	eval "git${files:+${isAllowOutsideWorkingCopy:+-inside}} ${GIT_SELECTEDCOMMIT_COMMAND:-log}" '"${rangeModificationArgs[@]}" "${rangeArgs[@]}" "$@" ${files:+${isAllowOutsideWorkingCopy:+\$FILE }--} "${files[@]}"'
+    fi
 }
 
 commitSource()

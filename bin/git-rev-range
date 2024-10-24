@@ -145,7 +145,8 @@ oneMore()
     wrapper "$@"
 }
 
-if [ -z "$(git rev-list "${revision}${revision:+${range:-..}}${endRevision:-HEAD}" -- 2>/dev/null)" ] && [ -n "$range" ]; then
+checkRange="${range:-..}"; [[ "$checkRange" =~ ^\.+$ ]] || checkRange='..'	# Custom ranges won't work with rev-list.
+if [ -z "$(git rev-list "${revision}${revision:+${checkRange:-..}}${endRevision:-HEAD}" -- 2>/dev/null)" ] && [ -n "$range" ]; then
     # Resulting range is empty (but we want a range); abort. Especially with
     # --one-more, we otherwise would use a single commit, and that could be
     # really confusing.
@@ -255,9 +256,9 @@ revRangeWithOneMore()
 	typeset -a rangeArgs=(--max-count 1 "${colorArg[@]}" "${mergeBase:-$revision}")
 	executor oneMore "$@" \
 	    && potentialPadding \
-	    && { rangeArgs=("${colorArg[@]}" "${revision}${revisionModifier}${range}${endRevision}"); executor wrapper "$@"; }
+	    && { rangeArgs=("${colorArg[@]}" "${revision}${revisionModifier}"$range"${endRevision}"); executor wrapper "$@"; }
     else
-	typeset -a rangeArgs=("${colorArg[@]}" "${revision}${revisionModifier}${range}${endRevision}")
+	typeset -a rangeArgs=("${colorArg[@]}" "${revision}${revisionModifier}"$range"${endRevision}")
 	executor wrapper "$@" \
 	    && potentialPadding \
 	    && { rangeArgs=(--max-count 1 "${colorArg[@]}" "${mergeBase:-$revision}"); executor oneMore "$@"; }
@@ -271,6 +272,6 @@ if [ "$isShowOneMoreOutput" ] && [ ! "$isOneMoreOnlyToTerminal" -o -t 1 ]; then
     typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
     eval 'revRangeWithOneMore "$@"' "${pager:+|}" '"${pager[@]}"'
 else
-    typeset -a rangeArgs=("${colorArg[@]}" "${revision}${revisionModifier}${isShowOneMore:+^}${range}${endRevision}")
+    typeset -a rangeArgs=("${colorArg[@]}" "${revision}${revisionModifier}${isShowOneMore:+^}"$range"${endRevision}")
     executor wrapper "$@"
 fi

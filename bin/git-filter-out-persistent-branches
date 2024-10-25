@@ -6,9 +6,11 @@ printUsage()
     cat <<HELPTEXT
 Filter out the current branch and master (and base branch if defined) from the input.
 HELPTEXT
-    printf 'Usage: git BRANCH-COMMAND | %q %s\n' "$(basename "$1")" '[--remote REMOTE|"" [--remote ...]] [--include-current] [--include-master] [--include-base] [--include-all] [-?|-h|--help]'
+    printf 'Usage: git BRANCH-COMMAND | %q %s\n' "$(basename "$1")" '[-F|--field-separator FS] [--remote REMOTE|"" [--remote ...]] [--include-current] [--include-master] [--include-base] [--include-all] [-?|-h|--help]'
 }
 
+typeset -a grepCommand=(grep)
+typeset -a grepFinalArg=()
 isIncludeCurrent=
 isIncludeMaster=
 isIncludeBase=
@@ -20,6 +22,8 @@ do
 	--no-color|--color=*)
 			    shift;;
 	--color)	    shift; shift;;
+	--field-separator|-F)
+			    grepCommand=(fieldGrep "$1" "${2?}"); shift; shift; grepFinalArg=(-1);;
 	--remote)	    shift; remotes+=("$1"); shift;;
 	--include-current)  shift; isIncludeCurrent=t;;
 	--include-master)   shift; isIncludeMaster=t;;
@@ -64,5 +68,5 @@ done
 if [ ${#grepArgs[@]} -eq 0 ]; then
     exec cat
 else
-    grep --invert-match --fixed-strings --line-regexp "${grepArgs[@]}"
+    "${grepCommand[@]}" --invert-match --fixed-strings --line-regexp "${grepArgs[@]}" "${grepFinalArg[@]}"
 fi

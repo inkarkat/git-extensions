@@ -176,6 +176,12 @@ do
     isFirst=
 done
 
+getMasterBranch()
+{
+    [ -n "$masterBranch" ] || masterBranch="$(git-mbr)" || exit 3
+    printf %s "$masterBranch"
+}
+
 if [ "$isFilterWorktreeDuplicates" ] && git-isworktree; then
     # These checks are independent of the current worktree / current branch:
     unset 'checks[stashed]' 'checks[noremote]' 'checks[unmergeddownstream]' 'checks[downstreambranches]' 'checks[inactivefork]'
@@ -278,7 +284,7 @@ considerCheck wipcommit \
 
 considerCheck nonmaster \
     && if branchName="$(git-brname --real-branch-only 2>/dev/null)"
-	[ -n "$branchName" -a "$branchName" != "$(git-mbr)" -a "$branchName" != "$(git-nbr 2>/dev/null)" ]
+	[ -n "$branchName" -a "$branchName" != "$(getMasterBranch)" -a "$branchName" != "$(git-nbr 2>/dev/null)" ]
     then printf 'On branch %s\n' "$branchName"; positiveCheck; fi
 
 findUnmergedDownstreamBranches()
@@ -290,7 +296,7 @@ findUnmergedDownstreamBranches()
     do
 	git branch --remotes --no-merged "$upstreamBranch"
     done | \
-	sed -n -e 's/^ \+//' -e "/^origin\/$(git-mbr)/d" ${baseBranch:+-e "/^origin\/${baseBranch}/d"} -e '/^origin\/HEAD -> /d' -e 's/^origin\//not merged: /p' | \
+	sed -n -e 's/^ \+//' -e "/^origin\/$(getMasterBranch)/d" ${baseBranch:+-e "/^origin\/${baseBranch}/d"} -e '/^origin\/HEAD -> /d' -e 's/^origin\//not merged: /p' | \
 	uniqueStable | \
 	outputAndPrintf 'These branches in origin have not yet been merged to upstream:\n'
 }
@@ -352,7 +358,7 @@ considerCheck todo \
 
 findInactiveFork()
 {
-    local masterBranch; masterBranch="$(git-mbr)" || return 3
+    local masterBranch="$(getMasterBranch)"
     git obr | grep -v --quiet --fixed-strings --line-regexp "origin/$masterBranch" && return 1 # There still are non-master origin branches.
     git diff --quiet "upstream/$masterBranch" "origin/$masterBranch" || return 1    # origin and upstream have diverged.
     hub-isarchived && return 1	# origin has already been archived (made read-only).

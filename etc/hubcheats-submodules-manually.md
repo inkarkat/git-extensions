@@ -34,7 +34,7 @@ time.
 superproject: `$ git ofetchonly-hushed`
 Check for other open reintegrations (i.e. submodule commits on master not yet
 referenced in the superproject):
-superproject: `$ git bomsubmodules | negateThis git osuperhaspendingsubintegrations -`
+superproject: `$ git bom submodules | negateThis git osuperhaspendingsubintegrations -`
 Check for pull request comments and approvals:
 superproject: `$ hub subsamebrdo --single-success --include-superproject prcomments`
 superproject: `$ hub subsamebrdo --single-success --include-superproject prapproval`
@@ -56,7 +56,7 @@ that there were no open reintegrations that we'd take with us.
 superproject: `$ git ofetchup-hushed`
 Check that the amend of the superproject wasn't forgotten and that every
 submodule has been reintegrated already.
-`$ ! git dirty && git bomsubmodules | ifne acceptStatus 99 git subdo --for - --predicate-command '[ "$(git brname --real-branch-only)" != main ]' --command 'git brname; false'`
+`$ ! git dirty && git bom submodules | ifne acceptStatus 99 git subdo --for - --predicate-command '[ "$(git brname --real-branch-only)" != main ]' --command 'git brname; false'`
 a) single commit and then only amends to short-lived feature:
    `$ GIT_REINTEGRATE_PRE_PUSH_COMMAND='hub-workflow-status -r HEAD -W' hub ffintegratetom --push-submodules --delete-merged-submodule-branches --push-branch --rebase-single`
 b) separate superproject commits and/or maintain history of how the feature

@@ -1,7 +1,7 @@
 #!/bin/bash source-this-script
 shopt -qs extglob
 
-: ${GIT_TIMESPAN_DEFAULT_COMMAND=${GIT_BRVARIANT_DEFAULT_COMMAND:-lg}}
+: ${GIT_TIMESPAN_DEFAULT_COMMAND=${GIT_REVRANGE_DEFAULT_COMMAND:-lg}}
 
 readonly scriptName="$(basename -- "$0")"
 readonly scope="${scriptName#git-}"
@@ -9,8 +9,8 @@ readonly scope="${scriptName#git-}"
 printUsage()
 {
     cat <<HELPTEXT
-Log variants that only cover changes committed ${scopeWhat:?}
-of the current / passed via -r|--revision REVISION.
+Covers changes committed ${scopeWhat:?} starting from the current /
+passed via -r|--revision REVISION.
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND [...] [-r|--revision REVISION] [...] [-?|-h|--help]'
@@ -25,8 +25,11 @@ esac
 gitCommand="${1:-$GIT_TIMESPAN_DEFAULT_COMMAND}"; shift
 case "$gitCommand" in
     (\
-l?(o)g?(v)g?(mine)|\
-lc?(l)g?(mine)|\
+lc?(l)@(g|changed|touched)?(mine)|\
+l?(o)g?(v)@(g|changed|touched)?(mine)|\
+@(log?(v)|show)@(last|first)@(g|changed|touched)?(mine)|\
+@(files|versions|tags)@(g|changed|touched)|\
+@(files|version|tag)@(last|first)@(g|changed|touched)|\
 lc?(h)|\
 lc@(?(l)?(f)|?(f)@(mine|team))|\
 lh?(mine|team)|\
@@ -35,12 +38,6 @@ log?(mod|added|deleted|renamed)?(files)|glog|logbrowse|\
 lg@(rel|tagged|st|i|I)|\
 @(l|tree)?([ou])url?(v)|\
 lghi?(st|i|I)|\
-@(files|versions|tags)@(g|changed|touched)|\
-l?(o)g?(v)@(changed|touched)?(mine)|\
-lc?(l)@(changed|touched)?(mine)|\
-@(log?(v)|show)@(last|first)g?(mine)|\
-@(files|version|tag)@(last|first)@(g|changed|touched)|\
-@(log?(v)|show)@(last|first)@(changed|touched)?(mine)|\
 ss@(?([wcag])|changed|touched)|\
 sls?(g|changed|touched)|\
 dp[sg]|dpl?(s)[sg]|dpls@(changed|touched)|\
@@ -131,7 +128,8 @@ who@(when|first|last)|whatdid|churn\
     rb)
 	$EXEC echo "Note: $gitCommand is a no-op, because it iterates over the current range without touching fixups.";;
     rb?(n)i|segregate@(commits|andbifurcate)|bifurcate)
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -8 selectedcommit-command --single-only -4 previouscommit-command --commit COMMITS "$gitCommand" TIMESPAN "$@";;
+	typeset -a segregateArgs=(); [[ "$gitCommand" =~ ^segregate ]] && segregateArgs=(--explicit-file-args)  # Avoid that the second argument of --path PATH-GLOB is parsed off as a FILE for commit selection.
+	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -$((8 + ${#segregateArgs[@]})) selectedcommit-command --single-only "${segregateArgs[@]}" -4 previouscommit-command --commit COMMITS "$gitCommand" TIMESPAN "$@";;
     rblastfixup)
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --one-more -2 "$gitCommand" TIMESPAN "$@";;
     move-to-branch)

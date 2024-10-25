@@ -29,7 +29,7 @@ itself.
 --one-more-only-to-terminal invokes one-more only when output is to a terminal.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '-r|--revision REVISION [-e|--end-revision END-REVISION|--no-range|--with-range RANGE] [+1|--one-more|--one-more-output|--one-more-command GIT-COMMAND2|^[1|2] [--one-more-with-padding] [--one-more-only-to-terminal] ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '-r|--revision REVISION [-e|--end-revision END-REVISION [--last-only]|--no-range|--with-range RANGE] [--reverse] [+1|--one-more|--one-more-output|--one-more-command GIT-COMMAND2|^[1|2] [--one-more-with-padding] [--one-more-only-to-terminal] ... [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [...] [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... RANGE ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
@@ -42,17 +42,19 @@ isShowOneMoreOutput=
 showOneMoreCommand=
 isOneMorePadding=
 isOneMoreOnlyToTerminal=
-revision=
+isLastOnly=
+unset revision
 revisionModifier=
 endRevision=
 range=..
+isReverse=
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--no-color|--color=*)	colorArg=("$1"); shift;;
 	--color)		colorArg=("$1" "$2"); shift; shift;;
-	--revision|-r)	shift; revision="$1"; shift;;
+	--revision|-r)	shift; revision="${1?}"; shift;;
 	--end-revision|-e)	shift; endRevision="$1"; shift;;
 	--one-more|+1)	shift; isShowOneMore=t;;
 	--one-more-output)
@@ -70,12 +72,14 @@ do
 			shift; isOneMorePadding=t;;
 	--one-more-only-to-terminal)
 			shift; isOneMoreOnlyToTerminal=t;;
-	--no-range)	shift; range='';;
-	--with-range)	shift; range="$1"; shift;;
+	--no-range)	shift; range=''; [ "$isLastOnly" ] && { printUsage "$0" >&2; exit 2; };;
+	--with-range)	shift; range="$1"; shift; [ "$isLastOnly" ] && { printUsage "$0" >&2; exit 2; };;
+	--last-only)	shift; isLastOnly=t; [ "$range" = .. ] || { printUsage "$0" >&2; exit 2; };;
+	--reverse)	shift; isReverse=t;;
 	*)		break;;
     esac
 done
-if [ -z "$revision" ]; then
+if [ -z "${revision+t}" ]; then
     echo "ERROR: Missing REVISION!"
     echo
     printUsage "$0"
@@ -143,11 +147,46 @@ oneMore()
     wrapper "$@"
 }
 
-if [ -z "$(git rev-list "${revision}..${endRevision}" -- 2>/dev/null)" ] && [ -n "$range" ]; then
+checkRange="${range:-..}"; [[ "$checkRange" =~ ^\.+$ ]] || checkRange='..'	# Custom ranges won't work with rev-list.
+if [ -z "$(git rev-list "${revision}${revision:+${checkRange:-..}}${endRevision:-HEAD}" -- 2>/dev/null)" ] && [ -n "$range" ]; then
     # Resulting range is empty (but we want a range); abort. Especially with
     # --one-more, we otherwise would use a single commit, and that could be
     # really confusing.
     exit 4
+fi
+
+if [ -z "$revision" ]; then
+    # No start revision means from the very first commit. Since we cannot go "one more" beyond it, completely drop the range.
+    revisionModifier=''
+    if [ -z "$range" ]; then
+	# No range means use the very first commit.
+	revision="$(git-firstcommit)" || exit 3
+    else
+	# Can't use a completely empty revision range; need to have at least an end revision.
+	: ${endRevision:=HEAD}
+    fi
+    range=''
+    isShowOneMore=
+    isShowOneMoreOutput=
+    showOneMoreCommand=
+    isOneMorePadding=
+    isOneMoreOnlyToTerminal=
+elif [ "$isLastOnly" ]; then
+    revision=''
+    revisionModifier=''
+    range=''
+    isShowOneMore=
+    isShowOneMoreOutput=
+    showOneMoreCommand=
+    isOneMorePadding=
+    isOneMoreOnlyToTerminal=
+fi
+
+# Note: Only reversing after the checks.
+if [ "$isReverse" ]; then
+    tmp="$revision"
+    revision="$endRevision"
+    endRevision="$tmp"
 fi
 
 if [ $# -eq 0 ]; then
@@ -218,7 +257,7 @@ potentialPadding()
 }
 revRangeWithOneMore()
 {
-    local mergeBase; [ -n "$endRevision" ] && mergeBase="$(git merge-base "$revision" "$endRevision")"
+    local mergeBase; [ -n "$revision" -a -n "$endRevision" ] && mergeBase="$(git merge-base "$revision" "$endRevision")"
 
     if contains '--reverse' "${countedArgs[@]}" "$@"; then
 	# The (log) output is in reverse order, so the "one more" also needs to
@@ -226,9 +265,9 @@ revRangeWithOneMore()
 	typeset -a rangeArgs=(--max-count 1 "${colorArg[@]}" "${mergeBase:-$revision}")
 	executor oneMore "$@" \
 	    && potentialPadding \
-	    && { rangeArgs=("${colorArg[@]}" "${revision}${revisionModifier}${range}${endRevision}"); executor wrapper "$@"; }
+	    && { rangeArgs=("${colorArg[@]}" "${revision}${revisionModifier}"$range"${endRevision}"); executor wrapper "$@"; }
     else
-	typeset -a rangeArgs=("${colorArg[@]}" "${revision}${revisionModifier}${range}${endRevision}")
+	typeset -a rangeArgs=("${colorArg[@]}" "${revision}${revisionModifier}"$range"${endRevision}")
 	executor wrapper "$@" \
 	    && potentialPadding \
 	    && { rangeArgs=(--max-count 1 "${colorArg[@]}" "${mergeBase:-$revision}"); executor oneMore "$@"; }
@@ -242,6 +281,6 @@ if [ "$isShowOneMoreOutput" ] && [ ! "$isOneMoreOnlyToTerminal" -o -t 1 ]; then
     typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
     eval 'revRangeWithOneMore "$@"' "${pager:+|}" '"${pager[@]}"'
 else
-    typeset -a rangeArgs=("${colorArg[@]}" "${revision}${revisionModifier}${isShowOneMore:+^}${range}${endRevision}")
+    typeset -a rangeArgs=("${colorArg[@]}" "${revision}${revisionModifier}${isShowOneMore:+^}"$range"${endRevision}")
     executor wrapper "$@"
 fi

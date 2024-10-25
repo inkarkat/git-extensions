@@ -2,7 +2,7 @@
 
 Create subsequent branches (foo → foo-1 → foo-2 → ...) via `$ git supersubdo stackbr`
 
-View changes in the current stacked branch via `$ git ps...` (ps=_previous stacked_)
+View changes in the current stacked branch via `$ git ps` (ps=_previous stacked_)
 
 ## Pull requests
 Create a (draft) pull request to the previous stacked branch via

@@ -4,11 +4,17 @@ set -o noglob -o pipefail
 : ${GIT_SEGREGATEDUSERCOMMAND_PREFIX_SEPARATOR:=:}
 authorMarker='{}'   # Note: Internal use only, no need to be configurable.
 
+readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
+[ -d "$scriptDir" ] || { echo >&2 'ERROR: Cannot determine script directory!'; exit 3; }
+readonly projectDir="${scriptDir}/.."
+readonly libDir="${projectDir}/lib"
+source "${libDir}/logArgParser.sh" || exit 3
+
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--prefixed|--with-header [--no-git-color]] [--committer] [--with-log-args|--with-log-args-except-last] ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--prefixed|--with-header [--no-git-color]] [--committer] [--log-args-for-range|--log-args-only-for-range] [--files-for-range|--files-for-command] [--except-last] ... [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... BASE ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
@@ -32,6 +38,10 @@ filter
 - replacing USERFILTER argument(s) anywhere
 - replacing USERFILTER in the following GIT-COMMAND and -(N-1) arguments
 - replacing USERFILTER in the following +(N) arguments and appending those
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    cat <<HELPTEXT
     --no-pager		Do not page the output (so contents will scroll out of
 			view if there's too much output).
     --prefixed		Put the author name before each line produced by
@@ -41,16 +51,21 @@ filter
     --no-git-color	Do not pass a --color=... to GIT-COMMAND.
     --committer		Use committers and pass --committer instead of --author
 			to GIT-COMMAND.
-    --with-log-args	All GIT-COMMAND arguments should also be used when
+    --log-args-for-range
+			All GIT-COMMAND log arguments should also be used when
 			determining the authors.
-    --with-log-args-except-last
-			All GIT-COMMAND arguments expect the very last should
-			also be used when determining the authors.
-HELPDESCRIPTION
-    echo
-    printShortUsage "$1"
-    cat <<HELPTEXT
-
+    --log-args-only-for-range
+			All GIT-COMMAND log arguments should exclusively be used
+			when determining the authors but not passed to
+			GIT-COMMAND.
+    FILE arguments by default are both used to determine the revision range and
+    passed to GIT-COMMAND.
+    --files-for-range	Only use FILE arguments to determine the revision range,
+			do not pass them to GIT-COMMAND.
+    --files-for-command Pass FILE arguments only to GIT-COMMAND, do not use them
+			to determine the revision range.
+    --except-last	The very last argument is special and should not be
+			parsed as log-args or FILE(s).
 HELPTEXT
 }
 
@@ -60,8 +75,14 @@ typeset -a colorArg=()
 filter=author
 subjectPlaceholder='%a'
 contextCommand=
-isFirstArg=t
-withLogArgs=
+typeset -a specialLastArg=()
+typeset otherArgs=()
+typeset -a logArgs=()
+isLogArgsForRange=
+isLogArgsForCommand=t
+isFilesForRange=t
+isFilesForCommand=t
+unset files
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -77,17 +98,82 @@ do
 			colorArg=("$1"); shift;;
 	--color)	colorArg=("$1" "$2"); shift; shift;;
 	--committer)	shift; filter=committer; subjectPlaceholder='%c';;
-	--with-log-args)
-			shift; withLogArgs=all;;
-	--with-log-args-except-last)
-			shift; withLogArgs=except-last;;
-	*)		break;;
+	--log-args-for-range)
+			shift; isLogArgsForRange=t;;
+	--log-args-only-for-range)
+			shift; isLogArgsForRange=t; isLogArgsForCommand=;;
+	--files-for-range)
+			shift; isFilesForCommand=;;
+	--files-for-command)
+			shift; isFilesForRange=;;
+	--except-last)
+			shift
+			if [ $# -gt 0 ]; then
+			    specialLastArg=("${!#}")
+			    set -- "${@:1:$(($#-1))}"
+			fi
+			;;
+	--)		shift
+			# Only capture files after the last -- (to support intermediate wrapping GIT-COMMAND(s)).
+			if contains -- "$@"; then
+			    otherArgs+=(--)
+			else
+			    typeset -a files=("$@")
+			    set --
+			    break
+			fi
+			;;
+	*)		if { [ "$isLogArgsForRange" ] || [ ! "$isLogArgsForCommand" ]; } \
+			    && { countLogArgs '' "$1"; argCount=$?; [ $argCount -gt 0 ]; }
+			then
+			    while ((argCount-- > 0))
+			    do
+				logArgs+=("$1")
+				[ ! "$isLogArgsForCommand" ] || otherArgs+=("$1")
+				shift
+			    done
+			else
+			    otherArgs+=("$1")
+			    shift
+			fi
+			;;
     esac
 done
+set -- "${otherArgs[@]}"
+if [ -z "${files+t}" ]; then
+    # No files after -- captured yet; need to investigate parsed and
+    # remaining args from behind for files.
+    typeset -a files=()
+    while [ $# -gt 0 ]
+    do
+	lastArg="${!#}"
+	[ -e "$lastArg" ] || break
+
+	files=("$lastArg" "${files[@]}")
+	set -- "${@:1:$(($#-1))}"
+    done
+fi
+
 if [ $# -eq 0 ]; then
     echo >&2 'ERROR: No GIT-COMMAND passed.'
     exit 2
 fi
+
+# Remove any --author= argument; these are only useful for limiting the source
+# user list, but would wreak havoc on the iteration. Do this in a second
+# iteration as --committer may be passed (by the user) after an --committer
+# parameter.
+typeset -a args=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--${filter})	shift; shift;;
+	--${filter}=*)	shift;;
+	--)		break;;
+	*)		args+=("$1"); shift;;
+    esac
+done
+set -- "${args[@]}"
 
 isCountedAppend=
 typeset -a countedArgs=()
@@ -102,11 +188,13 @@ case "$1" in
 
 	executor()
 	{
-	    countedArgs=("${countedArgs[@]//USERFILTER/--$filter="$author"}")
+	    typeset -a interpolatedCountedArgs=("${countedArgs[@]//USERFILTER/--$filter="$author"}")
 
-	    [ "$isCountedAppend" ] \
-		&& exec git-wrapper "$@" "${countedArgs[@]}" \
-		|| exec git-wrapper "${countedArgs[@]}" "$@"
+	    if [ "$isCountedAppend" ]; then
+		git-wrapper "$@" "${interpolatedCountedArgs[@]}"
+	    else
+		git-wrapper "${interpolatedCountedArgs[@]}" "$@"
+	    fi
 	}
 	;;
     --keep-position)
@@ -115,21 +203,15 @@ case "$1" in
 
 	executor()
 	{
-	    exec git-wrapper "${countedArgs[@]//USERFILTER/--$filter="$author"}"
+	    git-wrapper "${countedArgs[@]//USERFILTER/--$filter="$author"}" "$@"
 	}
 	;;
     *)	countedArgs=("$@"); set --
 	executor()
 	{
-	    exec git-wrapper "${countedArgs[@]}" --$filter="$author"
+	    git-wrapper "${countedArgs[@]}" --$filter="$author" "$@"
 	}
 	;;
-esac
-
-typeset sharedLogArgs=()
-case "$withLogArgs" in
-    all)	    sharedLogArgs+=("$@");;
-    except-last)    sharedLogArgs+=("${@:1:$(($#-1))}");;
 esac
 
 # With piping into withHeader / pager, we need to explicitly enable color for
@@ -141,20 +223,11 @@ if [ -n "$pager" -o -n "$contextCommand" ] && isNeedColorArgumentWhenPiping "${c
     [ "$isGitColor" ] && gitColorArg=(--color=always)	# Force for Git
 fi
 
-# Remove any --author= argument; these are only useful for limiting the source
-# user list, but would wreak havoc on the iteration.
-typeset -a gitCommandArgs=()
-while [ $# -ne 0 ]
-do
-    case "$1" in
-	--${filter})	shift; shift;;
-	--${filter}=*)	shift;;
-	--)		break;;
-	*)		gitCommandArgs+=("$1"); shift;;
-    esac
-done
-
-readarray -t authors < <(git log --pretty="tformat:${subjectPlaceholder}N" "${sharedLogArgs[@]}" | sort --unique | sed -e 's/[][\$*.^]/\\&/g')
+readarray -t authors < <(
+    git log --pretty="tformat:${subjectPlaceholder}N" ${isLogArgsForRange:+"${logArgs[@]}"} ${isFilesForRange:+-- "${files[@]}"} \
+	| sort --unique \
+	| sed -e 's/[][\$*.^]/\\&/g'
+)
 [ ${#authors[@]} -gt 0 ] || exit 99
 
 iterateUsers()
@@ -162,9 +235,12 @@ iterateUsers()
     status=0
     for author in "${authors[@]}"
     do
-	eval 'executor "${gitColorArg[@]}" "${gitCommandArgs[@]}" "$@"' "${contextCommand:+|}${contextCommand//"$authorMarker"/\"${author}\"}" || status=$?
+	eval 'executor ${isLogArgsForCommand:+"${logArgs[@]}"} "$@" "${gitColorArg[@]}" ${isFilesForCommand:+${files:+--} "${files[@]}"} "${specialLastArg[@]}"' \
+		"${contextCommand:+|}${contextCommand//"$authorMarker"/\"${author}\"}" \
+	    || status=$?
     done
     return $status
 }
 
-eval 'iterateUsers "$@"' "${pager:+|}" '"${pager[@]}"'
+eval 'iterateUsers "$@"' \
+    "${pager:+|}" '"${pager[@]}"'

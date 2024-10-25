@@ -11,6 +11,8 @@ Execute GIT-COMMAND with a list of files that is obtained from SOURCE-COMMAND
 - replacing FILES argument(s) anywhere
 - replacing FILES in the following GIT-COMMAND and -(N-1) arguments
 - replacing FILES in the following +(N) arguments and appending those
+Any appended <path>(s) are removed off GIT-COMMAND's argument list and instead
+passed to SOURCE-COMMAND.
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" "--source-command \"SOURCE-COMMANDLINE\"|--source-exec COMMAND [...] $GIT_FILESCOMMAND_EXEC_END GIT-COMMAND [GIT-COMMAND-ARGS ...] [-?|-h|--help]"
@@ -96,7 +98,33 @@ case "$1" in
 	;;
 esac
 
-readarray -t files < <(eval "git-wrapper $sourceCommand")
+typeset -a allargs=()
+unset argFiles
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--)		shift; typeset -a argFiles=("$@"); break;;
+	*)		allargs+=("$1"); shift;;
+    esac
+done
+if [ -z "${argFiles+t}" ]; then
+    # No files after -- captured yet; need to investigate parsed and
+    # remaining args from behind for files.
+    typeset -a argFiles=()
+    allargs+=("$@")
+    while [ ${#allargs[@]} -ne 0 ]
+    do
+	lastArg="${allargs[-1]}"
+	[ -e "$lastArg" ] || break
+
+	argFiles=("$lastArg" "${argFiles[@]}")
+	allargs=("${allargs[@]:0:${#allargs[@]}-1}")
+    done
+fi
+set -- "${allargs[@]}"
+
+quotedArgFiles=; [ ${#argFiles[@]} -eq 0 ] || printf -v quotedArgFiles ' %q' "${argFiles[@]}"
+readarray -t files < <(eval "git-wrapper ${sourceCommand}${quotedArgFiles}")
 [ ${#files[@]} -eq 0 ] && exit 1
 
 executor "$@"

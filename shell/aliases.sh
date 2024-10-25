@@ -215,8 +215,8 @@ alias              sgitshowfileslastg='commandOnSelected --generator "git showfi
 alias        sgitshowfileslastchanged='commandOnSelected --generator "git showfileslastchanged" --entries'
 alias        sgitshowfileslasttouched='commandOnSelected --generator "git showfileslasttouched" --entries'
 alias             sgitshowfilesfirstg='commandOnSelected --generator "git showfilesfirstg" --entries'
-alias      s gitshowfilesfirstchanged='commandOnSelected --generator "git showfilesfirstchanged" --entries'
-alias      s gitshowfilesfirsttouched='commandOnSelected --generator "git showfilesfirsttouched" --entries'
+alias       sgitshowfilesfirstchanged='commandOnSelected --generator "git showfilesfirstchanged" --entries'
+alias       sgitshowfilesfirsttouched='commandOnSelected --generator "git showfilesfirsttouched" --entries'
 
 # ygitshowfiles [<since>..<until>] [<path> ...] [-- SELECTIONs ...]
 #			Yank selected filespecs modified in passed commit or

@@ -23,19 +23,21 @@ do
 	*)		break;;
     esac
 done
-if ! git-ismerging && ! git-isrebasing; then
-    echo >&2 'ERROR: Not currently merging or rebasing.'
-    exit 1
+
+readarray -t files < <(git-conflicts)
+if [ ${#files[@]} -eq 0 ]; then
+    if git-ismerging || git-isrebasing; then
+	echo 'ERROR: No conflicts.'
+	exit 99
+    else
+	echo >&2 'ERROR: Not currently merging or rebasing.'
+	exit 1
+    fi
 fi
 if [ "$isAll" ]; then
     if [ $# -gt 0 ]; then
 	printUsage "$0"
 	exit 2
-    fi
-    readarray -t files < <(git-conflicts)
-    if [ ${#files[@]} -eq 0 ]; then
-	echo 'ERROR: No conflicts.'
-	exit 99
     fi
     set -- "${files[@]}"
 elif [ $# -eq 0 ]; then

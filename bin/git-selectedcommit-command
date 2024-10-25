@@ -249,23 +249,16 @@ logRange()
 
 commitSource()
 {
-    # DWIM: When the range is of the form R1^..R2, and R1 is a merge commit, only
-    # offer that commit itself, without its parents.
+    # DWIM: When the range is of the form R1^..R2, only offer R1 itself, without its
+    # parents (if it is a merge commit).
     if [[ "${rangeArgs[*]}" =~ ^([^.]+)\^\.\.([^.]*)$ ]] \
 	&& startRev="${BASH_REMATCH[1]}" \
-	&& endRev="${BASH_REMATCH[2]}" \
-	&& eval "git${files:+${isAllowOutsideWorkingCopy:+-inside}} ismerge" '"$startRev" ${files:+${isAllowOutsideWorkingCopy:+\$FILE }--} "${files[@]}"'
+	&& endRev="${BASH_REMATCH[2]}"
     then
-	# We still want intermediate merges, so it's not a matter of simply passing
-	# --first-parent. Omit the last (excluded) R1^ revision first, then separately
-	# log the R1^..R1 revision while omitting its parents there.
-	rangeArgs=("${startRev}..${endRev}")
-	logRange "$@"
-	rangeArgs=("${startRev}^..${startRev}")
-	logRange --first-parent "$@"
-    else
-	logRange "$@"
+	# The r1^! notation includes commit r1 but excludes all of its parents.
+	rangeArgs=("${startRev}!" "${endRev}")
     fi
+    logRange "$@"
 }
 
 appendMergeIndicator()

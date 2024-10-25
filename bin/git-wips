@@ -12,7 +12,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--submodules|--all-submodules [--submodule-color=(always|auto|never)]] [--no-submodule-recurse] [--filter-worktree-duplicates] [-a|--all] [-v|--verbose] [-q|--quiet|--color=(always|auto|never)|--no-color] [(+|-)(empty|dirty|private|stashed|noremote|outgoing|incoming|fallenbehind|behind|behindtags|wipcommit|nonmaster|unmergeddownstream|downstreambranches|mergedbr|stalebr|todo|inactivefork) ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--submodules|--all-submodules [--submodule-color=(always|auto|never)]] [--no-submodule-recurse] [--filter-worktree-duplicates] [-a|--all] [-v|--verbose] [-q|--quiet|--color=(always|auto|never)|--no-color] [(+|-)(empty|dirty|private|stashed|wipcommit|nonmaster|mergedbr|stalebr|todo|noremote|outgoing|incoming|fallenbehind|behind|behindtags|unmergeddownstream|downstreambranches|inactivefork) ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -64,6 +64,13 @@ deselected (from all checks on offer) via -name.
 - dirty:    uncommitted changes
 - private:  unversioned files (that are not ignored)
 - stashed:  recorded local changes that have been stashed away
+- wipcommit:where the last commit had "WIP:" in the message summary
+- nonmaster:a branch different from the master branch (or the base branch if
+	    defined) is checked out
+- mergedbr: branches that have already been merged into master
+- stalebr:  branches that have not been updated for a while${HUB:+ and have no active
+	    PR}
+- todo:	    a todo.txt file exists in the working copy root
 - noremote: no remotes have been defined yet; the repository only exists locally
 - outgoing: where not all commits (on the current branch) have already been
 	    pushed to origin
@@ -80,19 +87,12 @@ deselected (from all checks on offer) via -name.
 	    You can ignore certain tag patterns via the $EXCLUDED_TAGS_CONFIG_KEY
 	    (multi-valued) config key:
 	    $ git config --add $EXCLUDED_TAGS_CONFIG_KEY TAGNAME-*
-- wipcommit:where the last commit had "WIP:" in the message summary
-- nonmaster:a branch different from the master branch (or the base branch if
-	    defined) is checked out
 - unmergeddownstream:
 	    branches in origin that have not yet been merged into (any) upstream
 	    branch
 - downstreambranches:
 	    a branch that only exists in origin, but not upstream; may represent
 	    concurrent work or a pull request
-- mergedbr: branches that have already been merged into master
-- stalebr:  branches that have not been updated for a while${HUB:+ and have no active
-	    PR}
-- todo:	    a todo.txt file exists in the working copy root
 - inactivefork:
 	    my GitHub clone is up-to-date with upstream, has no non-master
 	    branches, and therefore can be archived (made read-only).
@@ -159,7 +159,7 @@ else
 fi
 
 isFirst=t
-declare -A checks=([empty]=t [dirty]=t [private]=t [stashed]=t [noremote]=t [outgoing]=t [incoming]=t [fallenbehind]=t [behind]=t [behindtags]=t [wipcommit]=t [nonmaster]=t [unmergeddownstream]=t [downstreambranches]=t [mergedbr]=t [stalebr]=t [todo]=t [inactivefork]=t)
+declare -A checks=([empty]=t [dirty]=t [private]=t [stashed]=t [wipcommit]=t [nonmaster]=t [mergedbr]=t [stalebr]=t [todo]=t [noremote]=t [outgoing]=t [incoming]=t [fallenbehind]=t [behind]=t [behindtags]=t [unmergeddownstream]=t [downstreambranches]=t [inactivefork]=t)
 while [ $# -gt 0 ]
 do
     case "$1" in
@@ -223,6 +223,55 @@ considerCheck private \
 considerCheck stashed \
     && if git rev-parse --verify --quiet refs/stash >/dev/null; then git stashl "${colorArg[@]}"; positiveCheck; fi
 
+considerCheck wipcommit \
+    && if git l --max-count=1 "${colorArg[@]}" | grep '\(^\| \)WIP: '; then positiveCheck; fi
+
+considerCheck nonmaster \
+    && if branchName="$(git-brname --real-branch-only 2>/dev/null)"
+	[ -n "$branchName" -a "$branchName" != "$(getMasterBranch)" -a "$branchName" != "$(git-nbr 2>/dev/null)" ]
+    then printf 'On branch %s\n' "$branchName"; positiveCheck; fi
+
+printMergedBranches()
+{
+    git mergedbr "$(getMasterBranch)" | outputAndPrintf 'Already integrated into master:\n'
+    return ${PIPESTATUS[-1]}
+}
+considerCheck mergedbr \
+    && if printMergedBranches; then positiveCheck; fi
+
+printStaleBranches()
+{
+    git stalebr | outputAndPrintf 'Stale branch(es):\n'
+    return ${PIPESTATUS[-1]}
+}
+considerCheck stalebr \
+    && if printStaleBranches; then positiveCheck; fi
+
+hasTodo()
+{
+    if type -t todo-local.sh >/dev/null; then
+	# Use my own custom extension if it exists; it also considers submodules, has
+	# default task filtering, and the todo.sh formatting.
+	TODOTXT_VERBOSE=0 todo-local.sh | outputAndPrintf 'Open tasks:\n'
+	return ${PIPESTATUS[-1]}
+    else
+	local root; root="$(git root 2>/dev/null)" || return 1
+	local todoFilespec="${root}/todo.txt"
+	[ -s "$todoFilespec" ] || return 1
+
+	if type -t todo.sh >/dev/null; then
+	    # Use todo.sh for formatting.
+	    TODO_FILE="$todoFilespec" TODO_DIR="$root" TODOTXT_VERBOSE=0 todo.sh | outputAndPrintf 'Open tasks:\n'
+	else
+	    # Fall back to simple cat'ting of the file.
+	    headtail --separator-cut-what "... see $todoFilespec for the full list ..." -- "$todoFilespec" | outputAndPrintf 'Open tasks:\n'
+	fi
+	return ${PIPESTATUS[-1]}
+    fi
+}
+considerCheck todo \
+    && if hasTodo; then positiveCheck; fi
+
 considerCheck noremote \
     && if ! git existsremote; then echo "Local-only repository; no remotes defined yet."; positiveCheck; fi
 
@@ -280,14 +329,6 @@ considerCheck behindtags \
     && tagName="$(git istagged --print)" \
     && if printBehindTags "$tagName"; then positiveCheck; fi
 
-considerCheck wipcommit \
-    && if git l --max-count=1 "${colorArg[@]}" | grep '\(^\| \)WIP: '; then positiveCheck; fi
-
-considerCheck nonmaster \
-    && if branchName="$(git-brname --real-branch-only 2>/dev/null)"
-	[ -n "$branchName" -a "$branchName" != "$(getMasterBranch)" -a "$branchName" != "$(git-nbr 2>/dev/null)" ]
-    then printf 'On branch %s\n' "$branchName"; positiveCheck; fi
-
 findUnmergedDownstreamBranches()
 {
     local baseBranch="$(git-nbr 2>/dev/null)"
@@ -323,47 +364,6 @@ considerCheck downstreambranches \
     && git existsremote origin \
     && git existsremote upstream \
     && if findDownstreamBranches; then positiveCheck; fi
-
-printMergedBranches()
-{
-    git mergedbr "$(getMasterBranch)" | outputAndPrintf 'Already integrated into master:\n'
-    return ${PIPESTATUS[-1]}
-}
-considerCheck mergedbr \
-    && if printMergedBranches; then positiveCheck; fi
-
-printStaleBranches()
-{
-    git stalebr | outputAndPrintf 'Stale branch(es):\n'
-    return ${PIPESTATUS[-1]}
-}
-considerCheck stalebr \
-    && if printStaleBranches; then positiveCheck; fi
-
-hasTodo()
-{
-    if type -t todo-local.sh >/dev/null; then
-	# Use my own custom extension if it exists; it also considers submodules, has
-	# default task filtering, and the todo.sh formatting.
-	TODOTXT_VERBOSE=0 todo-local.sh | outputAndPrintf 'Open tasks:\n'
-	return ${PIPESTATUS[-1]}
-    else
-	local root; root="$(git root 2>/dev/null)" || return 1
-	local todoFilespec="${root}/todo.txt"
-	[ -s "$todoFilespec" ] || return 1
-
-	if type -t todo.sh >/dev/null; then
-	    # Use todo.sh for formatting.
-	    TODO_FILE="$todoFilespec" TODO_DIR="$root" TODOTXT_VERBOSE=0 todo.sh | outputAndPrintf 'Open tasks:\n'
-	else
-	    # Fall back to simple cat'ting of the file.
-	    headtail --separator-cut-what "... see $todoFilespec for the full list ..." -- "$todoFilespec" | outputAndPrintf 'Open tasks:\n'
-	fi
-	return ${PIPESTATUS[-1]}
-    fi
-}
-considerCheck todo \
-    && if hasTodo; then positiveCheck; fi
 
 findInactiveFork()
 {

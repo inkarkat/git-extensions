@@ -14,16 +14,22 @@ case "$1" in
 			shift;;
     --color)		shift; shift;;
 esac
-if [ $# -gt 1 ]; then
-    printUsage "$0" >&2
-    exit 2
-fi
+case $# in
+    0)	newBranch="$(git-brname --real-branch-only)" || exit $?;;
+    1)	if git-existsbr "$1"; then
+	    newBranch="$1"
+	else
+	    printf 'ERROR: No such branch: %s\n' "$1"
+	    exit 1
+	fi
+	;;
+    *)	printUsage "$0"; exit 2;;
+esac >&2
 
 gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit 3
 baseBranchStore="${gitDir}/baseBranch"
 
 baseBranch="$(git-nbr 2>/dev/null)"
-newBranch="$(git-brname --raw "$@")" || exit $?
 
 if [ -n "$newBranch" ] && [ "$newBranch" != "$baseBranch" ]; then
     typeset what=Set; [ -n "$baseBranch" ] && what=Changed

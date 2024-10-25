@@ -170,7 +170,7 @@ _git_complete()
 	# function as git aliasname subaliasname).
 	typeset -a subAliases=(); readarray -t subAliases < <(compgen -A command -- "git-${COMP_WORDS[1]}-" 2>/dev/null)
 	subAliases=("${subAliases[@]/#git-${COMP_WORDS[1]}-/}")
-	readarray -O ${#COMPREPLY[@]} -t COMPREPLY < <(compgen -W "${subAliases[*]}" -X "!${2}*")
+	readarray -O ${#COMPREPLY[@]} -t COMPREPLY < <(compgen -W "${subAliases[*]}" -- "$2")
     fi
 
     # Need to filter in reverse order: First drop counts, then variants.
@@ -231,7 +231,7 @@ _hub_complete()
 	typeset -a builtinCommands=(api browse ci-status compare create delete fork gist issue pr pull-request release sync)
 	# Also offer aliases (hub-aliasname, callable via my hub wrapper
 	# function as hub aliasname).
-	readarray -O ${#COMPREPLY[@]} -t COMPREPLY < <(compgen -W "${builtinCommands[*]}"$'\n'"${aliases[*]}" -X "!${2}*")
+	readarray -O ${#COMPREPLY[@]} -t COMPREPLY < <(compgen -W "${builtinCommands[*]}"$'\n'"${aliases[*]}" -- "$2")
     elif [ $COMP_CWORD -eq 2 ]; then
 	IFS=$' \t\n' __git_wrap__git_main "$@"
 
@@ -239,9 +239,11 @@ _hub_complete()
 	# function as hub aliasname subaliasname).
 	typeset -a subAliases=(); readarray -t subAliases < <(compgen -A command -- "hub-${COMP_WORDS[1]}-" 2>/dev/null)
 	subAliases=("${subAliases[@]/#hub-${COMP_WORDS[1]}-/}")
-	readarray -O ${#COMPREPLY[@]} -t COMPREPLY < <(compgen -W "${subAliases[*]}" -X "!${2}*")
+	readarray -O ${#COMPREPLY[@]} -t COMPREPLY < <(compgen -W "${subAliases[*]}" -- "$2")
     else
 	IFS=$' \t\n' __git_wrap__git_main "$@"
     fi
 }
 complete -o bashdefault -o default -o nospace -F _hub_complete hub
+
+unset _scriptDir

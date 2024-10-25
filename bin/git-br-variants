@@ -1,0 +1,26 @@
+#!/bin/bash
+set -o pipefail
+
+readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
+[ -d "$scriptDir" ] || { echo >&2 'ERROR: Cannot determine script directory!'; exit 3; }
+
+printUsage()
+{
+    cat <<HELPTEXT
+Print all available branch-range commands.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+cd -- "$scriptDir" || exit 3
+grep --files-with-matches [l]ib/br-variant ./git-* \
+    | sed -e 's#.*/git-##'

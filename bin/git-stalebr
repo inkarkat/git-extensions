@@ -7,7 +7,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    local hubOptions=; [ "$HUB" ] && hubOptions='[--pull-requests-from-repo WORKING-COPY|[HOST/]OWNER/REPO [--pull-requests-from-repo ...] [--pull-requests-from-here]]'
+    local hubOptions=; [ "$HUB" ] && hubOptions='[--only-mine] [--pull-requests-from-repo WORKING-COPY|[HOST/]OWNER/REPO [--pull-requests-from-repo ...] [--pull-requests-from-here]]'
     printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[--bare] [--compare-to <branch>|<commit>|""] [-r|--remote REMOTE|-a]' "${hubOptions:+ }${hubOptions}" '[-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [--include-current] [--include-master] [--include-base] [--include-all] [--] [<branch-glob> ...] [-?|-h|--help]'
 }
 printUsage()
@@ -42,6 +42,10 @@ SUFFIX may be 's' for seconds (the default), 'm' for minutes, 'h' for hours, 'd'
 for days, 'w' for weeks, 'mo' for months, 'y' for years, 'g' for generations.
 HELPTEXT
     [ "$HUB" ] && cat <<HUB-HELPTEXT
+    --only-mine		Only consider branches from pull requests that have been
+			opened from my GitHub clone. By default, it assumes that
+			I'm potentially collaborating with other contributors
+			and checking out their PR branches as well.
     --pull-requests-from-repo WORKING-COPY|[HOST/]OWNER/REPO
 			Obtain pull request branches that are not stale (even if
 			older) from WORKING-COPY / the remote OWNER/REPO. Useful
@@ -56,11 +60,21 @@ HELPTEXT
 HUB-HELPTEXT
 }
 
+listPrBranches()
+{
+    # The GitHub format for branches is [OWNER:]BRANCH; we only want the branch
+    # name [potentially just from me as the owner].
+    [ "$isOnlyMine" ] \
+	&& typeset -a branchFilter=(-n -e "s#^$(git me-in-github):##p") \
+	|| typeset -a branchFilter=(-e 's#^[^:]\+:##')
+    hub pr list --format '%H%n' \
+	| sed "${branchFilter[@]}"
+}
 isReadPrBranches=; [ "$HUB" ] || isReadPrBranches=t
 typeset -A prBranches=()
 readPrBranches()
 {
-    [ $# -gt 0 ] || set -- hub pr list --format '%H%n'
+    [ $# -gt 0 ] || set -- listPrBranches
     while IFS=$'\n' read -r prBranchName
     do
 	prBranches["$prBranchName"]=t
@@ -69,6 +83,7 @@ readPrBranches()
 }
 
 isBare=
+isOnlyMine=
 compareTo="$(git-mbr 2>/dev/null)"
 typeset -a branchFilter=(--older "$GIT_STALEBR_AGE")
 typeset -a branchScope=()
@@ -102,6 +117,7 @@ do
 			fi
 			shift
 			;;
+	--only-mine)	shift; isOnlyMine=t;;
 	--pull-requests-from-here)
 			shift; readPrBranches; shift;;
 	-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt)

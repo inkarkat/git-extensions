@@ -1,6 +1,9 @@
 #!/bin/bash source-this-script
 [ "${BASH_VERSION:-}" ] || return
 
+_scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)" || return $?
+[ -d "$_scriptDir" ] || { echo >&2 'ERROR: Cannot determine script directory!'; return 3; }
+
 type -t completeAsCommand >/dev/null || completeAsCommand()
 {
     local name
@@ -66,6 +69,13 @@ _git_cheat()
     [ ${#COMPREPLY[@]} -gt 0 ] && readarray -t COMPREPLY < <(printf "%q\n" "${COMPREPLY[@]}")
 }
 complete -F _git_cheat git-cheat hub-cheat
+
+readarray -t _git_complete_brvariant_commands < "${_scriptDir}/../lib/br-variants/commands.txt"
+while IFS=$'\n' read -r _line
+do
+    _git_complete_brvariants["$_line"]=t
+done < <(git-br-variants)
+unset _line
 
 _git_complete_filterAliasCounts()
 {
@@ -166,11 +176,17 @@ _git_complete()
 	# Bash completion for Git already offer git-aliasnames.
 	:
     elif [ $COMP_CWORD -eq 2 ]; then
+	if [ "${_git_complete_brvariants["${COMP_WORDS[1]}"]}" ]; then
+	    # Offer commands applicable to a branch-range variant.
+	    readarray -t COMPREPLY < <(compgen -W "${_git_complete_brvariant_commands[*]}" -- "$2")
+	    return
+	fi
+
 	# Also offer aliases (git-aliasname-subaliasname, callable via my git wrapper
 	# function as git aliasname subaliasname).
 	typeset -a subAliases=(); readarray -t subAliases < <(compgen -A command -- "git-${COMP_WORDS[1]}-" 2>/dev/null)
 	subAliases=("${subAliases[@]/#git-${COMP_WORDS[1]}-/}")
-	readarray -O ${#COMPREPLY[@]} -t COMPREPLY < <(compgen -W "${subAliases[*]}" -X "!${2}*")
+	readarray -O ${#COMPREPLY[@]} -t COMPREPLY < <(compgen -W "${subAliases[*]}" -- "$2")
     fi
 
     # Need to filter in reverse order: First drop counts, then variants.
@@ -231,7 +247,7 @@ _hub_complete()
 	typeset -a builtinCommands=(api browse ci-status compare create delete fork gist issue pr pull-request release sync)
 	# Also offer aliases (hub-aliasname, callable via my hub wrapper
 	# function as hub aliasname).
-	readarray -O ${#COMPREPLY[@]} -t COMPREPLY < <(compgen -W "${builtinCommands[*]}"$'\n'"${aliases[*]}" -X "!${2}*")
+	readarray -O ${#COMPREPLY[@]} -t COMPREPLY < <(compgen -W "${builtinCommands[*]}"$'\n'"${aliases[*]}" -- "$2")
     elif [ $COMP_CWORD -eq 2 ]; then
 	IFS=$' \t\n' __git_wrap__git_main "$@"
 
@@ -239,9 +255,11 @@ _hub_complete()
 	# function as hub aliasname subaliasname).
 	typeset -a subAliases=(); readarray -t subAliases < <(compgen -A command -- "hub-${COMP_WORDS[1]}-" 2>/dev/null)
 	subAliases=("${subAliases[@]/#hub-${COMP_WORDS[1]}-/}")
-	readarray -O ${#COMPREPLY[@]} -t COMPREPLY < <(compgen -W "${subAliases[*]}" -X "!${2}*")
+	readarray -O ${#COMPREPLY[@]} -t COMPREPLY < <(compgen -W "${subAliases[*]}" -- "$2")
     else
 	IFS=$' \t\n' __git_wrap__git_main "$@"
     fi
 }
 complete -o bashdefault -o default -o nospace -F _hub_complete hub
+
+unset _scriptDir

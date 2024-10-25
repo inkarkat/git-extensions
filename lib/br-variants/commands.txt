@@ -1,27 +1,3 @@
-#!/bin/bash
-
-readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && absoluteScriptFile="$(readlink -nf -- "${BASH_SOURCE[0]}")" && dirname -- "$absoluteScriptFile" || exit 3)"
-[ -d "$scriptDir" ] || { echo >&2 'ERROR: Cannot determine script directory!'; exit 3; }
-
-printUsage()
-{
-    cat <<HELPTEXT
-Check whether all / passed branch variant scripts do a complete handling of
-br... commands.
-HELPTEXT
-    echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[TYPE.sh ...] [-?|-h|--help]'
-}
-
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-esac
-if [ $# -eq 0 ]; then
-    cd "$scriptDir" || exit 3
-    set -- *.sh
-fi
-
-typeset -a gitCommands=(
 d
 ds
 dss
@@ -364,16 +340,3 @@ logdistributionmine
 logdistributionteam
 emaillog
 emaillc
-)
-
-EXEC=:	# Don't execute handled commands.
-typeset -ra scopeCommand=(SCOPE-command)
-scopeRevision=REVISION
-scopeEndRevision=BRANCH
-for typeScript in "$@"
-do
-    for gitCommand in "${gitCommands[@]}"
-    do (
-	source "${scriptDir}/${typeScript}" "$gitCommand"
-    ) done 2>&1 | withHeader --id "check-switch-completeness-$$-$RANDOM" -- "$typeScript"
-done

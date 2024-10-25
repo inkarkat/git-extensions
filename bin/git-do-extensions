@@ -28,18 +28,18 @@ printExtendedUsage()
 Supports the following special commands and options:
     repo-missing	    Show those $GIT_DOEXTENSIONS_WHAT that are
 			    not yet under Git source control.
-    *counts* [<log-options>] [<revision range>] [[--] <path>...]
+    [branch-range] counts* [<log-options>] [<revision range>] [[--] <path>...]
 			    Count and add up the amount of commits in
 			    $GIT_DOEXTENSIONS_WHAT that fall into
 			    the logged range. * stands for any range variant
 			    (td, year, ...) or filter (mine, team, ...).
-    *countsleaderboard* [<log-options>] [<revision range>] [[--] <path>...]
+    [branch-range] countsleaderboard* [<log-options>] [<revision range>] [[--] <path>...]
 			    List $GIT_DOEXTENSIONS_WHAT
 			    ordered by the amount of commits in the logged range
 			    (omitting those without any commits).
 			    * stands for any range variant (td, year, ...) or
 			    filter (mine, team, ...).
-    *logs-distribution* [LOGDISTRIBUTION-OPTIONS ...] [<log-options>] [<revision range>] [[--] <path>...]
+    [branch-range] logs-distribution* [LOGDISTRIBUTION-OPTIONS ...] [<log-options>] [<revision range>] [[--] <path>...]
 			    Print the distribution of the number of commits in
 			    $GIT_DOEXTENSIONS_WHAT that fall into
 			    the logged range. * stands for any range variant
@@ -285,58 +285,6 @@ parseCommand()
 		wcdoArgs+=(--no-header --skip-files --foreign-command 'pwd' --command :)
 		args=("$@")
 		;;
-	    *countsleaderboard)
-		# Synthesized new command.
-
-		# Translate e.g. tdcountsleaderboard to "git tdcount".
-		# This way, all ranges supplied by my various br...log variants can be used.
-		countCommand="git ${1%countsleaderboard}count"; shift
-		countsleaderboardExtension "$countCommand" "$@"
-		;;
-	    countsleaderboard*)
-		# Synthesized new command.
-
-		# Translate e.g. countsleaderboardmine to "git countmine".
-		# This way, all filters supplied by my various variants can be used.
-		countCommand="git count${1#countsleaderboard}"; shift
-		countsleaderboardExtension "$countCommand" "$@"
-		;;
-	    *counts)
-		# Synthesized new command; don't override "count" as the user may want to count
-		# separately each repo, too.
-
-		# Translate e.g. tdcounts to "git tdcount".
-		# This way, all ranges supplied by my various br...log variants can be used.
-		countCommand="git ${1%counts}count"; shift
-		countsExtension "$countCommand" "$@"
-		;;
-	    counts*)
-		# Synthesized new command; don't override "count" as the user may want to count
-		# separately each repo, too.
-
-		# Translate e.g. countsmine to "git countmine".
-		# This way, all filters supplied by my various variants can be used.
-		countCommand="git count${1#counts}"; shift
-		countsExtension "$countCommand" "$@"
-		;;
-	    *logs-distribution)
-		# Synthesized new command; don't override "logdistribution" as the user may want
-		# to execute that separately on each repo, too.
-
-		# Translate e.g. tdlogs-distribution to "git tdlogdistribution".
-		# This way, all ranges supplied by my various br...log variants can be used.
-		logDistributionCommand="git ${1%logs-distribution}logdistribution"; shift
-		logsDistributionExtension "$logDistributionCommand" "$@"
-		;;
-	    logs-distribution*)
-		# Synthesized new command; don't override "logdistribution" as the user may want
-		# to execute that separately on each repo, too.
-
-		# Translate e.g. logs-distributionmine to "git logdistributionmine".
-		# This way, all filters supplied by my various variants can be used.
-		logDistributionCommand="git logdistribution${1#logs-distribution}"; shift
-		logsDistributionExtension "$logDistributionCommand" "$@"
-		;;
 	    untracked-sh)
 		# Synthesized new command.
 		shift
@@ -490,8 +438,66 @@ parseCommand()
 		wcdoArgs+=(--predicate-command '! git-existsremote')
 		args=("$@")
 		;;
+	    countsleaderboard*)
+		# Synthesized new command.
+
+		# Translate e.g. countsleaderboardmine to "git countmine".
+		# This way, all filters supplied by my various variants can be used.
+		countCommand="git count${1#countsleaderboard}"; shift
+		countsleaderboardExtension "$countCommand" "$@"
+		;;
+	    counts*)
+		# Synthesized new command; don't override "count" as the user may want to count
+		# separately each repo, too.
+
+		# Translate e.g. countsmine to "git countmine".
+		# This way, all filters supplied by my various variants can be used.
+		countCommand="git count${1#counts}"; shift
+		countsExtension "$countCommand" "$@"
+		;;
+	    logs-distribution*)
+		# Synthesized new command; don't override "logdistribution" as the user may want
+		# to execute that separately on each repo, too.
+
+		# Translate e.g. logs-distributionmine to "git logdistributionmine".
+		# This way, all filters supplied by my various variants can be used.
+		logDistributionCommand="git logdistribution${1#logs-distribution}"; shift
+		logsDistributionExtension "$logDistributionCommand" "$@"
+		;;
 	    *)
-		args=("$@");;
+		if git-br-variants |  grep --quiet --fixed-strings --line-regexp "$1"; then
+		    case "$2" in
+			countsleaderboard*)
+			    # Synthesized new command.
+
+			    # Translate e.g. td countsleaderboard[mine] to "git td count[mine]".
+			    # This way, all ranges supplied by my various br... variants can be used.
+			    countCommand="git $1 count${2#countsleaderboard}"; shift; shift
+			    countsleaderboardExtension "$countCommand" "$@"
+			    ;;
+			counts*)
+			    # Synthesized new command; don't override "count" as the user may want to count
+			    # separately each repo, too.
+
+			    # Translate e.g. td counts[mine] to "git td count[mine]".
+			    # This way, all ranges supplied by my various br... variants can be used.
+			    countCommand="git $1 count${2#counts}"; shift; shift
+			    countsExtension "$countCommand" "$@"
+			    ;;
+			logs-distribution*)
+			    # Synthesized new command; don't override "logdistribution" as the user may want
+			    # to execute that separately on each repo, too.
+
+			    # Translate e.g. td logs-distribution[mine] to "git td logdistribution[mine]".
+			    # This way, all ranges supplied by my various br... variants can be used.
+			    logDistributionCommand="git $1 logdistribution${2#logs-distribution}"; shift; shift
+			    logsDistributionExtension "$logDistributionCommand" "$@"
+			    ;;
+		    esac
+		fi
+
+		args=("$@")
+		;;
 	esac
     else
 	args=("$@")

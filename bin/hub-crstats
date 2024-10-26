@@ -25,9 +25,9 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
-    --with-oldest-date	Prepend the Unix @epoch of the oldest issue / pull
+    --with-oldest-date	Prepend the relative age of the oldest issue / pull
 			request, separated by a tab character.
-    --with-newest-date	Prepend the Unix @epoch of the newest issue / pull
+    --with-newest-date	Prepend the relative age of the newest issue / pull
 			request, separated by a tab character. This will always
 			come after a requested oldest date, regardless of the
 			option order.
@@ -41,18 +41,20 @@ HELPDESCRIPTION
 PATTERN is an AWK-style extended regular expression.
 HELPTEXT
 }
+
 typeset -a issueArgs=()
 isWithOldestDate=
 isWithNewestDate=
 ignoreLabelPattern=
 onlyLabelPattern=
 hubCrLabelFormat=
+typeset -a postProcessor=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)		shift; printLongUsage "$0"; exit 0;;
-	--with-oldest-date)	shift; isWithOldestDate=t;;
-	--with-newest-date)	shift; isWithNewestDate=t;;
+	--with-oldest-date)	shift; isWithOldestDate=t; postProcessor=(reldate);;
+	--with-newest-date)	shift; isWithNewestDate=t; postProcessor=(reldate);;
 	--ignore-label)		shift; hubCrLabelFormat='labels %L%n'; ignoreLabelPattern+="${ignoreLabelPattern:+|}${1:?}"; shift;;
 	--only-label)		shift; hubCrLabelFormat='labels %L%n'; onlyLabelPattern+="${onlyLabelPattern:+|}${1:?}"; shift;;
 	--)			issueArgs+=("$1"); break;;
@@ -61,13 +63,15 @@ do
 done
 
 
-exec hub-cr --format "${hubCrLabelFormat}%ct %au%n%as%n" "${issueArgs[@]}" "$@" | awk \
-    -F ',? +' \
-    -v "isWithOldestDate=$isWithOldestDate" \
-    -v "isWithNewestDate=$isWithNewestDate" \
-    -v "ignoreLabelPattern=${ignoreLabelPattern//\\/\\\\}" \
-    -v "onlyLabelPattern=${onlyLabelPattern//\\/\\\\}" \
-    -v "me=$(git me-in-github)" \
+crstats()
+{
+    hub-cr --format "${hubCrLabelFormat}%ct %au%n%as%n" "${issueArgs[@]}" "$@" | awk \
+	-F ',? +' \
+	-v "isWithOldestDate=$isWithOldestDate" \
+	-v "isWithNewestDate=$isWithNewestDate" \
+	-v "ignoreLabelPattern=${ignoreLabelPattern//\\/\\\\}" \
+	-v "onlyLabelPattern=${onlyLabelPattern//\\/\\\\}" \
+	-v "me=$(git me-in-github)" \
 '
 function join(array, start, end, sep,    result, i)
 {
@@ -203,3 +207,7 @@ END {
     }
 }
 '
+}
+
+eval 'crstats "$@"' \
+    "${postProcessor:+|}" '"${postProcessor[@]}"'

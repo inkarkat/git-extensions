@@ -23,14 +23,8 @@ do
 	*)		break;;
     esac
 done
-typeset -a mergedArgs=()
-for commit
-do
-    mergedArgs+=(--merged="$commit")
-done
-[ ${#mergedArgs[@]} -gt 0 ] || mergedArgs=(--merged=HEAD)
 
+quotedMergedBrArgs=; [ $# -eq 0 ] || printf -v quotedMergedBrArgs ' %q' "$@"
+export GIT_SELECTED_COMMAND_DEFAULT_FILES="git-mergedbr${quotedMergedBrArgs}"
 printf -v quotedDeleteCommand '%q ' deletebr "${deletebrArgs[@]}"
-printf -v quotedMergedArgs ' %q' "${mergedArgs[@]}"
-export GIT_SELECTED_COMMAND_DEFAULT_FILES="git-br --list${quotedMergedArgs} | git-filter-out-persistent-branches"
 exec git-selected-command "${quotedDeleteCommand% }"

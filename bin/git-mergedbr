@@ -4,12 +4,14 @@ set -o pipefail
 printUsage()
 {
     cat <<HELPTEXT
-List branches that have already been merged into HEAD / the passed COMMIT(s).
+List [remote] branches that have already been merged into HEAD / the passed
+COMMIT(s).
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[COMMIT ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--remote REMOTE] [COMMIT ...] [-?|-h|--help]'
 }
 
+remote=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -17,6 +19,7 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
+	--remote|-r)	shift; remote="${1:?}"; shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -29,6 +32,6 @@ do
 done
 [ ${#mergedArgs[@]} -gt 0 ] || mergedArgs=(--merged=HEAD)
 
-git-br --list "${mergedArgs[@]}" \
+git-${remote:+r}br "${remote:---list}" "${mergedArgs[@]}" \
     | sed -e '/^(HEAD detached \(at\|from\) .*)$/d' -e '/^(no branch)$/d' \
-    | git-filter-out-persistent-branches
+    | git-filter-out-persistent-branches ${remote:+--remote "$remote"}

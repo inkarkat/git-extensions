@@ -15,6 +15,7 @@ HELPTEXT
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
+
 remote="${1:?}"; shift
 typeset -a rldeletebrArgs=()
 while [ $# -ne 0 ]
@@ -22,15 +23,9 @@ do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--get-branches)	shift
-			typeset -a mergedArgs=()
-			for commit
-			do
-			    mergedArgs+=(--merged="$commit")
-			done
-			[ ${#mergedArgs[@]} -gt 0 ] || mergedArgs=(--merged=HEAD)
 			comm -12 \
-			    <(git-rbr "$remote" "${mergedArgs[@]}" | git-filter-out-persistent-branches --remote "$remote" | sed -ne "s#^${remote}/##p" | sort) \
-			    <(git-br --list "${mergedArgs[@]}" | git-filter-out-persistent-branches | sort)
+			    <(git-mergedbr --remote "$remote" "$@" | sort) \
+			    <(git-mergedbr "$@" | sort)
 			exit
 			;;
 

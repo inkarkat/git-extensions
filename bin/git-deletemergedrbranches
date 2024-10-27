@@ -14,6 +14,7 @@ HELPTEXT
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
+
 remote="${1:?}"; shift
 typeset -a rdeletebrArgs=()
 while [ $# -ne 0 ]
@@ -28,14 +29,8 @@ do
 	*)		break;;
     esac
 done
-typeset -a mergedArgs=()
-for commit
-do
-    mergedArgs+=(--merged="$commit")
-done
-[ ${#mergedArgs[@]} -gt 0 ] || mergedArgs=(--merged=HEAD)
 
+quotedMergedBrArgs=; [ $# -eq 0 ] || printf -v quotedMergedBrArgs ' %q' "$@"
+export GIT_SELECTED_COMMAND_DEFAULT_FILES="git-mergedbr --remote ${remote}${quotedMergedBrArgs}"
 printf -v quotedDeleteCommand '%q ' rdeletebr "$remote" "${rdeletebrArgs[@]}"
-printf -v quotedMergedArgs ' %q' "${mergedArgs[@]}"
-export GIT_SELECTED_COMMAND_DEFAULT_FILES="git-rbr ${remote}${quotedMergedArgs} | git-filter-out-persistent-branches --remote $remote"
 exec git-selected-command "${quotedDeleteCommand% }"

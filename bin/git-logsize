@@ -12,7 +12,15 @@ One-line author, date, tags and commit summary, plus the list and before / after
 sizes of changed files.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--summary] [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--summary] [-g|--greater|-s|--smaller|-lt|-le|-eq|-ne|-ge|-gt SIZE[SUFFIX]] [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+}
+
+size=
+compareOp=
+parseCompare()
+{
+    compareOp="${1:?}"; shift
+    size="$(printf %s "$1" | numfmt --from=auto)" || exit $?
 }
 
 typeset -a gitLogArgs=()
@@ -31,23 +39,43 @@ do
 	--no-color|--color=*)
 			colorArg=("$1"); shift;;
 	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); shift; shift;;
+
 	--summary)	shift; isSummary=t;;
+	--greater|-g|-gt)
+			shift; parseCompare '>' "${1:?}"; shift;;
+	--smaller|-s|-lt)
+			shift; parseCompare '<' "${1:?}"; shift;;
+	-le)
+			shift; parseCompare '<=' "${1:?}"; shift;;
+	-eq)
+			shift; parseCompare '==' "${1:?}"; shift;;
+	-ne)
+			shift; parseCompare '!=' "${1:?}"; shift;;
+	-ge)
+			shift; parseCompare '>=' "${1:?}"; shift;;
+
 	--)		break;;
 	*)		gitLogArgs+=("$1"); shift;;
     esac
 done
 
+comparer='function compareSize(delta) {'
+[ -n "$compareOp" ] \
+    && comparer+="return (delta $compareOp $size)" \
+    || comparer+="return 1;"
+comparer+='}'
+
 summarize()
 {
     awk \
 	-v "isSummary=$isSummary" \
-'
+	-v "compareOp=$compareOp" \
+"$comparer"'
 BEGIN {
     beforeAfterColumnWidth = 50
 }
-function calculateDelta(before, after, colorPrefixAfter, colorPrefixBefore, colorSuffixAfter, colorSuffixBefore,      delta, percent, colorPrefix, colorSuffix)
+function renderDelta(before, delta, colorPrefixAfter, colorPrefixBefore, colorSuffixAfter, colorSuffixBefore,      percent, colorPrefix, colorSuffix)
 {
-    delta = after - before
     percent = (before > 0 ? int(100 * delta / before) : 0)
     if (delta > 0 ) {
 	colorPrefix = colorPrefixAfter "+"
@@ -81,11 +109,14 @@ match($0, /^(.* )\| Bin (\x1b\[[0-9:;]*m)?([[:digit:]]+)(\x1b\[[0-9:;]*m)? -> (\
     sub(/ \| Bin /, " | ")
     beforeAfterColumnLen = length(matches[3] " -> " matches[6] " bytes")
 
-    fileStat = $0 sprintf("%-" (beforeAfterColumnWidth - beforeAfterColumnLen) "s | %s", "", calculateDelta(matches[3], matches[6], colorPrefixAfter, colorPrefixBefore, colorSuffixAfter, colorSuffixBefore))
+    delta = matches[6] - matches[3]
+    if (compareSize(delta)) {
+	fileStat = $0 sprintf("%-" (beforeAfterColumnWidth - beforeAfterColumnLen) "s | %s", "", renderDelta(matches[3], delta, colorPrefixAfter, colorPrefixBefore, colorSuffixAfter, colorSuffixBefore))
 
-    printSubject()
-    if (! isSummary) {
-	print fileStat
+	if (! isSummary) {
+	    printSubject()
+	    print fileStat
+	}
     }
     next
 }
@@ -93,21 +124,30 @@ match($0, /^(.* )\| Bin (\x1b\[[0-9:;]*m)?([[:digit:]]+)(\x1b\[[0-9:;]*m)? -> (\
 /^ 1 file changed, / {
     if (isSummary) {
 	# The single file statistic replaces the summary line.
-	print fileStat
+	if (compareSize(delta)) {
+	    printSubject()
+	    print fileStat
+	}
     }
     totalBefore = totalAfter = ""
     next
 }
 match($0, /^ [[:digit:]]+ files changed, /) {
     filesChangedPart = substr($0, 1, RLENGTH - 2)
-    printSubject()
 
     if (totalBefore != "" && totalAfter != "") {
 	totalDifference = colorPrefixBefore totalBefore colorSuffixBefore " -> " colorPrefixAfter totalAfter colorSuffixAfter " bytes"
 	beforeAfterColumnLen = length(totalBefore " -> " totalAfter " bytes")
-	printf("%-" (isSummary ? 22 : fileFieldLen) "s| %s%-" (beforeAfterColumnWidth - beforeAfterColumnLen) "s | %s\n", filesChangedPart, totalDifference, "", calculateDelta(totalBefore, totalAfter, colorPrefixAfter, colorPrefixBefore, colorSuffixAfter, colorSuffixBefore))
+	delta = totalAfter - totalBefore
+	if (compareSize(delta)) {
+	    printSubject()
+	    printf("%-" (isSummary ? 22 : fileFieldLen) "s| %s%-" (beforeAfterColumnWidth - beforeAfterColumnLen) "s | %s\n", filesChangedPart, totalDifference, "", renderDelta(totalBefore, delta, colorPrefixAfter, colorPrefixBefore, colorSuffixAfter, colorSuffixBefore))
+	}
     } else {
-	print(filesChangedPart)
+	if (compareOp == "") {
+	    printSubject()
+	    print(filesChangedPart)
+	}
     }
 
     totalBefore = totalAfter = ""

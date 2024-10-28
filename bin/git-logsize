@@ -12,7 +12,7 @@ One-line author, date, tags and commit summary, plus the list and before / after
 sizes of changed files.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--summary] [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
 }
 
 typeset -a gitLogArgs=()
@@ -22,6 +22,7 @@ if [ ! -t 1 ]; then
     colorArg=()
     pager=()
 fi
+isSummary=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -30,6 +31,7 @@ do
 	--no-color|--color=*)
 			colorArg=("$1"); shift;;
 	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); shift; shift;;
+	--summary)	shift; isSummary=t;;
 	--)		break;;
 	*)		gitLogArgs+=("$1"); shift;;
     esac
@@ -37,11 +39,14 @@ done
 
 summarize()
 {
-    awk '
+    awk \
+	-v "isSummary=$isSummary" \
+'
 BEGIN {
     beforeAfterColumnWidth = 50
 }
-function calculateDelta(before, after, colorPrefixAfter, colorPrefixBefore, colorSuffixAfter, colorSuffixBefore,      delta, percent, colorPrefix, colorSuffix) {
+function calculateDelta(before, after, colorPrefixAfter, colorPrefixBefore, colorSuffixAfter, colorSuffixBefore,      delta, percent, colorPrefix, colorSuffix)
+{
     delta = after - before
     percent = (before > 0 ? int(100 * delta / before) : 0)
     if (delta > 0 ) {
@@ -56,7 +61,6 @@ function calculateDelta(before, after, colorPrefixAfter, colorPrefixBefore, colo
     }
     return colorPrefix delta colorSuffix " bytes" (percent == 0 ? "" : ", " colorPrefix percent "%" colorSuffix)
 }
-/^ 1 file changed, / { next }
 
 match($0, /^(.* )\| Bin (\x1b\[[0-9:;]*m)?([[:digit:]]+)(\x1b\[[0-9:;]*m)? -> (\x1b\[[0-9:;]*m)?([[:digit:]]+)(\x1b\[[0-9:;]*m)? bytes$/, matches) {
     fileFieldLen = length(matches[1])
@@ -68,15 +72,24 @@ match($0, /^(.* )\| Bin (\x1b\[[0-9:;]*m)?([[:digit:]]+)(\x1b\[[0-9:;]*m)? -> (\
     colorSuffixAfter = matches[7]
     sub(/ \| Bin /, " | ")
     beforeAfterColumnLen = length(matches[3] " -> " matches[6] " bytes")
-    $0 = $0 sprintf("%-" (beforeAfterColumnWidth - beforeAfterColumnLen) "s | %s", "", calculateDelta(matches[3], matches[6], colorPrefixAfter, colorPrefixBefore, colorSuffixAfter, colorSuffixBefore))
+
+    fileStat = $0 sprintf("%-" (beforeAfterColumnWidth - beforeAfterColumnLen) "s | %s", "", calculateDelta(matches[3], matches[6], colorPrefixAfter, colorPrefixBefore, colorSuffixAfter, colorSuffixBefore))
+    if (! isSummary) {
+	print fileStat
+    }
+    next
 }
 
+/^ 1 file changed, / {
+    print fileStat
+    next
+}
 match($0, /^ [[:digit:]]+ files changed, /) {
     filesChangedPart = substr($0, 1, RLENGTH - 2)
     if (totalBefore != "" && totalAfter != "") {
 	totalDifference = colorPrefixBefore totalBefore colorSuffixBefore " -> " colorPrefixAfter totalAfter colorSuffixAfter " bytes"
 	beforeAfterColumnLen = length(totalBefore " -> " totalAfter " bytes")
-	printf("%-" fileFieldLen "s| %s%-" (beforeAfterColumnWidth - beforeAfterColumnLen) "s | %s\n", filesChangedPart, totalDifference, "", calculateDelta(totalBefore, totalAfter, colorPrefixAfter, colorPrefixBefore, colorSuffixAfter, colorSuffixBefore))
+	printf("%-" (isSummary ? 22 : fileFieldLen) "s| %s%-" (beforeAfterColumnWidth - beforeAfterColumnLen) "s | %s\n", filesChangedPart, totalDifference, "", calculateDelta(totalBefore, totalAfter, colorPrefixAfter, colorPrefixBefore, colorSuffixAfter, colorSuffixBefore))
     } else {
 	print(filesChangedPart)
     }

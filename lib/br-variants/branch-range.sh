@@ -57,7 +57,7 @@ lh?(mine|team)|\
 l?(o)g?([fv])@(mine|team)|\
 @(l?(o)|count|logdistribution)?(mine|team)|\
 log?(mod|added|deleted|renamed)?(files)|glog|logbrowse|\
-l?([ou])url?(v)|\
+l[ou]url?(v)|\
 @(files|versions|tags)@(g|changed|touched)|\
 @(files|version|tag)@(last|first)@(g|changed|touched)|\
 ss@(?([wcag])|changed|touched)|\

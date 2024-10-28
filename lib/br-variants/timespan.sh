@@ -36,7 +36,7 @@ lh?(mine|team)|\
 @(l?(o)g?([fv])|l?(o)|count|logdistribution)?(mine|team)|\
 log?(mod|added|deleted|renamed)?(files)|glog|logbrowse|\
 lg@(rel|tagged|st|i|I)|\
-l?([ou])url?(v)|\
+l[ou]url?(v)|\
 lghi?(st|i|I)|\
 ss@(?([wcag])|changed|touched)|\
 sls?(g|changed|touched)|\

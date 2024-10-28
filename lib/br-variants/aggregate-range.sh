@@ -58,6 +58,7 @@ case "$gitCommand" in
 	withAggregateFiles selected-command "$scope d${quotedArgs}";;
     dss)
 	withAggregateCommit dp "$@";;
+
     subdo)
 	quotedArgs=; [ $# -eq 0 ] || printf -v quotedArgs ' %q' "$@"
 	# FIXME: Extract FILE arguments and pass them to the source command.
@@ -80,8 +81,6 @@ case "$gitCommand" in
 	[ "$gitCommand" = lgby ] && gitCommand='onelinelog'
 	$EXEC git-dashdash-default-command --with-files : others-command --keep-position "${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" "${scopeCommandLastArgs[@]}" "${revRangeAdditionalArgs[@]}" -3 "${gitCommand%by}" AUTHORS RANGE : "$@"
 	;;
-    @(show|tree)[ou]url)
-	withAggregateCommit "$gitCommand" "$@";;
 
     cors)
 	withAggregateCommit checkoutrevisionselected "$@";;
@@ -89,6 +88,8 @@ case "$gitCommand" in
 	withAggregateCommit checkoutpreviousselected "$@";;
 
     (\
+adp|\
+@(show|tree)[ou]url|\
 revert?(commit)|\
 correct|commit@(identical|like|relate)|amendrelate|\
 createbr|stackbrfrom|detach|wipe|\

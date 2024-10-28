@@ -38,6 +38,9 @@ done
 summarize()
 {
     awk '
+BEGIN {
+    beforeAfterColumnWidth = 50
+}
 function calculateDelta(before, after, colorPrefixAfter, colorPrefixBefore, colorSuffixAfter, colorSuffixBefore,      delta, percent, colorPrefix, colorSuffix) {
     delta = after - before
     percent = (before > 0 ? int(100 * delta / before) : 0)
@@ -64,14 +67,16 @@ match($0, /^(.* )\| Bin (\x1b\[[0-9:;]*m)?([[:digit:]]+)(\x1b\[[0-9:;]*m)? -> (\
     totalAfter += matches[6]
     colorSuffixAfter = matches[7]
     sub(/ \| Bin /, " | ")
-    $0 = $0 " | " calculateDelta(matches[3], matches[6], colorPrefixAfter, colorPrefixBefore, colorSuffixAfter, colorSuffixBefore)
+    beforeAfterColumnLen = length(matches[3] " -> " matches[6] " bytes")
+    $0 = $0 sprintf("%-" (beforeAfterColumnWidth - beforeAfterColumnLen) "s | %s", "", calculateDelta(matches[3], matches[6], colorPrefixAfter, colorPrefixBefore, colorSuffixAfter, colorSuffixBefore))
 }
 
 match($0, /^ [[:digit:]]+ files changed, /) {
     filesChangedPart = substr($0, 1, RLENGTH - 2)
     if (totalBefore != "" && totalAfter != "") {
-	totalDifference = "| " colorPrefixBefore totalBefore colorSuffixBefore " -> " colorPrefixAfter totalAfter colorSuffixAfter " bytes"
-	printf("%-" fileFieldLen "s%s | %s\n", filesChangedPart, totalDifference, calculateDelta(totalBefore, totalAfter, colorPrefixAfter, colorPrefixBefore, colorSuffixAfter, colorSuffixBefore))
+	totalDifference = colorPrefixBefore totalBefore colorSuffixBefore " -> " colorPrefixAfter totalAfter colorSuffixAfter " bytes"
+	beforeAfterColumnLen = length(totalBefore " -> " totalAfter " bytes")
+	printf("%-" fileFieldLen "s| %s%-" (beforeAfterColumnWidth - beforeAfterColumnLen) "s | %s\n", filesChangedPart, totalDifference, "", calculateDelta(totalBefore, totalAfter, colorPrefixAfter, colorPrefixBefore, colorSuffixAfter, colorSuffixBefore))
     } else {
 	print(filesChangedPart)
     }

@@ -88,7 +88,7 @@ lh?(mine|team)|\
 l?(o)g?([fv])@(mine|team)|\
 @(l?(o)|count|logdistribution)?(mine|team)|\
 log?(mod|added|deleted|renamed)?(files)|glog|logbrowse|\
-@(l|tree)?([ou])url?(v)|\
+l?([ou])url?(v)|\
 ss@(?([wcag])|changed|touched)|\
 sls?(g|changed|touched)|\
 dp[sg]|dpl?(s)[sg]|dpls@(changed|touched)|\
@@ -146,6 +146,8 @@ detach@(g|changed|touched)\
     l?(h|g|og)by)
 	[ "$gitCommand" = lgby ] && gitCommand='onelinelog'
 	$EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" "${scopeCommandLastArgs[@]}" "${revRangeAdditionalArgs[@]}" -5 others-command -2 "${gitCommand%by}" AUTHORS RANGE : "$@";;
+    @(show|tree)[ou]url)
+	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" --keep-position selectedcommit-command --range-is-last -3 "$gitCommand" COMMITS RANGE "$@";;
     compareourl)
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -5 rbrurl-compare-to-base --remote origin --range RANGE --base-to-rev --commit-to-rev "$@";;
     compareuurl)

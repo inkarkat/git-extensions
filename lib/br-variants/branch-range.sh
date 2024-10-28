@@ -57,7 +57,7 @@ lh?(mine|team)|\
 l?(o)g?([fv])@(mine|team)|\
 @(l?(o)|count|logdistribution)?(mine|team)|\
 log?(mod|added|deleted|renamed)?(files)|glog|logbrowse|\
-@(l|tree)?([ou])url?(v)|\
+l?([ou])url?(v)|\
 @(files|versions|tags)@(g|changed|touched)|\
 @(files|version|tag)@(last|first)@(g|changed|touched)|\
 ss@(?([wcag])|changed|touched)|\
@@ -109,6 +109,8 @@ subchanges|superchanges|subrevl@(?(o)g|c)\
     l?(h|g|og)by)
 	[ "$gitCommand" = lgby ] && gitCommand='onelinelog'
 	$EXEC git-dashdash-default-command --with-files : branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" "${revRangeAdditionalArgs[@]}" -5 others-command -2 "${gitCommand%by}" AUTHORS RANGE : "$@";;
+    @(show|tree)[ou]url)
+	$EXEC git-branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --keep-position selectedcommit-command --range-is-last -3 "$gitCommand" COMMITS RANGE "$@";;
     compareourl)
 	$EXEC git-branch-command --real-branch-name --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rbrurl-compare-to-base --remote origin --base "${scopeRevision:?}" --commit "${scopeEndRevision:?}" "${scopeCompareUrlArgs[@]}" "$@";;
     compareuurl)

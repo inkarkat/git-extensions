@@ -36,7 +36,7 @@ lh?(mine|team)|\
 @(l?(o)g?([fv])|l?(o)|count|logdistribution)?(mine|team)|\
 log?(mod|added|deleted|renamed)?(files)|glog|logbrowse|\
 lg@(rel|tagged|st|i|I)|\
-@(l|tree)?([ou])url?(v)|\
+l?([ou])url?(v)|\
 lghi?(st|i|I)|\
 ss@(?([wcag])|changed|touched)|\
 sls?(g|changed|touched)|\
@@ -93,6 +93,8 @@ who@(when|first|last)|whatdid|churn\
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -3 "$gitCommand" --all TIMESPAN "$@";;
     l?(h)by)
 	$EXEC git-dashdash-default-command --with-files : "${scopeCommand:?}" -5 others-command -2 "${gitCommand%by}" AUTHORS TIMESPAN : "$@";;
+    @(show|tree)[ou]url)
+	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -5 selectedcommit-command -2 "$gitCommand" COMMITS TIMESPAN "$@";;
     compareourl)
 	$EXEC git-branch-command --real-branch-name --keep-position rbrurl-compare-to-base --remote origin --base-command "$scope pred --branch" --base-to-rev --commit BRANCH "$@";;
     compareuurl)

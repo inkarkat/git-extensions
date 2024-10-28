@@ -80,6 +80,8 @@ case "$gitCommand" in
 	[ "$gitCommand" = lgby ] && gitCommand='onelinelog'
 	$EXEC git-dashdash-default-command --with-files : others-command --keep-position "${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" "${scopeCommandLastArgs[@]}" "${revRangeAdditionalArgs[@]}" -3 "${gitCommand%by}" AUTHORS RANGE : "$@"
 	;;
+    @(show|tree)[ou]url)
+	withAggregateCommit "$gitCommand" "$@";;
 
     cors)
 	withAggregateCommit checkoutrevisionselected "$@";;

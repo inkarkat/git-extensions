@@ -12,15 +12,22 @@ One-line author, date, tags and commit summary, plus the list and before / after
 sizes of changed files.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--summary] [-g|--greater|-s|--smaller|-lt|-le|-eq|-ne|-ge|-gt SIZE[SUFFIX]] [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--summary] [-g|--greater|-s|--smaller|-lt|-le|-eq|-ne|-ge|-gt SIZE[SUFFIX|%]] [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
 }
 
 size=
+compareWhat=
 compareOp=
 parseCompare()
 {
     compareOp="${1:?}"; shift
-    size="$(printf %s "$1" | numfmt --from=auto)" || exit $?
+    if [[ "$1" =~ %$ ]]; then
+	compareWhat='calculatePercentage(before, delta, 2^PREC)'
+	size="${1%\%}"
+    else
+	compareWhat=delta
+	size="$(printf %s "$1" | numfmt --from=auto)" || exit $?
+    fi
 }
 
 typeset -a gitLogArgs=()
@@ -59,11 +66,11 @@ do
     esac
 done
 
-comparer='function compareSize(delta) {'
+comparer=$'function compareSize(before, delta) {\n'
 [ -n "$compareOp" ] \
-    && comparer+="return (delta $compareOp $size)" \
+    && comparer+="return ($compareWhat $compareOp $size)" \
     || comparer+="return 1;"
-comparer+='}'
+comparer+=$'\n}'
 
 summarize()
 {
@@ -74,9 +81,13 @@ summarize()
 BEGIN {
     beforeAfterColumnWidth = 50
 }
-function renderDelta(before, delta, colorPrefixAfter, colorPrefixBefore, colorSuffixAfter, colorSuffixBefore,      percent, colorPrefix, colorSuffix)
+function calculatePercentage(before, delta, infinityValue)
 {
-    percent = (before > 0 ? int(100 * delta / before) : 0)
+    return (before > 0 ? int(100 * delta / before) : infinityValue)
+}
+function renderDelta(before, delta, colorPrefixAfter, colorPrefixBefore, colorSuffixAfter, colorSuffixBefore,      percentage, colorPrefix, colorSuffix)
+{
+    percentage = calculatePercentage(before, delta, 0)
     if (delta > 0 ) {
 	colorPrefix = colorPrefixAfter "+"
 	colorSuffix = colorSuffixAfter
@@ -87,7 +98,7 @@ function renderDelta(before, delta, colorPrefixAfter, colorPrefixBefore, colorSu
 	colorPrefix = ""
 	colorSuffix = ""
     }
-    return colorPrefix delta colorSuffix " bytes" (percent == 0 ? "" : ", " colorPrefix percent "%" colorSuffix)
+    return colorPrefix delta colorSuffix " bytes" (percentage == 0 ? "" : ", " colorPrefix percentage "%" colorSuffix)
 }
 
 function printSubject()
@@ -110,8 +121,9 @@ match($0, /^(.* )\| Bin (\x1b\[[0-9:;]*m)?([[:digit:]]+)(\x1b\[[0-9:;]*m)? -> (\
     beforeAfterColumnLen = length(matches[3] " -> " matches[6] " bytes")
 
     delta = matches[6] - matches[3]
-    if (compareSize(delta)) {
-	fileStat = $0 sprintf("%-" (beforeAfterColumnWidth - beforeAfterColumnLen) "s | %s", "", renderDelta(matches[3], delta, colorPrefixAfter, colorPrefixBefore, colorSuffixAfter, colorSuffixBefore))
+    fileBefore = matches[3]
+    if (compareSize(fileBefore, delta)) {
+	fileStat = $0 sprintf("%-" (beforeAfterColumnWidth - beforeAfterColumnLen) "s | %s", "", renderDelta(fileBefore, delta, colorPrefixAfter, colorPrefixBefore, colorSuffixAfter, colorSuffixBefore))
 
 	if (! isSummary) {
 	    printSubject()
@@ -124,7 +136,7 @@ match($0, /^(.* )\| Bin (\x1b\[[0-9:;]*m)?([[:digit:]]+)(\x1b\[[0-9:;]*m)? -> (\
 /^ 1 file changed, / {
     if (isSummary) {
 	# The single file statistic replaces the summary line.
-	if (compareSize(delta)) {
+	if (compareSize(fileBefore, delta)) {
 	    printSubject()
 	    print fileStat
 	}
@@ -139,7 +151,7 @@ match($0, /^ [[:digit:]]+ files changed, /) {
 	totalDifference = colorPrefixBefore totalBefore colorSuffixBefore " -> " colorPrefixAfter totalAfter colorSuffixAfter " bytes"
 	beforeAfterColumnLen = length(totalBefore " -> " totalAfter " bytes")
 	delta = totalAfter - totalBefore
-	if (compareSize(delta)) {
+	if (compareSize(totalBefore, delta)) {
 	    printSubject()
 	    printf("%-" (isSummary ? 22 : fileFieldLen) "s| %s%-" (beforeAfterColumnWidth - beforeAfterColumnLen) "s | %s\n", filesChangedPart, totalDifference, "", renderDelta(totalBefore, delta, colorPrefixAfter, colorPrefixBefore, colorSuffixAfter, colorSuffixBefore))
 	}

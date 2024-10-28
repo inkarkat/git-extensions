@@ -57,7 +57,8 @@ case "$gitCommand" in
     ds)
 	withAggregateFiles selected-command "$scope d${quotedArgs}";;
     dss)
-	withAggregateCommit dp "$@";;
+	withAggregateCommit --single-only dp "$@";;
+
     subdo)
 	quotedArgs=; [ $# -eq 0 ] || printf -v quotedArgs ' %q' "$@"
 	# FIXME: Extract FILE arguments and pass them to the source command.
@@ -87,12 +88,18 @@ case "$gitCommand" in
 	withAggregateCommit checkoutpreviousselected "$@";;
 
     (\
+@(show|tree)[ou]url|\
 revert?(commit)|\
-correct|commit@(identical|like|relate)|amendrelate|\
+correct|commit@(identical|like|relate)|amendrelate\
+)
+	withAggregateCommit "$gitCommand" "$@";;
+    (\
+adp|\
 createbr|stackbrfrom|detach|wipe|\
 cat|cp\
 )
-	withAggregateCommit "$gitCommand" "$@";;
+	withAggregateCommit --single-only "$gitCommand" "$@";;
+
     revertfiles)
 	withAggregateCommit revert --selected "$@";;
     reverthunk)

@@ -8,13 +8,16 @@ printUsage()
 Save only index in a commit; keep the dirty working copy.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-p|--patch] [-q|--quiet] [-m|--message <message>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[push] [-p|--patch] [-q|--quiet] [-m|--message <message>] [-?|-h|--help]'
 }
+
+typeset -a stashVerb=()
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
     --no-color|--color=*)
 			shift;;
     --color)		shift; shift;;
+    push)		stashVerb=("$1"); shift;;
 esac
 
 if ! git-staged --quiet; then
@@ -22,10 +25,10 @@ if ! git-staged --quiet; then
     exit 1
 elif ! git-unstaged --quiet; then
     # Every change is in the index already, we can simply stash it.
-    exec git-wrapper stash push --no-keep-index "$@"
+    exec git-wrapper stash "${stashVerb[@]}" --no-keep-index "$@"
 elif ! versionCompare "$(git --version 2>/dev/null)" -lt 2.35 2>/dev/null; then
     # Git 2.35 supports "git stash push --staged" out-of-the-box.
-    exec git-wrapper stash push --staged "$@"
+    exec git-wrapper stash "${stashVerb[@]}" --staged "$@"
 fi
 
 
@@ -39,7 +42,7 @@ command git stash push --keep-index --quiet --message 'unstaged changes' || exit
 # Stash everything that remains (only the staged changes should remain). This is
 # the stash we want to keep, allow to give it a name / influence the stashing
 # via additional arguments.
-git-wrapper stash push "$@" || exit $?
+git-wrapper stash "${stashVerb[@]}" "$@" || exit $?
 
 # Apply the original stash to get us back to where we started.
 git stash apply 'stash@{1}' || exit $?

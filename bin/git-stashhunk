@@ -1,0 +1,22 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Interactively select and stash away individual hunks changed in the working
+copy. Keeps changes in index unless --no-keep-index is given.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[push] [--no-keep-index] [-q|--quiet] [-m|--message <message>] [-?|-h|--help]'
+}
+
+typeset -a stashVerb=()
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --no-color|--color=*)
+			shift;;
+    --color)		shift; shift;;
+    push)		stashVerb=("$1"); shift;;
+esac
+
+exec git-wrapper stash "${stashVerb[@]}" --patch "$@"

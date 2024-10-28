@@ -62,6 +62,14 @@ function calculateDelta(before, after, colorPrefixAfter, colorPrefixBefore, colo
     return colorPrefix delta colorSuffix " bytes" (percent == 0 ? "" : ", " colorPrefix percent "%" colorSuffix)
 }
 
+function printSubject()
+{
+    if (subject == "") return
+    print (isNext ? "\n" : "") subject
+    subject = ""
+    isNext = 1
+}
+
 match($0, /^(.* )\| Bin (\x1b\[[0-9:;]*m)?([[:digit:]]+)(\x1b\[[0-9:;]*m)? -> (\x1b\[[0-9:;]*m)?([[:digit:]]+)(\x1b\[[0-9:;]*m)? bytes$/, matches) {
     fileFieldLen = length(matches[1])
     colorPrefixBefore = matches[2]
@@ -74,6 +82,8 @@ match($0, /^(.* )\| Bin (\x1b\[[0-9:;]*m)?([[:digit:]]+)(\x1b\[[0-9:;]*m)? -> (\
     beforeAfterColumnLen = length(matches[3] " -> " matches[6] " bytes")
 
     fileStat = $0 sprintf("%-" (beforeAfterColumnWidth - beforeAfterColumnLen) "s | %s", "", calculateDelta(matches[3], matches[6], colorPrefixAfter, colorPrefixBefore, colorSuffixAfter, colorSuffixBefore))
+
+    printSubject()
     if (! isSummary) {
 	print fileStat
     }
@@ -81,12 +91,17 @@ match($0, /^(.* )\| Bin (\x1b\[[0-9:;]*m)?([[:digit:]]+)(\x1b\[[0-9:;]*m)? -> (\
 }
 
 /^ 1 file changed, / {
-    print fileStat
+    if (isSummary) {
+	# The single file statistic replaces the summary line.
+	print fileStat
+    }
     totalBefore = totalAfter = ""
     next
 }
 match($0, /^ [[:digit:]]+ files changed, /) {
     filesChangedPart = substr($0, 1, RLENGTH - 2)
+    printSubject()
+
     if (totalBefore != "" && totalAfter != "") {
 	totalDifference = colorPrefixBefore totalBefore colorSuffixBefore " -> " colorPrefixAfter totalAfter colorSuffixAfter " bytes"
 	beforeAfterColumnLen = length(totalBefore " -> " totalAfter " bytes")
@@ -99,7 +114,10 @@ match($0, /^ [[:digit:]]+ files changed, /) {
     next
 }
 
-{ print }
+{
+    subject = $0
+    next
+}
 '
 }
 

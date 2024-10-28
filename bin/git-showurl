@@ -1,0 +1,20 @@
+#!/bin/bash
+
+remote="${1:?}"; shift
+
+typeset -a patchArgs=(--no-patch)
+typeset -a args=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--name-only|--name-status|--check|--patch|-p|-u|--no-patch|-s|--summarize-files)
+			patchArgs=("$1"); shift;;
+	--)		args+=("$1"); shift; break;;
+	*)		args+=("$1"); shift;;
+    esac
+done
+set -- "${args[@]}" "$@"
+
+
+GIT_LURL_LOG_COMMAND=show exec git-lurl "$remote" "${patchArgs[@]}" "${args[@]}" "$@"

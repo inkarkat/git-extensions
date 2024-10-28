@@ -1,0 +1,28 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+List all branches that exist both as local branches and also in
+${remote:-REMOTE / all remotes} [matching <branch-glob>].
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE|''} [-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]|DATE] [--sort <key> [--sort ...]] [--] [<branch-glob> ...] [-?|-h|--help]"
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+remote="${1:?}"; shift
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --no-color|--color=*)
+			shift;;
+    --color)		shift; shift;;
+esac
+
+comm -12 \
+    <(git-br --list "$@" | sort) \
+    <(git-rbr "$remote" "$@" | sed -e "s#^${remote:-[^/]\\+}/##" | sort)

@@ -1,0 +1,26 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Stash (index and unstaged) and keep changes in index staged.
+Useful to compile / test partial commits by temporarily cleaning the working
+copy.
+
+SEE ALSO:
+- git-stashI does not include the index in the stash.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[push] [-p|--patch] [-q|--quiet] [-m|--message <message>] [-?|-h|--help]'
+}
+
+typeset -a stashVerb=()
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --no-color|--color=*)
+			shift;;
+    --color)		shift; shift;;
+    push)		stashVerb=("$1"); shift;;
+esac
+
+exec git-wrapper stash "${stashVerb[@]}" --keep-index "$@"

@@ -1,0 +1,25 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Save only the dirty working copy in a commit; keep the index untouched.
+Useful to stash the working copy without doing a WIP commit for the index yet.
+
+SEE ALSO:
+- git-stashst includes the index in the stash, but also keeps those staged
+  changes.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[push] [-m|--message <message>] [-?|-h|--help]'
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --no-color|--color=*)
+			shift;;
+    --color)		shift; shift;;
+esac
+
+git-swapstage --continue-command "$(basename "$0")" || exit $?
+git-stashi "$@" && git add --update

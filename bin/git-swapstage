@@ -16,6 +16,7 @@ uncommit()
     git reset --soft  HEAD~1 || exit $?
 }
 
+continueCommand="$(basename "$0")"
 addArg=--update
 while [ $# -ne 0 ]
 do
@@ -24,6 +25,8 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
+	--continue-command)
+			shift; continueCommand="${1:?}"; shift;;
 	--continue-[12])
 			git-swaplast --continue-command "$(basename "$0")" "$@" \
 			    && uncommit
@@ -50,5 +53,5 @@ fi
 git commit -m futureUnstaged || exit $?
 git add $addArg || exit $?
 git commit -m futureStage || exit $?
-git-swaplast --continue-command "$(basename "$0")" || exit $?
+git-swaplast --continue-command "$continueCommand" || exit $?
 uncommit

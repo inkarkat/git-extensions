@@ -251,10 +251,12 @@ considerCheck stalebr \
 
 hasTodo()
 {
+    local taskNum=3
     if type -t todo-local.sh >/dev/null; then
 	# Use my own custom extension if it exists; it also considers submodules, has
 	# default task filtering, and the todo.sh formatting.
-	TODOTXT_VERBOSE=0 todo-local.sh | outputAndPrintf 'Open tasks:\n'
+	TODOTXT_VERBOSE=0 todo-local.sh here -s $taskNum | outputOrError && return 0
+	TODOTXT_VERBOSE=0 todo-local.sh | outputAndPrintf 'TODO: You have open tasks in this working copy:\n'
 	return ${PIPESTATUS[-1]}
     else
 	local root; root="$(git root 2>/dev/null)" || return 1
@@ -263,7 +265,8 @@ hasTodo()
 
 	if type -t todo.sh >/dev/null; then
 	    # Use todo.sh for formatting.
-	    TODO_FILE="$todoFilespec" TODO_DIR="$root" TODOTXT_VERBOSE=0 todo.sh | outputAndPrintf 'Open tasks:\n'
+	    TODO_FILE="$todoFilespec" TODO_DIR="$root" TODOTXT_VERBOSE=0 todo.sh here -s $taskNum | outputOrError && return 0
+	    TODO_FILE="$todoFilespec" TODO_DIR="$root" TODOTXT_VERBOSE=0 todo.sh | outputAndPrintf 'TODO: You have open tasks in this working copy:\n'
 	else
 	    # Fall back to simple cat'ting of the file.
 	    headtail --separator-cut-what "... see $todoFilespec for the full list ..." -- "$todoFilespec" | outputAndPrintf 'Open tasks:\n'

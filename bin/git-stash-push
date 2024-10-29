@@ -57,14 +57,15 @@ elif [ -z "$message" -a -z "${isEdit+t}" ] || [ "$isEdit" ]; then
 	    | sed \
 		-e '1i\
 # Please enter the commit message for your changes. Lines starting\
-# with '#' will be ignored, and an empty message aborts the commit.' \
+# with '#' will be ignored, and an empty message aborts the stashing.' \
 		-e 's#Changes not staged for commit:#Unstaged changes to be stashed:#' \
 		-e 's#Changes to be committed:#Staged changes to be stashed:#' \
 		-e '/^  (use "git add <file>\.\.\." to update what will be committed)$/d' \
 		-e '/^  (use "git restore <file>\.\.\." to discard changes in working directory)$/d' \
 		-e '/^On branch /d' \
-		-e '/^Your branch is /{ N; s#^[^\n]*\n##; /^#$/d; }' \
+		-e '/^Your branch is /{ N; s#^[^\n]*\n##; /^  (use /d; }' \
 		-e '/^  (use "git restore --staged <file>..." to unstage)/d' \
+		-e '/^no changes added to commit (use "git add" and\/or "git commit -a")$/d' \
 		-e '/^[^\t]/{ s/^/# /; b; }' -e 's/^/#/'
     )"
     gitDir="$(git rev-parse --git-dir 2>/dev/null)"

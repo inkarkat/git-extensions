@@ -9,7 +9,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--summary] [-g|--greater|-s|--smaller|-lt|-le|-eq|-ne|-ge|-gt SIZE[SUFFIX|%]] [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--summary] [--human-readable] [-g|--greater|-s|--smaller|-lt|-le|-eq|-ne|-ge|-gt SIZE[SUFFIX|%]] [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -33,6 +33,7 @@ HELPDESCRIPTION
     --summary		Show only aggregated file size changes across all files
 			of a commit. A size / percentage comparison will also
 			only consider the totals then.
+    --human-readable	Show file sizes in Ki / Mi / Gi / ... units.
     -g|--greater|-s|--smaller|-lt|-le|-eq|-ne|-ge|-gt SIZE[SUFFIX]
 			Only show logs where the (individual / total) file size
 			change is greater than SIZE.
@@ -60,6 +61,7 @@ parseCompare()
 
 typeset -a gitLogArgs=()
 typeset -a colorArg=(--color=always)
+typeset -a formatter=()
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
 if [ ! -t 1 ]; then
     colorArg=()
@@ -74,6 +76,8 @@ do
 	--no-color|--color=*)
 			colorArg=("$1"); shift;;
 	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); shift; shift;;
+	--human-readable)
+			shift; type -t humanunits >/dev/null && formatter+=('humanunits');;
 
 	--summary)	shift; isSummary=t;;
 	--greater|-g|-gt)
@@ -214,5 +218,6 @@ typeset -a gitConfigArgs=()
     # Fall back to a user-scoped override.
 
 git "${gitConfigArgs[@]}" onelinelog --stat "${colorArg[@]}" "${gitLogArgs[@]}" "$@" \
-    | eval 'summarize' \
+    | eval summarize \
+    "${formatter:+|}" '"${formatter[@]}"' \
     "${pager:+|}" '"${pager[@]}"'

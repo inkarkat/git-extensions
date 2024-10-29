@@ -33,8 +33,16 @@ do
     esac
 done
 
+previousBranchName="$(git-brname --real-branch-only 2>/dev/null)"
+
 eval "typeset -a gitConfigArgs=($GIT_CONFIG_ARGS)"
 command git "${gitConfigArgs[@]}" checkout "${checkoutArgs[@]}" "$@" || exit $?
 
-[ "$isSubmoduleCheckout" ] || exit 0
-exec git-wrapper "${GIT_CHECKOUT_SUBMODULES_COMMAND:-subcobr}" "${subcobrInteractivityArg:?}" "${subcobrArgs[@]}"
+if [ "$isSubmoduleCheckout" ]; then
+    git-wrapper "${GIT_CHECKOUT_SUBMODULES_COMMAND:-subcobr}" "${subcobrInteractivityArg:?}" "${subcobrArgs[@]}" || exit $?
+fi
+
+currentBranchName="$(git-brname --real-branch-only 2>/dev/null)"
+if [ -n "$currentBranchName" -a "$previousBranchName" != "$currentBranchName" ]; then
+    eval "$GIT_CHECKOUT_BRANCH_POST_COMMAND"
+fi

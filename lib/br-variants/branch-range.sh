@@ -56,7 +56,7 @@ lcl?(f)|\
 lh?(mine|team)|\
 l?(o)g?([fv])@(mine|team)|\
 @(l?(o)|count|logdistribution)?(mine|team)|\
-log?(mod|added|deleted|renamed)?(files)|glog|logbrowse|\
+log?(mod|added|deleted|renamed)?(files)|glog|logbrowse|logsize|\
 l[ou]url?(v)|\
 @(files|versions|tags)@(g|changed|touched)|\
 @(files|version|tag)@(last|first)@(g|changed|touched)|\

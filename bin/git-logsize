@@ -1,0 +1,223 @@
+#!/bin/bash
+
+readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
+[ -d "$scriptDir" ] || { echo >&2 'ERROR: Cannot determine script directory!'; exit 3; }
+readonly projectDir="${scriptDir}/.."
+readonly libDir="${projectDir}/lib"
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--summary] [--human-readable] [-g|--greater|-s|--smaller|-lt|-le|-eq|-ne|-ge|-gt SIZE[SUFFIX|%]] [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+One-line author, date, tags and commit summary, plus the list and before / after
+sizes of changed files.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --summary		Show only aggregated file size changes across all files
+			of a commit. A size / percentage comparison will also
+			only consider the totals then.
+    --human-readable	Show file sizes in Ki / Mi / Gi / ... units.
+    -g|--greater|-s|--smaller|-lt|-le|-eq|-ne|-ge|-gt SIZE[SUFFIX]
+			Only show logs where the (individual / total) file size
+			change is greater than SIZE.
+			SUFFIX may be one or two-letter: 1K = 1000, 1Ki = 1024, etc.
+    -g|--greater|-s|--smaller|-lt|-le|-eq|-ne|-ge|-gt SIZE%
+			Only show logs where the relative (individual / total)
+			file size change is greater than SIZE percent.
+HELPTEXT
+}
+
+size=
+compareWhat=
+compareOp=
+parseCompare()
+{
+    compareOp="${1:?}"; shift
+    if [[ "$1" =~ %$ ]]; then
+	compareWhat='calculatePercentage(before, delta, 2^PREC)'
+	size="${1%\%}"
+    else
+	compareWhat=delta
+	size="$(printf %s "$1" | numfmt --from=auto)" || exit $?
+    fi
+}
+
+typeset -a gitLogArgs=()
+typeset -a colorArg=(--color=always)
+typeset -a formatter=()
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+if [ ! -t 1 ]; then
+    colorArg=()
+    pager=()
+fi
+isSummary=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--color=auto)	shift;;
+	--no-color|--color=*)
+			colorArg=("$1"); shift;;
+	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); shift; shift;;
+	--human-readable)
+			shift; type -t humanunits >/dev/null && formatter+=('humanunits');;
+
+	--summary)	shift; isSummary=t;;
+	--greater|-g|-gt)
+			shift; parseCompare '>' "${1:?}"; shift;;
+	--smaller|-s|-lt)
+			shift; parseCompare '<' "${1:?}"; shift;;
+	-le)
+			shift; parseCompare '<=' "${1:?}"; shift;;
+	-eq)
+			shift; parseCompare '==' "${1:?}"; shift;;
+	-ne)
+			shift; parseCompare '!=' "${1:?}"; shift;;
+	-ge)
+			shift; parseCompare '>=' "${1:?}"; shift;;
+
+	--)		break;;
+	*)		gitLogArgs+=("$1"); shift;;
+    esac
+done
+
+comparer=$'function compareSize(before, delta) {\n'
+[ -n "$compareOp" ] \
+    && comparer+="return ($compareWhat $compareOp $size)" \
+    || comparer+="return 1;"
+comparer+=$'\n}'
+
+summarize()
+{
+    awk \
+	-v "isSummary=$isSummary" \
+	-v "compareOp=$compareOp" \
+"$comparer"'
+BEGIN {
+    beforeAfterColumnWidth = 50
+}
+function calculatePercentage(before, delta, infinityValue)
+{
+    return (before > 0 ? int(100 * delta / before) : infinityValue)
+}
+function renderDelta(before, delta, colorPrefixAfter, colorPrefixBefore, colorSuffixAfter, colorSuffixBefore,      percentage, colorPrefix, colorSuffix)
+{
+    percentage = calculatePercentage(before, delta, 0)
+    if (delta > 0 ) {
+	colorPrefix = colorPrefixAfter "+"
+	colorSuffix = colorSuffixAfter
+    } else if (delta < 0) {
+	colorPrefix = colorPrefixBefore
+	colorSuffix = colorSuffixBefore
+    } else {
+	colorPrefix = ""
+	colorSuffix = ""
+    }
+    return colorPrefix delta colorSuffix " bytes" (percentage == 0 ? "" : ", " colorPrefix percentage "%" colorSuffix)
+}
+
+function printSubject()
+{
+    if (subject == "") return
+    print (isNext ? "\n" : "") subject
+    subject = ""
+    isNext = 1
+}
+
+match($0, /^(.* )\| Bin (\x1b\[[0-9:;]*m)?([[:digit:]]+)(\x1b\[[0-9:;]*m)? -> (\x1b\[[0-9:;]*m)?([[:digit:]]+)(\x1b\[[0-9:;]*m)? bytes$/, matches) {
+    fileFieldLen = length(matches[1])
+    colorPrefixBefore = matches[2]
+    totalBefore += matches[3]
+    colorSuffixBefore = matches[4]
+    colorPrefixAfter = matches[5]
+    totalAfter += matches[6]
+    colorSuffixAfter = matches[7]
+    sub(/ \| Bin /, " | ")
+    beforeAfterColumnLen = length(matches[3] " -> " matches[6] " bytes")
+
+    delta = matches[6] - matches[3]
+    fileBefore = matches[3]
+    if (compareSize(fileBefore, delta)) {
+	fileStat = $0 sprintf("%-" (beforeAfterColumnWidth - beforeAfterColumnLen) "s | %s", "", renderDelta(fileBefore, delta, colorPrefixAfter, colorPrefixBefore, colorSuffixAfter, colorSuffixBefore))
+
+	if (! isSummary) {
+	    printSubject()
+	    print fileStat
+	}
+    }
+    next
+}
+
+/^ 1 file changed, / {
+    if (isSummary) {
+	# The single file statistic replaces the summary line.
+	if (compareSize(fileBefore, delta)) {
+	    printSubject()
+	    print fileStat
+	}
+    }
+    totalBefore = totalAfter = ""
+    next
+}
+match($0, /^ [[:digit:]]+ files changed, /) {
+    filesChangedPart = substr($0, 1, RLENGTH - 2)
+
+    if (totalBefore != "" && totalAfter != "") {
+	totalDifference = colorPrefixBefore totalBefore colorSuffixBefore " -> " colorPrefixAfter totalAfter colorSuffixAfter " bytes"
+	beforeAfterColumnLen = length(totalBefore " -> " totalAfter " bytes")
+	delta = totalAfter - totalBefore
+	if (compareSize(totalBefore, delta)) {
+	    printSubject()
+	    printf("%-" (isSummary ? 22 : fileFieldLen) "s| %s%-" (beforeAfterColumnWidth - beforeAfterColumnLen) "s | %s\n", filesChangedPart, totalDifference, "", renderDelta(totalBefore, delta, colorPrefixAfter, colorPrefixBefore, colorSuffixAfter, colorSuffixBefore))
+	}
+    } else {
+	if (compareOp == "") {
+	    printSubject()
+	    print(filesChangedPart)
+	}
+    }
+
+    totalBefore = totalAfter = ""
+    next
+}
+
+{
+    subject = $0
+    next
+}
+'
+}
+
+readonly BINARY_GITATTRIBUTES_OVERRIDE='* -diff'    # Switch to binary difference, which just shows the difference in net file sizes.
+
+# Use $GIT_DIR/info/attributes file if possible because it has the highest precedence.
+gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit 3
+gitAttributesFilespec="${gitDir}/info/attributes"
+typeset -a gitConfigArgs=()
+[ ! -e "$gitAttributesFilespec" ] \
+    && printf '%s\n' "$BINARY_GITATTRIBUTES_OVERRIDE" > "$gitAttributesFilespec" \
+    && trap 'rm -f -- "$gitAttributesFilespec" 2>/dev/null' EXIT \
+    || gitConfigArgs=(-c core.attributesFile=<(printf '%s\n' "$BINARY_GITATTRIBUTES_OVERRIDE"))
+    # Fall back to a user-scoped override.
+
+git "${gitConfigArgs[@]}" onelinelog --stat "${colorArg[@]}" "${gitLogArgs[@]}" "$@" \
+    | eval summarize \
+    "${formatter:+|}" '"${formatter[@]}"' \
+    "${pager:+|}" '"${pager[@]}"'

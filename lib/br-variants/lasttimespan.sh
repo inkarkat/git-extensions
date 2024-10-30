@@ -108,8 +108,12 @@ who@(when|first|last)|whatdid|churn\
 	$EXEC "git-${scopeCommand:?}" -2 lghifiles TIMESPAN "$@";;
     lghifiles)
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope lghipassedfiles" "$@";;
-    lgfiles?(mine|team|by))
+    lgfiles?(mine|team))
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope lg${gitCommand#lgfiles}" "$@";;
+    lgfilesby)
+	quotedAuthorsAndRange="$(gitCommand=quoted othersCommand "$@")" || exit $?
+	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files $quotedAuthorsAndRange" $EXEC git-selected-command "onelinelog $quotedAuthorsAndRange --"
+	;;
 
     cors)
 	$EXEC "git-${scopeCommand:?}" -2 checkoutselectedrevisionselected TIMESPAN "$@";;

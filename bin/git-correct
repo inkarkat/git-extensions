@@ -18,6 +18,12 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[<commit-arguments> ...] (<ref>|:/<pattern> [[--] FILE|DIR] ...) [-?|-h|--help]'
 }
 
+isInsideThisWorkingCopy()
+{
+    local workingCopyFilespec="${1?}"; shift
+    [ -z "$workingCopyFilespec" ] || git log --max-count=1 -- "$workingCopyFilespec" >/dev/null 2>&1
+}
+
 gitInWorkingCopy()
 {
     local workingCopyFilespec="${1?}"; shift
@@ -62,7 +68,7 @@ do
     elif [ -e "$lastArg" ]; then
 	lastFilespec="$lastArg"
     elif commitId="$(gitInWorkingCopy "$lastFilespec" commitid --no-error -- "$lastArg")"; then
-	repoContext="$([ -z "$lastFilespec" ] || gitInWorkingCopy "$lastFilespec" userrepo 2>/dev/null)"
+	repoContext="$([ -z "$lastFilespec" ] || isInsideThisWorkingCopy "$lastFilespec" || gitInWorkingCopy "$lastFilespec" userrepo 2>/dev/null)"
 	filespecs=("$lastFilespec" "${filespecs[@]}")
 	commitIds=("$commitId" "${commitIds[@]}")
 	contextualizedCommitIds=("${repoContext}${repoContext:+@}${commitId}" "${contextualizedCommitIds[@]}")

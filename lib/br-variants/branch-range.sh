@@ -27,6 +27,10 @@ case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
 
+othersCommand()
+{
+    $EXEC git-dashdash-default-command --with-files : branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" "${revRangeAdditionalArgs[@]}" -7 others-command --range RANGE -2 "${gitCommand%by}" AUTHORS RANGE : "$@"
+}
 
 : ${EXEC:=exec}
 gitCommand="${1:-$GIT_BRVARIANT_DEFAULT_COMMAND}"; shift
@@ -49,9 +53,9 @@ lg@(rel|tagged|st|i|I)\
 	$EXEC git-branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --one-more-command "greyonelineloghighlight $gitCommand" --one-more-only-to-terminal -2 "$gitCommand" RANGE "$@";;
 
     (\
-lc?(l)@(g|changed|touched)?(mine)|\
-l?(o)g?(v)@(g|changed|touched)?(mine)|\
-@(log?(v)|show)@(last|first)@(g|changed|touched)?(mine)|\
+lc?(l)@(g|changed|touched)?(mine|team)|\
+l?(o)g?(v)@(g|changed|touched)?(mine|team)|\
+@(log?(v)|show)@(last|first)@(g|changed|touched)?(mine|team)|\
 lcl?(f)|\
 lh?(mine|team)|\
 l?(o)g?([fv])@(mine|team)|\
@@ -88,8 +92,10 @@ subchanges|superchanges|subrevl@(?(o)g|c)\
     ma)
 	$EXEC git-branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -2 format-patch RANGE "$@";;
 
-    st|files|submodules)
+    @(st|files|submodules)?(mine|team))
 	$EXEC git-branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -2 "show$gitCommand" RANGE "$@";;
+    @(st|files|submodules)by)
+	gitCommand="show$gitCommand" othersCommand "$@";;
     subdo)
 	$EXEC git-branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --keep-position files-command --source-exec showfiles RANGE \; --keep-position subdo --for FILES \; "$@";;
 
@@ -103,12 +109,23 @@ subchanges|superchanges|subrevl@(?(o)g|c)\
 
     revive)
 	$EXEC git-branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -3 "$gitCommand" --all RANGE "$@";;
-    lc?(f)by)
+    (\
+lc?(f)by|\
+lc?(l)@(g|changed|touched)by\
+)
 	revRangeAdditionalArgs=(--one-more-command log --one-more-with-padding)
 	;&
-    l?(h|g|og)by)
+	(\
+l?(h|g|og)by|\
+l?(o)g?(v)@(g|changed|touched)by|\
+@(log?(v)|show)@(last|first)@(g|changed|touched)by|\
+l?(o)g?([fv])by|\
+@(l?(o)|count|logdistribution)by|\
+activityby\
+)
 	[ "$gitCommand" = lgby ] && gitCommand='onelinelog'
-	$EXEC git-dashdash-default-command --with-files : branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" "${revRangeAdditionalArgs[@]}" -5 others-command -2 "${gitCommand%by}" AUTHORS RANGE : "$@";;
+	othersCommand "$@"
+	;;
     @(show|tree)[ou]url)
 	$EXEC git-branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --keep-position selectedcommit-command --range-is-last -3 "$gitCommand" COMMITS RANGE "$@";;
     compareourl)
@@ -119,8 +136,12 @@ subchanges|superchanges|subrevl@(?(o)g|c)\
 	$EXEC git-branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --one-more-command 'greyonelineloghighlight lghighlight' --one-more-only-to-terminal -2 lghifiles RANGE "$@";;
     lghifiles)
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope lghipassedfiles" "$@";;
-    lgfiles@(mine|team|by))
+    lgfiles?(mine|team))
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope lg${gitCommand#lgfiles}" "$@";;
+    lgfilesby)
+	quotedAuthorsAndRange="$(gitCommand=quoted othersCommand "$@")" || exit $?
+	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files $quotedAuthorsAndRange" $EXEC git-selected-command "onelinelog $quotedAuthorsAndRange --"
+	;;
 
     cors)
 	$EXEC git-branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -2 checkoutselectedrevisionselected RANGE "$@";;

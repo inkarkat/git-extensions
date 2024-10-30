@@ -50,6 +50,11 @@ withAggregateCommitWithLastArg()
 	$EXEC git-selectedcommit-command "$@"
 }
 
+othersCommand()
+{
+    $EXEC git-dashdash-default-command --with-files : others-command --keep-position "${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" "${scopeCommandLastArgs[@]}" "${revRangeAdditionalArgs[@]}" -3 "show${gitCommand%by}" AUTHORS RANGE : "$@"
+}
+
 : ${EXEC:=exec}
 gitCommand="${1:-$GIT_AGGREGATERANGEVARIANT_DEFAULT_COMMAND}"; shift
 typeset -a revRangeAdditionalArgs=()
@@ -58,6 +63,9 @@ case "$gitCommand" in
 	withAggregateFiles selected-command "$scope d${quotedArgs}";;
     dss)
 	withAggregateCommit --single-only dp "$@";;
+
+    @(st|files|submodules)by)
+	gitCommand="show$gitCommand" othersCommand "$@";;
 
     subdo)
 	quotedArgs=; [ $# -eq 0 ] || printf -v quotedArgs ' %q' "$@"
@@ -74,12 +82,22 @@ case "$gitCommand" in
 	fi
 	;;
 
-    lc?(f)by)
+    (\
+lc?(f)by|\
+lc?(l)@(g|changed|touched)by\
+)
 	revRangeAdditionalArgs=(--one-more-command log --one-more-with-padding)
 	;&
-    l?(h|g|og)by)
+	(\
+l?(h|g|og)by|\
+l?(o)g?(v)@(g|changed|touched)by|\
+@(log?(v)|show)@(last|first)@(g|changed|touched)by|\
+l?(o)g?([fv])by|\
+@(l?(o)|count|logdistribution)by|\
+activityby\
+)
 	[ "$gitCommand" = lgby ] && gitCommand='onelinelog'
-	$EXEC git-dashdash-default-command --with-files : others-command --keep-position "${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" "${scopeCommandLastArgs[@]}" "${revRangeAdditionalArgs[@]}" -3 "${gitCommand%by}" AUTHORS RANGE : "$@"
+	othersCommand "$@"
 	;;
 
     cors)

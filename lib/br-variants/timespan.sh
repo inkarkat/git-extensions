@@ -20,14 +20,18 @@ case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
 
+othersCommand()
+{
+    $EXEC git-dashdash-default-command --with-files : "${scopeCommand:?}" --range -7 others-command --range TIMESPAN -2 "${gitCommand%by}" AUTHORS TIMESPAN : "$@"
+}
 
 : ${EXEC:=exec}
 gitCommand="${1:-$GIT_TIMESPAN_DEFAULT_COMMAND}"; shift
 case "$gitCommand" in
     (\
-lc?(l)@(g|changed|touched)?(mine)|\
-l?(o)g?(v)@(g|changed|touched)?(mine)|\
-@(log?(v)|show)@(last|first)@(g|changed|touched)?(mine)|\
+lc?(l)@(g|changed|touched)?(mine|team)|\
+l?(o)g?(v)@(g|changed|touched)?(mine|team)|\
+@(log?(v)|show)@(last|first)@(g|changed|touched)?(mine|team)|\
 @(files|versions|tags)@(g|changed|touched)|\
 @(files|version|tag)@(last|first)@(g|changed|touched)|\
 lc?(h)|\
@@ -51,8 +55,17 @@ who@(when|first|last)|whatdid|churn\
     lgx)
 	# lgx is identical lg to because there's no one-more with timespans.
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 lg TIMESPAN "$@";;
-    lc?(f)by)
-	$EXEC git-dashdash-default-command --with-files : "${scopeCommand:?}" -6 others-command -2 "${gitCommand%by}" AUTHORS TIMESPAN : "$@";;
+    (\
+l?(c?(f)|h|g|og)by|\
+lc?(l)@(g|changed|touched)by|\
+l?(o)g?(v)@(g|changed|touched)by|\
+@(log?(v)|show)@(last|first)@(g|changed|touched)by|\
+lc@(?(l)?(f)|?(f)by)|\
+@(l?(o)g?([fv])|l?(o)|count|logdistribution)by\
+)
+	[ "$gitCommand" = lgby ] && gitCommand='onelinelog'
+	othersCommand "$@"
+	;;
 
     d)
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --no-range -2 diffuntil TIMESPAN "$@";;
@@ -77,8 +90,10 @@ who@(when|first|last)|whatdid|churn\
     ma)
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --no-range --one-more -2 format-patch TIMESPAN "$@";;
 
-    st|files|submodules)
+    @(st|files|submodules)?(mine|team))
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --range -2 "show$gitCommand" TIMESPAN "$@";;
+    @(st|files|submodules)by)
+	gitCommand="show$gitCommand" othersCommand "$@";;
     subdo)
 	$EXEC git-revision-command --keep-position files-command --source-command "$scope submodules --revision REVISION" --keep-position subdo --for FILES \; "$@";;
     subchanges|superchanges|subrevl@(?(o)g|c))
@@ -91,8 +106,6 @@ who@(when|first|last)|whatdid|churn\
 
     revive)
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -3 "$gitCommand" --all TIMESPAN "$@";;
-    l?(h)by)
-	$EXEC git-dashdash-default-command --with-files : "${scopeCommand:?}" -5 others-command -2 "${gitCommand%by}" AUTHORS TIMESPAN : "$@";;
     @(show|tree)[ou]url)
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -5 selectedcommit-command -2 "$gitCommand" COMMITS TIMESPAN "$@";;
     compareourl)
@@ -103,12 +116,12 @@ who@(when|first|last)|whatdid|churn\
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 lghifiles TIMESPAN "$@";;
     lghifiles)
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope lghipassedfiles" "$@";;
-    lgby)
-	$EXEC git-dashdash-default-command --with-files : "${scopeCommand:?}" -6 others-command TIMESPAN -2 onelinelog AUTHORS TIMESPAN : "$@";;
-    logby)
-	$EXEC git-dashdash-default-command --with-files : "${scopeCommand:?}" -6 others-command TIMESPAN -2 log AUTHORS TIMESPAN : "$@";;
-    lgfiles@(mine|team|by))
+    lgfiles?(mine|team))
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope lg${gitCommand#lgfiles}" "$@";;
+    lgfilesby)
+	quotedAuthorsAndRange="$(gitCommand=quoted othersCommand "$@")" || exit $?
+	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files $quotedAuthorsAndRange" $EXEC git-selected-command "onelinelog $quotedAuthorsAndRange --"
+	;;
 
     cors)
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 checkoutselectedrevisionselected TIMESPAN "$@";;
@@ -172,7 +185,7 @@ who@(when|first|last)|whatdid|churn\
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 "${gitCommand%here}" TIMESPAN "$@";;
 
     activity?(mine|team))
-	$EXEC echo "Note: $gitCommmand would just trim activity to ${scopeWhat}.";;
+	$EXEC echo "Note: $gitCommand would just trim activity to ${scopeWhat}.";;
 
     emaillog)
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -3 email-command log TIMESPAN "$@";;

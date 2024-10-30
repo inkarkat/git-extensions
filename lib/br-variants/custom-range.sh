@@ -54,6 +54,11 @@ withAggregateCommit()
 	$EXEC git-selectedcommit-command "$@"
 }
 
+othersCommand()
+{
+    $EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" "${scopeCommandLastArgs[@]}" "${revRangeAdditionalArgs[@]}" -7 others-command --range RANGE -2 "${gitCommand%by}" AUTHORS RANGE : "$@"
+}
+
 : ${EXEC:=exec}
 gitCommand="${1:-$GIT_CUSTOMRANGEVARIANT_DEFAULT_COMMAND}"; shift
 typeset -a revRangeAdditionalArgs=()
@@ -75,9 +80,9 @@ lg@(rel|tagged|st|i|I)\
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" --one-more-command "greyonelineloghighlight $gitCommand" --one-more-only-to-terminal -2 "$gitCommand" RANGE "$@";;
 
     (\
-lc?(l)@(g|changed|touched)?(mine)|\
-l?(o)g?(v)@(g|changed|touched)?(mine)|\
-@(log?(v)|show)@(last|first)@(g|changed|touched)?(mine)|\
+lc?(l)@(g|changed|touched)?(mine|team)|\
+l?(o)g?(v)@(g|changed|touched)?(mine|team)|\
+@(log?(v)|show)@(last|first)@(g|changed|touched)?(mine|team)|\
 @(files|versions|tags)@(g|changed|touched)|\
 @(files|version|tag)@(last|first)@(g|changed|touched)\
 )
@@ -125,8 +130,10 @@ detach@(g|changed|touched)\
     ma)
 	$EXEC git-"${scopeCommand[@]}" -2 format-patch RANGE "$@";;
 
-    st|files|submodules)
+    @(st|files|submodules)?(mine|team))
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -2 "show$gitCommand" RANGE "$@";;
+    @(st|files|submodules)by)
+	gitCommand="show$gitCommand" othersCommand "$@";;
     subdo)
 	withScoped submodules --keep-position subdo --for FILES \; "$@";;
 
@@ -140,12 +147,23 @@ detach@(g|changed|touched)\
 
     revive)
 	$EXEC git-"${scopeCommand[@]}" -3 "$gitCommand" --all RANGE "$@";;
-    lc?(f)by)
+    (\
+lc?(f)by|\
+lc?(l)@(g|changed|touched)by\
+)
 	revRangeAdditionalArgs=(--one-more-command log --one-more-with-padding)
 	;&
-    l?(h|g|og)by)
+	(\
+l?(h|g|og)by|\
+l?(o)g?(v)@(g|changed|touched)by|\
+@(log?(v)|show)@(last|first)@(g|changed|touched)by|\
+l?(o)g?([fv])by|\
+@(l?(o)|count|logdistribution)by|\
+activityby\
+)
 	[ "$gitCommand" = lgby ] && gitCommand='onelinelog'
-	$EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" "${scopeCommandLastArgs[@]}" "${revRangeAdditionalArgs[@]}" -5 others-command -2 "${gitCommand%by}" AUTHORS RANGE : "$@";;
+	othersCommand "$@"
+	;;
     @(show|tree)[ou]url)
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" --keep-position selectedcommit-command --range-is-last -3 "$gitCommand" COMMITS RANGE "$@";;
     compareourl)
@@ -156,8 +174,12 @@ detach@(g|changed|touched)\
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" --one-more-command 'greyonelineloghighlight lghighlight' --one-more-only-to-terminal -2 lghifiles RANGE "$@";;
     lghifiles)
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope lghipassedfiles" "$@";;
-    lgfiles@(mine|team|by))
+    lgfiles?(mine|team))
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope lg${gitCommand#lgfiles}" "$@";;
+    lgfilesby)
+	quotedAuthorsAndRange="$(gitCommand=quoted othersCommand "$@")" || exit $?
+	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files $quotedAuthorsAndRange" $EXEC git-selected-command "onelinelog $quotedAuthorsAndRange --"
+	;;
 
     cors)
 	$EXEC git-"${scopeCommand[@]}" -2 checkoutselectedrevisionselected RANGE "$@";;

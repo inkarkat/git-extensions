@@ -81,7 +81,12 @@ do
 	# Need to parse off --author|--committer from anywhere first; these here select
 	# the user and do not filter commits by author.
 	# Same for --revision to determine the start revision.
-	--revision|-r)	shift; revision="$1"; shift;;
+	--revision|-r)	if [ -n "$revision" ]; then
+			    otherArgs+=("$1" "$2"); shift; shift
+			else
+			    shift; revision="${1:?}"; shift
+			fi
+			;;
 	--author|--committer)
 			userFilterArgs+=("$1" "$2"); shift; shift;;
 	--author=*|--committer=*)

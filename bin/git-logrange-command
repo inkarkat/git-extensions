@@ -82,7 +82,12 @@ do
 	# Need to parse off --grep and --invert-grep from anywhere first; these here
 	# alternatively filter the messages.
 	# Same for --revision to determine the start revision.
-	--revision|-r)	shift; revision="$1"; shift;;
+	--revision|-r)	if [ -n "$revision" ]; then
+			    otherArgs+=("$1" "$2"); shift; shift
+			else
+			    shift; revision="${1:?}"; shift
+			fi
+			;;
 	--grep)		grepArgs+=("$1" "$2"); shift; shift;;
 	--grep=*)	grepArgs+=("$1"); shift;;
 	--invert-grep)	grepModificationArgs+=("$1"); shift;;

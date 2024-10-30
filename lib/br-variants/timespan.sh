@@ -77,7 +77,7 @@ who@(when|first|last)|whatdid|churn\
     ma)
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --no-range --one-more -2 format-patch TIMESPAN "$@";;
 
-    st|files|submodules)
+    @(st|files|submodules)?(mine|team))
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --range -2 "show$gitCommand" TIMESPAN "$@";;
     subdo)
 	$EXEC git-revision-command --keep-position files-command --source-command "$scope submodules --revision REVISION" --keep-position subdo --for FILES \; "$@";;

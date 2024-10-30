@@ -76,7 +76,7 @@ who@(when|first|last)|whatdid|churn\
     ma)
 	$EXEC "git-${scopeCommand:?}" --no-range --one-more -2 format-patch TIMESPAN "$@";;
 
-    st|files|submodules)
+    @(st|files|submodules)?(mine|team))
 	$EXEC "git-${scopeCommand:?}" --range -2 "show$gitCommand" TIMESPAN "$@";;
     subdo)
 	$EXEC git-files-command --source-command "$scope submodules" --keep-position subdo --for FILES \; "$@";;

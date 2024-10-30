@@ -125,7 +125,7 @@ detach@(g|changed|touched)\
     ma)
 	$EXEC git-"${scopeCommand[@]}" -2 format-patch RANGE "$@";;
 
-    st|files|submodules)
+    @(st|files|submodules)?(mine|team))
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -2 "show$gitCommand" RANGE "$@";;
     subdo)
 	withScoped submodules --keep-position subdo --for FILES \; "$@";;

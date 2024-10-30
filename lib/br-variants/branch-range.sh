@@ -88,7 +88,7 @@ subchanges|superchanges|subrevl@(?(o)g|c)\
     ma)
 	$EXEC git-branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -2 format-patch RANGE "$@";;
 
-    st|files|submodules)
+    @(st|files|submodules)?(mine|team))
 	$EXEC git-branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -2 "show$gitCommand" RANGE "$@";;
     subdo)
 	$EXEC git-branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --keep-position files-command --source-exec showfiles RANGE \; --keep-position subdo --for FILES \; "$@";;

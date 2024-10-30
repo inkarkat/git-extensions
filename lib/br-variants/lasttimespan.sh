@@ -90,7 +90,8 @@ who@(when|first|last)|whatdid|churn\
 
     revive)
 	$EXEC "git-${scopeCommand:?}" -3 "$gitCommand" --all TIMESPAN "$@";;
-    l?(h)by)
+    l?(h|g|og)by)
+	[ "$gitCommand" = lgby ] && gitCommand='onelinelog'
 	$EXEC git-dashdash-default-command --with-files : "${scopeCommand:?}" -5 others-command -2 "${gitCommand%by}" AUTHORS TIMESPAN : "$@";;
     @(show|tree)[ou]url)
 	$EXEC "git-${scopeCommand:?}" -5 selectedcommit-command -2 "$gitCommand" COMMITS TIMESPAN "$@";;
@@ -102,10 +103,6 @@ who@(when|first|last)|whatdid|churn\
 	$EXEC "git-${scopeCommand:?}" -2 lghifiles TIMESPAN "$@";;
     lghifiles)
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope lghipassedfiles" "$@";;
-    lgby)
-	$EXEC git-dashdash-default-command --with-files : "${scopeCommand:?}" -6 others-command TIMESPAN -2 onelinelog AUTHORS TIMESPAN : "$@";;
-    logby)
-	$EXEC git-dashdash-default-command --with-files : "${scopeCommand:?}" -6 others-command TIMESPAN -2 log AUTHORS TIMESPAN : "$@";;
     lgfiles?(mine|team|by))
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope lg${gitCommand#lgfiles}" "$@";;
 

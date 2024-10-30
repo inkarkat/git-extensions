@@ -54,7 +54,10 @@ who@(when|first|last)|whatdid|churn\
     lgx)
 	# lgx is identical lg to because there's no one-more with timespans.
 	$EXEC "git-${scopeCommand:?}" -2 lg TIMESPAN "$@";;
-    l?(c?(f)|h|g|og)by)
+    (\
+l?(c?(f)|h|g|og)by|\
+l?(o)g?(v)@(g|changed|touched)by\
+)
 	[ "$gitCommand" = lgby ] && gitCommand='onelinelog'
 	othersCommand "$@"
 	;;

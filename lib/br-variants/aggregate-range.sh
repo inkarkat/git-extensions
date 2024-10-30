@@ -85,7 +85,10 @@ case "$gitCommand" in
     lc?(f)by)
 	revRangeAdditionalArgs=(--one-more-command log --one-more-with-padding)
 	;&
-    l?(h|g|og)by)
+	(\
+l?(h|g|og)by|\
+l?(o)g?(v)@(g|changed|touched)by\
+)
 	[ "$gitCommand" = lgby ] && gitCommand='onelinelog'
 	othersCommand "$@"
 	;;

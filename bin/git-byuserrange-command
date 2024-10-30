@@ -29,10 +29,11 @@ printLongUsage()
     # This is the long "man page" when launched with the help argument.
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
-Print / execute GIT-COMMAND with a revision range starting from the passed
-REVISION / the most recent revision from the passed author / committer(s) and
-including all consecutive commits done by the passed author / committer(s) (or
-the author (+ committer if different) from the start revision)
+Print / execute GIT-COMMAND with a revision range starting from HEAD / the
+passed REVISION / the most recent revision from the passed author / committer(s)
+[starting from the passed REVISION] and including all consecutive commits done
+by the passed author(s) / committer(s) / the author (+ committer if different)
+from the start revision
 - appended
 - replacing RANGE argument(s) anywhere
 - replacing RANGE in the following GIT-COMMAND and -(N-1) arguments
@@ -83,7 +84,12 @@ do
 	# Need to parse off --author|--committer from anywhere first; these here select
 	# the user and do not filter commits by author.
 	# Same for --revision to determine the start revision.
-	--revision|-r)	shift; revision="$1"; shift;;
+	--revision|-r)	if [ "$2" = RANGE -o -n "$revision" ]; then
+			    otherArgs+=("$1" "$2"); shift; shift
+			else
+			    shift; revision="${1:?}"; shift
+			fi
+			;;
 	--author|--committer)
 			userFilterArgs+=("$1" "$2"); shift; shift;;
 	--author=*|--committer=*)
@@ -146,38 +152,26 @@ if [ -z "${files+t}" ]; then
 	set -- "${@:1:$(($#-1))}"
     done
 fi
+: ${revision:=HEAD}
 
 if [ ${#userFilterArgs[@]} -eq 0 ]; then
-    author="$(git log --max-count 1 --pretty=format:'%aN <%aE>' "${revision:-HEAD}" ${isFilesForRange:+-- "${files[@]}"} | sed -e 's/[][\$*.^]/\\&/g')" || exit $?
-    committer="$(git log --max-count 1 --pretty=format:'%cN <%cE>' "${revision:-HEAD}" ${isFilesForRange:+-- "${files[@]}"} | sed -e 's/[][\$*.^]/\\&/g')" || exit $?
+    author="$(git log --max-count 1 --pretty=format:'%aN <%aE>' "$revision" ${isFilesForRange:+-- "${files[@]}"} | sed -e 's/[][\$*.^]/\\&/g')" || exit $?
+    committer="$(git log --max-count 1 --pretty=format:'%cN <%cE>' "$revision" ${isFilesForRange:+-- "${files[@]}"} | sed -e 's/[][\$*.^]/\\&/g')" || exit $?
     userFilterArgs+=(--author "$author")
     [ "$author" = "$committer" ] || userFilterArgs+=(--committer "$committer")
-fi
-
-if [ -z "$revision" ]; then
-    revision="$(git log --max-count 1 --pretty=tformat:%H "${userFilterArgs[@]}" ${isLogArgsForRange:+"${logArgs[@]}"} ${isFilesForRange:+-- "${files[@]}"})"
+else
+    revision="$(git log --max-count 1 --pretty=tformat:%H "${userFilterArgs[@]}" ${isLogArgsForRange:+"${logArgs[@]}"} "$revision" ${isFilesForRange:+-- "${files[@]}"})"
     if [ -z "$revision" ]; then
 	echo >&2 'Could not find a commit from those user(s).'
 	exit 1
     fi
 fi
 
-startRevision=
-< <(diff --unchanged-line-format= --old-line-format='%dn %L' --new-line-format= -- \
+< <(diff --unchanged-line-format= --old-line-format='%L' --new-line-format= -- \
     <(git log --first-parent --pretty=tformat:%H "$revision" ${isLogArgsForRange:+"${logArgs[@]}"} ${isFilesForRange:+-- "${files[@]}"}) \
     <(git log --first-parent --pretty=tformat:%H "${userFilterArgs[@]}" "$revision" ${isLogArgsForRange:+"${logArgs[@]}"} ${isFilesForRange:+-- "${files[@]}"}) # Fortunately, "git log <revision> --follow -- <path>" also works; else, we would have to split logArgs into options and path arguments.
-) IFS=' ' read -r firstDifferentCount firstDifferentRevision
-
-if [ -n "$firstDifferentRevision" ]; then
-    if [ $firstDifferentCount -eq 1 ]; then
-	[ "$author" ] || author="$(git log --max-count 1 --pretty=format:'%aN <%aE>' "$revision" ${isLogArgsForRange:+"${logArgs[@]}"} ${isFilesForRange:+-- "${files[@]}"} 2>/dev/null)"
-	printf >&2 'The %s revision already is from another user (%s).\n' "$revision" "$author"
-	exit 1
-    else
-	startRevision="$firstDifferentRevision"
-    fi
-fi
+) IFS=$'\n' read -r firstDifferentRevision
 
 [ "$isWithRange" ] || revision=''   # Prevent "ERROR: --end-revision cannot be combined with --no-range!"; we don't need the end revision, as --no-range drops that, anyway.
 
-exec git-rev-range --revision "$startRevision" ${revision:+--end-revision "$revision"} ${isLogArgsForCommand:+"${logArgs[@]}"} "$@" ${isFilesForCommand:+${files:+--} "${files[@]}"} "${specialLastArg[@]}"
+exec git-rev-range --revision "$firstDifferentRevision" ${revision:+--end-revision "$revision"} ${isLogArgsForCommand:+"${logArgs[@]}"} "$@" ${isFilesForCommand:+${files:+--} "${files[@]}"} "${specialLastArg[@]}"

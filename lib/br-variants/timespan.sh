@@ -20,6 +20,10 @@ case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
 
+othersCommand()
+{
+    $EXEC git-dashdash-default-command --with-files : "${scopeCommand:?}" --range -7 others-command --range TIMESPAN -2 "${gitCommand%by}" AUTHORS TIMESPAN : "$@"
+}
 
 : ${EXEC:=exec}
 gitCommand="${1:-$GIT_TIMESPAN_DEFAULT_COMMAND}"; shift
@@ -53,7 +57,8 @@ who@(when|first|last)|whatdid|churn\
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 lg TIMESPAN "$@";;
     l?(c?(f)|h|g|og)by)
 	[ "$gitCommand" = lgby ] && gitCommand='onelinelog'
-	$EXEC git-dashdash-default-command --with-files : "${scopeCommand:?}" --range -7 others-command --range TIMESPAN -2 "${gitCommand%by}" AUTHORS TIMESPAN : "$@";;
+	othersCommand "$@"
+	;;
 
     d)
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --no-range -2 diffuntil TIMESPAN "$@";;
@@ -81,7 +86,7 @@ who@(when|first|last)|whatdid|churn\
     @(st|files|submodules)?(mine|team))
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --range -2 "show$gitCommand" TIMESPAN "$@";;
     @(st|files|submodules)by)
-	$EXEC git-dashdash-default-command --with-files : "${scopeCommand:?}" --range -7 others-command --range TIMESPAN -2 "show${gitCommand%by}" AUTHORS TIMESPAN : "$@";;
+	gitCommand="show$gitCommand" othersCommand "$@";;
     subdo)
 	$EXEC git-revision-command --keep-position files-command --source-command "$scope submodules --revision REVISION" --keep-position subdo --for FILES \; "$@";;
     subchanges|superchanges|subrevl@(?(o)g|c))

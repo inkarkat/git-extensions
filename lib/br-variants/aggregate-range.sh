@@ -59,6 +59,9 @@ case "$gitCommand" in
     dss)
 	withAggregateCommit --single-only dp "$@";;
 
+    @(st|files|submodules)by)
+	$EXEC git-dashdash-default-command --with-files : others-command --keep-position "${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" "${scopeCommandLastArgs[@]}" "${revRangeAdditionalArgs[@]}" -3 "show${gitCommand%by}" AUTHORS RANGE : "$@";;
+
     subdo)
 	quotedArgs=; [ $# -eq 0 ] || printf -v quotedArgs ' %q' "$@"
 	# FIXME: Extract FILE arguments and pass them to the source command.

@@ -80,6 +80,8 @@ who@(when|first|last)|whatdid|churn\
 
     @(st|files|submodules)?(mine|team))
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --range -2 "show$gitCommand" TIMESPAN "$@";;
+    @(st|files|submodules)by)
+	$EXEC git-dashdash-default-command --with-files : "${scopeCommand:?}" --range -7 others-command --range TIMESPAN -2 "show${gitCommand%by}" AUTHORS TIMESPAN : "$@";;
     subdo)
 	$EXEC git-revision-command --keep-position files-command --source-command "$scope submodules --revision REVISION" --keep-position subdo --for FILES \; "$@";;
     subchanges|superchanges|subrevl@(?(o)g|c))

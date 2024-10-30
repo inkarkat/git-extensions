@@ -127,6 +127,8 @@ detach@(g|changed|touched)\
 
     @(st|files|submodules)?(mine|team))
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -2 "show$gitCommand" RANGE "$@";;
+    @(st|files|submodules)by)
+	$EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" "${scopeCommandLastArgs[@]}" "${revRangeAdditionalArgs[@]}" -7 others-command --range RANGE -2 "show${gitCommand%by}" AUTHORS RANGE : "$@";;
     subdo)
 	withScoped submodules --keep-position subdo --for FILES \; "$@";;
 

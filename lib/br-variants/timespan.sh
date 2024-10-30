@@ -122,6 +122,9 @@ lc@(?(l)?(f)|?(f)by)|\
 	quotedAuthorsAndRange="$(gitCommand=quoted othersCommand "$@")" || exit $?
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files $quotedAuthorsAndRange" $EXEC git-selected-command "onelinelog $quotedAuthorsAndRange --"
 	;;
+    files@(l?(o)g|logv|lc|logfiles))
+	# Logs of files modified in the timespan starting from before it.
+	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --range -- -3 showfiles-command --revision TIMESPAN ${scopeCommand:?} --inverted -2 "${gitCommand#files}" TIMESPAN "$@";;
 
     cors)
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 checkoutselectedrevisionselected TIMESPAN "$@";;

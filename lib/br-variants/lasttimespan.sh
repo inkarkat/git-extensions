@@ -121,6 +121,18 @@ lc@(?(l)?(f)|?(f)by)|\
 	quotedAuthorsAndRange="$(gitCommand=quoted othersCommand "$@")" || exit $?
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files $quotedAuthorsAndRange" $EXEC git-selected-command "onelinelog $quotedAuthorsAndRange --"
 	;;
+    files@(l?(o)g|logv|lc|logfiles))
+	# Logs of files modified in the last timespan starting from before it.
+	# Need to obtain the end revision of the range separately here. As some
+	# scopeCommand may evaluate some passed arguments, these must be passed, and
+	# anything that's still echoed is ignored.
+	< <(${EXEC#exec} git-"${scopeCommand:?}" --last-only --reverse --one-more -2 echo TIMESPAN "$@") IFS=' ' read -r startRevision _
+	if [ -n "$startRevision" ]; then
+	    set -- "$startRevision" "$@"
+	else
+	    ${EXEC#exec} printf >&2 'Note: Failed to determine the start revision of the range; the %s scope is included in the log now.\n' "$scope"
+	fi
+	$EXEC git-"${scopeCommand:?}" --range -3 showfiles-command --revision TIMESPAN "${gitCommand#files}" "$@";;
 
     cors)
 	$EXEC "git-${scopeCommand:?}" -2 checkoutselectedrevisionselected TIMESPAN "$@";;

@@ -24,9 +24,9 @@ esac
 gitCommand="${1:-$GIT_LASTTIMESPAN_DEFAULT_COMMAND}"; shift
 case "$gitCommand" in
     (\
-lc?(l)@(g|changed|touched)?(mine)|\
-l?(o)g?(v)@(g|changed|touched)?(mine)|\
-@(log?(v)|show)@(last|first)@(g|changed|touched)?(mine)|\
+lc?(l)@(g|changed|touched)?(mine|team)|\
+l?(o)g?(v)@(g|changed|touched)?(mine|team)|\
+@(log?(v)|show)@(last|first)@(g|changed|touched)?(mine|team)|\
 @(files|versions|tags)@(g|changed|touched)|\
 @(files|version|tag)@(last|first)@(g|changed|touched)|\
 lc?(h)|\
@@ -106,7 +106,7 @@ who@(when|first|last)|whatdid|churn\
 	$EXEC git-dashdash-default-command --with-files : "${scopeCommand:?}" -6 others-command TIMESPAN -2 onelinelog AUTHORS TIMESPAN : "$@";;
     logby)
 	$EXEC git-dashdash-default-command --with-files : "${scopeCommand:?}" -6 others-command TIMESPAN -2 log AUTHORS TIMESPAN : "$@";;
-    lgfiles@(mine|team|by))
+    lgfiles?(mine|team|by))
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope lg${gitCommand#lgfiles}" "$@";;
 
     cors)

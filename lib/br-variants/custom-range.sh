@@ -75,9 +75,9 @@ lg@(rel|tagged|st|i|I)\
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" --one-more-command "greyonelineloghighlight $gitCommand" --one-more-only-to-terminal -2 "$gitCommand" RANGE "$@";;
 
     (\
-lc?(l)@(g|changed|touched)?(mine)|\
-l?(o)g?(v)@(g|changed|touched)?(mine)|\
-@(log?(v)|show)@(last|first)@(g|changed|touched)?(mine)|\
+lc?(l)@(g|changed|touched)?(mine|team)|\
+l?(o)g?(v)@(g|changed|touched)?(mine|team)|\
+@(log?(v)|show)@(last|first)@(g|changed|touched)?(mine|team)|\
 @(files|versions|tags)@(g|changed|touched)|\
 @(files|version|tag)@(last|first)@(g|changed|touched)\
 )
@@ -156,7 +156,7 @@ detach@(g|changed|touched)\
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" --one-more-command 'greyonelineloghighlight lghighlight' --one-more-only-to-terminal -2 lghifiles RANGE "$@";;
     lghifiles)
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope lghipassedfiles" "$@";;
-    lgfiles@(mine|team|by))
+    lgfiles?(mine|team|by))
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope lg${gitCommand#lgfiles}" "$@";;
 
     cors)

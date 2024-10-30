@@ -51,7 +51,7 @@ who@(when|first|last)|whatdid|churn\
 	# lgx is identical lg to because there's no one-more with timespans.
 	$EXEC "git-${scopeCommand:?}" -2 lg TIMESPAN "$@";;
     lc?(f)by)
-	$EXEC git-dashdash-default-command --with-files : "${scopeCommand:?}" -6 others-command -2 "${gitCommand%by}" AUTHORS TIMESPAN : "$@";;
+	$EXEC git-dashdash-default-command --with-files : "${scopeCommand:?}" --range -7 others-command --range TIMESPAN -2 "${gitCommand%by}" AUTHORS TIMESPAN : "$@";;
 
     d)
 	$EXEC "git-${scopeCommand:?}" --no-range -2 diffuntil TIMESPAN "$@";;
@@ -92,7 +92,7 @@ who@(when|first|last)|whatdid|churn\
 	$EXEC "git-${scopeCommand:?}" -3 "$gitCommand" --all TIMESPAN "$@";;
     l?(h|g|og)by)
 	[ "$gitCommand" = lgby ] && gitCommand='onelinelog'
-	$EXEC git-dashdash-default-command --with-files : "${scopeCommand:?}" -5 others-command -2 "${gitCommand%by}" AUTHORS TIMESPAN : "$@";;
+	$EXEC git-dashdash-default-command --with-files : "${scopeCommand:?}" --range -7 others-command --range TIMESPAN -2 "${gitCommand%by}" AUTHORS TIMESPAN : "$@";;
     @(show|tree)[ou]url)
 	$EXEC "git-${scopeCommand:?}" -5 selectedcommit-command -2 "$gitCommand" COMMITS TIMESPAN "$@";;
     compareourl)

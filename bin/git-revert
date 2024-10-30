@@ -52,7 +52,7 @@ HELPDESCRIPTION
 HELPTEXT
 }
 
-addCommand=add
+addCommand=
 typeset -a addArgs=()
 typeset -a commitArg=(--no-commit)
 typeset -a revertArgs=()
@@ -76,7 +76,7 @@ do
 
 	--edit|-e|--patch|-p)
 			addArgs+=("$1"); shift;;
-	--selected|-s)	shift; addCommand=addselected;;
+	--selected|-s)	shift; addCommandExtension=selected;;
 
 	--no-edit)	revertEditArgs+=("$1"); shift;; # Note: --edit is interpreted as an option for "git add".
 	--fixup)	shift; action=fixup; commitArg=(--no-commit);;
@@ -223,7 +223,7 @@ partialManualFixup()
 }
 
 # Reverting of the entire commit(s).
-if [ ${#addArgs[@]} -eq 0 -a ${#addFiles[@]} -eq 0 ]; then
+if [ ${#addArgs[@]} -eq 0 -a ${#addFiles[@]} -eq 0 -a -z "$addCommandExtension" ]; then
     complete${action^}; exit $?
 fi
 
@@ -245,7 +245,7 @@ git-detach "$commit"
 git reset HEAD~
 
 # Select the changes you want to revert.
-git $addCommand "${addArgs[@]}" -- "${addFiles[@]}"
+git add$addCommandExtension "${addArgs[@]}" -- "${addFiles[@]}"
 
 # Create a commit that only contains the changes you want to revert.
 printf -v commitMessage 'Partial revert of "%s"\n\nThis reverts parts of commit %s' "$(git l1 "$commit")" "$(git-commitid "$commit")"

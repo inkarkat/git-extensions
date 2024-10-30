@@ -82,12 +82,19 @@ case "$gitCommand" in
 	fi
 	;;
 
-    lc?(f)by)
+    (\
+lc?(f)by|\
+lc?(l)@(g|changed|touched)by\
+)
 	revRangeAdditionalArgs=(--one-more-command log --one-more-with-padding)
 	;&
 	(\
 l?(h|g|og)by|\
-l?(o)g?(v)@(g|changed|touched)by\
+l?(o)g?(v)@(g|changed|touched)by|\
+@(log?(v)|show)@(last|first)@(g|changed|touched)by|\
+l?(o)g?([fv])by|\
+@(l?(o)|count|logdistribution)by|\
+activityby\
 )
 	[ "$gitCommand" = lgby ] && gitCommand='onelinelog'
 	othersCommand "$@"

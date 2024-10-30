@@ -57,7 +57,11 @@ who@(when|first|last)|whatdid|churn\
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 lg TIMESPAN "$@";;
     (\
 l?(c?(f)|h|g|og)by|\
-l?(o)g?(v)@(g|changed|touched)by\
+lc?(l)@(g|changed|touched)by|\
+l?(o)g?(v)@(g|changed|touched)by|\
+@(log?(v)|show)@(last|first)@(g|changed|touched)by|\
+lc@(?(l)?(f)|?(f)by)|\
+@(l?(o)g?([fv])|l?(o)|count|logdistribution)by\
 )
 	[ "$gitCommand" = lgby ] && gitCommand='onelinelog'
 	othersCommand "$@"

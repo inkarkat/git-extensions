@@ -145,7 +145,7 @@ detach@(g|changed|touched)\
 	;&
     l?(h|g|og)by)
 	[ "$gitCommand" = lgby ] && gitCommand='onelinelog'
-	$EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" "${scopeCommandLastArgs[@]}" "${revRangeAdditionalArgs[@]}" -5 others-command -2 "${gitCommand%by}" AUTHORS RANGE : "$@";;
+	$EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" "${scopeCommandLastArgs[@]}" "${revRangeAdditionalArgs[@]}" -7 others-command --range RANGE -2 "${gitCommand%by}" AUTHORS RANGE : "$@";;
     @(show|tree)[ou]url)
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" --keep-position selectedcommit-command --range-is-last -3 "$gitCommand" COMMITS RANGE "$@";;
     compareourl)

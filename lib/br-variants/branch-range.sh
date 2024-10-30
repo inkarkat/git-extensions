@@ -108,7 +108,7 @@ subchanges|superchanges|subrevl@(?(o)g|c)\
 	;&
     l?(h|g|og)by)
 	[ "$gitCommand" = lgby ] && gitCommand='onelinelog'
-	$EXEC git-dashdash-default-command --with-files : branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" "${revRangeAdditionalArgs[@]}" -5 others-command -2 "${gitCommand%by}" AUTHORS RANGE : "$@";;
+	$EXEC git-dashdash-default-command --with-files : branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" "${revRangeAdditionalArgs[@]}" -7 others-command --range RANGE -2 "${gitCommand%by}" AUTHORS RANGE : "$@";;
     @(show|tree)[ou]url)
 	$EXEC git-branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --keep-position selectedcommit-command --range-is-last -3 "$gitCommand" COMMITS RANGE "$@";;
     compareourl)

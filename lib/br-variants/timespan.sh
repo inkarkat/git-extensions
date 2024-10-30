@@ -172,7 +172,7 @@ who@(when|first|last)|whatdid|churn\
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 "${gitCommand%here}" TIMESPAN "$@";;
 
     activity?(mine|team))
-	$EXEC echo "Note: $gitCommmand would just trim activity to ${scopeWhat}.";;
+	$EXEC echo "Note: $gitCommand would just trim activity to ${scopeWhat}.";;
 
     emaillog)
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -3 email-command log TIMESPAN "$@";;

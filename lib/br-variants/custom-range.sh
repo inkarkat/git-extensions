@@ -60,7 +60,15 @@ othersCommand()
 }
 
 : ${EXEC:=exec}
-gitCommand="${1:-$GIT_CUSTOMRANGEVARIANT_DEFAULT_COMMAND}"; shift
+if [ $# -lt ${#scopeMandatoryArgs[@]} ]; then
+    printf >&2 'ERROR: Required arguments missing: %s\n' "${scopeMandatoryArgs[*]}"
+    exit 2
+elif [ $# -eq ${#scopeMandatoryArgs[@]} ]; then
+    gitCommand="$GIT_CUSTOMRANGEVARIANT_DEFAULT_COMMAND"
+else
+    gitCommand="${1:?}"; shift
+fi
+
 typeset -a revRangeAdditionalArgs=()
 case "$gitCommand" in
     lc?(f)?(mine|team))

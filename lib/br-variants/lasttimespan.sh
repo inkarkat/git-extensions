@@ -159,6 +159,8 @@ lc@(?(l)?(f)|?(f))by|\
 
     rb)
 	$EXEC echo "Note: $gitCommand is a no-op, because it iterates over the current range without touching fixups.";;
+    rbcheck)
+	$EXEC "git-${scopeCommand:?}" -3 rebasecheck --check-range TIMESPAN "$@";;
     check|command|exec)
 	source "${libDir:?}/rebase.sh.part" "$@"
 	;&

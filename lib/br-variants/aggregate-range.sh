@@ -134,7 +134,7 @@ cat|cp\
     (\
 fix@(up|amend|wording)?(rb)|\
 check|command|exec|\
-rb|rb?(n)i|segregate@(commits|andbifurcate)|bifurcate|rblastfixup|\
+rb|rbcheck|rb?(n)i|segregate@(commits|andbifurcate)|bifurcate|rblastfixup|\
 move-to-branch|uncommit-to-stash|uncommit-to-branch\
 )
 	$EXEC echo "Note: $gitCommand cannot work across branches.";;

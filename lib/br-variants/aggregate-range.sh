@@ -146,9 +146,9 @@ move-to-branch|uncommit-to-stash|uncommit-to-branch\
     preds)
 	$EXEC git-"${scopeCommand[@]}" --no-range --one-more -2 show RANGE "$@";;
 
-    who@(created|lasttouched|did?(f)|owns|contributed|what)thosechangedfiles)
+    who@(created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what)thosechangedfiles)
 	withAggregateFiles "${gitCommand%thosechangedfiles}" "$@";;
-    who@(created|lasttouched|did?(f)|owns|contributed|what)here)
+    who@(created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what)here)
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -2 "${gitCommand%here}" RANGE "$@";;
 
     emaillog)

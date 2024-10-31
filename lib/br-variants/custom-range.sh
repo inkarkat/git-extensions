@@ -248,9 +248,9 @@ activityby\
     cat|cp)
 	$EXEC git-"${scopeCommand[@]}" -2 "${gitCommand}selectedonemore" RANGE "$@";;
 
-    who@(created|lasttouched|did?(f)|owns|contributed|what)thosechangedfiles)
+    who@(created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what)thosechangedfiles)
 	withScoped files "${gitCommand%thosechangedfiles}" "$@";;
-    who@(created|lasttouched|did?(f)|owns|contributed|what)here)
+    who@(created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what)here)
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -2 "${gitCommand%here}" RANGE "$@";;
 
     emaillog)

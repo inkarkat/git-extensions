@@ -211,9 +211,9 @@ activityby\
     cat|cp)
 	$EXEC git-branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -2 "${gitCommand}selectedonemore" RANGE "$@";;
 
-    who@(created|lasttouched|did?(f)|owns|contributed|what)thosechangedfiles)
+    who@(created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what)thosechangedfiles)
 	$EXEC git-branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --keep-position files-command --source-exec showfiles RANGE \; "${gitCommand%thosechangedfiles}" "$@";;
-    who@(created|lasttouched|did?(f)|owns|contributed|what)here)
+    who@(created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what)here)
 	$EXEC git-branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -2 "${gitCommand%here}" RANGE "$@";;
 
     emaillog)

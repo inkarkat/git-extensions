@@ -180,9 +180,9 @@ lc@(?(l)?(f)|?(f))by|\
     cat|cp)
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 "${gitCommand}selectedonemore" TIMESPAN "$@";;
 
-    who@(created|lasttouched|did?(f)|owns|contributed|what)thosechangedfiles)
+    who@(created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what)thosechangedfiles)
 	$EXEC git-revision-command --keep-position files-command --source-command "$scope files --revision REVISION" "${gitCommand%thosechangedfiles}" "$@";;
-    who@(created|lasttouched|did?(f)|owns|contributed|what)here)
+    who@(created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what)here)
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 "${gitCommand%here}" TIMESPAN "$@";;
 
     activity?(mine|team))

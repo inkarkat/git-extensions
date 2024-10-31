@@ -9,11 +9,11 @@ readonly scope="${scriptName#git-}"
 printUsage()
 {
     if [ "$scopeEndRevision" = BRANCH ]; then
-	local from='the current / passed via -b|--branch branch'
+	local from='the current / passed BRANCH'
 	local to="${scopeWhat:?}"
     else
 	local from="${scopeWhat:?}"
-	local to='the current / passed via -b|--branch branch'
+	local to='the current / passed BRANCH'
     fi
     cat <<HELPTEXT
 Covers the additions of ${from}
@@ -33,7 +33,15 @@ othersCommand()
 }
 
 : ${EXEC:=exec}
-gitCommand="${1:-$GIT_BRVARIANT_DEFAULT_COMMAND}"; shift
+if [ $# -lt ${#scopeMandatoryArgs[@]} ]; then
+    printf >&2 'ERROR: Required arguments missing: %s\n' "${scopeMandatoryArgs[*]}"
+    exit 2
+elif [ $# -eq ${#scopeMandatoryArgs[@]} ]; then
+    gitCommand="$GIT_BRVARIANT_DEFAULT_COMMAND"
+else
+    gitCommand="${1:?}"; shift
+fi
+
 typeset -a revRangeAdditionalArgs=()
 case "$gitCommand" in
     lc?(f)?(mine|team))

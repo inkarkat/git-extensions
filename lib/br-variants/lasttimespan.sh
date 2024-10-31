@@ -25,7 +25,15 @@ othersCommand()
 }
 
 : ${EXEC:=exec}
-gitCommand="${1:-$GIT_LASTTIMESPAN_DEFAULT_COMMAND}"; shift
+if [ $# -lt ${#scopeMandatoryArgs[@]} ]; then
+    printf >&2 'ERROR: Required arguments missing: %s\n' "${scopeMandatoryArgs[*]}"
+    exit 2
+elif [ $# -eq ${#scopeMandatoryArgs[@]} ]; then
+    gitCommand="$GIT_LASTTIMESPAN_DEFAULT_COMMAND"
+else
+    gitCommand="${1:?}"; shift
+fi
+
 case "$gitCommand" in
     (\
 @(lc?(l)|l?(o)g?(v)|count)@(g|changed|touched)?(mine|team)|\

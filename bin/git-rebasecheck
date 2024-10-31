@@ -43,6 +43,7 @@ else
 fi
 
 typeset -A allProblematicCommits=()
+typeset -a hints=()
 
 mergeCheck()
 {
@@ -56,6 +57,7 @@ mergeCheck()
     if [ ${#mergeCommits[@]} -gt 0 ]; then
 	mergeCommitsPlural=s; [ ${#mergeCommits[@]} -eq 1 ] && mergeCommitsPlural=
 	printf >&2 'Note: %d merge commit%s would be destroyed by a rebase:\n' ${#mergeCommits[@]} "$mergeCommitsPlural"
+	hints+=("stopping short of the merge${mergeCommitsPlural}")
     fi
 }
 
@@ -96,6 +98,7 @@ referenceCheck()
 	    allReferencingCommitsVerbEnding=
 	fi
 	printf >&2 'Note: The following commit%s reference%s the commit%s that will be rebased:\n' "$allReferencingCommitsPlural" "$allReferencingCommitsVerbEnding" "$referencedCommitsPlural"
+	hints+=('rewording those commits to update or remove the references')
     fi
 }
 
@@ -104,9 +107,11 @@ referenceCheck
 [ ${#allProblematicCommits[@]} -gt 0 ] || exit 0
 
 git-lghighlightedcommits "${!allProblematicCommits[@]}" "$range"
+
+printf -v combinedHints '%s, ' "${hints[@]}"
 if [ "$isInteractive" ]; then
-    printf >&2 'Consider rewording those commits to update or remove the references, or cancel the rebase by aborting the editor.\n'
+    printf >&2 'Consider %sor cancel the rebase by aborting the editor.\n' "$combinedHints"
     sleep 2 # Give the user a chance to read the message before the editor is invoked.
 else
-    userBinaryChoice --keep-prompt --question 'Really continue with the squashing rebase that potentially invalidates the references?' --yes-no
+    userBinaryChoice --keep-prompt --question "Really continue with the squashing rebase without ${combinedHints%, }?" --yes-no
 fi

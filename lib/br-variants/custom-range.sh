@@ -80,8 +80,7 @@ lg@(rel|tagged|st|i|I)\
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" --one-more-command "greyonelineloghighlight $gitCommand" --one-more-only-to-terminal -2 "$gitCommand" RANGE "$@";;
 
     (\
-lc?(l)@(g|changed|touched)?(mine|team)|\
-l?(o)g?(v)@(g|changed|touched)?(mine|team)|\
+@(lc?(l)|l?(o)g?(v)|count)@(g|changed|touched)?(mine|team)|\
 @(log?(v)|show)@(last|first)@(g|changed|touched)?(mine|team)|\
 @(files|versions|tags)@(g|changed|touched)|\
 @(files|version|tag)@(last|first)@(g|changed|touched)\
@@ -155,7 +154,7 @@ lc?(l)@(g|changed|touched)by\
 	;&
 	(\
 l?(h|g|og)by|\
-l?(o)g?(v)@(g|changed|touched)by|\
+@(l?(o)g?(v)|count)@(g|changed|touched)by|\
 @(log?(v)|show)@(last|first)@(g|changed|touched)by|\
 l?(o)g?([fv])by|\
 @(l?(o)|count|logdistribution)by|\
@@ -249,9 +248,9 @@ activityby\
     cat|cp)
 	$EXEC git-"${scopeCommand[@]}" -2 "${gitCommand}selectedonemore" RANGE "$@";;
 
-    who@(created|lasttouched|did?(f)|owns|contributed|what)thosechangedfiles)
+    who@(created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what)thosechangedfiles)
 	withScoped files "${gitCommand%thosechangedfiles}" "$@";;
-    who@(created|lasttouched|did?(f)|owns|contributed|what)here)
+    who@(created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what)here)
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -2 "${gitCommand%here}" RANGE "$@";;
 
     emaillog)

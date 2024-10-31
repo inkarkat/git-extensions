@@ -137,10 +137,10 @@ fi
 [ "$isSummary" ] && [ ${#shortlogOrderingArg[@]} -gt 0 ] && \
     preFilter=(sed -e '/^[[:space:]]*1[[:space:]]\+/{ $b }' -e ':loop' -e 's/^[[:space:]]*1[[:space:]]\+\(.*\)$/\1/' -e T -e 'H; $!{ N; s/.*\n//; b loop }' -e '${ g; s/^\n/  Once:\t/; s/\n/, /g }'  )
 
-if [ ${#logArgs[@]} -eq 0 ]; then
+if [ ${#logArgs[@]} -eq 0 -a -z "$GIT_WHODID_LOG_COMMAND" ]; then
     git shortlog "${shortlogOrderingArg[@]}" "${shortlogArgs[@]}" "$@"
 else
-    git log --pretty=$prettyFormat "${logArgs[@]}" "$@" | git shortlog "${shortlogOrderingArg[@]}" "${shortlogArgs[@]}"
+    git ${GIT_WHODID_LOG_COMMAND:-log} --pretty=$prettyFormat "${logArgs[@]}" "$@" | git shortlog "${shortlogOrderingArg[@]}" "${shortlogArgs[@]}"
 fi | \
     eval '"${preFilter[@]}"' \
 	"${filterSelector:+|}$filterSelector" \

@@ -4,7 +4,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: echo R1 R2 R3 | %q %s\n' "$(basename "$1")" '[--accept-single] [--single-only] [--cached|HEAD] [GIT-COMMAND-ARGS ...] [--] [FILE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--accept-single] [--single-only] [--cached|HEAD] [GIT-COMMAND-ARGS ...] [--] [FILE ...] [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [GIT-COMMAND-ARGS ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... COMMITS ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
@@ -67,6 +67,11 @@ if [ -z "${files+t}" ]; then
 	files=("$lastArg" "${files[@]}")
 	selectedcommitCommandArgs=("${selectedcommitCommandArgs[@]:0:${#selectedcommitCommandArgs[@]}-1}")
     done
+fi
+
+if git diff --quiet "${difflinesArgs[@]}" "${files[@]}"; then
+    echo >&2 'No changes.'
+    exit 1
 fi
 
 git-difflines "${difflinesArgs[@]}" --only-old --number-format '-L%dn,%dn' \

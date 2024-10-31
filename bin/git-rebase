@@ -12,7 +12,7 @@ Supports my command-passing conventions (-c|--command and --exec ... ;, git
 SIMPLECOMMAND after --) and running build checks from stdin / preconfigured.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[--no-submodule-update] [--check|-|-c|-x|--command COMMANDLINE|--exec SIMPLECOMMAND [...] ${GIT_REBASE_EXEC_END} [-c ...]]  [<rebase-args> ...] [-- SIMPLECOMMAND ...] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[--no-submodule-update] [--no-rebase-checks] [--check|-|-c|-x|--command COMMANDLINE|--exec SIMPLECOMMAND [...] ${GIT_REBASE_EXEC_END} [-c ...]]  [<rebase-args> ...] [-- SIMPLECOMMAND ...] [-?|-h|--help]"
 }
 
 addExec()
@@ -35,6 +35,7 @@ addExec()
     rebaseArgs+=(--exec "$cmd")
 }
 
+isChecks=t
 isSubmoduleUpdate=t
 typeset -a rebaseArgs=()
 while [ $# -ne 0 ]
@@ -46,6 +47,9 @@ do
 	--color)	shift; shift;;
 	--no-submodule-update)
 			shift; isSubmoduleUpdate=;;
+	--no-rebase-checks)
+			shift; isChecks=;;
+
 	--command|-c|-x)
 			shift; addExec '' "${1:?}"; shift;;
 	--exec)		shift
@@ -95,7 +99,7 @@ do
     esac
 done
 
-git-rebasecheck "${rebaseArgs[@]}" "$@" || exit $?
+[ ! "$isChecks" ] || git-rebasecheck "${rebaseArgs[@]}" "$@" || exit $?
 
 eval "typeset -a gitConfigArgs=($GIT_CONFIG_ARGS)"
 command git "${gitConfigArgs[@]}" rebase "${rebaseArgs[@]}" "$@" || exit $?

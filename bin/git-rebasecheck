@@ -41,46 +41,48 @@ else
     exit 0
 fi
 
-typeset -A referencedCommits=()
-hashesExpr=
-hash=
-message=
-while IFS=$'\n' read -r line
-do
-    if [[ "$line" =~ ^[[:xdigit:]]+$ ]]; then
-	if [ -n "$message" ]; then
-	    referencedCommits["$hash"]="$message "
-	    hashesExpr+="${hashesExpr:+|}${hash}"
-	    message=''
-	fi
-	hash="${line:1}"
-    elif [ -n "$line" ]; then
-	message+=" $line"
-    fi
-done < <(git log --pretty=$'tformat:%h\n%B' "$range"; printf '00000000\n')
-
 typeset -A allProblematicCommits=()
-typeset -A allReferencingCommits=()
-for hash in "${!referencedCommits[@]}"
-do
-    if [[ "${referencedCommits["$hash"]}" =~ [^[:alnum:]](${hashesExpr})[[:xdigit:]]*[^[:alnum:]] ]]; then
-	allProblematicCommits["$hash"]=t
-	allReferencingCommits["$hash"]=t
-    fi
-done
+referenceCheck()
+{
+    typeset -A referencedCommits=()
+    local hashesExpr='' hash='' message='' line
+    while IFS=$'\n' read -r line
+    do
+	if [[ "$line" =~ ^[[:xdigit:]]+$ ]]; then
+	    if [ -n "$message" ]; then
+		referencedCommits["$hash"]="$message "
+		hashesExpr+="${hashesExpr:+|}${hash}"
+		message=''
+	    fi
+	    hash="${line:1}"
+	elif [ -n "$line" ]; then
+	    message+=" $line"
+	fi
+    done < <(git log --pretty=$'tformat:%h\n%B' "$range"; printf '00000000\n')
 
-if [ ${#allReferencingCommits[@]} -gt 0 ]; then
-    referencedCommitsPlural=s; [ ${#referencedCommits[@]} -eq 1 ] && referencedCommitsPlural=
-    if [ ${#allReferencingCommits[@]} -eq 1 ]; then
-	allReferencingCommitsPlural=
-	allReferencingCommitsVerbEnding=s
-    else
-	allReferencingCommitsPlural=s
-	allReferencingCommitsVerbEnding=
-    fi
-    printf >&2 'Note: The following commit%s reference%s the commit%s that will be rebased:\n' "$allReferencingCommitsPlural" "$allReferencingCommitsVerbEnding" "$referencedCommitsPlural"
-fi
+    typeset -A allReferencingCommits=()
+    for hash in "${!referencedCommits[@]}"
+    do
+	if [[ "${referencedCommits["$hash"]}" =~ [^[:alnum:]](${hashesExpr})[[:xdigit:]]*[^[:alnum:]] ]]; then
+	    allProblematicCommits["$hash"]=t
+	    allReferencingCommits["$hash"]=t
+	fi
+    done
 
+    if [ ${#allReferencingCommits[@]} -gt 0 ]; then
+	referencedCommitsPlural=s; [ ${#referencedCommits[@]} -eq 1 ] && referencedCommitsPlural=
+	if [ ${#allReferencingCommits[@]} -eq 1 ]; then
+	    allReferencingCommitsPlural=
+	    allReferencingCommitsVerbEnding=s
+	else
+	    allReferencingCommitsPlural=s
+	    allReferencingCommitsVerbEnding=
+	fi
+	printf >&2 'Note: The following commit%s reference%s the commit%s that will be rebased:\n' "$allReferencingCommitsPlural" "$allReferencingCommitsVerbEnding" "$referencedCommitsPlural"
+    fi
+}
+
+referenceCheck
 [ ${#allProblematicCommits[@]} -gt 0 ] || exit 0
 
 git-lghighlightedcommits "${!allProblematicCommits[@]}" "$range"

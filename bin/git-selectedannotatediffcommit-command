@@ -69,6 +69,11 @@ if [ -z "${files+t}" ]; then
     done
 fi
 
+if git diff --quiet "${difflinesArgs[@]}" "${files[@]}"; then
+    echo >&2 'No changes.'
+    exit 1
+fi
+
 git-difflines "${difflinesArgs[@]}" --only-old --number-format '-L%dn,%dn' \
 	--command 'git blame --porcelain {} HEAD -- {+} | grep -o "^[[:xdigit:]]\\{40\\}" | sort --unique' \
 	"${files[@]}" \

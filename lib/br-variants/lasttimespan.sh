@@ -57,7 +57,7 @@ who@(when|first|last)|whatdid|churn\
 l?(c?(f)|h|g|og)by|\
 @(lc?(l)|l?(o)g?(v))@(g|changed|touched)by|\
 @(log?(v)|show)@(last|first)@(g|changed|touched)by|\
-lc@(?(l)?(f)|?(f)by)|\
+lc@(?(l)?(f)|?(f))by|\
 @(l?(o)g?([fv])|l?(o)|count|logdistribution)by\
 )
 	[ "$gitCommand" = lgby ] && gitCommand='onelinelog'

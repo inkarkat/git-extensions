@@ -211,6 +211,9 @@ activityby\
 
     rb)
 	onLocalBranch echo "Note: $gitCommand is a no-op, because it iterates over the current range without touching fixups. Use the dedicated check|command|exec to iterate over all branch commits. To rebase onto ${scopeWhat}, there's a dedicated alias outside of \"git ${scope}\".";;
+    check|command|exec)
+	source "${libDir:?}/rebase.sh.part" "$@"
+	;&
     rb?(n)i|segregate@(commits|andbifurcate)|bifurcate)
 	typeset -a segregateArgs=(); [[ "$gitCommand" =~ ^segregate ]] && segregateArgs=(--explicit-file-args)  # Avoid that the second argument of --path PATH-GLOB is parsed off as a FILE for commit selection.
 	onLocalBranch git-"${scopeCommand[@]}" --keep-position selectedcommit-command --single-only --range-is-last "${segregateArgs[@]}" -5 previouscommit-command --commit COMMITS "$gitCommand" RANGE "$@";;

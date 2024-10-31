@@ -125,6 +125,7 @@ cat|cp\
 
     (\
 fix@(up|amend|wording)?(rb)|\
+check|command|exec|\
 rb|rb?(n)i|segregate@(commits|andbifurcate)|bifurcate|rblastfixup|\
 move-to-branch|uncommit-to-stash|uncommit-to-branch\
 )

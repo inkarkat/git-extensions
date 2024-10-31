@@ -59,26 +59,31 @@ do
     fi
 done < <(git log --pretty=$'tformat:%h\n%B' "$range"; printf '00000000\n')
 
+typeset -A allProblematicCommits=()
 typeset -A allReferencingCommits=()
 for hash in "${!referencedCommits[@]}"
 do
     if [[ "${referencedCommits["$hash"]}" =~ [^[:alnum:]](${hashesExpr})[[:xdigit:]]*[^[:alnum:]] ]]; then
+	allProblematicCommits["$hash"]=t
 	allReferencingCommits["$hash"]=t
     fi
 done
 
-[ ${#allReferencingCommits[@]} -gt 0 ] || exit 0
-
-referencedCommitsPlural=s; [ ${#referencedCommits[@]} -eq 1 ] && referencedCommitsPlural=
-if [ ${#allReferencingCommits[@]} -eq 1 ]; then
-    allReferencingCommitsPlural=
-    allReferencingCommitsVerbEnding=s
-else
-    allReferencingCommitsPlural=s
-    allReferencingCommitsVerbEnding=
+if [ ${#allReferencingCommits[@]} -gt 0 ]; then
+    referencedCommitsPlural=s; [ ${#referencedCommits[@]} -eq 1 ] && referencedCommitsPlural=
+    if [ ${#allReferencingCommits[@]} -eq 1 ]; then
+	allReferencingCommitsPlural=
+	allReferencingCommitsVerbEnding=s
+    else
+	allReferencingCommitsPlural=s
+	allReferencingCommitsVerbEnding=
+    fi
+    printf >&2 'Note: The following commit%s reference%s the commit%s that will be rebased:\n' "$allReferencingCommitsPlural" "$allReferencingCommitsVerbEnding" "$referencedCommitsPlural"
 fi
-printf >&2 'Note: The following commit%s reference%s the commit%s that will be rebased:\n' "$allReferencingCommitsPlural" "$allReferencingCommitsVerbEnding" "$referencedCommitsPlural"
-git-lghighlightedcommits "${!allReferencingCommits[@]}" "$range"
+
+[ ${#allProblematicCommits[@]} -gt 0 ] || exit 0
+
+git-lghighlightedcommits "${!allProblematicCommits[@]}" "$range"
 if [ "$isInteractive" ]; then
     printf >&2 'Consider rewording those commits to update or remove the references, or cancel the rebase by aborting the editor.\n'
     sleep 2 # Give the user a chance to read the message before the editor is invoked.

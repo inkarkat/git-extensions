@@ -180,6 +180,18 @@ activityby\
 	quotedAuthorsAndRange="$(gitCommand=quoted othersCommand "$@")" || exit $?
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files $quotedAuthorsAndRange" $EXEC git-selected-command "onelinelog $quotedAuthorsAndRange --"
 	;;
+    files@(l?(o)g|logv|lc|logfiles))
+	# Logs of files modified in the additions of the custom range starting from before it.
+	# Need to obtain the end revision of the range separately here. As some
+	# scopeCommand may evaluate some passed arguments, these must be passed, and
+	# anything that's still echoed is ignored.
+	< <(${EXEC#exec} git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" --last-only --reverse -2 echo RANGE "$@") IFS=' ' read -r startRevision _
+	if [ -n "$startRevision" ]; then
+	    set -- "$startRevision" "$@"
+	else
+	    ${EXEC#exec} printf >&2 'Note: Failed to determine the start revision of the range; the %s scope is included in the log now.\n' "$scope"
+	fi
+	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -3 showfiles-command --revision RANGE "${gitCommand#files}" "$@";;
 
     cors)
 	$EXEC git-"${scopeCommand[@]}" -2 checkoutselectedrevisionselected RANGE "$@";;

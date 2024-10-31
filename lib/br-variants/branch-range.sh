@@ -142,6 +142,9 @@ activityby\
 	quotedAuthorsAndRange="$(gitCommand=quoted othersCommand "$@")" || exit $?
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files $quotedAuthorsAndRange" $EXEC git-selected-command "onelinelog $quotedAuthorsAndRange --"
 	;;
+    files@(l?(o)g|logv|lc|logfiles))
+	# Logs of files modified in the additions of the branch starting from before it.
+	$EXEC git-branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -3 showfiles-command --revision RANGE "${gitCommand#files}" "$scopeRevision" "$@";;
 
     cors)
 	$EXEC git-branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -2 checkoutselectedrevisionselected RANGE "$@";;

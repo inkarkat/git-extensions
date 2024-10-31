@@ -24,6 +24,8 @@ HELPTEXT
 unset isRange
 isShowOneMore=
 range='..'
+isLastOnly=
+isReverse=
 offset=0
 count=1
 typeset -a args=()
@@ -38,10 +40,12 @@ do
 			shift
 			;;
 	--days|-n)	shift; count="${1:?}"; shift;;
-	--no-range)	shift; isRange=;;
+	--no-range)	shift; isRange=; [ "$isLastOnly" ] && { printUsage "$0" >&2; exit 2; };;
 	--range)	shift; isRange=t;;
-	--with-range)	shift; isRange=t; range="${1:?}"; shift;;
+	--with-range)	shift; isRange=t; range="${1:?}"; shift; [ "$isLastOnly" ] && { printUsage "$0" >&2; exit 2; };;
 	--one-more)	shift; isShowOneMore=t;;
+	--last-only)	shift; isLastOnly=t; [ "$range" = .. ] || { printUsage "$0" >&2; exit 2; };;
+	--reverse)	shift; isReverse=t;;
 	--)		break;;
 	*)		args+=("$1"); shift;;
     esac
@@ -61,7 +65,7 @@ calculateDate()
 endDate="$(calculateDate $offset)"
 startDate="$(calculateDate $((offset + count)))"
 
-if [ -z "${isRange+t}" ] && [ ! "$isShowOneMore" ]; then
+if [ -z "${isRange+t}" ] && [ ! "$isShowOneMore" ] && [ ! "$isLastOnly" ] && [ ! "$isReverse" ]; then
     # For commands that don't require a range and don't require a single commit
     # (i.e. the log variants), we can directly inject the --since argument.
     typeset -a lastDayArgs=(
@@ -71,7 +75,11 @@ if [ -z "${isRange+t}" ] && [ ! "$isShowOneMore" ]; then
 else
     readarray -t revisions < <(git lh --since "$startDate" --until="$endDate")
     [ ${#revisions[@]} -gt 0 ] || exit 1
-    if [ "$isRange" ]; then
+    if [ "$isLastOnly" ]; then
+	[ "$isReverse" ] \
+	    && lastDayArgs=("${revisions[-1]}${isShowOneMore:+^}") \
+	    || lastDayArgs=("${revisions[0]}")
+    elif [ "$isRange" ]; then
 	lastDayArgs=("${revisions[-1]}${isShowOneMore:+^}^${range}${revisions[0]}")
     else
 	lastDayArgs=("${revisions[-1]}${isShowOneMore:+^}" "${revisions[0]}")

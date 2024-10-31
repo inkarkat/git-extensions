@@ -28,8 +28,7 @@ othersCommand()
 gitCommand="${1:-$GIT_LASTTIMESPAN_DEFAULT_COMMAND}"; shift
 case "$gitCommand" in
     (\
-lc?(l)@(g|changed|touched)?(mine|team)|\
-l?(o)g?(v)@(g|changed|touched)?(mine|team)|\
+@(lc?(l)|l?(o)g?(v))@(g|changed|touched)?(mine|team)|\
 @(log?(v)|show)@(last|first)@(g|changed|touched)?(mine|team)|\
 @(files|versions|tags)@(g|changed|touched)|\
 @(files|version|tag)@(last|first)@(g|changed|touched)|\
@@ -56,8 +55,7 @@ who@(when|first|last)|whatdid|churn\
 	$EXEC "git-${scopeCommand:?}" -2 lg TIMESPAN "$@";;
     (\
 l?(c?(f)|h|g|og)by|\
-lc?(l)@(g|changed|touched)by|\
-l?(o)g?(v)@(g|changed|touched)by|\
+@(lc?(l)|l?(o)g?(v))@(g|changed|touched)by|\
 @(log?(v)|show)@(last|first)@(g|changed|touched)by|\
 lc@(?(l)?(f)|?(f)by)|\
 @(l?(o)g?([fv])|l?(o)|count|logdistribution)by\

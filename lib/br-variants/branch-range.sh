@@ -53,8 +53,7 @@ lg@(rel|tagged|st|i|I)\
 	$EXEC git-branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --one-more-command "greyonelineloghighlight $gitCommand" --one-more-only-to-terminal -2 "$gitCommand" RANGE "$@";;
 
     (\
-lc?(l)@(g|changed|touched)?(mine|team)|\
-l?(o)g?(v)@(g|changed|touched)?(mine|team)|\
+@(lc?(l)|l?(o)g?(v))@(g|changed|touched)?(mine|team)|\
 @(log?(v)|show)@(last|first)@(g|changed|touched)?(mine|team)|\
 lcl?(f)|\
 lh?(mine|team)|\

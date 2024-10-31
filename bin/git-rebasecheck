@@ -60,18 +60,18 @@ referenceCheck()
 	fi
     done < <(git log --pretty=$'tformat:%h\n%B' "$range"; printf '00000000\n')
 
-    typeset -A allReferencingCommits=()
+    typeset -A referencingCommits=()
     for hash in "${!referencedCommits[@]}"
     do
 	if [[ "${referencedCommits["$hash"]}" =~ [^[:alnum:]](${hashesExpr})[[:xdigit:]]*[^[:alnum:]] ]]; then
 	    allProblematicCommits["$hash"]=t
-	    allReferencingCommits["$hash"]=t
+	    referencingCommits["$hash"]=t
 	fi
     done
 
-    if [ ${#allReferencingCommits[@]} -gt 0 ]; then
+    if [ ${#referencingCommits[@]} -gt 0 ]; then
 	referencedCommitsPlural=s; [ ${#referencedCommits[@]} -eq 1 ] && referencedCommitsPlural=
-	if [ ${#allReferencingCommits[@]} -eq 1 ]; then
+	if [ ${#referencingCommits[@]} -eq 1 ]; then
 	    allReferencingCommitsPlural=
 	    allReferencingCommitsVerbEnding=s
 	else

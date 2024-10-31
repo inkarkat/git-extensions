@@ -3,16 +3,21 @@
 printUsage()
 {
     cat <<HELPTEXT
-Check whether the commits that will be rebased reference other commits from that
-range via commit hashes in their commit messages. The history rewriting runs the
-risk of invalidating those references.
+Check whether the commits that will be rebased contain merges or reference other
+commits from that range via commit hashes in their commit messages. The history
+rewriting runs the risk of destroying the merges / invalidating those
+references.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[REBASE-ARGS ...] [<upstream> [<branch>]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--check-only] [REBASE-ARGS ...] [<upstream> [<branch>]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--check-range <revision-range> [...]'
 }
 
+isCheckOnly=
 isAutosquash=
 isInteractive=
+severitySigil='Note'
+typeset -a range=()
 typeset -a rebaseArgs=()
 while [ $# -ne 0 ]
 do
@@ -21,6 +26,8 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
+	--check-range)	shift; range=("$@"); set --;&
+	--check-only)	shift; isCheckOnly=t; severitySigil='ERROR';;
 	--autosquash)	rebaseArgs+=("$1"); shift; isAutosquash=t;;
 	--interactive|-i)
 			rebaseArgs+=("$1"); shift; isInteractive=t;;
@@ -29,59 +36,92 @@ do
     esac
 done
 
-[ "$isAutosquash" ] || [ "$isInteractive" ] || exit 0
+[ "$isCheckOnly" ] || [ "$isAutosquash" ] || [ "$isInteractive" ] || exit 0
 
-if [ ${#rebaseArgs[@]} -ge 2 ] && git rev-parse --verify --quiet "${rebaseArgs[-1]}" >/dev/null 2>&1 && git rev-parse --verify --quiet "${rebaseArgs[-2]}" >/dev/null 2>&1; then
+if [ ${#range[@]} -gt 0 ]; then
+    :
+elif [ ${#rebaseArgs[@]} -ge 2 ] && git rev-parse --verify --quiet "${rebaseArgs[-1]}" >/dev/null 2>&1 && git rev-parse --verify --quiet "${rebaseArgs[-2]}" >/dev/null 2>&1; then
     # <upstream> <branch>
-    range="${rebaseArgs[-2]}..${rebaseArgs[-1]}"
+    range=("${rebaseArgs[-2]}..${rebaseArgs[-1]}")
 elif [ ${#rebaseArgs[@]} -ge 1 ] && git rev-parse --verify --quiet "${rebaseArgs[-1]}" >/dev/null 2>&1; then
     # <upstream>
-    range="${rebaseArgs[-1]}..HEAD"
+    range=("${rebaseArgs[-1]}..HEAD")
 else
     exit 0
 fi
 
-typeset -A referencedCommits=()
-hashesExpr=
-hash=
-message=
-while IFS=$'\n' read -r line
-do
-    if [[ "$line" =~ ^[[:xdigit:]]+$ ]]; then
-	if [ -n "$message" ]; then
-	    referencedCommits["$hash"]="$message "
-	    hashesExpr+="${hashesExpr:+|}${hash}"
-	    message=''
+typeset -A allProblematicCommits=()
+typeset -a hints=()
+
+mergeCheck()
+{
+    typeset -A mergeCommits=()
+    local commit; while IFS=$'\n' read -r commit
+    do
+	allProblematicCommits["$commit"]=t
+	mergeCommits["$commit"]=t
+    done < <(git-hasmerge --print "${range[@]}")
+
+    if [ ${#mergeCommits[@]} -gt 0 ]; then
+	mergeCommitsPlural=s; [ ${#mergeCommits[@]} -eq 1 ] && mergeCommitsPlural=
+	printf >&2 '%s: %d merge commit%s would be destroyed by a rebase:\n' "$severitySigil" ${#mergeCommits[@]} "$mergeCommitsPlural"
+	hints+=("stopping short of the merge${mergeCommitsPlural}")
+    fi
+}
+
+referenceCheck()
+{
+    typeset -A referencedCommits=()
+    local hashesExpr='' hash='' message='' line
+    while IFS=$'\n' read -r line
+    do
+	if [[ "$line" =~ ^[[:xdigit:]]+$ ]]; then
+	    if [ -n "$message" ]; then
+		referencedCommits["$hash"]="$message "
+		hashesExpr+="${hashesExpr:+|}${hash}"
+		message=''
+	    fi
+	    hash="${line:1}"
+	elif [ -n "$line" ]; then
+	    message+=" $line"
 	fi
-	hash="${line:1}"
-    elif [ -n "$line" ]; then
-	message+=" $line"
+    done < <(git log --pretty=$'tformat:%h\n%B' "${range[@]}"; printf '00000000\n')
+
+    typeset -A referencingCommits=()
+    for hash in "${!referencedCommits[@]}"
+    do
+	if [[ "${referencedCommits["$hash"]}" =~ [^[:alnum:]](${hashesExpr})[[:xdigit:]]*[^[:alnum:]] ]]; then
+	    allProblematicCommits["$hash"]=t
+	    referencingCommits["$hash"]=t
+	fi
+    done
+
+    if [ ${#referencingCommits[@]} -gt 0 ]; then
+	referencedCommitsPlural=s; [ ${#referencedCommits[@]} -eq 1 ] && referencedCommitsPlural=
+	if [ ${#referencingCommits[@]} -eq 1 ]; then
+	    allReferencingCommitsPlural=
+	    allReferencingCommitsVerbEnding=s
+	else
+	    allReferencingCommitsPlural=s
+	    allReferencingCommitsVerbEnding=
+	fi
+	printf >&2 '%s: The following commit%s reference%s the commit%s that will be rebased:\n' "$severitySigil" "$allReferencingCommitsPlural" "$allReferencingCommitsVerbEnding" "$referencedCommitsPlural"
+	hints+=('rewording those commits to update or remove the references')
     fi
-done < <(git log --pretty=$'tformat:%h\n%B' "$range"; printf '00000000\n')
+}
 
-typeset -A allReferencingCommits=()
-for hash in "${!referencedCommits[@]}"
-do
-    if [[ "${referencedCommits["$hash"]}" =~ [^[:alnum:]](${hashesExpr})[[:xdigit:]]*[^[:alnum:]] ]]; then
-	allReferencingCommits["$hash"]=t
-    fi
-done
+mergeCheck
+referenceCheck
+[ ${#allProblematicCommits[@]} -gt 0 ] || exit 0
 
-[ ${#allReferencingCommits[@]} -gt 0 ] || exit 0
+git-lghighlightedcommits "${!allProblematicCommits[@]}" "${range[@]}"
 
-referencedCommitsPlural=s; [ ${#referencedCommits[@]} -eq 1 ] && referencedCommitsPlural=
-if [ ${#allReferencingCommits[@]} -eq 1 ]; then
-    allReferencingCommitsPlural=
-    allReferencingCommitsVerbEnding=s
-else
-    allReferencingCommitsPlural=s
-    allReferencingCommitsVerbEnding=
-fi
-printf >&2 'Note: The following commit%s reference%s the commit%s that will be rebased:\n' "$allReferencingCommitsPlural" "$allReferencingCommitsVerbEnding" "$referencedCommitsPlural"
-git-lghighlightedcommits "${!allReferencingCommits[@]}" "$range"
-if [ "$isInteractive" ]; then
-    printf >&2 'Consider rewording those commits to update or remove the references, or cancel the rebase by aborting the editor.\n'
+printf -v combinedHints '%s, ' "${hints[@]}"
+if [ "$isCheckOnly" ]; then
+    exit 1
+elif [ "$isInteractive" ]; then
+    printf >&2 'Consider %sor cancel the rebase by aborting the editor.\n' "$combinedHints"
     sleep 2 # Give the user a chance to read the message before the editor is invoked.
 else
-    userBinaryChoice --keep-prompt --question 'Really continue with the squashing rebase that potentially invalidates the references?' --yes-no
+    userBinaryChoice --keep-prompt --question "Really continue with the squashing rebase without ${combinedHints%, }?" --yes-no
 fi

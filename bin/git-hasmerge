@@ -1,0 +1,36 @@
+#!/bin/bash
+set -o pipefail
+
+printUsage()
+{
+    cat <<HELPTEXT
+Test whether the <revision-range> contains any merge commit(s).
+(In other words, whether it has multiple parents.)
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '<revision-range> [-?|-h|--help]'
+    echo
+    cat <<HELPTEXT
+Print all merge commits inside <revision-range>.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '-p|--print <revision-range>'
+}
+
+typeset -a sedProgram=(-e '/ .* /h')
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --no-color|--color=*)
+			shift;;
+    --color)		shift; shift;;
+    --print|-p)		shift; sedProgram=(-e 's/^\([^[:space:]]\+\) .* .*$/\1/p' -e 'T finally' -e 'h');;
+esac
+if [ $# -eq 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+# Note: Do not use --min-parents=2, because commit limiting via --max-count
+# would be combined with it; i.e. the intended range would be extended.
+git log --pretty=tformat:'%H %P' "$@" \
+    | sed -n "${sedProgram[@]}" -e ':finally' -e '${ x; /./q 0; q 1; }'

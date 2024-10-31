@@ -10,7 +10,7 @@ printUsage()
 {
     cat <<HELPTEXT
 Covers changes committed ${scopeWhat:?} starting from the current /
-passed via -r|--revision REVISION.
+passed REVISION.
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND [...] [-r|--revision REVISION] [...] [-?|-h|--help]'

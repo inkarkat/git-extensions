@@ -9,11 +9,11 @@ readonly scope="${scriptName#git-}"
 printUsage()
 {
     if [ "$scopeEndRevision" = BRANCH ]; then
-	local from='the current / passed via -b|--branch branch'
+	local from='the current / passed BRANCH'
 	local to="${scopeWhat:?}"
     else
 	local from="${scopeWhat:?}"
-	local to='the current / passed via -b|--branch branch'
+	local to='the current / passed BRANCH'
     fi
     cat <<HELPTEXT
 Covers the additions of ${from}

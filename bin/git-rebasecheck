@@ -10,12 +10,14 @@ references.
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--check-only] [REBASE-ARGS ...] [<upstream> [<branch>]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--check-range <revision-range> [...]'
 }
 
 isCheckOnly=
 isAutosquash=
 isInteractive=
 severitySigil='Note'
+typeset -a range=()
 typeset -a rebaseArgs=()
 while [ $# -ne 0 ]
 do
@@ -24,6 +26,7 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
+	--check-range)	shift; range=("$@"); set --;&
 	--check-only)	shift; isCheckOnly=t; severitySigil='ERROR';;
 	--autosquash)	rebaseArgs+=("$1"); shift; isAutosquash=t;;
 	--interactive|-i)
@@ -35,12 +38,14 @@ done
 
 [ "$isCheckOnly" ] || [ "$isAutosquash" ] || [ "$isInteractive" ] || exit 0
 
-if [ ${#rebaseArgs[@]} -ge 2 ] && git rev-parse --verify --quiet "${rebaseArgs[-1]}" >/dev/null 2>&1 && git rev-parse --verify --quiet "${rebaseArgs[-2]}" >/dev/null 2>&1; then
+if [ ${#range[@]} -gt 0 ]; then
+    :
+elif [ ${#rebaseArgs[@]} -ge 2 ] && git rev-parse --verify --quiet "${rebaseArgs[-1]}" >/dev/null 2>&1 && git rev-parse --verify --quiet "${rebaseArgs[-2]}" >/dev/null 2>&1; then
     # <upstream> <branch>
-    range="${rebaseArgs[-2]}..${rebaseArgs[-1]}"
+    range=("${rebaseArgs[-2]}..${rebaseArgs[-1]}")
 elif [ ${#rebaseArgs[@]} -ge 1 ] && git rev-parse --verify --quiet "${rebaseArgs[-1]}" >/dev/null 2>&1; then
     # <upstream>
-    range="${rebaseArgs[-1]}..HEAD"
+    range=("${rebaseArgs[-1]}..HEAD")
 else
     exit 0
 fi
@@ -55,7 +60,7 @@ mergeCheck()
     do
 	allProblematicCommits["$commit"]=t
 	mergeCommits["$commit"]=t
-    done < <(git-hasmerge --print "$range")
+    done < <(git-hasmerge --print "${range[@]}")
 
     if [ ${#mergeCommits[@]} -gt 0 ]; then
 	mergeCommitsPlural=s; [ ${#mergeCommits[@]} -eq 1 ] && mergeCommitsPlural=
@@ -80,7 +85,7 @@ referenceCheck()
 	elif [ -n "$line" ]; then
 	    message+=" $line"
 	fi
-    done < <(git log --pretty=$'tformat:%h\n%B' "$range"; printf '00000000\n')
+    done < <(git log --pretty=$'tformat:%h\n%B' "${range[@]}"; printf '00000000\n')
 
     typeset -A referencingCommits=()
     for hash in "${!referencedCommits[@]}"
@@ -109,7 +114,7 @@ mergeCheck
 referenceCheck
 [ ${#allProblematicCommits[@]} -gt 0 ] || exit 0
 
-git-lghighlightedcommits "${!allProblematicCommits[@]}" "$range"
+git-lghighlightedcommits "${!allProblematicCommits[@]}" "${range[@]}"
 
 printf -v combinedHints '%s, ' "${hints[@]}"
 if [ "$isCheckOnly" ]; then

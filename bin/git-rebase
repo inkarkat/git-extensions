@@ -17,13 +17,16 @@ HELPTEXT
 
 addExec()
 {
+    local isQuoted="${1?}"; shift
     local cmd="${1:?}"; shift
 
-    # XXX: Git rebase uses the default shell, which isn't necessarily Bash.
-    # It also has a problem of dropping a trailing space when it's
-    # backslash-escaped. By converting \n to a literal newline, the following fix
-    # will be applied to escaped newlines as well.
-    type -t changeQuoting >/dev/null && cmd="$(printf %s "$cmd" | changeQuoting)"
+    if [ "$isQuoted" ]; then
+	# XXX: Git rebase uses the default shell, which isn't necessarily Bash.
+	# It also has a problem of dropping a trailing space when it's
+	# backslash-escaped. By converting \n to a literal newline, the following fix
+	# will be applied to escaped newlines as well.
+	type -t changeQuoting >/dev/null && cmd="$(printf %s "$cmd" | changeQuoting --posix)"
+    fi
 
     # XXX: exec commands cannot contain newlines.
     cmd="${cmd//$'\\\n'/ }"
@@ -44,11 +47,11 @@ do
 	--no-submodule-update)
 			shift; isSubmoduleUpdate=;;
 	--command|-c|-x)
-			shift; addExec "${1:?}"; shift;;
+			shift; addExec '' "${1:?}"; shift;;
 	--exec)		shift
 			if ! contains "$GIT_REBASE_EXEC_END" "$@"; then
-			    # Also support the build-in --exec as well (though I prefer -c|--command).
-			    addExec "${1:?}"; shift
+			    # Also support the built-in --exec as well (though I prefer -c|--command).
+			    addExec '' "${1:?}"; shift
 			    continue
 			fi
 
@@ -64,13 +67,13 @@ do
 			    exit 2
 			fi >&2
 			shift
-			addExec "$cmd"
+			addExec t "$cmd"
 			;;
 	--check)	shift
 			if [ -n "$GIT_REBASE_CHECK_COMMAND" ]; then
-			    addExec "$GIT_REBASE_CHECK_COMMAND"
+			    addExec '' "$GIT_REBASE_CHECK_COMMAND"
 			elif [ -n "$GIT_CHECK_COMMAND" ]; then
-			    addExec "$GIT_CHECK_COMMAND"
+			    addExec '' "$GIT_CHECK_COMMAND"
 			else
 			    echo >&2 'No checks to run.'
 			    exit 1
@@ -78,12 +81,12 @@ do
 			;;
 	-)		shift
 			checkCommands="$(</dev/stdin)"
-			addExec "${checkCommands:?}"
+			addExec '' "${checkCommands:?}"
 			;;
 	--)		shift
 			if [ $# -gt 0 ]; then
 			    printf -v quotedSimpleCommand ' %q' "$@"
-			    addExec "git-wrapper${quotedSimpleCommand}"
+			    addExec t "git-wrapper${quotedSimpleCommand}"
 			    set --
 			fi
 			break

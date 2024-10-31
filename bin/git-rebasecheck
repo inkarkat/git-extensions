@@ -9,11 +9,13 @@ rewriting runs the risk of destroying the merges / invalidating those
 references.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[REBASE-ARGS ...] [<upstream> [<branch>]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--check-only] [REBASE-ARGS ...] [<upstream> [<branch>]] [-?|-h|--help]'
 }
 
+isCheckOnly=
 isAutosquash=
 isInteractive=
+severitySigil='Note'
 typeset -a rebaseArgs=()
 while [ $# -ne 0 ]
 do
@@ -22,6 +24,7 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
+	--check-only)	shift; isCheckOnly=t; severitySigil='ERROR';;
 	--autosquash)	rebaseArgs+=("$1"); shift; isAutosquash=t;;
 	--interactive|-i)
 			rebaseArgs+=("$1"); shift; isInteractive=t;;
@@ -30,7 +33,7 @@ do
     esac
 done
 
-[ "$isAutosquash" ] || [ "$isInteractive" ] || exit 0
+[ "$isCheckOnly" ] || [ "$isAutosquash" ] || [ "$isInteractive" ] || exit 0
 
 if [ ${#rebaseArgs[@]} -ge 2 ] && git rev-parse --verify --quiet "${rebaseArgs[-1]}" >/dev/null 2>&1 && git rev-parse --verify --quiet "${rebaseArgs[-2]}" >/dev/null 2>&1; then
     # <upstream> <branch>
@@ -56,7 +59,7 @@ mergeCheck()
 
     if [ ${#mergeCommits[@]} -gt 0 ]; then
 	mergeCommitsPlural=s; [ ${#mergeCommits[@]} -eq 1 ] && mergeCommitsPlural=
-	printf >&2 'Note: %d merge commit%s would be destroyed by a rebase:\n' ${#mergeCommits[@]} "$mergeCommitsPlural"
+	printf >&2 '%s: %d merge commit%s would be destroyed by a rebase:\n' "$severitySigil" ${#mergeCommits[@]} "$mergeCommitsPlural"
 	hints+=("stopping short of the merge${mergeCommitsPlural}")
     fi
 }
@@ -97,7 +100,7 @@ referenceCheck()
 	    allReferencingCommitsPlural=s
 	    allReferencingCommitsVerbEnding=
 	fi
-	printf >&2 'Note: The following commit%s reference%s the commit%s that will be rebased:\n' "$allReferencingCommitsPlural" "$allReferencingCommitsVerbEnding" "$referencedCommitsPlural"
+	printf >&2 '%s: The following commit%s reference%s the commit%s that will be rebased:\n' "$severitySigil" "$allReferencingCommitsPlural" "$allReferencingCommitsVerbEnding" "$referencedCommitsPlural"
 	hints+=('rewording those commits to update or remove the references')
     fi
 }
@@ -109,7 +112,9 @@ referenceCheck
 git-lghighlightedcommits "${!allProblematicCommits[@]}" "$range"
 
 printf -v combinedHints '%s, ' "${hints[@]}"
-if [ "$isInteractive" ]; then
+if [ "$isCheckOnly" ]; then
+    exit 1
+elif [ "$isInteractive" ]; then
     printf >&2 'Consider %sor cancel the rebase by aborting the editor.\n' "$combinedHints"
     sleep 2 # Give the user a chance to read the message before the editor is invoked.
 else

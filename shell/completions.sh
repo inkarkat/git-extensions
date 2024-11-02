@@ -74,7 +74,7 @@ readarray -t _git_complete_brvariant_commands < "${_scriptDir}/../lib/br-variant
 while IFS=$'\n' read -r _line
 do
     _git_complete_brvariants["$_line"]=t
-done < <(git-br-variants)
+done < <(git-br-variants --bare)
 unset _line
 
 _git_complete_filterAliasCounts()

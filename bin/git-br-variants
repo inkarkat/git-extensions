@@ -7,14 +7,16 @@ readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" 
 printUsage()
 {
     cat <<HELPTEXT
-Print all available branch-range commands.
+Print all available branch-range commands and what they include.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--bare] [-?|-h|--help]'
 }
 
+action=what
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --bare)		shift; action=getNames;;
 esac
 if [ $# -ne 0 ]; then
     printUsage "$0" >&2
@@ -22,5 +24,27 @@ if [ $# -ne 0 ]; then
 fi
 
 cd -- "$scriptDir" || exit 3
-grep --files-with-matches [l]ib/br-variant ./git-* \
-    | sed -e 's#.*/git-##'
+
+getNames()
+{
+    grep --files-with-matches [l]ib/br-variant ./git-* \
+	| sed -e 's#.*/git-##'
+}
+
+what()
+{
+    getNames \
+	| linesToArg --with-header -- \
+	    sed -n \
+		-e "s/^readonly scopeWhat=['\"]//" \
+		-e T \
+		-e :loop \
+		-e "/['\"]\$/!{ N; b loop; }" \
+		-e "s/['\"]\$//" \
+		-e p \
+		git-{}
+}
+
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+eval '$action' \
+    "${pager:+|}" '"${pager[@]}"'

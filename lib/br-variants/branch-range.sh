@@ -16,11 +16,11 @@ printUsage()
 	local to='the current / passed BRANCH'
     fi
     cat <<HELPTEXT
-Covers the additions of ${from}
-versus ${to}.
+Covers ${scopeWhatOverride:-the additions of ${from}
+versus ${to}}.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND [...] [-b|--branch BRANCH] [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "GIT-COMMAND ${scopeArgsOverride:-[...] [-b|--branch BRANCH] [...] }${scopeArgsOverride:+ }[-?|-h|--help]"
 }
 
 case "$1" in

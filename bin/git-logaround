@@ -38,7 +38,7 @@ HELPDESCRIPTION
 			Include NUM commits after REVISION.
     --before-revisions|-B NUM
 			Include NUM commits before REVISION.
-    --context-revisions|-B NUM
+    --context-revisions|-C NUM
 			Include NUM commits both before and after REVISION.
     --after-duration|-a "[Ww ][Dd |D-][HH:]MM:SS"|[+-]NUMBER[SUFFIX]
 			Include commits done earlier than DATE|TIME within
@@ -117,7 +117,7 @@ getAfterDate()
 
 logRevisions()
 {
-    [ "$GIT_LOGAROUND_LOG_COMMAND" = onelinelog ] && GIT_LOGAROUND_LOG_COMMAND=lg
+    [ "$GIT_LOGAROUND_LOG_COMMAND" = onelinelog ] && GIT_LOGAROUND_LOG_COMMAND=lg   # There is no "onelinelogrevs".
     exec git-wrapper ${GIT_LOGAROUND_LOG_COMMAND:-log}revs --separate-discontinuous --revisions "${revisions[@]}" \; "${gitArgs[@]}" "$@"
 }
 
@@ -146,8 +146,8 @@ else
 
     if [ ${#dates[@]} -eq 1 ]; then
 	# Optimization: For a single date, we can directly execute the log command.
-	beforeDate="$(getBeforeDate "$date")" || exit $?
-	afterDate="$(getAfterDate "$date")" || exit $?
+	beforeDate="$(getBeforeDate "${dates[0]}")" || exit $?
+	afterDate="$(getAfterDate "${dates[0]}")" || exit $?
 	exec git-wrapper ${GIT_LOGAROUND_LOG_COMMAND:-log} --since="$afterDate" --until="$beforeDate" "${gitArgs[@]}" "$@"
     fi
 

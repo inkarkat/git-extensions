@@ -215,7 +215,7 @@ activityby\
 	;;
     pred?(lg|s))
 	typeset -A mapping=([pred]=echo [predlg]=lg1 [preds]=show)
-	predCommit="$(${EXEC#exec} git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --with-range ' ' -2 merge-base RANGE "$@")"
+	predCommit="$(${EXEC#exec} git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --with-range ' ' -2 merge-base RANGE "$@")"
 	$EXEC git "${mapping["$gitCommand"]}" "$predCommit"
 	;;
 

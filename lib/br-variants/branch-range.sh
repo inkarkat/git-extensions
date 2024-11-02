@@ -208,18 +208,16 @@ activityby\
     wipe@(g|changed|touched))
 	$EXEC git-branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -2 "wipeto${gitCommand#wipe}" RANGE "$@";;
 
-    base)
-	$EXEC git "${scopeCommand[@]}" ${scopeCommand:+-3} name-rev --name-only "${scopeRevision:?}" "$@";;
-    baselg)
-	$EXEC git "${scopeCommand[@]}" ${scopeCommand:+-2} lg1 "${scopeRevision:?}" "$@";;
-    bases)
-	$EXEC git "${scopeCommand[@]}" ${scopeCommand:+-2} show "${scopeRevision:?}" "$@";;
-    pred)
-	$EXEC git "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --no-range --one-more -3 name-rev --name-only RANGE "$@";;
-    predlg)
-	$EXEC git "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --no-range --one-more -2 lg1 RANGE "$@";;
-    preds)
-	$EXEC git "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --no-range --one-more -2 show RANGE "$@";;
+    base?(lg|s))
+	typeset -A mapping=([base]=lh [baselg]=onelinelog [bases]=show)
+	GIT_RNLOG_COMMAND="${mapping["$gitCommand"]}" \
+	    $EXEC git-branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -2 logfirst RANGE "$@"
+	;;
+    pred?(lg|s))
+	typeset -A mapping=([pred]=echo [predlg]=lg1 [preds]=show)
+	predCommit="$(${EXEC#exec} git "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --with-range ' ' -2 merge-base RANGE "$@")"
+	$EXEC git "${mapping["$gitCommand"]}" "$predCommit"
+	;;
 
     cat|cp)
 	$EXEC git-branch-command --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -2 "${gitCommand}selectedonemore" RANGE "$@";;

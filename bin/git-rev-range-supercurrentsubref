@@ -1,0 +1,18 @@
+#!/bin/bash
+
+printUsage()
+{
+    git-rev-range --help 2>&1 | sed \
+	-e '1s#^.*$#Print / execute GIT-COMMAND with the revision range from HEAD up to the commit that is currently referenced by the superproject#' \
+	-e '2,/^- /{ /^- /p; d; }' \
+	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ ]\+ \)*git-rev-range /\1\2'"$(basename "$1")"' /; s/ -r|--revision REVISION \[-e|--end-revision END-REVISION \[--last-only\]|/ [/; }'
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+currentSubmodule="$(git-supersubpath)" || exit $?
+currentlyReferencedSubmoduleCommit="$(git-superdo --no-header subhash "$currentSubmodule")" || exit $?
+
+exec git-rev-range --revision "$currentlyReferencedSubmoduleCommit" "$@"

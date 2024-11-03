@@ -9,7 +9,8 @@ printUsage()
 }
 
 currentSubmodule="$(git-supersubpath)" || exit $?
-superRevToCurrentSubmoduleCommit="$(git-superrev-command --first-only)" || exit $?
+currentlyReferencedSubmoduleCommit="$(git-superdo --no-header subhash "$currentSubmodule")" || exit $?
+superRevToCurrentSubmoduleCommit="$(git-superrev-command --first-only --revision "$currentlyReferencedSubmoduleCommit")" || exit $?
 previouslyReferencedSubmoduleCommit="$(git-superdo --no-header subhash "${superRevToCurrentSubmoduleCommit}^" "$currentSubmodule")" || exit $?
 
 exec git-rev-range --revision "$previouslyReferencedSubmoduleCommit" "$@"

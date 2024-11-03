@@ -81,6 +81,17 @@ else
     userBinaryChoice --keep-prompt --question "Really ummerge branch '$branchName'?" --yes-no || exit 4
 fi
 
+checkForAmendsToMergeCommit()
+{
+    git dpmergeitself ${isQuiet:+--quiet} --exit-code && return 0
+
+    if [ "$isYes" ]; then
+	[ "$isQuiet" ] || echo >&2 'Note: Unmerging despite changes (conflict resolution or amends) in the merge commit itself.'
+    else
+	userBinaryChoice --keep-prompt --question 'The merge commit itself has changes that will be lost; for conflict resolution this is okay, but it could also be amends made directly to the merge commit. Proceed and discard those changes?' --yes-no || return 4
+    fi
+}
+
 checkoutNewBranch()
 {
     git-wrapper checkout "${gitCheckoutArgs[@]}" -b "$branchName" "$branchCommit"
@@ -93,6 +104,7 @@ checkoutExistingBranch()
 
 undoMergeOnExistingBranch()
 {
+    checkForAmendsToMergeCommit || return $?
     git reset --hard "$beforeMergeCommit"
 }
 
@@ -103,6 +115,7 @@ checkoutAndUndoMergeOnExistingBranch()
 
 undoMergeOnOriginalBranch()
 {
+    checkForAmendsToMergeCommit || return $?
     git update-ref -m "unmerge: undo merge in $mergeCommit to $branchName" "refs/heads/$currentBranchName" "$beforeMergeCommit"
 }
 

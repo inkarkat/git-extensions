@@ -12,7 +12,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--submodules|--all-submodules [--submodule-color=(always|auto|never)]] [--no-submodule-recurse] [--filter-worktree-duplicates] [-a|--all] [-v|--verbose] [-q|--quiet|--color=(always|auto|never)|--no-color] [(+|-)(empty|dirty|private|stashed|wipcommit|nonmaster|mergedbr|stalebr|todo|noremote|outgoing|incoming|fallenbehind|behind|behindtags|unmergeddownstream|downstreambranches|inactivefork) ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--submodules|--all-submodules [--submodule-color=(always|auto|never)]] [--no-submodule-recurse] [--filter-worktree-duplicates] [-a|--all] [-v|--verbose] [-q|--quiet|--color=(always|auto|never)|--no-color] [(+|-)(empty|dirty|private|stashed|wipcommit|nonmaster|mergedbr|stalebr|todo|noremote|outgoing|incoming|fallenbehind|behind|behindtags|unmergeddownstream|downstreambranches|inactivefork|stalestable) ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -96,6 +96,9 @@ deselected (from all checks on offer) via -name.
 - inactivefork:
 	    my GitHub clone is up-to-date with upstream, has no non-master
 	    branches, and therefore can be archived (made read-only).
+- stalestable:
+	    where the stable branch is behind master and also has not been
+	    updated for a while (i.e. you should do a new release)
 HELPTEXT
 }
 typeset -a recursiveArgs=()
@@ -159,7 +162,7 @@ else
 fi
 
 isFirst=t
-declare -A checks=([empty]=t [dirty]=t [private]=t [stashed]=t [wipcommit]=t [nonmaster]=t [mergedbr]=t [stalebr]=t [todo]=t [noremote]=t [outgoing]=t [incoming]=t [fallenbehind]=t [behind]=t [behindtags]=t [unmergeddownstream]=t [downstreambranches]=t [inactivefork]=t)
+declare -A checks=([empty]=t [dirty]=t [private]=t [stashed]=t [wipcommit]=t [nonmaster]=t [mergedbr]=t [stalebr]=t [todo]=t [noremote]=t [outgoing]=t [incoming]=t [fallenbehind]=t [behind]=t [behindtags]=t [unmergeddownstream]=t [downstreambranches]=t [inactivefork]=t [stalestable]=t)
 while [ $# -gt 0 ]
 do
     case "$1" in
@@ -383,6 +386,19 @@ considerCheck inactivefork \
     && git existsremote origin \
     && git existsremote upstream \
     && if findInactiveFork; then positiveCheck; fi
+
+printStableBehindMaster()
+{
+    {
+	git-stalebr --include-all stable \
+	    && git-master-command +1 MASTER stable lgx "${colorArg[@]}"
+    } | headtail --separator-cut-what '... use "git stable l[o]g" for the full list ...' \
+	| outputAndPrintf 'No recent release and releaseable changes exist:\n'
+    return ${PIPESTATUS[-1]}
+}
+considerCheck stalestable \
+    && git existsbr stable \
+    && if printStableBehindMaster; then positiveCheck; fi
 
 [ "$isVerbose" ] && printf >/dev/tty %s "$CLEAR_PREVIOUS_LINE"
 

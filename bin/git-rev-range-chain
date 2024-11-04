@@ -1,0 +1,87 @@
+#!/bin/bash
+
+printUsage()
+{
+    git-rev-range --help 2>&1 | sed \
+	-e '1s#^.*$#Print / execute GIT-COMMAND with the revision range that comprises the passed REVISION and its predecessors and successors that are on the same chain of commits, enclosed by a successor merge commit and the first predecessor that shares that merge commit#' \
+	-e '2,/^- /{ /^- /p; d; }' \
+	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ ]\+ \)*git-rev-range /\1\2'"$(basename "$1")"' /; s/ -r|--revision REVISION \[-e|--end-revision END-REVISION / /; s/ GIT-COMMAND \[\.\.\.\]/& -r|--revision REVISION/; }'
+}
+
+# -r|--revision is (typically) passed after GIT-COMMAND; need to parse that separately.
+revision=
+typeset -a args=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--revision|-r)	shift; revision="$(git-commitid "${1:?}")" || exit 1; shift;;
+	--)		args+=("$1"); shift; break;;
+	*)		args+=("$1"); shift;;
+    esac
+done
+set -- "${args[@]}" "$@"
+if [ -z "$revision" ]; then
+    echo 'ERROR: No -r|--revision REVISION passed.'
+    echo
+    printUsage "$0"
+    exit 2
+fi >&2
+
+typeset -a revRangeArgs=()
+isWithRange=t
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-range)	revRangeArgs+=("$1"); shift; isWithRange=;;
+	--keep-position|[+-][0-9])
+			revRangeArgs+=("$1"); shift; break;;
+	*)		revRangeArgs+=("$1"); shift;;
+    esac
+done
+
+# From HEAD, investigate all merge commits until the passed $revision, starting
+# with the one closest to it.
+baseCommit=
+while IFS=' ' read -r -a mergeParents
+do
+    # At least one of the parents should not have the passed $revision as one of its
+    # direct ancestors. That's the main (other) branch we're looking for.
+    nearestParent=
+    for parent in "${mergeParents[@]}"
+    do
+	hasRevision=
+	let chainLength=0 minChainLength=2147483647
+	while IFS=$'\n' read -r commit
+	do
+	    let chainLength+=1
+	    if [ "$commit" = "$revision" ]; then
+		hasRevision=t
+		break	# Should be the last, anyway.
+	    fi
+	done < <(git log --first-parent --pretty=tformat:%H "^${revision}^@" "$parent")	# Exclude all parents (not just the first as with ${revision}^ reachable from $revision; we just need to reach revision, but aren't interested in any of its ancestors. Only follow the first parent; we're not interested in side quests here.
+	if [ "$hasRevision" ]; then
+	    # Pick the chain with the fewest commits in case there are multiple merge
+	    # parents that contain the passed $revision.
+	    if [ $chainLength -lt $minChainLength ]; then
+		minChainLength=$chainLength
+		nearestParent="$parent"
+	    fi
+	else
+	    # The (or a) chain that doesn't contain the passed $revision is the main branch
+	    # we're looking for. The merge base with the passed $revision marks the end of
+	    # our range. If there are more than two merge parents, all of those branches
+	    # should lead to the same merge base (or doesn't find any if disjunct histories
+	    # have been merged).
+	    [ -n "$baseCommit" ] || baseCommit="$(git merge-base "${revision}" "${parent}")"
+	fi
+    done
+
+    [ -z "$baseCommit" ] || break
+done < <(git log --merges --pretty=tformat:'%P' "${revision}.." | tac)
+[ -n "$baseCommit" -a -n "$nearestParent" ] || exit 1
+
+[ "$isWithRange" ] || nearestParent=''   # Prevent "ERROR: --end-revision cannot be combined with --no-range!"; we don't need the end revision, as --no-range drops that, anyway.
+
+exec git-rev-range --revision "$baseCommit" ${nearestParent:+--end-revision} $nearestParent "${revRangeArgs[@]}" "$@"

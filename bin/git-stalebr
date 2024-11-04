@@ -8,7 +8,7 @@ printShortUsage()
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
     local hubOptions=; [ "$HUB" ] && hubOptions='[--only-mine] [--pull-requests-from-repo WORKING-COPY|[HOST/]OWNER/REPO [--pull-requests-from-repo ...] [--pull-requests-from-here]]'
-    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[--bare] [--compare-to <branch>|<commit>|""] [-r|--remote REMOTE|-a]' "${hubOptions:+ }${hubOptions}" '[-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [--include-current] [--include-master] [--include-base] [--include-all] [--] [<branch-glob> ...] [-?|-h|--help]'
+    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[--bare|--quiet] [--compare-to <branch>|<commit>|""] [-r|--remote REMOTE|-a]' "${hubOptions:+ }${hubOptions}" '[-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [--include-current] [--include-master] [--include-base] [--include-all] [--] [<branch-glob> ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -30,6 +30,8 @@ HELPDESCRIPTION
     echo
     cat <<HELPTEXT
     --bare		Just print the branch names.
+    --quiet		Just indicate via exit status whether stale branches
+			exist.
     --compare-to <branch>|<commit>|""
 			Show ahead-behind information with regards to <branch>
 			(default: the master branch) or <commit> (or omit that).
@@ -83,6 +85,7 @@ readPrBranches()
 }
 
 isBare=
+isQuiet=
 isOnlyMine=
 compareTo="$(git-mbr 2>/dev/null)"
 typeset -a branchFilter=(--older "$GIT_STALEBR_AGE")
@@ -97,6 +100,7 @@ do
 			shift;;
 	--color)	shift; shift;;
 	--bare)		shift; isBare=t; additionalBranchInfoArgs=(--bare);;
+	--quiet|-q)	shift; isQuiet=t;;
 	--compare-to)	shift; compareTo="$1"; shift;;
 	-a|-r)		[ "$1" = '-a' ] && gitFilterOutPersistentBranchesArgs+=(--remote '')
 			branchScope+=("$1"); shift
@@ -165,7 +169,9 @@ embellishedStaleBranches()
 
 staleBranches()
 {
-    if [ "$isBare" ] || [ -z "$compareTo" ]; then
+    if [ "$isQuiet" ]; then
+	:
+    elif [ "$isBare" ] || [ -z "$compareTo" ]; then
 	for branchName in "${staleBranches[@]}"
 	do
 	    printf '%s\n' "${staleBranchInfos["$branchName"]}"

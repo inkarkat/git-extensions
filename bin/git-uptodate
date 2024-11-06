@@ -34,6 +34,13 @@ HELPDESCRIPTION
 			fetching, not pulling.
     --quiet|-q		Do not print an up-to-date message or the pending
 			commits.
+EXIT STATUS:
+    0	The current branch / tag is up-to-date.
+    1	Newer commit(s) / tag(s) are available to be pushed / pulled.
+    2	Bad invocation, wrong or missing command-line arguments.
+    3	Internal error or failed assertion.
+    5	Network error.
+    99	<remote> does not exist or the branch is not tracking a remote branch.
 HELPTEXT
 }
 
@@ -108,7 +115,7 @@ checkBranch()
 	exit 99
     fi
 
-    remoteRev="$(git ls-remote "${remoteBranch%%/*}" "${remoteBranch#*/}" | cut -f1)" || exit 2
+    remoteRev="$(git ls-remote "${remoteBranch%%/*}" "${remoteBranch#*/}" | cut -f1)" || exit 5
     [ "$isTracked" ] \
 	&& compareRev="$(git rev-parse "$remoteBranch")" \
 	|| compareRev="$(git rev-parse HEAD)"

@@ -389,11 +389,10 @@ considerCheck inactivefork \
 
 printStableBehindMaster()
 {
-    {
-	git-stalebr --include-all stable \
-	    && git-master-command +1 MASTER stable lgx "${colorArg[@]}"
-    } | headtail --separator-cut-what '... use "git stable l[o]g" for the full list ...' \
-	| outputAndPrintf 'No recent release and releaseable changes exist:\n'
+    local staleStableBranchInfo; staleStableBranchInfo="$(git-stalebr --include-all stable)" || return 1
+    git-master-command +1 MASTER stable lgx "${colorArg[@]}" \
+	| headtail --separator-cut-what '... use "git stable l[o]g" for the full list ...' \
+	| outputAndPrintf 'No recent release and releaseable changes exist:\n%s\n' "$staleStableBranchInfo"
     return ${PIPESTATUS[-1]}
 }
 considerCheck stalestable \

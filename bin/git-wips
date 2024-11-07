@@ -5,6 +5,7 @@ shopt -qs nullglob
 : ${GIT_WIPS_DOWNSTREAM_BRANCHES_IGNORE_PATTERN='stable'}   # Origin branches that need not appear in upstream for +downstreambranches check.
 : ${GIT_WIPS_UPSTREAM_BRANCHES_IGNORE_PATTERN=''}   # Upstream branches that are not considered as merge targets for origin branches in +unmergeddownstream check.
 : ${GIT_WIPS_CHANGELOG_FILENAME:=CHANGELOG.md}	# Filename of a changelog file in the repository root or one subdirectory below.
+: ${GIT_WIPS_STALESTABLE_EXCLUDE_PATTERN:='^Merge tag \|\b\(POC\|TEMP\|TEST\|TODO\|WIP\|Build\|Cleanup\|Comments\|Cosmetics\|Debugging\|Dev\|Housekeeping\|Interim\|Refactoring\|Style\|Tests\): '}    # Regular expression that excludes matching commit messages.
 
 readonly EXCLUDED_TAGS_CONFIG_KEY='uptodate.excludedTags'
 
@@ -390,7 +391,7 @@ considerCheck inactivefork \
 printStableBehindMaster()
 {
     local staleStableBranchInfo; staleStableBranchInfo="$(git-stalebr --include-all stable)" || return 1
-    git-master-command +1 MASTER stable lgx --invert-grep --grep '^Merge tag ' "${colorArg[@]}" \
+    git-master-command +1 MASTER stable lgx ${GIT_WIPS_STALESTABLE_EXCLUDE_PATTERN:+--invert-grep --grep $GIT_WIPS_STALESTABLE_EXCLUDE_PATTERN} "${colorArg[@]}" \
 	| headtail --separator-cut-what '... use "git stable l[o]g" for the full list ...' \
 	| outputAndPrintf 'No recent release and releaseable changes exist:\n%s\n' "$staleStableBranchInfo"
     return ${PIPESTATUS[-1]}

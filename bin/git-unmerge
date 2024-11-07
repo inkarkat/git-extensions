@@ -83,7 +83,7 @@ fi
 
 checkForAmendsToMergeCommit()
 {
-    git dpmergeitself ${isQuiet:+--quiet} --exit-code && return 0
+    git dpmergeitself ${isQuiet:+--quiet} --exit-code "$mergeCommit" && return 0
 
     if [ "$isYes" ]; then
 	[ "$isQuiet" ] || echo >&2 'Note: Unmerging despite changes (conflict resolution or amends) in the merge commit itself.'
@@ -106,7 +106,6 @@ checkoutExistingBranch()
 
 undoMergeOnExistingBranch()
 {
-    checkForAmendsToMergeCommit || return $?
     git reset --hard "$beforeMergeCommit"
 }
 
@@ -117,9 +116,9 @@ checkoutAndUndoMergeOnExistingBranch()
 
 undoMergeOnOriginalBranch()
 {
-    checkForAmendsToMergeCommit || return $?
     git update-ref -m "unmerge: undo merge in $mergeCommit to $branchName" "refs/heads/$currentBranchName" "$beforeMergeCommit"
 }
 
+checkForAmendsToMergeCommit || exit $?
 $action || exit $?
 $originalBranchAction || exit $?

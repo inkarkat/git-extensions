@@ -15,6 +15,12 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--range-to-last-commit [--one-more]] <commit> [...] [GIT-LOG-ARGUMENTS ...] [<revision range>] [[--] <path>...] [-?|-h|--help]'
     echo
     cat <<HELPTEXT
+git ${GIT_LGHIGHLIGHT_LG}, with commit hashes read from stdin highlighted.
+HELPTEXT
+    echo
+    printf 'Usage: git lh [...] | %q %s\n' "$(basename "$1")" '[--range-to-last-commit [--one-more]] - [GIT-LOG-ARGUMENTS ...] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+    echo
+    cat <<HELPTEXT
 git ${GIT_LGHIGHLIGHT_LG}, with commits that result from GIT-LOG-COMMAND (which will be configured
 to output just commit hashes) highlighted. That argument and GIT-LOG-ARGUMENTS
 ${argsMarker:+replace a $argsMarker marker in GIT-LOG-COMMAND or }will be appended.
@@ -23,6 +29,23 @@ but not to git ${GIT_LGHIGHLIGHT_LG}.
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--range-to-last-commit [--one-more]] [--except-last] GIT-LOG-COMMAND [GIT-LOG-ARGUMENTS ...] [<revision range>] [[--] <path>...]'
+}
+
+typeset -a commits=()
+readCommits()
+{
+    shopt -qs lastpipe
+    local anyCommit="$(git rev-parse --verify --short HEAD)"	# Resolve what core.abbrev resolves to.
+    local abbrevLen="${#anyCommit}"
+
+    # Extract the first hexadecimal number that looks like a commit SHA, and only
+    # take the short part. Ignore anything else around it.
+    sed -n \
+	    -e "s/\\(^\\|[[:space:]]\\)\\([[:xdigit:]]\\{${abbrevLen}\\}\\)[[:xdigit:]]*\\([[:space:]].*\\)\\?$/\\2/" \
+	    -e 'T' \
+	    -e "s/^.*\\([[:xdigit:]]\\{${abbrevLen}\\}\\)$/\1/p" \
+	| readarray -t commits
+    shopt -qu lastpipe
 }
 
 isRangeToLastCommit=
@@ -41,22 +64,27 @@ do
 			    set -- "${@:1:$(($#-1))}"
 			fi
 			;;
+	-)		shift
+			readCommits
+			[ ${#commits[@]} -gt 0 ] || exit 1
+			;;
 	*)		break;;
     esac
 done
-if [ $# -eq 0 ]; then
-    echo 'ERROR: No <commit> / GIT-LOG-COMMAND passed.'
+if [ $# -eq 0 -a ${#commits[@]} -eq 0 ]; then
+    echo 'ERROR: No <commit> / - / GIT-LOG-COMMAND passed.'
     echo
     printUsage "$0"
     exit 2
 fi >&2
 
-typeset -a commits=()
-while commit="$(git rev-parse --short "$1" 2>/dev/null)"
-do
-    shift
-    commits+=("$commit")
-done
+if [ ${#commits[@]} -eq 0 ]; then
+    while commit="$(git rev-parse --short "$1" 2>/dev/null)"
+    do
+	shift
+	commits+=("$commit")
+    done
+fi
 if [ ${#commits[@]} -eq 0 ]; then
     gitLogCommand="${1:?}"; shift
 
@@ -65,7 +93,7 @@ if [ ${#commits[@]} -eq 0 ]; then
     interpolatedGitLogCommand="${gitLogCommand//"$argsMarker"/$quotedLogArgs}"
     [ "$interpolatedGitLogCommand" = "$gitLogCommand" ] || logArgs=()
 
-    readarray -t commits < <(eval "$interpolatedGitLogCommand" '"${logArgs[@]}"')
+    readarray -t commits < <(eval "git-wrapper $interpolatedGitLogCommand" '"${logArgs[@]}"')
     if [ ${#commits[@]} -eq 0 ]; then
 	echo >&2 'No commits found.'
 	exit 1

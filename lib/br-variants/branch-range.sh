@@ -179,7 +179,7 @@ activityby\
 	;;
     rbcheck)
 	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -3 rebasecheck --check-range RANGE "$@";;
-    check|command|exec)
+    check|command|exec|rewordremovescope)
 	source "${libDir:?}/rebase.sh.part" "$@"
 	;&
     rb?(n)i|segregate@(commits|andbifurcate)|bifurcate)

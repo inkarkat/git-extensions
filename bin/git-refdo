@@ -1,0 +1,292 @@
+#!/bin/bash
+set -o pipefail
+shopt -qs extglob
+
+: ${GIT_REFDO_COMMAND_JOINER=;}
+: ${GIT_REFDO_PREDICATECOMMAND_JOINER=&&}
+: ${GIT_REFDO_REVISIONS_END=;}
+: ${GIT_REFDO_SOURCE_COMMAND:=}
+: ${GIT_REFDO_SOURCE_SORTED:=}
+: ${GIT_REFDO_COMMANDNAME:=$(basename -- "$0")}
+: ${GIT_REFDO_WHAT:=revisions}
+: ${GIT_REFDO_WHAT_ARG:=revisions}
+: ${GIT_REFDO_REVISION_MARKER='{}'}
+revisionMarker="$GIT_REFDO_REVISION_MARKER"; unset GIT_REFDO_REVISION_MARKER
+
+hasProgressNotification=; type -t progressNotification >/dev/null && hasProgressNotification=t
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s%s %s\n' "$GIT_REFDO_COMMANDNAME" '[--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" "[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success] [--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS]${GIT_REFDO_ADDITIONAL_ARGS:+ }${GIT_REFDO_ADDITIONAL_ARGS} [--${GIT_REFDO_WHAT_ARG} R1 [...] ${GIT_REFDO_REVISIONS_END}] [-L N|--max-${GIT_REFDO_WHAT_ARG} N] [[--not] -P|--predicate-command \"COMMANDLINE\" [...]] [-c|--command \"COMMANDLINE\" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]"
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$GIT_REFDO_COMMANDNAME"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Iterate over all / the last N ${GIT_REFDO_WHAT}${GIT_REFDO_WHAT_DETAILS:+ }${GIT_REFDO_WHAT_DETAILS} one by one
+and execute "git SIMPLECOMMAND" and/or COMMANDLINE for each${revisionMarker:+, replacing $revisionMarker
+with its name.}
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+COMMAND execution puts a header line (unless --no-header) that contains the
+current ${GIT_REFDO_WHAT} before the command output.
+    --no-pager		Do not page the output (so contents will scroll out of
+			view if there's too much output).
+    --no-header		Do not output the header line before command output (and
+			no separating empty line after it).${hasProgressNotification:+
+    --progress SINK	Report the current ${GIT_REFDO_WHAT} (and count + percentage)
+			through one of the SINKs of the progressNotification
+			command.}
+    --interactive|-i	For use with interactive COMMANDs that query the user or
+			open an editor; combination of --no-pager --no-header${hasProgressNotification:+
+			and --progress addendum}.
+    --separate-errors	Do not combine command output and command errors into
+			one (paged) stream. Commands that just cause error
+			output won't have a header then. Error output will
+			remain on its separate file descriptor and will not be
+			paged. Useful if you want to suppress errors or handle
+			them separately.
+    --no-git-color	Do not pass a --color=... to "git SIMPLECOMMAND". (For
+			COMMANDLINE you have to insert "\${gitColorArg[@]}"
+			yourself.)
+    --abort-on-failure	Abort iteration when COMMAND fails.
+    --abort-on|-X EXIT_STATUS
+			Abort iteration when COMMAND exits with EXIT_STATUS.
+    --single-success	Exit status is 0 if COMMAND succeeded in at least one
+			${GIT_REFDO_WHAT}.
+    --status-99-is-noop Exit status is the last failure, but 99 signifies no
+			action or inapplicability, and that is only returned if
+			all invocations of COMMAND return that.
+    --max-${GIT_REFDO_WHAT_ARG}|-L N
+			Only consider the last N ${GIT_REFDO_WHAT}${GIT_REFDO_WHAT_DETAILS:+ }${GIT_REFDO_WHAT_DETAILS}.
+    --predicate-command|-P CMD
+			Skip ${GIT_REFDO_WHAT} where CMD fails.${revisionMarker:+ The string $revisionMarker
+			is replaced with the current ${GIT_REFDO_WHAT} name.}
+    --not		Invert the predicate so that ${GIT_REFDO_WHAT} are
+			skipped where CMD succeeds.
+    --command|-c CMD	Execute the passed command line. When this is a simple
+			Git command, it can also be passed as such:
+			    $(basename "$1") [...] [--] SIMPLECOMMAND${revisionMarker:+
+			The string $revisionMarker is replaced with the current
+			${GIT_REFDO_WHAT} name.}
+    --${GIT_REFDO_WHAT_ARG} R1 [...] $GIT_REFDO_REVISIONS_END
+			Only iterate over the following ${GIT_REFDO_WHAT}; i.e. all
+			following arguments until an argument consisting of '${GIT_REFDO_REVISIONS_END}'
+			is encountered.
+Note: For paging and headers, this command has to control Git's color output.
+Pass --no-git-color if "git SIMPLECOMMAND" does not support the --color=...
+arguments. (For COMMANDLINE you have to insert "\${gitColorArg[@]}" yourself.)
+You can still pass --color=always if you pipe this command's output yet still
+want coloring of headers.
+
+EXIT STATUS
+Returns 99 if no ${GIT_REFDO_WHAT} found.
+Returns the last non-successful exit status. With --single-success,
+non-successful executions are ignored unless all of them fail. In other words,
+exit status is 0 if at least one command succeeded.
+HELPTEXT
+}
+
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+abortStatus=
+abortComparison=-eq
+isSingleSuccess=
+isStatus99Noop=
+isHeader=; type -t withHeader >/dev/null && isHeader=t
+progressSink=
+isInteractive=
+errorRedir='2>&1'
+isGitColor=t
+typeset -a colorArg=()
+predicateComparison=-eq
+predicateCommands=
+commands=
+revisionNum=
+typeset -a sourceRevisions=()
+typeset -a gitSourceCommandArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	    shift; printLongUsage "$0"; exit 0;;
+	--abort-on-failure) shift; abortComparison=-ne; abortStatus=0;;
+	--abort-on|-X)	    shift; abortStatus="$1"; shift;;
+	--single-success)   shift; isSingleSuccess=t;;
+	--status-99-is-noop)	shift; isStatus99Noop=t;;
+	--no-pager)	    shift; pager=();;
+	--no-header)	    shift; isHeader=;;
+	--progress)	    shift; progressSink="$1"; shift;;
+	--interactive|-i)   shift; isInteractive=t; pager=(); isHeader=; progressSink='addendum';;
+	--separate-errors)  shift; errorRedir='';;
+	--no-git-color)	    shift; isGitColor=;;
+	--no-color|--color=*)	colorArg=("$1"); shift;;
+	--color)		colorArg=("$1" "$2"); shift; shift;;
+	-+([${GIT_REFDO_SHORT_OPTIONS:-[]}]))
+			    gitSourceCommandArgs+=("$1"); shift;;
+	--@(${GIT_REFDO_LONG_OPTIONS:-[]}))
+			    gitSourceCommandArgs+=("$1"); shift;;
+	-[${GIT_REFDO_SHORT_PARAMS:-[]}])
+			    gitSourceCommandArgs+=("$1" "$2"); shift; shift;;
+	--@(${GIT_REFDO_LONG_PARAMS:-[]}))
+			    gitSourceCommandArgs+=("$1" "$2"); shift; shift;;
+	--${GIT_REFDO_WHAT_ARG})
+			    shift
+			    while [ $# -gt 0 -a "$1" != "$GIT_REFDO_REVISIONS_END" ]
+			    do
+				sourceRevisions+=("$1")
+				shift
+			    done
+			    if [ $# -eq 0 ]; then
+				echo "ERROR: --${GIT_REFDO_WHAT_ARG} must be concluded with '${GIT_REFDO_REVISIONS_END}'"; echo; printUsage "$0"
+				exit 2
+			    fi >&2
+			    shift
+			    ;;
+	--max-${GIT_REFDO_WHAT_ARG}|-L)
+			    shift; revisionNum="$1"; shift;;
+	--not)		    shift; predicateComparison=-ne;;
+	--predicate-command|-P)
+			    shift; predicateCommands+="${predicateCommands:+ $GIT_REFDO_PREDICATECOMMAND_JOINER }$1"; shift;;
+	--command|-c)	    shift; commands+="${commands:+ $GIT_REFDO_COMMAND_JOINER }$1"; shift;;
+	--)		    shift; break;;
+	-*)		    { echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		    break;;
+    esac
+done
+# With piping into withHeader / pager, we need to explicitly enable color for
+# Git, unless this command's output itself is redirected. Also don't do this if
+# the user explicitly turned off color.
+gitColorArg=()
+if [ -n "$pager" -o -n "$isHeader" ] && isNeedColorArgumentWhenPiping "${colorArg[@]}"; then
+    colorArg=(--color=always)	# Force for withHeader
+    [ "$isGitColor" ] && gitColorArg=(--color=always)	# Force for Git
+fi
+
+typeset -a gitCommand=(git-wrapper)
+if [ $# -gt 0 ]; then
+    if [ ${#gitColorArg[@]} -gt 0 ]; then
+	# Simply appending gitColorArg doesn't work; many Git commands have a
+	# special <path> or <commit> part at the end. Place it just behind the
+	# Git subcommand by iterating arguments in the same way as the various
+	# git-*-command metaprograms, and moving anything that is in front from
+	# $@ to gitCommand.
+	case "$1" in
+	    [^-]*-command)  gitCommand+=("$1"); shift
+			    while [ $# -ne 0 ]
+			    do
+				case "$1" in
+				    --)		break;;
+				    -*)		gitCommand+=("$1"); shift;;
+				    *)		gitCommand+=("$1"); shift; break;;
+				esac
+			    done
+			    ;;
+	    *)		    while [ $# -ne 0 ]
+			    do
+				case "$1" in
+				    -c) gitCommand+=("$1" "$2"); shift; shift;;
+				    *)	gitCommand+=("$1"); shift; break;;
+				esac
+			    done
+	esac
+	gitCommand+=("${gitColorArg[@]}")
+    fi
+
+    # Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
+    # undo the effects of eval.
+    printf -v quotedSimpleCommand '%q ' "${gitCommand[@]}" "$@"
+    printf -v escapedBranchMarker %q "$revisionMarker"
+    commands+="${commands:+ $GIT_REFDO_COMMAND_JOINER }${quotedSimpleCommand//"$escapedBranchMarker"/$revisionMarker}"	# %q escapes {}, we don't want that to have it interpolated later.
+fi
+
+if [ ${#sourceRevisions[@]} -gt 0 ] && [ ! "$GIT_REFDO_SOURCE_SORTED" ]; then
+    revisions=("${sourceRevisions[@]}")
+elif [ -n "$GIT_REFDO_SOURCE_COMMAND" ]; then
+    readarray -t revisions < <(eval "$GIT_REFDO_SOURCE_COMMAND" '"${gitSourceCommandArgs[@]}" "${sourceRevisions[@]}"')
+fi
+if [ ${#revisions[@]} -eq 0 ]; then
+    echo >&2 "No ${GIT_REFDO_WHAT} found."
+    exit 99
+fi
+[ -n "$revisionNum" ]  && [ $revisionNum -lt ${#revisions[@]} ] \
+    && revisions=("${revisions[@]:(-$revisionNum)}")
+
+if [ -z "$commands" ]; then
+    if [ -z "$predicateCommands" ]; then
+	printf '%s\n' "${revisions[@]}"
+	exit 0
+    fi
+
+    isHeader=
+    commands="echo $revisionMarker"
+fi
+
+if [ "$hasProgressNotification" ] && [ -n "$progressSink" ]; then
+    exec 3> >(progressNotification --to "$progressSink" --prepend-count "$GIT_REFDO_WHAT" --count-to "${#revisions[@]}" 2>/dev/null)
+
+    reportProgress()
+    {
+	trap 'reportProgress() { :; }; trap PIPE' PIPE
+	printf '%s\n' "$*" >&3 2>/dev/null  # Silence "printf: write error: Broken pipe"
+    }
+else
+    reportProgress() { :; }
+fi
+
+abortIfDesired()
+{
+    local status="${1:?}"; shift
+    [ -n "$abortStatus" ] || return
+    [ "$status" $abortComparison $abortStatus ] && exit $status
+}
+
+refdo()
+{
+    : ${GIT_REFDO_HEADER_ID:="refdo-$$-$RANDOM"}
+    local revision status=
+    for revision in "${revisions[@]}"
+    do
+	if [ -n "$predicateCommands" ]; then
+	    (eval "${predicateCommands//"$revisionMarker"/$revision}")
+	    [ $? $predicateComparison 0 ] || continue
+	fi
+
+	reportProgress "$revision"
+	[ ! "$isInteractive" ] || header "${colorArg[@]}" --id "$GIT_REFDO_HEADER_ID" -- "$revision"
+
+	local interpolatedCommands="${commands//"$revisionMarker"/$revision}"
+	(eval "${isHeader:+{}" "$interpolatedCommands" "${isHeader:+; \} $errorRedir | withHeader "${colorArg[@]}" --id '$GIT_REFDO_HEADER_ID' -- '$revision'}")
+	local newStatus=$?
+
+	abortIfDesired $newStatus
+
+	[ $newStatus -eq 0 ] && isSuccess=t
+	if [ "$isStatus99Noop" ]; then
+	    status=$(status99Reduction "$status" $newStatus)
+	else
+	    case $newStatus in
+		0)  : ${status:=0};;
+		*)  status=$newStatus;;
+	    esac
+	fi
+    done
+
+    if [ "$isSingleSuccess" ] && [ "$isSuccess" ]; then
+	return 0
+    else
+	return ${status:-99}
+    fi
+}
+eval "refdo ${pager:+$errorRedir |}" '"${pager[@]}"'

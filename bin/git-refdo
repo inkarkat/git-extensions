@@ -5,6 +5,9 @@ shopt -qs extglob
 : ${GIT_REFDO_COMMAND_JOINER=;}
 : ${GIT_REFDO_PREDICATECOMMAND_JOINER=&&}
 : ${GIT_REFDO_REVISIONS_END=;}
+: ${GIT_REFDO_FROM_END=;}
+: ${GIT_REFDO_FROM_MARKER='{}'}
+fromMarker="$GIT_REFDO_FROM_MARKER"; unset GIT_REFDO_FROM_MARKER
 : ${GIT_REFDO_SOURCE_COMMAND:=}
 : ${GIT_REFDO_SOURCE_SORTED:=}
 : ${GIT_REFDO_COMMANDNAME:=$(basename -- "$0")}
@@ -19,7 +22,13 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s%s %s\n' "$GIT_REFDO_COMMANDNAME" '[--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" "[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success] [--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS]${GIT_REFDO_ADDITIONAL_ARGS:+ }${GIT_REFDO_ADDITIONAL_ARGS} [--${GIT_REFDO_WHAT_ARG} R1 [...] ${GIT_REFDO_REVISIONS_END}] [-L N|--max-${GIT_REFDO_WHAT_ARG} N] [[--not] -P|--predicate-command \"COMMANDLINE\" [...]] [-c|--command \"COMMANDLINE\" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]"
+    printf 'Usage: %q %s%s %s\n' "$GIT_REFDO_COMMANDNAME" '[--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" "[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success] [--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS]${GIT_REFDO_ADDITIONAL_ARGS:+ }${GIT_REFDO_ADDITIONAL_ARGS} [-L N|--max-${GIT_REFDO_WHAT_ARG} N] [[--not] -P|--predicate-command \"COMMANDLINE\" [...]] [-c|--command \"COMMANDLINE\" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]"
+    echo
+    printf 'Usage: %q %s%s %s\n' "$GIT_REFDO_COMMANDNAME" "--${GIT_REFDO_WHAT_ARG} R1 [...] ${GIT_REFDO_REVISIONS_END} ..."
+    if [ -z "$GIT_REFDO_SOURCE_COMMAND" ]; then
+	printf 'Usage: git lh [...] | %q %s%s %s\n' "$GIT_REFDO_COMMANDNAME" "- ..."
+	printf 'Usage: %q %s%s %s\n' "$GIT_REFDO_COMMANDNAME" "--from GIT-LOG-COMMAND [GIT-LOG-ARGUMENTS ...] ${GIT_REFDO_FROM_END} ..."
+    fi
 }
 printUsage()
 {
@@ -86,6 +95,20 @@ current ${GIT_REFDO_WHAT} before the command output.
 			Only iterate over the following ${GIT_REFDO_WHAT}; i.e. all
 			following arguments until an argument consisting of '${GIT_REFDO_REVISIONS_END}'
 			is encountered.
+HELPTEXT
+
+    if [ -z "$GIT_REFDO_SOURCE_COMMAND" ]; then
+	cat <<HELPTEXT
+    -			Use ${GIT_REFDO_WHAT} read from standard input.
+    --from GIT-LOG-COMMAND [GIT-LOG-ARGUMENTS ...] $GIT_REFDO_FROM_END
+			Use ${GIT_REFDO_WHAT} that result from GIT-LOG-COMMAND
+			(which will be configured to output just commit hashes)
+			highlighted. That argument and GIT-LOG-ARGUMENTS
+			${fromMarker:+replace a $fromMarker marker in GIT-LOG-COMMAND or }will be appended.
+HELPTEXT
+    fi
+
+    cat <<HELPTEXT
 Note: For paging and headers, this command has to control Git's color output.
 Pass --no-git-color if "git SIMPLECOMMAND" does not support the --color=...
 arguments. (For COMMANDLINE you have to insert "\${gitColorArg[@]}" yourself.)
@@ -117,6 +140,7 @@ commands=
 revisionNum=
 typeset -a sourceRevisions=()
 typeset -a gitSourceCommandArgs=()
+gitFromCommand=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -160,9 +184,28 @@ do
 	--predicate-command|-P)
 			    shift; predicateCommands+="${predicateCommands:+ $GIT_REFDO_PREDICATECOMMAND_JOINER }$1"; shift;;
 	--command|-c)	    shift; commands+="${commands:+ $GIT_REFDO_COMMAND_JOINER }$1"; shift;;
-	--)		    shift; break;;
-	-*)		    { echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
-	*)		    break;;
+	--from)		shift
+			printf -v escapedFromMarker %q "$fromMarker"
+			while [ $# -gt 0 -a "$1" != "$GIT_REFDO_FROM_END" ]
+			do
+			    printf -v quotedArg %q "$1"
+			    gitFromCommand+="${gitFromCommand:+ }${quotedArg//"$escapedFromMarker"/$fromMarker}"	# %q escapes {}, we don't want that to have it interpolated later.
+			    shift
+			done
+			if [ $# -eq 0 ]; then
+			    echo "ERROR: --from must be concluded with '${GIT_REFDO_FROM_END}'"; echo; printUsage "$0"
+			    exit 2
+			fi >&2
+			shift
+			if [ -z "$gitFromCommand" ]; then
+			    echo 'ERROR: --from must be followed by at least one ARGUMENT.'; echo; printUsage "$0"
+			    exit 2
+			fi >&2
+			;;
+	-)		shift; readarray -O ${#sourceRevisions[@]} -t sourceRevisions;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
     esac
 done
 # With piping into withHeader / pager, we need to explicitly enable color for
@@ -211,14 +254,30 @@ if [ $# -gt 0 ]; then
     commands+="${commands:+ $GIT_REFDO_COMMAND_JOINER }${quotedSimpleCommand//"$escapedBranchMarker"/$revisionMarker}"	# %q escapes {}, we don't want that to have it interpolated later.
 fi
 
+if [ -n "$gitFromCommand" ]; then
+    typeset -a logArgs=(--pretty=tformat:%h)
+    printf -v quotedLogArgs '%q ' "${logArgs[@]}"; quotedLogArgs="${quotedLogArgs% }"
+    interpolatedGitFromCommand="${gitFromCommand//"$fromMarker"/$quotedLogArgs}"
+    [ "$interpolatedGitFromCommand" = "$gitFromCommand" ] || logArgs=()
+
+    readarray -O ${#sourceRevisions[@]} -t sourceRevisions < <(eval "git-wrapper $interpolatedGitFromCommand" '"${logArgs[@]}"')
+fi
+
 if [ ${#sourceRevisions[@]} -gt 0 ] && [ ! "$GIT_REFDO_SOURCE_SORTED" ]; then
     revisions=("${sourceRevisions[@]}")
 elif [ -n "$GIT_REFDO_SOURCE_COMMAND" ]; then
     readarray -t revisions < <(eval "$GIT_REFDO_SOURCE_COMMAND" '"${gitSourceCommandArgs[@]}" "${sourceRevisions[@]}"')
 fi
 if [ ${#revisions[@]} -eq 0 ]; then
-    echo >&2 "No ${GIT_REFDO_WHAT} found."
-    exit 99
+    if [ -z "$GIT_REFDO_SOURCE_COMMAND" -a -z "$gitFromCommand" ]; then
+	echo "ERROR: No COMMAND(s) specified; need to pass --from GIT-LOG-COMMAND [GIT-LOG-ARGUMENTS ...] $GIT_REFDO_FROM_END or - to read ${GIT_REFDO_WHAT} from standard input."
+	echo
+	printUsage "$0"
+	exit 4
+    else
+	echo "No ${GIT_REFDO_WHAT} found."
+	exit 99
+    fi >&2
 fi
 [ -n "$revisionNum" ]  && [ $revisionNum -lt ${#revisions[@]} ] \
     && revisions=("${revisions[@]:(-$revisionNum)}")

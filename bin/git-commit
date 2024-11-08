@@ -90,7 +90,36 @@ then
     [ ${#editArgs[@]} -gt 0 ] || editArgs+=(--edit)
 fi
 
-set -- "${messageDirectArgs[@]}" "${messageFileArgs[@]}" "${messageRefArgs[@]}" "${editArgs[@]}" "${commitArgs[@]}" "$@"
+# Extension: Automatically add trailers containing system and/or platform information.
+# Executed the configured command-line; if there's output (individual lines are
+# joined by commas), it's added as the corresponding trailer at the end of the
+# commit message. Commands can be configured via (in order of precedence):
+# - worktree or local Git configuration commit.trailer.*
+# - environment variable GIT_COMMIT_TRAILER_*
+# - global or system Git configuration commit.trailer.*
+typeset -a trailerArgs=()
+for infoType in system platform
+do
+    infoTrailerVariableName="GIT_COMMIT_TRAILER_${infoType^^}"
+    infoTrailerVariable="${!infoTrailerVariableName}"
+    infoTrailerConfig="$(git config --get "commit.trailer.${infoType}")"
+    if [ -z "$infoTrailerConfig" ] \
+	|| [ -z "$(git config --local --get "commit.trailer.${infoType}")" -a -z "$(git config --worktree --get "commit.trailer.${infoType}")" ]
+    then
+	infoTrailer="${infoTrailerVariable:-$infoTrailerConfig}"
+    else
+	infoTrailer="$infoTrailerConfig"
+    fi
+
+    if [ -n "$infoTrailer" ] \
+	&& infoContent="$(eval "$infoTrailer" | joinBy --omit-empty - ', ')" \
+	&& [ -n "$infoContent" ]
+    then
+	trailerArgs+=(--trailer "${infoType}=${infoContent}")
+    fi
+done
+
+set -- "${messageDirectArgs[@]}" "${messageFileArgs[@]}" "${messageRefArgs[@]}" "${editArgs[@]}" "${trailerArgs[@]}" "${commitArgs[@]}" "$@"
 
 export GIT_COMMIT_CWD="$PWD"
 eval "typeset -a gitConfigArgs=($GIT_CONFIG_ARGS)"

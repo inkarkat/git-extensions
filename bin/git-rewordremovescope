@@ -1,0 +1,36 @@
+#!/bin/bash
+set -o pipefail
+
+: ${GIT_COMMITKEYWORDTALLY_KEYWORD_FILE:=~/.vim/entries/vcsmessage/keywords.txt}
+
+keywordExpr="$(
+    field -F $'\t' --input "$GIT_COMMITKEYWORDTALLY_KEYWORD_FILE" 1 \
+	| sed -e 1d -e 's/:$//' -e 's/: /\\|/g' \
+	| joinBy - '\|'
+)" || exit 3
+
+printUsage()
+{
+    local commandName="$(basename "$1")"
+    cat <<HELPTEXT
+Remove leading <scope>: arguments (but stop short of keywords) from the commit
+message of the last commit.
+Useful after moving commit(s; for multiple use rebase -- ${commandName#git-})
+off of master onto a feature branch.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$commandName" '[-?|-h|--help]'
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+exec git-sedreword \
+    -e '1!b' \
+    -e "/^\\(${keywordExpr}\\):\\( \\|\$\\)/b" \
+    -e 's/^[^[:space:]:]\+: //'

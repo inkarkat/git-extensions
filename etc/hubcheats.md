@@ -41,13 +41,13 @@ hub is a command-line wrapper for git that makes you better at GitHub.
 # As an open-source maintainer
 
 ### check out a pull request for review
-`$ hub checkout [https://github.com/github/hub/pull/]134`
+`$ hub pr checkout [https://github.com/github/hub/pull/]134`
 (creates a new local branch _username-branchname_) with the contents of the pull request)
 → `git fetch origin pull/134/head:BRANCHNAME`
 → `git checkout BRANCHNAME`
 
 ### check out a pull request for local amending / merging
-`$ hub checkout [https://github.com/github/hub/pull/]134`
+`$ hub pr checkout [https://github.com/github/hub/pull/]134`
 (creates a new local branch _username-branchname_) with the contents of the pull request)
 `$ git amend ...`
 `$ git push`

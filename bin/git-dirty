@@ -41,21 +41,12 @@ runStatus()
     git status --short --untracked-files=no "${statusArgs[@]}" -- "$@" 2>/dev/null
 }
 
-if [ "$isQuiet" ] && [ $# -eq 0 -a ${#statusArgs[@]} -eq 0 ]; then
-    # An empty repository causes "git diff-index" to complain about "fatal: bad
-    # revision 'HEAD'", so it would be considered dirty if we didn't check for
-    # that here.
-    git rev-parse --quiet HEAD -- >/dev/null 2>&1 || exit 1
+paths="$(runStatus "$@")"
+[ -n "$paths" ] || exit 1
+[ "$isQuiet" ] && exit 0
 
-    ! { git update-index --refresh >/dev/null  && git diff-index --cached --quiet HEAD --; } # Note: Could use "! git-staged --quiet" here as well, but let's avoid the indirection here.
-else
-    paths="$(runStatus "$@")"
-    [ -n "$paths" ] || exit 1
-    [ "$isQuiet" ] && exit 0
-
-    # Note: Re-execute the status command because it does not (Git version
-    # 2.39.0) support any --color=always and the captured output has no
-    # coloring.
-    [ ! "$isPrintError" ] || printf >&2 '%s\n' "$errorMessage"
-    runStatus "$@"
-fi
+# Note: Re-execute the status command because it does not (Git version
+# 2.39.0) support any --color=always and the captured output has no
+# coloring.
+[ ! "$isPrintError" ] || printf >&2 '%s\n' "$errorMessage"
+runStatus "$@"

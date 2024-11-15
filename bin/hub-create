@@ -1,0 +1,29 @@
+#!/bin/bash
+shopt -qs extglob
+
+typeset -a createArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+
+	-+([poc]))	createArgs+=("$1"); shift;;
+	--@(private|browse|copy))
+			createArgs+=("$1"); shift;;
+	-[dh])		createArgs+=("$1" "${2?}"); shift; shift;;
+	--@(description|homepage|remote-name))
+			createArgs+=("$1" "${2?}"); shift; shift;;
+	--)		createArgs+=("$1"); shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+
+if [ $# -eq 0 ]; then
+    # Default name; use working copy name, not working directory like hub does.
+    if wcName="$(git-wcname)"; then
+	set -- "$wcName"
+    fi
+fi
+
+exec hub create "${createArgs[@]}" "$@"

@@ -2,16 +2,19 @@
 shopt -qs extglob
 
 typeset -a createArgs=()
+typeset -a createDescriptionArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 
+	--description|-d)
+			createDescriptionArgs+=("$1" "${2?}"); shift; shift;;
 	-+([poc]))	createArgs+=("$1"); shift;;
 	--@(private|browse|copy))
 			createArgs+=("$1"); shift;;
-	-[dh])		createArgs+=("$1" "${2?}"); shift; shift;;
-	--@(description|homepage|remote-name))
+	-[h])		createArgs+=("$1" "${2?}"); shift; shift;;
+	--@(homepage|remote-name))
 			createArgs+=("$1" "${2?}"); shift; shift;;
 	--)		createArgs+=("$1"); shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
@@ -26,4 +29,13 @@ if [ $# -eq 0 ]; then
     fi
 fi
 
-exec hub create "${createArgs[@]}" "$@"
+# Extract description from the readme file (according to my style) if not provided.
+if [ ${#createDescriptionArgs[@]} -eq 0 ] \
+    && root="$(git root)" \
+    && [ -r "${root}/README.md" ]
+then
+    descriptionFromReadme="$(sed -n -e '3{ s/^_\(.\+\)_$/\1/; p; q; }' "${root}/README.md")"
+    [ -z "$descriptionFromReadme" ] || createDescriptionArgs=(--description "$descriptionFromReadme")
+fi
+
+exec hub create "${createArgs[@]}" "${createDescriptionArgs[@]}" "$@"

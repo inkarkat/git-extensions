@@ -29,13 +29,11 @@ if [ $# -eq 0 ]; then
     fi
 fi
 
-# Extract description from the readme file (according to my style) if not provided.
-if [ ${#createDescriptionArgs[@]} -eq 0 ] \
-    && root="$(git root)" \
-    && [ -r "${root}/README.md" ]
-then
-    descriptionFromReadme="$(sed -n -e '3{ s/^_\(.\+\)_$/\1/; p; q; }' "${root}/README.md")"
-    [ -z "$descriptionFromReadme" ] || createDescriptionArgs=(--description "$descriptionFromReadme")
-fi
+# Generate / extract description via the supplied command if not provided.
+[ ${#createDescriptionArgs[@]} -eq 0 ] \
+    && [ -n "$HUB_CREATE_DESCRIPTION_GENERATOR" ] \
+    && generatedDescription="$(eval "$HUB_CREATE_DESCRIPTION_GENERATOR")" \
+    && [ -n "$generatedDescription" ] \
+    && createDescriptionArgs=(--description "$generatedDescription")
 
 exec hub create "${createArgs[@]}" "${createDescriptionArgs[@]}" "$@"

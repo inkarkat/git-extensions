@@ -21,7 +21,8 @@ esac
 
 othersCommand()
 {
-    $EXEC git-dashdash-default-command --with-files : "${scopeCommand:?}" --range -7 authors-command --range TIMESPAN -2 "${gitCommand%by}" AUTHORS TIMESPAN : "$@"
+    typeset -a inversionArg=(); [[ "$gitCommand" =~ exceptby$ ]] && inversionArg=(--invert-authors)
+    $EXEC git-dashdash-default-command --with-files : "${scopeCommand:?}" --range -$((7 + ${#inversionArg[@]})) authors-command "${inversionArg[@]}" --range TIMESPAN -2 "${gitCommand%%?(except)by}" AUTHORS TIMESPAN : "$@"
 }
 
 : ${EXEC:=exec}
@@ -62,14 +63,14 @@ who@(when|first|last)|whatdid|relatedfiles|churn\
 	# lgx is identical lg to because there's no one-more with timespans.
 	$EXEC "git-${scopeCommand:?}" -2 lg TIMESPAN "$@";;
     (\
-l?(c?(f)|h|g|og)by|\
-@(lc?(l)|l?(o)g?(v)|count)@(g|changed|touched)by|\
-@(log?(v)|show)@(last|first)@(g|changed|touched)by|\
-lc@(?(l)?(f)|?(f))by|\
-@(l?(o)g?([fv])|l?(o)|count|logdistribution)by\
-activityby\
+l?(c?(f)|h|g|og)?(except)by|\
+@(lc?(l)|l?(o)g?(v)|count)@(g|changed|touched)?(except)by|\
+@(log?(v)|show)@(last|first)@(g|changed|touched)?(except)by|\
+lc@(?(l)?(f)|?(f))?(except)by|\
+@(l?(o)g?([fv])|l?(o)|count|logdistribution)?(except)by|\
+activity?(except)by\
 )
-	[ "$gitCommand" = lgby ] && gitCommand='onelinelog'
+	[[ "$gitCommand" = lg?(except)by ]] && gitCommand="onelinelog${gitCommand#lg}"
 	othersCommand "$@"
 	;;
 
@@ -98,7 +99,7 @@ activityby\
 
     @(st|files|submodules)?(mine|others|team))
 	$EXEC "git-${scopeCommand:?}" --range -2 "show$gitCommand" TIMESPAN "$@";;
-    @(st|files|submodules)by)
+    @(st|files|submodules)?(except)by)
 	gitCommand="show$gitCommand" othersCommand "$@";;
     subdo)
 	$EXEC git-files-command --source-command "$scope submodules" --keep-position subdo --for FILES \; "$@";;
@@ -124,7 +125,7 @@ activityby\
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope lghipassedfiles" "$@";;
     lgfiles?(mine|others|team))
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope lg${gitCommand#lgfiles}" "$@";;
-    lgfilesby)
+    lgfiles?(except)by)
 	quotedAuthorsAndRange="$(gitCommand=quoted othersCommand "$@")" || exit $?
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files $quotedAuthorsAndRange" $EXEC git-selected-command "onelinelog $quotedAuthorsAndRange --"
 	;;

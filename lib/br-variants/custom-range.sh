@@ -56,7 +56,8 @@ withAggregateCommit()
 
 othersCommand()
 {
-    $EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" "${scopeCommandLastArgs[@]}" "${revRangeAdditionalArgs[@]}" -7 authors-command --range RANGE -2 "${gitCommand%by}" AUTHORS RANGE : "$@"
+    typeset -a inversionArg=(); [[ "$gitCommand" =~ exceptby$ ]] && inversionArg=(--invert-authors)
+    $EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" "${scopeCommandLastArgs[@]}" "${revRangeAdditionalArgs[@]}" -$((7 + ${#inversionArg[@]})) authors-command "${inversionArg[@]}" --range RANGE -2 "${gitCommand%%?(except)by}" AUTHORS RANGE : "$@"
 }
 
 : ${EXEC:=exec}
@@ -139,7 +140,7 @@ detach@(g|changed|touched)\
 
     @(st|files|submodules)?(mine|others|team))
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -2 "show$gitCommand" RANGE "$@";;
-    @(st|files|submodules)by)
+    @(st|files|submodules)?(except)by)
 	gitCommand="show$gitCommand" othersCommand "$@";;
     subdo)
 	withScoped submodules --keep-position subdo --for FILES \; "$@";;
@@ -155,20 +156,20 @@ detach@(g|changed|touched)\
     revive)
 	$EXEC git-"${scopeCommand[@]}" -3 "$gitCommand" --all RANGE "$@";;
     (\
-lc?(f)by|\
-lc?(l)@(g|changed|touched)by\
+lc?(f)?(except)by|\
+lc?(l)@(g|changed|touched)?(except)by\
 )
 	revRangeAdditionalArgs=(--one-more-command log --one-more-with-padding)
 	;&
 	(\
-l?(h|g|og)by|\
-@(l?(o)g?(v)|count)@(g|changed|touched)by|\
-@(log?(v)|show)@(last|first)@(g|changed|touched)by|\
-l?(o)g?([fv])by|\
-@(l?(o)|count|logdistribution)by|\
-activityby\
+l?(h|g|og)?(except)by|\
+@(l?(o)g?(v)|count)@(g|changed|touched)?(except)by|\
+@(log?(v)|show)@(last|first)@(g|changed|touched)?(except)by|\
+l?(o)g?([fv])?(except)by|\
+@(l?(o)|count|logdistribution)?(except)by|\
+activity?(except)by\
 )
-	[ "$gitCommand" = lgby ] && gitCommand='onelinelog'
+	[[ "$gitCommand" = lg?(except)by ]] && gitCommand="onelinelog${gitCommand#lg}"
 	othersCommand "$@"
 	;;
     @(show|tree)[ou]url)
@@ -183,7 +184,7 @@ activityby\
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope lghipassedfiles" "$@";;
     lgfiles?(mine|others|team))
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope lg${gitCommand#lgfiles}" "$@";;
-    lgfilesby)
+    lgfiles?(except)by)
 	quotedAuthorsAndRange="$(gitCommand=quoted othersCommand "$@")" || exit $?
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files $quotedAuthorsAndRange" $EXEC git-selected-command "onelinelog $quotedAuthorsAndRange --"
 	;;

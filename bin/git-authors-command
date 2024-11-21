@@ -11,8 +11,10 @@ address (as a lookup; filtering is done via git whois)
 - replacing AUTHORS argument(s) anywhere
 - replacing AUTHORS in the following GIT-COMMAND and -(N-1) arguments
 - replacing AUTHORS in the following +(N) arguments and appending those
+With --invert-authors, only a single author can be passed / selected, and
+AUTHORS matches everything by that person.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-option-name] [--literal|--joined-as-pattern [--prefix P] [--suffix S]] [--since <date>|--max-count <number>|--range <range> [--range ...]] ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-option-name] [--literal|--joined-as-pattern [--prefix P] [--suffix S]|--invert-authors] [--since <date>|--max-count <number>|--range <range> [--range ...]] ... [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [...] AUTHOR-PATTERN|(-- [AUTHOR-PATTERN ...])'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... AUTHORS ...] AUTHOR-PATTERN|(-- [AUTHOR-PATTERN ...])'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] GIT-COMMAND [...] AUTHOR-PATTERN|(-- [AUTHOR-PATTERN ...])'
@@ -24,7 +26,9 @@ isJoinedAsPattern=
 joinPrefix='\b'
 joinSuffix='\b'
 typeset -a whoisArgs=()
+typeset -a whoisSelectArg=(--select-many)
 typeset -a escaper=(sed -e 's/[][\$*.^]/\\&/g')
+isInvertAuthors=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -34,6 +38,7 @@ do
 	--joined-as-pattern)	shift; isJoinedAsPattern=t;;
 	--prefix)		shift; joinPrefix="$1"; shift;;
 	--suffix)		shift; joinSuffix="$1"; shift;;
+	--invert-authors)	shift; isInvertAuthors=t; whoisSelectArg=(--select) whoisArgs+=(--name);;   # Use only name as the anchored author pattern matches the whole name.
 	--name|--email|-[ne]|--follow|--max-count=*|--range=*)
 				whoisArgs+=("$1"); shift;;
 	--@(since|max-count|range))
@@ -74,7 +79,7 @@ if [ ${#authorArgs[@]} -eq 0 ]; then
 fi
 
 readarray -t authors < <(
-    eval 'git-whois --select-many "${whoisArgs[@]}" "${authorArgs[@]}"' \
+    eval 'git-whois "${whoisSelectArg[@]}" "${whoisArgs[@]}" "${authorArgs[@]}"' \
 	"${escaper:+|}" '"${escaper[@]}"'
 )
 
@@ -86,6 +91,13 @@ fi
 
 
 if [ "$isJoinedAsPattern" ]; then
+    if [ "$isInvertAuthors" ]; then
+	echo 'ERROR: --invert-authors cannot be combined with --joined-as-pattern.'
+	echo
+	printUsage "$0"
+	exit 2
+    fi >&2
+
     joinedLiteralAuthors=
     for author in "${authors[@]}"
     do
@@ -93,6 +105,13 @@ if [ "$isJoinedAsPattern" ]; then
     done
     typeset -a gitAuthorArgs=("${optionName}${joinPrefix}\\(${joinedLiteralAuthors}\\)${joinSuffix}")
 else
+    if [ "$isInvertAuthors" ]; then
+	if [ ${#authors[@]} -ne 1 ]; then
+	    printf >&2 'ASSERT: Expected single author, but got %d.\n' "${!authors[@]}"; exit 3
+	fi
+	authors=("$(git-others-command --invert "${authors[0]}")") || exit 3
+    fi
+
     typeset -a gitAuthorArgs=("${authors[@]/#/$optionName}")
 fi
 

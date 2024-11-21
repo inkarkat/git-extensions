@@ -21,7 +21,7 @@ esac
 
 othersCommand()
 {
-    $EXEC git-dashdash-default-command --with-files : "${scopeCommand:?}" --range -7 others-command --range TIMESPAN -2 "${gitCommand%by}" AUTHORS TIMESPAN : "$@"
+    $EXEC git-dashdash-default-command --with-files : "${scopeCommand:?}" --range -7 authors-command --range TIMESPAN -2 "${gitCommand%by}" AUTHORS TIMESPAN : "$@"
 }
 
 : ${EXEC:=exec}

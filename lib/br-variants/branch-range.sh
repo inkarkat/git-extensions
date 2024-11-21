@@ -29,7 +29,7 @@ esac
 
 othersCommand()
 {
-    $EXEC git-dashdash-default-command --with-files : branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" "${revRangeAdditionalArgs[@]}" -7 others-command --range RANGE -2 "${gitCommand%by}" AUTHORS RANGE : "$@"
+    $EXEC git-dashdash-default-command --with-files : branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" "${revRangeAdditionalArgs[@]}" -7 authors-command --range RANGE -2 "${gitCommand%by}" AUTHORS RANGE : "$@"
 }
 
 : ${EXEC:=exec}

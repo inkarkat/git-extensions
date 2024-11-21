@@ -56,7 +56,7 @@ withAggregateCommit()
 
 othersCommand()
 {
-    $EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" "${scopeCommandLastArgs[@]}" "${revRangeAdditionalArgs[@]}" -7 others-command --range RANGE -2 "${gitCommand%by}" AUTHORS RANGE : "$@"
+    $EXEC git-dashdash-default-command --with-files : "${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" "${scopeCommandLastArgs[@]}" "${revRangeAdditionalArgs[@]}" -7 authors-command --range RANGE -2 "${gitCommand%by}" AUTHORS RANGE : "$@"
 }
 
 : ${EXEC:=exec}

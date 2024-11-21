@@ -77,7 +77,7 @@ dp[sg]|dpl?(s)[sg]|dpls@(changed|touched)|\
 revert@(g|changed|touched|commit@(g|changed|touched))|\
 @(correct|fix@(up|amend|wording)|commit@(identical|like|relate)|amendrelate)@(g|changed|touched|st|i|I)|\
 detach@(g|changed|touched)|\
-who@(when|first|last)|whatdid|churn|\
+who@(when|first|last)|whatdid|relatedfiles|churn|\
 activity?(mine|team)|\
 subchanges|superchanges|subrevl@(?(o)g|c)\
 )

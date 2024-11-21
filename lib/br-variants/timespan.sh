@@ -37,14 +37,14 @@ fi
 
 case "$gitCommand" in
     (\
-@(lc?(l)|l?(o)g?(v)|count)@(g|changed|touched)?(mine|team)|\
-@(log?(v)|show)@(last|first)@(g|changed|touched)?(mine|team)|\
+@(lc?(l)|l?(o)g?(v)|count)@(g|changed|touched)?(mine|others|team)|\
+@(log?(v)|show)@(last|first)@(g|changed|touched)?(mine|others|team)|\
 @(files|versions|tags)@(g|changed|touched)|\
 @(files|version|tag)@(last|first)@(g|changed|touched)|\
 lc?(h)|\
-lc@(?(l)?(f)|?(f)@(mine|team))|\
-lh?(mine|team)|\
-@(l?(o)g?([fv])|l?(o)|count|logdistribution)?(mine|team)|\
+lc@(?(l)?(f)|?(f)@(mine|others|team))|\
+lh?(mine|others|team)|\
+@(l?(o)g?([fv])|l?(o)|count|logdistribution)?(mine|others|team)|\
 log?(mod|added|deleted|renamed)?(files)|glog|logbrowse|logsize|\
 lg@(rel|tagged|st|i|I)|\
 l[ou]url?(v)|\
@@ -96,7 +96,7 @@ lc@(?(l)?(f)|?(f))by|\
     ma)
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --no-range --one-more -2 format-patch TIMESPAN "$@";;
 
-    @(st|files|submodules)?(mine|team))
+    @(st|files|submodules)?(mine|others|team))
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --range -2 "show$gitCommand" TIMESPAN "$@";;
     @(st|files|submodules)by)
 	gitCommand="show$gitCommand" othersCommand "$@";;
@@ -122,7 +122,7 @@ lc@(?(l)?(f)|?(f))by|\
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 lghifiles TIMESPAN "$@";;
     lghifiles)
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope lghipassedfiles" "$@";;
-    lgfiles?(mine|team))
+    lgfiles?(mine|others|team))
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope lg${gitCommand#lgfiles}" "$@";;
     lgfilesby)
 	quotedAuthorsAndRange="$(gitCommand=quoted othersCommand "$@")" || exit $?
@@ -198,7 +198,7 @@ lc@(?(l)?(f)|?(f))by|\
     who@(created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what)here)
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 "${gitCommand%here}" TIMESPAN "$@";;
 
-    activity?(mine|team))
+    activity?(mine|others|team))
 	$EXEC echo "Note: $gitCommand would just trim activity to ${scopeWhat}.";;
 
     emaillog)

@@ -1,0 +1,74 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Execute GIT-COMMAND with author filtering everybody but myself
+- appended
+- replacing OTHERS argument(s) anywhere
+- replacing OTHERS in the following GIT-COMMAND and -(N-1) arguments
+- replacing OTHERS in the following +(N) arguments and appending those
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-option-name] [-e|--email|-f|--full|--github|-w|--whoami] ...'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... OTHERS ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [...]'
+}
+
+optionName='--author='
+typeset -a meArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-option-name)
+			shift; optionName='';;
+	--email|-e|--full|-f|--github|--whoami|-w)
+			meArgs+=("$1"); shift;;
+	--)		shift; break;;
+	*)		break;;
+    esac
+done
+if [ $# -eq 0 ]; then
+    echo >&2 'ERROR: No GIT-COMMAND passed.'
+    exit 2
+fi
+
+me="$(git me "${meArgs[@]}")" || exit $?
+notMeExpr=''
+for ((i = 0; i < ${#me}; i++))
+do
+    case $i in
+	0)  positionAssertion=;;
+	1)  positionAssertion='.';;
+	*)  positionAssertion=".\\{$i\\}"
+    esac
+    notMeExpr+="${notMeExpr:+\\|}^${positionAssertion}[^${me:$i:1}]"
+done
+notMeExpr="\\(${notMeExpr}\\).*\$"  # Match the full author so that the highlighting doesn't stop after the number of letters in my name is reached.
+
+isCountedAppend=
+case "$1" in
+    +[1-9])
+	isCountedAppend=t;&
+    -[1-9])
+	typeset countedArgNum=${1#[+-]}
+	typeset -a countedArgs=("${@:2:${countedArgNum}}")
+	set -- "${@:$((2 + countedArgNum))}"
+
+	countedArgs=("${countedArgs[@]//OTHERS/${optionName}${notMeExpr}}")
+
+	[ "$isCountedAppend" ] \
+	    && exec git-wrapper "$@" "${countedArgs[@]}" \
+	    || exec git-wrapper "${countedArgs[@]}" "$@"
+	;;
+    --keep-position)
+	shift
+	exec git-wrapper "${@//OTHERS/${optionName}${notMeExpr}}"
+	;;
+    *)
+	exec git-wrapper "$@" "${optionName}${notMeExpr}"
+	;;
+esac

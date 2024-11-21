@@ -71,7 +71,7 @@ fi
 
 typeset -a revRangeAdditionalArgs=()
 case "$gitCommand" in
-    lc?(f)?(mine|team))
+    lc?(f)?(mine|others|team))
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" --one-more-command log --one-more-with-padding -2 "$gitCommand" RANGE "$@";;
     lch)
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" --one-more-command showh --one-more-with-padding -2 "$gitCommand" RANGE "$@";;
@@ -88,24 +88,24 @@ lg@(rel|tagged|st|i|I)\
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" --one-more-command "greyonelineloghighlight $gitCommand" --one-more-only-to-terminal -2 "$gitCommand" RANGE "$@";;
 
     (\
-@(lc?(l)|l?(o)g?(v)|count)@(g|changed|touched)?(mine|team)|\
-@(log?(v)|show)@(last|first)@(g|changed|touched)?(mine|team)|\
+@(lc?(l)|l?(o)g?(v)|count)@(g|changed|touched)?(mine|others|team)|\
+@(log?(v)|show)@(last|first)@(g|changed|touched)?(mine|others|team)|\
 @(files|versions|tags)@(g|changed|touched)|\
 @(files|version|tag)@(last|first)@(g|changed|touched)\
 )
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" "${scopeCommandLastArgs[@]}" -2 "$gitCommand" RANGE "$@";;
 (\
 lcl?(f)|\
-lh?(mine|team)|\
-l?(o)g?([fv])@(mine|team)|\
-@(l?(o)|count|logdistribution)?(mine|team)|\
+lh?(mine|others|team)|\
+l?(o)g?([fv])@(mine|others|team)|\
+@(l?(o)|count|logdistribution)?(mine|others|team)|\
 log?(mod|added|deleted|renamed)?(files)|glog|logbrowse|logsize|\
 l[ou]url?(v)|\
 ss@(?([wcag])|changed|touched)|\
 sls?(g|changed|touched)|\
 dp[sg]|dpl?(s)[sg]|dpls@(changed|touched)|\
 who@(when|first|last)|whatdid|relatedfiles|churn|\
-activity?(mine|team)|\
+activity?(mine|others|team)|\
 subchanges|superchanges|subrevl@(?(o)g|c)\
 )
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -2 "$gitCommand" RANGE "$@";;
@@ -137,7 +137,7 @@ detach@(g|changed|touched)\
     ma)
 	$EXEC git-"${scopeCommand[@]}" -2 format-patch RANGE "$@";;
 
-    @(st|files|submodules)?(mine|team))
+    @(st|files|submodules)?(mine|others|team))
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -2 "show$gitCommand" RANGE "$@";;
     @(st|files|submodules)by)
 	gitCommand="show$gitCommand" othersCommand "$@";;
@@ -181,7 +181,7 @@ activityby\
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" --one-more-command 'greyonelineloghighlight lghighlight' --one-more-only-to-terminal -2 lghifiles RANGE "$@";;
     lghifiles)
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope lghipassedfiles" "$@";;
-    lgfiles?(mine|team))
+    lgfiles?(mine|others|team))
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope lg${gitCommand#lgfiles}" "$@";;
     lgfilesby)
 	quotedAuthorsAndRange="$(gitCommand=quoted othersCommand "$@")" || exit $?

@@ -104,7 +104,7 @@ l[ou]url?(v)|\
 ss@(?([wcag])|changed|touched)|\
 sls?(g|changed|touched)|\
 dp[sg]|dpl?(s)[sg]|dpls@(changed|touched)|\
-who@(when|first|last)|whatdid|churn|\
+who@(when|first|last)|whatdid|relatedfiles|churn|\
 activity?(mine|team)|\
 subchanges|superchanges|subrevl@(?(o)g|c)\
 )

@@ -1,0 +1,49 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Show other files that often get changed in commits that modify FILE(s).
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<revision range>] FILE [...] [-?|-h|--help]'
+}
+
+typeset -a logArgs=()
+unset files
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--)		logArgs+=("$1"); shift; typeset -a files=("$@"); set --; break;;
+	*)		logArgs+=("$1"); shift;;
+    esac
+done
+if [ -z "${files+t}" ]; then
+    # No files after -- captured yet; need to investigate parsed and
+    # remaining args from behind for files.
+    typeset -a files=()
+    logArgs+=("$@")
+    while [ ${#logArgs[@]} -ne 0 ]
+    do
+	lastArg="${logArgs[-1]}"
+	[ -e "$lastArg" ] || break
+
+	files=("$lastArg" "${files[@]}")
+	logArgs=("${logArgs[@]:0:${#logArgs[@]}-1}")
+    done
+fi
+if [ ${#files[@]} -eq 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+git lh "${logArgs[@]}" "${files[@]}" \
+    | xargs -I % git diff -w --name-only "%^..%" \
+    | sort \
+    | grep --fixed-strings --line-regexp --invert-match --file <(printf '%s\n' "${files[@]}") \
+    | uniq --count \
+    | sort --numeric-sort --key=1,1 --reverse \
+    | eval 'truncateLongTail 1' \
+    "${pager:+|}" '"${pager[@]}"'

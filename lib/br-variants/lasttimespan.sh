@@ -67,6 +67,7 @@ l?(c?(f)|h|g|og)by|\
 @(log?(v)|show)@(last|first)@(g|changed|touched)by|\
 lc@(?(l)?(f)|?(f))by|\
 @(l?(o)g?([fv])|l?(o)|count|logdistribution)by\
+activityby\
 )
 	[ "$gitCommand" = lgby ] && gitCommand='onelinelog'
 	othersCommand "$@"

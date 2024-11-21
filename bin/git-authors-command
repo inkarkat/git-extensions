@@ -1,0 +1,159 @@
+#!/bin/bash
+shopt -qs extglob
+
+printUsage()
+{
+    cat <<HELPTEXT
+Execute GIT-COMMAND with selected author(s) (chosen from all previous committers
+if only -- is passed) as AUTHORS, who can be specified partially or via email
+address (as a lookup; filtering is done via git whois)
+- appended
+- replacing AUTHORS argument(s) anywhere
+- replacing AUTHORS in the following GIT-COMMAND and -(N-1) arguments
+- replacing AUTHORS in the following +(N) arguments and appending those
+With --invert-authors, only a single author can be passed / selected, and
+AUTHORS matches everything by that person.
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-option-name] [--literal|--joined-as-pattern [--prefix P] [--suffix S]|--invert-authors] [--since <date>|--max-count <number>|--range <range> [--range ...]] ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [...] AUTHOR-PATTERN|(-- [AUTHOR-PATTERN ...])'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... AUTHORS ...] AUTHOR-PATTERN|(-- [AUTHOR-PATTERN ...])'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] GIT-COMMAND [...] AUTHOR-PATTERN|(-- [AUTHOR-PATTERN ...])'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [...] AUTHOR-PATTERN|(-- [AUTHOR-PATTERN ...])'
+}
+
+optionName='--author='
+isJoinedAsPattern=
+joinPrefix='\b'
+joinSuffix='\b'
+typeset -a whoisArgs=()
+typeset -a whoisSelectArg=(--select-many)
+typeset -a escaper=(sed -e 's/[][\$*.^]/\\&/g')
+isInvertAuthors=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)		shift; printUsage "$0"; exit 0;;
+	--no-option-name)	shift; optionName=;;
+	--literal)		shift; escaper=();;
+	--joined-as-pattern)	shift; isJoinedAsPattern=t;;
+	--prefix)		shift; joinPrefix="$1"; shift;;
+	--suffix)		shift; joinSuffix="$1"; shift;;
+	--invert-authors)	shift; isInvertAuthors=t; whoisSelectArg=(--select) whoisArgs+=(--name);;   # Use only name as the anchored author pattern matches the whole name.
+	--name|--email|-[ne]|--follow|--max-count=*|--range=*)
+				whoisArgs+=("$1"); shift;;
+	--@(since|max-count|range))
+				whoisArgs+=("$1" "${2?}"); shift; shift;;
+	*)			break;;
+    esac
+done
+if [ $# -eq 0 ]; then
+    echo 'ERROR: No GIT-COMMAND passed.'
+    echo
+    printUsage "$0"
+    exit 2
+fi >&2
+
+lastArg="${!#}"
+typeset -a authorArgs=()
+for ((i = $#; i > 0; i--))
+do
+    if [ "${*:$i:1}" = '--' ]; then
+	authorArgs=("${@:$((i+1))}")
+	set -- "${@:1:$((i-1))}"
+	break
+    fi
+done
+if [ ${#authorArgs[@]} -eq 0 ]; then
+    if [ "$lastArg" != '--' ]; then
+	if [ $# -lt 2 ]; then
+	    echo >&2 'ERROR: No AUTHOR passed.'
+	    echo >&2
+	    printUsage "$0" >&2
+	    exit 2
+	fi
+
+	# No separation with --; take a single last AUTHOR argument.
+	authorArgs=("${!#}")
+	set -- "${@:1:$(($#-1))}"
+    fi
+fi
+
+readarray -t authors < <(
+    eval 'git-whois "${whoisSelectArg[@]}" "${whoisArgs[@]}" "${authorArgs[@]}"' \
+	"${escaper:+|}" '"${escaper[@]}"'
+)
+
+if [ ${#authors[@]} -eq 0 ]; then
+    IFS=' '
+    printf >&2 'No matching author(s) for %s.\n' "${authorArgs[*]}"
+    exit 1
+fi
+
+
+if [ "$isJoinedAsPattern" ]; then
+    if [ "$isInvertAuthors" ]; then
+	echo 'ERROR: --invert-authors cannot be combined with --joined-as-pattern.'
+	echo
+	printUsage "$0"
+	exit 2
+    fi >&2
+
+    joinedLiteralAuthors=
+    for author in "${authors[@]}"
+    do
+	joinedLiteralAuthors+="${joinedLiteralAuthors:+\\|}${author}"
+    done
+    typeset -a gitAuthorArgs=("${optionName}${joinPrefix}\\(${joinedLiteralAuthors}\\)${joinSuffix}")
+else
+    if [ "$isInvertAuthors" ]; then
+	if [ ${#authors[@]} -ne 1 ]; then
+	    printf >&2 'ASSERT: Expected single author, but got %d.\n' "${!authors[@]}"; exit 3
+	fi
+	authors=("$(git-others-command --invert "${authors[0]}")") || exit 3
+    fi
+
+    typeset -a gitAuthorArgs=("${authors[@]/#/$optionName}")
+fi
+
+isCountedAppend=
+case "$1" in
+    +[1-9])
+	isCountedAppend=t;&
+    -[1-9])
+	typeset countedArgNum=${1#-}
+	typeset -a countedArgs=("${@:2:${countedArgNum}}")
+	set -- "${@:$((2 + countedArgNum))}"
+
+	typeset -a appendedArgs=()
+	for arg in "${countedArgs[@]}"
+	do
+	    if [ "$arg" = 'AUTHORS' ]; then
+		appendedArgs+=("${gitAuthorArgs[@]}")
+	    else
+		appendedArgs+=("$arg")
+	    fi
+	done
+
+	[ "$isCountedAppend" ] \
+	    && exec git-wrapper "$@" "${appendedArgs[@]}" \
+	    || exec git-wrapper "${appendedArgs[@]}" "$@"
+	;;
+    --keep-position)
+	shift
+
+	typeset -a appendedArgs=()
+	for arg
+	do
+	    if [ "$arg" = 'AUTHORS' ]; then
+		appendedArgs+=("${gitAuthorArgs[@]}")
+	    else
+		appendedArgs+=("$arg")
+	    fi
+	done
+
+	exec git-wrapper "${appendedArgs[@]}"
+	;;
+    *)
+	exec git-wrapper "$@" "${gitAuthorArgs[@]}"
+	;;
+esac

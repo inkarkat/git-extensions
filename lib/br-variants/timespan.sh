@@ -22,7 +22,8 @@ esac
 
 othersCommand()
 {
-    $EXEC git-dashdash-default-command --with-files : "${scopeCommand:?}" --range -7 others-command --range TIMESPAN -2 "${gitCommand%by}" AUTHORS TIMESPAN : "$@"
+    typeset -a inversionArg=(); [[ "$gitCommand" =~ exceptby$ ]] && inversionArg=(--invert-authors)
+    $EXEC git-dashdash-default-command --with-files : "${scopeCommand:?}" --range -$((7 + ${#inversionArg[@]})) authors-command "${inversionArg[@]}" --range TIMESPAN -2 "${gitCommand%%?(except)by}" AUTHORS TIMESPAN : "$@"
 }
 
 : ${EXEC:=exec}
@@ -37,14 +38,14 @@ fi
 
 case "$gitCommand" in
     (\
-@(lc?(l)|l?(o)g?(v)|count)@(g|changed|touched)?(mine|team)|\
-@(log?(v)|show)@(last|first)@(g|changed|touched)?(mine|team)|\
+@(lc?(l)|l?(o)g?(v)|count)@(g|changed|touched)?(mine|others|team)|\
+@(log?(v)|show)@(last|first)@(g|changed|touched)?(mine|others|team)|\
 @(files|versions|tags)@(g|changed|touched)|\
 @(files|version|tag)@(last|first)@(g|changed|touched)|\
 lc?(h)|\
-lc@(?(l)?(f)|?(f)@(mine|team))|\
-lh?(mine|team)|\
-@(l?(o)g?([fv])|l?(o)|count|logdistribution)?(mine|team)|\
+lc@(?(l)?(f)|?(f)@(mine|others|team))|\
+lh?(mine|others|team)|\
+@(l?(o)g?([fv])|l?(o)|count|logdistribution)?(mine|others|team)|\
 log?(mod|added|deleted|renamed)?(files)|glog|logbrowse|logsize|\
 lg@(rel|tagged|st|i|I)|\
 l[ou]url?(v)|\
@@ -63,13 +64,14 @@ who@(when|first|last)|whatdid|relatedfiles|churn\
 	# lgx is identical lg to because there's no one-more with timespans.
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 lg TIMESPAN "$@";;
     (\
-l?(c?(f)|h|g|og)by|\
-@(lc?(l)|l?(o)g?(v)|count)@(g|changed|touched)by|\
-@(log?(v)|show)@(last|first)@(g|changed|touched)by|\
-lc@(?(l)?(f)|?(f))by|\
-@(l?(o)g?([fv])|l?(o)|count|logdistribution)by\
+l?(c?(f)|h|g|og)?(except)by|\
+@(lc?(l)|l?(o)g?(v)|count)@(g|changed|touched)?(except)by|\
+@(log?(v)|show)@(last|first)@(g|changed|touched)?(except)by|\
+lc@(?(l)?(f)|?(f))?(except)by|\
+@(l?(o)g?([fv])|l?(o)|count|logdistribution)?(except)by|\
+activity?(except)by\
 )
-	[ "$gitCommand" = lgby ] && gitCommand='onelinelog'
+	[[ "$gitCommand" = lg?(except)by ]] && gitCommand="onelinelog${gitCommand#lg}"
 	othersCommand "$@"
 	;;
 
@@ -96,9 +98,9 @@ lc@(?(l)?(f)|?(f))by|\
     ma)
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --no-range --one-more -2 format-patch TIMESPAN "$@";;
 
-    @(st|files|submodules)?(mine|team))
+    @(st|files|submodules)?(mine|others|team))
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --range -2 "show$gitCommand" TIMESPAN "$@";;
-    @(st|files|submodules)by)
+    @(st|files|submodules)?(except)by)
 	gitCommand="show$gitCommand" othersCommand "$@";;
     subdo)
 	$EXEC git-revision-command --keep-position files-command --source-command "$scope submodules --revision REVISION" --keep-position subdo --for FILES \; "$@";;
@@ -122,9 +124,9 @@ lc@(?(l)?(f)|?(f))by|\
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 lghifiles TIMESPAN "$@";;
     lghifiles)
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope lghipassedfiles" "$@";;
-    lgfiles?(mine|team))
+    lgfiles?(mine|others|team))
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope lg${gitCommand#lgfiles}" "$@";;
-    lgfilesby)
+    lgfiles?(except)by)
 	quotedAuthorsAndRange="$(gitCommand=quoted othersCommand "$@")" || exit $?
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files $quotedAuthorsAndRange" $EXEC git-selected-command "onelinelog $quotedAuthorsAndRange --"
 	;;
@@ -198,7 +200,7 @@ lc@(?(l)?(f)|?(f))by|\
     who@(created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what)here)
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 "${gitCommand%here}" TIMESPAN "$@";;
 
-    activity?(mine|team))
+    activity?(mine|others|team))
 	$EXEC echo "Note: $gitCommand would just trim activity to ${scopeWhat}.";;
 
     emaillog)

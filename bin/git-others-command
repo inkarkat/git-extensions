@@ -1,140 +1,83 @@
 #!/bin/bash
-shopt -qs extglob
 
 printUsage()
 {
     cat <<HELPTEXT
-Execute GIT-COMMAND with selected author(s) (chosen from all previous committers
-if only -- is passed) as AUTHORS, who can be specified partially or via email
-address (as a lookup; filtering is done via git whois)
+Execute GIT-COMMAND with author filtering everybody but myself
 - appended
-- replacing AUTHORS argument(s) anywhere
-- replacing AUTHORS in the following GIT-COMMAND and -(N-1) arguments
-- replacing AUTHORS in the following +(N) arguments and appending those
+- replacing OTHERS argument(s) anywhere
+- replacing OTHERS in the following GIT-COMMAND and -(N-1) arguments
+- replacing OTHERS in the following +(N) arguments and appending those
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-option-name] [--literal|--joined-as-pattern [--prefix P] [--suffix S]] [--since <date>|--max-count <number>|--range <range> [--range ...]] ... [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [...] AUTHOR-PATTERN|(-- [AUTHOR-PATTERN ...])'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... AUTHORS ...] AUTHOR-PATTERN|(-- [AUTHOR-PATTERN ...])'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] GIT-COMMAND [...] AUTHOR-PATTERN|(-- [AUTHOR-PATTERN ...])'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [...] AUTHOR-PATTERN|(-- [AUTHOR-PATTERN ...])'
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-option-name] [-e|--email|-f|--full|--github|-w|--whoami] ...'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... OTHERS ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [...]'
+}
+
+getInvertedAuthorExpr()
+{
+    local author="${1:?}"; shift
+    local invertedAuthorExpression=''
+    for ((i = 0; i < ${#author}; i++))
+    do
+	case $i in
+	    0)  positionAssertion=;;
+	    1)  positionAssertion='.';;
+	    *)  positionAssertion=".\\{$i\\}"
+	esac
+	invertedAuthorExpression+="${invertedAuthorExpression:+\\|}^${positionAssertion}[^${author:$i:1}]"
+    done
+    printf '%s\n' "\\(${invertedAuthorExpression}\\).*\$"  # Match the full author so that the highlighting doesn't stop after the number of letters in my name is reached.
 }
 
 optionName='--author='
-isJoinedAsPattern=
-joinPrefix='\b'
-joinSuffix='\b'
-typeset -a whoisArgs=()
-typeset -a escaper=(sed -e 's/[][\$*.^]/\\&/g')
+typeset -a meArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)		shift; printUsage "$0"; exit 0;;
-	--no-option-name)	shift; optionName=;;
-	--literal)		shift; escaper=();;
-	--joined-as-pattern)	shift; isJoinedAsPattern=t;;
-	--prefix)		shift; joinPrefix="$1"; shift;;
-	--suffix)		shift; joinSuffix="$1"; shift;;
-	--name|--email|-[ne]|--follow|--max-count=*|--range=*)
-				whoisArgs+=("$1"); shift;;
-	--@(since|max-count|range))
-				whoisArgs+=("$1" "${2?}"); shift; shift;;
-	*)			break;;
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-option-name)
+			shift; optionName='';;
+	--email|-e|--full|-f|--github|--whoami|-w)
+			meArgs+=("$1"); shift;;
+	--invert)	shift
+			getInvertedAuthorExpr "${1:?}"; exit $?
+			;;
+	--)		shift; break;;
+	*)		break;;
     esac
 done
 if [ $# -eq 0 ]; then
-    echo 'ERROR: No GIT-COMMAND passed.'
-    echo
-    printUsage "$0"
+    echo >&2 'ERROR: No GIT-COMMAND passed.'
     exit 2
-fi >&2
-
-lastArg="${!#}"
-typeset -a authorArgs=()
-for ((i = $#; i > 0; i--))
-do
-    if [ "${*:$i:1}" = '--' ]; then
-	authorArgs=("${@:$((i+1))}")
-	set -- "${@:1:$((i-1))}"
-	break
-    fi
-done
-if [ ${#authorArgs[@]} -eq 0 ]; then
-    if [ "$lastArg" != '--' ]; then
-	if [ $# -lt 2 ]; then
-	    echo >&2 'ERROR: No AUTHOR passed.'
-	    echo >&2
-	    printUsage "$0" >&2
-	    exit 2
-	fi
-
-	# No separation with --; take a single last AUTHOR argument.
-	authorArgs=("${!#}")
-	set -- "${@:1:$(($#-1))}"
-    fi
 fi
 
-readarray -t authors < <(
-    eval 'git-whois --select-many "${whoisArgs[@]}" "${authorArgs[@]}"' \
-	"${escaper:+|}" '"${escaper[@]}"'
-)
-
-if [ ${#authors[@]} -eq 0 ]; then
-    IFS=' '
-    printf >&2 'No matching author(s) for %s.\n' "${authorArgs[*]}"
-    exit 1
-fi
-
-
-if [ "$isJoinedAsPattern" ]; then
-    joinedLiteralAuthors=
-    for author in "${authors[@]}"
-    do
-	joinedLiteralAuthors+="${joinedLiteralAuthors:+\\|}${author}"
-    done
-    typeset -a gitAuthorArgs=("${optionName}${joinPrefix}\\(${joinedLiteralAuthors}\\)${joinSuffix}")
-else
-    typeset -a gitAuthorArgs=("${authors[@]/#/$optionName}")
-fi
+me="$(git me "${meArgs[@]}")" || exit $?
+notMeExpr="$(getInvertedAuthorExpr "$me")" || exit $?
 
 isCountedAppend=
 case "$1" in
     +[1-9])
 	isCountedAppend=t;&
     -[1-9])
-	typeset countedArgNum=${1#-}
+	typeset countedArgNum=${1#[+-]}
 	typeset -a countedArgs=("${@:2:${countedArgNum}}")
 	set -- "${@:$((2 + countedArgNum))}"
 
-	typeset -a appendedArgs=()
-	for arg in "${countedArgs[@]}"
-	do
-	    if [ "$arg" = 'AUTHORS' ]; then
-		appendedArgs+=("${gitAuthorArgs[@]}")
-	    else
-		appendedArgs+=("$arg")
-	    fi
-	done
+	countedArgs=("${countedArgs[@]//OTHERS/${optionName}${notMeExpr}}")
 
 	[ "$isCountedAppend" ] \
-	    && exec git-wrapper "$@" "${appendedArgs[@]}" \
-	    || exec git-wrapper "${appendedArgs[@]}" "$@"
+	    && exec git-wrapper "$@" "${countedArgs[@]}" \
+	    || exec git-wrapper "${countedArgs[@]}" "$@"
 	;;
     --keep-position)
 	shift
-
-	typeset -a appendedArgs=()
-	for arg
-	do
-	    if [ "$arg" = 'AUTHORS' ]; then
-		appendedArgs+=("${gitAuthorArgs[@]}")
-	    else
-		appendedArgs+=("$arg")
-	    fi
-	done
-
-	exec git-wrapper "${appendedArgs[@]}"
+	exec git-wrapper "${@//OTHERS/${optionName}${notMeExpr}}"
 	;;
     *)
-	exec git-wrapper "$@" "${gitAuthorArgs[@]}"
+	exec git-wrapper "$@" "${optionName}${notMeExpr}"
 	;;
 esac

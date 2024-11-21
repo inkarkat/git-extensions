@@ -34,7 +34,8 @@ HELPDESCRIPTION
 			the commit logs.
     --select|-s		Interactively select a candidate.
     --select-many|-S	Interactively select multiple candidate(s).
-    --name|-n		Just print the person's name; drop the email address.
+    --name|-n		Just print (and select from) the person's name; drop the
+			email address.
     --email|-e		Just print the person's email address; drop the name.
     --via-email|-E	In GitHub, look up the person by email address instead
 			of full name. (Note that a public configured email is
@@ -53,6 +54,7 @@ isRangeLastArg=
 typeset -a rangeArgs=()
 typeset -a rangeModificationArgs=()
 typeset -a personFilter=()
+filterType=post-filter
 hubLookupFormat=%aN
 hubQueryTerm=fullname:
 while [ $# -ne 0 ]
@@ -67,7 +69,7 @@ do
 	--select|-s)    shift; isSelect=t;;
 	--select-many|-S)
 			shift; isSelect=t; isSelectMany=t;;
-	--name|-n)	shift; personFilter=(sed -e 's# \+<[^ ]\+@[^ ]\+>$##');;
+	--name|-n)	shift; personFilter=(sed -e 's# \+<[^ ]\+@[^ ]\+>$##'); filterType=filter;;
 	--email|-e)	shift; personFilter=(sed -e 's#^.* \+<\([^ ]\+@[^ ]\+\)>$#\1#');;
 	--via-email|-E)	shift; hubLookupFormat=%aE; hubQueryTerm=in:email;;
 
@@ -108,7 +110,7 @@ if type -t commandOnSelected >/dev/null; then
 
 	if [ ${#personFilter[@]} -gt 0 ]; then
 	    printf -v quotedPersonFilter '%q ' "${personFilter[@]}"
-	    commandOnSelectedArgs+=(--post-filter "printf %s\\\\n {} | ${quotedPersonFilter% }")
+	    commandOnSelectedArgs+=(--${filterType:?} "printf %s\\\\n {} | ${quotedPersonFilter% } | sort --unique")
 	fi
 
 	commandOnSelected "${commandOnSelectedArgs[@]}" -- "$@"
@@ -150,11 +152,17 @@ EOF
     }
 fi
 
+typeset -a candidateFilter=() printFilter=()
+[ "$filterType" = 'filter' ] \
+    && candidateFilter=("${personFilter[@]}") \
+    || printFilter=("${personFilter[@]}")
+
+
 printPersons()
 {
     eval 'printf %s\\n "$@"' \
-	"${personFilter:+|}" '"${personFilter[@]}"' \
-	"${personFilter:+|sort --unique}"
+	"${printFilter:+|}" '"${printFilter[@]}"' \
+	"${printFilter:+|sort --unique}"
 }
 
 getFromLog()
@@ -191,7 +199,11 @@ getCandidates()
 }
 fi
 
-readarray -t candidates < <(getCandidates "$@" | sort --unique)
+readarray -t candidates < <(
+    eval 'getCandidates "$@"' \
+	"${candidateFilter:+|}" '"${candidateFilter[@]}"' \
+	| sort --unique
+)
 
 if [ ${#candidates[@]} -eq 0 ]; then
     if [ "$isAcceptUnknown" ]; then

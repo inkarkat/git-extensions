@@ -25,3 +25,7 @@ It is recommended to also use the (Bash, but should also work in Korn shell and 
 The [shell/aliases.sh](shell/aliases.sh) script (also meant to be sourced in `.bashrc`) defines additional (Bash-only) aliases for stuff that cannot be done by an extension script (like automatically changing your current directory). [shell/completions.sh](shell/completions.sh) set up Bash completion for commands that take shell commands.
 
 The [profile/aliases.sh](profile/aliases.sh) sets up system-specific Git aliases, which will be persisted in the system-local configuration; these only need to be sourced once, e.g. from your `.profile`.
+
+## See also
+
+* Brooke Kuhlmann has developed an astoundingly similar [set of shell functions](https://github.com/bkuhlmann/dotfiles/blob/d93297201cb31531078aa7308e920bc4a0faab24/lib/templates/.config/bash/functions-public.sh.tt#L435) in his dotfiles. I recognize some ranges (this month, yesterday, until last tag), various commit summary functions, and shortcuts for fixups and rebasing. Some of the functions are referenced in his [Alchemists articles](https://alchemists.io/articles), but they way they are stored (along with other customizations) makes them a showcase of personal preferences rather than a reusable library.

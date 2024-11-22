@@ -21,7 +21,10 @@ getInvertedAuthorExpr()
 {
     local author="${1:?}"; shift
     local invertedAuthorExpression=''
-    for ((i = 0; i < ${#author}; i++))
+    local authorLength=${#author}
+
+    # Same length, different author match.
+    for ((i = 0; i < authorLength; i++))
     do
 	case $i in
 	    0)  positionAssertion=;;
@@ -30,7 +33,13 @@ getInvertedAuthorExpr()
 	esac
 	invertedAuthorExpression+="${invertedAuthorExpression:+\\|}^${positionAssertion}[^${author:$i:1}]"
     done
-    printf '%s\n' "\\(${invertedAuthorExpression}\\).*\$"  # Match the full author so that the highlighting doesn't stop after the number of letters in my name is reached.
+    invertedAuthorExpression="\\(${invertedAuthorExpression}\\).*\$"  # Match the full author so that the highlighting doesn't stop after the number of letters in my name is reached.
+
+    # Match shorter and longer authors.
+    local emailExpr; [[ "$author" =~ \<.+\>$ ]] || emailExpr='\( <.\+>\)'
+    invertedAuthorExpression="^.\\{0,$((authorLength - 1))\\}${emailExpr}\$\\|^.\\{$((authorLength + 1)),\\}${emailExpr}\$${invertedAuthorExpression:+\\|}${invertedAuthorExpression}"
+
+    printf '%s\n' "$invertedAuthorExpression"
 }
 
 optionName='--author='

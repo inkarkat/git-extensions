@@ -1,0 +1,37 @@
+#!/bin/bash
+set -o pipefail
+
+printUsage()
+{
+    cat <<HELPTEXT
+Print repository names / URLs for all repositories owned by the current / passed
+user or organization that have WHAT enabled / disabled.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'enabled|disabled WHAT [--url] [GH-REPO-FILTER-ARGS ...] [<owner>] [-?|-h|--help]'
+}
+
+value=
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    enabled)		shift; value=true;;
+    disabled)		shift; value=false;;
+    *)			{ echo "ERROR: Bad argument \"$1\"; must be enabled|disabled."; echo; printUsage "$0"; } >&2; exit 2;;
+esac
+whatFlagName="has${1^}Enabled"; shift
+
+outputValue=name
+typeset -a ghRepoArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--url)		shift; outputValue=url;;
+	--)		ghRepoArgs+=("$1"); shift; break;;
+	*)		ghRepoArgs+=("$1"); shift;;
+    esac
+done
+
+gh repo list --json "${whatFlagName},${outputValue}" --limit 999 "${ghRepoArgs[@]}" "$@" \
+    | jq --raw-output --arg whatFlagName "$whatFlagName" --argjson value "$value" --arg outputValue "$outputValue" \
+	'.[] | select(.[$whatFlagName] == $value) | .[$outputValue]'

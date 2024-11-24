@@ -1,0 +1,84 @@
+#!/bin/bash
+set -o pipefail
+
+printUsage()
+{
+    cat <<HELPTEXT
+Print statistics about all repositories owned by the current / passed user or
+organization.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<owner>] [-?|-h|--help]'
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+json="$(gh repo list --limit 9999 --json createdAt,hasDiscussionsEnabled,hasIssuesEnabled,hasProjectsEnabled,hasWikiEnabled,isArchived,isFork,isMirror,isPrivate,isTemplate,isUserConfigurationRepository,updatedAt "$@")" || exit $?
+
+printDatesAndFlags()
+{
+    local what="${1:?}"; shift
+    local selector="${1?}"; shift
+    local linePrefix="$1"; shift
+    local lineSuffix="$1"; shift
+
+    printf '%s\n' "$json" \
+	| jq --arg what "$what" --arg linePrefix "$linePrefix" --arg lineSuffix "$lineSuffix" --raw-output \
+"reduce (.[]${selector:+ | select(}${selector}${selector:+)}"') as $item ({"earliestCreatedAt": null, "latestCreatedAt": null, "earliestUpdatedAt": null, "latestUpdatedAt": null, "flagCounts": {}, "totalCount": 0};
+    .totalCount += 1 |
+    .earliestCreatedAt = (if .earliestCreatedAt == null or (($item.createdAt | fromdateiso8601) < .earliestCreatedAt) then $item.createdAt | fromdateiso8601 else .earliestCreatedAt end) |
+    .latestCreatedAt   = (if .latestCreatedAt   == null or (($item.createdAt | fromdateiso8601) > .latestCreatedAt)   then $item.createdAt | fromdateiso8601 else .latestCreatedAt   end) |
+    .earliestUpdatedAt = (if .earliestUpdatedAt == null or (($item.updatedAt | fromdateiso8601) < .earliestUpdatedAt) then $item.updatedAt | fromdateiso8601 else .earliestUpdatedAt end) |
+    .latestUpdatedAt   = (if .latestUpdatedAt   == null or (($item.updatedAt | fromdateiso8601) > .latestUpdatedAt)   then $item.updatedAt | fromdateiso8601 else .latestUpdatedAt   end) |
+    .flagCounts = reduce (["hasDiscussionsEnabled", "hasIssuesEnabled", "hasProjectsEnabled", "hasWikiEnabled"] | .[]) as $key (.flagCounts;
+	.[$key] = (if .[$key] == null then 0 else .[$key] end) + (if $item[$key] == true then 1 else 0 end)
+    )
+) |
+select(.totalCount > 0) |
+    $linePrefix + $what + ":\t" + (.totalCount | tostring) + " repos" +
+	"\tcreated " + (.earliestCreatedAt | strflocaltime("%Y-%b-%d")) + " … " + (.latestCreatedAt | strflocaltime("%Y-%b-%d")) + "\tupdated " + (.earliestUpdatedAt | strflocaltime("%Y-%b-%d")) + " … " + (.latestUpdatedAt | strflocaltime("%Y-%b-%d")) +
+	"\t" + (.flagCounts.hasDiscussionsEnabled | tostring) + " discussions\t" + (.flagCounts.hasIssuesEnabled | tostring) + " issues\t" + (.flagCounts.hasProjectsEnabled | tostring) + " projects\t" + (.flagCounts.hasWikiEnabled | tostring) + " wikis" +
+	$lineSuffix
+'
+}
+
+printStats()
+{
+    printDatesAndFlags 'public active source repos' '.isPrivate == false and .isArchived == false and .isFork == false and .isMirror == false and .isTemplate == false and .isUserConfigurationRepository == false'
+    printDatesAndFlags 'public archived source repos' '.isPrivate == false and .isArchived == true and .isFork == false and .isMirror == false and .isTemplate == false and .isUserConfigurationRepository == false' "$HUB_REPOSTATS_COLOR_DEEMPHASIZER" "$HUB_REPOSTATS_COLOR_RESET"
+    printDatesAndFlags 'private active source repos' '.isPrivate == true and .isArchived == false and .isFork == false and .isMirror == false and .isTemplate == false and .isUserConfigurationRepository == false'
+    printDatesAndFlags 'private archived source repos' '.isPrivate == true and .isArchived == true and .isFork == false and .isMirror == false and .isTemplate == false and .isUserConfigurationRepository == false' "$HUB_REPOSTATS_COLOR_DEEMPHASIZER" "$HUB_REPOSTATS_COLOR_RESET"
+    printDatesAndFlags 'public active forks' '.isPrivate == false and .isArchived == false and .isFork == true and .isMirror == false and .isTemplate == false and .isUserConfigurationRepository == false'
+    printDatesAndFlags 'public archived forks' '.isPrivate == false and .isArchived == true and .isFork == true and .isMirror == false and .isTemplate == false and .isUserConfigurationRepository == false' "$HUB_REPOSTATS_COLOR_DEEMPHASIZER" "$HUB_REPOSTATS_COLOR_RESET"
+    printDatesAndFlags 'private active forks' '.isPrivate == true and .isArchived == false and .isFork == true and .isMirror == false and .isTemplate == false and .isUserConfigurationRepository == false'
+    printDatesAndFlags 'private archived forks' '.isPrivate == true and .isArchived == true and .isFork == true and .isMirror == false and .isTemplate == false and .isUserConfigurationRepository == false' "$HUB_REPOSTATS_COLOR_DEEMPHASIZER" "$HUB_REPOSTATS_COLOR_RESET"
+
+    printDatesAndFlags 'active mirrors' '.isArchived == false and .isMirror == true and .isTemplate == false and .isUserConfigurationRepository == false'
+    printDatesAndFlags 'archived mirrors' '.isArchived == true and .isMirror == true and .isTemplate == false and .isUserConfigurationRepository == false' "$HUB_REPOSTATS_COLOR_DEEMPHASIZER" "$HUB_REPOSTATS_COLOR_RESET"
+    printDatesAndFlags 'active templates' '.isArchived == false and .isMirror == false and .isTemplate == true and .isUserConfigurationRepository == false'
+    printDatesAndFlags 'archived templates' '.isArchived == true and .isMirror == false and .isTemplate == true and .isUserConfigurationRepository == false' "$HUB_REPOSTATS_COLOR_DEEMPHASIZER" "$HUB_REPOSTATS_COLOR_RESET"
+    printDatesAndFlags 'active user config' '.isArchived == false and .isMirror == false and .isTemplate == false and .isUserConfigurationRepository == true'
+    printDatesAndFlags 'archived user config' '.isArchived == true and .isMirror == false and .isTemplate == false and .isUserConfigurationRepository == true' "$HUB_REPOSTATS_COLOR_DEEMPHASIZER" "$HUB_REPOSTATS_COLOR_RESET"
+
+    echo '--'
+    printDatesAndFlags 'all active repos' '.isArchived == false'
+    printDatesAndFlags 'all archived repos' '.isArchived == true' "$HUB_REPOSTATS_COLOR_DEEMPHASIZER" "$HUB_REPOSTATS_COLOR_RESET"
+    printDatesAndFlags 'total repos' '' "$HUB_REPOSTATS_COLOR_TOTAL" "$HUB_REPOSTATS_COLOR_RESET"
+}
+
+
+: ${HUB_REPOSTATS_COLOR_DEEMPHASIZER=[38;5;247m}
+: ${HUB_REPOSTATS_COLOR_TOTAL=[1m}
+: ${HUB_REPOSTATS_COLOR_RESET=[0m}
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+typeset -a formatter=(column -s $'\t' -t)
+if [ ! -t 1 ]; then
+    unset "${!HUB_REPOSTATS_COLOR_@}"
+    pager=()
+    formatter=()
+fi
+eval 'printStats "$@"' \
+    "${formatter:+|}" '"${formatter[@]}"' \
+    "${pager:+|}" '"${pager[@]}"'

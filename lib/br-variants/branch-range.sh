@@ -87,7 +87,7 @@ subchanges|superchanges|subrevl@(?(o)g|c)\
     lgx)
 	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -2 lg RANGE "$@";;
 
-    d?([lbwcayYrt]|rl)|dsta?(t)|ad|subrevdiff)
+    d?([lbwcayYrt]|rl)|dsta?(t)|@(ad|ov)|subrevdiff)
 	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --with-range ... -2 "$gitCommand" RANGE "$@";;
     ds)
 	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --keep-position files-command --source-exec showfiles RANGE \; diffselected --log-range RANGE "$@";;
@@ -95,7 +95,7 @@ subchanges|superchanges|subrevl@(?(o)g|c)\
 	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --keep-position selectedcommit-command --single-only --with-range-from-end ^... --range-is-last -3 diff COMMITS RANGE "$@";;
     dsta?(t)byeach)
 	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -2 "log${gitCommand#d}" RANGE "$@";;
-    adp)
+    @(ad|ov)p)
 	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --keep-position selectedcommit-command --single-only --range-is-last -3 "$gitCommand" COMMITS RANGE "$@";;
     ma)
 	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -2 format-patch RANGE "$@";;

@@ -120,7 +120,7 @@ detach@(g|changed|touched)\
     lgx)
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -2 lg RANGE "$@";;
 
-    d?([lbwcayYrt]|rl)|dsta?(t)|ad|subrevdiff)
+    d?([lbwcayYrt]|rl)|dsta?(t)|@(ad|ov)|subrevdiff)
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" "${scopeDiffCommandRangeArgs[@]}" -2 "$gitCommand" RANGE "$@";;
     ds)
 	# diffselected does not understand log args; these here are only used to determine the affected files and revision range.
@@ -133,7 +133,7 @@ detach@(g|changed|touched)\
 	$EXEC git-"${scopeCommand[@]}" --keep-position selectedcommit-command "${argsForLogScopeCommands[@]}" --single-only --with-range-from-end ^... --range-is-last -3 diff COMMITS RANGE "$@";;
     dsta?(t)byeach)
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -2 "log${gitCommand#d}" RANGE "$@";;
-    adp)
+    @(ad|ov)p)
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" --keep-position selectedcommit-command --single-only --range-is-last -3 "$gitCommand" COMMITS RANGE "$@";;
     ma)
 	$EXEC git-"${scopeCommand[@]}" -2 format-patch RANGE "$@";;

@@ -120,7 +120,7 @@ correct|commit@(identical|like|relate)|amendrelate\
 )
 	withAggregateCommit "$gitCommand" "$@";;
     (\
-adp|\
+@(ad|ov)p|\
 createbr|stackbrfrom|detach|wipe|\
 cat|cp\
 )

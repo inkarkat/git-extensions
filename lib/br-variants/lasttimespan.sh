@@ -90,9 +90,9 @@ activity?(except)by\
 	$EXEC "git-${scopeCommand:?}" --no-range -2 difftooluntil TIMESPAN "$@";;
     d[lbwcayYr]|drl)
 	$EXEC "git-${scopeCommand:?}" --no-range -2 "diffuntil${gitCommand#d}" TIMESPAN "$@";;
-    ad)
+    @(ad|ov))
 	$EXEC "git-${scopeCommand:?}" --no-range -2 annotatediffuntil TIMESPAN "$@";;
-    adp)
+    @(ad|ov)p)
 	$EXEC "git-${scopeCommand:?}" -6 selectedcommit-command --single-only -2 "$gitCommand" COMMITS TIMESPAN "$@";;
     ma)
 	$EXEC "git-${scopeCommand:?}" --no-range --one-more -2 format-patch TIMESPAN "$@";;

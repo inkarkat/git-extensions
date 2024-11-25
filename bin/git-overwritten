@@ -1,11 +1,17 @@
 #!/bin/bash
 shopt -qs extglob
 
+: ${GIT_OVERWRITTEN_COLOR_COMMIT=[36m}
+: ${GIT_OVERWRITTEN_COLOR_AUTHOR=[32m}
+: ${GIT_OVERWRITTEN_COLOR_DATE=[32m}
+: ${GIT_OVERWRITTEN_COLOR_COUNT=[35m}
+: ${GIT_OVERWRITTEN_COLOR_RESET=[0m}
+
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, they can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[--cached|HEAD|<commit>...<commit>] [<diff-options>] [--] [FILE ...] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[--color=(always|auto|never)|--no-color] [--cached|HEAD|<commit>...<commit>] [<diff-options>] [--] [FILE ...] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -41,9 +47,11 @@ RELATED COMMANDS:
 HELPTEXT
 }
 
+isColor=t
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
 typeset -a formatter=(column -s $'\t' -t)
 if [ ! -t 1 ]; then
+    isColor=
     pager=()
     formatter=()
 fi
@@ -51,14 +59,31 @@ fi
 quotedBaseCommit=HEAD
 typeset -a difflinesArgs=()
 typeset -a selectedcommitCommandArgs=()
-typeset -a sortArgs=(--key 1.2,1nr)
 format=$'@%3$d\t%2$7d\t%1$s'
+typeset -a formatColors=("$GIT_OVERWRITTEN_COLOR_DATE" "$GIT_OVERWRITTEN_COLOR_COUNT" "$GIT_OVERWRITTEN_COLOR_AUTHOR")
+typeset -a sortArgs=(--key 1.2,1nr)
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
-	--by-author)	shift; format=$'%1$s\t@%3$d\t%2$7d'; sortArgs=(--key 1,1 --key 2.2,2nr);;
-	--by-size)	shift; format=$'%2$7d\t@%3$d\t%1$s'; sortArgs=(--key 1,1nr --key 2.2,2nr);;
+	--no-color|--color=never)
+			isColor=; shift;;
+	--color=always)	isColor=t; shift;;
+	--color=auto)	shift;;
+	--color)	case "$2" in
+			    always) isColor=t;;
+			    never)  isColor=;;
+			    auto)   ;;
+			    *)	    echo >&2 "ERROR: Invalid --color arg: $2"
+				    echo >&2
+				    printUsage "$0" >&2
+				    exit 2
+				    ;;
+			esac
+			shift; shift
+			;;
+	--by-author)	shift; format=$'%1$s\t@%3$d\t%2$7d'; formatColors=("$GIT_OVERWRITTEN_COLOR_AUTHOR" "$GIT_OVERWRITTEN_COLOR_DATE" "$GIT_OVERWRITTEN_COLOR_COUNT"); sortArgs=(--key 1,1 --key 2.2,2nr);;
+	--by-size)	shift; format=$'%2$7d\t@%3$d\t%1$s'; formatColors=("$GIT_OVERWRITTEN_COLOR_COUNT" "$GIT_OVERWRITTEN_COLOR_DATE" "$GIT_OVERWRITTEN_COLOR_AUTHOR"); sortArgs=(--key 1,1nr --key 2.2,2nr);;
 
 	--cached|HEAD)	difflinesArgs+=("$1"); shift;;
 	*...*)		difflinesArgs+=("$1"); printf -v quotedBaseCommit %q "${1%%...*}"; shift;;
@@ -108,11 +133,37 @@ END {
 '
 }
 
+sortBy()
+{
+    sort --field-separator $'\t' "${sortArgs[@]}"
+}
+
+colorize()
+{
+    typeset -a colors=("$GIT_OVERWRITTEN_COLOR_RESET" "${formatColors[@]}" "$GIT_OVERWRITTEN_COLOR_COMMIT")
+    local IFS=$'\n'
+    awk --field-separator '\t' \
+	-v "colorList=${colors[*]//\\/\\\\}" \
+'
+BEGIN {
+    n = split(colorList, colors, "\n")
+    OFS = "\t"
+}
+{
+    for (i = 1; i <= n; i++) {
+    	$i = colors[i + 1] $i (colors[i + 1] == "" ? "" : colors[1])
+    }
+    print
+}
+'
+}
+
 git-difflines --only-old --number-format '-L%dn,%dn' \
 	--command "git blame --line-porcelain {} $quotedBaseCommit -- {+}" \
 	"${difflinesArgs[@]}" "$@" \
     | processBlame \
-    | sort --field-separator $'\t' "${sortArgs[@]}" \
+    | sortBy \
     | eval reldate \
+    "${isColor:+| colorize}" \
     "${formatter:+|}" '"${formatter[@]}"' \
     "${pager:+|}" '"${pager[@]}"'

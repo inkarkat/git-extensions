@@ -1,0 +1,49 @@
+#!/bin/bash
+# Source: https://leahneukirchen.org/blog/archive/2013/01/a-grab-bag-of-git-tricks.html
+set -o pipefail
+
+printUsage()
+{
+    cat <<HELPTEXT
+Show deleted and renamed files (with -M: just deletions), the last revision, and
+deletion date. The revision without ^ is the commit where the removal happened.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-M[<n>]|--find-renames[=<n>] [--] [FILE ...] [-?|-h|--help]'
+    echo
+    cat <<HELPTEXT
+Show the last contents of deleted / renamed files.
+HELPTEXT
+    echo
+    printf 'Usage: git show $(%q %s)\n' "$(basename "$1")" '...'
+    echo
+    cat <<HELPTEXT
+RELATED COMMANDS:
+- git-revive can be used to restore deleted files as untracked files.
+HELPTEXT
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+extractDeletions()
+{
+    awk \
+	-v "isPrintDate=$isPrintDate" \
+'
+/^[[:xdigit:]]+/ { commit = $1; $1 = ""; sub(OFS, ""); date = $0; }
+/^:/ && $5 == "D" { print((isPrintDate ? date "\t" : "") commit "^:" $6); }
+'
+}
+
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+isPrintDate=t
+if [ ! -t 1 ]; then
+    pager=()
+    isPrintDate=
+fi
+
+git log --raw --no-renames --format="%h %cd (%cr)" "$@" \
+    | eval extractDeletions \
+    "${pager:+|}" '"${pager[@]}"'

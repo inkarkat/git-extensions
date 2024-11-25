@@ -11,7 +11,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, they can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[--color=(always|auto|never)|--no-color] [--cached|HEAD|<commit>...<commit>] [<diff-options>] [--] [FILE ...] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--color=(always|auto|never)|--no-color] [--cached [<commit>]|<commit> [<commit>]|<commit>..<commit>|<commit>...<commit>|-<number>|-n <number>|--count=<number> [<commit>]] [<diff-options>] [--] [FILE ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -56,9 +56,23 @@ if [ ! -t 1 ]; then
     formatter=()
 fi
 
-quotedBaseCommit=HEAD
+exitTooManyCommitsError()
+{
+    echo >&2 'ERROR: Too many <commit>s specified.'
+    echo >&2
+    printUsage >&2 "$0"
+    exit 2
+}
+
+typeset -a commits=()
+addCommit()
+{
+    commits+=("${1:-HEAD}")
+}
+
+count=
+isWithStage=
 typeset -a difflinesArgs=()
-typeset -a selectedcommitCommandArgs=()
 format=$'@%3$d\t%2$7d\t%1$s'
 typeset -a formatColors=("$GIT_OVERWRITTEN_COLOR_DATE" "$GIT_OVERWRITTEN_COLOR_COUNT" "$GIT_OVERWRITTEN_COLOR_AUTHOR")
 typeset -a sortArgs=(--key 1.2,1nr)
@@ -85,8 +99,6 @@ do
 	--by-author)	shift; format=$'%1$s\t@%3$d\t%2$7d'; formatColors=("$GIT_OVERWRITTEN_COLOR_AUTHOR" "$GIT_OVERWRITTEN_COLOR_DATE" "$GIT_OVERWRITTEN_COLOR_COUNT"); sortArgs=(--key 1,1 --key 2.2,2nr);;
 	--by-size)	shift; format=$'%2$7d\t@%3$d\t%1$s'; formatColors=("$GIT_OVERWRITTEN_COLOR_COUNT" "$GIT_OVERWRITTEN_COLOR_DATE" "$GIT_OVERWRITTEN_COLOR_AUTHOR"); sortArgs=(--key 1,1nr --key 2.2,2nr);;
 
-	--cached|HEAD)	difflinesArgs+=("$1"); shift;;
-	*...*)		difflinesArgs+=("$1"); printf -v quotedBaseCommit %q "${1%%...*}"; shift;;
 	-+([bw]))	difflinesArgs+=("$1"); shift;;
 	--@(histogram|ignore-all-space|ignore-blank-lines|ignore-cr-at-eol|ignore-space-at-eol|ignore-space-change|ignore-submodules|minimal|no-textconv|patience|text|textconv))
 			difflinesArgs+=("$1"); shift;;
@@ -96,12 +108,52 @@ do
 	--@(anchored|diff-algorithm|ignore-matching-lines|rotate-to|skip-to))
 			difflinesArgs+=("$1" "${2?}"); shift; shift;;
 
-	--)		typeset -a files=("$@"); break;;
-	*)		selectedcommitCommandArgs+=("$1"); shift;;
+	--count|-n)	shift; count="$1"; shift;;
+	--count=*)	count="${1#--count=}"; shift;;
+	-+([0-9]))	count="${1#-}"; shift;;
+
+	--cached)	difflinesArgs+=("$1"); shift; isWithStage=t;;
+
+	--)		break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+
+	*...*)		[ ${#commits[@]} -lt 2 ] || exitTooManyCommitsError
+			endCommit="${1#*...}"
+			startCommit="$(git merge-base "${1%%...*}" "$endCommit")" || exit $?
+			addCommit "$startCommit"
+			addCommit "$endCommit"
+			shift
+			;;
+	*..*)		[ ${#commits[@]} -lt 2 ] || exitTooManyCommitsError
+			addCommit "${1%%..*}"
+			addCommit "${1#*..}"
+			shift
+			;;
+	*)		if git rev-parse --verify --quiet "${1:?}" >/dev/null 2>&1; then
+			    [ ${#commits[@]} -lt 2 ] || exitTooManyCommitsError
+			    addCommit "$1"
+			else
+			    echo "ERROR: Unknown argument \"$1\"!"
+			    echo
+			    printUsage "$0"
+			    exit 2
+			fi >&2
+			shift
+			;;
     esac
 done
+if [ -n "$count" ]; then
+    case ${#commits[@]} in
+	0) addCommit "HEAD~${count}"; addCommit 'HEAD';;
+	1) commits=("${commits[0]}~${count}" "${commits[0]}");;
+	*) exitTooManyCommitsError;;
+    esac
+fi
+if [ "$isWithStage" ] && [ ${#commits[@]} -gt 1 ]; then
+    exitTooManyCommitsError
+fi
 
-if git diff --quiet "${difflinesArgs[@]}" "${files[@]}"; then
+if git diff --quiet "${difflinesArgs[@]}" "${commits[@]}" "$@"; then
     echo >&2 'No changes.'
     exit 1
 fi
@@ -158,9 +210,19 @@ BEGIN {
 '
 }
 
+quotedBaseCommit=
+if [ "$isWithStage" ]; then
+    quotedBaseCommit=HEAD	# DWIM: There's no blaming of staged changes, so blame the last commit.
+else
+    case ${#commits[@]} in
+	0)  quotedBaseCommit=HEAD;;
+	*)  printf -v quotedBaseCommit %q "${commits[0]}";;	# blame the base commit
+    esac
+fi
+
 git-difflines --only-old --number-format '-L%dn,%dn' \
 	--command "git blame --line-porcelain {} $quotedBaseCommit -- {+}" \
-	"${difflinesArgs[@]}" "$@" \
+	"${difflinesArgs[@]}" "${commits[@]}" "$@" \
     | processBlame \
     | sortBy \
     | eval reldate \

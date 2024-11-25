@@ -1,0 +1,118 @@
+#!/bin/bash
+shopt -qs extglob
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, they can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[--cached|HEAD|<commit>...<commit>] [<diff-options>] [--] [FILE ...] [-?|-h|--help]"
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Show aggregate blame information of lines that have been changed between
+commits, commit and working tree, etc. [in FILE ...]
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --by-author		Sort commits by author name.
+    --by-size		Sort commits by the number of lines affected.
+Each line represents a past commit that the current change (partially)
+overwrites consisting of:
+- relative commit date
+- number of lines from the commit that this change affects
+- author name
+- commit hash
+- subject message
+
+RELATED COMMANDS:
+- Inspired by https://github.com/mislav/dotfiles/blob/master/bin/git-overwritten
+HELPTEXT
+}
+
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+typeset -a formatter=(column -s $'\t' -t)
+if [ ! -t 1 ]; then
+    pager=()
+    formatter=()
+fi
+
+quotedBaseCommit=HEAD
+typeset -a difflinesArgs=()
+typeset -a selectedcommitCommandArgs=()
+typeset -a sortArgs=(--key 1.2,1nr)
+format=$'@%3$d\t%2$7d\t%1$s'
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--by-author)	shift; format=$'%1$s\t@%3$d\t%2$7d'; sortArgs=(--key 1,1 --key 2.2,2nr);;
+	--by-size)	shift; format=$'%2$7d\t@%3$d\t%1$s'; sortArgs=(--key 1,1nr --key 2.2,2nr);;
+
+	--cached|HEAD)	difflinesArgs+=("$1"); shift;;
+	*...*)		difflinesArgs+=("$1"); printf -v quotedBaseCommit %q "${1%%...*}"; shift;;
+	-+([bw]))	difflinesArgs+=("$1"); shift;;
+	--@(histogram|ignore-all-space|ignore-blank-lines|ignore-cr-at-eol|ignore-space-at-eol|ignore-space-change|ignore-submodules|minimal|no-textconv|patience|text|textconv))
+			difflinesArgs+=("$1"); shift;;
+	-[I])		difflinesArgs+=("$1" "${2?}"); shift; shift;;
+	--@(anchored|diff-algorithm|ignore-matching-lines|rotate-to|skip-to)=*)
+			difflinesArgs+=("$1"); shift;;
+	--@(anchored|diff-algorithm|ignore-matching-lines|rotate-to|skip-to))
+			difflinesArgs+=("$1" "${2?}"); shift; shift;;
+
+	--)		typeset -a files=("$@"); break;;
+	*)		selectedcommitCommandArgs+=("$1"); shift;;
+    esac
+done
+
+if git diff --quiet "${difflinesArgs[@]}" "${files[@]}"; then
+    echo >&2 'No changes.'
+    exit 1
+fi
+
+processBlame()
+{
+    local anyCommit="$(git rev-parse --verify --short HEAD)"	# Resolve what core.abbrev resolves to.
+    local abbrevLen="${#anyCommit}"
+
+    awk -v "abbrevLen=$abbrevLen" \
+	-v "format=${format//\\/\\\\}" \
+'
+function getFollowingFields()
+{
+    $1 = ""; sub(OFS, ""); return $0
+}
+/^[[:xdigit:]]{40} [[:digit:] ]+$/ {
+    hash = $1
+    count[hash] += 1
+}
+/^author / { author[hash] = getFollowingFields() }
+/^committer-time / { time[hash] = getFollowingFields() }
+/^summary / { subject[hash] = getFollowingFields() }
+END {
+    for (hash in count) {
+	printf(format "\t%4$s\t%5$s\n", author[hash], count[hash], time[hash], substr(hash, 0, abbrevLen), subject[hash])
+    }
+}
+'
+}
+
+git-difflines --only-old --number-format '-L%dn,%dn' \
+	--command "git blame --line-porcelain {} $quotedBaseCommit -- {+}" \
+	"${difflinesArgs[@]}" "$@" \
+    | processBlame \
+    | sort --field-separator $'\t' "${sortArgs[@]}" \
+    | eval reldate \
+    "${formatter:+|}" '"${formatter[@]}"' \
+    "${pager:+|}" '"${pager[@]}"'

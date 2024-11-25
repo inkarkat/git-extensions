@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-l|--list|-u|--url] [[HEAD] <glob>|<commit> [...]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-l|--list|-u|--url] [--containing <commit>|TITLE-GLOB|<commit> [...]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -20,8 +20,9 @@ printLongUsage()
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
 Obtain corresponding GitHub pull request(s) that
-- have HEAD / <commit>(s) as the branch's HEAD
-- whose title matches (any of, unanchored) <glob>
+- have HEAD / <commit>(s) as the branch's head or whose merge commit contains
+  <commit>
+- whose title matches (any of, unanchored) TITLE-GLOB
 and open in the browser / print its URL(s).
 HELPDESCRIPTION
     echo
@@ -30,9 +31,13 @@ HELPDESCRIPTION
     cat <<HELPTEXT
     --list|-l		Print the URL(s) and pull request titles.
     --url|-u		Print the URL(s) instead of opening them.
+    --containing <commit>
+			Look for pull requests whose merge commit contains
+			<commit>.
 HELPTEXT
 }
 
+typeset -A commitIdLists=()
 action=browse
 while [ $# -ne 0 ]
 do
@@ -43,21 +48,20 @@ do
 	--color)	shift; shift;;
 	--list|-l)	shift; action=list;;
 	--url|-u)	shift; action=printUrls;;
+	--containing)	shift
+			containingCommit="${1:?}"; shift
+			mergeParents="$(git log --reverse --merges --ancestry-path --pretty=tformat:%P "${containingCommit}..")"
+			if [ -z "$mergeParents" ]; then
+			    printf >&2 'ERROR: No merge commit found containing %s\n' "$containingCommit"
+			    exit 1
+			fi
+			commitIdLists["${mergeParents//$'\n'/ }"]=t
+			;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
     esac
 done
-
-contains()
-{
-    local elem needle=$1; shift
-    for elem
-    do
-	[ "$needle" = "$elem" ] && return 0
-    done
-    return 1
-}
 
 hasGlobMatch()
 {
@@ -85,24 +89,41 @@ printUrls()
 }
 
 [ $# -gt 0 ] || set -- 'HEAD'
-typeset -a commitIds=()
 typeset -a globs=()
 for c
 do
     commitId="$(git rev-parse --verify "$c" 2>/dev/null)" \
-	&& commitIds+=("$commitId") \
+	&& commitIdLists["$commitId"]=t \
 	|| globs+=("$c")
 done
 
 typeset -a urls=() titles=()
+typeset -A prUrls=() prTitles=()
 while IFS=$'\t' read -r prCommitId prUrl prTitle
 do
-    [ ${#commitIds[@]} -gt 0 ] && ! contains "$prCommitId" "${commitIds[@]}" && continue
-    [ ${#globs[@]} -gt 0 ] && ! hasGlobMatch "$prTitle" && continue
+    prUrls["$prCommitId"]="$prUrl"
+    prTitles["$prCommitId"]="$prTitle"
 
-    urls+=("$prUrl")
-    titles+=("$prTitle")
-done < <(hub pr list -f "%sH	%U	%t%n")
+    # Can check glob matches with titles immediately.
+    if [ ${#globs[@]} -gt 0 ] && hasGlobMatch "$prTitle"; then
+	urls+=("$prUrl")
+	titles+=("$prTitle")
+    fi
+done < <(hub pr list --state all -f "%sH	%U	%t%n")
+
+# Check head commits after all are known and in the (ascending) order of merge commits.
+for commitIdList in "${!commitIdLists[@]}"
+do
+    IFS=' ' read -r -a commitIds <<<"$commitIdList"
+    for commitId in "${commitIds[@]}"
+    do
+	if [ "${prUrls["$commitId"]}" ]; then
+	    urls+=("${prUrls["$commitId"]}")
+	    titles+=("${prTitles["$commitId"]}")
+	    break   # Don't report PRs for merges after this one.
+	fi
+    done
+done
 
 [ ${#urls[@]} -gt 0 ] || exit 99
 $action "${urls[@]}"

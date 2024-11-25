@@ -1,4 +1,5 @@
 #!/bin/bash
+shopt -qs extglob
 
 printShortUsage()
 {
@@ -50,7 +51,16 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+
 	--cached|HEAD)	difflinesArgs+=("$1"); shift;;
+	-+([bw]))	difflinesArgs+=("$1"); shift;;
+	--@(histogram|ignore-all-space|ignore-blank-lines|ignore-cr-at-eol|ignore-space-at-eol|ignore-space-change|ignore-submodules|minimal|no-textconv|patience|text|textconv))
+			difflinesArgs+=("$1"); shift;;
+	-[I])		difflinesArgs+=("$1" "${2?}"); shift; shift;;
+	--@(anchored|diff-algorithm|ignore-matching-lines|rotate-to|skip-to)=*)
+			difflinesArgs+=("$1"); shift;;
+	--@(anchored|diff-algorithm|ignore-matching-lines|rotate-to|skip-to))
+			difflinesArgs+=("$1" "${2?}"); shift; shift;;
 
 	--)		typeset -a files=("$@"); break;;
 	*)		selectedcommitCommandArgs+=("$1"); shift;;

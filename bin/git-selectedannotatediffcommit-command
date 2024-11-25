@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--accept-single] [--single-only] [--cached|HEAD] [GIT-COMMAND-ARGS ...] [--] [FILE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--accept-single] [--single-only] [--cached|HEAD|<commit>...<commit>] [GIT-COMMAND-ARGS ...] [--] [FILE ...] [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [GIT-COMMAND-ARGS ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... COMMITS ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
@@ -44,6 +44,7 @@ RELATED COMMANDS:
 HELPTEXT
 }
 
+quotedBaseCommit=HEAD
 typeset -a difflinesArgs=()
 typeset -a selectedcommitCommandArgs=()
 unset files
@@ -53,6 +54,7 @@ do
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 
 	--cached|HEAD)	difflinesArgs+=("$1"); shift;;
+	*...*)		difflinesArgs+=("$1"); printf -v quotedBaseCommit %q "${1%%...*}"; shift;;
 	-+([bw]))	difflinesArgs+=("$1"); shift;;
 	--@(histogram|ignore-all-space|ignore-blank-lines|ignore-cr-at-eol|ignore-space-at-eol|ignore-space-change|ignore-submodules|minimal|no-textconv|patience|text|textconv))
 			difflinesArgs+=("$1"); shift;;
@@ -87,7 +89,7 @@ if git diff --quiet "${difflinesArgs[@]}" "${files[@]}"; then
 fi
 
 git-difflines "${difflinesArgs[@]}" --only-old --number-format '-L%dn,%dn' \
-	--command 'git blame --porcelain {} HEAD -- {+} | grep -o "^[[:xdigit:]]\\{40\\}" | sort --unique' \
+	--command "git blame --porcelain {} $quotedBaseCommit"' -- {+} | grep -o "^[[:xdigit:]]\\{40\\}" | sort --unique' \
 	"${files[@]}" \
     |	GIT_SELECTEDCOMMIT_COMMAND=logrevs \
 	GIT_SELECTEDCOMMIT_NO_MANDATORY_RANGE=t \

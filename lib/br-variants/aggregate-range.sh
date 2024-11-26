@@ -101,7 +101,7 @@ l?(h|g|og)by|\
 @(l?(o)g?(v)|count)@(g|changed|touched)by|\
 @(log?(v)|show)@(last|first)@(g|changed|touched)by|\
 l?(o)g?([fv])by|\
-@(l?(o)|count|logdistribution)by|\
+@(l?(o)|count|commitsperday|logdistribution)by|\
 activityby\
 )
 	[ "$gitCommand" = lgby ] && gitCommand='onelinelog'

@@ -1,0 +1,34 @@
+#!/bin/bash
+# Source: https://github.com/unixorn/git-extra-commands/blob/main/bin/git-commits-per-day
+set -o pipefail
+
+printUsage()
+{
+    cat <<HELPTEXT
+Calculate the average number of commits per day [in <path>].
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<revision-range>] [[--] <path>...] [-?|-h|--help]'
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --no-color|--color=*)
+			shift;;
+    --color)		shift; shift;;
+esac
+
+# Note: This doesn't consider "late-night" commits done after midnight (until
+# 03:00) to be associated with the previous day.
+git log --date=short --format=format:%cd --no-merges --all "$@" \
+    | uniq --count \
+    | awk '
+{ total += $1; count++ }
+END {
+    if (count == 0) {
+	printf("0\n")
+    } else {
+	printf("%.1f\n", total/count)
+    }
+}
+'

@@ -20,6 +20,8 @@ case "$1" in
 esac
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
-git log -M -C --name-only --pretty=format: "$@" | \
-    sort | grep -v '^$' | uniq -c | \
-    eval 'sort -nr' "${pager:+|}" '"${pager[@]}"'
+git log -M -C --name-only --pretty=format: "$@" \
+    | sort | grep -v '^$' | uniq --count \
+    | sort --numeric-sort --reverse \
+    | eval 'truncateLongTail 1' \
+    "${pager:+|}" '"${pager[@]}"'

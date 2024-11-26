@@ -41,14 +41,21 @@ do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--count|-n)	shift; count="${1:?}"; shift;;
-	--commit)	shift; storeAction=git-commit; storeWhat='committed';;
+	--commit)	shift; storeAction=commitInsteadOfStash; storeWhat='committed';;
 	--continue)	shift; continueIndex="${1:?}"; shift;;
 	--cleanup)	shift; action=cleanup;;
 	--)		storeArgs+=("$1"); shift; break;;
 	*)		storeArgs+=("$1"); shift;;
     esac
 done
-set -- "${storeArgs[@]}" "$@"
+commitInsteadOfStash()
+{
+    # When committing, only use the synthesized commit message as a template, but do
+    # open the editor unless the user explicitly requested a direct commit.
+    typeset -a forceEditArg=(); contains --no-edit "${storeArgs[@]}" || forceEditArg=(--edit)
+
+    git-wrapper commit "${forceEditArg[@]}" "${storeArgs[@]}" "$@"
+}
 
 join()
 {
@@ -68,7 +75,7 @@ join()
 	    printf 'Applied %s\n' "$currentStash"
 	else
 	    status=$?
-	    printf -v quotedArgs ' %q' --count "$count" "$@"
+	    printf -v quotedArgs ' %q' --count "$count" "${storeArgs[@]}" "$@"
 	    printf >&2 'ERROR: %s failed to apply. Fix the conflicts and resume with\n       $ %q --continue %d%s\n' "$currentStash" "$(basename "$0")" $((i - 1)) "$quotedArgs"
 	    return $status
 	fi
@@ -83,7 +90,7 @@ join()
 	stashHashes+=("$(git rev-parse "$currentStash")") || return 3
     done
 
-    if $storeAction --message="$concatenatedStashMessages" "$@"; then
+    if $storeAction --message="$concatenatedStashMessages" "${storeArgs[@]}" "$@"; then
 	:
     else
 	status=$?

@@ -4,30 +4,56 @@ set -o pipefail
 : ${GIT_RELATEDCHANGEDFILES_ORIGINAL_FILE_PREFIX=[01;37m}
 : ${GIT_RELATEDCHANGEDFILES_ORIGINAL_FILE_SUFFIX=[0m}
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-N|--no-percentage] [-%|--percentage-threshold PCT] [-a|--include-original-files|-d|--drop-original-files] [<log-options>] [<revision range>] [--] <path>|<commit> [...] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 Show the files affected by commits that also cover (at least partially) the
 files in <path> / the files affected by <commit>, and the correlation between
 the commits; 100% means an affected file is included in every commit that
 touches a passed file; 0% means it's included in less than one commit out of
-hundred. Files are shown if correlation is at least 10% / PCT.
-HELPTEXT
+hundred.
+HELPDESCRIPTION
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-N|--no-percentage|-%|--percentage-threshold PCT] [-a|--include-original-files|-d|--drop-original-files] [<log-options>] [<revision range>] [--] <path>|<commit> [...] [-?|-h|--help]'
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --no-percentage|-N	Omit the percentage; just list the files.
+    --percentage-threshold|-% PCT
+			Show only files with a correlation of at least PCT%.
+    --include-original-files|-a
+			Include the original files in the output without extra
+			highlighting.
+    --drop-original-files|-d
+			Omit the original files from the output.
+Files are shown if correlation is at least 10% / PCT.
+HELPTEXT
 }
 
 typeset -a gitLogArgs=()
 isPercentage=t
 percentageThreshold=10
 filterCommand="s/.*/${GIT_RELATEDCHANGEDFILES_ORIGINAL_FILE_PREFIX}&${GIT_RELATEDCHANGEDFILES_ORIGINAL_FILE_SUFFIX}/"
-originalFilePrefixPattern='^[0-9]\+%	'
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--no-percentage|-N)
-			shift; isPercentage=; originalFilePrefixPattern='^';;
+			shift; isPercentage=;;
 	--percentage-threshold|-%)
 			shift; percentageThreshold="$1"; shift;;
 	--include-original-files|-a)
@@ -52,9 +78,9 @@ removeStatus()
 
 logRelatedChanges()
 {
-    if [ "$isPercentage" ]; then
+    if [ "$isPercentage" ] || [ $percentageThreshold -gt 0 ]; then
 	GIT_LOGRELATEDCHANGES_COMMAND=logv git-logrelatedchanges --pretty=format:--- "${gitLogArgs[@]}" "$@" | \
-	    removeStatus | awk -v percentageThreshold="$percentageThreshold" '
+	    removeStatus | awk -v "isPercentage=$isPercentage" -v percentageThreshold="$percentageThreshold" '
 BEGIN {
     PROCINFO["sorted_in"] = "@val_num_desc"
 }
@@ -69,7 +95,11 @@ END {
     for (file in fileCnt) {
 	percentage = 100 * fileCnt[file] / commitCnt
 	if (percentage >= percentageThreshold) {
-	    printf "%d%%\t%s\n", percentage, file
+	    if (isPercentage) {
+		printf("%d%%\t%s\n", percentage, file)
+	    } else {
+		printf("%s\n", file)
+	    }
 	}
     }
 }
@@ -81,6 +111,7 @@ END {
 }
 
 if [ -n "$filterCommand" ]; then
+    originalFilePrefixPattern='^'; [ $percentageThreshold -gt 0 ] && originalFilePrefixPattern='^[0-9]\+%	'
     typeset -a filterPipeline=()
     while IFS=$'\n' read -r literalOriginalFile
     do

@@ -7,7 +7,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} all|annotated|lightweight [[-l|--list] <pattern> [...]] [-e|--exclude <pattern> [-e ...]] [--version-tags-only|--no-version-tags] [--sort-by-age] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} all|annotated|lightweight [--with-ref] [[-l|--list] <pattern> [...]] [-e|--exclude <pattern> [-e ...]] [--version-tags-only|--no-version-tags] [--sort-by-age] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -27,6 +27,7 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
+    --with-ref		Include the commit hash.
     --exclude|-e <pattern>
 			Only print tags not matching <pattern>.
     --version-tags-only	Only print tags that are considered versions; i.e. do
@@ -54,6 +55,7 @@ case "$1" in
     lightweight)	tagType=commit;;
     *)			printf >&2 'ERROR: Invalid tag type %s; must be either all, annotated, or lightweight.\n' "$1"; exit 2;;
 esac; shift
+isWithRef=
 filter=
 typeset -a patterns=()
 typeset -a excludedPatterns=()
@@ -65,6 +67,7 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
+	--with-ref)	shift; isWithRef=t;;
 	--list|-l)	shift; filter='matcher'; patterns+=("$1"); shift;;
 
 	--exclude|-e)	shift; excludedPatterns+=("${1:?}"); shift; filter='matcher';;
@@ -115,35 +118,45 @@ matcher()
 tagtype()
 {
     git ls-remote --tags --sort="$sortField" "$remote" | \
-	awk -v tagType="$tagType" '
+	awk -v "isWithRef=$isWithRef" -v tagType="$tagType" '
 $2 ~ /^refs\/tags\// {
     tag = substr($2, 11)
     if (tag ~ /\^\{\}$/) {
 	tag = substr(tag, 1, length(tag) - 3)
 
 	if (previousTag != "" && previousTag != tag) {
-	    print previousTag
+	    print previousTag (isWithRef ? "\t" previousRef : "")
 	}
 	if (tagType != "commit") {
-	    print tag
+	    print tag (isWithRef ? "\t" $1 : "")
 	}
 	previousTag = ""
+	previousRef = ""
     } else if (tagType != "tag") {
 	if (previousTag != "" && previousTag != tag) {
-	    print previousTag
+	    print previousTag (isWithRef ? "\t" previousRef : "")
 	}
 	previousTag = tag   # Do not print yet; an annotated dereferenced tag (that just has "^{}" appended) may follow.
+	previousRef = $1
     }
 }
 END {
     if (previousTag != "") {
-	print previousTag
+	print previousTag (isWithRef ? "\t" previousRef : "")
     }
 }
 '
 }
 
-typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+typeset -a formatter=(column -s $'\t' -t)
+if [ ! -t 1 ]; then
+    pager=()
+    formatter=()
+fi
+[ "$isWithRef" -o -n "$verboseFormat" ] || formatter=()	# We only need formatting with multi-column output.
+
 eval tagtype \
     "${filter:+|} $filter" \
+    "${formatter:+|}" '"${formatter[@]}"' \
     "${pager:+|}" '"${pager[@]}"'

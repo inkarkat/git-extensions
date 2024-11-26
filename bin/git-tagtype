@@ -9,7 +9,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'all|annotated|lightweight [-v|--verbose [-v]] [[-l|--list] <pattern> [...]] [-e|--exclude <pattern> [-e ...]] [--version-tags-only|--no-version-tags] [--sort-by-age] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'all|annotated|lightweight [--with-ref] [-v|--verbose [-v]] [[-l|--list] <pattern> [...]] [-e|--exclude <pattern> [-e ...]] [--version-tags-only|--no-version-tags] [--sort-by-age] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -29,6 +29,9 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
+    --with-ref		Include the commit hash.
+    --verbose|-v	Show the tag message subject. If passed twice, show the
+			full tag message.
     --exclude|-e <pattern>
 			Only print tags not matching <pattern>. Takes precedence
 			over any passed [-l|--list] <pattern>.
@@ -56,6 +59,7 @@ case "$1" in
     *)			printf >&2 'ERROR: Invalid tag type %s; must be either annotated or lightweight.\n' "$1"; exit 2;;
 esac; shift
 
+isWithRef=
 verboseFormat=
 filter=
 typeset -a patterns=()
@@ -70,6 +74,7 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
+	--with-ref)	shift; isWithRef=t;;
 	--verbose|-v)	shift
 			if [ -z "$verboseFormat" ]; then
 			    verboseFormat='%(contents:subject)'
@@ -154,7 +159,7 @@ matcher()
 tagList()
 {
     local verboseType; [ -n "$tagType" ] || verboseType='%(objecttype)'
-    git for-each-ref --format "${tagType:+%(objecttype)$'\t'}%(refname:strip=2)${verboseFormat:+${verboseType:+$'\t'$verboseType}$'\t'%(committername)%(taggername)$'\t'}${verboseFormat}" --sort="$sortField" refs/tags
+    git for-each-ref --format "${tagType:+%(objecttype)$'\t'}%(refname:strip=2)${isWithRef:+$'\t'%(objectname)}${verboseFormat:+${verboseType:+$'\t'$verboseType}$'\t'%(committername)%(taggername)$'\t'}${verboseFormat}" --sort="$sortField" refs/tags
     # Note: There is %(creator) that resolves to either %(committer) or
     # %(tagger) depending on the tag type, but that one unfortunately does not
     # support the appendices ("name"). But as only one of them is set, a simple
@@ -172,7 +177,7 @@ if [ ! -t 1 ]; then
     pager=()
     formatter=()
 fi
-[ -n "$verboseFormat" ] || formatter=()	# We only need formatting with verbose output.
+[ "$isWithRef" -o -n "$verboseFormat" ] || formatter=()	# We only need formatting with multi-column output.
 
 eval tagList \
     "${tagType:+| tagTypeFilter}" \

@@ -75,10 +75,10 @@ removeStatus()
 	-e 's/^\(.*\)	\(.*\)$/\1\n\2/'
 }
 
-logRelatedChanges()
+extractRelatedFiles()
 {
     if [ "$isPercentage" ] || [ $percentageThreshold -gt 0 ]; then
-	GIT_LOGRELATEDCHANGES_COMMAND=logv git-logrelatedchanges --pretty=format:--- "${gitLogArgs[@]}" "$@" | \
+	GIT_LOGOFFILES_COMMAND=logv git-logoffiles --pretty=format:--- "${gitLogArgs[@]}" "$@" | \
 	    removeStatus | awk -v "isPercentage=$isPercentage" -v percentageThreshold="$percentageThreshold" '
 BEGIN {
     PROCINFO["sorted_in"] = "@val_num_desc"
@@ -104,7 +104,7 @@ END {
 }
 '
     else
-	GIT_LOGRELATEDCHANGES_COMMAND=logv git-logrelatedchanges --pretty= "${gitLogArgs[@]}" "$@" | \
+	GIT_LOGOFFILES_COMMAND=logv git-logoffiles --pretty= "${gitLogArgs[@]}" "$@" | \
 	    removeStatus | sort -u
     fi
 }
@@ -116,11 +116,11 @@ if [ -n "$filterCommand" ]; then
     do
 	[ ${#filterPipeline[@]} -eq 0 ] && filterPipeline+=(sed)
 	filterPipeline+=(-e "/${originalFilePrefixPattern}${literalOriginalFile}\$/${filterCommand}")
-    done < <(git-logrelatedchanges --only-list-expanded-paths "${gitLogArgs[@]}" "$@" 2>/dev/null | sed -e 's/[][\$*.^/]/\\&/g')
+    done < <(git-logoffiles --only-list-expanded-paths "${gitLogArgs[@]}" "$@" 2>/dev/null | sed -e 's/[][\$*.^/]/\\&/g')
 
 fi
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
-eval 'logRelatedChanges "$@"' \
+eval 'extractRelatedFiles "$@"' \
     "${filterPipeline:+|}" '"${filterPipeline[@]}"' \
     "${pager:+|}" '"${pager[@]}"'

@@ -36,12 +36,13 @@ storeWhat='saved'
 continueIndex=
 count=2
 typeset -a storeArgs=()
+typeset -a continueArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--count|-n)	shift; count="${1:?}"; shift;;
-	--commit)	shift; storeAction=commitInsteadOfStash; storeWhat='committed';;
+	--commit)	continueArgs+=("$1"); shift; storeAction=commitInsteadOfStash; storeWhat='committed';;
 	--continue)	shift; continueIndex="${1:?}"; shift;;
 	--cleanup)	shift; action=cleanup;;
 	--)		storeArgs+=("$1"); shift; break;;
@@ -75,7 +76,7 @@ join()
 	    printf 'Applied %s\n' "$currentStash"
 	else
 	    status=$?
-	    printf -v quotedArgs ' %q' --count "$count" "${storeArgs[@]}" "$@"
+	    printf -v quotedArgs ' %q' "${continueArgs[@]}" --count "$count" "${storeArgs[@]}" "$@"
 	    printf >&2 'ERROR: %s failed to apply. Fix the conflicts and resume with\n       $ %q --continue %d%s\n' "$currentStash" "$(basename "$0")" $((i - 1)) "$quotedArgs"
 	    return $status
 	fi

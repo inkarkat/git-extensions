@@ -52,7 +52,8 @@ withAggregateCommitWithLastArg()
 
 othersCommand()
 {
-    $EXEC git-dashdash-default-command --with-files : authors-command --keep-position "${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" "${scopeCommandLastArgs[@]}" "${revRangeAdditionalArgs[@]}" -3 "show${gitCommand%by}" AUTHORS RANGE : "$@"
+    typeset -a inversionArg=(); [[ "$gitCommand" =~ exceptby$ ]] && inversionArg=(--invert-authors)
+    $EXEC git-dashdash-default-command --with-files : authors-command "${inversionArg[@]}" --keep-position "${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" "${scopeCommandLastArgs[@]}" "${revRangeAdditionalArgs[@]}" -3 "${gitCommand%%?(except)by}" AUTHORS RANGE : "$@"
 }
 
 : ${EXEC:=exec}
@@ -72,7 +73,7 @@ case "$gitCommand" in
     dss)
 	withAggregateCommit --single-only dp "$@";;
 
-    @(st|files|submodules)by)
+    @(st|files|submodules)?(except)by)
 	gitCommand="show$gitCommand" othersCommand "$@";;
 
     subdo)
@@ -91,17 +92,17 @@ case "$gitCommand" in
 	;;
 
     (\
-lc?(f)by|\
-lc?(l)@(g|changed|touched)by\
+lc?(f)?(except)by|\
+lc?(l)@(g|changed|touched)?(except)by\
 )
 	revRangeAdditionalArgs=(--one-more-command log --one-more-with-padding)
 	;&
 	(\
-l?(h|g|og)by|\
-@(l?(o)g?(v)|count)@(g|changed|touched)by|\
-@(log?(v)|show)@(last|first)@(g|changed|touched)by|\
-l?(o)g?([fv])by|\
-@(l?(o)|count|commitsperday|logdistribution)by|\
+l?(h|g|og)?(except)by|\
+@(l?(o)g?(v)|count)@(g|changed|touched)?(except)by|\
+@(log?(v)|show)@(last|first)@(g|changed|touched)?(except)by|\
+l?(o)g?([fv])?(except)by|\
+@(l?(o)|count|commitsperday|logdistribution)?(except)by|\
 activityby\
 )
 	[ "$gitCommand" = lgby ] && gitCommand='onelinelog'

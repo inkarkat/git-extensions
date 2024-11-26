@@ -18,7 +18,7 @@ printUsage()
     cat <<HELPTEXT
 Stash the changes in a dirty working directory in a new branch.
 HELPTEXT
-    printf 'Usage: %q  %s\n' "$(basename "$1")" '<branch> [-m <msg>] [-?|-h|--help]'
+    printf 'Usage: %q  %s\n' "$(basename "$1")" '<branch> [-m|--message <msg>] [-?|-h|--help]'
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
@@ -39,5 +39,7 @@ if ! contains -m "$@" && ! contains --message "$@"; then
     defaultMessageArgs=(--message "$defaultMessage")
 fi
 
-newBranch=$1; shift
-git checkout -b "$newBranch" && git-wrapper commit --all "${defaultMessageArgs[@]}" "$@" && git checkout '@{-1}'
+newBranch="${1:?}"; shift
+git checkout -b "$newBranch" \
+    && git-wrapper commit --all "${defaultMessageArgs[@]}" "$@" \
+    && git checkout '@{-1}'

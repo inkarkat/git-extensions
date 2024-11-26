@@ -1,0 +1,139 @@
+#!/bin/bash
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-n|--count N] [--commit] [-e|--edit|--no-edit] [-m|--message=MESSAGE|-F|--file=FILE [...]] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Join the last two / N stashes together into a single one.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --count|-n N	Join the last N stashes together.
+    --commit		Commit the joined stashes instead of creating a single
+			new stash.
+HELPTEXT
+}
+
+action=join
+storeAction=git-stash-push
+storeWhat='saved'
+continueIndex=
+count=2
+typeset -a storeArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--count|-n)	shift; count="${1:?}"; shift;;
+	--commit)	shift; storeAction=commitInsteadOfStash; storeWhat='committed';;
+	--continue)	shift; continueIndex="${1:?}"; shift;;
+	--cleanup)	shift; action=cleanup;;
+	--)		storeArgs+=("$1"); shift; break;;
+	*)		storeArgs+=("$1"); shift;;
+    esac
+done
+commitInsteadOfStash()
+{
+    # When committing, only use the synthesized commit message as a template, but do
+    # open the editor unless the user explicitly requested a direct commit.
+    typeset -a forceEditArg=(); contains --no-edit "${storeArgs[@]}" || forceEditArg=(--edit)
+
+    git-wrapper commit "${forceEditArg[@]}" "${storeArgs[@]}" "$@"
+}
+
+join()
+{
+    local startIndex=$((count - 1))
+    git rev-parse --verify "stash@{${startIndex}}" >/dev/null || return 1
+    [ -z "$continueIndex" ] && git-dirty --print-error >&2 && return 1
+
+    for ((i = ${continueIndex:-$startIndex}; i >= 0; i--))
+    do
+	currentStash="stash@{${i}}"
+	# The first stash apply creates a dirty working copy, and the regular apply
+	# doesn't work any longer. So for subsequent stashes, we need our variant that
+	# allows a dirty working copy and inserts conflict markers if manual
+	# intervention is needed. It doesn't do harm (and indeed ensures the required
+	# adding to the index) to use this for the very first stash apply as well.
+	if git-stash-apply-to-dirty "$currentStash"; then
+	    printf 'Applied %s\n' "$currentStash"
+	else
+	    status=$?
+	    printf -v quotedArgs ' %q' --count "$count" "${storeArgs[@]}" "$@"
+	    printf >&2 'ERROR: %s failed to apply. Fix the conflicts and resume with\n       $ %q --continue %d%s\n' "$currentStash" "$(basename "$0")" $((i - 1)) "$quotedArgs"
+	    return $status
+	fi
+    done
+
+    concatenatedStashMessages=''
+    typeset -a stashHashes=()
+    for ((i = startIndex; i >= 0; i--))
+    do
+	currentStash="stash@{${i}}"
+	concatenatedStashMessages+="${concatenatedStashMessages:+$'\n\n'}$(git lo1 "$currentStash")"
+	stashHashes+=("$(git rev-parse "$currentStash")") || return 3
+    done
+
+    if $storeAction --message="$concatenatedStashMessages" "${storeArgs[@]}" "$@"; then
+	:
+    else
+	status=$?
+	local quotedStashHashes; printf -v quotedStashHashes ' %q' "${stashHashes[@]}"
+	printf >&2 'ERROR: Joined stashes have not been %s. Wipe the working copy to undo, or\n       "git stash push", or alternatively directly commit the joined stashes.\n       Then, remove the original stashes via\n       $ %q --cleanup%s\n' \
+	    "$storeWhat" "$(basename "$0")" "$quotedStashHashes"
+	return $status
+    fi
+
+    cleanup "${stashHashes[@]}" || return $?
+    echo 'DONE.'
+}
+
+cleanup()
+{
+    if [ $# -eq 0 ]; then
+	echo >&2 'ERROR: No stash hashes passed.'
+	return 2
+    fi
+
+    # Identify the original (now joined) stashes through their hashes, as the result
+    # may have been stashed (as one or even multiple stashes, or wiped, or
+    # committed).
+    # Need to translate the hashes back to stash@{N} refs, as "git stash drop" only
+    # accepts those.
+    typeset -A stashHashes=()
+    local hash ref; while IFS=$'\t' read -r hash ref
+    do
+	stashHashes["$hash"]="$ref"
+    done < <(git stash list --pretty=tformat:$'%H\t%gd')
+
+    local status=0 originalStashHash originalStashRef
+    for originalStashHash
+    do
+	originalStashRef="${stashHashes["$originalStashHash"]}"
+	if [ -z "$originalStashRef" ]; then
+	    printf >&2 'ERROR: Cannot locate stash for %s.\n' "$originalStashHash"
+	    continue
+	fi
+
+	git stash drop "$originalStashRef" || status=$?
+    done
+    return $status
+}
+
+$action "$@"

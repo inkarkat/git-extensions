@@ -34,10 +34,12 @@ fi
 typeset -a gitArgs=()
 typeset -a gitNumberArgs=()
 typeset -a gitPrettyArg=()
+unset files
 number=
 argSkip=0
 isReverse=
 isDiffFilter=
+isFollow=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -46,15 +48,30 @@ do
 	--max-count)	gitNumberArgs+=("$1" "$2"); shift; number="${1:?}"; shift;;
 	--max-count=*)	gitNumberArgs+=("$1"); number="${1#--max-count=}"; shift;;
 	-S*|-G*)	gitArgs+=("$1"); shift; isDiffFilter=t;;
-	--reverse)	gitArgs+=("$1"); shift; isReverse=t;;
+	--follow)	shift; isFollow=t;;
+	--reverse)	shift; isReverse=t;;
 	--skip)		shift; argSkip="${1:?}"; shift;;
 	--skip=*)	argSkip="${1#--skip=}"; shift;;
 	-n)		gitNumberArgs+=("$1" "$2"); shift; number="${1:?}"; shift;;
 	-+([0-9]))	gitNumberArgs+=("$1"); number="${1#-}"; shift;;
-	--)		break;;
+	--)		shift; typeset -a files=("$@"); set --; break;;
 	*)		gitArgs+=("$1"); shift;;
     esac
 done
+if [ -z "${files+t}" ]; then
+    # No files after -- captured yet; need to investigate parsed and
+    # remaining args from behind for files.
+    typeset -a files=()
+    gitArgs+=("$@")
+    while [ ${#gitArgs[@]} -ne 0 ]
+    do
+	lastArg="${gitArgs[-1]}"
+	[ -e "$lastArg" ] || break
+
+	files=("$lastArg" "${files[@]}")
+	gitArgs=("${gitArgs[@]:0:${#gitArgs[@]}-1}")
+    done
+fi
 if [ -z "$number" ]; then
     echo >&2 'ERROR: No -<number>|-n <number>|--max-count=<number> passed.'
     exit 2
@@ -64,19 +81,19 @@ logWithCalculatedSkip()
 {
     # Pass all arguments except --pretty=... and --max-count to the initial log for
     # determining the total number of resulting commits.
-    total=$(git-count "${gitArgs[@]}" "$@") || exit $?
+    total=$(git-count "${gitArgs[@]}" ${files:+--} "${files[@]}") || exit $?
     [ $total -eq 0 ] && exit $?
 
     skip=$((total - number - argSkip))
     typeset -a gitSkipArgs=()
     [ $skip -gt 0 ] && gitSkipArgs=(--skip "$skip")
-    exec git-wrapper ${GIT_RNLOG_COMMAND:-log} "${gitSkipArgs[@]}" "${gitNumberArgs[@]}" "${gitPrettyArg[@]}" "${gitArgs[@]}" "$@"
+    exec git-wrapper ${GIT_RNLOG_COMMAND:-log} "${gitSkipArgs[@]}" "${gitNumberArgs[@]}" "${gitPrettyArg[@]}" ${isFollow:+--follow} ${isReverse:+--reverse} "${gitArgs[@]}" ${files:+--} "${files[@]}"
 }
 getRevisions()
 {
     if [ -z "${SPONGE+t}" ]; then which sponge >/dev/null 2>&1 && SPONGE='sponge'; fi
 
-    eval 'git log --pretty=tformat:%H "${gitArgs[@]}" "$@"' "${SPONGE:+|}$SPONGE"
+    eval 'git log --pretty=tformat:%H ${isFollow:+--follow} "${gitArgs[@]}" ${files:+--} "${files[@]}"' "${isReverse:+|tac}" "${SPONGE:+|}$SPONGE"
 }
 logEachIndividually()
 {
@@ -89,22 +106,22 @@ logEachIndividually()
     # Filtering of diffs is done at the very end, which also is not what we
     # want.
     if [ $argSkip -eq 0 ]; then
-	getRevisions "$@"
+	getRevisions
     else
-	getRevisions "$@" \
+	getRevisions \
 	    | tail -n "+$((argSkip + 1))"
     fi \
 	| head -n $number \
 	| xargs --no-run-if-empty --delimiter '\n' -I '{}' "$scriptFilespec" --call \
-	    "${GIT_RNLOG_COMMAND:-log}" --max-count 1 "${colorArg[@]}" "${gitPrettyArg[@]}" "${gitArgs[@]}" '{}' "$@"
+	    "${GIT_RNLOG_COMMAND:-log}" --max-count 1 "${colorArg[@]}" "${gitPrettyArg[@]}" "${gitArgs[@]}" '{}'    # No --follow and no files here.
 }
-if [ -n "$isReverse" -o $argSkip -ne 0 ] && [ "$isDiffFilter" ]; then
+if [ -n "$isReverse" -o $argSkip -ne 0 ] && [ "$isDiffFilter" -o "$isFollow" ]; then
     # Because of the piping into the pager, we need to explicitly enable color.
     # Don't do this if the user explicitly turned it off, though.
     typeset -a colorArg=(); isNeedColorArgumentWhenPiping "${gitArgs[@]}" && colorArg=(--color=always) || colorArg=()
 
     typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
-    eval 'logEachIndividually "$@"' "${pager:+|}" '"${pager[@]}"'
+    eval logEachIndividually "${pager:+|}" '"${pager[@]}"'
 else
-    logWithCalculatedSkip "$@"
+    logWithCalculatedSkip
 fi

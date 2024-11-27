@@ -154,7 +154,7 @@ activity?(except)by\
     rb)
 	$EXEC echo "Note: $gitCommand is a no-op, because it iterates over the current range without touching fixups.";;
     rbcheck)
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -3 rebasecheck --check-range TIMESPAN "$@";;
+	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -- rebasecheck "$@" --check-range;;
     check|command|exec|rewordremovescope)
 	source "${libDir:?}/rebase.sh.part" "$@"
 	;&

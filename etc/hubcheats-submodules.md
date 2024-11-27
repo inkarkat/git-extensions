@@ -102,6 +102,16 @@ b) just the superproject, no submodules involved:
 superproject: `$ git co BRANCH && git subcobr --query|--all|SUBMODULE1 ...`
 or short `$ git cosub BRANCH`
 
+# Removing
+a) Just temporarily (e.g. to disable an optional dependency):
+   `$ git submodule deinit path/to/submodule`
+   It's gone from the working copy, but `init` / `update` will restore it.
+b) Permanently:
+   `$ git submodule deinit path/to/submodule && git rm path/to/submodule`
+   This will remove the `.gitmodules` entry and the directory.
+   The `deinit` ensures that the local config doesn't retain submodule
+   information.
+
 # Conflicts
 Resolution and merges have to be done in the submodule itself, as the
 superproject can only reference a single commit! So, if there has been

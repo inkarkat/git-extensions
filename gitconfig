@@ -1342,7 +1342,7 @@
 	;; brurl: Print the URL of the tracked branch. / Turn (remote, tracked) branch names printed by BRANCH-COMMAND into URLs.
 	;; abr: List all branches, both local and remote [matching <glob>].
 	abrurl = brurl abr	; List URLs of all branches, both local (tracked) and remote [matching <glob>].
-	lb = blbase	; Print name of last checked-out branch.
+	blname = name-rev --name-only @{-1}	; Print name of last checked-out branch.
 	;; brage: List branches by age (descending, starting with old branches).
 	brrecent = brage --newer 2w
 	;; brc: List local branches and their first commit ordered by date of first commit (descending, starting with old branches), as based on the current branch (brbase: as tagged or referenced anywhere in the history (also by remotes)) or the best common ancestors of all branches or the branch passed with --base <branch>. The branches can be optionally filtered by <branch-glob>.
@@ -1405,7 +1405,7 @@
 	;; existsbr: Check whether [all of] the passed [<remote>/]<branch> exists.
 	;; remotebr: Print corresponding remote/branch for the current / passed branch(es) (or return error).
 	deletebr = branch -d	; Delete the current branch (and detach) / passed <branch>.
-	deletelb = branch -d @{-1}	; Delete the last checked-out branch.
+	deletebl = branch -d @{-1}	; Delete the last checked-out branch.
 	;; deleteselectedbranch: Delete branches that are interactively selected from existing branches.
 	;; deletemergedbranches: Delete branches that are interactively selected from branches that have already been merged into HEAD / the passed COMMIT(s).
 	;; mergedbr: List branches that have already been merged into HEAD / the passed COMMIT(s).
@@ -1445,7 +1445,7 @@
 	detachg = selectedgcommit-command --single-only -2 detach COMMITS	; Detach HEAD to the commit interactively chosen from the commits where log messages match the specified text or /regexp/.
 	detachchanged = selectedchangedcommit-command --single-only -2 detach COMMITS	; Detach HEAD to the commit interactively chosen from the commits where the actual diff; i.e. those filepairs whose preimage and postimage have different number of occurrences of the text or /regexp/.
 	detachtouched = selectedtouchedcommit-command --single-only -2 detach COMMITS	; Detach HEAD to the commit interactively chosen from the commits where in the diff the text or /regexp/ matches, without necessarily changing the number of occurrences themselves.
-	detachlb = detach @{-1}	; Detach HEAD to the last checked-out branch.
+	detachbl = detach @{-1}	; Detach HEAD to the last checked-out branch.
 	;; reattach: Find a branch name that the detached commit is based on and check that out, looking first to the commit itself, then the first branch that comes after the detached commit, and thus contains it, then falling back to branch(es) that are reachable from the detached commit.
 
 	co = wrapper-nocolor checkout
@@ -1485,8 +1485,8 @@
 	;; rcolatestc: Checkout local branch from the passed <remote> branch [matching pattern] that was created last (except the current branch and master (and base branch if defined)).
 	;; rcheckoutselectedbranch: Switch to the branch [matching <glob>] that is interactively selected from existing branches in the passed REMOTE.
 	;; rcheckoutselectedbranchc: Switch to the branch [matching <glob>] that is interactively selected from existing branches (ordered by date of first commit) in the passed REMOTE.
-	colb = wrapper-nocolor checkout @{-1}	; Checkout last checked-out branch.
-	cosublb = cosub @{-1}	; Checkout last checked-out branch, also eponymous local branches in submodules.
+	cobl = wrapper-nocolor checkout @{-1}	; Checkout last checked-out branch.
+	cosubbl = cosub @{-1}	; Checkout last checked-out branch, also eponymous local branches in submodules.
 
 	coh = checkout --patch --	; Interactively select and check out individual hunks from the index or HEAD to the working copy.
 	cosh = checkoutselected --patch	; Interactively select (from modified files or passed list of files) files (or directly pass N, M, ... selections) to select and check out individual hunks from the index or HEAD by number.
@@ -5694,8 +5694,8 @@
 	mergerecordonly = wrapper-nocolor merge --record-only	; no-op merge that always uses the current branch head and ignores all changes from all other branches, effectively just recording that a merge has happened.
 	;; mergedryrun: Test whether a merge will do through or cause conflicts without actually doing the merge.
 	;; mergeancestor: Join the development history of an earlier <commit> into a dedicated merge commit on the current branch. On its own, "git merge --no-ff will refuse such with "Already up to date."
-	mergelb = wrapper-nocolor merge @{-1}
-	mergedrlb = mergedryrun @{-1}
+	mergebl = wrapper-nocolor merge @{-1}
+	mergedrbl = mergedryrun @{-1}
 	;; mergeto: Merge the current branch to <target-branch>.
 	;; mergelocalbr: Merge all / the last committed N local branches (except for the current branch and master (and base branch if defined)).
 	;; mergelocalbrc: Merge all / the last committed N local branches (except for the current branch and master (and base branch if defined)) ordered by date of first commit.
@@ -5714,7 +5714,7 @@
 	; after switching to a branch.
 	fast-forward = -c merge.defaultToUpstream=true wrapper-nocolor merge --ff-only
 	ff = -c merge.defaultToUpstream=true wrapper-nocolor merge --ff-only
-	fflb = ff @{-1}
+	ffbl = ff @{-1}
 	ffto = -c merge.defaultToUpstream=true wrapper-nocolor mergeto --ff-only	; Merge the current branch to <target-branch>.
 	;; mergesummary: Show enriched log (for passed remote) of the passed merge commit, including URLs to the merge commit, the merged changes, full commit message, and changed files.
 	omergesummary = mergesummary origin
@@ -5724,7 +5724,7 @@
 	;; swapmergeparents: Swap the order of the two parents of the merge done in the last commit of the current branch.
 
 	noff = wrapper-nocolor merge --no-ff
-	nofflb =noff @{-1}
+	noffbl =noff @{-1}
 	noffto = mergeto --no-ff
 	;; mergecheck: Check whether the conditions for a merge are good.
 	;; reintegrate: Merge / rebase <branch> to the current branch, then delete it from the local repository as well as a tracked remote (if it exists there). HUB
@@ -5903,7 +5903,7 @@
 	odeletemergedbranches = deletemergedrbranches origin ; Delete remote branches that are interactively selected from branches in my GitHub clone that have already been merged into HEAD / the passed COMMIT(s).
 	odeletetag = rdeletetag origin	; Delete remote TAGNAME(s) in my GitHub clone.
 	oldeletebr = rldeletebr origin ; Delete the current branch (and detach) / passed <branch> from the local repository as well as origin.
-	oldeletelb = rldeletebr origin @{-1} ; Delete the last checked-out branch from the local repository as well as origin.
+	oldeletebl = rldeletebr origin @{-1} ; Delete the last checked-out branch from the local repository as well as origin.
 	oldeleteselectedbranch = deleteselectedrlbranch origin ; Delete remote branches that are interactively selected from existing branches in my GitHub clone there and from the local repository as well.
 	oldeletemergedbranches = deletemergedrlbranches origin ; Delete branches that are interactively selected from branches in my GitHub clone and from the local repository as well that have already been merged into HEAD / the passed COMMIT(s).
 	olrenamebr = rlrenamebr origin ; Rename the current branch / <oldbranch> to <newbranch> in both local repository and in my GitHub clone.
@@ -6072,7 +6072,7 @@
 	udeletemergedbranches = deletemergedrbranches upstream ; Delete remote branches that are interactively selected from upstream branches that have already been merged into HEAD / the passed COMMIT(s).
 	udeletetag = rdeletetag upstream	; Delete remote TAGNAME(s) in upstream.
 	uldeletebr = rldeletebr upstream ; Delete the current branch (and detach) / passed <branch> from the local repository as well as upstream.
-	uldeletelb = rldeletebr upstream @{-1} ; Delete the last checked-out branch from the local repository as well as upstream.
+	uldeletebl = rldeletebr upstream @{-1} ; Delete the last checked-out branch from the local repository as well as upstream.
 	uldeleteselectedbranch = deleteselectedrlbranch upstream ; Delete remote branches that are interactively selected from existing upstream branches and from the local repository as well.
 	uldeletemergedbranches = deletemergedrlbranches upstream ; Delete branches that are interactively selected from upstream branches and from the local repository as well that have already been merged into HEAD / the passed COMMIT(s).
 	ulrenamebr = rlrenamebr upstream ; Rename the current branch / <oldbranch> to <newbranch> in both local repository and upstream.
@@ -6592,7 +6592,7 @@
 
 	;; existspr: Check whether a pull-request for the current commit / passed HEAD [to BASE] exists.
 	;; prtitle: Obtain corresponding GitHub pull request(s) that have HEAD / COMMIT(s) / PR-IDENTIFIER(s) as the branch's HEAD, and print its title(s); on separate lines, with a summary header listing the PR numbers followed by an empty line) then.
-	prtitlelb = previousbranch-command --last-checkout prtitle ; HUB
+	prtitlebl = previousbranch-command --last-checkout prtitle ; HUB
 	;; superprtitle: Obtain corresponding GitHub pull request(s) of the submodule's superproject, and print its title(s); on separate lines, with a summary header listing the PR numbers followed by an empty line) then.
 	;; superpr: Obtain corresponding GitHub pull request(s) of the submodule's superproject in a format suitable for a pull request with USER/REPO.
 	;; browse-pr: Obtain corresponding GitHub pull request(s) that have HEAD / <commit>(s) as the branch's HEAD, and open in the browser / print its URL(s).

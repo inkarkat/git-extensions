@@ -1,4 +1,6 @@
 #!/bin/bash
+set -o pipefail
+shopt -qs extglob
 
 printUsage()
 {
@@ -6,13 +8,34 @@ printUsage()
 Force application of stash to dirty working copy when "stash apply" complains.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--cached|--index|-3|--3way] [-u|--include-untracked|--only-untracked] [<diff-options>] [<stash>] [-?|-h|--help]'
 }
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
-			shift;;
-    --color)		shift; shift;;
-esac
 
-git stash show --patch "$@" | git apply --index --3way
+stash='stash@{0}'
+typeset -a stashShowArgs=()
+typeset -a applyArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+	stash@*)	stash="$1"; shift;;
+	+([0-9]))	stash="stash@{$1}"; shift;;
+	--cached|--index|--3way|-3)
+			applyArgs+=("$1"); shift;;
+	--)		stashShowArgs+=("$1"); shift; break;;
+	*)		stashShowArgs+=("$1"); shift;;
+    esac
+done
+
+if [ ${#applyArgs[@]} -eq 0 ]; then
+    # Only switch to 3-way merge if the stash doesn't apply cleanly, as --3way
+    # implies index manipulation, and that is different from normal "stash apply"
+    # behavior.
+    git stash show --patch "${stashShowArgs[@]}" "$@" "$stash" | git apply 2>/dev/null \
+	|| git stash show --patch "${stashShowArgs[@]}" "$@" "$stash" | git apply --3way
+else
+    git stash show --patch "${stashShowArgs[@]}" "$@" "$stash" | git apply "${applyArgs[@]:---3way}"
+fi && eval "${GIT_STASHAPPLYTODIRTY_POST_COMMAND}${GIT_STASHAPPLYTODIRTY_POST_COMMAND:+ "$stash"}"

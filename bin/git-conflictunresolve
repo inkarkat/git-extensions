@@ -1,5 +1,6 @@
 #!/bin/bash
 # Source: https://stackoverflow.com/a/48218000/813602
+set -o pipefail
 
 printUsage()
 {
@@ -8,6 +9,14 @@ Bring back merged FILE(s) into their conflicted state.
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '-a|--all | [--] <path> [...] [-?|-h|--help]'
+}
+
+listFiles()
+{
+    # Note: Cannot use git-conflicts here, because after staging they are reported
+    # as merged.
+    local gitDir; gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit 3
+    git diff --name-only HEAD "$(< "${gitDir}/MERGE_HEAD")"
 }
 
 isAll=
@@ -19,6 +28,11 @@ do
 			shift;;
 	--color)	shift; shift;;
 	--all|-a)	shift; isAll=t;;
+	--list)		shift
+			eval listFiles \
+			    "${*:+| linesToArgs globmatch --files-matching --directories "$@" --}"
+			exit $?
+			;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -33,12 +47,9 @@ if [ "$isAll" ]; then
 	exit 2
     fi
 
-    # Note: Cannot use git-conflicts here, because after staging they are reported
-    # as merged.
-    gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit 3
-    readarray -t files < <(git diff --name-only HEAD "$(< "${gitDir}/MERGE_HEAD")")
+    readarray -t files < <(listFiles)
     if [ ${#files[@]} -eq 0 ]; then
-	echo 'ERROR: No staged resolved conflicts.'
+	echo 'ERROR: No resolved conflicts.'
 	exit 99
     fi
     set -- "${files[@]}"

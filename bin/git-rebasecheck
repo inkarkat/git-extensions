@@ -1,4 +1,5 @@
 #!/bin/bash
+shopt -qs extglob
 
 printUsage()
 {
@@ -17,6 +18,7 @@ isCheckOnly=
 isAutosquash=
 isInteractive=
 severitySigil='Note'
+unset isRebaseMerges
 typeset -a range=()
 typeset -a rebaseArgs=()
 while [ $# -ne 0 ]
@@ -28,9 +30,13 @@ do
 	--color)	shift; shift;;
 	--check-range)	shift; range=("$@"); set --;&
 	--check-only)	shift; isCheckOnly=t; severitySigil='ERROR';;
-	--autosquash)	rebaseArgs+=("$1"); shift; isAutosquash=t;;
+	--autosquash)	shift; isAutosquash=t;;
 	--interactive|-i)
-			rebaseArgs+=("$1"); shift; isInteractive=t;;
+			shift; isInteractive=t;;
+	--no-rebase-merges)
+			shift; isRebaseMerges=;;
+	--rebase-merges?(=*)|-r)
+			shift; isRebaseMerges=t;;
 	--)		break;;
 	*)		rebaseArgs+=("$1"); shift;;
     esac
@@ -55,6 +61,8 @@ typeset -a hints=()
 
 mergeCheck()
 {
+    [ "$isRebaseMerges" ] && return 0	# Merges will be handled, no need to complain about them.
+
     typeset -A mergeCommits=()
     local commit; while IFS=$'\n' read -r commit
     do
@@ -65,6 +73,9 @@ mergeCheck()
     if [ ${#mergeCommits[@]} -gt 0 ]; then
 	mergeCommitsPlural=s; [ ${#mergeCommits[@]} -eq 1 ] && mergeCommitsPlural=
 	printf >&2 '%s: %d merge commit%s would be destroyed by a rebase:\n' "$severitySigil" ${#mergeCommits[@]} "$mergeCommitsPlural"
+	[ -n "${isRebaseMerges+t}" ] \
+	    && hints+=('inverting --no-rebase-merges to -r|--rebase-merges[=(rebase-cousins|no-rebase-cousins)]') \
+	    || hints+=('adding -r|--rebase-merges[=(rebase-cousins|no-rebase-cousins)]')
 	hints+=("stopping short of the merge${mergeCommitsPlural}")
     fi
 }

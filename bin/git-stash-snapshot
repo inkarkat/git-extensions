@@ -1,0 +1,36 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Stash the current changes as a backup and keep them in the working copy, too.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-p|--patch|-S|--staged] [-u|--include-untracked] [-a|--all] [-q|--quiet] [(-m|--message) <message>] [--pathspec-from-file=<file> [--pathspec-file-nul]] [--] [<pathspec>...] [-?|-h|--help]'
+}
+
+typeset -a action=(git stash apply --index)
+typeset -a stashPushArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--patch|-p)	stashPushArgs+=("$1"); shift; action=(git-stash-apply-to-dirty);;   # Use my stash-apply extension that allows a dirty working copy.
+	--staged|-S)	stashPushArgs+=("$1"); shift; action=(applyStage);;
+	--)		stashPushArgs+=("$1"); shift; break;;
+	*)		stashPushArgs+=("$1"); shift;;
+    esac
+done
+
+applyStage()
+{
+    # To apply the stash to the working copy, we have to first add the remaining
+    # working copy changes to the index, then apply the stash to the working copy,
+    # then swap the index with the working copy.
+    git addu \
+	&& git stash apply \
+	&& git-swapstage
+}
+
+git stash push "${stashPushArgs[@]}" "$@" \
+    && "${action[@]}" >/dev/null

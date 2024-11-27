@@ -9,6 +9,7 @@ HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '-a|--all | [--] <path> [...] [-?|-h|--help]'
 }
+
 isAll=
 while [ $# -ne 0 ]
 do
@@ -23,12 +24,17 @@ do
 	*)		break;;
     esac
 done
+
 git-ismerging --print-negative-error || exit 1
+
 if [ "$isAll" ]; then
     if [ $# -gt 0 ]; then
 	printUsage "$0"
 	exit 2
     fi
+
+    # Note: Cannot use git-conflicts here, because after staging they are reported
+    # as merged.
     gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit 3
     readarray -t files < <(git diff --name-only HEAD "$(< "${gitDir}/MERGE_HEAD")")
     if [ ${#files[@]} -eq 0 ]; then

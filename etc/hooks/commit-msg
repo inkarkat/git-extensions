@@ -2,8 +2,8 @@
 set -o pipefail
 
 messageFilespec="${1:?}"; shift
-
 typeset -a sedArgs=()
+
 
 # Ensure that the commit message does not start with a (configured) trailer;
 # this means that it's effectively empty (likely an editing error), but due to
@@ -18,6 +18,15 @@ trailerExpr="$(git-trailer-keys | joinBy - '\|')" \
     w /dev/stderr
     q 1
 } }")
+
+
+# Enforce an empty second line separating subject from the message body.
+sedArgs+=(-e '2{ /^[^#]/{
+    s/.*/ERROR: Second line must be empty: &/
+    w /dev/stderr
+    q 1
+} }')
+
 
 [ ${#sedArgs[@]} -gt 0 ] || exit 0
 exec sed "${sedArgs[@]}" -- "$messageFilespec"

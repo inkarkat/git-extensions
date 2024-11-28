@@ -1,32 +1,21 @@
 #!/bin/bash
-set -o pipefail
+shopt -qs nullglob
 
-messageFilespec="${1:?}"; shift
-typeset -a sedArgs=()
+readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
+[ -d "$scriptDir" ] || { echo >&2 'ERROR: Cannot determine script directory!'; exit 3; }
+readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
 
+runHook()
+{
+    local hookFilespec="${1:?}"; shift
+    [ -x "$hookFilespec" ] || return 0
+    "$hookFilespec" "$@"; local status=$?
+    return $((status == 99 ? 0 : status))   # Special status: Skip the global hook(s).
+}
 
-# Ensure that the commit message does not start with a (configured) trailer;
-# this means that it's effectively empty (likely an editing error), but due to
-# the trailer has been accepted by Git.
-# Note: I cannot check for anything trailer-like, as my scope and keyword
-# prefixes follow the same syntax.
-trailerExpr="$(git-trailer-keys | joinBy - '\|')" \
-    && [ -n "$trailerExpr" ] \
-    && sedArgs+=(-n -e "
-1{ /^\\(${trailerExpr}\\):/{
-    s/.*/ERROR: Commit message starts with a trailer: &/
-    w /dev/stderr
-    q 1
-} }")
-
-
-# Enforce an empty second line separating subject from the message body.
-sedArgs+=(-e '2{ /^[^#]/{
-    s/.*/ERROR: Second line must be empty: &/
-    w /dev/stderr
-    q 1
-} }')
-
-
-[ ${#sedArgs[@]} -gt 0 ] || exit 0
-exec sed "${sedArgs[@]}" -- "$messageFilespec"
+# The global hook runs within the working copy where the commit is made and can
+# therefore check if a local hook exists in it's .git directory.
+gitDir=$(git rev-parse --git-dir 2>/dev/null) || exit 3
+for hook in "${gitDir}/hooks/${scriptName}" "${scriptDir}/${scriptName}.d"/*; do
+    runHook "$hook" "$@" || exit $?
+done

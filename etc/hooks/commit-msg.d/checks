@@ -1,0 +1,33 @@
+#!/bin/bash
+set -o pipefail
+
+messageFilespec="${1:?}"; shift
+typeset -a sedArgs=()
+
+pwd >&2
+
+# Ensure that the commit message does not start with a (configured) trailer;
+# this means that it's effectively empty (likely an editing error), but due to
+# the trailer has been accepted by Git.
+# Note: I cannot check for anything trailer-like, as my scope and keyword
+# prefixes follow the same syntax.
+trailerExpr="$(git-trailer-keys | joinBy - '\|')" \
+    && [ -n "$trailerExpr" ] \
+    && sedArgs+=(-n -e "
+1{ /^\\(${trailerExpr}\\):/{
+    s/.*/ERROR: Commit message starts with a trailer: &/
+    w /dev/stderr
+    q 1
+} }")
+
+
+# Enforce an empty second line separating subject from the message body.
+sedArgs+=(-e '2{ /^[^#]/{
+    s/.*/ERROR: Second line must be empty: &/
+    w /dev/stderr
+    q 1
+} }')
+
+
+[ ${#sedArgs[@]} -gt 0 ] || exit 0
+exec sed "${sedArgs[@]}" -- "$messageFilespec"

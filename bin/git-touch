@@ -1,0 +1,40 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Create the passed FILE(s) and add them to the index, to record (and not forget)
+the intention of adding them to the repository.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-p|--parents] [--] FILE [...] [-?|-h|--help]'
+}
+
+touchCommand=touch
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--parents|-p)	shift; touchCommand=touch-p;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if [ $# -eq 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+status=0
+$touchCommand -- "$@" || status=$?
+
+typeset -a newFiles=()
+for filespec
+do
+    [ -e "$filespec" ] && newFiles+=("$filespec")
+done
+git add -- "${newFiles[@]}" || status=$?
+git status -sb -- "${newFiles[@]}"
+
+exit $status

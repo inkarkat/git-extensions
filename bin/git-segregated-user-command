@@ -2,7 +2,7 @@
 set -o noglob -o pipefail
 
 : ${GIT_SEGREGATEDUSERCOMMAND_PREFIX_SEPARATOR:=:}
-authorMarker='{}'   # Note: Internal use only, no need to be configurable.
+literalAuthorMarker='{}'   # Note: Internal use only, no need to be configurable.
 
 readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
 [ -d "$scriptDir" ] || { echo >&2 'ERROR: Cannot determine script directory!'; exit 3; }
@@ -94,10 +94,10 @@ do
 	--no-pager)	shift; pager=();;
 	--prefixed)	shift
 			printf -v prefixSeparator %q "$GIT_SEGREGATEDUSERCOMMAND_PREFIX_SEPARATOR"
-			contextCommand="prefix --skip-empty -- ${authorMarker}${prefixSeparator}"
+			contextCommand="prefix --skip-empty -- ${literalAuthorMarker}${prefixSeparator}"
 			;;
 	--tabular)	shift; formatter=(column -s $'\t' -t);;
-	--with-header)	shift; contextCommand="withHeader \"\${colorArg[@]}\" --id 'git-segregated-user-command-$$' -- ${authorMarker}";;
+	--with-header)	shift; contextCommand="withHeader \"\${colorArg[@]}\" --id 'git-segregated-user-command-$$' -- ${literalAuthorMarker}";;
 	--no-git-color)	shift; isGitColor=;;
 	--no-color|--color=*)
 			colorArg=("$1"); shift;;
@@ -198,7 +198,7 @@ case "$1" in
 
 	executor()
 	{
-	    typeset -a interpolatedCountedArgs=("${countedArgs[@]//USERFILTER/--$filter="$author"}")
+	    typeset -a interpolatedCountedArgs=("${countedArgs[@]//USERFILTER/--$filter="${escapedAuthor:?}"}")
 
 	    if [ "$isCountedAppend" ]; then
 		git-wrapper "$@" "${interpolatedCountedArgs[@]}"
@@ -213,13 +213,13 @@ case "$1" in
 
 	executor()
 	{
-	    git-wrapper "${countedArgs[@]//USERFILTER/--$filter="$author"}" "$@"
+	    git-wrapper "${countedArgs[@]//USERFILTER/--$filter="${escapedAuthor:?}"}" "$@"
 	}
 	;;
     *)	countedArgs=("$@"); set --
 	executor()
 	{
-	    git-wrapper "${countedArgs[@]}" --$filter="$author" "$@"
+	    git-wrapper "${countedArgs[@]}" --$filter="${escapedAuthor:?}" "$@"
 	}
 	;;
 esac
@@ -235,18 +235,25 @@ fi
 
 readarray -t authors < <(
     git log --pretty="tformat:${subjectPlaceholder}N" "${logArgsForRange[@]}" ${isFilesForRange:+-- "${files[@]}"} \
-	| sort --unique \
-	| sed -e 's/[][\$*.^]/\\&/g'
+	| sort --unique
 )
 [ ${#authors[@]} -gt 0 ] || exit 99
+
+typeset -A escapedAuthors=()
+for ((i = 0; i < ${#authors[@]}; i++))
+do
+    IFS=$'\n' read -r escapedValue || { printf >&2 'ASSERT: Missing value for element %d = %s\n' "$i" "${authors[$i]}"; exit 3; }
+    escapedAuthors["${authors[$i]}"]="$escapedValue"
+done < <(printf '%s\n' "${authors[@]}" | sed -e 's/[][\$*.^]/\\&/g')
 
 iterateUsers()
 {
     status=0
     for author in "${authors[@]}"
     do
+	escapedAuthor="${escapedAuthors["$author"]}"
 	eval 'executor "${logArgsForCommand[@]}" "$@" "${gitColorArg[@]}" ${isFilesForCommand:+${files:+--} "${files[@]}"} "${specialLastArg[@]}"' \
-		"${contextCommand:+|}${contextCommand//"$authorMarker"/\"${author}\"}" \
+		"${contextCommand:+|}${contextCommand//"$literalAuthorMarker"/\"${author:?}\"}" \
 	    || status=$?
     done
     return $status

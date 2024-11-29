@@ -123,9 +123,6 @@ summarizer()
 
 logLifetimes()
 {
-    local anyCommit="$(git rev-parse --verify --short HEAD)"	# Resolve what core.abbrev resolves to.
-    local abbrevLen="${#anyCommit}"
-
     status=
     while IFS=' ' read -r -a fields
     do
@@ -146,22 +143,28 @@ logLifetimes()
 	for parent in "${otherParents[@]}"
 	do
 	    let parentCount+=1
-	    local mergeBase startDate dateDiff commitCount
-	    mergeBase="$(git merge-base "$firstParent" "$parent")" || { status=$?; printf >&2 'No merge base for %s and %s:\n%s\n' "$firstParent" "$parent" "$logLine"; continue; }
-	    startDate="$(git show --no-patch --pretty=tformat:@%at "$mergeBase")" || { status=$?; printf >&2 'No start date for %s:\n%s\n' "$mergeBase" "$logLine"; continue; }
+	    typeset -a branchRecords=()
+	    readarray -t branchRecords < <(git log --pretty=$'tformat:%h\t@%at' "${firstParent}..${parent}")
+	    if [ ${#branchRecords[@]} -eq 0 ]; then
+		printf >&2 'ERROR: No merge base for %s and %s:\n%s\n' "$firstParent" "$parent" "$logLine"
+		continue
+	    fi
+	    local commitCount=${#branchRecords[@]}
+	    local startRecord="${branchRecords[-1]}"
+	    local startCommit="${startRecord%%$'\t'*}"
+	    local startDate="${startRecord#*$'\t'}"
 	    dateDiff="$(datediff --output "$datediffOutputFormat" "$startDate" "$endDate")" && : ${status:=0} || { status=$?; continue; }
-	    commitCount="$(git-count "${mergeBase}..${parent}")"
 
 	    if [ -n "$picker" ]; then
 		eval "$picker"
 	    else
 		local parentCountSuffix=''; [ ${#otherParents[@]} -gt 1 ] && parentCountSuffix=" ($parentCount)"
 
-		printf '%s%s%15s%s %s%5d%s %s%s%s..%s%s\n' \
+		printf '%s%s%15s%s %s%5d%s %s%s%s %s%s\n' \
 		    "${inserter:+$(eval "$inserter")$'\t'}" \
 		    "$GIT_BRLIFETIMES_COLOR_LIFETIME" "$dateDiff" "$GIT_BRLIFETIMES_COLOR_RESET" \
 		    "$GIT_BRLIFETIMES_COLOR_COMMITCOUNT" "${commitCount:-0}" "$GIT_BRLIFETIMES_COLOR_RESET" \
-		    "$GIT_BRLIFETIMES_COLOR_MERGEBASE" "${mergeBase:0:abbrevLen}" "$GIT_BRLIFETIMES_COLOR_RESET" \
+		    "$GIT_BRLIFETIMES_COLOR_MERGEBASE" "$startCommit" "$GIT_BRLIFETIMES_COLOR_RESET" \
 		    "$logLine" "$parentCountSuffix"
 	    fi
 	done

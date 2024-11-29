@@ -1,21 +1,43 @@
 #!/bin/bash
+set -o pipefail
 
 : ${GIT_BRLIFETIMES_COLOR_LIFETIME=[32m}
 : ${GIT_BRLIFETIMES_COLOR_COMMITCOUNT=[35m}
 : ${GIT_BRLIFETIMES_COLOR_MERGEBASE=[36m}
 : ${GIT_BRLIFETIMES_COLOR_RESET=[0m}
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-s|--summary] [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 One-line lifetime, number of commits, commit range, author, date, tags and
 commit summary of merged branches.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
 For each merged commit, each non-first parent is followed until its merge base,
 and the number of commits as well as the timespan between first commit and the
 merge commit calculated.
+    --summary|-s	Only print statistics about the durations that a branch
+			was active.
 HELPTEXT
-    echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+    statistics --legend-only | prefix $'\t\t\t    '
 }
 
 typeset -a logArgs=()
@@ -27,20 +49,29 @@ if [ ! -t 1 ]; then
     colorArg=()
     pager=()
 fi
+datediffOutputFormat='best-unit'
+isSummaryOnly=
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--no-color|--color=never)
-		colorArg=("$1"); shift; isColor=;;
+			colorArg=("$1"); shift; isColor=;;
 	--color=always)	colorArg=("$1"); shift; isColor=t;;
 	--color=*)	colorArg=("$1"); shift;;
 	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); case "$2" in never) isColor=;; always) isColor=t;; esac; shift; shift;;
+	--summary|-s)	shift; isSummaryOnly=t; datediffOutputFormat='seconds'; pager=();;
 	--)		logArgs+=("$1"); shift; break;;
 	*)		logArgs+=("$1"); shift;;
     esac
 done
 [ "$isColor" ] || unset "${!GIT_BRLIFETIMES_COLOR_@}"
+
+summarizer()
+{
+    STATISTICS_PRECISION=0 statistics \
+	| secondsToDuration --precision 8 --skip '[N≠]:&'
+}
 
 logLifetimes()
 {
@@ -68,18 +99,24 @@ logLifetimes()
 	    let parentCount+=1
 	    mergeBase="$(git merge-base "$firstParent" "$parent")" || exit 3
 	    startDate="$(git show --no-patch --pretty=tformat:@%at "$mergeBase")" || exit 3
-	    dateDiff="$(datediff --output best-unit "$startDate" "$endDate")" || exit 3
-	    commitCount="$(git-count "${mergeBase}..${parent}")" || exit 3
-	    parentCountSuffix=''; [ ${#otherParents[@]} -gt 1 ] && parentCountSuffix=" ($parentCount)"
+	    dateDiff="$(datediff --output "$datediffOutputFormat" "$startDate" "$endDate")" || exit 3
 
-	    printf '%s%15s%s %s%5d%s %s%s%s..%s%s\n' \
-		"$GIT_BRLIFETIMES_COLOR_LIFETIME" "$dateDiff" "$GIT_BRLIFETIMES_COLOR_RESET" \
-		"$GIT_BRLIFETIMES_COLOR_COMMITCOUNT" "$commitCount" "$GIT_BRLIFETIMES_COLOR_RESET" \
-		"$GIT_BRLIFETIMES_COLOR_MERGEBASE" "${mergeBase:0:abbrevLen}" "$GIT_BRLIFETIMES_COLOR_RESET" \
-		"$logLine" "$parentCountSuffix"
+	    if [ "$isSummaryOnly" ]; then
+		printf '%d\n' "$dateDiff"
+	    else
+		commitCount="$(git-count "${mergeBase}..${parent}")" || exit 3
+		parentCountSuffix=''; [ ${#otherParents[@]} -gt 1 ] && parentCountSuffix=" ($parentCount)"
+
+		printf '%s%15s%s %s%5d%s %s%s%s..%s%s\n' \
+		    "$GIT_BRLIFETIMES_COLOR_LIFETIME" "$dateDiff" "$GIT_BRLIFETIMES_COLOR_RESET" \
+		    "$GIT_BRLIFETIMES_COLOR_COMMITCOUNT" "$commitCount" "$GIT_BRLIFETIMES_COLOR_RESET" \
+		    "$GIT_BRLIFETIMES_COLOR_MERGEBASE" "${mergeBase:0:abbrevLen}" "$GIT_BRLIFETIMES_COLOR_RESET" \
+		    "$logLine" "$parentCountSuffix"
+	    fi
 	done
     done < <(git logmerges --no-patch --pretty="tformat:%P @%at $(git-onelinelog --print-format)" "${colorArg[@]}" "$@")
 }
 
 eval 'logLifetimes "${logArgs[@]}" "$@"' \
+    "${isSummaryOnly:+| summarizer}" \
     "${pager:+|}" '"${pager[@]}"'

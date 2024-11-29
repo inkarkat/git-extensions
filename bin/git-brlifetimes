@@ -1,0 +1,148 @@
+#!/bin/bash
+set -o pipefail
+
+: ${GIT_BRLIFETIMES_COLOR_LIFETIME=[32m}
+: ${GIT_BRLIFETIMES_COLOR_COMMITCOUNT=[35m}
+: ${GIT_BRLIFETIMES_COLOR_MERGEBASE=[36m}
+: ${GIT_BRLIFETIMES_COLOR_RESET=[0m}
+: ${GIT_BRLIFETIMES_EXIT_STATUS_NO_MERGES:=99}
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--sort-by-commits|--sort-by-duration|-s|--summary] [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+One-line lifetime, number of commits, commit range, author, date, tags and
+commit summary of merged branches.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+For each merged commit, each non-first parent is followed until its merge base,
+and the number of commits as well as the timespan between first commit and the
+merge commit calculated.
+    --sort-by-commits	Order the output by the number of commits (descending).
+    --sort-by-duration	Order the output by the duration (descending).
+    --summary|-s	Only print statistics about the durations that a branch
+			was active.
+HELPTEXT
+    statistics --legend-only | prefix $'\t\t\t    '
+}
+
+typeset -a logArgs=()
+isColor=t
+typeset -a colorArg=(--color=always)
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+if [ ! -t 1 ]; then
+    isColor=
+    colorArg=()
+    pager=()
+fi
+datediffOutputFormat='best-unit'
+isSummaryOnly=
+sorter=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--no-color|--color=never)
+			colorArg=("$1"); shift; isColor=;;
+	--color=always)	colorArg=("$1"); shift; isColor=t;;
+	--color=*)	colorArg=("$1"); shift;;
+	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); case "$2" in never) isColor=;; always) isColor=t;; esac; shift; shift;;
+
+	--sort-by-commits)
+			shift; sorter='printf %d "$commitCount"';;
+	--sort-by-duration)
+			shift; sorter='datediff --output seconds "$startDate" "$endDate"';;
+	--summary|-s)	shift; isSummaryOnly=t; datediffOutputFormat='seconds'; pager=();;
+	--)		logArgs+=("$1"); shift; break;;
+	*)		logArgs+=("$1"); shift;;
+    esac
+done
+if [ -n "$sorter" ] && [ "$isSummaryOnly" ]; then
+    echo 'ERROR: Cannot combine --sort-by-* with -s|--summary.'
+    echo
+    printUsage "$0"
+    exit 2
+fi >&2
+[ "$isColor" ] || unset "${!GIT_BRLIFETIMES_COLOR_@}"
+
+sortByTemporaryFirstColumn()
+{
+    sort --field-separator=$'\t' --numeric-sort --reverse --key=1,1 \
+	| field --field-separator $'\t' --remove 1
+}
+
+summarizer()
+{
+    STATISTICS_PRECISION=0 acceptStatus 0 99 statistics \
+	| secondsToDuration --precision 8 --skip '[N≠]:&'
+}
+
+logLifetimes()
+{
+    local anyCommit="$(git rev-parse --verify --short HEAD)"	# Resolve what core.abbrev resolves to.
+    local abbrevLen="${#anyCommit}"
+
+    status=
+    while IFS=' ' read -r -a fields
+    do
+	firstParent="${fields[0]}"
+	typeset -a otherParents=()
+	for ((i = 1;; i++))
+	do
+	    if [[ "${fields[i]}" =~ ^@ ]]; then
+		endDate="${fields[i]}"
+		logLine="${fields[*]:i+1}"
+		break
+	    else
+		otherParents+=("${fields[i]}")
+	    fi
+	done
+
+	let parentCount=0
+	for parent in "${otherParents[@]}"
+	do
+	    let parentCount+=1
+	    local mergeBase startDate dateDiff
+	    mergeBase="$(git merge-base "$firstParent" "$parent")" || { status=$?; printf >&2 'No merge base for %s and %s:\n%s\n' "$firstParent" "$parent" "$logLine"; continue; }
+	    startDate="$(git show --no-patch --pretty=tformat:@%at "$mergeBase")" || { status=$?; printf >&2 'No start date for %s:\n%s\n' "$mergeBase" "$logLine"; continue; }
+	    dateDiff="$(datediff --output "$datediffOutputFormat" "$startDate" "$endDate")" && : ${status:=0} || { status=$?; continue; }
+
+	    if [ "$isSummaryOnly" ]; then
+		printf '%d\n' "$dateDiff"
+	    else
+		local commitCount="$(git-count "${mergeBase}..${parent}")"
+		local parentCountSuffix=''; [ ${#otherParents[@]} -gt 1 ] && parentCountSuffix=" ($parentCount)"
+
+		printf '%s%s%15s%s %s%5d%s %s%s%s..%s%s\n' \
+		    "${sorter:+$(eval "$sorter")$'\t'}" \
+		    "$GIT_BRLIFETIMES_COLOR_LIFETIME" "$dateDiff" "$GIT_BRLIFETIMES_COLOR_RESET" \
+		    "$GIT_BRLIFETIMES_COLOR_COMMITCOUNT" "${commitCount:-???}" "$GIT_BRLIFETIMES_COLOR_RESET" \
+		    "$GIT_BRLIFETIMES_COLOR_MERGEBASE" "${mergeBase:0:abbrevLen}" "$GIT_BRLIFETIMES_COLOR_RESET" \
+		    "$logLine" "$parentCountSuffix"
+	    fi
+	done
+    done < <(git logmerges --no-patch --pretty="tformat:%P @%at $(git-onelinelog --print-format)" "${colorArg[@]}" "$@")
+    return ${status:-$GIT_BRLIFETIMES_EXIT_STATUS_NO_MERGES}
+}
+
+eval 'logLifetimes "${logArgs[@]}" "$@"' \
+    "${sorter:+| sortByTemporaryFirstColumn}" \
+    "${isSummaryOnly:+| summarizer}" \
+    "${pager:+|}" '"${pager[@]}"'

@@ -77,11 +77,11 @@ case "$gitCommand" in
     lch)
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" --one-more-command showh --one-more-with-padding -2 "$gitCommand" RANGE "$@";;
     (\
-lg?([fv])|\
+lg?([fv]|merges)|\
 lg@(rel|tagged|st|i|I)\
 )
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" --one-more-command greyonelinelog --one-more-only-to-terminal -2 "$gitCommand" RANGE "$@";;
-    log?([fv]|files))
+    log?([fv]|merges|files))
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal -2 "$gitCommand" RANGE "$@";;
     lghi)
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" --one-more-command 'greyonelineloghighlight lghighlight' --one-more-only-to-terminal -2 "$gitCommand" RANGE "$@";;
@@ -98,7 +98,7 @@ lg@(rel|tagged|st|i|I)\
 (\
 lcl?(f)|\
 lh?(mine|others|team)|\
-l?(o)g?([fv])@(mine|others|team)|\
+l?(o)g?([fv]|merges)@(mine|others|team)|\
 @(l?(o)|count|countmaxdaycommits|commitsperday|logdistribution)?(mine|others|team)|\
 log?(mod|added|deleted|renamed)?(files)|glog|logbrowse|logsize|\
 l[ou]url?(v)|\
@@ -165,7 +165,7 @@ lc?(l)@(g|changed|touched)?(except)by\
 l?(h|g|og)?(except)by|\
 @(l?(o)g?(v)|count)@(g|changed|touched)?(except)by|\
 @(log?(v)|show)@(last|first)@(g|changed|touched)?(except)by|\
-l?(o)g?([fv])?(except)by|\
+l?(o)g?([fv]|merges)?(except)by|\
 @(l?(o)|count|countmaxdaycommits|commitsperday|logdistribution)?(except)by|\
 activity?(except)by\
 )

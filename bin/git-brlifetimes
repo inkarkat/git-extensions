@@ -67,6 +67,7 @@ readLogs()
     [ -n "$summarizer" ] || isSort=t
 }
 preAction=
+specialAction=
 action=logLifetimes
 typeset -a logArgs=()
 isColor=t
@@ -103,6 +104,11 @@ do
 			shift; picker='printf %d\\n $commitCount'; summarizer=summarizeCommits; datediffOutputFormat=''; pager=();;
 	--log-only)	shift; preAction=logOnly;;
 	--stdin)	shift; preAction=readLogs;;
+
+	--duration-statistics)
+			shift; specialAction='summarizeDuration';;
+	--commits-statistics)
+			shift; specialAction='summarizeCommits';;
 	--)		logArgs+=("$1"); shift; break;;
 	*)		logArgs+=("$1"); shift;;
     esac
@@ -125,8 +131,8 @@ sortByTemporaryFirstColumn()
 summarizeAll()
 {
     eachField --field-separator $'\t' \
-	--command 'STATISTICS_PRECISION=0 acceptStatus 0 99 statistics | secondsToDuration --precision 8 --skip "[N≠]:&"' 1 \
-	--command "STATISTICS_PRECISION=0 acceptStatus 0 99 statistics ${GIT_BRLIFETIMES_COMMIT_UNIT:+--unit ${GIT_BRLIFETIMES_COMMIT_UNIT}}" 2
+	--exec "${BASH_SOURCE[0]}" --duration-statistics \; 1 \
+	--exec "${BASH_SOURCE[0]}" --commits-statistics \; 2
 }
 
 summarizeDuration()
@@ -193,6 +199,10 @@ logLifetimes()
     return ${status:-$GIT_BRLIFETIMES_EXIT_STATUS_NO_MERGES}
 }
 
+if [ -n "$specialAction" ]; then
+    $specialAction "$@"
+    exit $?
+fi
 eval '$action' ${action:+'"${logArgs[@]}" "$@"'} \
     "${isSort:+${action:+| }sortByTemporaryFirstColumn}" \
     "${summarizer:+${action:+| }}${summarizer}" \

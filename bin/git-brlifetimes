@@ -12,7 +12,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    local outputOptions='[--sort-by-commits|--sort-by-duration|-s|--summary]'
+    local outputOptions='[--sort-by-commits|--sort-by-duration|-s|--summary|--duration-summary|--commits-summary]'
     local logArgs='[<log-options>] [<revision range>] [[--] <path>...]'
     printf 'Usage: %q %s %s %s\n' "$(basename "$1")" "$outputOptions" "$logArgs" '[-?|-h|--help]'
     echo
@@ -44,6 +44,10 @@ merge commit calculated.
     --sort-by-duration	Order the output by the duration (descending).
     --summary|-s	Only print statistics about the durations that a branch
 			was active and the contained commits${GIT_BRLIFETIMES_COMMIT_UNIT:+ (with unit ${GIT_BRLIFETIMES_COMMIT_UNIT})}.
+    --duration-summary	Only print statistics about the durations that a branch
+			was active.
+    --commits-summary	Only print statistics about the number of contained
+			commits${GIT_BRLIFETIMES_COMMIT_UNIT:+ (with unit ${GIT_BRLIFETIMES_COMMIT_UNIT})}.
 HELPTEXT
     statistics --legend-only | prefix $'\t\t\t    '
 }
@@ -51,7 +55,7 @@ HELPTEXT
 logOnly()
 {
     # Disable any processing (for now; the --stdin invocation will do that).
-    isSummaryOnly=
+    summarizer=''
     isSort=
     : ${inserter:='printf %s "$endEpoch"'}   # Sorting by merge date (unless another sort is requested).
     [ ${#colorArg[@]} -gt 0 ] || colorArg=(--color=always)
@@ -60,7 +64,7 @@ logOnly()
 readLogs()
 {
     action=''
-    [ "$isSummaryOnly" ] || isSort=t
+    [ -n "$summarizer" ] || isSort=t
 }
 preAction=
 action=logLifetimes
@@ -75,7 +79,7 @@ if [ ! -t 1 ]; then
 fi
 datediffOutputFormat='best-unit'
 picker=
-isSummaryOnly=
+summarizer=
 inserter=
 isSort=
 while [ $# -ne 0 ]
@@ -92,7 +96,11 @@ do
 			shift; isSort=t; inserter='printf %d $commitCount';;
 	--sort-by-duration)
 			shift; isSort=t; inserter='datediff --output seconds "$startEpoch" "$endEpoch"';;
-	--summary|-s)	shift; picker='printf %d\\t%d\\n $dateDiff $commitCount'; isSummaryOnly=t; datediffOutputFormat='seconds'; pager=();;
+	--summary|-s)	shift; picker='printf %d\\t%d\\n $dateDiff $commitCount'; summarizer=summarizeAll; datediffOutputFormat='seconds'; pager=();;
+	--duration-summary)
+			shift; picker='printf %d\\n $dateDiff'; summarizer=summarizeDuration; datediffOutputFormat='seconds'; pager=();;
+	--commits-summary)
+			shift; picker='printf %d\\n $commitCount'; summarizer=summarizeCommits; datediffOutputFormat=''; pager=();;
 	--log-only)	shift; preAction=logOnly;;
 	--stdin)	shift; preAction=readLogs;;
 	--)		logArgs+=("$1"); shift; break;;
@@ -100,8 +108,8 @@ do
     esac
 done
 $preAction
-if [ -n "$action" ] && [ "$isSort" ] && [ "$isSummaryOnly" ]; then
-    echo 'ERROR: Cannot combine --sort-by-* with -s|--summary.'
+if [ -n "$action" ] && [ "$isSort" ] && [ -n "$summarizer" ]; then
+    echo 'ERROR: Cannot combine --sort-by-* with -s|--summary|--duration-summary|--commits-summary.'
     echo
     printUsage "$0"
     exit 2
@@ -114,11 +122,22 @@ sortByTemporaryFirstColumn()
 	| field --field-separator $'\t' --remove 1
 }
 
-summarizer()
+summarizeAll()
 {
     eachField --field-separator $'\t' \
 	--command 'STATISTICS_PRECISION=0 acceptStatus 0 99 statistics | secondsToDuration --precision 8 --skip "[N≠]:&"' 1 \
 	--command "STATISTICS_PRECISION=0 acceptStatus 0 99 statistics ${GIT_BRLIFETIMES_COMMIT_UNIT:+--unit ${GIT_BRLIFETIMES_COMMIT_UNIT}}" 2
+}
+
+summarizeDuration()
+{
+    STATISTICS_PRECISION=0 acceptStatus 0 99 statistics \
+	| secondsToDuration --precision 8 --skip '[N≠]:&'
+}
+
+summarizeCommits()
+{
+    STATISTICS_PRECISION=0 acceptStatus 0 99 statistics ${GIT_BRLIFETIMES_COMMIT_UNIT:+--unit ${GIT_BRLIFETIMES_COMMIT_UNIT}}
 }
 
 logLifetimes()
@@ -153,7 +172,9 @@ logLifetimes()
 	    local startRecord="${branchRecords[-1]}"
 	    local startCommit="${startRecord%%$'\t'*}"
 	    local startEpoch="${startRecord#*$'\t'}"
-	    dateDiff="$(datediff --output "$datediffOutputFormat" "$startEpoch" "$endEpoch")" && : ${status:=0} || { status=$?; continue; }
+	    if [ -n "$datediffOutputFormat" ]; then
+		dateDiff="$(datediff --output "$datediffOutputFormat" "$startEpoch" "$endEpoch")" && : ${status:=0} || { status=$?; continue; }
+	    fi
 
 	    if [ -n "$picker" ]; then
 		eval "$picker"
@@ -174,5 +195,5 @@ logLifetimes()
 
 eval '$action' ${action:+'"${logArgs[@]}" "$@"'} \
     "${isSort:+${action:+| }sortByTemporaryFirstColumn}" \
-    "${isSummaryOnly:+${action:+| }summarizer}" \
+    "${summarizer:+${action:+| }}${summarizer}" \
     "${pager:+|}" '"${pager[@]}"'

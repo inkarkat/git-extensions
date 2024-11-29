@@ -77,7 +77,8 @@ subjectPlaceholder='%a'
 contextCommand=
 typeset -a specialLastArg=()
 typeset otherArgs=()
-typeset -a logArgs=()
+typeset -a logArgsForRange=()
+typeset -a logArgsForCommand=()
 isLogArgsForRange=
 isLogArgsForCommand=t
 isFilesForRange=t
@@ -128,7 +129,8 @@ do
 			then
 			    while ((argCount-- > 0))
 			    do
-				logArgs+=("$1")
+				[ "$isLogArgsForRange" ] && logArgsForRange+=("$1")
+				[ "$isLogArgsForCommand" ] && logArgsForCommand+=("$1")
 				[ ! "$isLogArgsForCommand" ] || otherArgs+=("$1")
 				shift
 			    done
@@ -224,7 +226,7 @@ if [ -n "$pager" -o -n "$contextCommand" ] && isNeedColorArgumentWhenPiping "${c
 fi
 
 readarray -t authors < <(
-    git log --pretty="tformat:${subjectPlaceholder}N" ${isLogArgsForRange:+"${logArgs[@]}"} ${isFilesForRange:+-- "${files[@]}"} \
+    git log --pretty="tformat:${subjectPlaceholder}N" "${logArgsForRange[@]}" ${isFilesForRange:+-- "${files[@]}"} \
 	| sort --unique \
 	| sed -e 's/[][\$*.^]/\\&/g'
 )
@@ -235,7 +237,7 @@ iterateUsers()
     status=0
     for author in "${authors[@]}"
     do
-	eval 'executor ${isLogArgsForCommand:+"${logArgs[@]}"} "$@" "${gitColorArg[@]}" ${isFilesForCommand:+${files:+--} "${files[@]}"} "${specialLastArg[@]}"' \
+	eval 'executor "${logArgsForCommand[@]}" "$@" "${gitColorArg[@]}" ${isFilesForCommand:+${files:+--} "${files[@]}"} "${specialLastArg[@]}"' \
 		"${contextCommand:+|}${contextCommand//"$authorMarker"/\"${author}\"}" \
 	    || status=$?
     done

@@ -78,6 +78,7 @@ logLifetimes()
     local anyCommit="$(git rev-parse --verify --short HEAD)"	# Resolve what core.abbrev resolves to.
     local abbrevLen="${#anyCommit}"
 
+    status=
     while IFS=' ' read -r -a fields
     do
 	firstParent="${fields[0]}"
@@ -97,24 +98,25 @@ logLifetimes()
 	for parent in "${otherParents[@]}"
 	do
 	    let parentCount+=1
-	    mergeBase="$(git merge-base "$firstParent" "$parent")" || exit 3
-	    startDate="$(git show --no-patch --pretty=tformat:@%at "$mergeBase")" || exit 3
-	    dateDiff="$(datediff --output "$datediffOutputFormat" "$startDate" "$endDate")" || exit 3
+	    mergeBase="$(git merge-base "$firstParent" "$parent")" || { status=$?; printf >&2 'No merge base for %s and %s:\n%s\n' "$firstParent" "$parent" "$logLine"; continue; }
+	    startDate="$(git show --no-patch --pretty=tformat:@%at "$mergeBase")" || { status=$?; printf >&2 'No start date for %s:\n%s\n' "$mergeBase" "$logLine"; continue; }
+	    dateDiff="$(datediff --output "$datediffOutputFormat" "$startDate" "$endDate")" && : ${status:=0} || { status=$?; continue; }
 
 	    if [ "$isSummaryOnly" ]; then
 		printf '%d\n' "$dateDiff"
 	    else
-		commitCount="$(git-count "${mergeBase}..${parent}")" || exit 3
+		commitCount="$(git-count "${mergeBase}..${parent}")"
 		parentCountSuffix=''; [ ${#otherParents[@]} -gt 1 ] && parentCountSuffix=" ($parentCount)"
 
 		printf '%s%15s%s %s%5d%s %s%s%s..%s%s\n' \
 		    "$GIT_BRLIFETIMES_COLOR_LIFETIME" "$dateDiff" "$GIT_BRLIFETIMES_COLOR_RESET" \
-		    "$GIT_BRLIFETIMES_COLOR_COMMITCOUNT" "$commitCount" "$GIT_BRLIFETIMES_COLOR_RESET" \
+		    "$GIT_BRLIFETIMES_COLOR_COMMITCOUNT" "${commitCount:-???}" "$GIT_BRLIFETIMES_COLOR_RESET" \
 		    "$GIT_BRLIFETIMES_COLOR_MERGEBASE" "${mergeBase:0:abbrevLen}" "$GIT_BRLIFETIMES_COLOR_RESET" \
 		    "$logLine" "$parentCountSuffix"
 	    fi
 	done
     done < <(git logmerges --no-patch --pretty="tformat:%P @%at $(git-onelinelog --print-format)" "${colorArg[@]}" "$@")
+    return ${status:-99}
 }
 
 eval 'logLifetimes "${logArgs[@]}" "$@"' \

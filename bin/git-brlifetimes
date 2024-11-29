@@ -5,6 +5,7 @@ set -o pipefail
 : ${GIT_BRLIFETIMES_COLOR_COMMITCOUNT=[35m}
 : ${GIT_BRLIFETIMES_COLOR_MERGEBASE=[36m}
 : ${GIT_BRLIFETIMES_COLOR_RESET=[0m}
+: ${GIT_BRLIFETIMES_COMMIT_UNIT=●}
 : ${GIT_BRLIFETIMES_EXIT_STATUS_NO_MERGES:=99}
 
 printShortUsage()
@@ -42,7 +43,7 @@ merge commit calculated.
     --sort-by-commits	Order the output by the number of commits (descending).
     --sort-by-duration	Order the output by the duration (descending).
     --summary|-s	Only print statistics about the durations that a branch
-			was active.
+			was active and the contained commits${GIT_BRLIFETIMES_COMMIT_UNIT:+ (with unit ${GIT_BRLIFETIMES_COMMIT_UNIT})}.
 HELPTEXT
     statistics --legend-only | prefix $'\t\t\t    '
 }
@@ -88,10 +89,10 @@ do
 	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); case "$2" in never) isColor=;; always) isColor=t;; esac; shift; shift;;
 
 	--sort-by-commits)
-			shift; isSort=t; inserter='printf %d "$commitCount"';;
+			shift; isSort=t; inserter='printf %d $commitCount';;
 	--sort-by-duration)
 			shift; isSort=t; inserter='datediff --output seconds "$startDate" "$endDate"';;
-	--summary|-s)	shift; picker='printf %d\\n "$dateDiff"'; isSummaryOnly=t; datediffOutputFormat='seconds'; pager=();;
+	--summary|-s)	shift; picker='printf %d\\t%d\\n $dateDiff $commitCount'; isSummaryOnly=t; datediffOutputFormat='seconds'; pager=();;
 	--log-only)	shift; preAction=logOnly;;
 	--stdin)	shift; preAction=readLogs;;
 	--)		logArgs+=("$1"); shift; break;;
@@ -115,8 +116,9 @@ sortByTemporaryFirstColumn()
 
 summarizer()
 {
-    STATISTICS_PRECISION=0 acceptStatus 0 99 statistics \
-	| secondsToDuration --precision 8 --skip '[N≠]:&'
+    eachField --field-separator $'\t' \
+	--command 'STATISTICS_PRECISION=0 acceptStatus 0 99 statistics | secondsToDuration --precision 8 --skip "[N≠]:&"' 1 \
+	--command "STATISTICS_PRECISION=0 acceptStatus 0 99 statistics ${GIT_BRLIFETIMES_COMMIT_UNIT:+--unit ${GIT_BRLIFETIMES_COMMIT_UNIT}}" 2
 }
 
 logLifetimes()
@@ -144,21 +146,21 @@ logLifetimes()
 	for parent in "${otherParents[@]}"
 	do
 	    let parentCount+=1
-	    local mergeBase startDate dateDiff
+	    local mergeBase startDate dateDiff commitCount
 	    mergeBase="$(git merge-base "$firstParent" "$parent")" || { status=$?; printf >&2 'No merge base for %s and %s:\n%s\n' "$firstParent" "$parent" "$logLine"; continue; }
 	    startDate="$(git show --no-patch --pretty=tformat:@%at "$mergeBase")" || { status=$?; printf >&2 'No start date for %s:\n%s\n' "$mergeBase" "$logLine"; continue; }
 	    dateDiff="$(datediff --output "$datediffOutputFormat" "$startDate" "$endDate")" && : ${status:=0} || { status=$?; continue; }
+	    commitCount="$(git-count "${mergeBase}..${parent}")"
 
 	    if [ -n "$picker" ]; then
 		eval "$picker"
 	    else
-		local commitCount="$(git-count "${mergeBase}..${parent}")"
 		local parentCountSuffix=''; [ ${#otherParents[@]} -gt 1 ] && parentCountSuffix=" ($parentCount)"
 
 		printf '%s%s%15s%s %s%5d%s %s%s%s..%s%s\n' \
 		    "${inserter:+$(eval "$inserter")$'\t'}" \
 		    "$GIT_BRLIFETIMES_COLOR_LIFETIME" "$dateDiff" "$GIT_BRLIFETIMES_COLOR_RESET" \
-		    "$GIT_BRLIFETIMES_COLOR_COMMITCOUNT" "${commitCount:-???}" "$GIT_BRLIFETIMES_COLOR_RESET" \
+		    "$GIT_BRLIFETIMES_COLOR_COMMITCOUNT" "${commitCount:-0}" "$GIT_BRLIFETIMES_COLOR_RESET" \
 		    "$GIT_BRLIFETIMES_COLOR_MERGEBASE" "${mergeBase:0:abbrevLen}" "$GIT_BRLIFETIMES_COLOR_RESET" \
 		    "$logLine" "$parentCountSuffix"
 	    fi

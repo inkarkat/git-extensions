@@ -5,6 +5,7 @@ set -o pipefail
 : ${GIT_BRLIFETIMES_COLOR_COMMITCOUNT=[35m}
 : ${GIT_BRLIFETIMES_COLOR_MERGEBASE=[36m}
 : ${GIT_BRLIFETIMES_COLOR_RESET=[0m}
+: ${GIT_BRLIFETIMES_EXIT_STATUS_NO_MERGES:=99}
 
 printShortUsage()
 {
@@ -89,7 +90,7 @@ sortByTemporaryFirstColumn()
 
 summarizer()
 {
-    STATISTICS_PRECISION=0 statistics \
+    STATISTICS_PRECISION=0 acceptStatus 0 99 statistics \
 	| secondsToDuration --precision 8 --skip '[N≠]:&'
 }
 
@@ -138,7 +139,7 @@ logLifetimes()
 	    fi
 	done
     done < <(git logmerges --no-patch --pretty="tformat:%P @%at $(git-onelinelog --print-format)" "${colorArg[@]}" "$@")
-    return ${status:-99}
+    return ${status:-$GIT_BRLIFETIMES_EXIT_STATUS_NO_MERGES}
 }
 
 eval 'logLifetimes "${logArgs[@]}" "$@"' \

@@ -31,19 +31,28 @@ Supports the following special commands and options:
     [branch-range] counts* [<log-options>] [<revision range>] [[--] <path>...]
 			    Count and add up the amount of commits in
 			    $GIT_DOEXTENSIONS_WHAT that fall into
-			    the logged range. * stands for any range variant
-			    (td, year, ...) or filter (mine, team, ...).
+			    the logged range.
+			    [branch-range] is td, year, etc.
+			    * stands for any filter (mine, team, ...)
     [branch-range] countsleaderboard* [<log-options>] [<revision range>] [[--] <path>...]
 			    List $GIT_DOEXTENSIONS_WHAT
 			    ordered by the amount of commits in the logged range
 			    (omitting those without any commits).
-			    * stands for any range variant (td, year, ...) or
-			    filter (mine, team, ...).
+			    [branch-range] is td, year, etc.
+			    * stands for any filter (mine, team, ...)
     [branch-range] logs-distribution* [LOGDISTRIBUTION-OPTIONS ...] [<log-options>] [<revision range>] [[--] <path>...]
 			    Print the distribution of the number of commits in
 			    $GIT_DOEXTENSIONS_WHAT that fall into
-			    the logged range. * stands for any range variant
-			    (td, year, ...) or filter (mine, team, ...).
+			    the logged range.
+			    [branch-range] is td, year, etc.
+			    * stands for any filter (mine, team, ...)
+    [branch-range] br-lifetimes* [BRLIFETIMES-OPTIONS ...] [<log-options>] [<revision range>] [[--] <path>...]
+			    One-line lifetime, number of commits, commit range,
+			    author, date, tags and commit summary of merged
+			    branches in $GIT_DOEXTENSIONS_WHAT that happened in
+			    the logged range.
+			    [branch-range] is td, year, etc.
+			    * stands for any filter (mine, team, ...)
     untracked-sh [COMMAND ...]
 			    Open an interactive shell / execute COMMAND in those
 			    $GIT_DOEXTENSIONS_WHAT that have new files
@@ -145,6 +154,17 @@ logsDistributionExtension()
     printf -v quotedLogDistributionArgs '%q ' --log-only "$@"; quotedLogDistributionArgs="${quotedLogDistributionArgs% }"
     wcdoArgs+=(--no-header --skip-files --no-git-color --command "$logDistributionCommand $quotedLogDistributionArgs")
     accumulationCommand=(git-logdistribution --stdin "$@")
+}
+
+brLifetimesExtension()
+{
+    local brLifetimesCommand="${1:?}"; shift
+    # Supply any arguments both to the git-brlifetimes that gets iterated over, and
+    # to the git-logdistribution that accumulates and reports the data (it will
+    # ignore the log options).
+    printf -v quotedBrLifetimesArgs '%q ' --log-only "$@"; quotedBrLifetimesArgs="${quotedBrLifetimesArgs% }"
+    wcdoArgs+=(--no-header --skip-files --no-git-color --command "$brLifetimesCommand $quotedBrLifetimesArgs")
+    accumulationCommand=(git-brlifetimes --stdin "$@")
 }
 
 typeset -a wcdoArgs=()
@@ -464,8 +484,17 @@ parseCommand()
 		logDistributionCommand="git logdistribution${1#logs-distribution}"; shift
 		logsDistributionExtension "$logDistributionCommand" "$@"
 		;;
+	    br-lifetimes*)
+		# Synthesized new command; don't override "brlifetimes" as the user may want to
+		# execute that separately on each repo, too.
+
+		# Translate e.g. br-lifetimesmine to "git brlifetimesmine".
+		# This way, all filters supplied by my various variants can be used.
+		brLifetimesCommand="git brlifetimes${1#br-lifetimes}"; shift
+		brLifetimesExtension "$brLifetimesCommand" "$@"
+		;;
 	    *)
-		if git-br-variants |  grep --quiet --fixed-strings --line-regexp "$1"; then
+		if git-br-variants --bare |  grep --quiet --fixed-strings --line-regexp "$1"; then
 		    case "$2" in
 			countsleaderboard*)
 			    # Synthesized new command.
@@ -474,6 +503,7 @@ parseCommand()
 			    # This way, all ranges supplied by my various br... variants can be used.
 			    countCommand="git $1 count${2#countsleaderboard}"; shift; shift
 			    countsleaderboardExtension "$countCommand" "$@"
+			    set --
 			    ;;
 			counts*)
 			    # Synthesized new command; don't override "count" as the user may want to count
@@ -483,6 +513,7 @@ parseCommand()
 			    # This way, all ranges supplied by my various br... variants can be used.
 			    countCommand="git $1 count${2#counts}"; shift; shift
 			    countsExtension "$countCommand" "$@"
+			    set --
 			    ;;
 			logs-distribution*)
 			    # Synthesized new command; don't override "logdistribution" as the user may want
@@ -492,6 +523,17 @@ parseCommand()
 			    # This way, all ranges supplied by my various br... variants can be used.
 			    logDistributionCommand="git $1 logdistribution${2#logs-distribution}"; shift; shift
 			    logsDistributionExtension "$logDistributionCommand" "$@"
+			    set --
+			    ;;
+			br-lifetimes*)
+			    # Synthesized new command; don't override "brlifetimes" as the user may want to
+			    # execute that separately on each repo, too.
+
+			    # Translate e.g. br-lifetimesmine to "git brlifetimesmine".
+			    # This way, all filters supplied by my various variants can be used.
+			    brLifetimesCommand="git $1 brlifetimes${2#br-lifetimes}"; shift; shift
+			    brLifetimesExtension "$brLifetimesCommand" "$@"
+			    set --
 			    ;;
 		    esac
 		fi

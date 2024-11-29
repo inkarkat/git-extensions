@@ -53,7 +53,7 @@ logOnly()
     # Disable any processing (for now; the --stdin invocation will do that).
     isSummaryOnly=
     isSort=
-    : ${inserter:='printf %s "$endDate"'}   # Sorting by merge date (unless another sort is requested).
+    : ${inserter:='printf %s "$endEpoch"'}   # Sorting by merge date (unless another sort is requested).
     [ ${#colorArg[@]} -gt 0 ] || colorArg=(--color=always)
     pager=()
 }
@@ -91,7 +91,7 @@ do
 	--sort-by-commits)
 			shift; isSort=t; inserter='printf %d $commitCount';;
 	--sort-by-duration)
-			shift; isSort=t; inserter='datediff --output seconds "$startDate" "$endDate"';;
+			shift; isSort=t; inserter='datediff --output seconds "$startEpoch" "$endEpoch"';;
 	--summary|-s)	shift; picker='printf %d\\t%d\\n $dateDiff $commitCount'; isSummaryOnly=t; datediffOutputFormat='seconds'; pager=();;
 	--log-only)	shift; preAction=logOnly;;
 	--stdin)	shift; preAction=readLogs;;
@@ -131,7 +131,7 @@ logLifetimes()
 	for ((i = 1;; i++))
 	do
 	    if [[ "${fields[i]}" =~ ^@ ]]; then
-		endDate="${fields[i]}"
+		endEpoch="${fields[i]}"
 		logLine="${fields[*]:i+1}"
 		break
 	    else
@@ -152,8 +152,8 @@ logLifetimes()
 	    local commitCount=${#branchRecords[@]}
 	    local startRecord="${branchRecords[-1]}"
 	    local startCommit="${startRecord%%$'\t'*}"
-	    local startDate="${startRecord#*$'\t'}"
-	    dateDiff="$(datediff --output "$datediffOutputFormat" "$startDate" "$endDate")" && : ${status:=0} || { status=$?; continue; }
+	    local startEpoch="${startRecord#*$'\t'}"
+	    dateDiff="$(datediff --output "$datediffOutputFormat" "$startEpoch" "$endEpoch")" && : ${status:=0} || { status=$?; continue; }
 
 	    if [ -n "$picker" ]; then
 		eval "$picker"

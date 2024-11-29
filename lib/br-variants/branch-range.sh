@@ -68,6 +68,7 @@ lcl?(f)|\
 lh?(mine|others|team)|\
 l?(o)g?([fv]|merges)@(mine|others|team)|\
 @(l?(o)|count|countmaxdaycommits|commitsperday|logdistribution|brlifetimes)?(mine|others|team)|\
+brlifetimesbyeach|\
 log?(mod|added|deleted|renamed)?(files)|glog|logbrowse|logsize|\
 l[ou]url?(v)|\
 @(files|versions|tags)@(g|changed|touched)|\

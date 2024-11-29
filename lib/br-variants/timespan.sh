@@ -46,6 +46,7 @@ lc?(h)|\
 lc@(?(l)?(f)|?(f)@(mine|others|team))|\
 lh?(mine|others|team)|\
 @(l?(o)g?([fv]|merges)|l?(o)|count|countmaxdaycommits|commitsperday|logdistribution|brlifetimes)?(mine|others|team)|\
+brlifetimesbyeach|\
 log?(mod|added|deleted|renamed)?(files)|glog|logbrowse|logsize|\
 lg@(rel|tagged|st|i|I)|\
 l[ou]url?(v)|\

@@ -11,7 +11,11 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--sort-by-commits|--sort-by-duration|-s|--summary] [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+    local outputOptions='[--sort-by-commits|--sort-by-duration|-s|--summary]'
+    local logArgs='[<log-options>] [<revision range>] [[--] <path>...]'
+    printf 'Usage: %q %s %s\n' "$(basename "$1")" "$outputOptions" "$logArgs" '[-?|-h|--help]'
+    echo
+    printf 'Usage: %q %s %s %s | %q %s %s\n' "$(basename "$1")" '--log-only' "$outputOptions" "$logArgs" "$(basename "$1")" '--stdin' "$outputOptions"
 }
 printUsage()
 {
@@ -43,6 +47,22 @@ HELPTEXT
     statistics --legend-only | prefix $'\t\t\t    '
 }
 
+logOnly()
+{
+    # Disable any processing (for now; the --stdin invocation will do that).
+    isSummaryOnly=
+    isSort=
+    : ${inserter:='printf %s "$endDate"'}   # Sorting by merge date (unless another sort is requested).
+    [ ${#colorArg[@]} -gt 0 ] || colorArg=(--color=always)
+    pager=()
+}
+readLogs()
+{
+    action=''
+    [ "$isSummaryOnly" ] || isSort=t
+}
+preAction=
+action=logLifetimes
 typeset -a logArgs=()
 isColor=t
 typeset -a colorArg=(--color=always)
@@ -53,8 +73,10 @@ if [ ! -t 1 ]; then
     pager=()
 fi
 datediffOutputFormat='best-unit'
+picker=
 isSummaryOnly=
-sorter=
+inserter=
+isSort=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -66,15 +88,18 @@ do
 	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); case "$2" in never) isColor=;; always) isColor=t;; esac; shift; shift;;
 
 	--sort-by-commits)
-			shift; sorter='printf %d "$commitCount"';;
+			shift; isSort=t; inserter='printf %d "$commitCount"';;
 	--sort-by-duration)
-			shift; sorter='datediff --output seconds "$startDate" "$endDate"';;
-	--summary|-s)	shift; isSummaryOnly=t; datediffOutputFormat='seconds'; pager=();;
+			shift; isSort=t; inserter='datediff --output seconds "$startDate" "$endDate"';;
+	--summary|-s)	shift; picker='printf %d\\n "$dateDiff"'; isSummaryOnly=t; datediffOutputFormat='seconds'; pager=();;
+	--log-only)	shift; preAction=logOnly;;
+	--stdin)	shift; preAction=readLogs;;
 	--)		logArgs+=("$1"); shift; break;;
 	*)		logArgs+=("$1"); shift;;
     esac
 done
-if [ -n "$sorter" ] && [ "$isSummaryOnly" ]; then
+$preAction
+if [ -n "$action" ] && [ "$isSort" ] && [ "$isSummaryOnly" ]; then
     echo 'ERROR: Cannot combine --sort-by-* with -s|--summary.'
     echo
     printUsage "$0"
@@ -124,14 +149,14 @@ logLifetimes()
 	    startDate="$(git show --no-patch --pretty=tformat:@%at "$mergeBase")" || { status=$?; printf >&2 'No start date for %s:\n%s\n' "$mergeBase" "$logLine"; continue; }
 	    dateDiff="$(datediff --output "$datediffOutputFormat" "$startDate" "$endDate")" && : ${status:=0} || { status=$?; continue; }
 
-	    if [ "$isSummaryOnly" ]; then
-		printf '%d\n' "$dateDiff"
+	    if [ -n "$picker" ]; then
+		eval "$picker"
 	    else
 		local commitCount="$(git-count "${mergeBase}..${parent}")"
 		local parentCountSuffix=''; [ ${#otherParents[@]} -gt 1 ] && parentCountSuffix=" ($parentCount)"
 
 		printf '%s%s%15s%s %s%5d%s %s%s%s..%s%s\n' \
-		    "${sorter:+$(eval "$sorter")$'\t'}" \
+		    "${inserter:+$(eval "$inserter")$'\t'}" \
 		    "$GIT_BRLIFETIMES_COLOR_LIFETIME" "$dateDiff" "$GIT_BRLIFETIMES_COLOR_RESET" \
 		    "$GIT_BRLIFETIMES_COLOR_COMMITCOUNT" "${commitCount:-???}" "$GIT_BRLIFETIMES_COLOR_RESET" \
 		    "$GIT_BRLIFETIMES_COLOR_MERGEBASE" "${mergeBase:0:abbrevLen}" "$GIT_BRLIFETIMES_COLOR_RESET" \
@@ -142,7 +167,7 @@ logLifetimes()
     return ${status:-$GIT_BRLIFETIMES_EXIT_STATUS_NO_MERGES}
 }
 
-eval 'logLifetimes "${logArgs[@]}" "$@"' \
-    "${sorter:+| sortByTemporaryFirstColumn}" \
-    "${isSummaryOnly:+| summarizer}" \
+eval '$action' ${action:+'"${logArgs[@]}" "$@"'} \
+    "${isSort:+${action:+| }sortByTemporaryFirstColumn}" \
+    "${isSummaryOnly:+${action:+| }summarizer}" \
     "${pager:+|}" '"${pager[@]}"'

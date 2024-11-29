@@ -14,7 +14,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--prefixed|--with-header [--no-git-color]] [--committer] [--log-args-for-range|--log-args-only-for-range] [--files-for-range|--files-for-command] [--except-last] ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--prefixed [--tabular]|--with-header [--no-git-color]] [--committer] [--log-args-for-range|--log-args-only-for-range] [--files-for-range|--files-for-command] [--except-last] ... [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... BASE ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
@@ -46,6 +46,8 @@ HELPDESCRIPTION
 			view if there's too much output).
     --prefixed		Put the author name before each line produced by
 			GIT-COMMAND, followed by a : (like grep -H|--with-filename).
+    --tabular		Render (tab-separated) output as a table with aligned
+			columns.
     --with-header	Print a header containing the author name before
 			GIT-COMMAND output if GIT-COMMAND produces output.
     --no-git-color	Do not pass a --color=... to GIT-COMMAND.
@@ -70,6 +72,7 @@ HELPTEXT
 }
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+typeset -a formatter=()
 isGitColor=t
 typeset -a colorArg=()
 filter=author
@@ -93,6 +96,7 @@ do
 			printf -v prefixSeparator %q "$GIT_SEGREGATEDUSERCOMMAND_PREFIX_SEPARATOR"
 			contextCommand="prefix --skip-empty -- ${authorMarker}${prefixSeparator}"
 			;;
+	--tabular)	shift; formatter=(column -s $'\t' -t);;
 	--with-header)	shift; contextCommand="withHeader \"\${colorArg[@]}\" --id 'git-segregated-user-command-$$' -- ${authorMarker}";;
 	--no-git-color)	shift; isGitColor=;;
 	--no-color|--color=*)
@@ -249,4 +253,5 @@ iterateUsers()
 }
 
 eval 'iterateUsers "$@"' \
+    "${formatter:+|}" '"${formatter[@]}"' \
     "${pager:+|}" '"${pager[@]}"'

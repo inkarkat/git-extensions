@@ -27,6 +27,23 @@ countLogArgs()
     return 0
 }
 
+countLogArgsInfluencingOutput()
+{
+    case "${1?}" in
+	-+([cmtpuz])|-[LUX]?*)
+		return 1;;
+	--@(abbrev-commit|no-abbrev-commit|oneline|no-notes|show-signature|relative-date|parents|children|left-right|graph|cc|dd|patch|no-patch|raw|patch-with-raw|numstat|shortstat|summary|patch-with-stat|binary|name-only|name-status|check|no-color|remerge-diff|no-diff-merges))
+		return 1;;
+	-[L])	return 2;;
+	--@(pretty|format|notes|date|unified|stat|dirstat|submodule|color|word-diff|word-diff-regex|color-words|diff-merges|output)=*)
+		return 1;;
+	--@(format|date|unified|word-diff-regex|diff-merges|output))
+		return 2;;
+    esac
+
+    return 0
+}
+
 countDiffArgs()
 {
     case "${1?}" in

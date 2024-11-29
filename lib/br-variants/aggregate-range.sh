@@ -101,7 +101,7 @@ lc?(l)@(g|changed|touched)?(except)by\
 l?(h|g|og)?(except)by|\
 @(l?(o)g?(v)|count)@(g|changed|touched)?(except)by|\
 @(log?(v)|show)@(last|first)@(g|changed|touched)?(except)by|\
-l?(o)g?([fv])?(except)by|\
+l?(o)g?([fv]|merges)?(except)by|\
 @(l?(o)|count|countmaxdaycommits|commitsperday|logdistribution)?(except)by|\
 activityby\
 )

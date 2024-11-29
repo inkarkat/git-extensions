@@ -81,6 +81,12 @@ if [ -n "$sorter" ] && [ "$isSummaryOnly" ]; then
 fi >&2
 [ "$isColor" ] || unset "${!GIT_BRLIFETIMES_COLOR_@}"
 
+sortByTemporaryFirstColumn()
+{
+    sort --field-separator=$'\t' --numeric-sort --reverse --key=1,1 \
+	| field --field-separator $'\t' --remove 1
+}
+
 summarizer()
 {
     STATISTICS_PRECISION=0 statistics \
@@ -136,6 +142,6 @@ logLifetimes()
 }
 
 eval 'logLifetimes "${logArgs[@]}" "$@"' \
-    "${sorter:+| sort --field-separator=\$'\\t' --numeric-sort --reverse --key=1,1 | field --field-separator \$'\\t' --remove 1}" \
+    "${sorter:+| sortByTemporaryFirstColumn}" \
     "${isSummaryOnly:+| summarizer}" \
     "${pager:+|}" '"${pager[@]}"'

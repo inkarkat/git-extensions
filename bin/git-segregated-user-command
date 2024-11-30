@@ -234,7 +234,11 @@ if [ -n "$pager" -o -n "$contextCommand" ] && isNeedColorArgumentWhenPiping "${c
 fi
 
 readarray -t authors < <(
-    git log --pretty="tformat:${subjectPlaceholder}N" "${logArgsForRange[@]}" ${isFilesForRange:+-- "${files[@]}"} \
+    typeset -a aggregateCommand=()
+    [ -n "$GIT_SEGREGATEDUSERCOMMAND_AGGREGATE_COMMAND" ] \
+	&& eval "typeset -a aggregateCommand=($GIT_SEGREGATEDUSERCOMMAND_AGGREGATE_COMMAND)"
+
+    git-wrapper "${aggregateCommand[@]}" log --pretty="tformat:${subjectPlaceholder}N" "${logArgsForRange[@]}" ${isFilesForRange:+-- "${files[@]}"} \
 	| sort --unique
 )
 [ ${#authors[@]} -gt 0 ] || exit 99

@@ -25,7 +25,14 @@ do
     esac
 done
 
+typeset -a brlifetimesCommand=(brlifetimes)
+if [ -n "$GIT_BRLIFETIMESBYEACH_AGGREGATE_COMMAND" ]; then
+    eval "typeset -a brlifetimesCommand=($GIT_BRLIFETIMESBYEACH_AGGREGATE_COMMAND)"
+    set -- "$@" --  # Need a trailing -- to prevent that arguments from the aggregate command are parsed off as FILE(s) if it contains a -- itself. Passing <path>s for a multi-repo iteration likely doesn't make sense, anyway.
+fi
+
 GIT_BRLIFETIMES_EXIT_STATUS_NO_MERGES=0 \
 GIT_SEGREGATEDUSERCOMMAND_PREFIX_SEPARATOR=$'\t' \
 STATISTICS_SEP=$'\t' \
-    exec git-segregated-user-command "${segregatedusercommandHeaderArg[@]}" --log-args-for-range -2 brlifetimes USERFILTER "${logArgs[@]}" "$@"
+    exec git-segregated-user-command "${segregatedusercommandHeaderArg[@]}" --log-args-for-range --keep-position \
+	"${brlifetimesCommand[@]}" USERFILTER "${logArgs[@]}" "$@"

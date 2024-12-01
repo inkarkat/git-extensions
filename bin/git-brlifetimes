@@ -12,7 +12,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    local outputOptions='[--sort-by-commits|--sort-by-duration|-s|--summary|--duration-summary|--commits-summary]'
+    local outputOptions='[--sort-by-commits|--sort-by-duration|(-s|--summary|--duration-summary|--commits-summary) [--raw]]'
     local logArgs='[<log-options>] [<revision range>] [[--] <path>...]'
     printf 'Usage: %q %s %s %s\n' "$(basename "$1")" "$outputOptions" "$logArgs" '[-?|-h|--help]'
     echo
@@ -48,6 +48,7 @@ merge commit calculated.
 			was active.
     --commits-summary	Only print statistics about the number of contained
 			commits${GIT_BRLIFETIMES_COMMIT_UNIT:+ (with unit ${GIT_BRLIFETIMES_COMMIT_UNIT})}.
+    --raw|-r		Print just the bare, space-separated numbers.
 HELPTEXT
     statistics --legend-only | prefix $'\t\t\t    '
 }
@@ -83,6 +84,7 @@ picker=
 summarizer=
 inserter=
 isSort=
+typeset -a statisticsArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -109,6 +111,7 @@ do
 			shift; specialAction='summarizeDuration';;
 	--commits-statistics)
 			shift; specialAction='summarizeCommits';;
+	--raw)		statisticsArgs=("$1"); shift;;
 	--)		logArgs+=("$1"); shift; break;;
 	*)		logArgs+=("$1"); shift;;
     esac
@@ -131,19 +134,27 @@ sortByTemporaryFirstColumn()
 summarizeAll()
 {
     eachField --field-separator $'\t' \
-	--exec "${BASH_SOURCE[0]}" --duration-statistics \; 1 \
-	--exec "${BASH_SOURCE[0]}" --commits-statistics \; 2
+	--exec "${BASH_SOURCE[0]}" "${statisticsArgs[@]}" --duration-statistics \; 1 \
+	--exec "${BASH_SOURCE[0]}" "${statisticsArgs[@]}" --commits-statistics \; 2
 }
 
 summarizeDuration()
 {
-    STATISTICS_PRECISION=0 acceptStatus 0 99 statistics \
-	| secondsToDuration --precision 8 --skip '[N≠]:&'
+    if [ ${#statisticsArgs[@]} -eq 0 ]; then
+	STATISTICS_PRECISION=0 acceptStatus 0 99 statistics \
+	    | secondsToDuration --precision 8 --skip '[N≠]:&'
+    else
+	STATISTICS_PRECISION=0 STATISTICS_SEP=$'\t' acceptStatus 0 99 statistics "${statisticsArgs[@]}"
+    fi
 }
 
 summarizeCommits()
 {
-    STATISTICS_PRECISION=0 acceptStatus 0 99 statistics ${GIT_BRLIFETIMES_COMMIT_UNIT:+--unit ${GIT_BRLIFETIMES_COMMIT_UNIT}}
+    if [ ${#statisticsArgs[@]} -eq 0 ]; then
+	STATISTICS_PRECISION=0 acceptStatus 0 99 statistics ${GIT_BRLIFETIMES_COMMIT_UNIT:+--unit ${GIT_BRLIFETIMES_COMMIT_UNIT}}
+    else
+	STATISTICS_PRECISION=0 STATISTICS_SEP=$'\t' acceptStatus 0 99 statistics "${statisticsArgs[@]}"
+    fi
 }
 
 logLifetimes()

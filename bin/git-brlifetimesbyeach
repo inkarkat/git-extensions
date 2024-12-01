@@ -12,20 +12,34 @@ case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
 
-typeset segregatedusercommandHeaderArg=(--with-header)
+isSummary=
+isRaw=
 typeset -a logArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--summary|-s|--commits-summary|--duration-summary)
-			logArgs+=("$1"); shift; segregatedusercommandHeaderArg=(--tabular --prefixed);;
+			logArgs+=("$1"); shift; isSummary=t;;
+	--raw)		logArgs+=("$1"); shift; isRaw=t;;
 	--)		logArgs+=("$1"); shift; break;;
 	*)		logArgs+=("$1"); shift;;
     esac
 done
+typeset segregatedusercommandHeaderArgs=(--with-header)
+if [ "$isSummary" ]; then
+    segregatedusercommandHeaderArgs=(--prefixed)
+    [ "$isRaw" ] || segregatedusercommandHeaderArgs+=(--tabular)
+fi
+
+typeset -a brlifetimesCommand=(brlifetimes)
+if [ -n "$GIT_BRLIFETIMESBYEACH_AGGREGATE_COMMAND" ]; then
+    eval "typeset -a brlifetimesCommand=($GIT_BRLIFETIMESBYEACH_AGGREGATE_COMMAND)"
+    set -- "$@" --  # Need a trailing -- to prevent that arguments from the aggregate command are parsed off as FILE(s) if it contains a -- itself. Passing <path>s for a multi-repo iteration likely doesn't make sense, anyway.
+fi
 
 GIT_BRLIFETIMES_EXIT_STATUS_NO_MERGES=0 \
 GIT_SEGREGATEDUSERCOMMAND_PREFIX_SEPARATOR=$'\t' \
 STATISTICS_SEP=$'\t' \
-    exec git-segregated-user-command "${segregatedusercommandHeaderArg[@]}" --log-args-for-range -2 brlifetimes USERFILTER "${logArgs[@]}" "$@"
+    exec git-segregated-user-command "${segregatedusercommandHeaderArgs[@]}" --log-args-for-range --keep-position \
+	"${brlifetimesCommand[@]}" USERFILTER "${logArgs[@]}" "$@"

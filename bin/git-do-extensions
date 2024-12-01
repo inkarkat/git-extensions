@@ -45,6 +45,12 @@ Supports the following special commands and options:
 			    keywords or scopes in $GIT_DOEXTENSIONS_WHAT
 			    that fall into the logged range.
 			    [branch-range] is td, year, etc.
+    [branch-range] committaskidtallies [OPTIONS ...] [<log-options>] [<revision range>] [[--] <path>...]
+			    Report counts and percentages of external task IDs
+			    at the beginning of the commit summary in
+			    $GIT_DOEXTENSIONS_WHAT
+			    that fall into the logged range.
+			    [branch-range] is td, year, etc.
     [branch-range] logs-distribution* [LOGDISTRIBUTION-OPTIONS ...] [<log-options>] [<revision range>] [[--] <path>...]
 			    Print the distribution of the number of commits in
 			    $GIT_DOEXTENSIONS_WHAT that fall into
@@ -155,9 +161,10 @@ accumulateLeaderboard()
 	| column -s $'\t' -t
 }
 
-commitKeywordTalliesExtension()
+commitTalliesExtension()
 {
     local logCommand="${1:?}"; shift
+    local tallyCommand="${1:?}"; shift
     typeset -a logArgs=()
     typeset -a commitKeywordTallyArgs=()
     while [ $# -ne 0 ]
@@ -175,7 +182,7 @@ commitKeywordTalliesExtension()
     done
     quotedLogArgs=; [ ${#logArgs[@]} -eq 0 ] || printf -v quotedLogArgs ' %q' "${logArgs[@]}"
     wcdoArgs+=(--no-header --skip-files --no-git-color --command "${logCommand}${quotedLogArgs}")
-    accumulationCommand=(git-commitkeywordtally "${commitKeywordTallyArgs[@]}")
+    accumulationCommand=("$tallyCommand" "${commitKeywordTallyArgs[@]}")
 }
 
 logsDistributionExtension()
@@ -517,10 +524,10 @@ parseCommand()
 		countCommand="git count${1#countsleaderboard}"; shift
 		countsleaderboardExtension "$countCommand" "$@"
 		;;
-	    commitkeywordtallies)
+	    commit@(keyword|taskid)tallies)
 		# Synthesized new command variant of commitkeywordtally.
-		shift
-		commitKeywordTalliesExtension 'git lo' "$@"
+		tallyCommand="${1%tallies}tally"; shift
+		commitTalliesExtension 'git lo' "git-$tallyCommand" "$@"
 		;;
 
 	# Synthesized new command variants of existing commands that support appended
@@ -550,10 +557,10 @@ parseCommand()
 			    countsleaderboardExtension "$countCommand" "$@"
 			    set --
 			    ;;
-			commitkeywordtallies)
+			commit@(keyword|taskid)tallies)
 			    # Synthesized new command variant of commitkeywordtally.
-			    aggregateCommand="$1"; shift; shift
-			    commitKeywordTalliesExtension "git $aggregateCommand lo" "$@"
+			    aggregateCommand="$1"; tallyCommand="${2%tallies}tally"; shift; shift
+			    commitTalliesExtension "git $aggregateCommand lo" "git-$tallyCommand" "$@"
 			    set --
 			    ;;
 		    # Synthesized new command variants of existing commands that support appended

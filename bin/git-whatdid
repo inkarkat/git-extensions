@@ -55,14 +55,16 @@ done
 
 whatdid()
 {
-    git log --pretty=tformat:%B "${gitLogArgs[@]}" \
+    git log --pretty=tformat:$'\a\n%B' "${gitLogArgs[@]}" \
 	| awk -F '[ ]' \
 	    -v what="$what" \
 	    -v pattern="$pattern" \
 	    -v filterPattern="$filterPattern" \
 '
-{
+$0 == "\a" {
     commitCount += 1
+}
+{
     for (i = ($1 ~ /^[[:upper:]]+-[[:digit:]]+/ ? 2 : 1); i <= NF && $i ~ pattern; i++) {
 	if (filterPattern == "" || $i ~ filterPattern) {
 	    prefix[$i] += 1

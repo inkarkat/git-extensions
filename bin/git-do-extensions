@@ -163,8 +163,9 @@ accumulateLeaderboard()
 
 commitTalliesExtension()
 {
-    local logCommand="${1:?}"; shift
+    local aggregateCommand="${1?}"; shift
     local tallyCommand="${1:?}"; shift
+    local logCommand="${aggregateCommand}${aggregateCommand:+ }l"; [[ "$tallyCommand" =~ taskid ]] || logCommand+='o'	# Task ID is at the beginning of the commit subject; keywords can be anywhere.
     typeset -a logArgs=()
     typeset -a commitKeywordTallyArgs=()
     while [ $# -ne 0 ]
@@ -181,7 +182,7 @@ commitTalliesExtension()
 	esac
     done
     quotedLogArgs=; [ ${#logArgs[@]} -eq 0 ] || printf -v quotedLogArgs ' %q' "${logArgs[@]}"
-    wcdoArgs+=(--no-header --skip-files --no-git-color --command "${logCommand}${quotedLogArgs}")
+    wcdoArgs+=(--no-header --skip-files --no-git-color --command "git-wrapper ${logCommand}${quotedLogArgs}")
     accumulationCommand=("$tallyCommand" "${commitKeywordTallyArgs[@]}")
 }
 
@@ -527,7 +528,7 @@ parseCommand()
 	    commit@(keyword|taskid)tallies)
 		# Synthesized new command variant of commitkeywordtally.
 		tallyCommand="${1%tallies}tally"; shift
-		commitTalliesExtension 'git lo' "git-$tallyCommand" "$@"
+		commitTalliesExtension '' "git-$tallyCommand" "$@"
 		;;
 
 	# Synthesized new command variants of existing commands that support appended
@@ -560,7 +561,7 @@ parseCommand()
 			commit@(keyword|taskid)tallies)
 			    # Synthesized new command variant of commitkeywordtally.
 			    aggregateCommand="$1"; tallyCommand="${2%tallies}tally"; shift; shift
-			    commitTalliesExtension "git $aggregateCommand lo" "git-$tallyCommand" "$@"
+			    commitTalliesExtension "$aggregateCommand" "git-$tallyCommand" "$@"
 			    set --
 			    ;;
 		    # Synthesized new command variants of existing commands that support appended

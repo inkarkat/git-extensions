@@ -414,7 +414,7 @@
 	;; commitaddemptyfirst: Insert a completely empty commit as the new initial root commit (to retroactively start with a clean slate, or to rebase and split the first commit).
 
 	;; trailer-aliases: List all commit trailer aliases defined in the Git configuration.
-	;; trailer-keys: git config list | sed -n -e 's/^trailer\.\(.*\)\.key=.*$/\1/p'
+	;; trailer-keys: List all commit trailer keys defined in the Git configuration.
 
 	;; correct: Commit as a correction of passed revision(s) [from the working copy that FILE or DIR resides in] (when it's too late or cumbersome to fixup the existing commit). This just adds a reference to the prior commit(s) in the commit message (title and body).
 	correctlast = selectedpermanentcommit-command --accept-single --single-only --pass-file-args --allow-outside-workingcopy -2 correct COMMITS --max-count 1	; Commit as a correction of the last commit (of FILE; if you omit that the HEAD commit would be referenced, and you could just amend there).
@@ -1264,7 +1264,7 @@
 	amendpush = commitpush --force --amend --reedit-message=HEAD	; Amend to last commit and push [to REMOTE].
 	amendupush = commitpush --force --all --amend --reedit-message=HEAD	; Amend all modified and deleted files to last commit to last commit and push [to REMOTE].
 	amendonly = wrapper-nocolor commit --amend --only	; Reword commit message / amend passed files to last commit, ignoring any already staged changes.
-	reword = amendonly --cleanup=strip
+	reword = amendonly --cleanup=strip --no-trailer-add
 	;; rewordappend: Append the passed commit message(s) to the original commit message.
 	;; pipereword: Reword the commit message of the last commit by piping its text through COMMAND.
 	;; sedreword: Reword the commit message of the last commit through manipulation via SED-ARGUMENTS.
@@ -6890,6 +6890,9 @@
 	ifexists = addIfDifferent
 [trailer.test]
 	key = Tested-by
+	ifexists = addIfDifferent
+[trailer.with]
+	key = Co-authored-by
 	ifexists = addIfDifferent
 
 # git-commit extension: Automatically add trailers containing system and/or platform information.

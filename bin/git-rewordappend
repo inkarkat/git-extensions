@@ -1,47 +1,85 @@
 #!/bin/bash
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--padded|--as-trailers] [-q|--quiet] [-m|--message=MESSAGE|-F|--file=FILE [...]] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 Append the passed commit message(s) to the original commit message.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --padded		Add an empty line between the original and the appended
+			commit message.
+    --quiet|-q		Do not print the resulting commit message.
+    --as-trailers	The passed commit message(s) represent commit trailers
+			that need to be appended at the very end. By default,
+			existing trailers are kept at the end.
 
 RELATED COMMANDS:
 - git-stamp from tj/git-extras appends (or replaces) Git trailer-like IDs to the
   commit message.
 HELPTEXT
-    echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--padded] [-q|--quiet] [-m|--message=MESSAGE|-F|--file=FILE [...]] [-?|-h|--help]'
 }
 
 padding=
 isQuiet=
+isKeepTrailersAtEnd=t
 typeset -a commitMessageArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--padded)	shift; padding=$'\n';;
 	--quiet|-q)	shift; isQuiet=t;;
+	--as-trailers)	shift; isKeepTrailersAtEnd=;;
 	--)		commitMessageArgs+=("$1"); shift; break;;
 	*)		commitMessageArgs+=("$1"); shift;;
     esac
 done
 set -- "${commitMessageArgs[@]}" "$@"
-
 if [ $# -eq 0 ]; then
-    printUsage "$0" >&2
+    printUsage "$0"
     exit 2
-fi
+elif [ -n "$padding" ] && [ ! "$isKeepTrailersAtEnd" ]; then
+    echo 'ERROR: Cannot combine --padded with --as-trailers.'
+    echo
+    printUsage "$0"
+    exit 2
+fi >&2
 
 appendMessage="$(git-commitMessagePrint "$@")" || exit $?
 [ -n "$appendMessage" ] || exit 99
 
 originalMessage="$(git lo1)" || exit 3
+trailers=''
+if [ "$isKeepTrailersAtEnd" ] && [[ "$originalMessage" = *$'\n'* ]]; then
+    trailers="$(printf '%s\n' "$originalMessage" | git-trailer-parse --parse)"
+    [ -z "$trailers" ] || originalMessage="$(printf '%s\n' "$originalMessage" | git-trailer-parse --remove)"
+fi
+
 if [[ "$originalMessage" != *$'\n'* ]]; then
     # DWIM: Add separating newline if the original commit message is a pure subject
     # without body.
     padding=$'\n'
 fi
 
-git-wrapper commit --amend --only --cleanup=strip --message "${originalMessage}"$'\n'"${padding}${appendMessage}" || exit $?
+git-wrapper commit --amend --only --cleanup=strip --no-trailer-add \
+	--message "${originalMessage}"$'\n'"${padding}${appendMessage}${trailers:+$'\n\n'}${trailers}" \
+    || exit $?
 [ "$isQuiet" ] || git lo1

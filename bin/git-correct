@@ -1,4 +1,5 @@
 #!/bin/bash
+set -o pipefail
 shopt -qs extglob
 
 : ${GIT_CORRECT_REFERENCE_MESSAGE:=This corrects commit}
@@ -122,12 +123,14 @@ cleanup()
     if [ "$isAmend" ]; then
 	# Use the to-be-amended message, and just add the correction commit ID
 	# references.
-	git lo1
+	git lo1 \
+	    | git-trailer-parse --remove
     else
 	# Use the original commit's message(s) as the base for editing.
 	for ((i = 0; i < ${#commitIds[@]}; i++))
 	do
-	    gitInWorkingCopy "${filespecs[i]}" lo1 "${commitIds[i]}"
+	    gitInWorkingCopy "${filespecs[i]}" lo1 "${commitIds[i]}" \
+		| git-trailer-parse --remove
 	    echo
 	done
     fi

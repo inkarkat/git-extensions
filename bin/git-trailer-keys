@@ -6,11 +6,31 @@ printUsage()
 List all commit trailer keys defined in the Git configuration.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--system|--global|--local|--worktree|--file <filename> [--includes]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--as-regexp] [--system|--global|--local|--worktree|--file <filename> [--includes]] [-?|-h|--help]'
 }
 
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-esac
+action=getTrailerKeys
+typeset -a configArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--as-regexp)	shift; action=trailerKeysAsRegexp;;
+	--)		configArgs+=("$1"); shift; break;;
+	*)		configArgs+=("$1"); shift;;
+    esac
+done
 
-exec git config get --all --regexp '^trailer\..*\.key$' "$@"
+getTrailerKeys()
+{
+    git config get --all --regexp '^trailer\..*\.key$' "${configArgs[@]}" "$@"
+}
+
+trailerKeysAsRegexp()
+{
+    trailerExpr="$(getTrailerKeys "$@" | joinBy - '\|')" \
+	&& [ -n "$trailerExpr" ] \
+	&& printf '%s\n' "^\\(${trailerExpr}\\):"
+}
+
+$action "$@"

@@ -1,4 +1,5 @@
 #!/bin/bash
+set -o pipefail
 
 printUsage()
 {
@@ -50,7 +51,10 @@ cleanup()
     rm -f "$commitMessageFilespec" 2>/dev/null
 }
 [ "$DEBUG" ] || trap 'cleanup' EXIT
-gitInWorkingCopy lo1 "$commitId" > "$commitMessageFilespec" || exit $?
+gitInWorkingCopy lo1 "$commitId" \
+    | git-trailer-parse --remove \
+    > "$commitMessageFilespec" \
+    || exit $?
 if [ ! -s "$commitMessageFilespec" ]; then
     echo >&2 "ERROR: No commit message"
     exit 1

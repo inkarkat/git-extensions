@@ -40,6 +40,19 @@ Supports the following special commands and options:
 			    (omitting those without any commits).
 			    [branch-range] is td, year, etc.
 			    * stands for any filter (mine, team, ...)
+    [branch-range] commitkeywordtallies* [OPTIONS ...] [<log-options>] [<revision range>] [[--] <path>...]
+			    Report counts and percentages of commit message
+			    keywords or scopes in $GIT_DOEXTENSIONS_WHAT
+			    that fall into the logged range.
+			    [branch-range] is td, year, etc.
+			    * stands for any filter (mine, team, ...)
+    [branch-range] committaskidtallies* [OPTIONS ...] [<log-options>] [<revision range>] [[--] <path>...]
+			    Report counts and percentages of external task IDs
+			    at the beginning of the commit summary in
+			    $GIT_DOEXTENSIONS_WHAT
+			    that fall into the logged range.
+			    [branch-range] is td, year, etc.
+			    * stands for any filter (mine, team, ...)
     [branch-range] logs-distribution* [LOGDISTRIBUTION-OPTIONS ...] [<log-options>] [<revision range>] [[--] <path>...]
 			    Print the distribution of the number of commits in
 			    $GIT_DOEXTENSIONS_WHAT that fall into
@@ -148,6 +161,32 @@ accumulateLeaderboard()
 {
     sort --field-separator $'\t' --key 2,2 --numeric-sort --reverse \
 	| column -s $'\t' -t
+}
+
+commitTalliesExtension()
+{
+    local aggregateCommand="${1?}"; shift
+    local tallyCommand="${1:?}"; shift
+    local filterSuffix="${1?}"; shift
+    local logCommand="${aggregateCommand}${aggregateCommand:+ }l"; [[ "$tallyCommand" =~ taskid ]] || logCommand+='o'	# Task ID is at the beginning of the commit subject; keywords can be anywhere.
+    typeset -a logArgs=()
+    typeset -a commitKeywordTallyArgs=()
+    while [ $# -ne 0 ]
+    do
+	case "$1" in
+	    -+([s]))	commitKeywordTallyArgs+=("$1"); shift;;
+	    --@(scopes|bare|no-percentages))
+			commitKeywordTallyArgs+=("$1"); shift;;
+	    -[N])	commitKeywordTallyArgs+=("$1" "${2?}"); shift; shift;;
+	    --@(percentage-threshold|against-total-commits))
+			commitKeywordTallyArgs+=("$1" "${2?}"); shift; shift;;
+	    --)		logArgs+=("$1"); shift; break;;
+	    *)		logArgs+=("$1"); shift;;
+	esac
+    done
+    quotedLogArgs=; [ ${#logArgs[@]} -eq 0 ] || printf -v quotedLogArgs ' %q' "${logArgs[@]}"
+    wcdoArgs+=(--no-header --skip-files --no-git-color --command "git-wrapper ${logCommand}${filterSuffix}${quotedLogArgs}")
+    accumulationCommand=("$tallyCommand" "${commitKeywordTallyArgs[@]}")
 }
 
 logsDistributionExtension()
@@ -489,36 +528,25 @@ parseCommand()
 		countCommand="git count${1#countsleaderboard}"; shift
 		countsleaderboardExtension "$countCommand" "$@"
 		;;
+	# Synthesized new command variants of existing commands that support appended
+	# filters (like *mine).
 	    counts*)
-		# Synthesized new command; don't override "count" as the user may want to count
-		# separately each repo, too.
-
-		# Translate e.g. countsmine to "git countmine".
-		# This way, all filters supplied by my various variants can be used.
 		countCommand="git count${1#counts}"; shift
 		countsExtension "$countCommand" "$@"
 		;;
+	    commit@(keyword|taskid)tallies*)
+		tallyCommand="${1%tallies*}tally"; filterSuffix="${1#*tallies}"; shift
+		commitTalliesExtension '' "git-$tallyCommand" "$filterSuffix" "$@"
+		;;
 	    logs-distribution*)
-		# Synthesized new command; don't override "logdistribution" as the user may want
-		# to execute that separately on each repo, too.
-
-		# Translate e.g. logs-distributionmine to "git logdistributionmine".
-		# This way, all filters supplied by my various variants can be used.
 		logDistributionCommand="git logdistribution${1#logs-distribution}"; shift
 		logsDistributionExtension "$logDistributionCommand" "$@"
 		;;
 	    br-lifetimesbyeach)
-		# Synthesized new command; don't override "brlifetimesbyeach" as the user may
-		# want to execute that separately on each repo, too.
 		shift
 		brLifetimesByEachExtension br-lifetimes "$@"
 		;;
 	    br-lifetimes*)
-		# Synthesized new command; don't override "brlifetimes" as the user may want to
-		# execute that separately on each repo, too.
-
-		# Translate e.g. br-lifetimesmine to "git brlifetimesmine".
-		# This way, all filters supplied by my various variants can be used.
 		brLifetimesCommand="git brlifetimes${1#br-lifetimes}"; shift
 		brLifetimesExtension "$brLifetimesCommand" "$@"
 		;;
@@ -527,49 +555,36 @@ parseCommand()
 		    case "$2" in
 			countsleaderboard*)
 			    # Synthesized new command.
-
-			    # Translate e.g. td countsleaderboard[mine] to "git td count[mine]".
-			    # This way, all ranges supplied by my various br... variants can be used.
 			    countCommand="git $1 count${2#countsleaderboard}"; shift; shift
 			    countsleaderboardExtension "$countCommand" "$@"
 			    set --
 			    ;;
+		    # Synthesized new command variants of existing commands that support appended
+		    # filters (like *mine).
 			counts*)
-			    # Synthesized new command; don't override "count" as the user may want to count
-			    # separately each repo, too.
-
-			    # Translate e.g. td counts[mine] to "git td count[mine]".
-			    # This way, all ranges supplied by my various br... variants can be used.
 			    countCommand="git $1 count${2#counts}"; shift; shift
 			    countsExtension "$countCommand" "$@"
 			    set --
 			    ;;
+			commit@(keyword|taskid)tallies*)
+			    aggregateCommand="$1"; tallyCommand="${2%tallies*}tally"; filterSuffix="${2#*tallies}"; shift; shift
+			    commitTalliesExtension "$aggregateCommand" "git-$tallyCommand" "$filterSuffix" "$@"
+			    set --
+			    ;;
 			logs-distribution*)
-			    # Synthesized new command; don't override "logdistribution" as the user may want
-			    # to execute that separately on each repo, too.
-
-			    # Translate e.g. td logs-distribution[mine] to "git td logdistribution[mine]".
-			    # This way, all ranges supplied by my various br... variants can be used.
 			    logDistributionCommand="git $1 logdistribution${2#logs-distribution}"; shift; shift
 			    logsDistributionExtension "$logDistributionCommand" "$@"
 			    set --
 			    ;;
-			br-lifetimes*)
-			    # Synthesized new command; don't override "brlifetimes" as the user may want to
-			    # execute that separately on each repo, too.
-
-			    # Translate e.g. br-lifetimesmine to "git brlifetimesmine".
-			    # This way, all filters supplied by my various variants can be used.
-			    brLifetimesCommand="git $1 brlifetimes${2#br-lifetimes}"; shift; shift
-			    brLifetimesExtension "$brLifetimesCommand" "$@"
-			    set --
-			    ;;
 			br-lifetimesbyeach)
-			    # Synthesized new command; don't override "brlifetimesbyeach" as the user may
-			    # want to execute that separately on each repo, too.
 			    shift
 			    brLifetimesCommand="$1 brlifetimes"; shift; shift
 			    brLifetimesByEachExtension "$brLifetimesCommand" "$@"
+			    ;;
+			br-lifetimes*)
+			    brLifetimesCommand="git $1 brlifetimes${2#br-lifetimes}"; shift; shift
+			    brLifetimesExtension "$brLifetimesCommand" "$@"
+			    set --
 			    ;;
 		    esac
 		fi

@@ -1,0 +1,97 @@
+#!/bin/bash
+# Source: https://leahneukirchen.org/blog/archive/2013/01/a-grab-bag-of-git-tricks.html
+
+: ${GIT_TRAIL_COLOR_DATE=[32m}
+: ${GIT_TRAIL_COLOR_COMMIT=[36m}
+: ${GIT_TRAIL_COLOR_AHEAD=[31m}
+: ${GIT_TRAIL_COLOR_RESET=[0m}
+
+printUsage()
+{
+    cat <<HELPTEXT
+Show the relation of the current commit / <commit> to other branches [also
+remote branches / tags].
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--remotes] [-t|--tags] [<commit>] [[-?|-h|--help]'
+}
+
+isColor=; [ -t 1 ] && isColor=t
+typeset -a remoteFilter=(--exclude 'refs/remotes/')
+typeset -a tagsFilter=(--exclude 'refs/tags/')
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=never)
+			isColor=; shift;;
+	--color=always)	isColor=t; shift;;
+	--color=auto)	shift;;
+	--color)	case "$2" in
+			    always) isColor=t;;
+			    never)  isColor=;;
+			    auto)   ;;
+			    *)	    echo >&2 "ERROR: Invalid --color arg: $2"
+				    echo >&2
+				    printUsage "$0" >&2
+				    exit 2
+				    ;;
+			esac
+			shift; shift
+			;;
+	--remotes|-r)	shift; remoteFilter=();;
+	--tags|-t)	shift; tagsFilter=();;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+case $# in
+    0)	commit=HEAD;;
+    1)	commit="$(git rev-parse --verify "$@")" || exit 2;;
+    *)	printUsage "$0" >&2; exit 2;;
+esac
+
+extractTrails()
+{
+    awk --field-separator $'\t' \
+	-v "commit=${commit//\\/\\\\}" \
+	-v "colorDate=${GIT_TRAIL_COLOR_DATE//\\/\\\\}" \
+	-v "colorCommit=${GIT_TRAIL_COLOR_COMMIT//\\/\\\\}" \
+	-v "colorAhead=${GIT_TRAIL_COLOR_AHEAD//\\/\\\\}" \
+	-v "colorReset=${GIT_TRAIL_COLOR_RESET//\\/\\\\}" \
+'
+$2 == "commit" || $2 == "tag" {
+    "git merge-base " commit " " $1 | getline mb
+    if (mb == "") next
+    mergebases[mb] = mergebases[mb] " " $3
+    next
+}
+{
+    if ($3 in mergebases) {
+	split(mergebases[$3], mbs, " ")
+	for (mb in mbs) {
+	    "git name-rev --name-only --refs=\"" mbs[mb] "\" " $3 | getline namerev
+	    if (namerev == "undefined") continue  # Skip unreachable commits.
+	    printf("%s\t%s\t%s\n", colorDate $1 colorReset, colorCommit $2 colorReset, gensub(/~([[:digit:]]+)$/, " " colorAhead "[ahead \\1]" colorReset, 1, namerev))
+	}
+    }
+}
+'
+}
+
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+typeset -a formatter=(column -s $'\t' -t)
+if [ ! -t 1 ]; then
+    pager=()
+    formatter=()
+fi
+[ "$isColor" ] || unset "${!GIT_TRAIL_COLOR_@}"
+
+{
+    git for-each-ref "${remoteFilter[@]}" "${tagsFilter[@]}" --format $'%(objectname)\t%(objecttype)\t%(refname)'
+    git log --format=$'%cr\t%h\t%H' "$commit" --
+} \
+    | eval extractTrails \
+    "${formatter:+|}" '"${formatter[@]}"' \
+    "${pager:+|}" '"${pager[@]}"'

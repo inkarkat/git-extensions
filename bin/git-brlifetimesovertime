@@ -1,0 +1,27 @@
+#!/bin/bash
+shopt -qs extglob
+
+printUsage()
+{
+    git-brlifetimes --help 2>&1 | sed \
+	-e '1s#^.*$#Show one-line lifetime, number of commits, commit range, author, date, tags and\ncommit summary of merged branches staggered for date ranges: today, last week,\nlast 30 days, last year.#' \
+	-e '2b removeFirstParagraphLoop' \
+	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ |]\+ \)*git-brlifetimes /\1\2'"$(basename "$1")"' [--no-pager] [--no-header] [--separate-errors] [--no-git-color] [--fine|--weekly|--monthly|--yearly] /; }' \
+	-e b -e :removeFirstParagraphLoop -e '{ /\(^\|\n\)$/{ s/^\(.*\n\)\?//; b; }; N; b removeFirstParagraphLoop; }'
+}
+
+typeset -a brlifetimesArgs=()
+typeset -a pasttimesCommandArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+
+	--@(no-pager|no-header|separate-errors|no-git-color|fine|weekly|monthly|yearly))
+			pasttimesCommandArgs+=("$1"); shift;;
+	--)		brlifetimesArgs+=("$1"); shift; break;;
+	*)		brlifetimesArgs+=("$1"); shift;;
+    esac
+done
+
+exec git-pasttimes-command "${pasttimesCommandArgs[@]}" -2 brlifetimes PASTTIMES "${brlifetimesArgs[@]}" "$@"

@@ -55,14 +55,19 @@ done
 
 whatdid()
 {
+    trailerPattern="$(git-trailer-keys --as-extended-regexp)"
     git log --pretty=tformat:$'\a\n%B' "${gitLogArgs[@]}" \
 	| awk -F '[ ]' \
 	    -v what="$what" \
 	    -v pattern="$pattern" \
 	    -v filterPattern="$filterPattern" \
+	    -v "trailerPattern=${trailerPattern//\\/\\\\}" \
 '
 $0 == "\a" {
     commitCount += 1
+}
+trailerPattern != "" && $1 ~ trailerPattern {
+    next
 }
 {
     for (i = ($1 ~ /^[[:upper:]]+-[[:digit:]]+/ ? 2 : 1); i <= NF && $i ~ pattern; i++) {

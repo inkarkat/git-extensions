@@ -1,27 +1,73 @@
 #!/bin/bash
 set -o pipefail
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-t|--include-trailers|-T|--only-trailers] [--] COMMAND [ARGUMENTS ...] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 Reword the commit message of the last commit by piping its text through COMMAND.
-HELPTEXT
+HELPDESCRIPTION
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'COMMAND [ARGUMENTS ...] [-?|-h|--help]'
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --include-trailers|-t
+			Also pipe any commit message trailers through COMMAND.
+			By default, these are kept as-is.
+    --only-trailers|-T	Only pipe the commit message trailers through COMMAND.
+HELPTEXT
 }
 
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-esac
+selection=messageText
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--include-trailers|-t)
+			shift; selection='';;
+	--only-trailers|-T)
+			shift; selection=trailers;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+
 if [ $# -eq 0 ]; then
     printUsage "$0" >&2
     exit 2
 fi
 
 originalMessage="$(git lo1)" || exit 3
-newMessage="$(printf '%s\n' "$originalMessage" | "$@")" || exit $?
+messageText=''
+trailers=''
+if [ -n "$selection" ] && [[ "$originalMessage" = *$'\n'* ]]; then
+    trailers="$(printf '%s\n' "$originalMessage" | git-trailer-parse --parse)"
+    [ -z "$trailers" ] || messageText="$(printf '%s\n' "$originalMessage" | git-trailer-parse --remove)"
+    original="${!selection}"
+else
+    original="$originalMessage"
+fi
 
-[ "$newMessage" != "$originalMessage" ] || exit 0
-[ -n "$newMessage" ] || exit 4
+new="$(printf '%s\n' "$original" | "$@")" || exit $?
+[ "$new" != "$original" ] || exit 0
+eval "${selection:-messageText}=\$new"
+
+[ -n "$messageText" ] || exit 4
+newMessage="${messageText%%$'\n'}${trailers:+$'\n\n'}${trailers}"
 
 exec git-wrapper commit --amend --only --cleanup=strip --message "$newMessage" --no-trailer-add

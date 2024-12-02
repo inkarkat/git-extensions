@@ -28,6 +28,7 @@ convertMessageFileArgsToDirectArgs()
 }
 typeset -a editArgs=()
 typeset -a commitArgs=()
+isAddTrailers=t
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -73,6 +74,8 @@ do
 			editArgs+=("$1"); shift;;
 	--fixup)	commitArgs+=("$1" "${2?}"); shift; shift; hasConflictingWithTemplateArgs=t;;
 	--fixup=*)	commitArgs+=("$1"); shift; hasConflictingWithTemplateArgs=t;;
+	--no-trailer-add)
+			shift; isAddTrailers=;;
 	--)		commitArgs+=("$1"); shift; break;;
 	*)		commitArgs+=("$1"); shift;;
     esac
@@ -98,7 +101,7 @@ fi
 # - environment variable GIT_COMMIT_TRAILER_*
 # - global or system Git configuration commit.trailer.*
 typeset -a trailerArgs=()
-for infoType in system platform
+[ "$isAddTrailers" ] && for infoType in system platform
 do
     infoTrailerVariableName="GIT_COMMIT_TRAILER_${infoType^^}"
     infoTrailerVariable="${!infoTrailerVariableName}"

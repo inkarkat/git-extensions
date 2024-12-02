@@ -154,9 +154,15 @@ if [ -z "${files+t}" ]; then
 fi
 : ${revision:=HEAD}
 
+logAndEscape()
+{
+    git log --max-count 1 "$@"  "$revision" ${isFilesForRange:+-- "${files[@]}"} \
+	| sed -e 's/[][\$*.^]/\\&/g'
+}
+
 if [ ${#userFilterArgs[@]} -eq 0 ]; then
-    author="$(git log --max-count 1 --pretty=format:'%aN <%aE>' "$revision" ${isFilesForRange:+-- "${files[@]}"} | sed -e 's/[][\$*.^]/\\&/g')" || exit $?
-    committer="$(git log --max-count 1 --pretty=format:'%cN <%cE>' "$revision" ${isFilesForRange:+-- "${files[@]}"} | sed -e 's/[][\$*.^]/\\&/g')" || exit $?
+    author="$(logAndEscape --pretty=format:'%aN <%aE>')" || exit $?
+    committer="$(logAndEscape --pretty=format:'%cN <%cE>')" || exit $?
     userFilterArgs+=(--author "$author")
     [ "$author" = "$committer" ] || userFilterArgs+=(--committer "$committer")
 else

@@ -127,9 +127,11 @@ case "$1" in
 		fi
 	    done
 
-	    [ "$isCountedAppend" ] \
-		&& exec git-wrapper "$@" "${appendedArgs[@]}" \
-		|| exec git-wrapper "${appendedArgs[@]}" "$@"
+	    if [ "$isCountedAppend" ]; then
+		git-wrapper "$@" "${appendedArgs[@]}"
+	    else
+		git-wrapper "${appendedArgs[@]}" "$@"
+	    fi
 	}
 	;;
     --keep-position)
@@ -148,13 +150,13 @@ case "$1" in
 		fi
 	    done
 
-	    exec git-wrapper "${appendedArgs[@]}" "$@"
+	    git-wrapper "${appendedArgs[@]}" "$@"
 	}
 	;;
     *)	countedArgs=("$@"); set --
 	executor()
 	{
-	    exec git-wrapper "${countedArgs[@]}" "$@" "${rangeArgs[@]}"
+	    git-wrapper "${countedArgs[@]}" "$@" "${rangeArgs[@]}"
 	}
 	;;
 esac

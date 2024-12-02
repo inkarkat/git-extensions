@@ -1,4 +1,5 @@
 #!/bin/bash
+set -o pipefail
 shopt -qs extglob
 
 readonly INCLUDED_TAGS_CONFIG_KEY='cherrypick.includedTags'
@@ -109,7 +110,8 @@ if [ "$isSkipCommit" ]; then
 	# Use the original commit's message(s) as the base for committing.
 	for ((i = 0; i < ${#commitIds[@]}; i++))
 	do
-	    gitInWorkingCopy "${filespecs[i]}" lo1 "${commitIds[i]}"
+	    gitInWorkingCopy "${filespecs[i]}" lo1 "${commitIds[i]}" \
+		| git-trailer-parse --remove
 	    echo
 	done
     )

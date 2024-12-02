@@ -40,17 +40,19 @@ Supports the following special commands and options:
 			    (omitting those without any commits).
 			    [branch-range] is td, year, etc.
 			    * stands for any filter (mine, team, ...)
-    [branch-range] commitkeywordtallies [OPTIONS ...] [<log-options>] [<revision range>] [[--] <path>...]
+    [branch-range] commitkeywordtallies* [OPTIONS ...] [<log-options>] [<revision range>] [[--] <path>...]
 			    Report counts and percentages of commit message
 			    keywords or scopes in $GIT_DOEXTENSIONS_WHAT
 			    that fall into the logged range.
 			    [branch-range] is td, year, etc.
-    [branch-range] committaskidtallies [OPTIONS ...] [<log-options>] [<revision range>] [[--] <path>...]
+			    * stands for any filter (mine, team, ...)
+    [branch-range] committaskidtallies* [OPTIONS ...] [<log-options>] [<revision range>] [[--] <path>...]
 			    Report counts and percentages of external task IDs
 			    at the beginning of the commit summary in
 			    $GIT_DOEXTENSIONS_WHAT
 			    that fall into the logged range.
 			    [branch-range] is td, year, etc.
+			    * stands for any filter (mine, team, ...)
     [branch-range] logs-distribution* [LOGDISTRIBUTION-OPTIONS ...] [<log-options>] [<revision range>] [[--] <path>...]
 			    Print the distribution of the number of commits in
 			    $GIT_DOEXTENSIONS_WHAT that fall into
@@ -165,6 +167,7 @@ commitTalliesExtension()
 {
     local aggregateCommand="${1?}"; shift
     local tallyCommand="${1:?}"; shift
+    local filterSuffix="${1?}"; shift
     local logCommand="${aggregateCommand}${aggregateCommand:+ }l"; [[ "$tallyCommand" =~ taskid ]] || logCommand+='o'	# Task ID is at the beginning of the commit subject; keywords can be anywhere.
     typeset -a logArgs=()
     typeset -a commitKeywordTallyArgs=()
@@ -182,7 +185,7 @@ commitTalliesExtension()
 	esac
     done
     quotedLogArgs=; [ ${#logArgs[@]} -eq 0 ] || printf -v quotedLogArgs ' %q' "${logArgs[@]}"
-    wcdoArgs+=(--no-header --skip-files --no-git-color --command "git-wrapper ${logCommand}${quotedLogArgs}")
+    wcdoArgs+=(--no-header --skip-files --no-git-color --command "git-wrapper ${logCommand}${filterSuffix}${quotedLogArgs}")
     accumulationCommand=("$tallyCommand" "${commitKeywordTallyArgs[@]}")
 }
 
@@ -525,17 +528,15 @@ parseCommand()
 		countCommand="git count${1#countsleaderboard}"; shift
 		countsleaderboardExtension "$countCommand" "$@"
 		;;
-	    commit@(keyword|taskid)tallies)
-		# Synthesized new command variant of commitkeywordtally.
-		tallyCommand="${1%tallies}tally"; shift
-		commitTalliesExtension '' "git-$tallyCommand" "$@"
-		;;
-
 	# Synthesized new command variants of existing commands that support appended
 	# filters (like *mine).
 	    counts*)
 		countCommand="git count${1#counts}"; shift
 		countsExtension "$countCommand" "$@"
+		;;
+	    commit@(keyword|taskid)tallies*)
+		tallyCommand="${1%tallies*}tally"; filterSuffix="${1#*tallies}"; shift
+		commitTalliesExtension '' "git-$tallyCommand" "$filterSuffix" "$@"
 		;;
 	    logs-distribution*)
 		logDistributionCommand="git logdistribution${1#logs-distribution}"; shift
@@ -558,17 +559,16 @@ parseCommand()
 			    countsleaderboardExtension "$countCommand" "$@"
 			    set --
 			    ;;
-			commit@(keyword|taskid)tallies)
-			    # Synthesized new command variant of commitkeywordtally.
-			    aggregateCommand="$1"; tallyCommand="${2%tallies}tally"; shift; shift
-			    commitTalliesExtension "$aggregateCommand" "git-$tallyCommand" "$@"
-			    set --
-			    ;;
 		    # Synthesized new command variants of existing commands that support appended
 		    # filters (like *mine).
 			counts*)
 			    countCommand="git $1 count${2#counts}"; shift; shift
 			    countsExtension "$countCommand" "$@"
+			    set --
+			    ;;
+			commit@(keyword|taskid)tallies*)
+			    aggregateCommand="$1"; tallyCommand="${2%tallies*}tally"; filterSuffix="${2#*tallies}"; shift; shift
+			    commitTalliesExtension "$aggregateCommand" "git-$tallyCommand" "$filterSuffix" "$@"
 			    set --
 			    ;;
 			logs-distribution*)

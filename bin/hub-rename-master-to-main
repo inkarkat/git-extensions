@@ -19,14 +19,18 @@ esac
 if [ $# -ne 0 ]; then
     printUsage "$0" >&2
     exit 2
-elif git-existsbr main && ! git-existsbr master; then
-    echo >&2 'The default branch already is main.'
-    exit 99
+elif git-existsbr main && [ "$(git-mbr)" = main ]; then
+    if git-existsbr master; then
+	git deletebr master
+    else
+	echo >&2 'The default branch already is main.'
+	exit 99
+    fi
+else
+    git checkout master
+    git renamebr main
+    git-mbr --set main
 fi
-
-git com
-git renamebr main
-git-mbr --set main
 
 
 if git existsremote upstream && [ "$(git symbolic-ref refs/remotes/upstream/HEAD)" = 'refs/remotes/upstream/master' ]; then

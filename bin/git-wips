@@ -68,7 +68,8 @@ deselected (from all checks on offer) via -name.
 - wipcommit:where the last commit had "WIP:" in the message summary
 - nonmaster:a branch different from the master branch (or the base branch if
 	    defined) is checked out
-- mergedbr: branches that have already been merged into master
+- mergedbr: branches that have already been merged into (upstream / origin /
+	    local) master
 - stalebr:  branches that have not been updated for a while${HUB:+ and have no active
 	    PR}
 - todo:	    a todo.txt file exists in the working copy root
@@ -238,7 +239,12 @@ considerCheck nonmaster \
 printMergedBranches()
 {
     local masterBranch="$(getMasterBranch)"
-    git mergedbr "$masterBranch" | outputAndPrintf "Already integrated into ${masterBranch}:\\n"
+    local remote targetBranch; for remote in upstream origin ''
+    do
+	targetBranch="${remote}${remote:+/}${masterBranch}"
+	git existsbr "$targetBranch" && break
+    done
+    git mergedbr "$targetBranch" | outputAndPrintf "Already integrated into ${targetBranch}:\\n"
     return ${PIPESTATUS[-1]}
 }
 considerCheck mergedbr \

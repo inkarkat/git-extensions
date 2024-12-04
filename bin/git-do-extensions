@@ -201,30 +201,33 @@ logsDistributionExtension()
     accumulationCommand=(git-logdistribution --stdin "$@")
 }
 
-brLifetimesExtension()
+logOnlyAndStdinDualCommandExtension()
 {
-    local brLifetimesCommand="${1:?}"; shift
-    # Supply any arguments both to the git-brlifetimes that gets iterated over, and
-    # to the git-logdistribution that accumulates and reports the data (it will
-    # ignore the log options).
-    printf -v quotedBrLifetimesArgs '%q ' --log-only "$@"; quotedBrLifetimesArgs="${quotedBrLifetimesArgs% }"
-    wcdoArgs+=(--no-header --skip-files --no-git-color --command "$brLifetimesCommand $quotedBrLifetimesArgs")
-    accumulationCommand=(git-brlifetimes --stdin "$@")
+    local logOnlyAndStdinDualCommand="${1:?}"; shift
+    local scopedAndFilteredDualCommand="${1:?}"; shift
+    # Supply any arguments both to the command that gets iterated over, and to the
+    # command that accumulates and reports the data (it will ignore the log
+    # options).
+    printf -v quotedArgs '%q ' --log-only "$@"; quotedArgs="${quotedArgs% }"
+    wcdoArgs+=(--no-header --skip-files --no-git-color --command "$scopedAndFilteredDualCommand $quotedArgs")
+    accumulationCommand=("$logOnlyAndStdinDualCommand" --stdin "$@")
 }
 
-brLifetimesByEachExtension()
+byEachCommandExtension()
 {
-    local brLifetimesCommand="${1:?}"; shift
+    local byEachCommand="${1:?}"; shift
+    local scopedAndFilteredByEachCommand="${1:?}"; shift
     local wcdoCommand="$(basename -- "$0")"; wcdoCommand="${wcdoCommand#git-}"
     local quotedWcdoCommand; printf -v quotedWcdoCommand '%q ' "$wcdoCommand" "${wcdoCommandArgs[@]}" --no-header --no-git-color "${wcdoArgs[@]}" "${dashdashArgs[@]}" "${args[@]}"
 
     # The current wcdo-command needs to be injected into git-segregated-user-command
     # to obtain all users found in all working copies (not just the current
-    # (potentially unrelated) one), and into git-brlifetimesbyeach to iterate over
-    # all working copies (for each user).
+    # (potentially unrelated) one), and into $byEachCommand to iterate over all
+    # working copies (for each user).
+    local byEachConfigVar="${byEachCommand#git-}"; byEachConfigVar="${byEachConfigVar^^}"
+    eval "export GIT_${byEachConfigVar}_AGGREGATE_COMMAND=\"\${quotedWcdoCommand}\${scopedAndFilteredByEachCommand}\""
     GIT_SEGREGATEDUSERCOMMAND_AGGREGATE_COMMAND="${quotedWcdoCommand}" \
-    GIT_BRLIFETIMESBYEACH_AGGREGATE_COMMAND="${quotedWcdoCommand}${brLifetimesCommand}" \
-	exec git-brlifetimesbyeach "$@"
+	exec "$byEachCommand" "$@"
     # The exec aborts the original execution here, but that's fine as we'll be
     # invoked repeatedly for each user.
 }
@@ -544,11 +547,11 @@ parseCommand()
 		;;
 	    br-lifetimesbyeach)
 		shift
-		brLifetimesByEachExtension br-lifetimes "$@"
+		byEachCommandExtension git-brlifetimesbyeach br-lifetimes "$@"
 		;;
 	    br-lifetimes*)
 		brLifetimesCommand="git brlifetimes${1#br-lifetimes}"; shift
-		brLifetimesExtension "$brLifetimesCommand" "$@"
+		logOnlyAndStdinDualCommandExtension git-brlifetimes "$brLifetimesCommand" "$@"
 		;;
 	    *)
 		if git-br-variants --bare |  grep --quiet --fixed-strings --line-regexp "$1"; then
@@ -579,11 +582,11 @@ parseCommand()
 			br-lifetimesbyeach)
 			    shift
 			    brLifetimesCommand="$1 brlifetimes"; shift; shift
-			    brLifetimesByEachExtension "$brLifetimesCommand" "$@"
+			    byEachCommandExtension git-brlifetimesbyeach "$brLifetimesCommand" "$@"
 			    ;;
 			br-lifetimes*)
 			    brLifetimesCommand="git $1 brlifetimes${2#br-lifetimes}"; shift; shift
-			    brLifetimesExtension "$brLifetimesCommand" "$@"
+			    logOnlyAndStdinDualCommandExtension git-brlifetimes "$brLifetimesCommand" "$@"
 			    set --
 			    ;;
 		    esac

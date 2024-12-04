@@ -2,12 +2,13 @@
 
 : ${GIT_COMMIT_SHOW_REUSE=t}
 : ${GIT_COMMIT_SHOW_REMOTE=t}
+: ${GIT_BLAME_IGNORE_REVS_FILE=.git-blame-ignore-revs}
 
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, they can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-trailer-add] [COMMIT-ARGS ...] [--] [<path> ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-trailer-add] [--skip-blame] [COMMIT-ARGS ...] [--] [<path> ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -29,6 +30,10 @@ HELPDESCRIPTION
     cat <<HELPTEXT
     --no-trailer-add	Do not automaticallly add commit messge trailers
 			configured in commit.trailer.* or GIT_COMMIT_TRAILER_*
+    --skip-blame	Record the commit's hash in a $GIT_BLAME_IGNORE_REVS_FILE
+			(which needs to be committed separately (NOT amended;
+			hen-egg problem)) so that those changes are ignored when
+			assigning blame.
 HELPTEXT
 }
 
@@ -63,6 +68,7 @@ convertMessageFileArgsToDirectArgs()
 typeset -a editArgs=()
 typeset -a commitArgs=()
 isAddTrailers=t
+isSkipBlame=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -111,6 +117,7 @@ do
 	--fixup=*)	commitArgs+=("$1"); shift; hasConflictingWithTemplateArgs=t;;
 	--no-trailer-add)
 			shift; isAddTrailers=;;
+	--skip-blame)	shift; isSkipBlame=t;;
 	--)		commitArgs+=("$1"); shift; break;;
 	*)		commitArgs+=("$1"); shift;;
     esac
@@ -164,6 +171,19 @@ eval "typeset -a gitConfigArgs=($GIT_CONFIG_ARGS)"
 command git "${gitConfigArgs[@]}" commit "$@" || exit $?
 
 git-committemplate --clean  # Clean up old commit templates after a successful commit.
+
+if [ "$isSkipBlame" ] \
+    && root="$(git rev-parse --show-toplevel)" \
+    && longCommitId="$(git-commitid HEAD)"
+then
+    if [ -n "$GIT_BLAME_IGNORE_REVS_FILE" ]; then
+	printf '%s\n' "$longCommitId" >> "${root}/${GIT_BLAME_IGNORE_REVS_FILE}"
+	git status --short -- "${root}/${GIT_BLAME_IGNORE_REVS_FILE}"
+    else
+	echo >&2 'Warning: Ignored --skip-blame because $GIT_BLAME_IGNORE_REVS_FILE is not set.'
+    fi
+fi
+
 if [ -t 1 ]; then
     : ${GIT_COMMIT_NOTE_PREFIX=[3;36m}
     : ${GIT_COMMIT_NOTE_SUFFIX=[0m}

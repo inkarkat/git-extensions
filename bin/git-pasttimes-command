@@ -63,7 +63,8 @@ HELPTEXT
 
 typeset -a dates=("$(date "+%F ${GIT_TIMESPAN_MIDNIGHT}" 2>/dev/null || printf yesterday)" '7 days ago' '30 days ago' '365 days ago' '')
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
-isHeader=; type -t withHeader >/dev/null && isHeader=t
+contextCommand='withHeader "${colorArg[@]}" --id "$GIT_PASTTIMES_COMMAND_HEADER_ID" -- "${previousDate:-now}..${date}"'
+type -t withHeader >/dev/null || contextCommand=''
 errorRedir='2>&1'
 isGitColor=t
 typeset -a colorArg=()
@@ -73,7 +74,7 @@ do
     case "$1" in
 	--help|-h|-\?)		shift; printLongUsage "$0"; exit 0;;
 	--no-pager)		shift; pager=();;
-	--no-header)		shift; isHeader=
+	--no-header)		shift; contextCommand=''
 				[ "$PAGER" = smartless ] && PAGER=less	# smartless does not page small outputs that fit the terminal, but we explicitly want to page through each date range separately.
 				;;
 	--separate-errors)	shift; errorRedir='';;
@@ -91,7 +92,7 @@ done
 # With piping into withHeader / pager, we need to explicitly enable color for
 # Git, unless this command's output itself is redirected. Also don't do this if
 # the user explicitly turned off color.
-if [ -n "$pager" -o -n "$isHeader" ] && isNeedColorArgumentWhenPiping "${colorArg[@]}"; then
+if [ -n "$pager" -o -n "$contextCommand" ] && isNeedColorArgumentWhenPiping "${colorArg[@]}"; then
     colorArg=(--color=always)	# Force for withHeader
     [ "$isGitColor" ] && gitColorArg=(--color=always)	# Force for Git
 else
@@ -172,7 +173,8 @@ pasttimes()
 	[ "$date" ] && rangeArgs+=("--since=$date")
 	[ "$previousDate" ] && rangeArgs+=("--until=$previousDate")
 
-	eval 'executor "${gitColorArg[@]}" "$@"' "${isHeader:+$errorRedir | withHeader "${colorArg[@]}" --id '$GIT_PASTTIMES_COMMAND_HEADER_ID' -- '${previousDate:-now}..${date}'}"
+	eval 'executor "${gitColorArg[@]}" "$@"' \
+	    "${contextCommand:+$errorRedir | $contextCommand}"
 	exitStatus=$?; if [ -z "$status" ] || [ $exitStatus -lt $status ]; then status=$exitStatus; fi;
 
 	previousDate="$date"

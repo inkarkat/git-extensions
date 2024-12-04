@@ -42,6 +42,7 @@ HELPTEXT
 
 typeset -rA units=([c]=chars [m]=lines [w]=words)
 
+action=logSplitAndStat
 logFormat='%B'
 unit=words
 typeset -a wcArgs=(--words)
@@ -61,6 +62,25 @@ do
     esac
 done
 
+getCommitMessages()
+{
+    local trailerPattern="$(git-trailer-keys --as-regexp)"
+    git log --pretty=tformat:$'\a\n'"$logFormat" "${logArgs[@]}" "$@" \
+	| grep --invert-match -e "$trailerPattern" ${GIT_LOGMSGSTAT_EXCLUDE_PATTERN:+-e "$GIT_LOGMSGSTAT_EXCLUDE_PATTERN"}
+}
+
+splitAndStat()
+{
+    local tempDirspec; tempDirspec="$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || { dirspec="${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM"; mkdir -p -- "$dirspec" && printf %s "$dirspec"; })" || exit $?
+    [ "$DEBUG" ] || trap 'rm -rf "$tempDirspec" 2>/dev/null' EXIT
+
+    csplit --quiet --elide-empty-files --prefix "${tempDirspec}/msg" --suppress-matched --digits 8 - '/^$/' '{*}' || exit $?
+
+    wc "${wcArgs[@]}" --total=never -- "${tempDirspec}"/msg* \
+	| field 1 \
+	| summarize
+}
+
 summarize()
 {
     if [ ${#statisticsArgs[@]} -eq 0 ]; then
@@ -70,15 +90,10 @@ summarize()
     fi
 }
 
-tempDirspec="$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || { dirspec="${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM"; mkdir -p -- "$dirspec" && printf %s "$dirspec"; })" || exit $?
-[ "$DEBUG" ] || trap 'rm -rf "$tempDirspec" 2>/dev/null' EXIT
+logSplitAndStat()
+{
+    getCommitMessages "$@" \
+	| splitAndStat
+}
 
-trailerPattern="$(git-trailer-keys --as-regexp)"
-git log --pretty=tformat:$'\a\n'"$logFormat" "${logArgs[@]}" "$@" \
-    | grep --invert-match -e "$trailerPattern" ${GIT_LOGMSGSTAT_EXCLUDE_PATTERN:+-e "$GIT_LOGMSGSTAT_EXCLUDE_PATTERN"} \
-    | csplit --quiet --elide-empty-files --prefix "${tempDirspec}/msg" --suppress-matched --digits 8 - '/^$/' '{*}' \
-	|| exit $?
-
-wc "${wcArgs[@]}" --total=never -- "${tempDirspec}"/msg* \
-    | field 1 \
-    | summarize
+$action "$@"

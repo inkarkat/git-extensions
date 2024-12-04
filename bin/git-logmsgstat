@@ -7,7 +7,11 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-s|--subject-only] [-c|--bytes|-m|--chars|-w|--words|-l|--lines] [--raw] [<log-options>] [<revision range>] [--] [<path> ...] [-?|-h|--help]'
+    local outputOptions='[-s|--subject-only] [-c|--bytes|-m|--chars|-w|--words|-l|--lines] [--raw]'
+    local logArgs='[<log-options>] [<revision range>] [[--] <path>...]'
+    printf 'Usage: %q %s %s %s\n' "$(basename "$1")" "$outputOptions" "$logArgs" '[-?|-h|--help]'
+    echo
+    printf 'Usage: %q %s %s | %q %s %s\n' "$(basename "$1")" '--log-only' "$logArgs" "$(basename "$1")" '--stdin' "$outputOptions"
 }
 printUsage()
 {
@@ -57,6 +61,8 @@ do
 	--bytes|-c|--chars|-m|--lines|-l|--words|-w)
 			wcArgs=("$1"); unit="${units["${1#-}"]:-${1#--}}"; shift;;
 	--raw)		statisticsArgs=("$1"); shift;;
+	--log-only)	shift; action=getCommitMessages;;
+	--stdin)	shift; action=splitAndStat;;
 	--)		logArgs+=("$1"); shift; break;;
 	*)		logArgs+=("$1"); shift;;
     esac

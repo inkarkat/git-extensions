@@ -99,7 +99,7 @@ lg@(rel|tagged|st|i|I)\
 lcl?(f)|\
 lh?(mine|others|team)|\
 l?(o)g?([fv]|merges)@(mine|others|team)|\
-@(l?(o)|count|countmaxdaycommits|commitsperday|logdistribution|brlifetimes)?(mine|others|team)|\
+@(l?(o)|count|countmaxdaycommits|commitsperday|log@(distribution|msgstat)|brlifetimes)?(mine|others|team)|\
 brlifetimesbyeach|\
 log?(mod|added|deleted|renamed)?(files)|glog|logbrowse|logsize|\
 l[ou]url?(v)|\
@@ -167,7 +167,7 @@ l?(h|g|og)?(except)by|\
 @(l?(o)g?(v)|count)@(g|changed|touched)?(except)by|\
 @(log?(v)|show)@(last|first)@(g|changed|touched)?(except)by|\
 l?(o)g?([fv]|merges)?(except)by|\
-@(l?(o)|count|countmaxdaycommits|commitsperday|logdistribution|brlifetimes)?(except)by|\
+@(l?(o)|count|countmaxdaycommits|commitsperday|log@(distribution|msgstat)|brlifetimes)?(except)by|\
 activity?(except)by\
 )
 	[[ "$gitCommand" = lg?(except)by ]] && gitCommand="onelinelog${gitCommand#lg}"

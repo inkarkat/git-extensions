@@ -45,7 +45,7 @@ case "$gitCommand" in
 lc?(h)|\
 lc@(?(l)?(f)|?(f)@(mine|others|team))|\
 lh?(mine|others|team)|\
-@(l?(o)g?([fv]|merges)|l?(o)|count|countmaxdaycommits|commitsperday|logdistribution|brlifetimes)?(mine|others|team)|\
+@(l?(o)g?([fv]|merges)|l?(o)|count|countmaxdaycommits|commitsperday|log@(distribution|msgstat)|brlifetimes)?(mine|others|team)|\
 brlifetimesbyeach|\
 log?(mod|added|deleted|renamed)?(files)|glog|logbrowse|logsize|\
 lg@(rel|tagged|st|i|I)|\
@@ -69,7 +69,7 @@ l?(c?(f)|h|g|og)?(except)by|\
 @(lc?(l)|l?(o)g?(v)|count)@(g|changed|touched)?(except)by|\
 @(log?(v)|show)@(last|first)@(g|changed|touched)?(except)by|\
 lc@(?(l)?(f)|?(f))?(except)by|\
-@(l?(o)g?([fv]|merges)|l?(o)|count|countmaxdaycommits|commitsperday|logdistribution|brlifetimes)?(except)by|\
+@(l?(o)g?([fv]|merges)|l?(o)|count|countmaxdaycommits|commitsperday|log@(distribution|msgstat)|brlifetimes)?(except)by|\
 activity?(except)by\
 )
 	[[ "$gitCommand" = lg?(except)by ]] && gitCommand="onelinelog${gitCommand#lg}"

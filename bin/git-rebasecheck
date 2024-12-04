@@ -1,13 +1,16 @@
 #!/bin/bash
 shopt -qs extglob
 
+: ${GIT_BLAME_IGNORE_REVS_FILE=.git-blame-ignore-revs}
+
 printUsage()
 {
     cat <<HELPTEXT
 Check whether the commits that will be rebased contain merges or reference other
-commits from that range via commit hashes in their commit messages. The history
-rewriting runs the risk of destroying the merges / invalidating those
-references.
+commits from that range via commit hashes in their commit messages or recorded
+hashes for blame ignore.
+The history rewriting runs the risk of destroying the merges / invalidating
+those references.
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--check-only] [REBASE-ARGS ...] [<upstream> [<branch>]] [-?|-h|--help]'
@@ -80,7 +83,7 @@ mergeCheck()
     fi
 }
 
-referenceCheck()
+commitMessageReferenceCheck()
 {
     typeset -A referencedCommits=()
     local hashesExpr='' hash='' message='' line
@@ -108,21 +111,52 @@ referenceCheck()
     done
 
     if [ ${#referencingCommits[@]} -gt 0 ]; then
-	referencedCommitsPlural=s; [ ${#referencedCommits[@]} -eq 1 ] && referencedCommitsPlural=
+	local referencedCommitsPlural=s; [ ${#referencedCommits[@]} -eq 1 ] && referencedCommitsPlural=
 	if [ ${#referencingCommits[@]} -eq 1 ]; then
-	    allReferencingCommitsPlural=
-	    allReferencingCommitsVerbEnding=s
+	    local allReferencingCommitsPlural=
+	    local allReferencingCommitsVerbEnding=s
 	else
-	    allReferencingCommitsPlural=s
-	    allReferencingCommitsVerbEnding=
+	    local allReferencingCommitsPlural=s
+	    local allReferencingCommitsVerbEnding=
 	fi
 	printf >&2 '%s: The following commit%s reference%s the commit%s that will be rebased:\n' "$severitySigil" "$allReferencingCommitsPlural" "$allReferencingCommitsVerbEnding" "$referencedCommitsPlural"
-	hints+=('rewording those commits to update or remove the references')
+	hints+=("rewording those commits to update or remove the reference${referencedCommitsPlural}")
+    fi
+}
+
+blameIgnoreReferenceCheck()
+{
+    local root; root="$(git rev-parse --show-toplevel)" || exit 3
+    local blameIgnoreRevsFilespec="${root}/${GIT_BLAME_IGNORE_REVS_FILE}"
+    [ -r "$blameIgnoreRevsFilespec" ] || return 0
+
+    typeset -A referencedCommits=()
+    local hash; while IFS=$'\n' read -r hash
+    do
+	allProblematicCommits["$hash"]=t
+	referencedCommits["$hash"]=t
+    done < <(
+	comm -12 \
+	    <(git log --pretty=$'tformat:%H' "${range[@]}" | sort) \
+	    <(sed -n -e '/^[[:xdigit:]]\+$/p' -- "$blameIgnoreRevsFilespec" | sort) \
+    )
+
+    if [ ${#referencedCommits[@]} -gt 0 ]; then
+	if [ ${#referencedCommits[@]} -eq 1 ]; then
+	    local referencedCommitsPlural=
+	    local referencedCommitsAuxilliaryVerb=is
+	else
+	    local referencedCommitsPlural=s
+	    local referencedCommitsAuxilliaryVerb=are
+	fi
+	printf >&2 '%s: The following commit%s that will be rebased %s referenced in %s:\n' "$severitySigil" "$referencedCommitsPlural" "$referencedCommitsAuxilliaryVerb" "$GIT_BLAME_IGNORE_REVS_FILE"
+	hints+=("adapting the reference${referencedCommitsPlural} in ${GIT_BLAME_IGNORE_REVS_FILE}")
     fi
 }
 
 mergeCheck
-referenceCheck
+commitMessageReferenceCheck
+blameIgnoreReferenceCheck
 [ ${#allProblematicCommits[@]} -gt 0 ] || exit 0
 
 git-lghighlightedcommits "${!allProblematicCommits[@]}" "${range[@]}"

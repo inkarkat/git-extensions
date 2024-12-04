@@ -1,0 +1,84 @@
+#!/bin/bash
+set -o pipefail
+
+: ${GIT_LOGMSGSTAT_EXCLUDE_PATTERN='^\(>$\|>[[:space:]]\|,----\||$\||[[:space:]]\|`----\)'}
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-s|--subject-only] [-c|--bytes|-m|--chars|-w|--words|-l|--lines] [--raw] [<log-options>] [<revision range>] [--] [<path> ...] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+One-line statistics about the size of commit messages (excluding trailers and
+quoted parts).
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --subject-only|-s	Only consider the first (subject) line of the commit
+			message.
+    --bytes|-c		Count bytes.
+    --chars|-m		Count characters.
+    --lines|-l		Count lines.
+    --words|-w		Count words (non-zero-length sequence of printable
+			characters delimited by white space). This is the
+			default.
+    --raw		Print just the bare, space-separated numbers.
+HELPTEXT
+}
+
+typeset -rA units=([c]=chars [m]=lines [w]=words)
+
+logFormat='%B'
+unit=words
+typeset -a wcArgs=(--words)
+typeset -a statisticsArgs=()
+typeset -a logArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--subject-only|-s)
+			shift; logFormat='%s';;
+	--bytes|-c|--chars|-m|--lines|-l|--words|-w)
+			wcArgs=("$1"); unit="${units["${1#-}"]:-${1#--}}"; shift;;
+	--raw)		statisticsArgs=("$1"); shift;;
+	--)		logArgs+=("$1"); shift; break;;
+	*)		logArgs+=("$1"); shift;;
+    esac
+done
+
+summarize()
+{
+    if [ ${#statisticsArgs[@]} -eq 0 ]; then
+	STATISTICS_PRECISION=0 statistics --unit-once " $unit"
+    else
+	STATISTICS_PRECISION=0 STATISTICS_SEP=$'\t' statistics "${statisticsArgs[@]}"
+    fi
+}
+
+tempDirspec="$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || { dirspec="${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM"; mkdir -p -- "$dirspec" && printf %s "$dirspec"; })" || exit $?
+[ "$DEBUG" ] || trap 'rm -rf "$tempDirspec" 2>/dev/null' EXIT
+
+trailerPattern="$(git-trailer-keys --as-regexp)"
+git log --pretty=tformat:$'\a\n'"$logFormat" "${logArgs[@]}" "$@" \
+    | grep --invert-match -e "$trailerPattern" ${GIT_LOGMSGSTAT_EXCLUDE_PATTERN:+-e "$GIT_LOGMSGSTAT_EXCLUDE_PATTERN"} \
+    | csplit --quiet --elide-empty-files --prefix "${tempDirspec}/msg" --suppress-matched --digits 8 - '/^$/' '{*}' \
+	|| exit $?
+
+wc "${wcArgs[@]}" --total=never -- "${tempDirspec}"/msg* \
+    | field 1 \
+    | summarize

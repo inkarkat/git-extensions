@@ -2,12 +2,13 @@
 set -o pipefail
 
 : ${GIT_TIMESPAN_MIDNIGHT:=03:00}
+: ${GIT_PASTTIMESCOMMAND_PREFIX_SEPARATOR:=:}
 
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--no-header] [--separate-errors] [--no-git-color] [--fine|--weekly|--monthly|--yearly] ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--prefixed [--tabular]|--with-header [--no-git-color]] [--separate-errors] [--fine|--weekly|--monthly|--yearly] ... [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [...] [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... PASTTIMES ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
@@ -35,26 +36,30 @@ HELPDESCRIPTION
     echo
     printShortUsage "$1"
     cat <<HELPTEXT
-
 Puts a header line (unless --no-header) that contains the date range before the
 command output.
-    --no-pager		    Do not page the output (so contents will scroll out
-			    of view if there's too much output).
-    --separate-errors	    Do not combine command output and command errors
-			    into one (paged) stream. Commands that just cause
-			    error output won't have a header then. Error output
-			    will remain on its separate file descriptor and will
-			    not be paged. Useful if you want to suppress errors
-			    or handle them separately.
+    --no-pager		Do not page the output (so contents will scroll out of
+			view if there's too much output).
+    --prefixed		Put the date range before each line produced by
+			GIT-COMMAND, followed by a :
+			(like grep -H|--with-filename).
+    --tabular		Render (tab-separated) output as a table with aligned
+			columns.
+    --separate-errors	Do not combine command output and command errors into
+			one (paged) stream. Commands that just cause error
+			output won't have a header then. Error output will
+			remain on its separate file descriptor and will not be
+			paged. Useful if you want to suppress errors or handle
+			them separately.
 Note: For paging and headers, this command has to control Git's color output.
 Pass --no-git-color if GIT-COMMAND does not support the --color=... arguments.
 You can still pass --color=always if you pipe this command's output yet still
 want coloring of headers.
-    --fine		    Add additional date ranges: quarter / half year, 10
-			    years, one generation.
-    --weekly		    Use evenly-spaced weekly date ranges.
-    --monthly		    Use evenly-spaced monthly date ranges.
-    --yearly		    Use evenly-spaced yearly date ranges.
+    --fine		Add additional date ranges: quarter / half year, 10
+			years, one generation.
+    --weekly		Use evenly-spaced weekly date ranges.
+    --monthly		Use evenly-spaced monthly date ranges.
+    --yearly		Use evenly-spaced yearly date ranges.
 
 EXIT STATUS
 Returns the most successful exit status.
@@ -63,6 +68,7 @@ HELPTEXT
 
 typeset -a dates=("$(date "+%F ${GIT_TIMESPAN_MIDNIGHT}" 2>/dev/null || printf yesterday)" '7 days ago' '30 days ago' '365 days ago' '')
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+typeset -a formatter=()
 contextCommand='withHeader "${colorArg[@]}" --id "$GIT_PASTTIMES_COMMAND_HEADER_ID" -- "${previousDate:-now}..${date}"'
 type -t withHeader >/dev/null || contextCommand=''
 errorRedir='2>&1'
@@ -77,6 +83,11 @@ do
 	--no-header)		shift; contextCommand=''
 				[ "$PAGER" = smartless ] && PAGER=less	# smartless does not page small outputs that fit the terminal, but we explicitly want to page through each date range separately.
 				;;
+	--prefixed)	shift
+			printf -v prefixSeparator %q "$GIT_PASTTIMESCOMMAND_PREFIX_SEPARATOR"
+			contextCommand="prefix --skip-empty -- \"\${previousDate:-now}..\${date}\"${prefixSeparator}"
+			;;
+	--tabular)	shift; formatter=(column -s $'\t' -t);;
 	--separate-errors)	shift; errorRedir='';;
 	--no-git-color)		shift; isGitColor=;;
 	--no-color|--color=*)	colorArg=("$1"); shift;;
@@ -180,5 +191,7 @@ pasttimes()
 	previousDate="$date"
     done
 }
-eval 'pasttimes "$@"' "${pager:+$errorRedir |}" '"${pager[@]}"'
+eval 'pasttimes "$@"' \
+    "${formatter:+$errorRedir |}" '"${formatter[@]}"' \
+    "${pager:+$errorRedir |}" '"${pager[@]}"'
 exit $status

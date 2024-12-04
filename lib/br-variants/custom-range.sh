@@ -100,7 +100,7 @@ lcl?(f)|\
 lh?(mine|others|team)|\
 l?(o)g?([fv]|merges)@(mine|others|team)|\
 @(l?(o)|count|countmaxdaycommits|commitsperday|log@(distribution|msgstat)|brlifetimes)?(mine|others|team)|\
-brlifetimesbyeach|\
+@(brlifetimes|logmsgstat)byeach|\
 log?(mod|added|deleted|renamed)?(files)|glog|logbrowse|logsize|\
 l[ou]url?(v)|\
 ss@(?([wcag])|changed|touched)|\

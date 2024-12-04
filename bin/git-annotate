@@ -1,4 +1,19 @@
 #!/bin/bash
 
+: ${GIT_BLAME_IGNORE_REVS_FILE=.git-blame-ignore-revs}
+
+root="$(git rev-parse --show-toplevel)" || exit 3
+blameIgnoreRevsFilespec="${root}/${GIT_BLAME_IGNORE_REVS_FILE}"
+typeset -a ignoreRevsFileArgs=()
+if [ -r "$blameIgnoreRevsFilespec" ]; then
+    # DWIM: Automatically ignore (presumably cosmetic) commits that are listed in
+    # the .git-blame-ignore-revs file, as if those changes never happened (added in
+    # Git 2.23).
+    # XXX: We cannot simply set the configuration, as that causes an error if the
+    # config file does not exist:
+    # $ git config blame.ignoreRevsFile .git-blame-ignore-revs
+    ignoreRevsFileArgs=(--ignore-revs-file "$blameIgnoreRevsFilespec")
+fi
+
 eval "typeset -a gitConfigArgs=($GIT_CONFIG_ARGS)"
-exec git "${gitConfigArgs[@]}" ${GIT_ANNOTATE_COMMAND:-annotate} "$@"
+exec git "${gitConfigArgs[@]}" ${GIT_ANNOTATE_COMMAND:-annotate} "${ignoreRevsFileArgs[@]}" "$@"

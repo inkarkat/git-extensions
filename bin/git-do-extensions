@@ -72,6 +72,19 @@ Supports the following special commands and options:
 			    branches for each user in working copies
 			    $GIT_DOEXTENSIONS_WHAT [that happened in
 			    the logged range]. [branch-range] is td, year, etc.
+    [branch-range] logs-msgstat* [LOGMSGSTAT-OPTIONS ...] [<log-options>] [<revision range>] [[--] <path>...]
+			    One-line statistics about the size of commit
+			    messages (excluding trailers and quoted parts) in
+			    working copies $GIT_DOEXTENSIONS_WHAT
+			    [that happened in the logged range]. [branch-range]
+			    is td, year, etc.
+			    * stands for any filter (mine, team, ...)
+    [branch-range] logs-msgstatbyeach [LOGMSGSTAT-OPTIONS ...] [<log-options>] [<revision range>]
+			    One-line statistics about the size of commit
+			    messages (excluding trailers and quoted parts) for
+			    each user in working copies
+			    $GIT_DOEXTENSIONS_WHAT [that happened in
+			    the logged range]. [branch-range] is td, year, etc.
     untracked-sh [COMMAND ...]
 			    Open an interactive shell / execute COMMAND in those
 			    $GIT_DOEXTENSIONS_WHAT that have new files
@@ -553,6 +566,14 @@ parseCommand()
 		brLifetimesCommand="git brlifetimes${1#br-lifetimes}"; shift
 		logOnlyAndStdinDualCommandExtension git-brlifetimes "$brLifetimesCommand" "$@"
 		;;
+	    logs-msgstatbyeach)
+		shift
+		byEachCommandExtension git-logmsgstatbyeach logs-msgstat "$@"
+		;;
+	    logs-msgstat*)
+		logsMsgStatCommand="git logmsgstat${1#logs-msgstat}"; shift
+		logOnlyAndStdinDualCommandExtension git-logmsgstat "$logsMsgStatCommand" "$@"
+		;;
 	    *)
 		if git-br-variants --bare |  grep --quiet --fixed-strings --line-regexp "$1"; then
 		    case "$2" in
@@ -587,6 +608,15 @@ parseCommand()
 			br-lifetimes*)
 			    brLifetimesCommand="git $1 brlifetimes${2#br-lifetimes}"; shift; shift
 			    logOnlyAndStdinDualCommandExtension git-brlifetimes "$brLifetimesCommand" "$@"
+			    set --
+			    ;;
+			logs-msgstatbyeach)
+			    logMsgStatCommand="$1 logs-msgstat"; shift; shift
+			    byEachCommandExtension git-logmsgstatbyeach "$logMsgStatCommand" "$@"
+			    ;;
+			logs-msgstat*)
+			    logsMsgStatCommand="git $1 logmsgstat${2#logs-msgstat}"; shift; shift
+			    logOnlyAndStdinDualCommandExtension git-logmsgstat "$logsMsgStatCommand" "$@"
 			    set --
 			    ;;
 		    esac

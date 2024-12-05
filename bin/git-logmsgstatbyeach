@@ -1,0 +1,39 @@
+#!/bin/bash
+
+printUsage()
+{
+    git-logmsgstat --help 2>&1 | sed \
+	-e '1s#^.*$#Show one-line statistics about the size of commit messages (excluding trailers\nand quoted parts) for each user separately.#' \
+	-e '2b removeFirstParagraphLoop' \
+	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ |]\+ \)*git-logmsgstat /\1\2'"$(basename "$1")"' /; }' \
+	-e b -e :removeFirstParagraphLoop -e '{ /\(^\|\n\)$/{ s/^\(.*\n\)\?//; b; }; N; b removeFirstParagraphLoop; }'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+isRaw=
+typeset -a logArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--raw)		logArgs+=("$1"); shift; isRaw=t;;
+	--)		logArgs+=("$1"); shift; break;;
+	*)		logArgs+=("$1"); shift;;
+    esac
+done
+typeset -a segregatedusercommandHeaderArgs=(--prefixed)
+[ "$isRaw" ] || segregatedusercommandHeaderArgs+=(--tabular)
+
+typeset -a logmsgstatCommand=(logmsgstat)
+if [ -n "$GIT_LOGMSGSTATBYEACH_AGGREGATE_COMMAND" ]; then
+    eval "typeset -a logmsgstatCommand=($GIT_LOGMSGSTATBYEACH_AGGREGATE_COMMAND)"
+    set -- "$@" --  # Need a trailing -- to prevent that arguments from the aggregate command are parsed off as FILE(s) if it contains a -- itself. Passing <path>s for a multi-repo iteration likely doesn't make sense, anyway.
+fi
+
+GIT_LOGMSGSTATBYEACHBYEACH_EXIT_STATUS_NO_COMMITS=0 \
+GIT_SEGREGATEDUSERCOMMAND_PREFIX_SEPARATOR=$'\t' \
+STATISTICS_SEP=$'\t' \
+    exec git-segregated-user-command "${segregatedusercommandHeaderArgs[@]}" --log-args-for-range --keep-position \
+	"${logmsgstatCommand[@]}" USERFILTER "${logArgs[@]}" "$@"

@@ -96,12 +96,13 @@ getCommitMessages()
 {
     typeset -a grepArgs=("${trailerMessageFilter[@]}" "${excludeMessageFilter[@]}")
     eval 'log "$@"' \
+	"${prefixFilter:+|}" '"${prefixFilter[@]}"' \
 	"${grepArgs:+| grep "${filterArgs[@]}"}" '"${grepArgs[@]}"'
 }
 
 count()
 {
-    if printf '' | wc --total=never 2>/dev/null; then
+    if printf '' | wc --total=never >/dev/null 2>&1; then
 	wc "${wcArgs[@]}" --total=never -- "$@"
     else
 	# Compatibility: wc (GNU coreutils) 8.30 on Ubuntu 20.04 does not understand

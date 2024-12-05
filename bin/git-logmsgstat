@@ -9,7 +9,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    local outputOptions='[-s|--subject-only] [--all|--include-quotes|--include-trailers|--only-trailers] [-c|--bytes|-m|--chars|-w|--words|-l|--lines] [--raw]'
+    local outputOptions='[-s|--subject-only] [--all|([--include-prefixes] [--include-quotes] [--include-trailers])|--only-prefixes|--only-trailers] [-c|--bytes|-m|--chars|-w|--words|-l|--lines] [--raw]'
     local logArgs='[<log-options>] [<revision range>] [[--] <path>...]'
     printf 'Usage: %q %s %s %s\n' "$(basename "$1")" "$outputOptions" "$logArgs" '[-?|-h|--help]'
     echo
@@ -38,6 +38,10 @@ HELPDESCRIPTION
 			message.
     --all		Include all parts of the commit message, including
 			quotes and trailers.
+    --include-prefixes	Include commit title prefixes (like "Refactoring:") that
+			appear at the beginning of the subject.
+    --only-prefixes	Only count commit title prefixes (like "Refactoring:")
+			that appear at the beginning of the subject.
     --include-quotes	Include quoted parts.
     --include-trailers	Include commit message trailers.
     --only-trailers	Only count the commit message trailers.
@@ -48,12 +52,16 @@ HELPDESCRIPTION
 			characters delimited by white space). This is the
 			default.
     --raw		Print just the bare, space-separated numbers.
+
+SEE ALSO:
+- git-whatdid provides a summary of commit title prefixes.
 HELPTEXT
 }
 
 typeset -rA units=([c]=chars [m]=lines [w]=words)
 
-filterArgs=(--invert-match)
+typeset -a prefixFilter=(sed -e '/^\a$/!b' -e 'N; s@\n\([^:[:space:]]\+: \)*\([^:[:space:]]\+:\( \|$\)\)@\n@')
+typeset -a filterArgs=(--invert-match)
 trailerPattern="$(git-trailer-keys --as-regexp)"
 typeset -a trailerMessageFilter=(); [ -z "$trailerPattern" ] || trailerMessageFilter=(-e "$trailerPattern")
 typeset -a excludeMessageFilter=(); [ -z "$GIT_LOGMSGSTAT_EXCLUDE_PATTERN" ] || excludeMessageFilter=(-e "$GIT_LOGMSGSTAT_EXCLUDE_PATTERN")
@@ -71,12 +79,21 @@ do
 	--subject-only|-s)
 			shift; logFormat='%s';;
 	--all)		shift; filterArgs=(); trailerMessageFilter=(); excludeMessageFilter=();;
+	--include-prefixes)
+			shift; prefixFilter=();;
 	--include-quotes)
 			shift; excludeMessageFilter=();;
 	--include-trailers)
 			shift; trailerMessageFilter=();;
+	--only-prefixes)
+			shift
+			logFormat='%s'
+			filterArgs=(); trailerMessageFilter=(); excludeMessageFilter=()
+			prefixFilter[-1]="${prefixFilter[-1]/%@\\n@/.*\$@\\n\\1\\2@}"
+			prefixFilter+=(-e t -e d)
+			;;
 	--only-trailers)
-			shift; filterArgs=(); excludeMessageFilter=();;
+			shift; filterArgs=(-e '^$'); excludeMessageFilter=();;
 	--bytes|-c|--chars|-m|--lines|-l|--words|-w)
 			wcArgs=("$1"); unit="${units["${1#-}"]:-${1#--}}"; shift;;
 	--raw)		statisticsArgs=("$1"); shift;;
@@ -96,12 +113,13 @@ getCommitMessages()
 {
     typeset -a grepArgs=("${trailerMessageFilter[@]}" "${excludeMessageFilter[@]}")
     eval 'log "$@"' \
+	"${prefixFilter:+|}" '"${prefixFilter[@]}"' \
 	"${grepArgs:+| grep "${filterArgs[@]}"}" '"${grepArgs[@]}"'
 }
 
 count()
 {
-    if printf '' | wc --total=never 2>/dev/null; then
+    if printf '' | wc --total=never >/dev/null 2>&1; then
 	wc "${wcArgs[@]}" --total=never -- "$@"
     else
 	# Compatibility: wc (GNU coreutils) 8.30 on Ubuntu 20.04 does not understand
@@ -111,9 +129,10 @@ count()
     fi
 }
 
+tempDirspec=''
 splitAndStat()
 {
-    local tempDirspec; tempDirspec="$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || { dirspec="${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM"; mkdir -p -- "$dirspec" && printf %s "$dirspec"; })" || exit $?
+    tempDirspec="$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || { dirspec="${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM"; mkdir -p -- "$dirspec" && printf %s "$dirspec"; })" || exit $?
     [ "$DEBUG" ] || trap 'rm -rf "$tempDirspec" 2>/dev/null' EXIT
 
     csplit --quiet --elide-empty-files --prefix "${tempDirspec}/msg" --suppress-matched --digits 8 - '/^$/' '{*}' || exit $?

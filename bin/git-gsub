@@ -2,6 +2,8 @@
 set -o pipefail
 shopt -qs extglob
 
+: ${GIT_GSUB_COMMITTEMPLATE_KEYWORD=Renaming: }
+
 printUsage()
 {
     cat <<HELPTEXT
@@ -66,6 +68,7 @@ elif [ $((${#args[@]} % 2)) -ne 0 ]; then
     exit 2
 fi >&2
 
+typeset -a template=()
 typeset -a gitGrepExpressions=()
 typeset -a sedArgs=()
 set -- "${args[@]}"
@@ -79,11 +82,20 @@ do
 	sedPattern="${1//#/\\#}"
     fi
     sedArgs+=(-e "s#${sedPattern}#${2//#/\\#}#g")
+    template+=("$1 to $2")
     shift; shift
 done
 
 git grep --files-with-matches --null "${gitGrepArgs[@]}" "${gitGrepExpressions[@]}" ${files:+--} "${files[@]}" \
     | xargs --null --no-run-if-empty sed -i "${sedArgs[@]}" -- \
     || exit $?
+
+if [ -n "$GIT_GSUB_COMMITTEMPLATE_KEYWORD" ]; then
+    git-committemplate | grep --quiet -e "^${GIT_GSUB_COMMITTEMPLATE_KEYWORD}" \
+	&& templateAction=append \
+	|| templateAction=save
+    printf '%s%s\n' "$GIT_GSUB_COMMITTEMPLATE_KEYWORD" "$(joinBy ' and ' "${template[@]}")" \
+	| git-committemplate --$templateAction
+fi
 
 git status -sb -- "${files[@]}"

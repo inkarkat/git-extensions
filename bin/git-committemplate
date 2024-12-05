@@ -15,10 +15,11 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '--get-filespec'
     echo
     cat <<HELPTEXT
-Save input as the commit template for a commit based on the current HEAD.
+Save / append input as the commit template for a commit based on the current
+HEAD.
 HELPTEXT
     echo
-    printf 'Usage: echo TEXT | %q %s\n' "$(basename "$1")" '--save'
+    printf 'Usage: echo TEXT | %q %s\n' "$(basename "$1")" '--save|--append'
     echo
     cat <<HELPTEXT
 Delete any residual commit template(s).
@@ -28,10 +29,12 @@ HELPTEXT
 }
 
 action=print
+saveOperator='>'
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
     --get-filespec)	shift; action=getFilespec;;
     --save)		shift; action=save;;
+    --append)		shift; action=save; saveOperator='>>';;
     --clean)		shift; action=clean;;
     -*)			{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 esac
@@ -52,7 +55,7 @@ getFilespec()
 
 save()
 {
-    exec cat > "${commitTemplateFilespec:?}"
+    eval "exec cat $saveOperator \"\${commitTemplateFilespec:?}\""
 }
 
 clean()

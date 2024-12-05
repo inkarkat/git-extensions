@@ -1,0 +1,101 @@
+#!/bin/bash
+set -o pipefail
+shopt -qs extglob
+
+: ${GIT_GSUB_COMMITTEMPLATE_KEYWORD=Renaming: }
+
+printUsage()
+{
+    cat <<HELPTEXT
+Replace all occurrences of (sed-style) PATTERN with REPLACEMENT in tracked files
+in the worktree.
+
+RELATED COMMANDS:
+- Inspired by git-sed from tj/git-extras, which can also directly commit.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--untracked] [--no-exclude-standard] [--recurse-submodules] [-a|--text] [--[no-]textconv] [-r|--recursive|--no-recursive] [-E|--extended-regexp|-G|--basic-regexp|-F|--fixed-strings] [--max-depth <depth>] PATTERN REPLACEMENT [PATTERN REPLACEMENT ...] [--] [<path> ...] [-?|-h|--help]'
+}
+
+isLiteral=
+typeset -a toLiteralRegexpArgs=()
+typeset -a gitGrepArgs=()
+typeset -a args=()
+unset files
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+
+	--fixed-strings|-F)
+			gitGrepArgs+=("$1"); shift; isLiteral=t;;
+	--extended-regexp|-E)
+			gitGrepArgs+=("$1"); shift; toLiteralRegexpArgs=(--extended-regexp);;
+	-+([arG]))	gitGrepArgs+=("$1"); shift;;
+	--@(untracked|no-exclude-standard|recurse-submodules|text|textconv|no-textconv|recursive|basic-regexp))
+			gitGrepArgs+=("$1"); shift;;
+	--@(max-depth)=*)
+			gitGrepArgs+=("$1"); shift;;
+	--@(max-depth))	gitGrepArgs+=("$1" "${2?}"); shift; shift;;
+
+	--)		shift; typeset -a files=("$@"); set --; break;;
+	*)		args+=("$1"); shift;;
+    esac
+done
+if [ -z "${files+t}" ]; then
+    # No files after -- captured yet; need to investigate parsed and
+    # remaining args from behind for files.
+    typeset -a files=()
+    args+=("$@")
+    while [ ${#args[@]} -ne 0 ]
+    do
+	lastArg="${args[-1]}"
+	[ -e "$lastArg" ] || break
+
+	files=("$lastArg" "${files[@]}")
+	args=("${args[@]:0:${#args[@]}-1}")
+    done
+fi
+if [ ${#args[@]} -eq 0 ]; then
+    echo 'ERROR: No PATTERN and REPLACEMENT specified.'
+    echo
+    printUsage "$0"
+    exit 2
+elif [ $((${#args[@]} % 2)) -ne 0 ]; then
+    echo 'ERROR: Missing REPLACEMENT.'
+    echo
+    printUsage "$0"
+    exit 2
+fi >&2
+
+typeset -a template=()
+typeset -a gitGrepExpressions=()
+typeset -a sedArgs=()
+set -- "${args[@]}"
+while [[ $# -ge 2 ]]
+do
+    gitGrepExpressions+=(-e "$1")
+
+    if [ "$isLiteral" ]; then
+	sedPattern="$(toLiteralRegexp "${toLiteralRegexpArgs[@]}" --additional-chars '#' --multiline "$1")" || exit 3
+    else
+	sedPattern="${1//#/\\#}"
+    fi
+    sedArgs+=(-e "s#${sedPattern}#${2//#/\\#}#g")
+    template+=("$1 to $2")
+    shift; shift
+done
+
+git grep --files-with-matches --null "${gitGrepArgs[@]}" "${gitGrepExpressions[@]}" ${files:+--} "${files[@]}" \
+    | xargs --null --no-run-if-empty sed -i "${sedArgs[@]}" -- \
+    || exit $?
+
+if [ -n "$GIT_GSUB_COMMITTEMPLATE_KEYWORD" ]; then
+    git-committemplate | grep --quiet -e "^${GIT_GSUB_COMMITTEMPLATE_KEYWORD}" \
+	&& templateAction=append \
+	|| templateAction=save
+    printf '%s%s\n' "$GIT_GSUB_COMMITTEMPLATE_KEYWORD" "$(joinBy ' and ' "${template[@]}")" \
+	| git-committemplate --$templateAction
+fi
+
+git status -sb -- "${files[@]}"

@@ -1,6 +1,11 @@
 #!/bin/bash
 shopt -qs extglob
 
+readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
+[ -d "$scriptDir" ] || { echo >&2 'ERROR: Cannot determine script directory!'; exit 3; }
+readonly projectDir="${scriptDir}/.."
+readonly libDir="${projectDir}/lib"
+
 hasProgressNotification=; type -t progressNotification >/dev/null && hasProgressNotification=t
 
 case ",${DEBUG:-}," in
@@ -71,7 +76,7 @@ parseCustomInto()
 GIT_DOEXTENSIONS_WRAPPEE=git-wc-with-suffix-do
 GIT_DOEXTENSIONS_DASHDASH_ARGS_BEFORE_SIMPLECOMMAND=t
 : ${GIT_DOEXTENSIONS_WHAT:=working copies}
-source git-do-extensions || exit 3
+source "${libDir}/git-do-extensions.sh" || exit 3
 
 parseCommand "$@"
 if [ "${wcdoArgs[*]:(-1)}" = -- ]; then

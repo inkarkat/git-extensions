@@ -3,9 +3,10 @@ set -o pipefail
 
 printShortUsage()
 {
+    local logRangeArg='[<revision-range>]'; [ -n "$GIT_LOGMODIFICATIONS_COMMAND" ] && logRangeArg=''
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--[no-]renames] [-M<n>|--find-renames[=<n>]] [-C<n>|--find-copies[=<n>]|--find-copies-harder] ([-a|--added] [-c|--copied] [-d|--deleted] [-m|--modified] [-r|--renamed] [-t|--retyped] ... | [-A|--not-added] [-C|--not-copied] [-D|--not-deleted] [-M|--not-modified] [-R|--not-renamed] [-T|--not-retyped] ...) [<log-options>] [<revision-range>] [[--] <path>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[--[no-]renames] [-M<n>|--find-renames[=<n>]] [-C<n>|--find-copies[=<n>]|--find-copies-harder] ([-a|--added] [-c|--copied] [-d|--deleted] [-m|--modified] [-r|--renamed] [-t|--retyped] ... | [-A|--not-added] [-C|--not-copied] [-D|--not-deleted] [-M|--not-modified] [-R|--not-renamed] [-T|--not-retyped] ...) [<${GIT_LOGMODIFICATIONS_COMMAND:-log}-options>]${logRangeArg:+ }${logRangeArg} [[--] <path>...] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -19,19 +20,20 @@ printLongUsage()
     # This is the long "man page" when launched with the help argument.
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
-Show a log of commits that modify files in the specified way.
+Show a ${GIT_LOGMODIFICATIONS_COMMAND:-log of commits} that modify files in the specified way.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
+    echo
     cat <<HELPTEXT
     --added|-a --copied|-c --deleted|-d --modified|-m --renamed|-r --retyped|-t
-		    Only log commits with added / copied / deleted / modified /
+		    Only ${GIT_LOGMODIFICATIONS_COMMAND:-log commits} with added / copied / deleted / modified /
 		    renamed / changed in type files (can be combined). If you
 		    want renames / copies to be counted as added / deleted, pass
 		    --no-renames.
     --not-added|-A --not-copied|-C --not-deleted|-D --not-modified|-M
     --not-renamed|-R --not-retyped|-T
-		    Don't log commits with added / copied / deleted / modified /
+		    Don't ${GIT_LOGMODIFICATIONS_COMMAND:-log commits} with added / copied / deleted / modified /
 		    renamed / changed in type files (can be combined). If you
 		    want renames / copies to be counted as added / deleted, pass
 		    --no-renames.
@@ -77,4 +79,4 @@ if [ -z "$statusFilter" ]; then
     exit 2
 fi >&2
 
-exec git-wrapper log "${renameArgs[@]}" --diff-filter="$statusFilter" "${logArgs[@]}" "$@"
+exec git-wrapper ${GIT_LOGMODIFICATIONS_COMMAND:-log} "${renameArgs[@]}" --diff-filter="$statusFilter" "${logArgs[@]}" "$@"

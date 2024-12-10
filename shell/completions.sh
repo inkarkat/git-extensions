@@ -26,6 +26,7 @@ gitCompleteAs()
 }
 
 gitCompleteAs branch \
+    cosbr cosubsbr \
     odeletebr oldeletebr \
     orenamebr olrenamebr \
     oremotebr \
@@ -33,8 +34,10 @@ gitCompleteAs branch \
     urenamebr ulrenamebr \
     uremotebr
 
-gitCompleteAs checkout co oco uco \
-    cosub ocosub ucosub \
+gitCompleteAs checkout co \
+    checkoutselected checkoutg cos cosub \
+    oco ocosub \
+    uco ucosub \
     inout iofiles iosubmodules io ab \
     oinout oiofiles oiosubmodules oio oab \
     uinout uiofiles uiosubmodules uio uab \

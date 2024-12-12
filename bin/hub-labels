@@ -108,7 +108,7 @@ setDefaultLabels()
 	passedLabels["$label"]=t
     done
 
-    local color description
+    local color description status=0
     exec 3<&0
     while IFS=$'\t' read -r color label description
     do
@@ -116,11 +116,13 @@ setDefaultLabels()
 
 	local labelJson; labelJson="$(jo -- name="$label" -s color="${color#\#}" description="$description")" || exit 3
 	if [ "${existingLabels["$label"]}" ]; then
-	    apiCall --method PATCH --input <(printf "%s\n" "$labelJson") >/dev/null <&3 && \
-		printf 'Updated label "%s"\n' "$label"
+	    apiCall --method PATCH --input <(printf "%s\n" "$labelJson") >/dev/null <&3 \
+		&& printf 'Updated label "%s"\n' "$label" \
+		|| { status=$?; printf >&2 'ERROR: Failed to update label "%s"\n' "$label"; }
 	else
-	    apiCall --method POST --input <(printf '%s\n' "$labelJson") >/dev/null <&3 && \
-		printf 'Added label "%s"\n' "$label"
+	    label='' apiCall --method POST --input <(printf '%s\n' "$labelJson") >/dev/null <&3 \
+		&& printf 'Added label "%s"\n' "$label" \
+		|| { status=$?; printf >&2 'ERROR: Failed to add label "%s"\n' "$label"; }
 	fi
 	unset "unprocessedLabels[$label]"
 	unset "passedLabels[$label]"
@@ -140,6 +142,7 @@ setDefaultLabels()
     elif [ ${#unprocessedLabels[@]} -gt 0 ]; then
 	printf 'Note: Additional label in GitHub: "%s"\n' "${!unprocessedLabels[@]}"
     fi
+    return $status
 }
 
 deleteLabels()

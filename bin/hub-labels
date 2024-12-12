@@ -80,14 +80,16 @@ listLabels()
 
 setDefaultLabels()
 {
-    typeset -A existingLabels=() unprocessedLabels=()
-    local name; while IFS=$'\n' read -r name
+    typeset -A existingLabels=() existingColors=() existingDescriptions=() unprocessedLabels=()
+    local name; while IFS=$'\t' read -r name color description
     do
 	existingLabels["$name"]=t
+	existingColors["$name"]="$color"
+	existingDescriptions["$name"]="$description"
 	unprocessedLabels["$name"]=t
     done < <(
 	apiCall \
-	    | jq --raw-output '.[] | .name'
+	    | jq --raw-output '.[] | .name + "\t" + "#" + .color + "\t" + .description'
     )
 
     if [ -r "$1" ]; then
@@ -108,22 +110,35 @@ setDefaultLabels()
 	passedLabels["$label"]=t
     done
 
-    local color description status=0
+    local color description status=
     exec 3<&0
     while IFS=$'\t' read -r color label description
     do
 	[ ! "$hasPassedLabels" ] || [ "${passedLabels["$label"]}" ] || continue
 
-	local labelJson; labelJson="$(jo -- name="$label" -s color="${color#\#}" description="$description")" || exit 3
-	if [ "${existingLabels["$label"]}" ]; then
-	    apiCall --method PATCH --input <(printf "%s\n" "$labelJson") >/dev/null <&3 \
-		&& printf 'Updated label "%s"\n' "$label" \
-		|| { status=$?; printf >&2 'ERROR: Failed to update label "%s"\n' "$label"; }
-	else
-	    label='' apiCall --method POST --input <(printf '%s\n' "$labelJson") >/dev/null <&3 \
-		&& printf 'Added label "%s"\n' "$label" \
-		|| { status=$?; printf >&2 'ERROR: Failed to add label "%s"\n' "$label"; }
+	if [ "${existingColors["$label"]}" != "${color,,}" ] \
+	    || [ "${existingDescriptions["$label"]}" != "$description" ]
+	then
+	    local labelJson; labelJson="$(jo -- name="$label" -s color="${color#\#}" description="$description")" || exit 3
+	    if [ "${existingLabels["$label"]}" ]; then
+		if apiCall --method PATCH --input <(printf "%s\n" "$labelJson") >/dev/null <&3; then
+		    : ${status:=0}
+		    printf 'Updated label "%s"\n' "$label"
+		else
+		    status=$?
+		    printf >&2 'ERROR: Failed to update label "%s"\n' "$label"
+		fi
+	    else
+		if label='' apiCall --method POST --input <(printf '%s\n' "$labelJson") >/dev/null <&3; then
+		    : ${status:=0}
+		    printf 'Added label "%s"\n' "$label"
+		else
+		    status=$?
+		    printf >&2 'ERROR: Failed to add label "%s"\n' "$label"
+		fi
+	    fi
 	fi
+
 	unset "unprocessedLabels[$label]"
 	unset "passedLabels[$label]"
     done < "$defaultLabelsFilespec"
@@ -142,7 +157,7 @@ setDefaultLabels()
     elif [ ${#unprocessedLabels[@]} -gt 0 ]; then
 	printf 'Note: Additional label in GitHub: "%s"\n' "${!unprocessedLabels[@]}"
     fi
-    return $status
+    return ${status:-99}
 }
 
 deleteLabels()

@@ -1,0 +1,30 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Apply my default GitHub repository settings to the current GitHub repository.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+status=0
+
+gh repo edit \
+	--allow-update-branch --enable-auto-merge \
+	--enable-discussions --enable-issues --enable-projects --enable-wiki \
+	--enable-merge-commit --enable-rebase-merge --enable-squash-merge \
+    || status=$?
+
+hub-labels set || status=$?
+
+exit $status

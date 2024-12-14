@@ -13,8 +13,6 @@
    `$ git opublish`
    `$ hub url`
    - Add GitHub repo link to ~/Unixhome/.vim/thesaurus/vimscripts.txt
-   `$ hub labels set`
-   `$ gh repo edit --enable-discussions`
 
 # Vim plugin releases
 

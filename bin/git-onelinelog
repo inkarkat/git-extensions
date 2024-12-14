@@ -13,7 +13,7 @@ HELPTEXT
 
 isColorOff=
 typeset -a graphLogArg=()
-isGrep=
+isDisjointed=
 typeset -a reverseLogArg=()
 isTerminatorSemantics=t
 decorationFormat='%C(red bold)%d%Creset '
@@ -40,8 +40,8 @@ do
 			logArgs+=("$1"); shift; GIT_ONELINELOG_DATEFORMAT=%ad;;
 	--date)		logArgs+=("$1" "${2:?}"); shift; shift; GIT_ONELINELOG_DATEFORMAT=%ad;;
 
-	-[GS]*|--grep|--grep=*)
-			logArgs+=("$1"); shift; isGrep=t;;
+	--follow|-[GS]*|--grep|--grep=*)
+			logArgs+=("$1"); shift; isDisjointed=t;;
 	--reverse)	reverseLogArg+=("$1"); shift;;
 	--name-status|--stat|--stat=*|--numstat|--shortstat)
 			logArgs+=("$1"); shift; isTerminatorSemantics=;;
@@ -62,7 +62,7 @@ fi
 
 reversePipeline=
 if [ ${#graphLogArg[@]} -gt 0 ]; then
-    if [ "$isGrep" ]; then
+    if [ "$isDisjointed" ]; then
 	# When filtering diffs, Git (2.7.4) adds "..." lines between each result
 	# (presumably to indicate that the graph is disjointed; but that's also
 	# the case with --grep and it's not happening there). These are

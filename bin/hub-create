@@ -1,12 +1,20 @@
 #!/bin/bash
 shopt -qs extglob
 
+printUsage()
+{
+    command hub create --help 2>&1 | sed \
+	-e 's/\[-poc]/& [--push]/g'
+}
+
+isPush=
 typeset -a createArgs=()
 typeset -a createDescriptionArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--push)		shift; isPush=t;;
 
 	--description|-d)
 			createDescriptionArgs+=("$1" "${2?}"); shift; shift;;
@@ -38,4 +46,12 @@ fi
 
 hub create "${createArgs[@]}" "${createDescriptionArgs[@]}" "$@" || exit $?
 
-eval "$HUB_CREATE_POST_COMMAND"
+eval "$HUB_CREATE_POST_COMMAND" || exit $?
+
+if [ "$isPush" ] \
+    || userBinaryChoice --keep-prompt --console --question 'Push repository to GitHub now?' --yes-no
+then
+    git opublish \
+	&& git opa \
+	|| exit $?
+fi

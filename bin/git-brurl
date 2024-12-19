@@ -93,11 +93,11 @@ do
     fi
 
     if [ -z "${remoteUrl["$remote"]}" ]; then
-	if [ "$HUB" ]; then
-	    url="$(hub-userrepo "$(git-remote-url "$remote")")"
-	else
-	    url="$(git-remote-url "$remote")"
-	fi || { status=3; continue; }
+	url="$(git-remote-url "$remote")" \
+	    && if [ "$HUB" ]; then
+		    url="$(hub-userrepo "$url")"
+		fi \
+	    || { status=3; continue; }
 	remoteUrl["$remote"]="$url"
     fi
 

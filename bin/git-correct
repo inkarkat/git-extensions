@@ -74,7 +74,12 @@ do
     elif [ -e "$lastArg" ]; then
 	lastFilespec="$lastArg"
     elif commitId="$(gitInWorkingCopy "$lastFilespec" commitid --no-error -- "$lastArg")"; then
-	repoContext="$([ -z "$lastFilespec" ] || isInsideThisWorkingCopy "$lastFilespec" || gitInWorkingCopy "$lastFilespec" userrepo 2>/dev/null)"
+	repoContext="$(
+	    [ -z "$lastFilespec" ] \
+		|| isInsideThisWorkingCopy "$lastFilespec" \
+		|| gitInWorkingCopy "$lastFilespec" userrepo --fallback-guess 2>/dev/null \
+		|| printf %s "$(basename -- "$lastFilespec")"
+	)"
 	filespecs=("$lastFilespec" "${filespecs[@]}")
 	commitIds=("$commitId" "${commitIds[@]}")
 	contextualizedCommitIds=("${repoContext}${repoContext:+@}${commitId}" "${contextualizedCommitIds[@]}")

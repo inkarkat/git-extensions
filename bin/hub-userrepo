@@ -1,23 +1,65 @@
 #!/bin/bash
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--fallback-guess|URL] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 Print the user/repository part and a possible issue / pull request ID of a
 GitHub repository / passed URL.
-HELPTEXT
+HELPDESCRIPTION
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[URL] [-?|-h|--help]'
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --fallback-guess	If the repository has no GitHub remote (yet; because
+			it's not been published yet?), take a guess (based on
+			the working copy name and the configured GitHub user)
+			and print that instead of failing.
+HELPTEXT
 }
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
-			shift;;
-    --color)		shift; shift;;
-esac
 
+isFallbackGuess=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+	--fallback-guess)
+			shift; isFallbackGuess=t;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 case $# in
-    0)	url="$(hub-url)" || exit $?;;
+    0)	if url="$(hub-url)"; then
+	    :
+	else
+	    status=$?
+	    [ "$isFallbackGuess" ] \
+		&& me="$(git me-in-github)" \
+		&& wcName="$(git-wcname)" \
+		&& printf '%s/%s\n' "$me" "$wcName" \
+		&& status=0
+	    exit $status
+	fi
+	;;
     1)	url="${1:?}"; shift;;
     *)	printUsage "$0" >&2; exit 2;;
 esac

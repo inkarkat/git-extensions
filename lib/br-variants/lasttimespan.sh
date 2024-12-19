@@ -37,16 +37,17 @@ fi
 
 case "$gitCommand" in
     (\
-@(@(log?(v)|show)@(last|first)|lc?(l)|l?(o)g?(v)|count)@(g|changed|touched)?(mine|others|team)|\
+@(@(log?(v)|show)@(last|first)?(f)|lc?(l)?(f)|l?(o)g?([fv])|count)@(g|changed|touched)?(mine|others|team)|\
+l?(h|o|ogv)f|\
 @(files|versions|tags)@(g|changed|touched)|\
 @(files|version|tag)@(last|first)@(g|changed|touched)|\
 lc?(h)|\
 lc@(?(l)?(f)|?(f)@(mine|others|team))|\
-@(l?(o)g?([fv]|merges)|l?([ho])|count|countmaxdaycommits|commitsperday|log@(distribution|msgstat)|l?(o)gtitleg|brlifetimes)?(mine|others|team)|\
+@(l?(o)g?([fv]|merges)|l?([ho])|count|countmaxdaycommits|commitsperday|log@(distribution|msgstat)|l?(o)gtitle?(f)g|brlifetimes)?(mine|others|team)|\
 @(brlifetimes|logmsgstat)byeach|\
 log?(mod|added|deleted|renamed)?(files)|glog|logbrowse|logsize|\
 lg@(rel|tagged|st|i|I)|\
-l[ou]url?(v)|\
+l[ou]url?([fv])|\
 lghi?(st|i|I)|\
 ss@(?([wcag])|changed|touched)|\
 sls?(g|changed|touched)|\
@@ -111,7 +112,7 @@ activity?(except)by\
 
     revive)
 	$EXEC "git-${scopeCommand:?}" -3 "$gitCommand" --all TIMESPAN "$@";;
-    @(show|tree)[ou]url)
+    @(show|tree)[ou]url?(f))
 	$EXEC "git-${scopeCommand:?}" -5 selectedcommit-command -2 "$gitCommand" COMMITS TIMESPAN "$@";;
     compareourl)
 	$EXEC git-branch-command --real-branch-name --keep-position rbrurl-compare-to-base --remote origin --base-command "$scope pred --branch" --base-to-rev --commit BRANCH "$@";;

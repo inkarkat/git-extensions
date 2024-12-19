@@ -62,13 +62,13 @@ lg@(rel|tagged|st|i|I)\
 	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --one-more-command "greyonelineloghighlight $gitCommand" --one-more-only-to-terminal -2 "$gitCommand" RANGE "$@";;
 
     (\
-@(@(log?(v)|show)@(last|first)|lc?(l)|l?(o)g?(v)|count)@(g|changed|touched)?(mine|others|team)|\
-lcl?(f)|\
+@(@(log?(v)|show)@(last|first)?(f)|lc?(l)?(f)|l?(o)g?([fv])|count)@(g|changed|touched)?(mine|others|team)|\
+l?(h|o|ogv)f|l?(o)gfg|lcl?(f)|\
 l?(o)g?([fv]|merges)@(mine|others|team)|\
-@(l?([ho])|count|countmaxdaycommits|commitsperday|log@(distribution|msgstat)|l?(o)gtitleg|activity|brlifetimes)?(mine|others|team)|\
+@(l?([ho])|count|countmaxdaycommits|commitsperday|log@(distribution|msgstat)|l?(o)gtitle?(f)g|activity|brlifetimes)?(mine|others|team)|\
 @(brlifetimes|logmsgstat)byeach|\
 log?(mod|added|deleted|renamed)?(files)|glog|logbrowse|logsize|\
-l[ou]url?(v)|\
+l[ou]url?([fv])|\
 @(files|versions|tags)@(g|changed|touched)|\
 @(files|version|tag)@(last|first)@(g|changed|touched)|\
 ss@(?([wcag])|changed|touched)|\
@@ -131,7 +131,7 @@ activity?(except)by\
 	[[ "$gitCommand" = lg?(except)by ]] && gitCommand="onelinelog${gitCommand#lg}"
 	othersCommand "$@"
 	;;
-    @(show|tree)[ou]url)
+    @(show|tree)[ou]url?(f))
 	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --keep-position selectedcommit-command --range-is-last -3 "$gitCommand" COMMITS RANGE "$@";;
     compareourl)
 	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --real-branch-name --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rbrurl-compare-to-base --remote origin --base "${scopeRevision:?}" --commit "${scopeEndRevision:?}" "${scopeCompareUrlArgs[@]}" "$@";;

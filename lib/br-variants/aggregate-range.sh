@@ -114,7 +114,7 @@ activity?(except)by\
 	withAggregateCommit checkoutpreviousselected "$@";;
 
     (\
-@(show|tree)[ou]url|\
+@(show|tree)[ou]url?(f)|\
 revert?(commit)|\
 correct|commit@(identical|like|relate)|amendrelate\
 )

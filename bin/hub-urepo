@@ -60,8 +60,9 @@ if [ $# -ne 0 ]; then
     exit 2
 fi
 
-remoteRepository="$(hub-userrepo "$(git-remote-url origin)")" || exit $?
-owner="${remoteRepository%%/*}"
-repo="${remoteRepository#*/}"
+originUrl="$(git-remote-url origin)" || exit $?
+originRepository="$(hub-userrepo "$originUrl")" || exit $?
+owner="${originRepository%%/*}"
+repo="${originRepository#*/}"
 
 exec gh api --template "{{.${where}.${what}}}{{\"\\n\"}}" "/repos/${owner}/${repo}"

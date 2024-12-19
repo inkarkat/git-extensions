@@ -99,11 +99,10 @@ lc?(l)@(g|changed|touched)?(except)by\
 	;&
 	(\
 l?(h|g|og)?(except)by|\
-@(l?(o)g?(v)|count)@(g|changed|touched)?(except)by|\
-@(log?(v)|show)@(last|first)@(g|changed|touched)?(except)by|\
+@(@(log?(v)|show)@(last|first)|@(l?(o)g?(v)|count))@(g|changed|touched)?(except)by|\
 l?(o)g?([fv]|merges)?(except)by|\
-@(l?(o)|count|countmaxdaycommits|commitsperday|log@(distribution|msgstat)|brlifetimes)?(except)by|\
-activityby\
+@(l?(o)|count|countmaxdaycommits|commitsperday|log@(distribution|msgstat)|l?(o)gtitleg|brlifetimes)?(except)by|\
+activity?(except)by\
 )
 	[ "$gitCommand" = lgby ] && gitCommand='onelinelog'
 	othersCommand "$@"
@@ -115,7 +114,7 @@ activityby\
 	withAggregateCommit checkoutpreviousselected "$@";;
 
     (\
-@(show|tree)[ou]url|\
+@(show|tree)[ou]url?(f)|\
 revert?(commit)|\
 correct|commit@(identical|like|relate)|amendrelate\
 )

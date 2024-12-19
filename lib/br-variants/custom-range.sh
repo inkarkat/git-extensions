@@ -89,17 +89,15 @@ lg@(rel|tagged|st|i|I)\
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" --one-more-command "greyonelineloghighlight $gitCommand" --one-more-only-to-terminal -2 "$gitCommand" RANGE "$@";;
 
     (\
-@(lc?(l)|l?(o)g?(v)|count)@(g|changed|touched)?(mine|others|team)|\
-@(log?(v)|show)@(last|first)@(g|changed|touched)?(mine|others|team)|\
+@(@(log?(v)|show)@(last|first)|lc?(l)|l?(o)g?(v)|count)@(g|changed|touched)?(mine|others|team)|\
 @(files|versions|tags)@(g|changed|touched)|\
 @(files|version|tag)@(last|first)@(g|changed|touched)\
 )
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" "${scopeCommandLastArgs[@]}" -2 "$gitCommand" RANGE "$@";;
 (\
 lcl?(f)|\
-lh?(mine|others|team)|\
 l?(o)g?([fv]|merges)@(mine|others|team)|\
-@(l?(o)|count|countmaxdaycommits|commitsperday|log@(distribution|msgstat)|brlifetimes)?(mine|others|team)|\
+@(l?([ho])|count|countmaxdaycommits|commitsperday|log@(distribution|msgstat)|activity|brlifetimes)?(mine|others|team)|\
 @(brlifetimes|logmsgstat)byeach|\
 log?(mod|added|deleted|renamed)?(files)|glog|logbrowse|logsize|\
 l[ou]url?(v)|\
@@ -107,7 +105,6 @@ ss@(?([wcag])|changed|touched)|\
 sls?(g|changed|touched)|\
 dp[sg]|dpl?(s)[sg]|dpls@(changed|touched)|\
 who@(when|first|last)|whatdid|relatedfiles|churn|\
-activity?(mine|others|team)|\
 subchanges|superchanges|subrevl@(?(o)g|c)\
 )
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -2 "$gitCommand" RANGE "$@";;
@@ -164,8 +161,7 @@ lc?(l)@(g|changed|touched)?(except)by\
 	;&
 	(\
 l?(h|g|og)?(except)by|\
-@(l?(o)g?(v)|count)@(g|changed|touched)?(except)by|\
-@(log?(v)|show)@(last|first)@(g|changed|touched)?(except)by|\
+@(@(log?(v)|show)@(last|first)|@(l?(o)g?(v)|count))@(g|changed|touched)?(except)by|\
 l?(o)g?([fv]|merges)?(except)by|\
 @(l?(o)|count|countmaxdaycommits|commitsperday|log@(distribution|msgstat)|brlifetimes)?(except)by|\
 activity?(except)by\

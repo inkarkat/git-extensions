@@ -3,8 +3,8 @@
 printUsage()
 {
     cat <<HELPTEXT
-Test whether the current directory / passed DIRSPEC / FILESPEC is tracked by Git
-(i.e. not unversioned).
+Test whether the current directory / passed DIRSPEC / FILESPEC is inside a Git
+working copy.
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--] [DIRSPEC|FILESPEC] [-?|-h|--help]'
@@ -21,18 +21,12 @@ if [ $# -gt 1 ]; then
     exit 2
 fi
 
-filename=
 if [ -n "$1" ]; then
     if [ -d "$1" ]; then
 	dirspec="$1"
     else
 	dirspec="$(dirname -- "$1")"
-	filename="$(basename -- "$1")"
     fi
     [ "$dirspec" = '.' ] || cd "$dirspec" || exit 3
 fi
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 1
-
-# As long as the CWD is inside the file's working copy, you can directly use
-# this line as a standalone check to avoid a dependency to this script.
-git ls-files --error-unmatch -- "${filename:-.}" >/dev/null 2>&1

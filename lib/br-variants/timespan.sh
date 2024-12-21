@@ -96,6 +96,8 @@ activity?(except)by\
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -6 selectedcommit-command --single-only -2 "$gitCommand" COMMITS TIMESPAN "$@";;
     ma)
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --no-range --one-more -2 format-patch TIMESPAN "$@";;
+    repomove)
+	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --no-range --one-more reporangemove "$@";;
 
     @(st|files|submodules)?(mine|others|team))
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --range -2 "show$gitCommand" TIMESPAN "$@";;

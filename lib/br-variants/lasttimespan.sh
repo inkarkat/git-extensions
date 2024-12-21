@@ -95,6 +95,8 @@ activity?(except)by\
 	$EXEC "git-${scopeCommand:?}" -6 selectedcommit-command --single-only -2 "$gitCommand" COMMITS TIMESPAN "$@";;
     ma)
 	$EXEC "git-${scopeCommand:?}" --no-range --one-more -2 format-patch TIMESPAN "$@";;
+    repomove)
+	$EXEC "git-${scopeCommand:?}" --no-range --one-more reporangemove "$@";;
 
     @(st|files|submodules)?(mine|others|team))
 	$EXEC "git-${scopeCommand:?}" --range -2 "show$gitCommand" TIMESPAN "$@";;

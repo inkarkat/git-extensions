@@ -1,0 +1,84 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Move the commits in the <revision-range> to a branch with the same name in
+OTHER-REPO-PATH.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '-t|--target-repo OTHER-REPO-PATH <since>|<revision-range> [-?|-h|--help]'
+}
+
+targetRepo=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--target-repo|-t)
+			shift
+			if [ ! -d "$1" ]; then
+			    printf >&2 'ERROR: Target does not exist: %s\n' "$1"
+			    exit 2
+			fi
+			if ! targetRepo="$(cd "$1" && git root 2>/dev/null)"; then
+			    printf >&2 'ERROR: Target is not a Git working copy: %s\n' "$1"
+			    exit 2
+			fi
+			shift
+			;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if [ -z "$targetRepo" ]; then
+    echo 'ERROR: No -t|--target-repo OTHER-REPO-PATH passed.'
+    echo
+    printUsage "$0"
+    exit 2
+elif [ $# -eq 0 ]; then
+    echo 'ERROR: No <since>|<revision-range> passed.'
+    echo
+    printUsage "$0"
+    exit 2
+fi >&2
+
+readarray -t commits < <(git lh "$@")
+case ${#commits[@]} in
+    0)	echo >&2 'ERROR: No commits found.'; exit 1;;
+    1)	commitsPlural=;;
+    *)	commitsPlural=s;;
+esac
+printf 'Moving %d commit%s to %s\n' "${#commits[@]}" "$commitsPlural" "$targetRepo"
+
+tempDirspec="$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || { dirspec="${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM"; mkdir --parents -- "$dirspec" && printf %s "$dirspec"; })" || exit 3
+[ "${DEBUG:-}" ] || trap 'rm -rf -- "$tempDirspec" 2>/dev/null' EXIT
+
+branchName="$(git-brname --real-branch-only)" || exit $?
+git format-patch --output-directory "$tempDirspec" "$@" || exit $?
+
+cd -- "$targetRepo" || exit 3
+if [ "$(git brname --real-branch-only 2>/dev/null)" = "$branchName" ]; then
+    printf >&2 'Note: Already on branch %s.\n' "$branchName"
+else
+    git checkout -B "$branchName" || exit $?
+fi
+originalTargetCommit="$(git-commitid HEAD)" || exit 3
+
+git am --reject -- "$tempDirspec"/* || {
+    status=$?
+    echo >&2 'ERROR: Failed to apply patches.'
+    echo >&2 'Resolve the conflicts and continue with $ git am --continue'
+    echo >&2 'Or use $ git am --skip|--abort'
+    printf >&2 'Restart with git am -- %q/*\n' "$tempDirspec"
+    trap - EXIT
+    exit $status
+}
+
+echo DONE.
+git-onelinelog "${originalTargetCommit}.."
+echo 'You can now remove the transferred commits from the original repository:'
+printf '  $ git wipecommit -r %q\n' "${commits[-1]}"
+echo 'And/or delete the complete branch:'
+echo '  $ git deletebr'

@@ -1,4 +1,5 @@
 #!/bin/bash
+shopt -qs extglob
 
 printUsage()
 {
@@ -10,9 +11,11 @@ RELATED COMMANDS:
 - git-shamend works like fixup --rebase; it's in unixorn/git-extra-commands  /
   https://www.daniellesucher.com/2014/05/08/git-shamend/
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--amend|--reword] [--rebase] [<commit-arguments> ...] <ref>|:/<pattern> [--] [<path> ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--amend|--reword] [--rebase [<rebase-arguments> ...]] [<commit-arguments> ...] <ref>|:/<pattern> [--] [<path> ...] [-?|-h|--help]'
 }
+
 typeset -a gitCommitArgs=()
+typeset -a gitRebaseArgs=()
 unset files
 fixupType=
 isRebase=
@@ -26,6 +29,8 @@ do
 	--amend)	fixupType="${1#--}"; shift;;
 	--reword)	fixupType="${1#--}"; shift; gitCommitArgs+=(--no-trailer-add);;
 	--rebase)	shift; isRebase=t;;
+	--no-rebase-merges|--rebase-merges?(=*)|-r)
+			gitRebaseArgs+=("$1"); shift;;
 	--)		gitCommitArgs+=("$1"); shift; typeset -a files=("$@"); break;;
 	*)		gitCommitArgs+=("$1"); shift;;
     esac
@@ -61,7 +66,7 @@ if [ "$isRebase" ]; then
     fixupRev=$(git-commitid "$fixupCommit") || exit $?
 
     git-wrapper commit --fixup="${fixupType}${fixupType:+:}$fixupRev" "${gitCommitArgs[@]:0:$((${#gitCommitArgs[@]}-1))}" "${files[@]}" || exit $?
-    exec git-autostash rbni "${fixupRev}^"
+    exec git-autostash rbni "${gitRebaseArgs[@]}" "${fixupRev}^"
 else
     # --fixup will do good error handling for us ("fatal: could not lookup commit
     # :/doesNotExist), just pass it along.

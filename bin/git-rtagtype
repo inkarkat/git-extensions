@@ -117,32 +117,35 @@ matcher()
 }
 tagtype()
 {
-    git ls-remote --tags --sort="$sortField" "$remote" | \
-	awk -v "isWithRef=$isWithRef" -v tagType="$tagType" '
+    git ls-remote --tags --sort="$sortField" "$remote" \
+	| awk -v "isWithRef=$isWithRef" -v tagType="$tagType" \
+'
 $2 ~ /^refs\/tags\// {
     tag = substr($2, 11)
     if (tag ~ /\^\{\}$/) {
 	tag = substr(tag, 1, length(tag) - 3)
-
-	if (previousTag != "" && previousTag != tag) {
-	    print previousTag (isWithRef ? "\t" previousRef : "")
+	# This is an annotated dereferenced tag; we should have already seen the tag itself.
+	if (tagRefs[tag] == "") {
+	    print "ERROR: Annotated dereferenced tag " $2 " without a corresponding tag."
+	    exit 3
 	}
-	if (tagType != "commit") {
-	    print tag (isWithRef ? "\t" $1 : "")
-	}
-	previousTag = ""
-	previousRef = ""
-    } else if (tagType != "tag") {
-	if (previousTag != "" && previousTag != tag) {
-	    print previousTag (isWithRef ? "\t" previousRef : "")
-	}
-	previousTag = tag   # Do not print yet; an annotated dereferenced tag (that just has "^{}" appended) may follow.
-	previousRef = $1
+	annotated[tag] = 1
+    } else {
+	tags[n++] = tag
+	tagRefs[tag] = $1
     }
 }
 END {
-    if (previousTag != "") {
-	print previousTag (isWithRef ? "\t" previousRef : "")
+    for (i = 0; i < n; i++) {
+	if ((tagType == "commit" && tags[i] in annotated) \
+	    || (tagType == "tag" && !(tags[i] in annotated)) \
+	) continue
+
+	if (isWithRef) {
+	    printf "%s\t%s\n", tags[i], tagRefs[tags[i]]
+	} else {
+	    print tags[i]
+	}
     }
 }
 '

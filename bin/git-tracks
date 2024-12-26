@@ -4,7 +4,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--push] [<branch>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--push] [--raw] [<branch>] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -26,10 +26,15 @@ HELPDESCRIPTION
     cat <<HELPTEXT
     --push		Show which remote branch is pushed to; this can be
 			different in a triangular workflow.
+    --raw		Translate an unnamed remote (of the form
+			git@github.com:user/project.git) that has no named
+			remote defined into an existing commit ID that commands
+			like log or inout can use.
 HELPTEXT
 }
 
 keyword='upstream'
+isRaw=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -38,6 +43,7 @@ do
 			shift;;
 	--color)	shift; shift;;
 	--push)		shift; keyword='push';;
+	--raw)		shift; isRaw=t;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -50,7 +56,16 @@ elif sourceBranch="${1:-$(git-brname --real-branch-only)}" \
     && remote="$(git config "branch.${sourceBranch}.remote")" \
     && merge="$(git config "branch.${sourceBranch}.merge")"
 then
-    printf '%s\n' "${remote}/${merge#refs/heads/}"
+    if [ "$isRaw" ] && ! git-existsremote "$remote"; then
+	if commitIdAndRef="$(git ls-remote --quiet "$remote" "$merge")"; then
+	    printf '%s\n' "${commitIdAndRef%%$'\t'*}"
+	else
+	    printf >&2 'ERROR: Cannot translate %s into a commit ID.\n' "${remote}/${merge#refs/heads/}"
+	    exit 1
+	fi
+    else
+	printf '%s\n' "${remote}/${merge#refs/heads/}"
+    fi
 else
     printf >&2 'ERROR: No remote branch found for %s\n' "${1:-the current branch.}"
     exit 1

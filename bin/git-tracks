@@ -30,13 +30,19 @@ HELPTEXT
 }
 
 keyword='upstream'
-case "$1" in
-    --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
-    --no-color|--color=*)
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--no-color|--color=*)
 			shift;;
-    --color)		shift; shift;;
-    --push)		shift; keyword='push';;
-esac
+	--color)	shift; shift;;
+	--push)		shift; keyword='push';;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 
 if branch="$(git rev-parse --abbrev-ref "${1}@{${keyword}}" 2>/dev/null)"; then
     printf '%s\n' "$branch"

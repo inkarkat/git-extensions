@@ -25,11 +25,13 @@ HELPDESCRIPTION
     echo
     cat <<HELPTEXT
     --push		Show which remote branch is pushed to; this can be
-			different in a triangular workflow.
+			different in a triangular workflow or fail if pushes
+			aren't allowed by that remote.
     --raw		Translate an unnamed remote (of the form
 			git@github.com:user/project.git) that has no named
 			remote defined into an existing commit ID that commands
-			like log or inout can use.
+			like log or inout can use. Will also show the commit ID
+			if pushes aren't allowed.
 HELPTEXT
 }
 
@@ -63,6 +65,9 @@ then
 	    printf >&2 'ERROR: Cannot translate %s into a commit ID.\n' "${remote}/${merge#refs/heads/}"
 	    exit 1
 	fi
+    elif [ "$keyword" = 'push' ] && [[ "$merge" != refs/heads/* ]]; then
+	printf >&2 'ERROR: Cannot push to non-head ref: %s\n' "${remote}/${merge}"
+	exit 1
     else
 	printf '%s\n' "${remote}/${merge#refs/heads/}"
     fi

@@ -1,22 +1,56 @@
 #!/bin/bash
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--push] [--raw] [<branch>] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
-Show which remote branch is tracked by (pushed to (can be different in a
-triangular workflow) with --push) the current / passed branch.
-HELPTEXT
-    echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--push] [<branch>] [-?|-h|--help]'
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
 }
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Show which remote branch is tracked by the current / passed branch.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --push		Show which remote branch is pushed to; this can be
+			different in a triangular workflow or fail if pushes
+			aren't allowed by that remote.
+    --raw		Translate an unnamed remote (of the form
+			git@github.com:user/project.git) that has no named
+			remote defined into an existing commit ID that commands
+			like log or inout can use. Will also show the commit ID
+			if pushes aren't allowed.
+HELPTEXT
+}
+
 keyword='upstream'
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
+isRaw=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--no-color|--color=*)
 			shift;;
-    --color)		shift; shift;;
-    --push)		shift; keyword='push';;
-esac
+	--color)	shift; shift;;
+	--push)		shift; keyword='push';;
+	--raw)		shift; isRaw=t;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 
 if branch="$(git rev-parse --abbrev-ref "${1}@{${keyword}}" 2>/dev/null)"; then
     printf '%s\n' "$branch"
@@ -24,7 +58,19 @@ elif sourceBranch="${1:-$(git-brname --real-branch-only)}" \
     && remote="$(git config "branch.${sourceBranch}.remote")" \
     && merge="$(git config "branch.${sourceBranch}.merge")"
 then
-    printf '%s\n' "${remote}/${merge#refs/heads/}"
+    if [ "$isRaw" ] && { ! git-existsremote "$remote" || [[ "$merge" != refs/heads/* ]]; }; then
+	if commitIdAndRef="$(git ls-remote --quiet "$remote" "$merge")"; then
+	    printf '%s\n' "${commitIdAndRef%%$'\t'*}"
+	else
+	    printf >&2 'ERROR: Cannot translate %s into a commit ID.\n' "${remote}/${merge#refs/heads/}"
+	    exit 1
+	fi
+    elif [ "$keyword" = 'push' ] && [[ "$merge" != refs/heads/* ]]; then
+	printf >&2 'ERROR: Cannot push to non-head ref: %s\n' "${remote}/${merge}"
+	exit 1
+    else
+	printf '%s\n' "${remote}/${merge#refs/heads/}"
+    fi
 else
     printf >&2 'ERROR: No remote branch found for %s\n' "${1:-the current branch.}"
     exit 1

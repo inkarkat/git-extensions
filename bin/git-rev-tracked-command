@@ -7,20 +7,25 @@ Execute GIT-COMMAND with the remote branch that is tracked by the current
 branch appended.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--push] [--] GIT-COMMAND [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--push] [--raw] [--] GIT-COMMAND [...] [-?|-h|--help]'
 }
-typeset -a tracksArgs=()
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --push)		tracksArgs+=("$1"); shift;;
-    --)			shift;;
-esac
 
+typeset -a tracksArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--push|--raw)	tracksArgs+=("$1"); shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 if [ $# -eq 0 ]; then
     echo >&2 'ERROR: No GIT-COMMAND passed.'
     exit 2
 fi
 
-trackedBranch="$(git tracks "${tracksArgs[@]}")" || exit $?
+trackedBranch="$(git-tracks "${tracksArgs[@]}")" || exit $?
 
 exec git-wrapper "$@" "$trackedBranch"

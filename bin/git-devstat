@@ -63,7 +63,8 @@ typeset -a truncateLongTailArgs=()
 if [ ${#authorPatterns[@]} -gt 0 ]; then
     typeset -a authors=()
     if [ "$isResolvedAuthors" ]; then
-	authors=("${authorPatterns[@]%% <*>}")
+	authors=("${authorPatterns[@]%% <*>}")	# Remove trailing email address; it's not printed.
+	authors=("${authors[@]/%\$/}")	# Remove potential trailing $ from a others / exceptby author exclusion.
     else
 	readarray -t authors < <(git-whois --name "${authorPatterns[@]}")
     fi
@@ -71,15 +72,30 @@ if [ ${#authorPatterns[@]} -gt 0 ]; then
 	0)  printf >&2 'ERROR: No authors found for: %s\n' "${authorPatterns[*]}"
 	    exit 2
 	    ;;
-	1)  authorWhat="${authors[0]}";;
-	*)  authorWhat="${#authors[@]} authors";;
+	1)  authorWhat="${authors[0]}"
+	    if [[ "$authorWhat" = '^.'* ]]; then
+		# Handle others / exceptby author exclusion.
+		authorWhat='selected authors'	# Don't show the complex pattern.
+		authors=("${authors[0]//\\( <.\\+>\\)\$/\$}") # Turn trailing email address match to end anchor.
+		authors=("${authors[0]//^[/\\t[}")  # Anchor to column start by turning ^ into \t, except in [^...] collection negation.
+		authors=("${authors[0]//^./\\t.}")  # ibid.
+		authors=("${authors[0]//./[^\\t]}")  # Convert any-char match to any-non-tab to restrict to the last column.
+	    else
+		authors=("${authors[0]/#/\\t}")   # Anchor to column start.
+	    fi
+	    ;;
+	*)  authorWhat="${#authors[@]} authors"
+	    authors=("${authors[@]/#/\\t}")	# Anchor to column start.
+	    ;;
     esac
 
-    truncateLongTailArgs=("${authors[@]/#/--include=\\t}")
-    truncateLongTailArgs=("${truncateLongTailArgs[@]/%/\$}")
+    authors=("${authors[@]/%/\$}")	# Anchor to end.
+    readarray -t truncateLongTailArgs < <(printf '%s\n' "${authors[@]}" | basicToExtendedRegexp | prefix -- '--include=')
 
-    highlighter=("${authors[@]/#/--regexp=$'\t'}")
-    highlighter=(highlight "${colorArg[@]}" --lines "${highlighter[@]/%/\$}")
+    highlighter=("${authors[@]/#/--regexp=}")
+    highlighter=("${highlighter[@]//[^/[^$'\t'}")	# Exclude tabs from negative collections, too.
+    highlighter=("${highlighter[@]//\\t/$'\t'}")	# grep doesn't understand \t, only literal tabs
+    highlighter=(highlight "${colorArg[@]}" --lines "${highlighter[@]}")
 fi
 
 collectStats()

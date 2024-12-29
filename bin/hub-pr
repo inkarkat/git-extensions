@@ -1,11 +1,12 @@
 #!/bin/bash
 set -o pipefail
+shopt -qs extglob
 
 printUsage()
 {
     command hub pr --help 2>&1 | sed \
 	-e '/\[-f$/{ N; s/\n[[:space:]]*/ /; }' \
-	-e 's/\[-b BASE\]/[-b BASE [-b ...]]/g' \
+	-e 's/\[-b BASE\]/[-b BASE [-b ...]] [-d|--since DATE]/g' \
 	-e 's/\[-f FORMAT\]/[--age|-v|--verbose|--browse|-f|--format FORMAT]/g'
 }
 
@@ -39,8 +40,9 @@ do
 	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); shift; shift;;
 
 	--format|-f)	shift; format="${1:?}"; shift;;
-	--assignee=*|--creator=*|--mentioned=*)
+	--assignee=*|--creator=*|--mentioned=*|--since=*)
 			args+=("$1"); shift; action=pullRequestsFromIssues;;
+	--since|-d)	args+=("$1" "${2:?}"); shift; shift; action=pullRequestsFromIssues;;
 	--browse)	shift; defaultFormat='%U%n'; issueFormatEmulation='%U'; formatter=(linesToArgs git-browse);;
 	--verbose|-v)	shift; defaultFormat="${defaultFormat/  /  %Ccyan%H%Creset → %Cblue%B%Creset	}"; formatter=("${defaultFormatter[@]}");;
 	--age)		shift; defaultFormat="${defaultFormat/  /  %cI	(%cr)	}"; issueFormatEmulation="${issueFormatEmulation/  / %cI	(%cr)	}"; formatter=("${defaultFormatter[@]}");;
@@ -62,8 +64,13 @@ pullRequestsFromIssues()
     # issue for it (with filtering). Unfortunately, that means that certain
     # format placeholders (like %B) are not available.
     if [ -n "$format" ]; then
-	echo >&2 'ERROR: Cannot use -f|--format here.'
-	exit 2
+	originalFormat="$format"
+	format="${format//%@([BH]|m[DIrt]|rs|s[BHm])/}"
+	format="${format//%pC/%sC}"
+	format="${format//%pS/%S}"
+	if [ "$format" != "$originalFormat" ]; then
+	    echo >&2 'Warning: Removed / converted some of the -f|--format FORMAT strings.'
+	fi
     elif [ ${#bases[@]} -gt 0 ]; then
 	echo >&2 'ERROR: Cannot use -b|--base here.'
 	exit 2

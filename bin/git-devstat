@@ -1,6 +1,8 @@
 #!/bin/bash
 set -o pipefail
 
+: ${GIT_DEVSTAT_OVER_END=;}
+
 printUsage()
 {
     cat <<HELPTEXT
@@ -12,9 +14,10 @@ GIT-ITERATOR-COMMAND Git repositories:
 - most frequent commit areas [for author]
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--resolved-authors] [--author=AUTHOR-PATTERN [--author=...]] [GIT-ITERATOR-COMMAND ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[--over GIT-ITERATOR-COMMAND ... ${GIT_DEVSTAT_OVER_END}] [--resolved-authors] [--author=AUTHOR-PATTERN [--author=...]] [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]"
 }
 
+typeset -a iteratorCommand=(git-wrapper)
 typeset -a authorPatterns=()
 typeset -a authorArgs=()
 isResolvedAuthors=
@@ -34,6 +37,20 @@ do
 	--no-color|--color=*)
 			colorArg=("$1"); shift;;
 	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); shift; shift;;
+	--over)		shift
+			type -t "$1" >/dev/null && iteratorCommand=()
+			while [ $# -gt 0 -a "$1" != "$GIT_DEVSTAT_OVER_END" ]
+			do
+			    iteratorCommand+=("$1")
+			    shift
+			done
+			if [ $# -eq 0 ]; then
+			    echo "ERROR: --over command must be concluded with '${GIT_DEVSTAT_OVER_END}'"; echo; printUsage "$0"
+			    exit 2
+			fi >&2
+			shift
+			iteratorCommand+=(--no-header --no-pager --no-git-color)
+			;;
 	--resolved-authors)
 			shift; isResolvedAuthors=t;;
 	--author=*)	authorArgs+=("$1"); authorPatterns+=("${1#--author=}"); shift;;
@@ -67,28 +84,29 @@ fi
 
 collectStats()
 {
-    git-wrapper "$@" wcname \
+    # Note: Don't pass logArgs to wcname.
+    "${iteratorCommand[@]}" wcname \
 	| joinBy --prefix "Git statistics${authorWhat:+ on $authorWhat} for " --summarize-larger '7 repositories' - ', ' \
 	| reversed "${colorArg[@]}"
 
-    totalCommits=$(git-wrapper "$@" count "${authorArgs[@]}" | sumField 1) || return $?
+    totalCommits=$("${iteratorCommand[@]}" count "${authorArgs[@]}" "$@" | sumField 1) || return $?
 
     header "${colorArg[@]}" 'Commits by author'
-    git-wrapper "$@" whodid --csv \
+    "${iteratorCommand[@]}" whodid --csv "$@" \
 	| sumField -F , --group-by 2 --sort-by -result --result-first --output-separator $'\t' 1 \
 	| truncateLongTail -F $'\t' "${truncateLongTailArgs[@]}" 1
 
     header "${colorArg[@]}" 'Changed files / additions / deletions by author'
-    git-wrapper "$@" logstabyeach --csv \
+    "${iteratorCommand[@]}" logstabyeach --csv "$@" \
 	| sumField -F , --group-by 1 --sort-by -result --result-first --output-separator $'\t' 2 3 4 \
 	| truncateLongTail -F $'\t' "${truncateLongTailArgs[@]}" 1
 
-    git-wrapper "$@" l "${authorArgs[@]}" \
+    "${iteratorCommand[@]}" l "${authorArgs[@]}" "$@" \
 	| git committaskidtally --against-total-commits ${totalCommits:-} \
 	| truncateLongTail -F $'\t' "${truncateLongTailArgs[@]}" 1 \
 	| withHeader "${colorArg[@]}" "Most commits${authorWhat:+ from $authorWhat} by task ID"
 
-    git-wrapper "$@" lo "${authorArgs[@]}" \
+    "${iteratorCommand[@]}" lo "${authorArgs[@]}" "$@" \
 	| git commitkeywordtally --against-total-commits ${totalCommits:-} \
 	| truncateLongTail -F $'\t' "${truncateLongTailArgs[@]}" 1 \
 	| withHeader "${colorArg[@]}" "Most frequent commit areas${authorWhat:+ from $authorWhat}"

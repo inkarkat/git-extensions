@@ -1,6 +1,8 @@
 #!/bin/bash
 set -o pipefail
 
+: ${HUB_DEVSTAT_OVER_END=;}
+
 printUsage()
 {
     cat <<HELPTEXT
@@ -10,12 +12,13 @@ GIT-ITERATOR-COMMAND Git repositories:
 - Number of pull requests per state
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--resolved-authors] [--author=AUTHOR-PATTERN [--author=...]] [GIT-ITERATOR-COMMAND ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[--over GIT-ITERATOR-COMMAND ... ${HUB_DEVSTAT_OVER_END}] [--resolved-authors] [--author=AUTHOR-PATTERN [--author=...]] [-d|--since DATE] [-?|-h|--help]"
 }
 
+typeset -a iteratorCommand=(git-wrapper)
 typeset -a authorPatterns=()
 isResolvedAuthors=
-typeset -a logArgs=()
+typeset -a limitArgs=()
 typeset -a colorArg=(--color=always)
 typeset -a highlighter=()
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
@@ -31,11 +34,27 @@ do
 	--no-color|--color=*)
 			colorArg=("$1"); shift;;
 	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); shift; shift;;
+	--over)		shift
+			type -t "$1" >/dev/null && iteratorCommand=()
+			while [ $# -gt 0 -a "$1" != "$HUB_DEVSTAT_OVER_END" ]
+			do
+			    iteratorCommand+=("$1")
+			    shift
+			done
+			if [ $# -eq 0 ]; then
+			    echo "ERROR: --over command must be concluded with '${HUB_DEVSTAT_OVER_END}'"; echo; printUsage "$0"
+			    exit 2
+			fi >&2
+			shift
+			iteratorCommand+=(--no-header --no-pager --no-git-color)
+			;;
 	--resolved-authors)
 			shift; isResolvedAuthors=t;;
 	--author=*)	authorPatterns+=("${1#--author=}"); shift;;
-	--)		logArgs+=("$1"); shift; break;;
-	*)		logArgs+=("$1"); shift;;
+	--since=*)	set -- --since "${1#--since=}" "$@";&
+	--since|-d)	limitArgs+=("$1" "$(date --iso-8601=seconds --date "${2:?}")"); shift; shift;;
+	--)		limitArgs+=("$1"); shift; break;;
+	*)		limitArgs+=("$1"); shift;;
     esac
 done
 
@@ -64,21 +83,22 @@ fi
 
 collectStats()
 {
-    git-wrapper "$@" userrepo \
+    # Note: Don't pass limitArgs to userrepo.
+    "${iteratorCommand[@]}" userrepo \
 	| joinBy --prefix "GitHub statistics${authorWhat:+ on $authorWhat} for " --summarize-larger '7 repositories' - ', ' \
 	| reversed "${colorArg[@]}"
 
     header "${colorArg[@]}" 'Issues by author'
-    hub issue --state all --format $'%au\t%S%n' \
+    "${iteratorCommand[@]}" issue --state all --format $'%au\t%S%n' "$@" \
 	| aggregateField -F $'\t' --total-and-unique-counts --result-first --group-by 1 --sort-by -result 2 \
 	| truncateLongTail -F $'\t' "${truncateLongTailArgs[@]}" 1
 
     header "${colorArg[@]}" 'Pull requests by author'
-    hub pr list --state all --format $'%au\t%pS%n' \
+    "${iteratorCommand[@]}" pr list --state all --format $'%au\t%pS%n' "$@" \
 	| aggregateField -F $'\t' --total-and-unique-counts --result-first --group-by 1 --sort-by -result 2 \
 	| truncateLongTail -F $'\t' "${truncateLongTailArgs[@]}" 1
 }
 
-eval 'collectStats "${logArgs[@]}" "$@"' \
+eval 'collectStats "${limitArgs[@]}" "$@"' \
     "${highlighter:+|}" '"${highlighter[@]}"' \
     "${pager:+|}" '"${pager[@]}"'

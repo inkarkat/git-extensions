@@ -4,15 +4,22 @@ set -o pipefail
 printUsage()
 {
     cat <<HELPTEXT
-Extract all commit trailer keys that are defined in the Git configuration from
-the (single!) commit message.
+Extract all commit trailers for  keys that are defined in the Git configuration
+from the (single!) commit message.
 HELPTEXT
     echo
     printf 'Usage: git lo1 [<log-options>] [<revision range>] [[--] <path>...] | %q %s\n' "$(basename "$1")" '--parse'
     echo
     cat <<HELPTEXT
-Remove all commit trailer keys that are defined in the Git configuration from
-the input.
+Extract all unique commit trailers that are defined in the Git configuration
+from the input.
+HELPTEXT
+    echo
+    printf 'Usage: git lo [<log-options>] [<revision range>] [[--] <path>...] | %q %s\n' "$(basename "$1")" '--extract'
+    echo
+    cat <<HELPTEXT
+Remove all commit trailers for keys that are defined in the Git configuration
+from the input.
 HELPTEXT
     echo
     printf 'Usage: git lo [<log-options>] [<revision range>] [[--] <path>...] | %q %s\n' "$(basename "$1")" '--remove'
@@ -21,7 +28,8 @@ HELPTEXT
 action=printUsage
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --parse|--remove)	action="${1#--}"; shift;;
+    --parse|--extract|--remove)
+			action="${1#--}"; shift;;
 esac
 if [ $# -ne 0 ]; then
     printUsage "$0" >&2
@@ -32,6 +40,12 @@ parse()
 {
     git interpret-trailers --parse --no-divider \
 	| sed -ne "/${trailerExpr:?}/p"
+}
+
+extract()
+{
+    sed -ne "/${trailerExpr:?}/p" \
+	| sort --unique
 }
 
 remove()

@@ -1,0 +1,21 @@
+#!/bin/bash
+set -o pipefail
+# https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/linking-a-pull-request-to-an-issue#linking-a-pull-request-to-an-issue-using-a-keyword
+
+printUsage()
+{
+    cat <<HELPTEXT
+Log all GitHub pull request links (e.g. Closes #123) in commit messages.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+
+git lo "$@" \
+    | sed -ne '/^\([Cc]lose[sd]\?\|[Ff]ix\(es\|ed\)\?\|[Rr]esolve[sd]\?\) [^[:space:]]*#[0-9]\+/p' \
+    | sort --unique

@@ -64,8 +64,13 @@ pullRequestsFromIssues()
     # issue for it (with filtering). Unfortunately, that means that certain
     # format placeholders (like %B) are not available.
     if [ -n "$format" ]; then
-	echo >&2 'ERROR: Cannot use -f|--format here.'
-	exit 2
+	originalFormat="$format"
+	format="${format//%@([BH]|m[DIrt]|rs|s[BHm])/}"
+	format="${format//%pC/%sC}"
+	format="${format//%pS/%S}"
+	if [ "$format" != "$originalFormat" ]; then
+	    echo >&2 'Warning: Removed / converted some of the -f|--format FORMAT strings.'
+	fi
     elif [ ${#bases[@]} -gt 0 ]; then
 	echo >&2 'ERROR: Cannot use -b|--base here.'
 	exit 2

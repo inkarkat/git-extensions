@@ -67,7 +67,7 @@ l?(h|o|ogv)f|l?(o)gfg|lcl?(f)|\
 l?(o)g?([fv]|merges)@(mine|others|team)|\
 @(l?([ho])|count|countmaxdaycommits|commitsperday|log@(distribution|msgstat)|l?(o)gtitle?(f)g|activity|brlifetimes)?(mine|others|team)|\
 @(brlifetimes|logmsgstat)byeach|\
-log?(mod|added|deleted|renamed)?(files)|glog|logbrowse|logsize|\
+log?(mod|added|deleted|renamed)?(files)|glog|log@(browse|size|trailers)|\
 l[ou]url?([fv])|\
 @(files|versions|tags)@(g|changed|touched)|\
 @(files|version|tag)@(last|first)@(g|changed|touched)|\

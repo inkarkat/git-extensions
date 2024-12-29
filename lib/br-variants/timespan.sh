@@ -46,7 +46,7 @@ lc?(h)|\
 lc@(?(l)?(f)|?(f)@(mine|others|team))|\
 @(l?(o)g?([fv]|merges)|l?([ho])|count|countmaxdaycommits|commitsperday|log@(distribution|msgstat)|l?(o)gtitle?(f)g|brlifetimes)?(mine|others|team)|\
 @(brlifetimes|logmsgstat)byeach|\
-log?(mod|added|deleted|renamed)?(files)|glog|logbrowse|logsize|\
+log?(mod|added|deleted|renamed)?(files)|glog|log@(browse|size|trailers)|\
 lg@(rel|tagged|st|i|I)|\
 l[ou]url?([fv])|\
 lghi?(st|i|I)|\

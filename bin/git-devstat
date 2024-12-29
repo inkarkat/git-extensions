@@ -110,12 +110,14 @@ collectStats()
     header "${colorArg[@]}" 'Commits by author'
     "${iteratorCommand[@]}" whodid --csv "$@" \
 	| sumField -F , --group-by 2 --sort-by -result --result-first --output-separator $'\t' 1 \
-	| truncate
+	| eval 'truncate' \
+	"${highlighter:+|}" '"${highlighter[@]}"'
 
     header "${colorArg[@]}" 'Changed files / additions / deletions by author'
     "${iteratorCommand[@]}" logstabyeach --csv "$@" \
 	| sumField -F , --group-by 1 --sort-by -result --result-first --output-separator $'\t' 2 3 4 \
-	| truncate
+	| eval 'truncate' \
+	"${highlighter:+|}" '"${highlighter[@]}"'
 
     "${iteratorCommand[@]}" l "${authorArgs[@]}" "$@" \
 	| git committaskidtally --against-total-commits ${totalCommits:-} \
@@ -134,5 +136,4 @@ truncate()
 }
 
 eval 'collectStats "${logArgs[@]}" "$@"' \
-    "${highlighter:+|}" '"${highlighter[@]}"' \
     "${pager:+|}" '"${pager[@]}"'

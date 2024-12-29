@@ -65,7 +65,7 @@ lg@(rel|tagged|st|i|I)\
 @(@(log?(v)|show)@(last|first)?(f)|lc?(l)?(f)|l?(o)g?([fv])|count)@(g|changed|touched)?(mine|others|team)|\
 l?(h|o|ogv)f|l?(o)gfg|lcl?(f)|\
 l?(o)g?([fv]|merges)@(mine|others|team)|\
-@(l?([ho])|count|countmaxdaycommits|commitsperday|log@(distribution|msgstat)|l?(o)gtitle?(f)g|activity|brlifetimes)?(mine|others|team)|\
+@(l?([ho])|count?(f)|countmaxdaycommits|commitsperday|log@(distribution|msgstat)|l?(o)gtitle?(f)g|activity|brlifetimes)?(mine|others|team)|\
 @(brlifetimes|logmsgstat)byeach|\
 log?(mod|added|deleted|renamed)?(files)|glog|log@(browse|size|trailers|prlinks)|\
 l[ou]url?([fv])|\
@@ -127,7 +127,7 @@ lc?(l)@(g|changed|touched)?(except)by\
 l?(h|g|og)?(except)by|\
 @(@(log?(v)|show)@(last|first)|@(l?(o)g?(v)|count))@(g|changed|touched)?(except)by|\
 l?(o)g?([fv]|merges)?(except)by|\
-@(l?(o)|count|countmaxdaycommits|commitsperday|log@(distribution|msgstat)|l?(o)gtitleg|brlifetimes)?(except)by|\
+@(l?(o)|count?(f)|countmaxdaycommits|commitsperday|log@(distribution|msgstat)|l?(o)gtitleg|brlifetimes)?(except)by|\
 activity?(except)by\
 )
 	[[ "$gitCommand" = lg?(except)by ]] && gitCommand="onelinelog${gitCommand#lg}"

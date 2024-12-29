@@ -110,22 +110,27 @@ collectStats()
     header "${colorArg[@]}" 'Commits by author'
     "${iteratorCommand[@]}" whodid --csv "$@" \
 	| sumField -F , --group-by 2 --sort-by -result --result-first --output-separator $'\t' 1 \
-	| truncateLongTail -F $'\t' "${truncateLongTailArgs[@]}" 1
+	| truncate
 
     header "${colorArg[@]}" 'Changed files / additions / deletions by author'
     "${iteratorCommand[@]}" logstabyeach --csv "$@" \
 	| sumField -F , --group-by 1 --sort-by -result --result-first --output-separator $'\t' 2 3 4 \
-	| truncateLongTail -F $'\t' "${truncateLongTailArgs[@]}" 1
+	| truncate
 
     "${iteratorCommand[@]}" l "${authorArgs[@]}" "$@" \
 	| git committaskidtally --against-total-commits ${totalCommits:-} \
-	| truncateLongTail -F $'\t' "${truncateLongTailArgs[@]}" 1 \
+	| truncate \
 	| withHeader "${colorArg[@]}" "Most commits${authorWhat:+ from $authorWhat} by task ID"
 
     "${iteratorCommand[@]}" lo "${authorArgs[@]}" "$@" \
 	| git commitkeywordtally --against-total-commits ${totalCommits:-} \
-	| truncateLongTail -F $'\t' "${truncateLongTailArgs[@]}" 1 \
+	| truncate \
 	| withHeader "${colorArg[@]}" "Most frequent commit areas${authorWhat:+ from $authorWhat}"
+}
+
+truncate()
+{
+    truncateLongTail -F $'\t' "${truncateLongTailArgs[@]}" 1
 }
 
 eval 'collectStats "${logArgs[@]}" "$@"' \

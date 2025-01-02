@@ -79,6 +79,7 @@ if [ ${#authorPatterns[@]} -gt 0 ]; then
 		authors=("${authors[0]//\\( <.\\+>\\)\$/\$}") # Turn trailing email address match to end anchor.
 		authors=("${authors[0]//^[/\\t[}")  # Anchor to column start by turning ^ into \t, except in [^...] collection negation.
 		authors=("${authors[0]//^./\\t.}")  # ibid.
+		authors=("${authors[0]//[^/[^$'\t'}")	# Exclude tabs from negative collections, too.
 		authors=("${authors[0]//./[^\\t]}")  # Convert any-char match to any-non-tab to restrict to the last column.
 	    else
 		authors=("${authors[0]/#/\\t}")   # Anchor to column start.
@@ -93,7 +94,6 @@ if [ ${#authorPatterns[@]} -gt 0 ]; then
     readarray -t truncateLongTailArgs < <(printf '%s\n' "${authors[@]}" | basicToExtendedRegexp | prefix -- '--include=')
 
     highlighter=("${authors[@]/#/--regexp=}")
-    highlighter=("${highlighter[@]//[^/[^$'\t'}")	# Exclude tabs from negative collections, too.
     highlighter=("${highlighter[@]//\\t/$'\t'}")	# grep doesn't understand \t, only literal tabs
     highlighter=(highlight "${colorArg[@]}" --lines "${highlighter[@]}")
 fi

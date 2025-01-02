@@ -59,7 +59,10 @@ do
     esac
 done
 
+typeset -a truncator=(truncate)
 typeset -a truncateLongTailArgs=()
+isSegregated=
+typeset -a segregateTeeArgs=()
 if [ ${#authorPatterns[@]} -gt 0 ]; then
     typeset -a authors=()
     if [ "$isResolvedAuthors" ]; then
@@ -81,20 +84,32 @@ if [ ${#authorPatterns[@]} -gt 0 ]; then
 		authors=("${authors[0]//^./\\t.}")  # ibid.
 		authors=("${authors[0]//[^/[^$'\t'}")	# Exclude tabs from negative collections, too.
 		authors=("${authors[0]//./[^\\t]}")  # Convert any-char match to any-non-tab to restrict to the last column.
+
+		isSegregated=t	# Combine the values of all other authors into one summary.
+		truncator=()	# Almost all authors are combined, no need to truncate anything.
 	    else
 		authors=("${authors[0]/#/\\t}")   # Anchor to column start.
 	    fi
 	    ;;
 	*)  authorWhat="${#authors[@]} authors"
 	    authors=("${authors[@]/#/\\t}")	# Anchor to column start.
+	    isSegregated=t	# Combine the values of all selected authors into one summary.
 	    ;;
     esac
 
     authors=("${authors[@]/%/\$}")	# Anchor to end.
+
     readarray -t truncateLongTailArgs < <(printf '%s\n' "${authors[@]}" | basicToExtendedRegexp | prefix -- '--include=')
 
     highlighter=("${authors[@]/#/--regexp=}")
     highlighter=("${highlighter[@]//\\t/$'\t'}")	# grep doesn't understand \t, only literal tabs
+
+    if [ "$isSegregated" ]; then
+	readarray -t segregateTeeArgs < <(printf '%s\n' "${authors[@]}" | basicToExtendedRegexp | prefix -- '--match=')
+	segregateTeeArgs=("${segregateTeeArgs[@]//\\t/$'\t'}")	# segregatetee doesn't understand \t, only literal tabs
+	highlighter=("${highlighter[@]/%\$/\\(, \\|\$\\)}") # Selected authors are usually part of an author enumeration now (but may also stand alone).
+    fi
+
     highlighter=(highlight "${colorArg[@]}" --lines "${highlighter[@]}")
 fi
 
@@ -109,14 +124,16 @@ collectStats()
 
     header "${colorArg[@]}" 'Commits by author'
     "${iteratorCommand[@]}" whodid --csv "$@" \
-	| sumField -F , --group-by 2 --sort-by -result --result-first --output-separator $'\t' 1 \
-	| eval 'truncate' \
+	| eval "sumField -F , --group-by 2 --sort-by -result --result-first --output-separator \$'\\t' 1" \
+	"${isSegregated:+| combineAuthorStats}" \
+	"${truncator:+|}" '"${truncator[@]}"' \
 	"${highlighter:+|}" '"${highlighter[@]}"'
 
     header "${colorArg[@]}" 'Changed files / additions / deletions by author'
     "${iteratorCommand[@]}" logstabyeach --csv "$@" \
-	| sumField -F , --group-by 1 --sort-by -result --result-first --output-separator $'\t' 2 3 4 \
-	| eval 'truncate' \
+	| eval "sumField -F , --group-by 1 --sort-by -result --result-first --output-separator \$'\\t' 2 3 4" \
+	"${isSegregated:+| combineAuthorStats}" \
+	"${truncator:+|}" '"${truncator[@]}"' \
 	"${highlighter:+|}" '"${highlighter[@]}"'
 
     "${iteratorCommand[@]}" l "${authorArgs[@]}" "$@" \
@@ -133,6 +150,12 @@ collectStats()
 truncate()
 {
     truncateLongTail -F $'\t' "${truncateLongTailArgs[@]}" 1
+}
+
+combineAuthorStats()
+{
+    segregatetee "${segregateTeeArgs[@]}" --to >(aggregateField --field-separator $'\t' --sum-or-join ', ') \
+	| sort --field-separator $'\t' --key 1,1 --numeric-sort --reverse
 }
 
 eval 'collectStats "${logArgs[@]}" "$@"' \

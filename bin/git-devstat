@@ -5,7 +5,17 @@ set -o pipefail
 
 printUsage()
 {
-    cat <<HELPTEXT
+    if [ "$HUB" ]; then
+	local options='[-d|--since DATE]'
+	cat <<HELPTEXT
+Collect statistics about GitHub contributions to the current / iterated by
+GIT-ITERATOR-COMMAND Git repositories:
+- Number of issues per state
+- Number of pull requests per state
+HELPTEXT
+    else
+	local options='[<log-options>] [<revision range>] [[--] <path>...]'
+	cat <<HELPTEXT
 Collect statistics about contributions to the current / iterated by
 GIT-ITERATOR-COMMAND Git repositories:
 - number of commits by author
@@ -13,8 +23,9 @@ GIT-ITERATOR-COMMAND Git repositories:
 - most commits by task ID [for author]
 - most frequent commit areas [for author]
 HELPTEXT
+    fi
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[--over GIT-ITERATOR-COMMAND ... ${GIT_DEVSTAT_OVER_END}] [--resolved-authors] [--author=AUTHOR-PATTERN [--author=...]] [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[--over GIT-ITERATOR-COMMAND ... ${GIT_DEVSTAT_OVER_END}] [--resolved-authors] [--author=AUTHOR-PATTERN [--author=...]] $options [-?|-h|--help]"
 }
 
 typeset -a iteratorCommand=(git-wrapper)
@@ -54,6 +65,8 @@ do
 	--resolved-authors)
 			shift; isResolvedAuthors=t;;
 	--author=*)	authorArgs+=("$1"); authorPatterns+=("${1#--author=}"); shift;;
+	--since=*)	set -- --since "${1#--since=}" "$@";&
+	--since|-d)	logArgs+=("$1" "$(date --iso-8601=seconds --date "${2:?}")"); shift; shift;;
 	--)		logArgs+=("$1"); shift; break;;
 	*)		logArgs+=("$1"); shift;;
     esac
@@ -65,7 +78,7 @@ isSegregated=
 typeset -a segregateTeeArgs=()
 if [ ${#authorPatterns[@]} -gt 0 ]; then
     typeset -a authors=()
-    if [ "$isResolvedAuthors" ]; then
+    if [ "$isResolvedAuthors" ] && [ ! "$HUB" ]; then	# Need to translate Git users to GitHub accounts. FIXME: This doesn't work with exceptby patterns.
 	authors=("${authorPatterns[@]%% <*>}")	# Remove trailing email address; it's not printed.
 	authors=("${authors[@]/%\$/}")	# Remove potential trailing $ from a others / exceptby author exclusion.
     else
@@ -147,6 +160,26 @@ collectStats()
 	| withHeader "${colorArg[@]}" "Most frequent commit areas${authorWhat:+ from $authorWhat}"
 }
 
+collectGitHubStats()
+{
+    # Note: Don't pass limitArgs to userrepo.
+    "${iteratorCommand[@]}" userrepo \
+	| joinBy --prefix "GitHub statistics${authorWhat:+ on $authorWhat} for " --summarize-larger '7 repositories' - ', ' \
+	| reversed "${colorArg[@]}"
+
+    header "${colorArg[@]}" 'Issues by author'
+    "${iteratorCommand[@]}" issue --state all --format $'%au\t%S%n' "$@" \
+	| aggregateField -F $'\t' --total-and-unique-counts --result-first --group-by 1 --sort-by -result 2 \
+	| eval truncate \
+	"${highlighter:+|}" '"${highlighter[@]}"'
+
+    header "${colorArg[@]}" 'Pull requests by author'
+    "${iteratorCommand[@]}" pr list --state all --format $'%au\t%pS%n' "$@" \
+	| aggregateField -F $'\t' --total-and-unique-counts --result-first --group-by 1 --sort-by -result 2 \
+	| eval truncate \
+	"${highlighter:+|}" '"${highlighter[@]}"'
+}
+
 truncate()
 {
     truncateLongTail -F $'\t' "${truncateLongTailArgs[@]}" 1
@@ -158,5 +191,5 @@ combineAuthorStats()
 	| sort --field-separator $'\t' --key 1,1 --numeric-sort --reverse
 }
 
-eval 'collectStats "${logArgs[@]}" "$@"' \
+eval "collect${HUB:+GitHub}Stats" '"${logArgs[@]}" "$@"' \
     "${pager:+|}" '"${pager[@]}"'

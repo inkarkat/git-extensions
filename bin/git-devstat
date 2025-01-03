@@ -5,7 +5,17 @@ set -o pipefail
 
 printUsage()
 {
-    cat <<HELPTEXT
+    if [ "$HUB" ]; then
+	local options='[-d|--since DATE]'
+	cat <<HELPTEXT
+Collect statistics about GitHub contributions to the current / iterated by
+GIT-ITERATOR-COMMAND Git repositories:
+- Number of issues per state
+- Number of pull requests per state
+HELPTEXT
+    else
+	local options='[<log-options>] [<revision range>] [[--] <path>...]'
+	cat <<HELPTEXT
 Collect statistics about contributions to the current / iterated by
 GIT-ITERATOR-COMMAND Git repositories:
 - number of commits by author
@@ -13,8 +23,9 @@ GIT-ITERATOR-COMMAND Git repositories:
 - most commits by task ID [for author]
 - most frequent commit areas [for author]
 HELPTEXT
+    fi
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[--over GIT-ITERATOR-COMMAND ... ${GIT_DEVSTAT_OVER_END}] [--resolved-authors] [--author=AUTHOR-PATTERN [--author=...]] [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[--over GIT-ITERATOR-COMMAND ... ${GIT_DEVSTAT_OVER_END}] [--resolved-authors] [--author=AUTHOR-PATTERN [--author=...]] $options [-?|-h|--help]"
 }
 
 typeset -a iteratorCommand=(git-wrapper)
@@ -54,16 +65,22 @@ do
 	--resolved-authors)
 			shift; isResolvedAuthors=t;;
 	--author=*)	authorArgs+=("$1"); authorPatterns+=("${1#--author=}"); shift;;
+	--since=*)	set -- --since "${1#--since=}" "$@";&
+	--since|-d)	logArgs+=("$1" "$(date --iso-8601=seconds --date "${2:?}")"); shift; shift;;
 	--)		logArgs+=("$1"); shift; break;;
 	*)		logArgs+=("$1"); shift;;
     esac
 done
 
+typeset -a truncator=(truncate)
 typeset -a truncateLongTailArgs=()
+isSegregated=
+typeset -a segregateTeeArgs=()
 if [ ${#authorPatterns[@]} -gt 0 ]; then
     typeset -a authors=()
-    if [ "$isResolvedAuthors" ]; then
-	authors=("${authorPatterns[@]%% <*>}")
+    if [ "$isResolvedAuthors" ] && [ ! "$HUB" ]; then	# Need to translate Git users to GitHub accounts. FIXME: This doesn't work with exceptby patterns.
+	authors=("${authorPatterns[@]%% <*>}")	# Remove trailing email address; it's not printed.
+	authors=("${authors[@]/%\$/}")	# Remove potential trailing $ from a others / exceptby author exclusion.
     else
 	readarray -t authors < <(git-whois --name "${authorPatterns[@]}")
     fi
@@ -71,15 +88,42 @@ if [ ${#authorPatterns[@]} -gt 0 ]; then
 	0)  printf >&2 'ERROR: No authors found for: %s\n' "${authorPatterns[*]}"
 	    exit 2
 	    ;;
-	1)  authorWhat="${authors[0]}";;
-	*)  authorWhat="${#authors[@]} authors";;
+	1)  authorWhat="${authors[0]}"
+	    if [[ "$authorWhat" = '^.'* ]]; then
+		# Handle others / exceptby author exclusion.
+		authorWhat='selected authors'	# Don't show the complex pattern.
+		authors=("${authors[0]//\\( <.\\+>\\)\$/\$}") # Turn trailing email address match to end anchor.
+		authors=("${authors[0]//^[/\\t[}")  # Anchor to column start by turning ^ into \t, except in [^...] collection negation.
+		authors=("${authors[0]//^./\\t.}")  # ibid.
+		authors=("${authors[0]//[^/[^$'\t'}")	# Exclude tabs from negative collections, too.
+		authors=("${authors[0]//./[^\\t]}")  # Convert any-char match to any-non-tab to restrict to the last column.
+
+		isSegregated=t	# Combine the values of all other authors into one summary.
+		truncator=()	# Almost all authors are combined, no need to truncate anything.
+	    else
+		authors=("${authors[0]/#/\\t}")   # Anchor to column start.
+	    fi
+	    ;;
+	*)  authorWhat="${#authors[@]} authors"
+	    authors=("${authors[@]/#/\\t}")	# Anchor to column start.
+	    isSegregated=t	# Combine the values of all selected authors into one summary.
+	    ;;
     esac
 
-    truncateLongTailArgs=("${authors[@]/#/--include=\\t}")
-    truncateLongTailArgs=("${truncateLongTailArgs[@]/%/\$}")
+    authors=("${authors[@]/%/\$}")	# Anchor to end.
 
-    highlighter=("${authors[@]/#/--regexp=$'\t'}")
-    highlighter=(highlight "${colorArg[@]}" --lines "${highlighter[@]/%/\$}")
+    readarray -t truncateLongTailArgs < <(printf '%s\n' "${authors[@]}" | basicToExtendedRegexp | prefix -- '--include=')
+
+    highlighter=("${authors[@]/#/--regexp=}")
+    highlighter=("${highlighter[@]//\\t/$'\t'}")	# grep doesn't understand \t, only literal tabs
+
+    if [ "$isSegregated" ]; then
+	readarray -t segregateTeeArgs < <(printf '%s\n' "${authors[@]}" | basicToExtendedRegexp | prefix -- '--match=')
+	segregateTeeArgs=("${segregateTeeArgs[@]//\\t/$'\t'}")	# segregatetee doesn't understand \t, only literal tabs
+	highlighter=("${highlighter[@]/%\$/\\(, \\|\$\\)}") # Selected authors are usually part of an author enumeration now (but may also stand alone).
+    fi
+
+    highlighter=(highlight "${colorArg[@]}" --lines "${highlighter[@]}")
 fi
 
 collectStats()
@@ -93,25 +137,59 @@ collectStats()
 
     header "${colorArg[@]}" 'Commits by author'
     "${iteratorCommand[@]}" whodid --csv "$@" \
-	| sumField -F , --group-by 2 --sort-by -result --result-first --output-separator $'\t' 1 \
-	| truncateLongTail -F $'\t' "${truncateLongTailArgs[@]}" 1
+	| eval "sumField -F , --group-by 2 --sort-by -result --result-first --output-separator \$'\\t' 1" \
+	"${isSegregated:+| combineAuthorStats}" \
+	"${truncator:+|}" '"${truncator[@]}"' \
+	"${highlighter:+|}" '"${highlighter[@]}"'
 
     header "${colorArg[@]}" 'Changed files / additions / deletions by author'
     "${iteratorCommand[@]}" logstabyeach --csv "$@" \
-	| sumField -F , --group-by 1 --sort-by -result --result-first --output-separator $'\t' 2 3 4 \
-	| truncateLongTail -F $'\t' "${truncateLongTailArgs[@]}" 1
+	| eval "sumField -F , --group-by 1 --sort-by -result --result-first --output-separator \$'\\t' 2 3 4" \
+	"${isSegregated:+| combineAuthorStats}" \
+	"${truncator:+|}" '"${truncator[@]}"' \
+	"${highlighter:+|}" '"${highlighter[@]}"'
 
     "${iteratorCommand[@]}" l "${authorArgs[@]}" "$@" \
 	| git committaskidtally --against-total-commits ${totalCommits:-} \
-	| truncateLongTail -F $'\t' "${truncateLongTailArgs[@]}" 1 \
+	| truncate \
 	| withHeader "${colorArg[@]}" "Most commits${authorWhat:+ from $authorWhat} by task ID"
 
     "${iteratorCommand[@]}" lo "${authorArgs[@]}" "$@" \
 	| git commitkeywordtally --against-total-commits ${totalCommits:-} \
-	| truncateLongTail -F $'\t' "${truncateLongTailArgs[@]}" 1 \
+	| truncate \
 	| withHeader "${colorArg[@]}" "Most frequent commit areas${authorWhat:+ from $authorWhat}"
 }
 
-eval 'collectStats "${logArgs[@]}" "$@"' \
-    "${highlighter:+|}" '"${highlighter[@]}"' \
+collectGitHubStats()
+{
+    # Note: Don't pass limitArgs to userrepo.
+    "${iteratorCommand[@]}" userrepo \
+	| joinBy --prefix "GitHub statistics${authorWhat:+ on $authorWhat} for " --summarize-larger '7 repositories' - ', ' \
+	| reversed "${colorArg[@]}"
+
+    header "${colorArg[@]}" 'Issues by author'
+    "${iteratorCommand[@]}" issue --state all --format $'%au\t%S%n' "$@" \
+	| aggregateField -F $'\t' --total-and-unique-counts --result-first --group-by 1 --sort-by -result 2 \
+	| eval truncate \
+	"${highlighter:+|}" '"${highlighter[@]}"'
+
+    header "${colorArg[@]}" 'Pull requests by author'
+    "${iteratorCommand[@]}" pr list --state all --format $'%au\t%pS%n' "$@" \
+	| aggregateField -F $'\t' --total-and-unique-counts --result-first --group-by 1 --sort-by -result 2 \
+	| eval truncate \
+	"${highlighter:+|}" '"${highlighter[@]}"'
+}
+
+truncate()
+{
+    truncateLongTail -F $'\t' "${truncateLongTailArgs[@]}" 1
+}
+
+combineAuthorStats()
+{
+    segregatetee "${segregateTeeArgs[@]}" --to >(aggregateField --field-separator $'\t' --sum-or-join ', ') \
+	| sort --field-separator $'\t' --key 1,1 --numeric-sort --reverse
+}
+
+eval "collect${HUB:+GitHub}Stats" '"${logArgs[@]}" "$@"' \
     "${pager:+|}" '"${pager[@]}"'

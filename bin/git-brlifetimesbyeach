@@ -57,7 +57,11 @@ gnuplotWrapper()
 	|| local terminalSettings="$GIT_BRLIFETIMESBYEACH_GRAPH_NOGUI"
     {
 	printf '$data << EOD\n'
-	cat
+	if [ -t 1 ]; then
+	    tee >(sampleLines --inline-always --clear --count author --transform-exec field --unbuffered --field-separator $'\t' 1 \; > /dev/tty)
+	else
+	    cat
+	fi
 	printf 'EOD\ndata = "$data"\nset terminal %s\n\n' "$terminalSettings"
 	cat "${etcDir}/graph.gnuplot"
     } | gnuplot --persist

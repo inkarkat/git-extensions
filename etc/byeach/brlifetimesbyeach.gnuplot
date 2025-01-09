@@ -31,8 +31,9 @@ plot data using 0:3:2:7:6 with candlesticks linestyle 1, \
     '' using 0:4:(sqrt($20)) with points lc "black" pt 6 pointsize variable linewidth 2
 
 
-stats '' using 16 nooutput
-set yrange [0:STATS_max * 1.5]
+stats '' using 16:17 nooutput
+min(a, b) = (a < b) ? a : b # Compatibility: Built-in min() is a Gnuplot 5.4 feature.
+set yrange [0:min(STATS_max_x * 1.5, STATS_max_y + 1)]
 
 unset object 1
 unset label 1

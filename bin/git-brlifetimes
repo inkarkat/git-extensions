@@ -40,8 +40,9 @@ HELPDESCRIPTION
 For each merged commit, each non-first parent is followed until its merge base,
 and the number of commits as well as the timespan between first commit and the
 merge commit calculated.
-    --creator=<pattern>	Only consider branches where the first commit was done by
-			an author matching <pattern>.
+    --creator=<pattern>	Only consider branches where the first commit and the
+			majority of commits was done by an author matching
+			<pattern>.
     --sort-by-commits	Order the output by the number of commits (descending).
     --sort-by-duration	Order the output by the duration (descending).
     --summary|-s	Only print statistics about the durations that a branch
@@ -197,6 +198,14 @@ logLifetimes()
 	    if [ ${#creatorArgs[@]} -gt 0 ]; then
 		# Only consider branches where the first commit was done by the creator.
 		[ -n "$(git show "${creatorArgs[@]}" --pretty=tformat:x --no-patch "$startCommit")" ] || continue
+
+		if [ $commitCount -gt 1 ]; then
+		    authorCommitCount=$(git-count "${creatorArgs[@]}" "${firstParent}..${parent}")
+		    if [ $((2 * authorCommitCount)) -lt $commitCount ]; then
+			printf >&2 'Note: Discarding commits between %s..%s, only %d of %d by %s:\n%s\n' "$firstParent" "$parent" $authorCommitCount $commitCount "${creatorArgs[*]/#--author=}" "$logLine"
+			continue
+		    fi
+		fi
 	    fi
 
 	    if [ -n "$datediffOutputFormat" ]; then

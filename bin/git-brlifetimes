@@ -185,7 +185,7 @@ logLifetimes()
 	do
 	    let parentCount+=1
 	    typeset -a branchRecords=()
-	    readarray -t branchRecords < <(git log --pretty=$'tformat:%h\t@%at' "${firstParent}..${parent}")
+	    readarray -t branchRecords < <(git log --first-parent --pretty=$'tformat:%h\t@%at' "${firstParent}..${parent}")
 	    if [ ${#branchRecords[@]} -eq 0 ]; then
 		printf >&2 'Warning: No commits between %s and %s:\n%s\n' "$firstParent" "$parent" "$logLine"
 		continue
@@ -200,7 +200,7 @@ logLifetimes()
 		[ -n "$(git show "${creatorArgs[@]}" --pretty=tformat:x --no-patch "$startCommit")" ] || continue
 
 		if [ $commitCount -gt 1 ]; then
-		    authorCommitCount=$(git-count "${creatorArgs[@]}" "${firstParent}..${parent}")
+		    authorCommitCount=$(git-count --first-parent "${creatorArgs[@]}" "${firstParent}..${parent}")
 		    if [ $((2 * authorCommitCount)) -lt $commitCount ]; then
 			printf >&2 'Note: Discarding commits between %s..%s, only %d of %d by %s:\n%s\n' "$firstParent" "$parent" $authorCommitCount $commitCount "${creatorArgs[*]/#--author=}" "$logLine"
 			continue

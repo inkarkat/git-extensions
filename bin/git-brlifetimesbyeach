@@ -8,7 +8,7 @@
 readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
 [ -d "$scriptDir" ] || { echo >&2 'ERROR: Cannot determine script directory!'; exit 3; }
 readonly projectDir="${scriptDir}/.."
-readonly etcDir="${projectDir}/etc/brlifetimesbyeach"
+readonly etcDir="${projectDir}/etc/byeach"
 
 printUsage()
 {
@@ -18,7 +18,7 @@ printUsage()
 	-e '/^ *--raw/i\
     --graph		Graph the durations and commit counts per author.\
     --graph-stdin	Graph the raw data read from stdin.' \
-	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ |]\+ \)*git-brlifetimes /\1[GIT_BRLIFETIMESBYEACH_GRAPH_SIZE=1000,1000] [GIT_BRLIFETIMESBYEACH_GRAPH_OUTPUT=FILE.(png,svg)] \2'"$(basename "$1")"' /; s/\[--raw\]/[--graph|--graph-stdin|--raw]/; }' \
+	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ |]\+ \)*git-brlifetimes /\1\2[GIT_BRLIFETIMESBYEACH_GRAPH_SIZE=1000,1000] [GIT_BRLIFETIMESBYEACH_GRAPH_OUTPUT=FILE.(png,svg)] '"$(basename "$1")"' /; s/\[--raw\]/[--graph|--graph-stdin|--raw]/; }' \
 	-e b -e :removeFirstParagraphLoop -e '{ /\(^\|\n\)$/{ s/^\(.*\n\)\?//; b; }; N; b removeFirstParagraphLoop; }'
 }
 case "$1" in
@@ -71,15 +71,16 @@ gnuplotWrapper()
 	*)  printf >&2 "ERROR: Unsupported output format '%s'.\\n" "${GIT_BRLIFETIMESBYEACH_GRAPH_OUTPUT##*.}"; exit 2;;
     esac
 
+    local hasTerm=; [ -t 1 ] && hasTerm=t
     {
 	printf '$data << EOD\n'
-	if [ -t 1 ]; then
+	if [ "$hasTerm" ]; then
 	    tee >(sampleLines --inline-always --clear --count author --transform-exec field --unbuffered --field-separator $'\t' 1 \; > /dev/tty)
 	else
 	    cat
 	fi
 	printf 'EOD\ndata = "$data"\nset terminal %s\n\n' "$terminalSettings"
-	cat "${etcDir}/graph.gnuplot"
+	cat -- "${etcDir}/candlestick-setup.gnuplot" "${etcDir}/brlifetimesbyeach.gnuplot"
     } | gnuplot --persist
 }
 

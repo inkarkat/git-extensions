@@ -22,13 +22,15 @@ set label 1 "long-lived" at graph 0,1 offset character 2,-1
 set object 2 rect from graph 0,0 to graph 1, first 2 * 3600 behind fc rgb "gray90"
 set label 2 "short-lived" at graph 0,0 offset character 2,1
 
+logfloor(x) = (x == 0 ? 10 : x)
+
 set bmargin 0
 set format x ""
 set ylabel durationLabel
 set logscale y
-plot data using 0:3:2:7:6 with candlesticks linestyle 1, \
-    '' using 0:4 with points lc "black" pt 7 pointsize 1, \
-    '' using 0:4:(sqrt($20)) with points lc "black" pt 6 pointsize variable linewidth 2
+plot data using 0:(logfloor($3)):(logfloor($2)):7:6 with candlesticks linestyle 1, \
+    '' using 0:(logfloor($4)) with points lc "black" pt 7 pointsize 1, \
+    '' using 0:(logfloor($4)):(sqrt($20)) with points lc "black" pt 6 pointsize variable linewidth 2
 
 
 stats '' using 16:17 nooutput

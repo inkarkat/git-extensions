@@ -1,4 +1,4 @@
-set multiplot title "Branch duration / extent by author" layout 2,1
+set multiplot title graphTitle layout 2,1
 
 MIN = 60
 HOUR = 60 * MIN
@@ -24,7 +24,7 @@ set label 2 "short-lived" at graph 0,0 offset character 2,1
 
 set bmargin 0
 set format x ""
-set ylabel "from creation to merge"
+set ylabel durationLabel
 set logscale y
 plot data using 0:3:2:7:6 with candlesticks linestyle 1, \
     '' using 0:4 with points lc "black" pt 7 pointsize 1, \

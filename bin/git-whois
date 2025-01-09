@@ -181,7 +181,10 @@ getCandidates()
     local query=$'query {\n'
     for idx in "${!users[@]}"
     do
-	query+=" query${idx}: search(query: \"${hubQueryTerm} ${users[$idx]}\", type: USER, first: 1) { nodes { ... on User { login email } } }"$'\n'
+	escapedUser="${users[$idx]}"
+	escapedUser="${escapedUser//\\/\\\\}"
+	escapedUser="${escapedUser//\"/\\\"}"
+	query+=" query${idx}: search(query: \"${hubQueryTerm} ${escapedUser}\", type: USER, first: 1) { nodes { ... on User { login email } } }"$'\n'
     done
     query+='}'
 

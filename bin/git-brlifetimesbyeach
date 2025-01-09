@@ -14,8 +14,9 @@ printUsage()
 	-e '1s#^.*$#Show one-line lifetime, number of commits, commit range, author, date, tags and\ncommit summary of merged branches for each user that authored merges separately.#' \
 	-e '2b removeFirstParagraphLoop' \
 	-e '/^ *--raw/i\
-    --graph		Graph the durations and commit counts per author.' \
-	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ |]\+ \)*git-brlifetimes /\1\2'"$(basename "$1")"' /; s/\[--raw\]/[--graph|--raw]/; }' \
+    --graph		Graph the durations and commit counts per author.\
+    --graph-stdin	Graph the raw data read from stdin.' \
+	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ |]\+ \)*git-brlifetimes /\1\2'"$(basename "$1")"' /; s/\[--raw\]/[--graph|--graph-stdin|--raw]/; }' \
 	-e b -e :removeFirstParagraphLoop -e '{ /\(^\|\n\)$/{ s/^\(.*\n\)\?//; b; }; N; b removeFirstParagraphLoop; }'
 }
 case "$1" in
@@ -24,6 +25,7 @@ esac
 
 isSummary=
 isRaw=
+typeset -a collector=(brlifetimesbyeach)
 typeset -a grapher=()
 typeset -a logArgs=()
 while [ $# -ne 0 ]
@@ -32,6 +34,7 @@ do
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--summary|-s|--commits-summary|--duration-summary)
 			logArgs+=("$1"); shift; isSummary=t;;
+	--graph-stdin)	collector=();&
 	--graph)	shift; logArgs+=(--raw); isRaw=t; grapher=(gnuplotWrapper);;
 	--raw)		logArgs+=("$1"); shift; isRaw=t;;
 	--)		logArgs+=("$1"); shift; break;;
@@ -76,5 +79,5 @@ brlifetimesbyeach()
 	    "${brlifetimesCommand[@]}" USERFILTER "${logArgs[@]}" "$@"
 }
 
-eval 'brlifetimesbyeach "$@"' \
-    "${grapher:+|}" '"${grapher[@]}"'
+eval "\"\${collector[@]}\"${collector:+ "$@"}" \
+    "${collector:+${grapher:+|}}" '"${grapher[@]}"'

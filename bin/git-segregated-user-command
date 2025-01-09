@@ -184,6 +184,7 @@ do
     esac
 done
 set -- "${args[@]}" "$@"
+replacementFilterOption="${GIT_SEGREGATEDUSERCOMMAND_FILTER_OPTION---${filter}=}"
 
 isCountedAppend=
 typeset -a countedArgs=()
@@ -198,7 +199,7 @@ case "$1" in
 
 	executor()
 	{
-	    typeset -a interpolatedCountedArgs=("${countedArgs[@]//USERFILTER/--$filter="${escapedAuthor:?}"}")
+	    typeset -a interpolatedCountedArgs=("${countedArgs[@]//USERFILTER/${replacementFilterOption}"${escapedAuthor:?}"}")
 
 	    if [ "$isCountedAppend" ]; then
 		git-wrapper "$@" "${interpolatedCountedArgs[@]}"
@@ -213,13 +214,13 @@ case "$1" in
 
 	executor()
 	{
-	    git-wrapper "${countedArgs[@]//USERFILTER/--$filter="${escapedAuthor:?}"}" "$@"
+	    git-wrapper "${countedArgs[@]//USERFILTER/${replacementFilterOption}"${escapedAuthor:?}"}" "$@"
 	}
 	;;
     *)	countedArgs=("$@"); set --
 	executor()
 	{
-	    git-wrapper "${countedArgs[@]}" --$filter="${escapedAuthor:?}" "$@"
+	    git-wrapper "${countedArgs[@]}" ${replacementFilterOption}"${escapedAuthor:?}" "$@"
 	}
 	;;
 esac

@@ -13,13 +13,20 @@ readonly etcDir="${projectDir}/etc/byeach"
 printUsage()
 {
     git-brlifetimes --help 2>&1 | sed \
-	-e '1s#^.*$#Show one-line lifetime, number of commits, commit range, author, date, tags and\ncommit summary of merged branches for each user that authored merges separately.#' \
+	-e '1s#^.*$#Show one-line lifetime, number of commits, commit range, author, date, tags and\ncommit summary of merged branches for each user that authored merges separately.\n(This assumes that branches are merged by their author, not somebody else.)#' \
 	-e '2b removeFirstParagraphLoop' \
+	-e '/^ *--creator=/b removeOptionLoop' \
+	-e '/^ *--summary/i\
+    --creators		Group by the authors of the first commits of a branch,\
+			not the merge authors, and only consider branches where\
+			the majority of commits were by that author. Useful when\
+			maintainers do the merges.' \
 	-e '/^ *--raw/i\
     --graph		Graph the durations and commit counts per author.\
     --graph-stdin	Graph the raw data read from stdin.' \
-	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ |]\+ \)*git-brlifetimes /\1\2[GIT_BRLIFETIMESBYEACH_GRAPH_SIZE=1000,1000] [GIT_BRLIFETIMESBYEACH_GRAPH_OUTPUT=FILE.(png,svg)] '"$(basename "$1")"' /; s/\[--raw\]/[--graph|--graph-stdin|--raw]/; }' \
-	-e b -e :removeFirstParagraphLoop -e '{ /\(^\|\n\)$/{ s/^\(.*\n\)\?//; b; }; N; b removeFirstParagraphLoop; }'
+	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ |]\+ \)*git-brlifetimes /\1\2[GIT_BRLIFETIMESBYEACH_GRAPH_SIZE=1000,1000] [GIT_BRLIFETIMESBYEACH_GRAPH_OUTPUT=FILE.(png,svg)] '"$(basename "$1")"' /; s/ \[--creator=<pattern>\]//; s/\[--raw\]/[--graph|--graph-stdin|--raw]/; }' \
+	-e b -e :removeFirstParagraphLoop -e '{ /\(^\|\n\)$/{ s/^\(.*\n\)\?//; b; }; N; b removeFirstParagraphLoop; }' \
+	-e b -e :removeOptionLoop -e '{ /\n *--foo|-f[^\n]*$/{ N; b removeOptionLoop; }; /\n *--[^\n]*$\|\n[^	 ]\|\n$/{ s/^\(.*\n\)\?//; b; }; N; b removeOptionLoop; }'
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
@@ -34,6 +41,7 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--creators)	shift; export GIT_SEGREGATEDUSERCOMMAND_FILTER_OPTION=--creator=;;
 	--summary|-s|--commits-summary|--duration-summary)
 			logArgs+=("$1"); shift; isSummary=t;;
 	--graph-stdin)	collector=();&

@@ -13,7 +13,7 @@ printShortUsage()
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
     local outputOptions='[--sort-by-commits|--sort-by-duration|(-s|--summary|--duration-summary|--commits-summary) [--raw]]'
-    local logArgs='[<log-options>] [<revision range>] [[--] <path>...]'
+    local logArgs='[--creator=<pattern>] [<log-options>] [<revision range>] [[--] <path>...]'
     printf 'Usage: %q %s %s %s\n' "$(basename "$1")" "$outputOptions" "$logArgs" '[-?|-h|--help]'
     echo
     printf 'Usage: %q %s %s %s | %q %s %s\n' "$(basename "$1")" '--log-only' "$outputOptions" "$logArgs" "$(basename "$1")" '--stdin' "$outputOptions"
@@ -40,6 +40,8 @@ HELPDESCRIPTION
 For each merged commit, each non-first parent is followed until its merge base,
 and the number of commits as well as the timespan between first commit and the
 merge commit calculated.
+    --creator=<pattern>	Only consider branches where the first commit was done by
+			an author matching <pattern>.
     --sort-by-commits	Order the output by the number of commits (descending).
     --sort-by-duration	Order the output by the duration (descending).
     --summary|-s	Only print statistics about the durations that a branch
@@ -71,6 +73,7 @@ preAction=
 specialAction=
 action=logLifetimes
 typeset -a logArgs=()
+typeset -a creatorArgs=()
 isColor=t
 typeset -a colorArg=(--color=always)
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
@@ -112,6 +115,7 @@ do
 	--commits-statistics)
 			shift; specialAction='summarizeCommits';;
 	--raw)		statisticsArgs=("$1"); shift;;
+	--creator=*)	creatorArgs+=("--author=${1#--creator=}"); shift;;
 	--)		logArgs+=("$1"); shift; break;;
 	*)		logArgs+=("$1"); shift;;
     esac
@@ -189,6 +193,12 @@ logLifetimes()
 	    local startRecord="${branchRecords[-1]}"
 	    local startCommit="${startRecord%%$'\t'*}"
 	    local startEpoch="${startRecord#*$'\t'}"
+
+	    if [ ${#creatorArgs[@]} -gt 0 ]; then
+		# Only consider branches where the first commit was done by the creator.
+		[ -n "$(git show "${creatorArgs[@]}" --pretty=tformat:x --no-patch "$startCommit")" ] || continue
+	    fi
+
 	    if [ -n "$datediffOutputFormat" ]; then
 		dateDiff="$(datediff --output "$datediffOutputFormat" "$startEpoch" "$endEpoch")" && : ${status:=0} || { status=$?; continue; }
 	    fi

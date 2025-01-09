@@ -1,4 +1,4 @@
-set multiplot title "Branch duration / extent by author" layout 2,1
+set multiplot title graphTitle layout 2,1
 
 MIN = 60
 HOUR = 60 * MIN
@@ -22,17 +22,20 @@ set label 1 "long-lived" at graph 0,1 offset character 2,-1
 set object 2 rect from graph 0,0 to graph 1, first 2 * 3600 behind fc rgb "gray90"
 set label 2 "short-lived" at graph 0,0 offset character 2,1
 
+logfloor(x) = (x == 0 ? 10 : x)
+
 set bmargin 0
 set format x ""
-set ylabel "from creation to merge"
+set ylabel durationLabel
 set logscale y
-plot data using 0:3:2:7:6 with candlesticks linestyle 1, \
-    '' using 0:4 with points lc "black" pt 7 pointsize 1, \
-    '' using 0:4:(sqrt($20)) with points lc "black" pt 6 pointsize variable linewidth 2
+plot data using 0:(logfloor($3)):(logfloor($2)):7:6 with candlesticks linestyle 1, \
+    '' using 0:(logfloor($4)) with points lc "black" pt 7 pointsize 1, \
+    '' using 0:(logfloor($4)):(sqrt($20)) with points lc "black" pt 6 pointsize variable linewidth 2
 
 
-stats '' using 16 nooutput
-set yrange [0:STATS_max * 1.5]
+stats '' using 16:17 nooutput
+min(a, b) = (a < b) ? a : b # Compatibility: Built-in min() is a Gnuplot 5.4 feature.
+set yrange [0:min(STATS_max_x * 1.5, STATS_max_y + 1)]
 
 unset object 1
 unset label 1

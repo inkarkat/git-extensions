@@ -12,8 +12,8 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    local outputOptions='[--sort-by-commits|--sort-by-duration|(-s|--summary|--duration-summary|--commits-summary) [--raw]]'
-    local logArgs='[--creator=<pattern>] [<log-options>] [<revision range>] [[--] <path>...]'
+    local outputOptions='[--creator=<pattern>] [--net-commits] [--sort-by-commits|--sort-by-duration|(-s|--summary|--duration-summary|--commits-summary) [--raw]]'
+    local logArgs='[<log-options>] [<revision range>] [[--] <path>...]'
     printf 'Usage: %q %s %s %s\n' "$(basename "$1")" "$outputOptions" "$logArgs" '[-?|-h|--help]'
     echo
     printf 'Usage: %q %s %s %s | %q %s %s\n' "$(basename "$1")" '--log-only' "$outputOptions" "$logArgs" "$(basename "$1")" '--stdin' "$outputOptions"
@@ -43,6 +43,10 @@ merge commit calculated.
     --creator=<pattern>	Only consider branches where the first commit and the
 			majority of commits was done by an author matching
 			<pattern>.
+    --net-commits	Ignore the actual merge commit; only count the timespan
+			between first and last commit [by the creator] on the
+			branch itself. So any time in / waiting for review is
+			excluded.
     --sort-by-commits	Order the output by the number of commits (descending).
     --sort-by-duration	Order the output by the duration (descending).
     --summary|-s	Only print statistics about the durations that a branch
@@ -83,6 +87,7 @@ if [ ! -t 1 ]; then
     colorArg=()
     pager=()
 fi
+isNetCommits=
 datediffOutputFormat='best-unit'
 picker=
 summarizer=
@@ -117,6 +122,7 @@ do
 			shift; specialAction='summarizeCommits';;
 	--raw)		statisticsArgs=("$1"); shift;;
 	--creator=*)	creatorArgs+=("--author=${1#--creator=}"); shift;;
+	--net-commits)	shift; isNetCommits=t;;
 	--)		logArgs+=("$1"); shift; break;;
 	*)		logArgs+=("$1"); shift;;
     esac
@@ -185,7 +191,7 @@ logLifetimes()
 	do
 	    let parentCount+=1
 	    typeset -a branchRecords=()
-	    readarray -t branchRecords < <(git log --pretty=$'tformat:%h\t@%at' "${firstParent}..${parent}")
+	    readarray -t branchRecords < <(git log --first-parent --pretty=$'tformat:%h\t@%at' "${firstParent}..${parent}")
 	    if [ ${#branchRecords[@]} -eq 0 ]; then
 		printf >&2 'Warning: No commits between %s and %s:\n%s\n' "$firstParent" "$parent" "$logLine"
 		continue
@@ -200,7 +206,8 @@ logLifetimes()
 		[ -n "$(git show "${creatorArgs[@]}" --pretty=tformat:x --no-patch "$startCommit")" ] || continue
 
 		if [ $commitCount -gt 1 ]; then
-		    authorCommitCount=$(git-count "${creatorArgs[@]}" "${firstParent}..${parent}")
+		    readarray -t branchRecords < <(git log --first-parent --pretty=$'tformat:%h\t@%at' "${creatorArgs[@]}" "${firstParent}..${parent}")
+		    local authorCommitCount=${#branchRecords[@]}
 		    if [ $((2 * authorCommitCount)) -lt $commitCount ]; then
 			printf >&2 'Note: Discarding commits between %s..%s, only %d of %d by %s:\n%s\n' "$firstParent" "$parent" $authorCommitCount $commitCount "${creatorArgs[*]/#--author=}" "$logLine"
 			continue
@@ -210,6 +217,12 @@ logLifetimes()
 		    commitCount=$authorCommitCount
 		fi
 	    fi
+
+	    if [ "$isNetCommits" ]; then
+		local endRecord="${branchRecords[0]}"
+		endEpoch="${endRecord#*$'\t'}"
+	    fi
+
 
 	    if [ -n "$datediffOutputFormat" ]; then
 		dateDiff="$(datediff --output "$datediffOutputFormat" "$startEpoch" "$endEpoch")" && : ${status:=0} || { status=$?; continue; }

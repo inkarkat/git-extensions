@@ -1,4 +1,5 @@
 #!/bin/bash
+set -o pipefail
 
 : ${HUB_PRREVIEWDURATION_OWNER:='{owner}'}
 : ${HUB_PRREVIEWDURATION_REPO:='{repo}'}
@@ -6,6 +7,7 @@
 : ${HUB_PRREVIEWDURATION_COLOR_REVIEWER=[32m}
 : ${HUB_PRREVIEWDURATION_COLOR_TITLE=[0m}
 : ${HUB_PRREVIEWDURATION_COLOR_RESET=[0m}
+: ${HUB_PRREVIEWDURATION_EXIT_STATUS_NO_REVIEWS:=99}
 
 printShortUsage()
 {
@@ -170,6 +172,7 @@ extractAndOrder()
 
 printDeltas()
 {
+    local status=$HUB_PRREVIEWDURATION_EXIT_STATUS_NO_REVIEWS
     local previousPrId prId previousUsername username previousEpoch epoch eventType prTitle
     while IFS=$'\t' read -r prId username epoch eventType prTitle
     do
@@ -180,6 +183,7 @@ printDeltas()
 	    	&& isMatchingReviewer "$username"
 	    then
 		$printer $((${epoch:?} - ${previousEpoch:?})) "${prId:?}" "${username:?}" ${epoch:?} "$eventType" "$prTitle"
+		status=0
 	    fi
 	    previousPrId=''
 	    previousUsername=''
@@ -192,6 +196,7 @@ printDeltas()
 	    previousEpoch=$epoch
 	fi
     done
+    return $status
 }
 
 isMatchingDate()

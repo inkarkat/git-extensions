@@ -11,7 +11,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, they can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--color=(always|auto|never)|--no-color] [--reviewer=<pattern> [--reviewer ...]] [--since=<date>] [--until=<date>] [--sort-by-duration] [-s|--summary [--raw]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--color=(always|auto|never)|--no-color] [--reviewer=<pattern> [--reviewer ...]] [--since=<date>] [--until=<date>] [--sort-by-duration|--sort-by-reviewdate] [-s|--summary [--raw]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -41,6 +41,9 @@ HELPDESCRIPTION
 			date.
     --sort-by-duration	Order the output by the duration (descending).
 			The default sort order is by PR number, descending.
+    --sort-by-reviewdate
+			Order the output by the time the review was done
+			(descending).
     --summary|-s	Only print statistics about the durations.
     --raw		Print just the bare, space-separated numbers.
 SEE ALSO:
@@ -88,6 +91,8 @@ do
 	--until)	shift; untilEpoch=$(date --date="${1:?}" +%s) || exit 2; shift;;
 	--sort-by-duration)
 			shift; sorter=(sort --field-separator $'\t' -k1,1nr);;
+	--sort-by-reviewdate)
+			shift; sorter=(sort --field-separator '@' -k2,2nr);;
 	--summary|-s)	shift; summarizer=summarize; isVerbose=; pager=();;
 	--raw)		statisticsArgs=("$1"); shift;;
 	--)		shift; break;;

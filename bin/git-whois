@@ -170,7 +170,25 @@ printPersons()
 getFromLog()
 {
     local format="${1:?}"; shift
-    git log --regexp-ignore-case ${isShowFirstCandidate:+--max-count 1} --pretty="tformat:${format}" "${@/#/--author=}" "${rangeArgs[@]}" "${rangeModificationArgs[@]}"
+
+    typeset -a selectCommand=()
+    typeset -a sortCommand=()
+    typeset -a aggregateCommand=()
+    if [ -n "$GIT_WHOIS_AGGREGATE_COMMAND" ]; then
+	eval "typeset -a aggregateCommand=($GIT_WHOIS_AGGREGATE_COMMAND)"
+	sortCommand=(sort --unique)
+    fi
+
+    typeset -a sourceCommand=(log --regexp-ignore-case ${isShowFirstCandidate:+--max-count 1} --pretty="tformat:${format}")
+    if [ -n "$GIT_WHOIS_SOURCE_COMMAND" ]; then
+	eval "typeset -a sourceCommand=($GIT_WHOIS_SOURCE_COMMAND)"
+	[ "$isShowFirstCandidate" ] \
+	    && selectCommand=(head -n 1)
+    fi
+
+    eval 'git-wrapper "${aggregateCommand[@]}" "${sourceCommand[@]}" "${@/#/--author=}" "${rangeArgs[@]}" "${rangeModificationArgs[@]}"' \
+	"${selectCommand:+|}" '"${selectCommand[@]}"' \
+	"${sortCommand:+|}" '"${sortCommand[@]}"'
 }
 
 if [ "$HUB" ]; then

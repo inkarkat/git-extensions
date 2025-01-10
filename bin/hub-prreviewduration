@@ -2,12 +2,15 @@
 
 : ${HUB_PRREVIEWDURATION_OWNER:='{owner}'}
 : ${HUB_PRREVIEWDURATION_REPO:='{repo}'}
+: ${HUB_PRREVIEWDURATION_COLOR_PRID=[35m}
+: ${HUB_PRREVIEWDURATION_COLOR_REVIEWER=[32m}
+: ${HUB_PRREVIEWDURATION_COLOR_RESET=[0m}
 
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, they can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--reviewer=<pattern> [--reviewer ...]] [--since=<date>] [--until=<date>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--color=(always|auto|never)|--no-color] [--reviewer=<pattern> [--reviewer ...]] [--since=<date>] [--until=<date>] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -45,6 +48,12 @@ cla-exitstatus
 HELPTEXT
 }
 
+isColor=t
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+if [ ! -t 1 ]; then
+    isColor=
+    pager=()
+fi
 typeset -a reviewers=()
 sinceEpoch=
 untilEpoch=
@@ -52,6 +61,12 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--no-color|--color=never)
+			shift; isColor=;;
+	--color=always)	shift; isColor=t;;
+	--color=*)	shift;;
+	--color)	case "$2" in never) isColor=;; always) isColor=t;; esac; shift; shift;;
+
 	--reviewer)	shift; reviewers+=("${1?}"); shift;;
 	--reviewer=*)	reviewers+=("${1#--reviewer=}"); shift;;
 	--since=*)	sinceEpoch=$(date --date="${1#--since=}" +%s) || exit 2; shift;;
@@ -63,6 +78,7 @@ do
 	*)		break;;
     esac
 done
+[ "$isColor" ] || unset "${!HUB_PRREVIEWDURATION_COLOR_@}"
 
 apiCall()
 {
@@ -133,7 +149,7 @@ printDeltas()
 	    	&& isMatchingDate $previousEpoch $epoch \
 	    	&& isMatchingReviewer "$username"
 	    then
-		printf '#%d\t%s\t%d\n' "${prId:?}" "${username:?}" $((${epoch:?} - ${previousEpoch:?}))
+		printf '%s#%d%s\t%s%s%s\t%d\n' "$HUB_PRREVIEWDURATION_COLOR_PRID" "${prId:?}" "$HUB_PRREVIEWDURATION_COLOR_RESET" "$HUB_PRREVIEWDURATION_COLOR_REVIEWER" "${username:?}" "$HUB_PRREVIEWDURATION_COLOR_RESET" $((${epoch:?} - ${previousEpoch:?}))
 	    fi
 	    previousPrId=''
 	    previousUsername=''
@@ -173,4 +189,5 @@ isMatchingReviewer()
 
 apiCall "$@" \
     | extractAndOrder \
-    | printDeltas
+    | eval printDeltas \
+    "${pager:+|}" '"${pager[@]}"'

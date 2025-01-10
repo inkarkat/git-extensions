@@ -1,0 +1,302 @@
+#!/bin/bash
+set -o pipefail
+
+: ${HUB_PRREVIEWDURATION_OWNER:='{owner}'}
+: ${HUB_PRREVIEWDURATION_REPO:='{repo}'}
+: ${HUB_PRREVIEWDURATION_COLOR_PRID=[35m}
+: ${HUB_PRREVIEWDURATION_COLOR_REVIEWER=[32m}
+: ${HUB_PRREVIEWDURATION_COLOR_TITLE=[0m}
+: ${HUB_PRREVIEWDURATION_COLOR_RESET=[0m}
+: ${HUB_PRREVIEWDURATION_EXIT_STATUS_NO_REVIEWS:=99}
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, they can
+    # skim the long one.
+    local outputOptions='[--sort-by-duration|--sort-by-reviewdate] [-s|--summary [--raw]]'
+    local logArgs='[--reviewer=<pattern> [--reviewer ...]] [--since=<date>] [--until=<date>]'
+    printf 'Usage: %q %s %s %s\n' "$(basename "$1")" "$outputOptions" "$logArgs" '[-?|-h|--help]'
+    echo
+    printf 'Usage: %q %s %s %s | %q %s %s\n' "$(basename "$1")" '--log-only' "$outputOptions" "$logArgs" "$(basename "$1")" '--stdin' "$outputOptions"
+    echo
+    printf 'Usage: %q %s %s\n' "$(basename "$1")" '--print-reviewers' "$logArgs"
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Print durations from the opening / request of a pull request review to the
+actual review / comments on the PR, by author and PR.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --reviewer=<pattern>
+			Limit the reviews to those done by reviewers matching
+			the specified pattern (regular expression).
+    --since=<date>	Limit the reviews to those more recent than the
+			specified date.
+    --until=<date>	Limit the reviews to those older than the specified
+			date.
+    --sort-by-duration	Order the output by the duration (descending).
+			The default sort order is by PR number, descending.
+    --sort-by-reviewdate
+			Order the output by the time the review was done
+			(descending).
+    --summary|-s	Only print statistics about the durations.
+    --raw		Print just the bare, space-separated numbers.
+    --print-reviewers	Just print the reviewers (matching <pattern> /
+			submitting reviews in the specified date range).
+HELPTEXT
+}
+
+logOnly()
+{
+    # Disable any processing (for now; the --stdin invocation will do that).
+    sorter=()
+    summarizer=''
+    if [ ${#colorArg[@]} -eq 0 ]; then
+    	isColor=t
+    	colorArg=(--color=always)
+    fi
+    pager=()
+}
+readLogs()
+{
+    action=''
+    [ ${#sorter[@]} -gt 0 ] || sorter=(cat) # XXX: Need a dummy sorter to keep the pipeline intact; summarizer expects a preceding command.
+}
+preAction=
+action=generateDeltas
+isColor=t
+typeset -a colorArg=(--color=always)
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+typeset -a formatter=(column -s $'\t' -t)
+typeset -a secondsToDurationAlignmentArgs=(--width 10)
+if [ ! -t 1 ]; then
+    isColor=
+    colorArg=()
+    pager=()
+    formatter=()
+    secondsToDurationAlignmentArgs=()
+fi
+typeset -a reviewers=()
+sinceEpoch=
+untilEpoch=
+typeset -a sorter=()
+printer=printList
+summarizer=renderDuration
+typeset -a statisticsArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--no-color|--color=never)
+			colorArg=("$1"); shift; isColor=;;
+	--color=always)	colorArg=("$1"); shift; isColor=t;;
+	--color=*)	colorArg=("$1"); shift;;
+	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); case "$2" in never) isColor=;; always) isColor=t;; esac; shift; shift;;
+
+	--reviewer|--author)
+			shift; reviewers+=("${1?}"); shift;;
+	--reviewer=*)	reviewers+=("${1#--reviewer=}"); shift;;
+	--author=*)	reviewers+=("${1#--author=}"); shift;;
+	--since=*)	sinceEpoch=$(date --date="${1#--since=}" +%s) || exit 2; shift;;
+	--since)	shift; sinceEpoch=$(date --date="${1:?}" +%s) || exit 2; shift;;
+	--until=*)	untilEpoch=$(date --date="${1#--until=}" +%s) || exit 2; shift;;
+	--until)	shift; untilEpoch=$(date --date="${1:?}" +%s) || exit 2; shift;;
+	--sort-by-duration)
+			shift; sorter=(sort --field-separator $'\t' -k1,1nr);;
+	--sort-by-reviewdate)
+			shift; sorter=(sort --field-separator '@' -k2,2nr);;
+	--summary|-s)	shift; summarizer=summarize; printer=printDurationOnly; pager=();;
+	--raw)		statisticsArgs=("$1"); shift;;
+	--print-reviewers)
+			shift; printer=printUsernamesOnly; summarizer='sort --unique';;
+	--log-only)	shift; preAction=logOnly;;
+	--stdin)	shift; preAction=readLogs;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+$preAction
+[ "$isColor" ] || unset "${!HUB_PRREVIEWDURATION_COLOR_@}"
+
+apiCall()
+{
+    memoizeCall --for 1h --successful-only \
+    	--memoize-group hub-prreviewduration \
+	--subject "$(git root)/${HUB_PRREVIEWDURATION_OWNER}/${HUB_PRREVIEWDURATION_REPO}" \
+    	-- hub api --paginate graphql \
+	    --raw-field query="
+query(\$endCursor: String) {
+    repository(owner: \"${HUB_PRREVIEWDURATION_OWNER}\", name: \"${HUB_PRREVIEWDURATION_REPO}\") {
+	pullRequests(first: 100, after: \$endCursor, states: [OPEN, CLOSED, MERGED]) {
+	    nodes {
+		number
+		createdAt
+		title
+		reviews(first: 100) {
+		    nodes {
+			author {
+			    login
+			}
+			submittedAt
+		    }
+		}
+		timelineItems(itemTypes: [REVIEW_REQUESTED_EVENT], first: 100) {
+		    nodes {
+			... on ReviewRequestedEvent {
+			    requestedReviewer {
+				__typename
+				... on User {
+				    login
+				}
+			    }
+			    createdAt
+			}
+		    }
+		}
+	    }
+	    pageInfo {
+		hasNextPage
+		endCursor
+	    }
+	}
+    }
+}"
+}
+
+extractAndOrder()
+{
+    jq --raw-output '
+	    .data.repository.pullRequests.nodes | .[]
+		| (.number | tostring) as $prNr
+		| (.createdAt | fromdateiso8601 | tostring) as $prDate
+		| .title as $prTitle
+		|
+		    (.timelineItems.nodes | .[] | $prNr + "\t" + .requestedReviewer.login + "\t" + (.createdAt | fromdateiso8601 | tostring) + "\t?"),
+		    (.reviews.nodes | .[] | $prNr + "\t" + .author.login + "\t" + $prDate + "\t*\n"
+			+ $prNr + "\t" + .author.login + "\t" + (.submittedAt | fromdateiso8601 | tostring) + "\t!\t" + $prTitle
+		    )' \
+	| sort --field-separator $'\t' --unique -k1,1nr -k2,2 -k3,3n -k4,4
+}
+
+printDeltas()
+{
+    local status=$HUB_PRREVIEWDURATION_EXIT_STATUS_NO_REVIEWS
+    local previousPrId prId previousUsername username previousEpoch epoch eventType prTitle
+    while IFS=$'\t' read -r prId username epoch eventType prTitle
+    do
+	# echo >&2 "**** $prId $username $epoch $eventType $prTitle"
+	if [ "$eventType" = '!' ]; then
+	    if [ -n "$previousEpoch" ] \
+	    	&& isMatchingDate $previousEpoch $epoch \
+	    	&& isMatchingReviewer "$username"
+	    then
+		$printer $((${epoch:?} - ${previousEpoch:?})) "${prId:?}" "${username:?}" ${epoch:?} "$eventType" "$prTitle"
+		status=0
+	    fi
+	    previousPrId=''
+	    previousUsername=''
+	    previousEpoch=''
+	elif [ "$prId" = "$previousPrId" -a "$username" = "$previousUsername" ]; then
+	    previousEpoch=$epoch
+	else
+	    previousPrId=$prId
+	    previousUsername="$username"
+	    previousEpoch=$epoch
+	fi
+    done
+    return $status
+}
+
+isMatchingDate()
+{
+    local date; for date
+    do
+	[ -z "$sinceEpoch" -o $date -ge ${sinceEpoch:-0} ] \
+	    && [ -z "$untilEpoch" -o $date -le ${untilEpoch:-0} ] \
+	    || return 1
+    done
+    return 0
+}
+
+isMatchingReviewer()
+{
+    local username="${1:?}"; shift
+    [ ${#reviewers[@]} -gt 0 ] || return 0
+
+    local reviewer; for reviewer in "${reviewers[@]}"
+    do
+	reviewer="${reviewer/% </$}"	# XXX: Convert trailing " <" anchor (to match the full name in "name <email>") to "$"; the reviewer filtering works with just usernames.
+
+    	[[ "$username" =~ $reviewer ]] && return 0
+    done
+    return 1
+}
+
+printDurationOnly()
+{
+    printf '%d\n' "${1:?}"
+}
+
+printUsernamesOnly()
+{
+    printf '%s\n' "${3:?}"
+}
+
+printList()
+{
+    local duration="${1:?}"; shift
+    local prId="${1:?}"; shift
+    local username="${1:?}"; shift
+    local epoch="${1:?}"; shift
+    local eventType="${1:?}"; shift
+    local prTitle="${1:?}"; shift
+
+    printf '%d\t%s(%s, @%d)%s\t%s#%d%s %s%s%s\n' \
+	$duration \
+	"$HUB_PRREVIEWDURATION_COLOR_REVIEWER" "$username" "$epoch" "$HUB_PRREVIEWDURATION_COLOR_RESET" \
+	"$HUB_PRREVIEWDURATION_COLOR_PRID" "$prId" "$HUB_PRREVIEWDURATION_COLOR_RESET" \
+	"${prTitle:+$HUB_PRREVIEWDURATION_COLOR_PRTITLE}" "$prTitle" "${prTitle:+$HUB_PRREVIEWDURATION_COLOR_RESET}"
+}
+
+renderDuration()
+{
+    reldate --date-pattern '' \
+	| eval "secondsToDuration --match '^&' --precision 7 \"\${secondsToDurationAlignmentArgs[@]}\"" \
+	"${formatter:+|}" '"${formatter[@]}"'
+}
+
+summarize()
+{
+    if [ ${#statisticsArgs[@]} -eq 0 ]; then
+	STATISTICS_PRECISION=0 acceptStatus 0 99 statistics \
+	    | secondsToDuration --precision 7 --skip '[N≠]:&'
+    else
+	STATISTICS_PRECISION=0 STATISTICS_SEP=$'\t' acceptStatus 0 99 statistics "${statisticsArgs[@]}"
+    fi
+}
+
+generateDeltas()
+{
+    apiCall "$@" \
+	| extractAndOrder \
+	| printDeltas
+}
+
+eval '$action' ${action:+'"$@"'} \
+    "${sorter:+${action:+|}}" '"${sorter[@]}"' \
+    "${summarizer:+| }$summarizer" \
+    "${pager:+|}" '"${pager[@]}"'

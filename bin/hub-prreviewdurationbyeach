@@ -1,0 +1,99 @@
+#!/bin/bash
+
+: ${HUB_PRREVIEWDURATIONBYEACH_GRAPH_SIZE:=1000,1000}
+: ${HUB_PRREVIEWDURATIONBYEACH_GRAPH_NOGUI:=dumb size ${COLUMNS:-80} $((${LINES:-25} - 3)) ansi}
+: ${HUB_PRREVIEWDURATIONBYEACH_GRAPH_GUI:=qt size $HUB_PRREVIEWDURATIONBYEACH_GRAPH_SIZE}
+: ${HUB_PRREVIEWDURATIONBYEACH_GRAPH_OUTPUT:=}
+
+readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
+[ -d "$scriptDir" ] || { echo >&2 'ERROR: Cannot determine script directory!'; exit 3; }
+readonly projectDir="${scriptDir}/.."
+readonly etcDir="${projectDir}/etc/byeach"
+
+printUsage()
+{
+    hub-prreviewduration --help 2>&1 | sed \
+	-e '1s#^.*$#Print durations from the opening / request of a pull request review to the\nactual review / comments on the PR, for each reviewer separately.#' \
+	-e '2b removeFirstParagraphLoop' \
+	-e '/^ *--raw/i\
+    --graph		Graph the durations per author.\
+    --graph-stdin	Graph the raw data read from stdin.' \
+	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ |]\+ \)*hub-prreviewduration /\1\2[HUB_PRREVIEWDURATIONBYEACH_GRAPH_SIZE=1000,1000] [HUB_PRREVIEWDURATIONBYEACH_GRAPH_OUTPUT=FILE.(png,svg)] '"$(basename "$1")"' /; s/\[--raw\]/[--graph|--graph-stdin|--raw]/; }' \
+	-e b -e :removeFirstParagraphLoop -e '{ /\(^\|\n\)$/{ s/^\(.*\n\)\?//; b; }; N; b removeFirstParagraphLoop; }'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+isRaw=
+typeset -a collector=(prreviewdurationbyeach)
+typeset -a grapher=()
+typeset -a logArgs=()
+typeset -a summaryArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--summary|-s)	summaryArgs+=("$1"); shift;;
+	--graph-stdin)	collector=();&
+	--graph)	shift; logArgs+=(--raw); isRaw=t; grapher=(gnuplotWrapper);;
+	--raw)		logArgs+=("$1"); shift; isRaw=t;;
+	--)		logArgs+=("$1"); shift; break;;
+	*)		logArgs+=("$1"); shift;;
+    esac
+done
+typeset segregatedusercommandHeaderArgs=(--with-header)
+if [ ${#summaryArgs[@]} -gt 0 ]; then
+    segregatedusercommandHeaderArgs=(--prefixed)
+    [ "$isRaw" ] || segregatedusercommandHeaderArgs+=(--tabular)
+fi
+
+typeset -a prreviewdurationCommand=(prreviewduration)
+if [ -n "$HUB_PRREVIEWDURATIONBYEACH_AGGREGATE_COMMAND" ]; then
+    eval "typeset -a prreviewdurationCommand=($HUB_PRREVIEWDURATIONBYEACH_AGGREGATE_COMMAND)"
+    set -- "$@" --  # Need a trailing -- to prevent that arguments from the aggregate command are parsed off as FILE(s) if it contains a -- itself. Passing <path>s for a multi-repo iteration likely doesn't make sense, anyway.
+fi
+
+gnuplotWrapper()
+{
+    case "${HUB_PRREVIEWDURATIONBYEACH_GRAPH_OUTPUT##*.}" in
+	png)
+	    local terminalSettings="png size $HUB_PRREVIEWDURATIONBYEACH_GRAPH_SIZE; set output '$HUB_PRREVIEWDURATIONBYEACH_GRAPH_OUTPUT'"
+	    ;;
+	svg)
+	    local terminalSettings="svg size $HUB_PRREVIEWDURATIONBYEACH_GRAPH_SIZE background 'white'; set output '$HUB_PRREVIEWDURATIONBYEACH_GRAPH_OUTPUT'"
+	    ;;
+	'') [ -n "$DISPLAY" ] \
+		&& local terminalSettings="$HUB_PRREVIEWDURATIONBYEACH_GRAPH_GUI" \
+		|| local terminalSettings="$HUB_PRREVIEWDURATIONBYEACH_GRAPH_NOGUI"
+	    ;;
+	*)  printf >&2 "ERROR: Unsupported output format '%s'.\\n" "${HUB_PRREVIEWDURATIONBYEACH_GRAPH_OUTPUT##*.}"; exit 2;;
+    esac
+
+    local hasTerm=; [ -t 1 ] && hasTerm=t
+    {
+	printf '$data << EOD\n'
+	if [ "$hasTerm" ]; then
+	    tee >(sampleLines --inline-always --clear --count author --transform-exec field --unbuffered --field-separator $'\t' 1 \; > /dev/tty)
+	else
+	    cat
+	fi
+	printf 'EOD\ndata = "$data"\nset terminal %s\n\n' "$terminalSettings"
+	printf "durationLabel = 'from PR open / review request until reaction'\n\n"
+	cat -- "${etcDir}/candlestick-setup.gnuplot" "${etcDir}/duration-setup.gnuplot" "${etcDir}/prreviewdurationbyeach.gnuplot"
+    } | gnuplot --persist
+}
+
+prreviewdurationbyeach()
+{
+    printf -v quotedSourceCommand '%q ' prreviewduration --print-reviewers "${logArgs[@]}" "$@"
+    HUB_PRREVIEWDURATION_EXIT_STATUS_NO_REVIEWS=0 \
+    GIT_SEGREGATEDUSERCOMMAND_PREFIX_SEPARATOR=$'\t' \
+    STATISTICS_SEP=$'\t' \
+    GIT_SEGREGATEDUSERCOMMAND_SOURCE_COMMAND="${quotedSourceCommand% }" \
+	git-segregated-user-command "${segregatedusercommandHeaderArgs[@]}" --option-name reviewer --files-for-command --keep-position \
+	    "${prreviewdurationCommand[@]}" USERFILTER "${logArgs[@]}" "${summaryArgs[@]}" "$@"
+}
+
+eval "\"\${collector[@]}\"${collector:+ "$@"}" \
+    "${collector:+${grapher:+|}}" '"${grapher[@]}"'

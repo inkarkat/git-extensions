@@ -85,6 +85,16 @@ Supports the following special commands and options:
 			    each user in working copies
 			    $GIT_DOEXTENSIONS_WHAT [that happened in
 			    the logged range]. [branch-range] is td, year, etc.
+     prs-reviewduration* [PRREVIEWDURATION-OPTIONS ...]
+			    Print durations from the opening / request of a pull
+			    request review to the actual review / comments on
+			    the PR in working copies $GIT_DOEXTENSIONS_WHAT
+			    * stands for any filter (mine, team, ...)
+     prs-reviewdurationbyeach [PRREVIEWDURATION-OPTIONS ...]
+			    Print durations from the opening / request of a pull
+			    request review to the actual review / comments on
+			    the PR for each reviewer separately in working
+			    copies $GIT_DOEXTENSIONS_WHAT
     untracked-sh [COMMAND ...]
 			    Open an interactive shell / execute COMMAND in those
 			    $GIT_DOEXTENSIONS_WHAT that have new files
@@ -237,8 +247,9 @@ byEachCommandExtension()
     # to obtain all users found in all working copies (not just the current
     # (potentially unrelated) one), and into $byEachCommand to iterate over all
     # working copies (for each user).
-    local byEachConfigVar="${byEachCommand#git-}"; byEachConfigVar="${byEachConfigVar^^}"
-    eval "export GIT_${byEachConfigVar}_AGGREGATE_COMMAND=\"\${quotedWcdoCommand}\${scopedAndFilteredByEachCommand}\""
+    local byEachConfigVar="${byEachCommand#@(git|hub)-}"
+    local byEachPrefix="${byEachCommand/%-$byEachConfigVar/}"
+    eval "export ${byEachPrefix^^}_${byEachConfigVar^^}_AGGREGATE_COMMAND=\"\${quotedWcdoCommand}\${scopedAndFilteredByEachCommand}\""
     GIT_SEGREGATEDUSERCOMMAND_AGGREGATE_COMMAND="${quotedWcdoCommand}" \
 	exec "$byEachCommand" "$@"
     # The exec aborts the original execution here, but that's fine as we'll be
@@ -574,6 +585,16 @@ parseCommand()
 		logsMsgStatCommand="git logmsgstat${1#logs-msgstat}"; shift
 		logOnlyAndStdinDualCommandExtension git-logmsgstat "$logsMsgStatCommand" "$@"
 		;;
+	    prs-reviewdurationbyeach)
+		shift
+		wcdoArgs+=(--predicate-command 'git-existsremote')
+		byEachCommandExtension hub-prreviewdurationbyeach prs-reviewduration "$@"
+		;;
+	    prs-reviewduration*)
+		wcdoArgs+=(--predicate-command 'git-existsremote')
+		hubPrreviewdurationCommand="hub-wrapper prreviewduration${1#prs-reviewduration}"; shift
+		logOnlyAndStdinDualCommandExtension hub-prreviewduration "$hubPrreviewdurationCommand" "$@"
+		;;
 	    *)
 		if git-br-variants --bare |  grep --quiet --fixed-strings --line-regexp "$1"; then
 		    case "$2" in
@@ -618,6 +639,8 @@ parseCommand()
 			    logOnlyAndStdinDualCommandExtension git-logmsgstat "$logsMsgStatCommand" "$@"
 			    set --
 			    ;;
+			# no br-variant form of prs-reviewdurationbyeach
+			# no br-variant form of prs-reviewduration*
 		    esac
 		fi
 

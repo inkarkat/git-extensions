@@ -14,7 +14,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-pager] [--prefixed [--tabular]|--with-header [--no-git-color]] [--committer] [--log-args-for-range|--log-args-only-for-range] [--files-for-range|--files-for-command] [--except-last] ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-option-name|--option-name NAME] [--no-pager] [--prefixed [--tabular]|--with-header [--no-git-color]] [--committer] [--log-args-for-range|--log-args-only-for-range] [--files-for-range|--files-for-command] [--except-last] ... [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... BASE ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
@@ -76,6 +76,7 @@ typeset -a formatter=()
 isGitColor=t
 typeset -a colorArg=()
 filter=author
+unset optionName
 subjectPlaceholder='%a'
 contextCommand=
 typeset -a specialLastArg=()
@@ -91,6 +92,10 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--no-option-name)
+			shift; optionName='';;
+	--option-name)
+			shift; optionName="--${1:?}="; shift;;
 	--no-pager)	shift; pager=();;
 	--prefixed)	shift
 			printf -v prefixSeparator %q "$GIT_SEGREGATEDUSERCOMMAND_PREFIX_SEPARATOR"
@@ -184,7 +189,7 @@ do
     esac
 done
 set -- "${args[@]}" "$@"
-replacementFilterOption="${GIT_SEGREGATEDUSERCOMMAND_FILTER_OPTION---${filter}=}"
+: ${optionName=--${filter}=}
 
 isCountedAppend=
 typeset -a countedArgs=()
@@ -199,7 +204,7 @@ case "$1" in
 
 	executor()
 	{
-	    typeset -a interpolatedCountedArgs=("${countedArgs[@]//USERFILTER/${replacementFilterOption}"${escapedAuthor:?}"}")
+	    typeset -a interpolatedCountedArgs=("${countedArgs[@]//USERFILTER/${optionName}"${escapedAuthor:?}"}")
 
 	    if [ "$isCountedAppend" ]; then
 		git-wrapper "$@" "${interpolatedCountedArgs[@]}"
@@ -214,13 +219,13 @@ case "$1" in
 
 	executor()
 	{
-	    git-wrapper "${countedArgs[@]//USERFILTER/${replacementFilterOption}"${escapedAuthor:?}"}" "$@"
+	    git-wrapper "${countedArgs[@]//USERFILTER/${optionName}"${escapedAuthor:?}"}" "$@"
 	}
 	;;
     *)	countedArgs=("$@"); set --
 	executor()
 	{
-	    git-wrapper "${countedArgs[@]}" ${replacementFilterOption}"${escapedAuthor:?}" "$@"
+	    git-wrapper "${countedArgs[@]}" ${optionName}"${escapedAuthor:?}" "$@"
 	}
 	;;
 esac

@@ -237,8 +237,9 @@ byEachCommandExtension()
     # to obtain all users found in all working copies (not just the current
     # (potentially unrelated) one), and into $byEachCommand to iterate over all
     # working copies (for each user).
-    local byEachConfigVar="${byEachCommand#git-}"; byEachConfigVar="${byEachConfigVar^^}"
-    eval "export GIT_${byEachConfigVar}_AGGREGATE_COMMAND=\"\${quotedWcdoCommand}\${scopedAndFilteredByEachCommand}\""
+    local byEachConfigVar="${byEachCommand#@(git|hub)-}"
+    local byEachPrefix="${byEachCommand/%-$byEachConfigVar/}"
+    eval "export ${byEachPrefix^^}_${byEachConfigVar^^}_AGGREGATE_COMMAND=\"\${quotedWcdoCommand}\${scopedAndFilteredByEachCommand}\""
     GIT_SEGREGATEDUSERCOMMAND_AGGREGATE_COMMAND="${quotedWcdoCommand}" \
 	exec "$byEachCommand" "$@"
     # The exec aborts the original execution here, but that's fine as we'll be

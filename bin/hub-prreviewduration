@@ -7,7 +7,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, they can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--reviewer=<pattern> [--reviewer ...]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -28,6 +28,9 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
+    --reviewer=<pattern>
+			Limit the reviews to those done by reviewers matching
+			the specified pattern (regular expression).
 SEE ALSO:
 - (Commands offering complementary functionality, or commands using this command.)
 
@@ -38,10 +41,13 @@ cla-exitstatus
 HELPTEXT
 }
 
+typeset -a reviewers=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--reviewer)	shift; reviewers+=("${1?}"); shift;;
+	--reviewer=*)	reviewers+=("${1#--reviewer=}"); shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -113,7 +119,9 @@ printDeltas()
     do
 	# echo >&2 "**** $prId $username $epoch $eventType"
 	if [ "$eventType" = '!' ]; then
-	    if [ -n "$previousEpoch" ]; then
+	    if [ -n "$previousEpoch" ] \
+	    	&& isMatchingReviewer "$username"
+	    then
 		printf '#%d\t%s\t%d\n' "${prId:?}" "${username:?}" $((${epoch:?} - ${previousEpoch:?}))
 	    fi
 	    previousPrId=''
@@ -127,6 +135,18 @@ printDeltas()
 	    previousEpoch=$epoch
 	fi
     done
+}
+
+isMatchingReviewer()
+{
+    local username="${1:?}"; shift
+    [ ${#reviewers[@]} -gt 0 ] || return 0
+
+    local reviewer; for reviewer in "${reviewers[@]}"
+    do
+    	[[ "$username" =~ $reviewer ]] && return 0
+    done
+    return 1
 }
 
 apiCall "$@" \

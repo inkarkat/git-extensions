@@ -239,7 +239,11 @@ readarray -t authors < <(
     [ -n "$GIT_SEGREGATEDUSERCOMMAND_AGGREGATE_COMMAND" ] \
 	&& eval "typeset -a aggregateCommand=($GIT_SEGREGATEDUSERCOMMAND_AGGREGATE_COMMAND)"
 
-    git-wrapper "${aggregateCommand[@]}" log --pretty="tformat:${subjectPlaceholder}N" "${logArgsForRange[@]}" ${isFilesForRange:+-- "${files[@]}"} \
+    typeset -a sourceCommand=(log --pretty="tformat:${subjectPlaceholder}N")
+    [ -n "$GIT_SEGREGATEDUSERCOMMAND_SOURCE_COMMAND" ] \
+	&& eval "typeset -a sourceCommand=($GIT_SEGREGATEDUSERCOMMAND_SOURCE_COMMAND)"
+
+    git-wrapper "${aggregateCommand[@]}" "${sourceCommand[@]}" "${logArgsForRange[@]}" ${isFilesForRange:+-- "${files[@]}"} \
 	| sort --unique
 )
 [ ${#authors[@]} -gt 0 ] || exit 99

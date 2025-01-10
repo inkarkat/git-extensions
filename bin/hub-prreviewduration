@@ -7,7 +7,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, they can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--reviewer=<pattern> [--reviewer ...]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--reviewer=<pattern> [--reviewer ...]] [--since=<date>] [--until=<date>] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -31,6 +31,10 @@ HELPDESCRIPTION
     --reviewer=<pattern>
 			Limit the reviews to those done by reviewers matching
 			the specified pattern (regular expression).
+    --since=<date>	Limit the reviews to those more recent than the
+			specified date.
+    --until=<date>	Limit the reviews to those older than the specified
+			date.
 SEE ALSO:
 - (Commands offering complementary functionality, or commands using this command.)
 
@@ -42,12 +46,18 @@ HELPTEXT
 }
 
 typeset -a reviewers=()
+sinceEpoch=
+untilEpoch=
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--reviewer)	shift; reviewers+=("${1?}"); shift;;
 	--reviewer=*)	reviewers+=("${1#--reviewer=}"); shift;;
+	--since=*)	sinceEpoch=$(date --date="${1#--since=}" +%s) || exit 2; shift;;
+	--since)	shift; sinceEpoch=$(date --date="${1:?}" +%s) || exit 2; shift;;
+	--until=*)	untilEpoch=$(date --date="${1#--until=}" +%s) || exit 2; shift;;
+	--until)	shift; untilEpoch=$(date --date="${1:?}" +%s) || exit 2; shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -120,6 +130,7 @@ printDeltas()
 	# echo >&2 "**** $prId $username $epoch $eventType"
 	if [ "$eventType" = '!' ]; then
 	    if [ -n "$previousEpoch" ] \
+	    	&& isMatchingDate $previousEpoch $epoch \
 	    	&& isMatchingReviewer "$username"
 	    then
 		printf '#%d\t%s\t%d\n' "${prId:?}" "${username:?}" $((${epoch:?} - ${previousEpoch:?}))
@@ -135,6 +146,17 @@ printDeltas()
 	    previousEpoch=$epoch
 	fi
     done
+}
+
+isMatchingDate()
+{
+    local date; for date
+    do
+	[ -z "$sinceEpoch" -o $date -ge ${sinceEpoch:-0} ] \
+	    && [ -z "$untilEpoch" -o $date -le ${untilEpoch:-0} ] \
+	    || return 1
+    done
+    return 0
 }
 
 isMatchingReviewer()

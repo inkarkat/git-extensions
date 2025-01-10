@@ -10,7 +10,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, they can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--color=(always|auto|never)|--no-color] [--reviewer=<pattern> [--reviewer ...]] [--since=<date>] [--until=<date>] [--sort-by-duration] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--color=(always|auto|never)|--no-color] [--reviewer=<pattern> [--reviewer ...]] [--since=<date>] [--until=<date>] [--sort-by-duration] [-s|--summary [--raw]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -40,6 +40,8 @@ HELPDESCRIPTION
 			date.
     --sort-by-duration	Order the output by the duration (descending).
 			The default sort order is by PR number, descending.
+    --summary|-s	Only print statistics about the durations.
+    --raw		Print just the bare, space-separated numbers.
 SEE ALSO:
 - (Commands offering complementary functionality, or commands using this command.)
 
@@ -60,7 +62,9 @@ typeset -a reviewers=()
 sinceEpoch=
 untilEpoch=
 typeset -a sorter=()
+isVerbose=t
 summarizer=renderDuration
+typeset -a statisticsArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -79,6 +83,8 @@ do
 	--until)	shift; untilEpoch=$(date --date="${1:?}" +%s) || exit 2; shift;;
 	--sort-by-duration)
 			shift; sorter=(sort --field-separator $'\t' -k3,3nr);;
+	--summary|-s)	shift; summarizer=summarize; isVerbose=; pager=();;
+	--raw)		statisticsArgs=("$1"); shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -155,7 +161,11 @@ printDeltas()
 	    	&& isMatchingDate $previousEpoch $epoch \
 	    	&& isMatchingReviewer "$username"
 	    then
-		printf '%s#%d%s\t%s%s%s\t%d\n' "$HUB_PRREVIEWDURATION_COLOR_PRID" "${prId:?}" "$HUB_PRREVIEWDURATION_COLOR_RESET" "$HUB_PRREVIEWDURATION_COLOR_REVIEWER" "${username:?}" "$HUB_PRREVIEWDURATION_COLOR_RESET" $((${epoch:?} - ${previousEpoch:?}))
+	    	if [ "$isVerbose" ]; then
+		    printf '%s#%d%s\t%s%s%s\t%d\n' "$HUB_PRREVIEWDURATION_COLOR_PRID" "${prId:?}" "$HUB_PRREVIEWDURATION_COLOR_RESET" "$HUB_PRREVIEWDURATION_COLOR_REVIEWER" "${username:?}" "$HUB_PRREVIEWDURATION_COLOR_RESET" $((${epoch:?} - ${previousEpoch:?}))
+		else
+		    printf '%d\n' $((${epoch:?} - ${previousEpoch:?}))
+		fi
 	    fi
 	    previousPrId=''
 	    previousUsername=''
@@ -196,6 +206,16 @@ isMatchingReviewer()
 renderDuration()
 {
     secondsToDuration --match $'\t&' --precision 7
+}
+
+summarize()
+{
+    if [ ${#statisticsArgs[@]} -eq 0 ]; then
+	STATISTICS_PRECISION=0 acceptStatus 0 99 statistics \
+	    | secondsToDuration --precision 7 --skip '[N≠]:&'
+    else
+	STATISTICS_PRECISION=0 STATISTICS_SEP=$'\t' acceptStatus 0 99 statistics "${statisticsArgs[@]}"
+    fi
 }
 
 apiCall "$@" \

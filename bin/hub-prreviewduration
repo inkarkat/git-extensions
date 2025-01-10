@@ -1,0 +1,134 @@
+#!/bin/bash
+
+: ${HUB_PRREVIEWDURATION_OWNER:='{owner}'}
+: ${HUB_PRREVIEWDURATION_REPO:='{repo}'}
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, they can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Print durations from the opening / request of a pull request review to the
+actual review / comments on the PR, by author and PR.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+SEE ALSO:
+- (Commands offering complementary functionality, or commands using this command.)
+
+RELATED COMMANDS:
+- (Alternatives from other authors, other approaches, references not used here.)
+
+cla-exitstatus
+HELPTEXT
+}
+
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+
+apiCall()
+{
+    memoizeCall --for 1h --successful-only \
+    	--memoize-group hub-prreviewduration \
+	--subject "$(git root)/${HUB_PRREVIEWDURATION_OWNER}/${HUB_PRREVIEWDURATION_REPO}" \
+    	-- hub api --paginate graphql \
+	    --raw-field query="
+query(\$endCursor: String) {
+    repository(owner: \"${HUB_PRREVIEWDURATION_OWNER}\", name: \"${HUB_PRREVIEWDURATION_REPO}\") {
+	pullRequests(first: 100, after: \$endCursor, states: [OPEN, CLOSED, MERGED]) {
+	    nodes {
+		number
+		createdAt
+		reviews(first: 100) {
+		    nodes {
+			author {
+			    login
+			}
+			submittedAt
+		    }
+		}
+		timelineItems(itemTypes: [REVIEW_REQUESTED_EVENT], first: 100) {
+		    nodes {
+			... on ReviewRequestedEvent {
+			    requestedReviewer {
+				__typename
+				... on User {
+				    login
+				}
+			    }
+			    createdAt
+			}
+		    }
+		}
+	    }
+	    pageInfo {
+		hasNextPage
+		endCursor
+	    }
+	}
+    }
+}"
+}
+
+extractAndOrder()
+{
+    jq --raw-output '
+	    .data.repository.pullRequests.nodes | .[]
+		| (.number | tostring) as $prNr
+		| (.createdAt | fromdateiso8601 | tostring) as $prDate
+		|
+		    (.timelineItems.nodes | .[] | $prNr + "\t" + .requestedReviewer.login + "\t" + (.createdAt | fromdateiso8601 | tostring) + "\t?"),
+		    (.reviews.nodes | .[] | $prNr + "\t" + .author.login + "\t" + $prDate + "\t*\n"
+			+ $prNr + "\t" + .author.login + "\t" + (.submittedAt | fromdateiso8601 | tostring) + "\t!"
+		    )' \
+	| sort --field-separator $'\t' --unique -k1,1n -k2,2 -k3,3n -k4,4
+}
+
+printDeltas()
+{
+    local previousPrId prId previousUsername username previousEpoch epoch eventType
+    while IFS=$'\t' read -r prId username epoch eventType
+    do
+	# echo >&2 "**** $prId $username $epoch $eventType"
+	if [ "$eventType" = '!' ]; then
+	    if [ -n "$previousEpoch" ]; then
+		printf '#%d\t%s\t%d\n' "${prId:?}" "${username:?}" $((${epoch:?} - ${previousEpoch:?}))
+	    fi
+	    previousPrId=''
+	    previousUsername=''
+	    previousEpoch=''
+	elif [ "$prId" = "$previousPrId" -a "$username" = "$previousUsername" ]; then
+	    previousEpoch=$epoch
+	else
+	    previousPrId=$prId
+	    previousUsername="$username"
+	    previousEpoch=$epoch
+	fi
+    done
+}
+
+apiCall "$@" \
+    | extractAndOrder \
+    | printDeltas

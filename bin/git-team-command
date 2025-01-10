@@ -11,13 +11,18 @@ Execute GIT-COMMAND with author filtering of names belonging to my team
 - replacing TEAM in the following +(N) arguments and appending those
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-option-name] GIT-COMMAND [...] [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-option-name] --keep-position GIT-COMMAND [... TEAM ...]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-option-name] [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-option-name] [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-option-name|--option-name NAME] ...'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... TEAM ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [...]'
 }
+
+optionName='--author='
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --no-option-name)	shift; optionName='';;
+    --option-name)	shift; optionName="--${1:?}="; shift;;
 esac
 
 gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit $?
@@ -34,12 +39,9 @@ if [ ${#team[@]} -eq 0 ]; then
     exit 2
 fi
 
-if [ "$1" = '--no-option-name' ]; then
-    shift
-    typeset -a teamArgs=("$(joinBy '\|' "${team[@]}")")
-else
-    typeset -a teamArgs=("${team[@]/#/--author=}")
-fi
+[ -n "$optionName" ] \
+    && typeset -a teamArgs=("${team[@]/#/$optionName}") \
+    || typeset -a teamArgs=("$(joinBy '\|' "${team[@]}")")
 
 if [ $# -eq 0 ]; then
     echo >&2 'ERROR: No GIT-COMMAND passed.'

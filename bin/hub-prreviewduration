@@ -10,7 +10,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, they can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--color=(always|auto|never)|--no-color] [--reviewer=<pattern> [--reviewer ...]] [--since=<date>] [--until=<date>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--color=(always|auto|never)|--no-color] [--reviewer=<pattern> [--reviewer ...]] [--since=<date>] [--until=<date>] [--sort-by-duration] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -38,6 +38,8 @@ HELPDESCRIPTION
 			specified date.
     --until=<date>	Limit the reviews to those older than the specified
 			date.
+    --sort-by-duration	Order the output by the duration (descending).
+			The default sort order is by PR number, descending.
 SEE ALSO:
 - (Commands offering complementary functionality, or commands using this command.)
 
@@ -57,6 +59,8 @@ fi
 typeset -a reviewers=()
 sinceEpoch=
 untilEpoch=
+typeset -a sorter=()
+summarizer=renderDuration
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -73,6 +77,8 @@ do
 	--since)	shift; sinceEpoch=$(date --date="${1:?}" +%s) || exit 2; shift;;
 	--until=*)	untilEpoch=$(date --date="${1#--until=}" +%s) || exit 2; shift;;
 	--until)	shift; untilEpoch=$(date --date="${1:?}" +%s) || exit 2; shift;;
+	--sort-by-duration)
+			shift; sorter=(sort --field-separator $'\t' -k3,3nr);;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -135,7 +141,7 @@ extractAndOrder()
 		    (.reviews.nodes | .[] | $prNr + "\t" + .author.login + "\t" + $prDate + "\t*\n"
 			+ $prNr + "\t" + .author.login + "\t" + (.submittedAt | fromdateiso8601 | tostring) + "\t!"
 		    )' \
-	| sort --field-separator $'\t' --unique -k1,1n -k2,2 -k3,3n -k4,4
+	| sort --field-separator $'\t' --unique -k1,1nr -k2,2 -k3,3n -k4,4
 }
 
 printDeltas()
@@ -187,7 +193,14 @@ isMatchingReviewer()
     return 1
 }
 
+renderDuration()
+{
+    secondsToDuration --match $'\t&' --precision 7
+}
+
 apiCall "$@" \
     | extractAndOrder \
     | eval printDeltas \
+    "${sorter:+|}" '"${sorter[@]}"' \
+    | eval "$summarizer" \
     "${pager:+|}" '"${pager[@]}"'

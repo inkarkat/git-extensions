@@ -11,31 +11,58 @@ Execute GIT-COMMAND with author filtering of names belonging to my team
 - replacing TEAM in the following +(N) arguments and appending those
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-option-name|--option-name NAME] ...'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-option-name|--option-name NAME] [-e|--email|-f|--full|--github|-w|--whoami] ...'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... GIT-COMMAND [...] [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... TEAM ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [...]'
 }
 
+submatch=1
 optionName='--author='
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-option-name)	shift; optionName='';;
-    --option-name)	shift; optionName="--${1:?}="; shift;;
-esac
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-option-name)
+			shift; optionName='';;
+	--option-name)	shift; optionName="--${1:?}="; shift;;
+	--email|-e)	shift; submatch=4;;
+	--full|-f)	shift; submatch=2;;
+	--github)	shift; submatch=6;;
+	--whoami|-w)	shift; submatch=0;;
+	--)		shift; break;;
+	*)		break;;
+    esac
+done
 
 gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit $?
 teamConfigFilespec="${gitDir}/teamnames"
 
-typeset -a team=()
+typeset -a teamRecords=()
 if [ -r "$teamConfigFilespec" ]; then
-    readarray -t team < "$teamConfigFilespec"
+    readarray -t teamRecords < "$teamConfigFilespec"
 elif [ -n "$GIT_TEAMNAMES" ]; then
-    readarray -t team <<<"$GIT_TEAMNAMES"
+    readarray -t teamRecords <<<"$GIT_TEAMNAMES"
 fi
+typeset -a team=()
+for record in "${teamRecords[@]}"
+do
+    if [[ "$record" =~ ^((^[^$'\t']+)([[:space:]]+(<[^>]*>))?)($'\t'([^[:space:]]+))?$ ]]; then
+	data="${BASH_REMATCH[$submatch]}"
+	data="${data/$'\t'/ → }"
+	if [ -n "$data" ]; then
+	    team+=("$data")
+	else
+	    typeset -a what=(complete name full - email - github)
+	    printf >&2 'Warning: Skipping empty %s data for: %s\n' "${what[$submatch]}" "$record"
+	fi
+    else
+	printf >&2 'Invalid team record: %s\n' "$record"
+    fi
+done
 if [ ${#team[@]} -eq 0 ]; then
-    echo >&2 "No team defined. Put the newline-separated list of user.name's into .git/teamnames or the GIT_TEAMNAMES environment variable."
+    echo >&2 "No team defined. Put the newline-separated list of 'user.name [<user.email>]\\t[github.username]' into .git/teamnames or the GIT_TEAMNAMES environment variable."
     exit 2
 fi
 

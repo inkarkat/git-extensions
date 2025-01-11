@@ -26,7 +26,14 @@ do
     esac
 done
 
+typeset -a logmsgstatCommand=(logmsgstat)
+if [ -n "$GIT_LOGMSGSTATOVERTIME_AGGREGATE_COMMAND" ]; then
+    eval "typeset -a logmsgstatCommand=($GIT_LOGMSGSTATOVERTIME_AGGREGATE_COMMAND)"
+    set -- "$@" --  # Need a trailing -- to prevent that arguments from the aggregate command are parsed off as FILE(s) if it contains a -- itself. Passing <path>s for a multi-repo iteration likely doesn't make sense, anyway.
+fi
+
 GIT_LOGMSGSTAT_EXIT_STATUS_NO_COMMITS=0 \
 GIT_PASTTIMESCOMMAND_PREFIX_SEPARATOR=$'\t' \
 STATISTICS_SEP=$'\t' \
-    exec git-pasttimes-command --prefixed "${pasttimesCommandHeaderArgs[@]}" "${pasttimesCommandArgs[@]}" -2 logmsgstat PASTTIMES "${logmsgstatArgs[@]}" "$@"
+    exec git-pasttimes-command --prefixed "${pasttimesCommandHeaderArgs[@]}" "${pasttimesCommandArgs[@]}" --keep-position \
+	"${logmsgstatCommand[@]}" PASTTIMES "${logmsgstatArgs[@]}" "$@"

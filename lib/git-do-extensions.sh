@@ -85,6 +85,12 @@ Supports the following special commands and options:
 			    each user in working copies
 			    $GIT_DOEXTENSIONS_WHAT [that happened in
 			    the logged range]. [branch-range] is td, year, etc.
+    [branch-range] logs-msgstat*over* [LOGMSGSTAT-OPTIONS ...] [<log-options>] [<revision range>]
+			    One-line statistics about the size of commit
+			    messages (excluding trailers and quoted parts)
+			    staggered for date ranges in working copies
+			    $GIT_DOEXTENSIONS_WHAT [that happened in
+			    the logged range]. [branch-range] is td, year, etc.
      prs-reviewduration* [PRREVIEWDURATION-OPTIONS ...]
 			    Print durations from the opening / request of a pull
 			    request review to the actual review / comments on
@@ -252,6 +258,24 @@ byEachCommandExtension()
     eval "export ${byEachPrefix^^}_${byEachConfigVar^^}_AGGREGATE_COMMAND=\"\${quotedWcdoCommand}\${scopedAndFilteredByEachCommand}\""
     GIT_SEGREGATEDUSERCOMMAND_AGGREGATE_COMMAND="${quotedWcdoCommand}" \
 	exec "$byEachCommand" "$@"
+    # The exec aborts the original execution here, but that's fine as we'll be
+    # invoked repeatedly for each user.
+}
+
+overtimeCommandExtension()
+{
+    local aggregateCommandConfigVarPrefix="${1:?}"; shift
+    local overtimeCommand="${1:?}"; shift
+    local scopedAndFilteredOvertimeCommand="${1:?}"; shift
+    local wcdoCommand="$(basename -- "$0")"; wcdoCommand="${wcdoCommand#git-}"
+    local quotedWcdoCommand; printf -v quotedWcdoCommand '%q ' "$wcdoCommand" "${wcdoCommandArgs[@]}" --no-header --no-git-color "${wcdoArgs[@]}" "${dashdashArgs[@]}" "${args[@]}"
+
+    # The current wcdo-command needs to be injected into $overtimeCommand to iterate
+    # over all working copies (for each date range). Unlike
+    # byEachCommandExtension(), we don't need to obtain users across all working
+    # copies here; the date ranges are the same everywhere.
+    eval "export ${aggregateCommandConfigVarPrefix}_AGGREGATE_COMMAND=\"\${quotedWcdoCommand}\${scopedAndFilteredOvertimeCommand}\""
+	exec $overtimeCommand "$@"
     # The exec aborts the original execution here, but that's fine as we'll be
     # invoked repeatedly for each user.
 }
@@ -581,6 +605,12 @@ parseCommand()
 		shift
 		byEachCommandExtension git-logmsgstatbyeach logs-msgstat "$@"
 		;;
+	    logs-msgstat*over*)
+		logMsgStatCommand="git log${1#logs-}"
+		logMsgStatSynthesizedCommand="${1%over*}"
+		shift
+		overtimeCommandExtension GIT_LOGMSGSTATOVERTIME "$logMsgStatCommand" "$logMsgStatSynthesizedCommand" "$@"
+		;;
 	    logs-msgstat*)
 		logsMsgStatCommand="git logmsgstat${1#logs-msgstat}"; shift
 		logOnlyAndStdinDualCommandExtension git-logmsgstat "$logsMsgStatCommand" "$@"
@@ -631,8 +661,14 @@ parseCommand()
 			    set --
 			    ;;
 			logs-msgstatbyeach)
-			    logMsgStatCommand="$1 logs-msgstat"; shift; shift
-			    byEachCommandExtension git-logmsgstatbyeach "$logMsgStatCommand" "$@"
+			    logMsgStatSynthesizedCommand="$1 logs-msgstat"; shift; shift
+			    byEachCommandExtension git-logmsgstatbyeach "$logMsgStatSynthesizedCommand" "$@"
+			    ;;
+			logs-msgstat*over*)
+			    logMsgStatCommand="git log${2#logs-}"
+			    logMsgStatSynthesizedCommand="$1 ${2%over*}"
+			    shift; shift
+			    overtimeCommandExtension GIT_LOGMSGSTATOVERTIME "$logMsgStatCommand" "$logMsgStatSynthesizedCommand" "$@"
 			    ;;
 			logs-msgstat*)
 			    logsMsgStatCommand="git $1 logmsgstat${2#logs-msgstat}"; shift; shift

@@ -107,6 +107,11 @@ Supports the following special commands and options:
 			    request review to the actual review / comments on
 			    the PR for each reviewer separately in working
 			    copies $GIT_DOEXTENSIONS_WHAT
+     prs-reviewduration*over* [PRREVIEWDURATION-OPTIONS ...]
+			    Print durations from the opening / request of a pull
+			    request review to the actual review / comments on
+			    the PR staggered for date ranges in working
+			    copies $GIT_DOEXTENSIONS_WHAT
     untracked-sh [COMMAND ...]
 			    Open an interactive shell / execute COMMAND in those
 			    $GIT_DOEXTENSIONS_WHAT that have new files
@@ -630,6 +635,12 @@ parseCommand()
 		shift
 		wcdoArgs+=(--predicate-command 'git-existsremote')
 		byEachCommandExtension HUB_PRREVIEWDURATIONBYEACH hub-prreviewdurationbyeach prs-reviewduration "$@"
+		;;
+	    prs-reviewduration*over*)
+		prReviewDurationCommand="hub pr${1#prs-}"
+		prReviewDurationSynthesizedCommand="${1%over*}"
+		shift
+		overtimeCommandExtension HUB_PRREVIEWDURATIONOVERTIME "$prReviewDurationCommand" "$prReviewDurationSynthesizedCommand" "$@"
 		;;
 	    prs-reviewduration*)
 		wcdoArgs+=(--predicate-command 'git-existsremote')

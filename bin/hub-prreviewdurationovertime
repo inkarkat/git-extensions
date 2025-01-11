@@ -35,7 +35,14 @@ if [ "$isSummary" ] && [ ${#pasttimesCommandHeaderArgs[@]} -eq 0 ]; then
     [ "$isRaw" ] || pasttimesCommandHeaderArgs+=(--tabular)
 fi
 
+typeset -a prreviewdurationCommand=(prreviewduration)
+if [ -n "$HUB_PRREVIEWDURATIONOVERTIME_AGGREGATE_COMMAND" ]; then
+    eval "typeset -a prreviewdurationCommand=($HUB_PRREVIEWDURATIONOVERTIME_AGGREGATE_COMMAND)"
+    set -- "$@" --  # Need a trailing -- to prevent that arguments from the aggregate command are parsed off as FILE(s) if it contains a -- itself. Passing <path>s for a multi-repo iteration likely doesn't make sense, anyway.
+fi
+
 HUB_PRREVIEWDURATION_EXIT_STATUS_NO_REVIEWS=0 \
 GIT_PASTTIMESCOMMAND_PREFIX_SEPARATOR=$'\t' \
 STATISTICS_SEP=$'\t' \
-    exec git-pasttimes-command "${pasttimesCommandHeaderArgs[@]}" "${pasttimesCommandArgs[@]}" -2 prreviewduration PASTTIMES "${prreviewdurationArgs[@]}" "$@"
+    exec git-pasttimes-command "${pasttimesCommandHeaderArgs[@]}" "${pasttimesCommandArgs[@]}" --keep-position \
+	"${prreviewdurationCommand[@]}" PASTTIMES "${prreviewdurationArgs[@]}" "$@"

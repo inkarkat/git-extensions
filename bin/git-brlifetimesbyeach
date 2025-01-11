@@ -24,7 +24,8 @@ printUsage()
 	-e '/^ *--raw/i\
     --graph		Graph the durations and commit counts per author.\
     --graph-stdin	Graph the raw data read from stdin.' \
-	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ |]\+ \)*git-brlifetimes /\1\2[GIT_BRLIFETIMESBYEACH_GRAPH_SIZE=1000,1000] [GIT_BRLIFETIMESBYEACH_GRAPH_OUTPUT=FILE.(png,svg)] '"$(basename "$1")"' /; s/ \[--creator=<pattern>\]//; s/\[--raw\]/[--graph|--graph-stdin|--raw]/; }' \
+	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ |]\+ \)*git-brlifetimes /\1\2'"$(basename "$1")"' /; s/ \[--creator=<pattern>\]//; s/git-brlifetimes /'"$(basename "$1")"' /; H; s/--commits-summary/&|--graph/; }' \
+	-e '/--stdin/{ p; g; s/ \[--sort-by-commits|--sort-by-duration|(-s|--summary|--duration-summary|--commits-summary) \[--raw\]\]/ --summary --raw/; s/ \[-?|-h|--help\].* | / | [GIT_BRLIFETIMESBYEACH_GRAPH_SIZE=1000,1000] [GIT_BRLIFETIMESBYEACH_GRAPH_OUTPUT=FILE.(png,svg)] /; s/--stdin.*$/--graph-stdin [--creator=<pattern>] [--net-commits]/; }' \
 	-e b -e :removeFirstParagraphLoop -e '{ /\(^\|\n\)$/{ s/^\(.*\n\)\?//; b; }; N; b removeFirstParagraphLoop; }' \
 	-e b -e :removeOptionLoop -e '{ /\n *--foo|-f[^\n]*$/{ N; b removeOptionLoop; }; /\n *--[^\n]*$\|\n[^	 ]\|\n$/{ s/^\(.*\n\)\?//; b; }; N; b removeOptionLoop; }'
 }

@@ -18,7 +18,8 @@ printUsage()
 	-e '/^ *--raw/i\
     --graph		Graph the durations per author.\
     --graph-stdin	Graph the raw data read from stdin.' \
-	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ |]\+ \)*hub-prreviewduration /\1\2[HUB_PRREVIEWDURATIONBYEACH_GRAPH_SIZE=1000,1000] [HUB_PRREVIEWDURATIONBYEACH_GRAPH_OUTPUT=FILE.(png,svg)] '"$(basename "$1")"' /; s/\[--raw\]/[--graph|--graph-stdin|--raw]/; }' \
+	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ |]\+ \)*hub-prreviewduration /\1\2'"$(basename "$1")"' /; s/hub-prreviewduration /'"$(basename "$1")"' /; H; s/--raw/&|--graph/; }' \
+	-e '/--stdin/{ p; g; s/ \[--sort-by-duration|--sort-by-reviewdate\] \[-s|--summary \[--raw\]\]/ --summary --raw/; s/ \[-?|-h|--help\].* | / | [HUB_PRREVIEWDURATIONBYEACH_GRAPH_SIZE=1000,1000] [HUB_PRREVIEWDURATIONBYEACH_GRAPH_OUTPUT=FILE.(png,svg)] /; s/--stdin.*$/--graph-stdin/; }' \
 	-e b -e :removeFirstParagraphLoop -e '{ /\(^\|\n\)$/{ s/^\(.*\n\)\?//; b; }; N; b removeFirstParagraphLoop; }'
 }
 case "$1" in

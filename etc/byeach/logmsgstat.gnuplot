@@ -1,7 +1,7 @@
 set key
 set bmargin
 set format x "%g"
-set xlabel "Authors"
+set xlabel xLabel
 unset ytics; set ytics
 set ylabel "number of words in commit message"
 set logscale y

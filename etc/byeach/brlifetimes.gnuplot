@@ -24,7 +24,7 @@ set label 3 "large" at graph 0,1 offset character 2,-1
 set key
 set bmargin
 set format x "%g"
-set xlabel "Authors"
+set xlabel xLabel
 unset ytics; set ytics
 set ylabel "number of commits"
 unset logscale y

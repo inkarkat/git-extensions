@@ -244,6 +244,7 @@ logOnlyAndStdinDualCommandExtension()
 
 byEachCommandExtension()
 {
+    local aggregateCommandConfigVarPrefix="${1:?}"; shift
     local byEachCommand="${1:?}"; shift
     local scopedAndFilteredByEachCommand="${1:?}"; shift
     local wcdoCommand="$(basename -- "$0")"; wcdoCommand="${wcdoCommand#git-}"
@@ -253,11 +254,9 @@ byEachCommandExtension()
     # to obtain all users found in all working copies (not just the current
     # (potentially unrelated) one), and into $byEachCommand to iterate over all
     # working copies (for each user).
-    local byEachConfigVar="${byEachCommand#@(git|hub)-}"
-    local byEachPrefix="${byEachCommand/%-$byEachConfigVar/}"
-    eval "export ${byEachPrefix^^}_${byEachConfigVar^^}_AGGREGATE_COMMAND=\"\${quotedWcdoCommand}\${scopedAndFilteredByEachCommand}\""
+    eval "export ${aggregateCommandConfigVarPrefix}_AGGREGATE_COMMAND=\"\${quotedWcdoCommand}\${scopedAndFilteredOvertimeCommand}\""
     GIT_SEGREGATEDUSERCOMMAND_AGGREGATE_COMMAND="${quotedWcdoCommand}" \
-	exec "$byEachCommand" "$@"
+	exec $byEachCommand "$@"
     # The exec aborts the original execution here, but that's fine as we'll be
     # invoked repeatedly for each user.
 }
@@ -595,7 +594,7 @@ parseCommand()
 		;;
 	    br-lifetimesbyeach)
 		shift
-		byEachCommandExtension git-brlifetimesbyeach br-lifetimes "$@"
+		byEachCommandExtension GIT_BRLIFETIMESBYEACH git-brlifetimesbyeach br-lifetimes "$@"
 		;;
 	    br-lifetimes*)
 		brLifetimesCommand="git brlifetimes${1#br-lifetimes}"; shift
@@ -603,7 +602,7 @@ parseCommand()
 		;;
 	    logs-msgstatbyeach)
 		shift
-		byEachCommandExtension git-logmsgstatbyeach logs-msgstat "$@"
+		byEachCommandExtension GIT_LOGMSGSTATBYEACH git-logmsgstatbyeach logs-msgstat "$@"
 		;;
 	    logs-msgstat*over*)
 		logMsgStatCommand="git log${1#logs-}"
@@ -618,7 +617,7 @@ parseCommand()
 	    prs-reviewdurationbyeach)
 		shift
 		wcdoArgs+=(--predicate-command 'git-existsremote')
-		byEachCommandExtension hub-prreviewdurationbyeach prs-reviewduration "$@"
+		byEachCommandExtension HUB_PRREVIEWDURATIONBYEACH hub-prreviewdurationbyeach prs-reviewduration "$@"
 		;;
 	    prs-reviewduration*)
 		wcdoArgs+=(--predicate-command 'git-existsremote')
@@ -653,7 +652,7 @@ parseCommand()
 			    ;;
 			br-lifetimesbyeach)
 			    brLifetimesSynthesizedCommand="$1 br-lifetimes"; shift; shift
-			    byEachCommandExtension git-brlifetimesbyeach "$brLifetimesSynthesizedCommand" "$@"
+			    byEachCommandExtension GIT_BRLIFETIMESBYEACH git-brlifetimesbyeach "$brLifetimesSynthesizedCommand" "$@"
 			    ;;
 			br-lifetimes*)
 			    brLifetimesCommand="git $1 brlifetimes${2#br-lifetimes}"; shift; shift
@@ -662,7 +661,7 @@ parseCommand()
 			    ;;
 			logs-msgstatbyeach)
 			    logMsgStatSynthesizedCommand="$1 logs-msgstat"; shift; shift
-			    byEachCommandExtension git-logmsgstatbyeach "$logMsgStatSynthesizedCommand" "$@"
+			    byEachCommandExtension GIT_LOGMSGSTATBYEACH git-logmsgstatbyeach "$logMsgStatSynthesizedCommand" "$@"
 			    ;;
 			logs-msgstat*over*)
 			    logMsgStatCommand="git log${2#logs-}"

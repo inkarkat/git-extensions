@@ -72,6 +72,12 @@ Supports the following special commands and options:
 			    branches for each user in working copies
 			    $GIT_DOEXTENSIONS_WHAT [that happened in
 			    the logged range]. [branch-range] is td, year, etc.
+    [branch-range] br-lifetimes*over* [BRLIFETIMES-OPTIONS ...] [<log-options>] [<revision range>]
+			    One-line lifetime, number of commits, commit range,
+			    author, date, tags and commit summary of merged
+			    branches staggered for date ranges in working copies
+			    $GIT_DOEXTENSIONS_WHAT [that happened in
+			    the logged range]. [branch-range] is td, year, etc.
     [branch-range] logs-msgstat* [LOGMSGSTAT-OPTIONS ...] [<log-options>] [<revision range>] [[--] <path>...]
 			    One-line statistics about the size of commit
 			    messages (excluding trailers and quoted parts) in
@@ -85,6 +91,12 @@ Supports the following special commands and options:
 			    each user in working copies
 			    $GIT_DOEXTENSIONS_WHAT [that happened in
 			    the logged range]. [branch-range] is td, year, etc.
+    [branch-range] logs-msgstat*over* [LOGMSGSTAT-OPTIONS ...] [<log-options>] [<revision range>]
+			    One-line statistics about the size of commit
+			    messages (excluding trailers and quoted parts)
+			    staggered for date ranges in working copies
+			    $GIT_DOEXTENSIONS_WHAT [that happened in
+			    the logged range]. [branch-range] is td, year, etc.
      prs-reviewduration* [PRREVIEWDURATION-OPTIONS ...]
 			    Print durations from the opening / request of a pull
 			    request review to the actual review / comments on
@@ -94,6 +106,11 @@ Supports the following special commands and options:
 			    Print durations from the opening / request of a pull
 			    request review to the actual review / comments on
 			    the PR for each reviewer separately in working
+			    copies $GIT_DOEXTENSIONS_WHAT
+     prs-reviewduration*over* [PRREVIEWDURATION-OPTIONS ...]
+			    Print durations from the opening / request of a pull
+			    request review to the actual review / comments on
+			    the PR staggered for date ranges in working
 			    copies $GIT_DOEXTENSIONS_WHAT
     untracked-sh [COMMAND ...]
 			    Open an interactive shell / execute COMMAND in those
@@ -238,6 +255,7 @@ logOnlyAndStdinDualCommandExtension()
 
 byEachCommandExtension()
 {
+    local aggregateCommandConfigVarPrefix="${1:?}"; shift
     local byEachCommand="${1:?}"; shift
     local scopedAndFilteredByEachCommand="${1:?}"; shift
     local wcdoCommand="$(basename -- "$0")"; wcdoCommand="${wcdoCommand#git-}"
@@ -247,11 +265,27 @@ byEachCommandExtension()
     # to obtain all users found in all working copies (not just the current
     # (potentially unrelated) one), and into $byEachCommand to iterate over all
     # working copies (for each user).
-    local byEachConfigVar="${byEachCommand#@(git|hub)-}"
-    local byEachPrefix="${byEachCommand/%-$byEachConfigVar/}"
-    eval "export ${byEachPrefix^^}_${byEachConfigVar^^}_AGGREGATE_COMMAND=\"\${quotedWcdoCommand}\${scopedAndFilteredByEachCommand}\""
+    eval "export ${aggregateCommandConfigVarPrefix}_AGGREGATE_COMMAND=\"\${quotedWcdoCommand}\${scopedAndFilteredOvertimeCommand}\""
     GIT_SEGREGATEDUSERCOMMAND_AGGREGATE_COMMAND="${quotedWcdoCommand}" \
-	exec "$byEachCommand" "$@"
+	exec $byEachCommand "$@"
+    # The exec aborts the original execution here, but that's fine as we'll be
+    # invoked repeatedly for each user.
+}
+
+overtimeCommandExtension()
+{
+    local aggregateCommandConfigVarPrefix="${1:?}"; shift
+    local overtimeCommand="${1:?}"; shift
+    local scopedAndFilteredOvertimeCommand="${1:?}"; shift
+    local wcdoCommand="$(basename -- "$0")"; wcdoCommand="${wcdoCommand#git-}"
+    local quotedWcdoCommand; printf -v quotedWcdoCommand '%q ' "$wcdoCommand" "${wcdoCommandArgs[@]}" --no-header --no-git-color "${wcdoArgs[@]}" "${dashdashArgs[@]}" "${args[@]}"
+
+    # The current wcdo-command needs to be injected into $overtimeCommand to iterate
+    # over all working copies (for each date range). Unlike
+    # byEachCommandExtension(), we don't need to obtain users across all working
+    # copies here; the date ranges are the same everywhere.
+    eval "export ${aggregateCommandConfigVarPrefix}_AGGREGATE_COMMAND=\"\${quotedWcdoCommand}\${scopedAndFilteredOvertimeCommand}\""
+	exec $overtimeCommand "$@"
     # The exec aborts the original execution here, but that's fine as we'll be
     # invoked repeatedly for each user.
 }
@@ -571,7 +605,13 @@ parseCommand()
 		;;
 	    br-lifetimesbyeach)
 		shift
-		byEachCommandExtension git-brlifetimesbyeach br-lifetimes "$@"
+		byEachCommandExtension GIT_BRLIFETIMESBYEACH git-brlifetimesbyeach br-lifetimes "$@"
+		;;
+	    br-lifetimes*over*)
+		brLifetimesCommand="git br${1#br-}"
+		brLifetimesSynthesizedCommand="${1%over*}"
+		shift
+		overtimeCommandExtension GIT_BRLIFETIMESOVERTIME "$brLifetimesCommand" "$brLifetimesSynthesizedCommand" "$@"
 		;;
 	    br-lifetimes*)
 		brLifetimesCommand="git brlifetimes${1#br-lifetimes}"; shift
@@ -579,7 +619,13 @@ parseCommand()
 		;;
 	    logs-msgstatbyeach)
 		shift
-		byEachCommandExtension git-logmsgstatbyeach logs-msgstat "$@"
+		byEachCommandExtension GIT_LOGMSGSTATBYEACH git-logmsgstatbyeach logs-msgstat "$@"
+		;;
+	    logs-msgstat*over*)
+		logMsgStatCommand="git log${1#logs-}"
+		logMsgStatSynthesizedCommand="${1%over*}"
+		shift
+		overtimeCommandExtension GIT_LOGMSGSTATOVERTIME "$logMsgStatCommand" "$logMsgStatSynthesizedCommand" "$@"
 		;;
 	    logs-msgstat*)
 		logsMsgStatCommand="git logmsgstat${1#logs-msgstat}"; shift
@@ -588,7 +634,13 @@ parseCommand()
 	    prs-reviewdurationbyeach)
 		shift
 		wcdoArgs+=(--predicate-command 'git-existsremote')
-		byEachCommandExtension hub-prreviewdurationbyeach prs-reviewduration "$@"
+		byEachCommandExtension HUB_PRREVIEWDURATIONBYEACH hub-prreviewdurationbyeach prs-reviewduration "$@"
+		;;
+	    prs-reviewduration*over*)
+		prReviewDurationCommand="hub pr${1#prs-}"
+		prReviewDurationSynthesizedCommand="${1%over*}"
+		shift
+		overtimeCommandExtension HUB_PRREVIEWDURATIONOVERTIME "$prReviewDurationCommand" "$prReviewDurationSynthesizedCommand" "$@"
 		;;
 	    prs-reviewduration*)
 		wcdoArgs+=(--predicate-command 'git-existsremote')
@@ -622,8 +674,14 @@ parseCommand()
 			    set --
 			    ;;
 			br-lifetimesbyeach)
-			    brLifetimesCommand="$1 brlifetimes"; shift; shift
-			    byEachCommandExtension git-brlifetimesbyeach "$brLifetimesCommand" "$@"
+			    brLifetimesSynthesizedCommand="$1 br-lifetimes"; shift; shift
+			    byEachCommandExtension GIT_BRLIFETIMESBYEACH git-brlifetimesbyeach "$brLifetimesSynthesizedCommand" "$@"
+			    ;;
+			br-lifetimes*over*)
+			    brLifetimesCommand="git br${2#br-}"
+			    brLifetimesSynthesizedCommand="$1 ${2%over*}"
+			    shift; shift
+			    overtimeCommandExtension GIT_BRLIFETIMESOVERTIME "$brLifetimesCommand" "$brLifetimesSynthesizedCommand" "$@"
 			    ;;
 			br-lifetimes*)
 			    brLifetimesCommand="git $1 brlifetimes${2#br-lifetimes}"; shift; shift
@@ -631,8 +689,14 @@ parseCommand()
 			    set --
 			    ;;
 			logs-msgstatbyeach)
-			    logMsgStatCommand="$1 logs-msgstat"; shift; shift
-			    byEachCommandExtension git-logmsgstatbyeach "$logMsgStatCommand" "$@"
+			    logMsgStatSynthesizedCommand="$1 logs-msgstat"; shift; shift
+			    byEachCommandExtension GIT_LOGMSGSTATBYEACH git-logmsgstatbyeach "$logMsgStatSynthesizedCommand" "$@"
+			    ;;
+			logs-msgstat*over*)
+			    logMsgStatCommand="git log${2#logs-}"
+			    logMsgStatSynthesizedCommand="$1 ${2%over*}"
+			    shift; shift
+			    overtimeCommandExtension GIT_LOGMSGSTATOVERTIME "$logMsgStatCommand" "$logMsgStatSynthesizedCommand" "$@"
 			    ;;
 			logs-msgstat*)
 			    logsMsgStatCommand="git $1 logmsgstat${2#logs-msgstat}"; shift; shift

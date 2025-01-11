@@ -622,8 +622,8 @@ parseCommand()
 			    set --
 			    ;;
 			br-lifetimesbyeach)
-			    brLifetimesCommand="$1 brlifetimes"; shift; shift
-			    byEachCommandExtension git-brlifetimesbyeach "$brLifetimesCommand" "$@"
+			    brLifetimesSynthesizedCommand="$1 br-lifetimes"; shift; shift
+			    byEachCommandExtension git-brlifetimesbyeach "$brLifetimesSynthesizedCommand" "$@"
 			    ;;
 			br-lifetimes*)
 			    brLifetimesCommand="git $1 brlifetimes${2#br-lifetimes}"; shift; shift

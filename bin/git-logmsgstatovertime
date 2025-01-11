@@ -1,15 +1,30 @@
 #!/bin/bash
 shopt -qs extglob
 
+: ${GIT_LOGMSGSTATOVERTIME_GRAPH_SIZE:=1000,1000}
+: ${GIT_LOGMSGSTATOVERTIME_GRAPH_NOGUI:=dumb size ${COLUMNS:-80} $((${LINES:-25} - 3)) ansi}
+: ${GIT_LOGMSGSTATOVERTIME_GRAPH_GUI:=qt size $GIT_LOGMSGSTATOVERTIME_GRAPH_SIZE}
+: ${GIT_LOGMSGSTATOVERTIME_GRAPH_OUTPUT:=}
+
+readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
+[ -d "$scriptDir" ] || { echo >&2 'ERROR: Cannot determine script directory!'; exit 3; }
+readonly projectDir="${scriptDir}/.."
+readonly etcDir="${projectDir}/etc/byeach"
+
 printUsage()
 {
     git-logmsgstat --help 2>&1 | sed \
 	-e '1s#^.*$#Show one-line statistics about the size of commit messages (excluding trailers\nand quoted parts) staggered for date ranges: today, last week, last 30 days,\nlast year.#' \
 	-e '2b removeFirstParagraphLoop' \
-	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ |]\+ \)*git-logmsgstat /\1\2'"$(basename "$1")"' [--no-pager] [--no-header] [--separate-errors] [--no-git-color] [--fine|--weekly|--monthly|--yearly] /; }' \
+	-e '/^ *--raw/i\
+    --graph		Graph the commit message counts over date ranges.\
+    --graph-stdin	Graph the raw data read from stdin.' \
+	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ |]\+ \)*git-logmsgstat /\1\2'"$(basename "$1")"' [--no-pager] [--no-header] [--separate-errors] [--no-git-color] [--fine|--weekly|--monthly|--yearly] /; s/\[--raw\]/[--graph|--graph-stdin|--raw]/; }' \
 	-e b -e :removeFirstParagraphLoop -e '{ /\(^\|\n\)$/{ s/^\(.*\n\)\?//; b; }; N; b removeFirstParagraphLoop; }'
 }
 
+typeset -a collector=(logmsgstatovertime)
+typeset -a grapher=()
 typeset -a logmsgstatArgs=()
 typeset -a pasttimesCommandArgs=()
 typeset -a pasttimesCommandHeaderArgs=(--tabular)
@@ -20,6 +35,8 @@ do
 
 	--@(no-pager|no-header|separate-errors|no-git-color|fine|weekly|monthly|yearly))
 			pasttimesCommandArgs+=("$1"); shift;;
+	--graph-stdin)	collector=();&
+	--graph)	shift; logmsgstatArgs+=(--raw); pasttimesCommandHeaderArgs=(); grapher=(gnuplotWrapper);;
 	--raw)		logmsgstatArgs+=("$1"); shift; pasttimesCommandHeaderArgs=();;
 	--)		logmsgstatArgs+=("$1"); shift; break;;
 	*)		logmsgstatArgs+=("$1"); shift;;
@@ -32,8 +49,44 @@ if [ -n "$GIT_LOGMSGSTATOVERTIME_AGGREGATE_COMMAND" ]; then
     set -- "$@" --  # Need a trailing -- to prevent that arguments from the aggregate command are parsed off as FILE(s) if it contains a -- itself. Passing <path>s for a multi-repo iteration likely doesn't make sense, anyway.
 fi
 
-GIT_LOGMSGSTAT_EXIT_STATUS_NO_COMMITS=0 \
-GIT_PASTTIMESCOMMAND_PREFIX_SEPARATOR=$'\t' \
-STATISTICS_SEP=$'\t' \
-    exec git-pasttimes-command --prefixed "${pasttimesCommandHeaderArgs[@]}" "${pasttimesCommandArgs[@]}" --keep-position \
-	"${logmsgstatCommand[@]}" PASTTIMES "${logmsgstatArgs[@]}" "$@"
+gnuplotWrapper()
+{
+    case "${GIT_LOGMSGSTATOVERTIME_GRAPH_OUTPUT##*.}" in
+	png)
+	    local terminalSettings="png size $GIT_LOGMSGSTATOVERTIME_GRAPH_SIZE; set output '$GIT_LOGMSGSTATOVERTIME_GRAPH_OUTPUT'"
+	    ;;
+	svg)
+	    local terminalSettings="svg size $GIT_LOGMSGSTATOVERTIME_GRAPH_SIZE background 'white'; set output '$GIT_LOGMSGSTATOVERTIME_GRAPH_OUTPUT'"
+	    ;;
+	'') [ -n "$DISPLAY" ] \
+		&& local terminalSettings="$GIT_LOGMSGSTATOVERTIME_GRAPH_GUI" \
+		|| local terminalSettings="$GIT_LOGMSGSTATOVERTIME_GRAPH_NOGUI"
+	    ;;
+	*)  printf >&2 "ERROR: Unsupported output format '%s'.\\n" "${GIT_LOGMSGSTATOVERTIME_GRAPH_OUTPUT##*.}"; exit 2;;
+    esac
+
+    local hasTerm=; [ -t 1 ] && hasTerm=t
+    {
+	printf '$data << EOD\n'
+	if [ "$hasTerm" ]; then
+	    tee >(sampleLines --inline-always --clear --count 'date range' --transform-exec field --unbuffered --field-separator $'\t' 1 \; > /dev/tty)
+	else
+	    cat
+	fi
+	printf 'EOD\ndata = "$data"\nset terminal %s\n\n' "$terminalSettings"
+	printf "xLabel = 'date ranges'\n\n"
+	cat -- "${etcDir}/candlestick-setup.gnuplot" "${etcDir}/logmsgstat.gnuplot"
+    } | gnuplot --persist
+}
+
+logmsgstatovertime()
+{
+    GIT_LOGMSGSTAT_EXIT_STATUS_NO_COMMITS=0 \
+    GIT_PASTTIMESCOMMAND_PREFIX_SEPARATOR=$'\t' \
+    STATISTICS_SEP=$'\t' \
+	git-pasttimes-command --prefixed "${pasttimesCommandHeaderArgs[@]}" "${pasttimesCommandArgs[@]}" --keep-position \
+	    "${logmsgstatCommand[@]}" PASTTIMES "${logmsgstatArgs[@]}" "$@"
+}
+
+eval "\"\${collector[@]}\"${collector:+ "$@"}" \
+    "${collector:+${grapher:+|}}" '"${grapher[@]}"'

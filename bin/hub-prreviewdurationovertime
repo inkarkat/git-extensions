@@ -1,17 +1,32 @@
 #!/bin/bash
 shopt -qs extglob
 
+: ${HUB_PRREVIEWDURATIONOVERTIME_GRAPH_SIZE:=1000,1000}
+: ${HUB_PRREVIEWDURATIONOVERTIME_GRAPH_NOGUI:=dumb size ${COLUMNS:-80} $((${LINES:-25} - 3)) ansi}
+: ${HUB_PRREVIEWDURATIONOVERTIME_GRAPH_GUI:=qt size $HUB_PRREVIEWDURATIONOVERTIME_GRAPH_SIZE}
+: ${HUB_PRREVIEWDURATIONOVERTIME_GRAPH_OUTPUT:=}
+
+readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
+[ -d "$scriptDir" ] || { echo >&2 'ERROR: Cannot determine script directory!'; exit 3; }
+readonly projectDir="${scriptDir}/.."
+readonly etcDir="${projectDir}/etc/byeach"
+
 printUsage()
 {
     hub-prreviewduration --help 2>&1 | sed \
 	-e '1s#^.*$#Print durations from the opening / request of a pull request review to the\nactual review / comments on the PR, by author and PR staggered for date ranges:\ntoday, last week, last 30 days, last year.#' \
 	-e '2b removeFirstParagraphLoop' \
-	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ |]\+ \)*hub-prreviewduration /\1\2'"$(basename "$1")"' [--no-pager] [--no-header] [--separate-errors] [--no-git-color] [--fine|--weekly|--monthly|--yearly] /; }' \
+	-e '/^ *--raw/i\
+    --graph		Graph the durations over date ranges.\
+    --graph-stdin	Graph the raw data read from stdin.' \
+	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ |]\+ \)*hub-prreviewduration /\1\2'"$(basename "$1")"' [--no-pager] [--no-header] [--separate-errors] [--no-git-color] [--fine|--weekly|--monthly|--yearly] /; s/\[--raw\]/[--graph|--graph-stdin|--raw]/; }' \
 	-e b -e :removeFirstParagraphLoop -e '{ /\(^\|\n\)$/{ s/^\(.*\n\)\?//; b; }; N; b removeFirstParagraphLoop; }'
 }
 
 isSummary=
 isRaw=
+typeset -a collector=(prreviewdurationovertime)
+typeset -a grapher=()
 typeset -a prreviewdurationArgs=()
 typeset -a pasttimesCommandArgs=()
 typeset -a pasttimesCommandHeaderArgs=()
@@ -25,6 +40,8 @@ do
 	--no-header)    pasttimesCommandHeaderArgs+=("$1"); shift;;
 	--summary|-s|--commits-summary|--duration-summary)
 			prreviewdurationArgs+=("$1"); shift; isSummary=t;;
+	--graph-stdin)	collector=();&
+	--graph)	shift; prreviewdurationArgs+=(--raw); isRaw=t; grapher=(gnuplotWrapper);;
 	--raw)		prreviewdurationArgs+=("$1"); shift; isRaw=t;;
 	--)		prreviewdurationArgs+=("$1"); shift; break;;
 	*)		prreviewdurationArgs+=("$1"); shift;;
@@ -41,8 +58,44 @@ if [ -n "$HUB_PRREVIEWDURATIONOVERTIME_AGGREGATE_COMMAND" ]; then
     set -- "$@" --  # Need a trailing -- to prevent that arguments from the aggregate command are parsed off as FILE(s) if it contains a -- itself. Passing <path>s for a multi-repo iteration likely doesn't make sense, anyway.
 fi
 
-HUB_PRREVIEWDURATION_EXIT_STATUS_NO_REVIEWS=0 \
-GIT_PASTTIMESCOMMAND_PREFIX_SEPARATOR=$'\t' \
-STATISTICS_SEP=$'\t' \
-    exec git-pasttimes-command "${pasttimesCommandHeaderArgs[@]}" "${pasttimesCommandArgs[@]}" --keep-position \
-	"${prreviewdurationCommand[@]}" PASTTIMES "${prreviewdurationArgs[@]}" "$@"
+gnuplotWrapper()
+{
+    case "${HUB_PRREVIEWDURATIONOVERTIME_GRAPH_OUTPUT##*.}" in
+	png)
+	    local terminalSettings="png size $HUB_PRREVIEWDURATIONOVERTIME_GRAPH_SIZE; set output '$HUB_PRREVIEWDURATIONOVERTIME_GRAPH_OUTPUT'"
+	    ;;
+	svg)
+	    local terminalSettings="svg size $HUB_PRREVIEWDURATIONOVERTIME_GRAPH_SIZE background 'white'; set output '$HUB_PRREVIEWDURATIONOVERTIME_GRAPH_OUTPUT'"
+	    ;;
+	'') [ -n "$DISPLAY" ] \
+		&& local terminalSettings="$HUB_PRREVIEWDURATIONOVERTIME_GRAPH_GUI" \
+		|| local terminalSettings="$HUB_PRREVIEWDURATIONOVERTIME_GRAPH_NOGUI"
+	    ;;
+	*)  printf >&2 "ERROR: Unsupported output format '%s'.\\n" "${HUB_PRREVIEWDURATIONOVERTIME_GRAPH_OUTPUT##*.}"; exit 2;;
+    esac
+
+    local hasTerm=; [ -t 1 ] && hasTerm=t
+    {
+	printf '$data << EOD\n'
+	if [ "$hasTerm" ]; then
+	    tee >(sampleLines --inline-always --clear --count 'date range' --transform-exec field --unbuffered --field-separator $'\t' 1 \; > /dev/tty)
+	else
+	    cat
+	fi
+	printf 'EOD\ndata = "$data"\nset terminal %s\n\n' "$terminalSettings"
+	printf "xLabel = 'date ranges'\ndurationLabel = 'from PR open / review request until reaction'\n\n"
+	cat -- "${etcDir}/candlestick-setup.gnuplot" "${etcDir}/duration-setup.gnuplot" "${etcDir}/prreviewduration.gnuplot"
+    } | gnuplot --persist
+}
+
+prreviewdurationovertime()
+{
+    HUB_PRREVIEWDURATION_EXIT_STATUS_NO_REVIEWS=0 \
+    GIT_PASTTIMESCOMMAND_PREFIX_SEPARATOR=$'\t' \
+    STATISTICS_SEP=$'\t' \
+	git-pasttimes-command "${pasttimesCommandHeaderArgs[@]}" "${pasttimesCommandArgs[@]}" --keep-position \
+	    "${prreviewdurationCommand[@]}" PASTTIMES "${prreviewdurationArgs[@]}" "$@"
+}
+
+eval "\"\${collector[@]}\"${collector:+ "$@"}" \
+    "${collector:+${grapher:+|}}" '"${grapher[@]}"'

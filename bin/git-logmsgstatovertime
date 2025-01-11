@@ -12,6 +12,7 @@ printUsage()
 
 typeset -a logmsgstatArgs=()
 typeset -a pasttimesCommandArgs=()
+typeset -a pasttimesCommandHeaderArgs=(--tabular)
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -19,6 +20,7 @@ do
 
 	--@(no-pager|no-header|separate-errors|no-git-color|fine|weekly|monthly|yearly))
 			pasttimesCommandArgs+=("$1"); shift;;
+	--raw)		logmsgstatArgs+=("$1"); shift; pasttimesCommandHeaderArgs=();;
 	--)		logmsgstatArgs+=("$1"); shift; break;;
 	*)		logmsgstatArgs+=("$1"); shift;;
     esac
@@ -27,4 +29,4 @@ done
 GIT_LOGMSGSTATBYEACHBYEACH_EXIT_STATUS_NO_COMMITS=0 \
 GIT_PASTTIMESCOMMAND_PREFIX_SEPARATOR=$'\t' \
 STATISTICS_SEP=$'\t' \
-    exec git-pasttimes-command --prefixed --tabular "${pasttimesCommandArgs[@]}" -2 logmsgstat PASTTIMES "${logmsgstatArgs[@]}" "$@"
+    exec git-pasttimes-command --prefixed "${pasttimesCommandHeaderArgs[@]}" "${pasttimesCommandArgs[@]}" -2 logmsgstat PASTTIMES "${logmsgstatArgs[@]}" "$@"

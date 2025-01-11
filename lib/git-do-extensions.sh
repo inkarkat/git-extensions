@@ -72,6 +72,12 @@ Supports the following special commands and options:
 			    branches for each user in working copies
 			    $GIT_DOEXTENSIONS_WHAT [that happened in
 			    the logged range]. [branch-range] is td, year, etc.
+    [branch-range] br-lifetimes*over* [BRLIFETIMES-OPTIONS ...] [<log-options>] [<revision range>]
+			    One-line lifetime, number of commits, commit range,
+			    author, date, tags and commit summary of merged
+			    branches staggered for date ranges in working copies
+			    $GIT_DOEXTENSIONS_WHAT [that happened in
+			    the logged range]. [branch-range] is td, year, etc.
     [branch-range] logs-msgstat* [LOGMSGSTAT-OPTIONS ...] [<log-options>] [<revision range>] [[--] <path>...]
 			    One-line statistics about the size of commit
 			    messages (excluding trailers and quoted parts) in
@@ -596,6 +602,12 @@ parseCommand()
 		shift
 		byEachCommandExtension GIT_BRLIFETIMESBYEACH git-brlifetimesbyeach br-lifetimes "$@"
 		;;
+	    br-lifetimes*over*)
+		brLifetimesCommand="git br${1#br-}"
+		brLifetimesSynthesizedCommand="${1%over*}"
+		shift
+		overtimeCommandExtension GIT_BRLIFETIMESOVERTIME "$brLifetimesCommand" "$brLifetimesSynthesizedCommand" "$@"
+		;;
 	    br-lifetimes*)
 		brLifetimesCommand="git brlifetimes${1#br-lifetimes}"; shift
 		logOnlyAndStdinDualCommandExtension git-brlifetimes "$brLifetimesCommand" "$@"
@@ -653,6 +665,12 @@ parseCommand()
 			br-lifetimesbyeach)
 			    brLifetimesSynthesizedCommand="$1 br-lifetimes"; shift; shift
 			    byEachCommandExtension GIT_BRLIFETIMESBYEACH git-brlifetimesbyeach "$brLifetimesSynthesizedCommand" "$@"
+			    ;;
+			br-lifetimes*over*)
+			    brLifetimesCommand="git br${2#br-}"
+			    brLifetimesSynthesizedCommand="$1 ${2%over*}"
+			    shift; shift
+			    overtimeCommandExtension GIT_BRLIFETIMESOVERTIME "$brLifetimesCommand" "$brLifetimesSynthesizedCommand" "$@"
 			    ;;
 			br-lifetimes*)
 			    brLifetimesCommand="git $1 brlifetimes${2#br-lifetimes}"; shift; shift

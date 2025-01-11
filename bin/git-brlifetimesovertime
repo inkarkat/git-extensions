@@ -10,18 +10,32 @@ printUsage()
 	-e b -e :removeFirstParagraphLoop -e '{ /\(^\|\n\)$/{ s/^\(.*\n\)\?//; b; }; N; b removeFirstParagraphLoop; }'
 }
 
+isSummary=
+isRaw=
 typeset -a brlifetimesArgs=()
 typeset -a pasttimesCommandArgs=()
+typeset -a pasttimesCommandHeaderArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 
-	--@(no-pager|no-header|separate-errors|no-git-color|fine|weekly|monthly|yearly))
+	--@(no-pager|separate-errors|no-git-color|fine|weekly|monthly|yearly))
 			pasttimesCommandArgs+=("$1"); shift;;
+	--no-header)    pasttimesCommandHeaderArgs+=("$1"); shift;;
+	--summary|-s|--commits-summary|--duration-summary)
+			brlifetimesArgs+=("$1"); shift; isSummary=t;;
+	--raw)		brlifetimesArgs+=("$1"); shift; isRaw=t;;
 	--)		brlifetimesArgs+=("$1"); shift; break;;
 	*)		brlifetimesArgs+=("$1"); shift;;
     esac
 done
+if [ "$isSummary" ] && [ ${#pasttimesCommandHeaderArgs[@]} -eq 0 ]; then
+    pasttimesCommandHeaderArgs=(--prefixed)
+    [ "$isRaw" ] || pasttimesCommandHeaderArgs+=(--tabular)
+fi
 
-exec git-pasttimes-command "${pasttimesCommandArgs[@]}" -2 brlifetimes PASTTIMES "${brlifetimesArgs[@]}" "$@"
+GIT_BRLIFETIMES_EXIT_STATUS_NO_MERGES=0 \
+GIT_PASTTIMESCOMMAND_PREFIX_SEPARATOR=$'\t' \
+STATISTICS_SEP=$'\t' \
+    exec git-pasttimes-command "${pasttimesCommandHeaderArgs[@]}" "${pasttimesCommandArgs[@]}" -2 brlifetimes PASTTIMES "${brlifetimesArgs[@]}" "$@"

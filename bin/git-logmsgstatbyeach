@@ -18,7 +18,8 @@ printUsage()
 	-e '/^ *--raw/i\
     --graph		Graph the commit message counts per author.\
     --graph-stdin	Graph the raw data read from stdin.' \
-	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ |]\+ \)*git-logmsgstat /\1\2[GIT_LOGMSGSTATBYEACH_GRAPH_SIZE=1000,1000] [GIT_LOGMSGSTATBYEACH_GRAPH_OUTPUT=FILE.(png,svg)] '"$(basename "$1")"' /; s/\[--raw\]/[--graph|--graph-stdin|--raw]/; }' \
+	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ |]\+ \)*git-logmsgstat /\1\2'"$(basename "$1")"' /; s/git-logmsgstat /'"$(basename "$1")"' /; H; s/--raw/&|--graph/; }' \
+	-e '/--stdin/{ p; g; s/\[--raw\]/--raw/; s/ \[-?|-h|--help\].* | / | [GIT_LOGMSGSTATBYEACH_GRAPH_SIZE=1000,1000] [GIT_LOGMSGSTATBYEACH_GRAPH_OUTPUT=FILE.(png,svg)] /; s/--stdin.*$/--graph-stdin/; }' \
 	-e b -e :removeFirstParagraphLoop -e '{ /\(^\|\n\)$/{ s/^\(.*\n\)\?//; b; }; N; b removeFirstParagraphLoop; }'
 }
 case "$1" in
@@ -74,7 +75,8 @@ gnuplotWrapper()
 	    cat
 	fi
 	printf 'EOD\ndata = "$data"\nset terminal %s\n\n' "$terminalSettings"
-	cat -- "${etcDir}/candlestick-setup.gnuplot" "${etcDir}/logmsgstatbyeach.gnuplot"
+	printf "xLabel = 'authors'\n\n"
+	cat -- "${etcDir}/candlestick-setup.gnuplot" "${etcDir}/logmsgstat.gnuplot"
     } | gnuplot --persist
 }
 

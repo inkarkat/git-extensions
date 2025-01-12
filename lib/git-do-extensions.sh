@@ -608,10 +608,8 @@ parseCommand()
 		byEachCommandExtension GIT_BRLIFETIMESBYEACH git-brlifetimesbyeach br-lifetimes "$@"
 		;;
 	    br-lifetimes*over*)
-		brLifetimesCommand="git br${1#br-}"
-		brLifetimesSynthesizedCommand="${1%over*}"
-		shift
-		overtimeCommandExtension GIT_BRLIFETIMESOVERTIME "$brLifetimesCommand" "$brLifetimesSynthesizedCommand" "$@"
+		brLifetimesCommand="git br${1#br-}"; shift
+		overtimeCommandExtension GIT_BRLIFETIMESOVERTIME "$brLifetimesCommand" br-lifetimes "$@"
 		;;
 	    br-lifetimes*)
 		brLifetimesCommand="git brlifetimes${1#br-lifetimes}"; shift
@@ -622,10 +620,8 @@ parseCommand()
 		byEachCommandExtension GIT_LOGMSGSTATBYEACH git-logmsgstatbyeach logs-msgstat "$@"
 		;;
 	    logs-msgstat*over*)
-		logMsgStatCommand="git log${1#logs-}"
-		logMsgStatSynthesizedCommand="${1%over*}"
-		shift
-		overtimeCommandExtension GIT_LOGMSGSTATOVERTIME "$logMsgStatCommand" "$logMsgStatSynthesizedCommand" "$@"
+		logMsgStatCommand="git log${1#logs-}"; shift
+		overtimeCommandExtension GIT_LOGMSGSTATOVERTIME "$logMsgStatCommand" logs-msgstat "$@"
 		;;
 	    logs-msgstat*)
 		logsMsgStatCommand="git logmsgstat${1#logs-msgstat}"; shift
@@ -637,10 +633,8 @@ parseCommand()
 		byEachCommandExtension HUB_PRREVIEWDURATIONBYEACH hub-prreviewdurationbyeach prs-reviewduration "$@"
 		;;
 	    prs-reviewduration*over*)
-		prReviewDurationCommand="hub pr${1#prs-}"
-		prReviewDurationSynthesizedCommand="${1%over*}"
-		shift
-		overtimeCommandExtension HUB_PRREVIEWDURATIONOVERTIME "$prReviewDurationCommand" "$prReviewDurationSynthesizedCommand" "$@"
+		prReviewDurationCommand="hub pr${1#prs-}"; shift
+		overtimeCommandExtension HUB_PRREVIEWDURATIONOVERTIME "$prReviewDurationCommand" prs-reviewduration "$@"
 		;;
 	    prs-reviewduration*)
 		wcdoArgs+=(--predicate-command 'git-existsremote')
@@ -679,7 +673,7 @@ parseCommand()
 			    ;;
 			br-lifetimes*over*)
 			    brLifetimesCommand="git br${2#br-}"
-			    brLifetimesSynthesizedCommand="$1 ${2%over*}"
+			    brLifetimesSynthesizedCommand="$1 br-lifetimes"
 			    shift; shift
 			    overtimeCommandExtension GIT_BRLIFETIMESOVERTIME "$brLifetimesCommand" "$brLifetimesSynthesizedCommand" "$@"
 			    ;;
@@ -694,7 +688,7 @@ parseCommand()
 			    ;;
 			logs-msgstat*over*)
 			    logMsgStatCommand="git log${2#logs-}"
-			    logMsgStatSynthesizedCommand="$1 ${2%over*}"
+			    logMsgStatSynthesizedCommand="$1 logs-msgstat"
 			    shift; shift
 			    overtimeCommandExtension GIT_LOGMSGSTATOVERTIME "$logMsgStatCommand" "$logMsgStatSynthesizedCommand" "$@"
 			    ;;

@@ -1,16 +1,40 @@
 #!/bin/bash
 set -o pipefail
 
-printUsage()
+printShortUsage()
 {
-    cat <<HELPTEXT
-Undo the merge done in the last commit of the current branch, and checkout the
-original unmerged branch again. If local modifications prevent that checkout,
-you need to add -m|--merge to allow the conflict to happen.
-HELPTEXT
-    echo
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [-y|--yes] [-m|--merge] [-b|--branch <branch>] [-?|-h|--help]'
 }
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Undo the merge done in the last commit of the current branch, and checkout the
+original unmerged branch again.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --quiet|-q		Do not print informational messages.
+    --yes|-y		Skip the confirmation.
+    --merge|-m		Allow the conflict to happen if local modifications
+			prevent the checkout.
+    --branch|-b <branch>
+			Use <branch> instead of reviving the original branch.
+HELPTEXT
+}
+
 typeset -a gitCheckoutArgs=()
 branchName=
 isQuiet=
@@ -18,7 +42,7 @@ isYes=
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	    shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	    shift; printLongUsage "$0"; exit 0;;
 	--no-color|--color=*)
 			    shift;;
 	--color)	    shift; shift;;

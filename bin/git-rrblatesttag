@@ -1,0 +1,22 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Rebase to the latest tag in ${remote:-REMOTE}.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [REBASE-ARGS ...] [-?|-h|--help]"
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+remote="${1:?}"; shift
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+tagName="$(git-latesttag "$remote")" || exit $?
+exec git-wrapper rebase "$@" "$tagName"

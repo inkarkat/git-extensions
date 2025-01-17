@@ -3,7 +3,7 @@
 printUsage()
 {
     git-wips --help 2>&1 | sed \
-	-e '1s#^.*$#Test whether changes in a remote have been fetched that could be incorporated into the working copy. Ignores local customizations of checked-in files, private files, and a non-master branch.#' \
+	-e '1s#^.*$#Test whether changes in a remote have been fetched that could be incorporated into the working copy. Ignores checks not related to remote updates; e.g. local customizations of checked-in files, private files, non-master, stale, or unmerged branches.#' \
 	-e '2b removeFirstParagraphLoop' \
 	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ ]\+ \)*git-wips /\1\2'"$(basename "$1")"' /; }' \
 	-e '/^Example:$/N' -e '/\(^\|\n\)Example: */{ s/\(^\|\n\)\(Example: *\)\?git-wips /\1\2'"$(basename "$1") /; }" \
@@ -17,5 +17,17 @@ esac
 # Omit some WIP checks:
 #   -dirty:	local customizations of checked-in files may be necessary
 #   -private:   builds may create private files
+#   -stashed:	local stashes may be necessary
+#   -wipcommit:	ignore latest WIP commit
 #   -nonmaster: I may follow a stable branch
-exec git-wips "$@" -dirty -private -nonmaster
+#   -mergedbr:	unmerged local branches do not affect incorporation
+#   -stalebr:	old local branches do not affect incorporation
+#   -todo:	neither upstream nor my own todos affect the incorporation
+#   -unmergeddownstream:
+#		unmerged downstream branches do not affect incorporation
+#   -downstreambranches:
+#		origin branches do not affect incorporation; that's the other
+#		direction
+#   -stalestable:
+#		old stable branch is a concern for the remote, not for me
+exec git-wips "$@" -dirty -private -stashed -wipcommit -nonmaster -mergedbr -stalebr -todo -unmergeddownstream -downstreambranches -stalestable

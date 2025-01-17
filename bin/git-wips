@@ -84,8 +84,8 @@ deselected (from all checks on offer) via -name.
 - behind:   where the current branch misses commits that have been fetched and
 	    exist in upstream
 - behindtags:
-	    where the working copy has checked out a tag and there are upstream
-	    branch(es) that have more recent tags
+	    where the working copy has checked out a tag or is based on a tag
+	    and there are upstream branch(es) that have more recent tags
 	    You can ignore certain tag patterns via the $EXCLUDED_TAGS_CONFIG_KEY
 	    (multi-valued) config key:
 	    $ git config --add $EXCLUDED_TAGS_CONFIG_KEY TAGNAME-*
@@ -331,19 +331,25 @@ considerCheck behind \
 
 printBehindTags()
 {
-    local tagName="${1:?}"; shift
-
     typeset -a excludedTagsArgs=(); readarray -t excludedTagsArgs < <(git config --get-all "$EXCLUDED_TAGS_CONFIG_KEY")
+
+    local tagName
+    if tagName="$(git istagged --print)"; then
+	local what="The checked-out tag '$tagName'"
+    elif tagName="$(git-latesttag "${excludedTagsArgs[@]/#/--exclude=/}" 2>/dev/null)"; then
+	local what="$(git-brname --raw)"
+    else
+	return 1
+    fi
 
     GIT_BRREFDO_SOURCE_COMMAND='git ubr' git-brrefdo --no-header --no-pager -- \
 	lgtaggeduntiltag --tag "$tagName" "${excludedTagsArgs[@]/#/--decorate-refs-exclude=refs/tags/}" "${colorArg[@]}" --branch {} | \
-	    uniqueStable | outputAndPrintf 'Behind these tags in upstream:\n'
+	    uniqueStable | outputAndPrintf "$what is behind these tags in upstream:\n"
     return ${PIPESTATUS[-1]}
 }
 considerCheck behindtags \
     && git existsremote upstream \
-    && tagName="$(git istagged --print)" \
-    && if printBehindTags "$tagName"; then positiveCheck; fi
+    && if printBehindTags; then positiveCheck; fi
 
 findUnmergedDownstreamBranches()
 {

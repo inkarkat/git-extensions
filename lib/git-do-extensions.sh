@@ -26,7 +26,7 @@ printExtendedUsage()
     cat <<HELPTEXT
 
 Supports the following special commands and options:
-    repo-missing	    Show those $GIT_DOEXTENSIONS_WHAT that are
+    repo-missing	    Show $GIT_DOEXTENSIONS_WHAT that are
 			    not yet under Git source control.
     [branch-range] counts* [<log-options>] [<revision range>] [[--] <path>...]
 			    Count and add up the amount of commits in
@@ -62,77 +62,76 @@ Supports the following special commands and options:
     [branch-range] br-lifetimes* [BRLIFETIMES-OPTIONS ...] [<log-options>] [<revision range>] [[--] <path>...]
 			    One-line lifetime, number of commits, commit range,
 			    author, date, tags and commit summary of merged
-			    branches in working copies
+			    branches in
 			    $GIT_DOEXTENSIONS_WHAT [that happened in
 			    the logged range]. [branch-range] is td, year, etc.
 			    * stands for any filter (mine, team, ...)
     [branch-range] br-lifetimesbyeach [BRLIFETIMES-OPTIONS ...] [<log-options>] [<revision range>]
 			    One-line lifetime, number of commits, commit range,
 			    author, date, tags and commit summary of merged
-			    branches for each user in working copies
+			    branches for each user in
 			    $GIT_DOEXTENSIONS_WHAT [that happened in
 			    the logged range]. [branch-range] is td, year, etc.
     [branch-range] br-lifetimes*over* [BRLIFETIMES-OPTIONS ...] [<log-options>] [<revision range>]
 			    One-line lifetime, number of commits, commit range,
 			    author, date, tags and commit summary of merged
-			    branches staggered for date ranges in working copies
+			    branches staggered for date ranges in
 			    $GIT_DOEXTENSIONS_WHAT [that happened in
 			    the logged range]. [branch-range] is td, year, etc.
     [branch-range] logs-msgstat* [LOGMSGSTAT-OPTIONS ...] [<log-options>] [<revision range>] [[--] <path>...]
 			    One-line statistics about the size of commit
 			    messages (excluding trailers and quoted parts) in
-			    working copies $GIT_DOEXTENSIONS_WHAT
-			    [that happened in the logged range]. [branch-range]
-			    is td, year, etc.
+			    $GIT_DOEXTENSIONS_WHAT [that happened in
+			    the logged range]. [branch-range] is td, year, etc.
 			    * stands for any filter (mine, team, ...)
     [branch-range] logs-msgstatbyeach [LOGMSGSTAT-OPTIONS ...] [<log-options>] [<revision range>]
 			    One-line statistics about the size of commit
 			    messages (excluding trailers and quoted parts) for
-			    each user in working copies
+			    each user in
 			    $GIT_DOEXTENSIONS_WHAT [that happened in
 			    the logged range]. [branch-range] is td, year, etc.
     [branch-range] logs-msgstat*over* [LOGMSGSTAT-OPTIONS ...] [<log-options>] [<revision range>]
 			    One-line statistics about the size of commit
 			    messages (excluding trailers and quoted parts)
-			    staggered for date ranges in working copies
+			    staggered for date ranges in
 			    $GIT_DOEXTENSIONS_WHAT [that happened in
 			    the logged range]. [branch-range] is td, year, etc.
      prs-reviewduration* [PRREVIEWDURATION-OPTIONS ...]
 			    Print durations from the opening / request of a pull
 			    request review to the actual review / comments on
-			    the PR in working copies $GIT_DOEXTENSIONS_WHAT
+			    the PR in ${GIT_DOEXTENSIONS_WHAT}.
 			    * stands for any filter (mine, team, ...)
      prs-reviewdurationbyeach [PRREVIEWDURATION-OPTIONS ...]
 			    Print durations from the opening / request of a pull
 			    request review to the actual review / comments on
-			    the PR for each reviewer separately in working
-			    copies $GIT_DOEXTENSIONS_WHAT
+			    the PR for each reviewer separately in
+			    ${GIT_DOEXTENSIONS_WHAT}.
      prs-reviewduration*over* [PRREVIEWDURATION-OPTIONS ...]
 			    Print durations from the opening / request of a pull
 			    request review to the actual review / comments on
-			    the PR staggered for date ranges in working
-			    copies $GIT_DOEXTENSIONS_WHAT
+			    the PR staggered for date ranges in
+			    ${GIT_DOEXTENSIONS_WHAT}.
     untracked-sh [COMMAND ...]
-			    Open an interactive shell / execute COMMAND in those
-			    $GIT_DOEXTENSIONS_WHAT that have new files
-			    not yet added to version control (and not covered by
-			    the ignore patterns).
+			    Open an interactive shell / execute COMMAND in
+			    $GIT_DOEXTENSIONS_WHAT that have
+			    new files not yet added to version control (and not
+			    covered by the ignore patterns).
 			    You can abort the iteration by exiting the shell
 			    with exit status 126.
     --untracked		    Also available as a standalone predicate (to combine
 			    with other COMMAND(s)).
-    dirty-sh [COMMAND ...]  Open an interactive shell / execute COMMAND in those
-			    $GIT_DOEXTENSIONS_WHAT that have uncommitted changes.
-			    You can abort the iteration by exiting the shell
-			    with exit status 126.
+    dirty-sh [COMMAND ...]  Open an interactive shell / execute COMMAND in
+			    $GIT_DOEXTENSIONS_WHAT that have
+			    uncommitted changes. You can abort the iteration by
+			    exiting the shell with exit status 126.
     --dirty		    Also available as a standalone predicate (to combine
 			    with other COMMAND(s)).
     stageable-sh [COMMAND ...]
-			    Open an interactive shell / execute COMMAND in those
-			    $GIT_DOEXTENSIONS_WHAT that have new files
-			    not yet added to version control (and not covered by
-			    the ignore patterns) and/or files with an unstaged
-			    modification.
+			    Open an interactive shell / execute COMMAND in
+			    $GIT_DOEXTENSIONS_WHAT that have
+			    new files not yet added to version control (and not
+			    covered by the ignore patterns) and/or files with an
+			    unstaged modification.
 			    Equivalent to untracked + dirty - staged files.
 			    You can abort the iteration by exiting the shell
 			    with exit status 126.
@@ -142,10 +141,10 @@ Supports the following special commands and options:
 			    Test whether $GIT_DOEXTENSIONS_WHAT
 			    have work in progress.
     wips-sh [(+|-)CHECK [(+|-)...]] [COMMAND ...]
-			    Open an interactive shell / execute COMMAND in those
-			    $GIT_DOEXTENSIONS_WHAT that have work in
-			    progress. You can abort the iteration by exiting the
-			    shell with exit status 126.
+			    Open an interactive shell / execute COMMAND in
+			    $GIT_DOEXTENSIONS_WHAT that have
+			    work in progress. You can abort the iteration by
+			    exiting the shell with exit status 126.
     --wips [(+|-)CHECK [(+|-)...]]
 			    Also available as a standalone predicate (to combine
 			    with other COMMAND(s)).
@@ -158,25 +157,27 @@ Supports the following special commands and options:
 			    changes.
     uprogress [WIPS-ARGS ...]
 			    Test whether changes in upstream have been fetched
-			    that could be incorporated into the working copy.
+			    that could be incorporated into
+			    $GIT_DOEXTENSIONS_WHAT.
 			    Ignores local customizations and private files that
 			    may happen when just following an upstream repo.
     uprogress-sh [(+|-)CHECK [(+|-)...]] [COMMAND ...]
-			    Open an interactive shell / execute COMMAND in those
-			    $GIT_DOEXTENSIONS_WHAT that have changes
-			    in upstream that could be incorporated.
+			    Open an interactive shell / execute COMMAND in
+			    $GIT_DOEXTENSIONS_WHAT that have
+			    changes in upstream that could be incorporated.
 			    You can abort the iteration by exiting the shell
 			    with exit status 126.
-    --same-branch	    Only consider those $GIT_DOEXTENSIONS_WHAT
+    --same-branch	    Only consider $GIT_DOEXTENSIONS_WHAT
 			    that are on the same branch as the current working
 			    copy / also have the passed -b|-branch BRANCH.
     --branch|-b BRANCH	    Use a different branch than the current working
-			    copy's for --same-branch, and consider those
+			    copy's for --same-branch, and consider
 			    $GIT_DOEXTENSIONS_WHAT that have
 			    (not necessarily are on) that BRANCH.
-    --with-remote	    Only consider those $GIT_DOEXTENSIONS_WHAT
+    --with-remote	    Only consider $GIT_DOEXTENSIONS_WHAT
 			    that have a remote configured.
-    --without-remote	    Only consider purely local $GIT_DOEXTENSIONS_WHAT
+    --without-remote	    Only consider purely local
+			    $GIT_DOEXTENSIONS_WHAT
 			    that do not have a remote configured.
 HELPTEXT
     [ "$GIT_DOEXTENSIONS_ADDITIONAL_EXTENSIONS" ] && printf '%s\n' "$GIT_DOEXTENSIONS_ADDITIONAL_EXTENSIONS"

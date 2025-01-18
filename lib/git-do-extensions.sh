@@ -472,10 +472,10 @@ parseCommand()
 		do
 		    wipsArgs+=("$1"); shift
 		done
-		quotedWipsArgs=; [ ${#wipsArgs[@]} -gt 0 ] && printf -v quotedWipsArgs '%q ' "${wipsArgs[@]}"
-		wcdoArgs+=(--predicate-command "git wips --quiet ${quotedWipsArgs}")
+		quotedWipsArgs=; [ ${#wipsArgs[@]} -gt 0 ] && printf -v quotedWipsArgs ' %q' "${wipsArgs[@]}"
+		wcdoArgs+=(--predicate-command "git wips --quiet${quotedWipsArgs}")
 		if [ $# -eq 0 ]; then
-		    wcdoArgs+=("${shellInteractiveWcdoArgs[@]}" --command "git wips ${quotedWipsArgs}&& $quotedShell -i")
+		    wcdoArgs+=("${shellInteractiveWcdoArgs[@]}" --command "git wips${quotedWipsArgs} && $quotedShell -i")
 		    echo "Note: To abort the iteration of $GIT_DOEXTENSIONS_WHAT, use \"exit 126\"."
 		else
 		    printf -v quotedSimpleCommand '%q ' "$@"
@@ -490,15 +490,14 @@ parseCommand()
 		do
 		    wipsArgs+=("$1"); shift
 		done
-		wcdoArgs+=(--predicate-command 'git-existsremote upstream')
-		quotedWipsArgs=; [ ${#wipsArgs[@]} -gt 0 ] && printf -v quotedWipsArgs '%q ' "${wipsArgs[@]}"
+		quotedWipsArgs=; [ ${#wipsArgs[@]} -gt 0 ] && printf -v quotedWipsArgs ' %q' "${wipsArgs[@]}"
+		wcdoArgs+=(--predicate-command "git-existsremote upstream && git-progresswips --quiet${quotedWipsArgs}")
 		if [ $# -eq 0 ]; then
-		    wcdoArgs+=("${shellInteractiveWcdoArgs[@]}" --command "git progresswips ${quotedWipsArgs}&& $quotedShell -i")
+		    wcdoArgs+=("${shellInteractiveWcdoArgs[@]}" --command "git-progresswips${quotedWipsArgs} && $quotedShell -i")
 		    echo "Note: To abort the iteration of $GIT_DOEXTENSIONS_WHAT, use \"exit 126\"."
 		else
 		    printf -v quotedSimpleCommand '%q ' "$@"
 		    wcdoArgs+=("${shellCommandWcdoArgs[@]}" --command "${quotedSimpleCommand# }")
-		    wcdoArgs+=(--predicate-command "git progresswips --quiet ${quotedWipsArgs}")
 		fi
 		;;
 	    fetchdate)

@@ -472,10 +472,10 @@ parseCommand()
 		do
 		    wipsArgs+=("$1"); shift
 		done
-		quotedWipsArgs=; [ ${#wipsArgs[@]} -gt 0 ] && printf -v quotedWipsArgs '%q ' "${wipsArgs[@]}"
-		wcdoArgs+=(--predicate-command "git wips --quiet ${quotedWipsArgs}")
+		quotedWipsArgs=; [ ${#wipsArgs[@]} -gt 0 ] && printf -v quotedWipsArgs ' %q' "${wipsArgs[@]}"
+		wcdoArgs+=(--predicate-command "git wips --quiet${quotedWipsArgs}")
 		if [ $# -eq 0 ]; then
-		    wcdoArgs+=("${shellInteractiveWcdoArgs[@]}" --command "git wips ${quotedWipsArgs}&& $quotedShell -i")
+		    wcdoArgs+=("${shellInteractiveWcdoArgs[@]}" --command "git wips${quotedWipsArgs} && $quotedShell -i")
 		    echo "Note: To abort the iteration of $GIT_DOEXTENSIONS_WHAT, use \"exit 126\"."
 		else
 		    printf -v quotedSimpleCommand '%q ' "$@"

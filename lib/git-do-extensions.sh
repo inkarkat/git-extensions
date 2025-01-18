@@ -22,7 +22,7 @@ printExtendedUsage()
     local splitPattern='/^Note:/'
     "$GIT_DOEXTENSIONS_WRAPPEE" --help 2>&1 | sed \
 	-e "${splitPattern},\$d" \
-	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ ]\+ \)*'"${GIT_DOEXTENSIONS_WRAPPEE} /\\1\\2${wrapper}"' [--untracked|--dirty|--stageable|--wips [(+|-)CHECK [(+|-)...]]|--same-branch [-b|--branch BRANCH]] /; }'
+	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ ]\+ \)*'"${GIT_DOEXTENSIONS_WRAPPEE} /\\1\\2${wrapper}"' [--untracked|--dirty|--stageable|--wips [(+|-)CHECK [(+|-)...]|--uprogress [(+|-)CHECK [(+|-)...]]|--same-branch [-b|--branch BRANCH]] /; }'
     cat <<HELPTEXT
 
 Supports the following special commands and options:
@@ -167,6 +167,9 @@ Supports the following special commands and options:
 			    changes in upstream that could be incorporated.
 			    You can abort the iteration by exiting the shell
 			    with exit status 126.
+    --uprogress [(+|-)CHECK [(+|-)...]]
+			    Also available as a standalone predicate (to combine
+			    with other COMMAND(s)).
     --same-branch	    Only consider $GIT_DOEXTENSIONS_WHAT
 			    that are on the same branch as the current working
 			    copy / also have the passed -b|-branch BRANCH.
@@ -326,7 +329,12 @@ parseCommand()
 	    --untracked)    shift; wcdoArgs+=(--predicate-command 'git untracked');;
 	    --dirty)	    shift; wcdoArgs+=(--predicate-command 'git-dirty --quiet');;
 	    --stageable)    shift; wcdoArgs+=(--predicate-command 'git-stageable');;
-	    --wips)	    shift
+	    --wips|--uprogress)
+			    case "$1" in
+				--wips)		predicateCommand='git wips';;
+				--uprogress)	predicateCommand='git-existsremote upstream && git-progresswips';;
+				*)		printf >&2 'ASSERT: Unhandled flag: %s\n' "$1"; exit 3;;
+			    esac; shift
 			    typeset -a wipsArgs=()
 			    while [ $# -gt 0 ] && [[ "$1" =~ ^[+-][[:alpha:]]+$ ]]
 			    do
@@ -341,7 +349,7 @@ parseCommand()
 				wcdoArgs+=(--no-git-color)
 				args=(exec true)
 			    fi
-			    wcdoArgs+=(--predicate-command "git wips ${wipsQuietArg}${wipsQuietArg:+ }${quotedWipsArgs}")
+			    wcdoArgs+=(--predicate-command "$predicateCommand ${wipsQuietArg}${wipsQuietArg:+ }${quotedWipsArgs}")
 			    ;;
 	    --same-branch)  shift; isSameBranch=t;;
 	    --branch|-b)    shift; branch="${1:?}"; shift;;

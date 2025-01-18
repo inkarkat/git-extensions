@@ -138,6 +138,9 @@ Supports the following special commands and options:
 			    with exit status 126.
     --stageable		    Also available as a standalone predicate (to combine
 			    with other COMMAND(s)).
+    wips [WIPS-ARGS ...]
+			    Test whether $GIT_DOEXTENSIONS_WHAT
+			    have work in progress.
     wips-sh [(+|-)CHECK [(+|-)...]] [COMMAND ...]
 			    Open an interactive shell / execute COMMAND in those
 			    $GIT_DOEXTENSIONS_WHAT that have work in

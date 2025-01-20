@@ -111,7 +111,7 @@ subchanges|superchanges|subrevl@(?(o)g|c)\
 	if [ -n "$scopeInoutNote" ]; then
 	    $EXEC echo "Note: ${gitCommand} ${scopeInoutNote}"
 	else
-	    $EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "$scopeCommand" ${scopeCommand:+-3} "$gitCommand" --base "${scopeRevision:?}" "${scopeEndRevision:?}" "$@"
+	    $EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+-3} "$gitCommand" --base "${scopeRevision:?}" "${scopeEndRevision:?}" "$@"
 	fi
 	;;
 

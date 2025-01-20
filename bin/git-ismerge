@@ -29,18 +29,18 @@ case "$1" in
 esac
 case $# in
     0)	commit=HEAD;;
-    1)	commit="$1"; shift;;
+    1)	commit="$(git rev-parse --verify "$1")" || exit 2; shift;;
     *)	printUsage "$0" >&2; exit 2;;
 esac
 
 getParents()
 {
-    git rev-list --no-walk "${countArg[@]}" "${commit}^@"
+    git rev-list --no-walk "${countArg[@]}" "${commit}^@"   # The ^@ suffix means "all parents".
 }
 
 countParents()
 {
-    mergeCount="$(getParents)" || exit $?	# The ^@ suffix means "all parents".
+    mergeCount="$(getParents)" || exit $?
     [ ${mergeCount:-0} "${compareArgs[@]}" ]
 }
 

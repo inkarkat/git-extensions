@@ -7,7 +7,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} all|annotated|lightweight [--with-ref] [[-l|--list] <pattern> [...]] [-e|--exclude <pattern> [-e ...]] [--version-tags-only|--no-version-tags] [--sort-by-age] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} all|annotated|lightweight [--with-ref] [[-l|--list] <pattern> [...]] [-e|--exclude <pattern> [-e ...]] [--version-tags-only|--no-version-tags] [--sort-by-age] [--first-only|--last-only] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -36,6 +36,8 @@ HELPDESCRIPTION
     --sort-by-age	Sort by tag date (ascending, oldest first) instead of
 			the default version number sorting. Note: Corresponding
 			commits must have been fetched already for this to work.
+    --first-only	Stop after the first matching tag.
+    --last-only		Only show the last matching tag.
 HELPTEXT
 }
 case "$1" in
@@ -60,6 +62,7 @@ filter=
 typeset -a patterns=()
 typeset -a excludedPatterns=()
 sortField='version:refname'
+typeset -a selector=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -85,6 +88,8 @@ do
 			;;
 
 	--sort-by-age)	shift; sortField='creatordate';;
+	--first-only)	shift; selector=(sed -ne 1p);;
+	--last-only)	shift; selector=(tail -n 1);;
 	*)		break;;
     esac
 done
@@ -157,5 +162,6 @@ fi
 
 eval tagtype \
     "${filter:+|} $filter" \
+    "${selector:+|}" '"${selector[@]}"' \
     "${formatter:+|}" '"${formatter[@]}"' \
     "${pager:+|}" '"${pager[@]}"'

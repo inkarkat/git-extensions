@@ -9,7 +9,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'all|annotated|lightweight [--with-ref] [-v|--verbose [-v]] [[-l|--list] <pattern> [...]] [-e|--exclude <pattern> [-e ...]] [--version-tags-only|--no-version-tags] [--sort-by-age] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'all|annotated|lightweight [--with-ref] [-v|--verbose [-v]] [[-l|--list] <pattern> [...]] [-e|--exclude <pattern> [-e ...]] [--version-tags-only|--no-version-tags] [--sort-by-age] [--first-only|--last-only] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -44,6 +44,8 @@ HELPDESCRIPTION
 			the $EXCLUDED_TAGS_CONFIG_KEY config setting.
     --sort-by-age	Sort by tag date (ascending, oldest first) instead of
 			the default version number sorting.
+    --first-only	Stop after the first matching tag.
+    --last-only		Only show the last matching tag.
 HELPTEXT
 }
 
@@ -67,6 +69,7 @@ typeset -a explicitlyIncludedGlobs=()
 typeset -a excludedGlobs=()
 typeset -a includedGlobs=()
 sortField='version:refname'
+typeset -a selector=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -101,6 +104,8 @@ do
 			;;
 
 	--sort-by-age)	shift; sortField='creatordate';;
+	--first-only)	shift; selector=(sed -ne 1p);;
+	--last-only)	shift; selector=(tail -n 1);;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -182,5 +187,6 @@ fi
 eval tagList \
     "${tagType:+| tagTypeFilter}" \
     "${filter:+|} $filter" \
+    "${selector:+|}" '"${selector[@]}"' \
     "${formatter:+|}" '"${formatter[@]}"' \
     "${pager:+|}" '"${pager[@]}"'

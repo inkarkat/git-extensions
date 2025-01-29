@@ -1,11 +1,6 @@
 #!/bin/bash
 shopt -qs extglob
 
-: ${GIT_BRLIFETIMESOVERTIME_GRAPH_SIZE:=1000,1000}
-: ${GIT_BRLIFETIMESOVERTIME_GRAPH_NOGUI:=dumb size ${COLUMNS:-80} $((${LINES:-25} - 3)) ansi}
-: ${GIT_BRLIFETIMESOVERTIME_GRAPH_GUI:=qt size $GIT_BRLIFETIMESOVERTIME_GRAPH_SIZE}
-: ${GIT_BRLIFETIMESOVERTIME_GRAPH_OUTPUT:=}
-
 readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
 [ -d "$scriptDir" ] || { echo >&2 'ERROR: Cannot determine script directory!'; exit 3; }
 readonly projectDir="${scriptDir}/.."
@@ -20,7 +15,7 @@ printUsage()
     --graph		Graph the durations and commit counts over date ranges.\
     --graph-stdin	Graph the raw data read from stdin.' \
 	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ |]\+ \)*git-brlifetimes /\1\2'"$(basename "$1")"' [--no-pager] [--no-header] [--separate-errors] [--no-git-color] [--fine|--weekly|--monthly|--yearly] /; s/git-brlifetimes /'"$(basename "$1")"' /; H; s/--commits-summary/&|--graph/; }' \
-	-e '/--stdin/{ p; g; s/ \[--sort-by-commits|--sort-by-duration|(-s|--summary|--duration-summary|--commits-summary) \[--raw\]\]/ --summary --raw/; s/ \[-?|-h|--help\].* | / | [GIT_BRLIFETIMESOVERTIME_GRAPH_SIZE=1000,1000] [GIT_BRLIFETIMESOVERTIME_GRAPH_OUTPUT=FILE.(png,svg)] /; s/--stdin.*$/--graph-stdin [--creator=<pattern>] [--net-commits]/; }' \
+	-e '/--stdin/{ p; g; s/ \[--sort-by-commits|--sort-by-duration|(-s|--summary|--duration-summary|--commits-summary) \[--raw\]\]/ --summary --raw/; s/ \[-?|-h|--help\].* | / | /; s/--stdin.*$/--graph-stdin [--creator=<pattern>] [--net-commits]/; }' \
 	-e b -e :removeFirstParagraphLoop -e '{ /\(^\|\n\)$/{ s/^\(.*\n\)\?//; b; }; N; b removeFirstParagraphLoop; }'
 }
 
@@ -61,20 +56,6 @@ fi
 
 gnuplotWrapper()
 {
-    case "${GIT_BRLIFETIMESOVERTIME_GRAPH_OUTPUT##*.}" in
-	png)
-	    local terminalSettings="png size $GIT_BRLIFETIMESOVERTIME_GRAPH_SIZE; set output '$GIT_BRLIFETIMESOVERTIME_GRAPH_OUTPUT'"
-	    ;;
-	svg)
-	    local terminalSettings="svg size $GIT_BRLIFETIMESOVERTIME_GRAPH_SIZE background 'white'; set output '$GIT_BRLIFETIMESOVERTIME_GRAPH_OUTPUT'"
-	    ;;
-	'') [ -n "$DISPLAY" ] \
-		&& local terminalSettings="$GIT_BRLIFETIMESOVERTIME_GRAPH_GUI" \
-		|| local terminalSettings="$GIT_BRLIFETIMESOVERTIME_GRAPH_NOGUI"
-	    ;;
-	*)  printf >&2 "ERROR: Unsupported output format '%s'.\\n" "${GIT_BRLIFETIMESOVERTIME_GRAPH_OUTPUT##*.}"; exit 2;;
-    esac
-
     local graphTitle="Branch duration / extent by date range"
     if [ "$isNetCommits" ]; then
     	graphTitle+=" (excluding merge)"
@@ -91,10 +72,10 @@ gnuplotWrapper()
 	else
 	    cat
 	fi
-	printf 'EOD\ndata = "$data"\nset terminal %s\n\n' "$terminalSettings"
+	printf 'EOD\ndata = "$data"\n\n'
 	printf "xLabel = 'date ranges'\ngraphTitle = '%s'\ndurationLabel = '%s'\n\n" "$graphTitle" "$durationLabel"
 	cat -- "${etcDir}/candlestick-setup.gnuplot" "${etcDir}/duration-setup.gnuplot" "${etcDir}/brlifetimes.gnuplot"
-    } | gnuplot --persist
+    } | gnuplot --persist -
 }
 
 brlifetimesovertime()

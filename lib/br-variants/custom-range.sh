@@ -210,11 +210,7 @@ activity?(except)by\
 	$EXEC git-"${scopeCommand[@]}" -2 revertselectedcommit RANGE "$@";;
     revert@(files|hunk))
 	$EXEC git-"${scopeCommand[@]}" -2 "revertselected${gitCommand#revert}"  RANGE "$@";;
-    revertcommit)
-	$EXEC git-"${scopeCommand[@]}" -2 "${gitCommand}selected" RANGE "$@";;
 
-    @(correct|fix@(up|amend|wording))|commit@(identical|like|relate)|amendrelate)
-	$EXEC git-"${scopeCommand[@]}" -2 "${gitCommand}selected" RANGE "$@";;
     fix@(up|amend|wording)rb)
 	onLocalBranch git-"${scopeCommand[@]}" -2 "${gitCommand%rb}selectedrb" RANGE "$@";;
 
@@ -237,7 +233,11 @@ activity?(except)by\
     uncommit-to-branch)
 	onLocalBranch git-"${scopeCommand[@]}" --keep-position selectedcommit-command --single-only --range-is-last -4 "$gitCommand" --from COMMITS RANGE "$@";;
 
-    createbr|stackbrfrom)
+    (\
+createbr|stackbrfrom|\
+revertcommit|\
+@(correct|fix@(up|amend|wording))|commit@(identical|like|relate)|amendrelate\
+)
 	$EXEC git-"${scopeCommand[@]}" -2 "${gitCommand}selected" RANGE "$@";;
     detach)
 	$EXEC git-"${scopeCommand[@]}" --one-more -2 "${gitCommand}selected" RANGE "$@";;   # Note: --one-more to be able to select one beyond the range.

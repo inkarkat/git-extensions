@@ -144,11 +144,7 @@ activity?(except)by\
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 revertselectedcommit TIMESPAN "$@";;
     revert@(files|hunk))
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 "revertselected${gitCommand#revert}" TIMESPAN "$@";;
-    revertcommit)
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 "${gitCommand}selected" TIMESPAN "$@";;
 
-    @(correct|fix@(up|amend|wording))|commit@(identical|like|relate)|amendrelate)
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 "${gitCommand}selected" TIMESPAN "$@";;
     fix@(up|amend|wording)rb)
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 "${gitCommand%rb}selectedrb" TIMESPAN "$@";;
 
@@ -171,7 +167,11 @@ activity?(except)by\
     uncommit-to-branch)
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -7 selectedcommit-command --single-only -3 uncommit-to-branch --from COMMITS TIMESPAN "$@";;
 
-    createbr|stackbrfrom)
+    (\
+createbr|stackbrfrom|\
+revertcommit|\
+@(correct|fix@(up|amend|wording))|commit@(identical|like|relate)|amendrelate\
+)
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 "${gitCommand}selected" TIMESPAN "$@";;
     detach)
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --range --one-more -2 "${gitCommand}selected" TIMESPAN "$@";;

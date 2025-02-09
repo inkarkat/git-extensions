@@ -152,11 +152,7 @@ activity?(except)by\
 	$EXEC "git-${scopeCommand:?}" -2 revertselectedcommit TIMESPAN "$@";;
     revert@(files|hunk))
 	$EXEC "git-${scopeCommand:?}" -2 "revertselected${gitCommand#revert}" TIMESPAN "$@";;
-    revertcommit)
-	$EXEC "git-${scopeCommand:?}" -2 "${gitCommand}selected" TIMESPAN "$@";;
 
-    @(correct|fix@(up|amend|wording))|commit@(identical|like|relate)|amendrelate)
-	$EXEC "git-${scopeCommand:?}" -2 "${gitCommand}selected" TIMESPAN "$@";;
     fix@(up|amend|wording)rb)
 	$EXEC "git-${scopeCommand:?}" -2 "${gitCommand%rb}selectedrb" TIMESPAN "$@";;
 
@@ -179,7 +175,11 @@ activity?(except)by\
     uncommit-to-branch)
 	$EXEC "git-${scopeCommand:?}" -7 selectedcommit-command --single-only -3 uncommit-to-branch --from COMMITS TIMESPAN "$@";;
 
-    createbr|stackbrfrom)
+    (\
+createbr|stackbrfrom|\
+revertcommit|\
+@(correct|fix@(up|amend|wording))|commit@(identical|like|relate)|amendrelate\
+)
 	$EXEC "git-${scopeCommand:?}" -2 "${gitCommand}selected" TIMESPAN "$@";;
     detach)
 	$EXEC "git-${scopeCommand:?}" --range --one-more -2 "${gitCommand}selected" TIMESPAN "$@";;

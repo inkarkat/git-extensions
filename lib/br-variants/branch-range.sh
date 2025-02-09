@@ -196,7 +196,7 @@ activity?(except)by\
 	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --keep-position selectedcommit-command --single-only --range-is-last -4 "$gitCommand" --from COMMITS RANGE "$@";;
 
     (\
-createbr|stackbrfrom|\
+createbr|stackbrfrom|reset[mn]|\
 revertcommit|\
 @(correct|fix@(up|amend|wording))|commit@(identical|like|relate)|amendrelate\
 )

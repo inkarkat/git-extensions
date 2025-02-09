@@ -176,7 +176,7 @@ activity?(except)by\
 	$EXEC "git-${scopeCommand:?}" -7 selectedcommit-command --single-only -3 uncommit-to-branch --from COMMITS TIMESPAN "$@";;
 
     (\
-createbr|stackbrfrom|\
+createbr|stackbrfrom|reset[mn]|\
 revertcommit|\
 @(correct|fix@(up|amend|wording))|commit@(identical|like|relate)|amendrelate\
 )

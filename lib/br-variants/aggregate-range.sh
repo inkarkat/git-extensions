@@ -121,7 +121,7 @@ correct|commit@(identical|like|relate)|amendrelate\
 	withAggregateCommit "$gitCommand" "$@";;
     (\
 @(ad|ov)p|\
-createbr|stackbrfrom|detach|wipe|\
+createbr|stackbrfrom|reset[mn]|detach|wipe|\
 cat|cp\
 )
 	withAggregateCommit --single-only "$gitCommand" "$@";;

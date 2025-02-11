@@ -9,8 +9,10 @@
    `$ rm tests/*.{out,msgout,msgresult,tap}`
    `$ git adduntracked; git commit -m "Initial implementation"`
 4. GitHub
-   `$ hub create -d "Plugin description from doc/*.txt"`
-   `$ git opublish`
+   `$ hub create` (automatically added: `-d "Plugin description from doc/*.txt"`)
+   .            (automatically done: `$ git opublish`)
+   .            (automatically done: `$ hub labels set`)
+   .            (automatically done: `$ gh repo edit --enable-discussions`)
    `$ hub url`
    - Add GitHub repo link to ~/Unixhome/.vim/thesaurus/vimscripts.txt
 

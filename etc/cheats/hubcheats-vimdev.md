@@ -14,12 +14,7 @@ Copy / sync all plugin files from ~/data/Unixhome/.vim to ~/tmp/vim
 `$ runVimTests tests/[all.suite]` to verify that the tests haven't been broken by the conversion
 - Remove tests invocation from ~/Unixhome/.vim/tests/noninteractive.suite
 - Add tests invocation to ~/Unixhome/.vim/pack/ingo/start/noninteractive.suite
-`$ hub create -d "Plugin description from doc/*.txt"`
-`$ git opublish`
-`$ hub url`
-- Add GitHub repo link to ~/Unixhome/.vim/thesaurus/vimscripts.txt
-`$ hub labels set`
-`$ gh repo edit --enable-discussions`
+- Publish to GitHub; cp. `git cheat vimdev`
 
 # convert plugin from writebackups to GitHub - git flow
 

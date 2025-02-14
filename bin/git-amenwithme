@@ -1,0 +1,19 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Amend staged changes with the attribution of me as a co-author to the last
+commit without re-editing the message.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<commit-args> ...] [--] [<path> [...]] [-?|-h|--help]'
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+me="$(git me --full)" || exit 3
+git amen "$@" \
+    && git-rewordappend --as-trailers --message "Co-authored-by: $me"

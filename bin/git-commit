@@ -195,8 +195,12 @@ if [ -t 1 ]; then
     then
 	printf >/dev/tty '%sReuse this commit message via $ git inside lo1 %q -- %s%s\n' "$GIT_COMMIT_NOTE_PREFIX" "$shortCommitId" "${root/#${HOME}\//~\/}" "$GIT_COMMIT_NOTE_SUFFIX"
 
-	[ $GIT_COMMIT_RECENTCOMMIT_NUM -gt 0 ] && type -t pipethrough1 >/dev/null \
-	    && PIPETHROUGH1_COMMAND_JOINER=';' pipethrough1 --piped --exec printf '%s\t%s\n' "$shortCommitId" "$root" \; --exec head -n $((GIT_COMMIT_RECENTCOMMIT_NUM - 1)) \; "${XDG_CACHE_HOME:-${HOME}/.cache}/git-recentcommits"
+	if [ $GIT_COMMIT_RECENTCOMMIT_NUM -gt 0 ] && type -t pipethrough1 >/dev/null; then
+	    PIPETHROUGH1_COMMAND_JOINER=';' pipethrough1 --piped \
+		--exec printf '%s\t%s\t%s\t%s\n' "$shortCommitId" "$(git log1 --pretty='tformat:%cd')" "$root" "$(git l1)" \; \
+		--exec head -n $((GIT_COMMIT_RECENTCOMMIT_NUM - 1)) \; \
+		"${XDG_CACHE_HOME:-${HOME}/.cache}/git-recentcommits"
+	fi
     fi
 
     if [ "$GIT_COMMIT_SHOW_REMOTE" ] \

@@ -1,0 +1,121 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Execute GIT-COMMAND for the commit and working copy interactively chosen from
+the recently made (in all local Git working copies) commits
+- appended
+- replacing COMMITS argument(s) anywhere
+- replacing COMMITS in the following GIT-COMMAND and -(N-1) arguments
+- replacing COMMITS in the following +(N) arguments and appending those
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--accept-single] [--single-only] GIT-COMMAND [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--keep-position GIT-COMMAND [... COMMITS ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [...]'
+}
+
+typeset -a commandOnSelectedArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--accept-single|--single-only)
+			commandOnSelectedArgs+=("$1"); shift;;
+	--)		shift; break;;
+	*)		break;;
+    esac
+done
+if [ $# -eq 0 ]; then
+    echo >&2 'ERROR: No GIT-COMMAND passed.'
+    exit 2
+fi
+
+typeset -a rangeArgs=()
+isCountedAppend=
+typeset -a countedAppendGitCommand=()
+case "$1" in
+    +[1-9])
+	isCountedAppend=t;&
+    -[1-9])
+	typeset countedArgNum=${1#[+-]}
+	typeset countedArgNum=${1#-}
+	typeset -a countedArgs=("${@:2:${countedArgNum}}")
+	set -- "${@:$((2 + countedArgNum))}"
+	if [ "$isRangeLastArg" ]; then
+	    rangeArgs=("${countedArgs[$((${#countedArgs[@]}-1))]}")
+	    countedArgs=("${countedArgs[@]:0:$((${#countedArgs[@]}-1))}")
+	    isRangeLastArg=
+	fi
+	if [ "$isCountedAppend" ]; then
+	    # Need to shift the GIT-COMMAND off to avoid that it is later parsed off as a rangeArg.
+	    countedAppendGitCommand=("$1"); shift
+	fi
+
+	executor()
+	{
+	    typeset -a appendedArgs=()
+	    for arg in "${countedArgs[@]}"
+	    do
+		if [ "$arg" = 'COMMITS' ]; then
+		    appendedArgs+=("${commits[@]}")
+		else
+		    appendedArgs+=("$arg")
+		fi
+	    done
+
+	    [ "$isCountedAppend" ] \
+		&& exec git-wrapper "${countedAppendGitCommand[@]}" "$@" "${appendedArgs[@]}" \
+		|| exec git-wrapper "${appendedArgs[@]}" "$@"
+	}
+	;;
+    --keep-position)
+	shift
+	# Need to shift the GIT-COMMAND off to avoid that it is later parsed off as a rangeArg.
+	countedAppendGitCommand=("$1"); shift
+
+	executor()
+	{
+	    typeset -a appendedArgs=()
+	    for arg
+	    do
+		if [ "$arg" = 'COMMITS' ]; then
+		    appendedArgs+=("${commits[@]}")
+		else
+		    appendedArgs+=("$arg")
+		fi
+	    done
+
+	    exec git-wrapper "${countedAppendGitCommand[@]}" "${appendedArgs[@]}"
+	}
+	;;
+    *)
+	# Need to shift the GIT-COMMAND off to avoid that it is later parsed off as a rangeArg.
+	countedAppendGitCommand=("$1"); shift
+	executor()
+	{
+	    exec git-wrapper "${countedAppendGitCommand[@]}" "$@" "${commits[@]}"
+	}
+	;;
+esac
+
+typeset -a commits=()
+exitStatus=
+while IFS=$'\t' read -r commitId commitDate workingCopy subject || { exitStatus="$commitId"; break; }	# Exit status from the process substitution (<()) is lost; return the actual exit status via an incomplete (i.e. missing the newline) last line.
+do
+    commits+=("$commitId" "$workingCopy")
+done < <(
+    commandOnSelected --generator "reldate --date-pattern '' -- ${XDG_CACHE_HOME:-${HOME}/.cache}/git-recentcommits | column -s $'\t' -t" --filter '' "${commandOnSelectedArgs[@]}" "$@"
+    printf %d "$?"
+)
+
+if [ $exitStatus -eq 124 ]; then
+    echo >&2 'ERROR: No commits available.'
+    exit 1
+elif [ $exitStatus -ne 0 ]; then
+    exit $exitStatus
+fi
+
+executor "$@"

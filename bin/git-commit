@@ -2,6 +2,7 @@
 
 : ${GIT_COMMIT_SHOW_REUSE=t}
 : ${GIT_COMMIT_SHOW_REMOTE=t}
+: ${GIT_COMMIT_RECENTCOMMIT_NUM:=9}
 : ${GIT_BLAME_IGNORE_REVS_FILE=.git-blame-ignore-revs}
 
 printShortUsage()
@@ -193,6 +194,13 @@ if [ -t 1 ]; then
 	&& shortCommitId="$(git-commitid --short HEAD)"
     then
 	printf >/dev/tty '%sReuse this commit message via $ git inside lo1 %q -- %s%s\n' "$GIT_COMMIT_NOTE_PREFIX" "$shortCommitId" "${root/#${HOME}\//~\/}" "$GIT_COMMIT_NOTE_SUFFIX"
+
+	if [ $GIT_COMMIT_RECENTCOMMIT_NUM -gt 0 ] && type -t pipethrough1 >/dev/null; then
+	    PIPETHROUGH1_COMMAND_JOINER=';' pipethrough1 --piped \
+		--exec printf '%s\t%s\t%s\t%s\n' "$shortCommitId" "$(git log1 --pretty='tformat:@%ct')" "$root" "$(git l1)" \; \
+		--exec head -n $((GIT_COMMIT_RECENTCOMMIT_NUM - 1)) \; \
+		"${XDG_CACHE_HOME:-${HOME}/.cache}/git-recentcommits"
+	fi
     fi
 
     if [ "$GIT_COMMIT_SHOW_REMOTE" ] \

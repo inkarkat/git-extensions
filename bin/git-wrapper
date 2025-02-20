@@ -13,10 +13,17 @@ fixPath()
     [ -d "$scriptDir" ] || { echo >&2 "ERROR: Cannot determine script directory!"; exit 3; }
     PATH="${scriptDir}:$PATH"
 }
+# Obtain the Git core path (/usr/lib/git-core/) if Git put itself in front of
+# the PATH.
+gitCorePath="${PATH%%:*}"
+PATH="$gitCorePath" command -v git-rev-list >/dev/null || gitCorePath=''    # Note: Cannot use git directly, need to use some subcommand like git-rev-list.
 
 isMyAlias()
 {
-    type -t "${1:?}" >/dev/null
+    # Don't consider built-in git-COMMAND "aliases" (actually symlinks to the git
+    # binary in /usr/lib/git-core/). Those don't understand my convention of passing
+    # GIT_CONFIG_ARGS and so any -c ... would get lost.
+    PATH="${PATH#$gitCorePath:}" type -t "${1:?}" >/dev/null
 }
 
 typeset -a gitConfigArgs=()

@@ -14,6 +14,11 @@ fixPath()
     PATH="${scriptDir}:$PATH"
 }
 
+isMyAlias()
+{
+    type -t "${1:?}" >/dev/null
+}
+
 typeset -a gitConfigArgs=()
 while [ $# -ne 0 ]
 do
@@ -44,12 +49,12 @@ if type -t hub >/dev/null; then
     # is used to invoke it.
     hubSubAlias="hub-$1-$2"
     hubAlias="hub-$1"
-    if type -t "$hubSubAlias" >/dev/null && { [ "$HUB" ] || ! type -t "$gitSubAlias" >/dev/null; }; then
+    if isMyAlias "$hubSubAlias" && { [ "$HUB" ] || ! isMyAlias "$gitSubAlias"; }; then
 	shift; shift
 	fixPath
 	$hubSubAlias "$@"
 	exit $?
-    elif type -t "$hubAlias" >/dev/null && { [ "$HUB" ] || ! type -t "$gitAlias" >/dev/null; }; then
+    elif isMyAlias "$hubAlias" && { [ "$HUB" ] || ! isMyAlias "$gitAlias"; }; then
 	shift
 	fixPath
 	$hubAlias "$@"
@@ -57,11 +62,11 @@ if type -t hub >/dev/null; then
     fi
 fi
 
-if type -t "$gitSubAlias" >/dev/null; then
+if isMyAlias "$gitSubAlias"; then
     shift; shift
     fixPath
     $gitSubAlias "$@"
-elif type -t "$gitAlias" >/dev/null; then
+elif isMyAlias "$gitAlias"; then
     shift
     fixPath
     $gitAlias "$@"

@@ -218,7 +218,7 @@ activity?(except)by\
 	onLocalBranch echo "Note: $gitCommand is a no-op, because it iterates over the current range without touching fixups. Use the dedicated check|command|exec to iterate over all branch commits. To rebase onto ${scopeWhat}, there's a dedicated alias outside of \"git ${scope}\".";;
     rbcheck)
 	onLocalBranch git-"${scopeCommand[@]}" -- rebasecheck "$@" --check-range;;
-    check|command|exec|rewordremovescope)
+    check|command|exec|rewordaddprefix|rewordremovescope)
 	source "${libDir:?}/rebase.sh.part" "$@"
 	;&
     rb?(n)i|segregate@(commits|andbifurcate)|bifurcate)

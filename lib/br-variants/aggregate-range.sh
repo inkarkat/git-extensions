@@ -133,7 +133,7 @@ cat|cp\
 
     (\
 fix@(up|amend|wording)?(rb)|\
-check|command|exec|rewordremovescope|\
+check|command|exec|rewordaddprefix|rewordremovescope|\
 rb|rbcheck|rb?(n)i|segregate@(commits|andbifurcate)|bifurcate|rblastfixup|\
 move-to-branch|uncommit-to-stash|uncommit-to-branch\
 )

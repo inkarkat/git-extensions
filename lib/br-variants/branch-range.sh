@@ -175,7 +175,7 @@ activity?(except)by\
 	;;
     rbcheck)
 	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -- rebasecheck "$@" --check-range;;
-    check|command|exec|rewordremovescope)
+    check|command|exec|rewordaddprefix|rewordremovescope)
 	source "${libDir:?}/rebase.sh.part" "$@"
 	;&
     rb?(n)i|segregate@(commits|andbifurcate)|bifurcate)

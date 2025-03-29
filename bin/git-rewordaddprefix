@@ -1,0 +1,32 @@
+#!/bin/bash
+set -o pipefail
+
+printUsage()
+{
+    local commandName="$(basename "$1")"
+    cat <<HELPTEXT
+Add a leading prefix to the commit message subject of the last commit.
+Useful when deciding to fast-forward commit(s; for multiple use
+$ git rebase -- ${commandName#git-} or $ git br... ${commandName#git-})
+on a feature branch that was initially intended to be merged.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$commandName" 'TASKID-1234|scope: [...] [-?|-h|--help]'
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+if [ $# -eq 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+IFS=' '
+literalPrefix="$*"
+literalPrefix="${literalPrefix//\\/\\\\}"
+literalPrefix="${literalPrefix//&/\\&}"
+
+exec git-sedreword \
+    -e '1!b' \
+    -e "s#^#${literalPrefix//#/\\#} #"

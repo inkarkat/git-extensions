@@ -34,4 +34,8 @@ if targetBranch="$(git config --get gitflow.branch.develop)"; then
     git-mergecheck --merge-to "$targetBranch" || exit $?
 fi
 
-exec git flow feature finish "$@"
+git flow feature finish "$@" || exit $?
+
+[ ! -t 1 ] \
+    || git-commitInfo \
+    || exit 0  # Don't fail when there's a problem with the additional information; the commit is all that counts.

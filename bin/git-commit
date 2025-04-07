@@ -1,8 +1,5 @@
 #!/bin/bash
 
-: ${GIT_COMMIT_SHOW_REUSE=t}
-: ${GIT_COMMIT_SHOW_REMOTE=t}
-: ${GIT_COMMIT_RECENTCOMMIT_NUM:=9}
 : ${GIT_BLAME_IGNORE_REVS_FILE=.git-blame-ignore-revs}
 
 printShortUsage()
@@ -185,31 +182,6 @@ then
     fi
 fi
 
-if [ -t 1 ]; then
-    : ${GIT_COMMIT_NOTE_PREFIX=[3;36m}
-    : ${GIT_COMMIT_NOTE_SUFFIX=[0m}
-
-    if [ "$GIT_COMMIT_SHOW_REUSE" ] \
-	&& root="$(git rev-parse --show-toplevel)" \
-	&& shortCommitId="$(git-commitid --short HEAD)"
-    then
-	printf >/dev/tty '%sReuse this commit message via $ git inside lo1 %q -- %s%s\n' "$GIT_COMMIT_NOTE_PREFIX" "$shortCommitId" "${root/#${HOME}\//~\/}" "$GIT_COMMIT_NOTE_SUFFIX"
-
-	if [ $GIT_COMMIT_RECENTCOMMIT_NUM -gt 0 ] && type -t pipethrough1 >/dev/null; then
-	    PIPETHROUGH1_COMMAND_JOINER=';' pipethrough1 --piped \
-		--exec printf '%s\t%s\t%s\t%s\n' "$shortCommitId" "$(git log1 --pretty='tformat:@%ct')" "$root" "$(git l1)" \; \
-		--exec head -n $((GIT_COMMIT_RECENTCOMMIT_NUM - 1)) \; \
-		"${XDG_CACHE_HOME:-${HOME}/.cache}/git-recentcommits"
-	fi
-    fi
-
-    if [ "$GIT_COMMIT_SHOW_REMOTE" ] \
-	&& git-existsremote origin \
-	&& commitUrl="$(git lourl1)" \
-	&& [ -n "$commitUrl" ]
-    then
-	printf >/dev/tty '%sView this commit in %s: %s%s\n' "$GIT_COMMIT_NOTE_PREFIX" 'origin' "$commitUrl" "$GIT_COMMIT_NOTE_SUFFIX"
-    fi
-
-    exit 0  # Don't fail when there's a problem with the additional information; the commit is all that counts.
-fi
+[ ! -t 1 ] \
+    || git-commitInfo \
+    || exit 0  # Don't fail when there's a problem with the additional information; the commit is all that counts.

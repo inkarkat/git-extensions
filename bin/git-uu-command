@@ -4,19 +4,22 @@ set -o pipefail
 printUsage()
 {
     cat <<HELPTEXT
-Commit modified and deleted, and add new files, respecting the ignore patterns.
-Combination of git adduu && git commit.
+Execute GIT-COMMAND with modified, deleted, and new files, respecting the ignore
+patterns.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND [--] [<file>...] [-?|-h|--help]'
 }
+
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
     --no-color|--color=*)
 			shift;;
     --color)		shift; shift;;
 esac
+gitCommand="${1:?}"; shift
 
 git ls-files -o --exclude-standard "$@" \
     | xargs --no-run-if-empty --delimiter '\n' git add \
-	&& git-wrapper cu "$@"
+	&& git add --update "$@" \
+	&& git-wrapper $gitCommand "$@"

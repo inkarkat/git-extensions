@@ -1,4 +1,5 @@
 #!/bin/bash
+set -o pipefail
 shopt -qs extglob
 
 printShortUsage()
@@ -88,9 +89,10 @@ if git diff --quiet "${difflinesArgs[@]}" "${files[@]}"; then
     exit 1
 fi
 
-git-difflines "${difflinesArgs[@]}" --only-old --number-format '-L%dn,%dn' \
+git-difflines "${difflinesArgs[@]}" --number-format '-L%dn,%dn' \
 	--command "git-wrapper blame --porcelain {} $quotedBaseCommit"' -- {+} | grep -o "^[[:xdigit:]]\\{40\\}" | sort --unique' \
 	"${files[@]}" \
+    | outputOrErrorPrintf --status 3 'ASSERT: git-difflines is consistent with git diff.\n' \
     |	GIT_SELECTEDCOMMIT_COMMAND=logrevs \
 	GIT_SELECTEDCOMMIT_NO_MANDATORY_RANGE=t \
-	    git-selectedcommit-command "${selectedcommitCommandArgs[@]}"
+	    ifne git-selectedcommit-command "${selectedcommitCommandArgs[@]}"

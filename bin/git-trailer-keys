@@ -1,4 +1,5 @@
 #!/bin/bash
+set -o pipefail
 
 printUsage()
 {
@@ -24,10 +25,19 @@ do
     esac
 done
 
-getTrailerKeys()
-{
-    git config get --all --regexp '^trailer\..*\.key$' "${configArgs[@]}" "$@"
-}
+
+if versionCompare "$(git --version 2>/dev/null)" -lt 2.49.0 2>/dev/null; then
+    getTrailerKeys()
+    {
+	git config --list "${configArgs[@]}" "$@" \
+	    | sed -ne 's/^trailer\..*\.key=\(.*\)$/\1/p'
+    }
+else
+    getTrailerKeys()
+    {
+	git config get --all --regexp '^trailer\..*\.key$' "${configArgs[@]}" "$@"
+    }
+fi
 
 trailerKeysAsRegexp()
 {

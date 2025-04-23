@@ -1,0 +1,45 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Check whether the current user is able to access GitHub (through SSH, at the
+passed URL).
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[URL] [-?|-h|--help]'
+}
+
+gitHost='git@github.com'
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    ?)			if [[ "$1" =~ ^[[:alnum:]]+://([^/]+)/([^/]+/[^/]+).*$ ]]; then
+			    gitHost="${BASH_REMATCH[1]}"
+			elif [[ "1" =~ ^(git@[^:]+):([^/]+/[^/]+)\.git.*$ ]]; then
+			    gitHost="${BASH_REMATCH[1]}"
+			else
+			    printf >&2 'ERROR: Not a GitHub URL / GitHub SSH host: %s\n' "$1"
+			    exit 2
+			fi
+			;;
+esac
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+checkGitHubAccess()
+{
+    ssh -T "$gitHost" >/dev/null 2>&1
+    [ $? -eq 1 ]    # GitHub doesn't provide shell access, and the connection will fail with 1 if successful, 255 if not.
+}
+
+if ! ssh-has-credentials; then
+    echo >&2 'Need to provide SSH credentials to access GitHub first.'
+    exit 1
+fi
+
+if ! checkGitHubAccess; then
+    echo >&2 'No access to GitHub.'
+    exit 1
+fi

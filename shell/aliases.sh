@@ -6,6 +6,8 @@ _git_initAndCloneExtension()
     typeset subCommand="$1"; shift
     typeset -r gitCommand="$(which hub 2>/dev/null || which git)"
 
+    typeset externalGitBaseDirspec="${GIT_INIT_EXTERNAL_BASEDIR:-${XDG_DATA_HOME:-${HOME}/.local/share}/gitdirs}"
+
     typeset isExternalGitDir=
     typeset -a gitArgs=()
     typeset -a gitCloneArgs=()
@@ -13,6 +15,20 @@ _git_initAndCloneExtension()
     while [ $# -ne 0 ]
     do
 	case "$1" in
+	    --help|-h|-\?)
+			shift
+			$gitCommand help "$subCommand" 2>&1 | sed \
+			    -e '/ \[--separate-git-dir /i\
+		[--external-git-dir]' \
+			    -e "/^ *--separate-git-dir=/i\\
+       --external-git-dir\\
+	   Externalize the Git metadata under\\
+	       ${externalGitBaseDirspec}/<working-copy-name>\\
+	   This is useful when the working copy is on a slow network share or\\
+	   under the control of another content management system.\\
+"
+			return 0
+			;;
 	    --force|-f)	shift; isForce=t;;
 
 	    # DWIM: Syntactic sugar around --separate-git-dir that automatically chooses the
@@ -82,7 +98,6 @@ _git_initAndCloneExtension()
 
     if [ "$isExternalGitDir" ]; then
 	typeset wcName="$(basename -- "$(readlink -nf -- "${wcDir:?}")")"
-	typeset externalGitBaseDirspec="${XDG_DATA_HOME:-${HOME}/.local/share}/gitdirs"
 	[ -d "$externalGitBaseDirspec" ] || mkdir --parents -- "$externalGitBaseDirspec" || { printf >&2 'ERROR: Could not initialize data store at %s\n' "$externalGitBaseDirspec"; return 3; }
 	typeset externalGitDirspec="${externalGitBaseDirspec}/${wcName:?}"
 	gitArgs+=(--separate-git-dir "$externalGitDirspec")

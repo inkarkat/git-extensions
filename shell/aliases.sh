@@ -49,9 +49,9 @@ git-init()
 	    -q)		gitInitArgs+=("$1"); shift;;
 	    --quiet|--bare)
 			gitInitArgs+=("$1"); shift;;
-	    --template=*|--separate-git-dir=*|--shared=*)
+	    --template=*|--separate-git-dir=*|--object-format=*|--ref-format=*|--initial-branch=*|--shared=*)
 			gitInitArgs+=("$1"); shift;;
-	    --template|--separate-git-dir|--shared)
+	    --template|--separate-git-dir|--object-format|--ref-format|--initial-branch|-b|--shared)
 			gitInitArgs+=("$1" "$2"); shift; shift;;
 	    --)		gitInitArgs+=("$1"); shift; break;;
 	    *)		break;;

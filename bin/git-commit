@@ -164,6 +164,33 @@ done
 
 set -- "${messageDirectArgs[@]}" "${messageFileArgs[@]}" "${messageRefArgs[@]}" "${editArgs[@]}" "${trailerArgs[@]}" "${commitArgs[@]}" "$@"
 
+if signingKeyConfig="$(git config --get user.signingkey 2>&1)" \
+    && [[ "$signingKeyConfig" =~ ssh ]]	# Either ~/.ssh/id_ed25519.pub or key::ssh-ed25519 ...
+then
+    # Note: We need an SSH agent (ssh-agent or something like GNOME keyring) for the
+    # signing key. This error indicates that such doesn't exist:
+    # > error: Couldn't get agent socket?
+
+    # XXX: Use of the SSH private key doesn't trigger ssh-add, as no SSH operation
+    # (and therefore SSH's AddKeysToAgent configuration) happens.
+    # Without a key in the agent, the signing of the commit fails:
+    # > fatal: failed to write commit object
+    # We need to explicitly trigger the ssh-add if there are no keys yet.
+    #
+    # When GNOME keyring is in use, its agent (actually ssh-agent itself running a
+    # custom im-launch command) is already running, and all keys have already been
+    # added from the start, but the actual unlocking via the passphrase (queried via
+    # the modal GUI popup) only happens on the first use, as part of the committing.
+    # So the ssh-add is naturally skipped in a desktop environment because the keys
+    # have already been added.
+    if [ -n "$SSH_AGENT_PID" ] \
+	&& [ -S "$SSH_AUTH_SOCK" ] \
+	&& ! ssh-add -l >/dev/null 2>&1
+    then
+	ssh-add
+    fi
+fi
+
 export GIT_COMMIT_CWD="$PWD"
 eval "typeset -a gitConfigArgs=($GIT_CONFIG_ARGS)"
 command git "${gitConfigArgs[@]}" commit "$@" || exit $?

@@ -6,13 +6,76 @@ _git_initAndCloneExtension()
     typeset subCommand="$1"; shift
     typeset -r gitCommand="$(which hub 2>/dev/null || which git)"
 
+    typeset -a gitArgs=()
+    typeset -a gitCloneArgs=()
+    typeset isForce=
+    while [ $# -ne 0 ]
+    do
+	case "$1" in
+	    --force|-f)	shift; isForce=t;;
+
+	    -q)		gitArgs+=("$1"); shift;;
+	    --quiet|--bare)
+			gitArgs+=("$1"); shift;;
+	    --template=*|--separate-git-dir=*|--object-format=*|--ref-format=*|--initial-branch=*|--shared=*)
+			gitArgs+=("$1"); shift;;
+	    --template|--separate-git-dir|--object-format|--ref-format|--initial-branch|-b|--shared)
+			gitArgs+=("$1" "$2"); shift; shift;;
+
+	    -[lsn])	gitCloneArgs+=("$1"); shift;;
+	    --local|--no-checkout|--no-hardlinks|--reject-shallow|--no-reject-shallow|--mirror|--dissociate|--single-branch|--no-single-branch|--tags|--no-tags|--recurse-submodules|--shallow-submodules|--no-shallow-submodules|--remote-submodules|--no-remote-submodules|--sparse|--reject-allow|--no-reject-allow|--also-filter-submodules)
+			gitCloneArgs+=("$1"); shift;;
+	    --origin=*|--branch=*|--revision=*|--upload-pack=*|--config=*|--reference=*|--reference-if-able=*|--server-option=*|--recurse-submodules=*|--filter=*|--depth=*|--jobs=*|--shallow-since=*|--shallow-exclude=*|--bundle-uri=*)
+			gitCloneArgs+=("$1"); shift;;
+	    --origin|-o|--branch|--revision|--upload-pack|-u|--config|-c|--reference|--reference-if-able|--server-option|--filter|--depth|--jobs|-j|--shallow-since|--shallow-exclude|--bundle-uri)
+			gitCloneArgs+=("$1" "$2"); shift; shift;;
+
+	    --)		gitArgs+=("$1"); shift; break;;
+	    *)		break;;
+	esac
+    done
     typeset wcDir
-    if [ $# -gt 0 ]; then
-	typeset repoOrDir="${!#}"
-	wcDir=${repoOrDir%.git}
+    case "$subCommand" in
+	clone)
+	    case $# in
+		1)			# <repository>
+		    typeset repoOrDir="$1"
+		    wcDir="$(basename -- "${repoOrDir%.git}")"
+		    ;;
+		2)  wcDir="$2";;	# <repository> <directory>
+	    esac
+	    ;;
+	init)
+	    case $# in
+		0)  wcDir="$PWD";;
+		1)  wcDir="$1";;	# <directory>
+	    esac
+	    ;;
+	*)  printf >&2 'ASSERT: Unhandled subcommand: %s\n' "$subCommand"; return 3;;
+    esac
+
+    if [ -n "$wcDir" ] && [ ! -e "$wcDir" ]; then
+	# <directory> is passed, and it does not exist yet. If it is inside the
+	# current directory, ensure that it won't be created inside a Git repo,
+	# as this likely is a user error.
+	if case "$wcDir" in
+	    ../*)   false;;
+	    /*)	    [ "${wcDir:0:$((${#PWD} + 1))}" = "${PWD}/" ];;
+	esac; then
+	    typeset existingRepoRootDir
+	    if existingRepoRootDir="$(git root 2>/dev/null)"; then
+		if [ "$isForce" ]; then
+		    printf >&2 'Note: The new Git repository %s lies within the existing %s repo.\n' "${wcDir%/}" "$existingRepoRootDir"
+		else
+		    printf >&2 'ERROR: Will not create a Git repository within the existing %s working copy; use -f|--force to override.\n' "$existingRepoRootDir"
+		    return 1
+		fi
+	    fi
+	fi
     fi
 
-    "$gitCommand" "$subCommand" "$@" || return $?
+    "$gitCommand" "$subCommand" "${gitArgs[@]}" "${gitCloneArgs[@]}" "$@" || return $?
+
     if [ -n "$wcDir" ]; then
 	[ -d "$wcDir" ] || \
 	    { wcDir="${wcDir##*/}"; [ -d "$wcDir" ]; } || \
@@ -38,46 +101,7 @@ _git_initAndCloneExtension()
 }
 git-init()
 {
-    typeset -a gitInitArgs=()
-    typeset isForce=
-    while [ $# -ne 0 ]
-    do
-	case "$1" in
-	    --force|-f)	shift; isForce=t;;
-	    -q)		gitInitArgs+=("$1"); shift;;
-	    --quiet|--bare)
-			gitInitArgs+=("$1"); shift;;
-	    --template=*|--separate-git-dir=*|--object-format=*|--ref-format=*|--initial-branch=*|--shared=*)
-			gitInitArgs+=("$1"); shift;;
-	    --template|--separate-git-dir|--object-format|--ref-format|--initial-branch|-b|--shared)
-			gitInitArgs+=("$1" "$2"); shift; shift;;
-	    --)		gitInitArgs+=("$1"); shift; break;;
-	    *)		break;;
-	esac
-    done
-
-    if [ $# -eq 1 ] && [ ! -e "$1" ]; then
-	# DIRECTORY is passed, and it does not exist yet. If it is inside the
-	# current directory, ensure that it won't be created inside a Git repo,
-	# as this likely is a user error.
-	typeset directory="${1%/}"
-	if case "$directory" in
-	    ../*)   false;;
-	    /*)	    [ "${directory:0:$((${#PWD} + 1))}" = "${PWD}/" ];;
-	esac; then
-	    typeset existingRepoRootDir
-	    if existingRepoRootDir="$(git root 2>/dev/null)"; then
-		if [ "$isForce" ]; then
-		    printf >&2 'Note: The new Git repository %s lies within the existing %s repo.\n' "${directory%/}" "$existingRepoRootDir"
-		else
-		    printf >&2 'ERROR: Will not create a Git repository within the existing %s repo; use -f|--force to override.\n' "$existingRepoRootDir"
-		    return 1
-		fi
-	    fi
-	fi
-    fi
-
-    _git_initAndCloneExtension init "${gitInitArgs[@]}" "$@"
+    _git_initAndCloneExtension init "$@"
 }
 git-clone()
 {

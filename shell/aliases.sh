@@ -20,7 +20,7 @@ _git_initAndCloneExtension()
 	# cannot be a script, and must be a function.
 	cd "$dir"
     else
-	[ -d .git ] || { echo >&2 'Note: No arguments and not in working copy'; return 1; }
+	[ -e .git ] || { echo >&2 'Note: No arguments and not in working copy'; return 1; }
     fi
 
     if "$gitCommand" config --system --get core.filemode >/dev/null; then

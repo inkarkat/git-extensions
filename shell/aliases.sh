@@ -1,12 +1,10 @@
 #!/bin/bash source-this-script
-[ "${BASH_VERSION:-}" ] || return
+[ "${BASH_VERSION:-}" ] || return   # Korn Shell complains: git-init: invalid function name
 
-# git-init: invalid function name
 _git_initAndCloneExtension()
 {
-    typeset subCommand="$1"
+    typeset subCommand="$1"; shift
     typeset -r gitCommand="$(which hub 2>/dev/null || which git)"
-    shift
 
     typeset wcDir
     if [ $# -gt 0 ]; then

@@ -8,17 +8,21 @@ _git_initAndCloneExtension()
     typeset -r gitCommand="$(which hub 2>/dev/null || which git)"
     shift
 
-    "$gitCommand" "$subCommand" "$@" || return $?
+    typeset wcDir
     if [ $# -gt 0 ]; then
 	typeset repoOrDir="${!#}"
-	typeset dir=${repoOrDir%.git}
-	[ -d "$dir" ] || \
-	    { dir="${dir##*/}"; [ -d "$dir" ]; } || \
+	wcDir=${repoOrDir%.git}
+    fi
+
+    "$gitCommand" "$subCommand" "$@" || return $?
+    if [ -n "$wcDir" ]; then
+	[ -d "$wcDir" ] || \
+	    { wcDir="${wcDir##*/}"; [ -d "$wcDir" ]; } || \
 	    { echo >&2 'Note: Cannot locate working copy'; return 1; }
 
 	# Feature: Automatically chdir into the created repository. That's why this
 	# cannot be a script, and must be a function.
-	cd "$dir"
+	cd "$wcDir"
     else
 	[ -e .git ] || { echo >&2 'Note: No arguments and not in working copy'; return 1; }
     fi

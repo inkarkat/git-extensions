@@ -6,6 +6,7 @@ _git_initAndCloneExtension()
     typeset subCommand="$1"; shift
     typeset -r gitCommand="$(which hub 2>/dev/null || which git)"
 
+    typeset isExternalGitDir=
     typeset -a gitArgs=()
     typeset -a gitCloneArgs=()
     typeset isForce=
@@ -13,6 +14,11 @@ _git_initAndCloneExtension()
     do
 	case "$1" in
 	    --force|-f)	shift; isForce=t;;
+
+	    # DWIM: Syntactic sugar around --separate-git-dir that automatically chooses the
+	    # storage location.
+	    --external-git-dir)
+			shift; isExternalGitDir=t;;
 
 	    -q)		gitArgs+=("$1"); shift;;
 	    --quiet|--bare)
@@ -72,6 +78,14 @@ _git_initAndCloneExtension()
 		fi
 	    fi
 	fi
+    fi
+
+    if [ "$isExternalGitDir" ]; then
+	typeset wcName="$(basename -- "$(readlink -nf -- "${wcDir:?}")")"
+	typeset externalGitBaseDirspec="${XDG_DATA_HOME:-${HOME}/.local/share}/gitdirs"
+	[ -d "$externalGitBaseDirspec" ] || mkdir --parents -- "$externalGitBaseDirspec" || { printf >&2 'ERROR: Could not initialize data store at %s\n' "$externalGitBaseDirspec"; return 3; }
+	typeset externalGitDirspec="${externalGitBaseDirspec}/${wcName:?}"
+	gitArgs+=(--separate-git-dir "$externalGitDirspec")
     fi
 
     "$gitCommand" "$subCommand" "${gitArgs[@]}" "${gitCloneArgs[@]}" "$@" || return $?

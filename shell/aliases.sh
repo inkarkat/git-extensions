@@ -93,7 +93,7 @@ git-oclone()
     fi
     local repoName="$1"; shift
     local me; me="$(git me-in-github)" || return $?
-    _git_initAndCloneExtension clone "git@github.com:${me}/${repoName}" "$@"
+    _git_initAndCloneExtension clone "$@" "git@github.com:${me}/${repoName}"
 }
 # Avoids "git remote rename origin upstream" and automatically makes upstream
 # read-only.

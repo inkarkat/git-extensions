@@ -4,7 +4,7 @@ set -o pipefail
 printUsage()
 {
     cat <<HELPTEXT
-Extract all commit trailers for  keys that are defined in the Git configuration
+Extract all commit trailers for keys that are defined in the Git configuration
 from the (single!) commit message.
 HELPTEXT
     echo
@@ -50,7 +50,7 @@ extract()
 
 remove()
 {
-    exec sed -e :a -e '/^[[:space:]]*\('"${trailerExpr//^/\\n}"'[^\n]*\)*\n*$/{ $d; N; ba; }' -e 'P; D'
+    exec sed -e :a -e '/^[[:space:]]*\('"${trailerExpr//^/\\n}"'[^\n]*\)*\n*$/{ $d; /\n$/{ s/.*//; p; d; }; N; ba; }' -e 'P; D'
 }
 
 trailerExpr="$(git-trailer-keys --as-regexp)" || exit 0

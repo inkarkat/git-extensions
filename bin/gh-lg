@@ -1,4 +1,7 @@
 #!/bin/bash
+set -o pipefail
+
+: ${GH_LG_NOOP_EXIT_STATUS:=0}
 
 printUsage()
 {
@@ -47,13 +50,28 @@ fi
 range="${1:?}"; shift
 [ "$isColor" ] || unset "${!GHLG_COLOR_@}"
 
-onelinelog()
+apiCall()
 {
-    gh api "/repos/{owner}/{repo}/compare/${range}" \
-	    --jq '.commits[] | "'"$GHLG_COLOR_COMMIT"'\(.sha[0:7])'"$GHLG_COLOR_RESET"'\t'"$GHLG_COLOR_AUTHOR"'(\(.commit.author.name), \(.commit.author.date))'"$GHLG_COLOR_RESET"'\t'"$GHLG_COLOR_SUBJECT"'\(.commit.message | split("\n")[0])'"$GHLG_COLOR_RESET"'"'
+    gh api "$@" "/repos/{owner}/{repo}/compare/${range}" \
+	    --jq '.commits[] | "'"$GHLG_COLOR_COMMIT"'\(.sha[0:7])'"$GHLG_COLOR_RESET"'\t'"$GHLG_COLOR_AUTHOR"'(\(.commit.author.name), \(.commit.author.date))'"$GHLG_COLOR_RESET"'\t'"$GHLG_COLOR_SUBJECT"'\(.commit.message | split("\n")[0])'"$GHLG_COLOR_RESET"'"' \
+	    2>/dev/null
 }
 
-eval 'onelinelog "$@"' \
-    "${reverser:+|}" '"${reverser[@]}"' \
-    "${formatter:+|}" '"${formatter[@]}"' \
-    "${pager:+|}" '"${pager[@]}"'
+onelinelog()
+{
+    local response
+    if response="$(apiCall "$@")"; then
+    	[ -n "$response" ] || return $GH_LG_NOOP_EXIT_STATUS
+	eval 'printf %s\\n "$response"' \
+	    "${reverser:+|}" '"${reverser[@]}"' \
+	    "${formatter:+|}" '"${formatter[@]}"' \
+	    "${pager:+|}" '"${pager[@]}"'
+    else
+	status=$?
+	printf '%s\n' "$response" \
+	    | jq --raw-output '"ERROR: " + .message' >&2
+	return $status
+    fi
+}
+
+onelinelog "$@"

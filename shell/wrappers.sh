@@ -4,6 +4,7 @@
 
 : ${GIT_DEFAULT_COMMAND=str}
 : ${HUB_DEFAULT_COMMAND=$GIT_DEFAULT_COMMAND}
+: ${GH_DEFAULT_COMMAND=}
 
 # Git supports aliases defined in .gitconfig, but you cannot override Git
 # builtins (e.g. "git log") by putting an executable "git-log" somewhere in the
@@ -72,7 +73,7 @@ hub()
     typeset hubAlias="hub-$1"
     typeset gitSubAlias="git-$1-$2"
     typeset gitAlias="git-$1"
-    if [ $# -eq 0 ]; then
+    if [ $# -eq 0 -a -n "$HUB_DEFAULT_COMMAND" ]; then
 	HUB=t eval "hub \"\${gitConfigArgs[@]}\" $HUB_DEFAULT_COMMAND"
     elif type ${BASH_VERSION:+-t} "$hubSubAlias" >/dev/null 2>&1; then
 	shift; shift
@@ -99,8 +100,8 @@ gh()
 {
     typeset ghSubAlias="gh-$1-$2"
     typeset ghAlias="gh-$1"
-    if [ $# -eq 0 ]; then
-	gh ${GH_DEFAULT_COMMAND:-}
+    if [ $# -eq 0 -a -n "$GH_DEFAULT_COMMAND" ]; then
+	gh "$GH_DEFAULT_COMMAND"
     elif type ${BASH_VERSION:+-t} "$ghSubAlias" >/dev/null; then
 	shift; shift
 	$ghSubAlias "$@"

@@ -1,0 +1,57 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+One-line author, date, and commit summary from the GitHub compare view.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--repo|-R OWNER/REPO] [USER:]BASE...[USER:]HEAD [-?|-h|--help]'
+}
+
+: ${GHLG_COLOR_COMMIT='[36m'}
+: ${GHLG_COLOR_AUTHOR='[32m'}
+: ${GHLG_COLOR_SUBJECT='[0m'}
+: ${GHLG_COLOR_RESET='[0m'}
+typeset -a allargs=()
+isColor=t
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+typeset -a formatter=(column -s $'\t' -t)
+if [ ! -t 1 ]; then
+    isColor=
+    pager=()
+    formatter=()
+fi
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=never)
+			shift; isColor=;;
+	--color=always)	shift; isColor=t;;
+	--color=*)	shift;;
+	--color)	case "$2" in never) isColor=;; always) isColor=t;; esac; shift; shift;;
+	--repo|-R)	shift; export GH_REPO="${1:?}"; shift;;
+	--)		allargs+=("$1"); shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		allargs+=("$1"); shift;;
+    esac
+done
+set -- "${allargs[@]}" "$@"
+if [ $# -ne 1 ] || [[ "$1" != ?*...?* ]]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+range="${1:?}"; shift
+[ "$isColor" ] || unset "${!GHLG_COLOR_@}"
+
+onelinelog()
+{
+    gh api "/repos/{owner}/{repo}/compare/${range}" \
+	    --jq '.commits[] | "'"$GHLG_COLOR_COMMIT"'\(.sha[0:7])'"$GHLG_COLOR_RESET"'\t'"$GHLG_COLOR_AUTHOR"'(\(.commit.author.name), \(.commit.author.date))'"$GHLG_COLOR_RESET"'\t'"$GHLG_COLOR_SUBJECT"'\(.commit.message | split("\n")[0])'"$GHLG_COLOR_RESET"'"'
+}
+
+onelinelog "$@" \
+    | eval 'tac' \
+    "${formatter:+|}" '"${formatter[@]}"' \
+    "${pager:+|}" '"${pager[@]}"'

@@ -6,8 +6,10 @@
 3. Freeze dependencies:
    - Cherry-pick the last freeze commit:
      `$ git cherrypickg 'Release: Freeze dependencies'`
-   - Update any refs in action.yml
-   - `$ git cu -m 'Release: Freeze dependencies'`
+   - Optional: Update any refs in action.yml
+     `$ gha-update-dependency-checkouts [--from stable]`
+   - Perform the freeze:
+     `$ git cu -m 'Release: Freeze dependencies'`
 4. Update CHANGELOG.md:
    - Replace UNRELEASED with v1, add the date
    `$ git release commit` (`$ git cu -m 'Release 1.00'`)
@@ -19,4 +21,6 @@
 7. `$ git opa` (`$ git opush --tags && git opush --all`)
 8. Go to the GitHub Releases page and |Draft a new release|
    (also possible from the Tags page).
-   - Copy the changelog entry to the release notes
+   - Release title is the version number
+   - Copy the Markdown changelog entry (without the version and date heading)
+     to the release notes

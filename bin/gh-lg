@@ -6,7 +6,7 @@ printUsage()
 One-line author, date, and commit summary from the GitHub compare view.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--repo|-R OWNER/REPO] [USER:]BASE...[USER:]HEAD [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--repo|-R OWNER/REPO] [--reverse] [USER:]BASE...[USER:]HEAD [-?|-h|--help]'
 }
 
 : ${GHLG_COLOR_COMMIT='[36m'}
@@ -22,6 +22,7 @@ if [ ! -t 1 ]; then
     pager=()
     formatter=()
 fi
+typeset reverser=(tac)
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -32,6 +33,7 @@ do
 	--color=*)	shift;;
 	--color)	case "$2" in never) isColor=;; always) isColor=t;; esac; shift; shift;;
 	--repo|-R)	shift; export GH_REPO="${1:?}"; shift;;
+	--reverse)	shift; reverser=();;
 	--)		allargs+=("$1"); shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		allargs+=("$1"); shift;;
@@ -51,7 +53,7 @@ onelinelog()
 	    --jq '.commits[] | "'"$GHLG_COLOR_COMMIT"'\(.sha[0:7])'"$GHLG_COLOR_RESET"'\t'"$GHLG_COLOR_AUTHOR"'(\(.commit.author.name), \(.commit.author.date))'"$GHLG_COLOR_RESET"'\t'"$GHLG_COLOR_SUBJECT"'\(.commit.message | split("\n")[0])'"$GHLG_COLOR_RESET"'"'
 }
 
-onelinelog "$@" \
-    | eval 'tac' \
+eval 'onelinelog "$@"' \
+    "${reverser:+|}" '"${reverser[@]}"' \
     "${formatter:+|}" '"${formatter[@]}"' \
     "${pager:+|}" '"${pager[@]}"'

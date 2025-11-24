@@ -56,6 +56,10 @@ hub is a command-line wrapper for git that makes you better at GitHub.
 ### directly apply all commits from a pull request to the current branch
 `$ hub am -3 [https://github.com/github/hub/pull/]134`
 
+### directly merge a pull request in GitHub
+`$ gh pr merge|rebase|squash 134`
+`$ git opull`
+
 ### cherry-pick a GitHub URL
 `$ hub cherry-pick https://github.com/xoebus/hub/commit/177eeb8`
 → `git remote add xoebus git://github.com/xoebus/hub.git`

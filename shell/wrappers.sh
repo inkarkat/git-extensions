@@ -52,7 +52,7 @@ git()
     fi
 }
 
-which hub >/dev/null 2>&1 || return
+which hub >/dev/null 2>&1 && \
 hub()
 {
     typeset -a gitConfigArgs=()
@@ -91,5 +91,23 @@ hub()
 	HUB=t eval $gitAlias '"$@"'	# Need eval for shell aliases.
     else
 	HUB=t command hub "${gitConfigArgs[@]}" "$@"
+    fi
+}
+
+which gh >/dev/null 2>&1 && \
+gh()
+{
+    typeset ghSubAlias="gh-$1-$2"
+    typeset ghAlias="gh-$1"
+    if [ $# -eq 0 ]; then
+	gh ${GH_DEFAULT_COMMAND:-}
+    elif type ${BASH_VERSION:+-t} "$ghSubAlias" >/dev/null; then
+	shift; shift
+	$ghSubAlias "$@"
+    elif type ${BASH_VERSION:+-t} "$ghAlias" >/dev/null; then
+	shift
+	$ghAlias "$@"
+    else
+	command gh "$@"
     fi
 }

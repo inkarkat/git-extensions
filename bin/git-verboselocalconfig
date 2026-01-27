@@ -1,5 +1,7 @@
 #!/bin/bash
 
+: ${GIT_VERBOSELOCALCONFIG_NOOP_EXIT:=99}
+
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
@@ -31,7 +33,7 @@ HELPDESCRIPTION
 			identify the repository.
 EXIT STATUS:
     0	Complete success.
-    99	Config already exists / already unset, no action necessary.
+    $GIT_VERBOSELOCALCONFIG_NOOP_EXIT	Config already exists / already unset, no action necessary.
     *   any exit status from git config
 HELPTEXT
 }
@@ -156,6 +158,6 @@ unsetConfig()
 }
 
 
-$existenceCheck "$@" && exit 99
+$existenceCheck "$@" && exit $GIT_VERBOSELOCALCONFIG_NOOP_EXIT
 $configAction "$@" \
     && printf '%s\n' "${description:-$(makeDescription "$@")}${location:+ for $location}"

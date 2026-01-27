@@ -1,6 +1,8 @@
 #!/bin/bash
 set -o pipefail
 
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+
 printUsage()
 {
     cat <<HELPTEXT
@@ -54,4 +56,5 @@ remove()
 }
 
 trailerExpr="$(git-trailer-keys --as-regexp)" || exit 0
-$action "$@"
+eval '$action "$@"' \
+    "${pager:+|}" '"${pager[@]}"'

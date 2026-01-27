@@ -1,0 +1,163 @@
+#!/bin/bash
+
+: ${GIT_VERBOSELOCALCONFIG_NOOP_EXIT:=99}
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-d|--description DESCRIPTION] [--include-location] set|unset [CONFIG-OPTIONS ...] NAME VALUE [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Set per-repo Git configuration and print a message if it actually changed.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --description|-d DESCRIPTION
+			Print DESCRIPTION instead of synthesizing a message from
+			the passed arguments.
+    --include-location	Append the working copy's directory to the message to
+			identify the repository.
+EXIT STATUS:
+    0	Complete success.
+    $GIT_VERBOSELOCALCONFIG_NOOP_EXIT	Config already exists / already unset, no action necessary.
+    *   any exit status from git config
+HELPTEXT
+}
+
+configAction=
+description=
+location=
+isAppend=
+isReplace=
+unset matchValue
+existenceCheck=scalarCheck
+typeset -a args=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--description|-d)
+			shift; description="${1:?}"; shift;;
+	--include-location)
+			shift; location="$PWD";;
+	set)		[ -n "$configAction" ] || configAction="${1}Config"; shift
+			if [ $# -lt 2 ]; then
+			    printUsage "$0" >&2
+			    exit 2
+			fi
+			value="${!#}"; set -- "${@:1:$(($#-1))}"
+			;;
+	unset)		[ -n "$configAction" ] || configAction="${1}Config"; shift;;
+	--append)	shift; isAppend=t; existenceCheck=dictCheck;;
+	--value)	args+=("$1" "${2?}"); matchValue="$2"; shift; shift; existenceCheck=dictCheck;;
+	--value=*)	args+=("$1"); matchValue="${1#--value=}"; shift; existenceCheck=dictCheck;;
+	--)		args+=("$1"); shift; break;;
+	*)		args+=("$1"); shift;;
+    esac
+done
+set -- "${args[@]}" "$@"
+if [ $# -lt 1 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+name="${!#}"
+set -- "${@:1:$(($#-1))}"
+
+gitWrapper()
+{
+    local gitPrefix
+    case ",${DEBUG:-}," in
+	*,git,*) gitPrefix=verbose;;
+	*,git\!,*) gitPrefix=echotrace;;
+    esac
+    $gitPrefix git "$@"
+}
+
+makeDescription()
+{
+    local actionVerb multiActionPreposition=
+    case "$configAction" in
+	setConfig)
+	    case "$value" in
+		true)	actionVerb='Enabling'; unset value;;
+		false)	actionVerb='Disabling'; unset value;;
+		'')	actionVerb='Clearing'; unset value;;
+		*)	if [ "$isReplace" ]; then
+			    actionVerb="Replacing $matchValue with"
+			    multiActionPreposition='in'
+			elif [ "$isAppend" ] || [ -n "${matchValue+t}" ]; then
+			    actionVerb='Adding'
+			    multiActionPreposition='to'
+			else
+			    actionVerb='Setting'
+			fi
+			;;
+	    esac
+	    ;;
+	unsetConfig)
+		actionVerb='Removing'
+		[ "$isReplace" ] && value="$matchValue" || value='all configured values'
+		multiActionPreposition='from'
+		;;
+	*)	printf >&2 'ASSERT: Unhandled configAction: %s\n' "$configAction"; exit 3;;
+    esac
+
+    [ -n "$multiActionPreposition" ] \
+	&& printf '%s %s %s %s' "$actionVerb" "${value:-empty}" "$multiActionPreposition" "$name" \
+	|| printf '%s %s%s' "$actionVerb" "$name" "${value+ to }${value:-empty}"
+}
+
+scalarCheck()
+{
+    [ "$(git config get --local "$@" "$name")" = "$value" ]
+}
+
+dictCheck()
+{
+    # --value may be a pattern or fixed value; cannot use simple set containment,
+    # and instead query the config directly.
+    if [ -n "${matchValue+t}" ]; then
+	if git config get --local --all "$@" "$name" >/dev/null; then
+	    isReplace=t
+	    return 1
+	else
+	    return 0
+	fi
+    fi
+
+    typeset -A configuredValues=()
+    local line; while IFS=$'\n' read -r line
+    do
+	configuredValues["$line"]=t
+    done < <(git config get --local --all "$@" "$name")
+    [ "${configuredValues["$value"]}" ]
+}
+
+setConfig()
+{
+    gitWrapper config set --local ${isAppend:+--append} "$@" "$name" "$value"
+}
+
+unsetConfig()
+{
+    gitWrapper config unset --local "$@" "$name"
+}
+
+
+$existenceCheck "$@" && exit $GIT_VERBOSELOCALCONFIG_NOOP_EXIT
+$configAction "$@" \
+    && printf '%s\n' "${description:-$(makeDescription "$@")}${location:+ for $location}"

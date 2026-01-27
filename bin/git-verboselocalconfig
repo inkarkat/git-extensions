@@ -29,6 +29,10 @@ HELPDESCRIPTION
 			the passed arguments.
     --include-location	Append the working copy's directory to the message to
 			identify the repository.
+EXIT STATUS:
+    0	Complete success.
+    99	Config already exists / already unset, no action necessary.
+    *   any exit status from git config
 HELPTEXT
 }
 
@@ -36,6 +40,9 @@ configAction=
 description=
 location=
 isAppend=
+isReplace=
+unset matchValue
+existenceCheck=scalarCheck
 typeset -a args=()
 while [ $# -ne 0 ]
 do
@@ -45,19 +52,26 @@ do
 			shift; description="${1:?}"; shift;;
 	--include-location)
 			shift; location="$PWD";;
-	set|unset)	[ -n "$configAction" ] || configAction="$1"; shift;;
-	--append)	args+=("$1"); shift; isAppend=t;;
+	set)		[ -n "$configAction" ] || configAction="${1}Config"; shift
+			if [ $# -lt 2 ]; then
+			    printUsage "$0" >&2
+			    exit 2
+			fi
+			value="${!#}"; set -- "${@:1:$(($#-1))}"
+			;;
+	unset)		[ -n "$configAction" ] || configAction="${1}Config"; shift;;
+	--append)	shift; isAppend=t; existenceCheck=dictCheck;;
+	--value)	args+=("$1" "${2?}"); matchValue="$2"; shift; shift; existenceCheck=dictCheck;;
+	--value=*)	args+=("$1"); matchValue="${1#--value=}"; shift; existenceCheck=dictCheck;;
 	--)		args+=("$1"); shift; break;;
 	*)		args+=("$1"); shift;;
     esac
 done
 set -- "${args[@]}" "$@"
-if [ $# -lt 2 ]; then
+if [ $# -lt 1 ]; then
     printUsage "$0" >&2
     exit 2
 fi
-value="${!#}"
-set -- "${@:1:$(($#-1))}"
 name="${!#}"
 set -- "${@:1:$(($#-1))}"
 
@@ -73,24 +87,75 @@ gitWrapper()
 
 makeDescription()
 {
-    local actionVerb
+    local actionVerb multiActionPreposition=
     case "$configAction" in
-	set)
+	setConfig)
 	    case "$value" in
 		true)	actionVerb='Enabling'; unset value;;
 		false)	actionVerb='Disabling'; unset value;;
 		'')	actionVerb='Clearing'; unset value;;
-		*)	actionVerb='Setting';;
+		*)	if [ "$isReplace" ]; then
+			    actionVerb="Replacing $matchValue with"
+			    multiActionPreposition='in'
+			elif [ "$isAppend" ] || [ -n "${matchValue+t}" ]; then
+			    actionVerb='Adding'
+			    multiActionPreposition='to'
+			else
+			    actionVerb='Setting'
+			fi
+			;;
 	    esac
 	    ;;
-	unset)	actionVerb='Removing';;
+	unsetConfig)
+		actionVerb='Removing'
+		[ "$isReplace" ] && value="$matchValue" || value='all configured values'
+		multiActionPreposition='from'
+		;;
 	*)	printf >&2 'ASSERT: Unhandled configAction: %s\n' "$configAction"; exit 3;;
     esac
 
-    printf '%s %s%s' "$actionVerb" "$name" "${value+ to }${value:-empty}"
+    [ -n "$multiActionPreposition" ] \
+	&& printf '%s %s %s %s' "$actionVerb" "${value:-empty}" "$multiActionPreposition" "$name" \
+	|| printf '%s %s%s' "$actionVerb" "$name" "${value+ to }${value:-empty}"
 }
 
-[ "$(git config get --local "$@" "$name")" = "$value" ] && exit 99
+scalarCheck()
+{
+    [ "$(git config get --local "$@" "$name")" = "$value" ]
+}
 
-gitWrapper config "$configAction" --local "$@" "$name" "$value" \
+dictCheck()
+{
+    # --value may be a pattern or fixed value; cannot use simple set containment,
+    # and instead query the config directly.
+    if [ -n "${matchValue+t}" ]; then
+	if git config get --local --all "$@" "$name" >/dev/null; then
+	    isReplace=t
+	    return 1
+	else
+	    return 0
+	fi
+    fi
+
+    typeset -A configuredValues=()
+    local line; while IFS=$'\n' read -r line
+    do
+	configuredValues["$line"]=t
+    done < <(git config get --local --all "$@" "$name")
+    [ "${configuredValues["$value"]}" ]
+}
+
+setConfig()
+{
+    gitWrapper config set --local ${isAppend:+--append} "$@" "$name" "$value"
+}
+
+unsetConfig()
+{
+    gitWrapper config unset --local "$@" "$name"
+}
+
+
+$existenceCheck "$@" && exit 99
+$configAction "$@" \
     && printf '%s\n' "${description:-$(makeDescription "$@")}${location:+ for $location}"

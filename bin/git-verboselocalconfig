@@ -1,0 +1,96 @@
+#!/bin/bash
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-d|--description DESCRIPTION] [--include-location] set|unset [CONFIG-OPTIONS ...] NAME VALUE [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Set per-repo Git configuration and print a message if it actually changed.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --description|-d DESCRIPTION
+			Print DESCRIPTION instead of synthesizing a message from
+			the passed arguments.
+    --include-location	Append the working copy's directory to the message to
+			identify the repository.
+HELPTEXT
+}
+
+configAction=
+description=
+location=
+isAppend=
+typeset -a args=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--description|-d)
+			shift; description="${1:?}"; shift;;
+	--include-location)
+			shift; location="$PWD";;
+	set|unset)	[ -n "$configAction" ] || configAction="$1"; shift;;
+	--append)	args+=("$1"); shift; isAppend=t;;
+	--)		args+=("$1"); shift; break;;
+	*)		args+=("$1"); shift;;
+    esac
+done
+set -- "${args[@]}" "$@"
+if [ $# -lt 2 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+value="${!#}"
+set -- "${@:1:$(($#-1))}"
+name="${!#}"
+set -- "${@:1:$(($#-1))}"
+
+gitWrapper()
+{
+    local gitPrefix
+    case ",${DEBUG:-}," in
+	*,git,*) gitPrefix=verbose;;
+	*,git\!,*) gitPrefix=echotrace;;
+    esac
+    $gitPrefix git "$@"
+}
+
+makeDescription()
+{
+    local actionVerb
+    case "$configAction" in
+	set)
+	    case "$value" in
+		true)	actionVerb='Enabling'; unset value;;
+		false)	actionVerb='Disabling'; unset value;;
+		'')	actionVerb='Clearing'; unset value;;
+		*)	actionVerb='Setting';;
+	    esac
+	    ;;
+	unset)	actionVerb='Removing';;
+	*)	printf >&2 'ASSERT: Unhandled configAction: %s\n' "$configAction"; exit 3;;
+    esac
+
+    printf '%s %s%s' "$actionVerb" "$name" "${value+ to }${value:-empty}"
+}
+
+[ "$(git config get --local "$@" "$name")" = "$value" ] && exit 99
+
+gitWrapper config "$configAction" --local "$@" "$name" "$value" \
+    && printf '%s\n' "${description:-$(makeDescription "$@")}${location:+ for $location}"

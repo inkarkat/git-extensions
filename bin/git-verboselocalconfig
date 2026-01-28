@@ -53,6 +53,7 @@ HELPTEXT
 configAction=
 description=
 location=
+isAll=
 isAppend=
 isReplace=
 unset matchValue
@@ -82,6 +83,7 @@ do
 			value="${!#}"; set -- "${@:1:$(($#-1))}"
 			;;
 	unset)		[ -n "$configAction" ] || configAction="${1}Config"; shift;;
+	--all)		args+=("$1"); shift; isAll=t;;
 	--append)	shift; isAppend=t; existenceCheck=dictCheck;;
 	--value)	args+=("$1" "${2?}"); matchValue="$2"; shift; shift; existenceCheck=dictCheck;;
 	--value=*)	args+=("$1"); matchValue="${1#--value=}"; shift; existenceCheck=dictCheck;;
@@ -117,11 +119,13 @@ makeDescription()
 		false)	actionVerb='Disabling'; unset value;;
 		'')	actionVerb='Clearing'; unset value;;
 		*)	if [ "$isReplace" ]; then
-			    actionVerb="Replacing $matchValue with"
+			    actionVerb="Replacing ${originalValue:-$matchValue} with"
 			    multiActionPreposition='in'
 			elif [ "$isAppend" ] || [ -n "${matchValue+t}" ]; then
 			    actionVerb='Adding'
 			    multiActionPreposition='to'
+			elif [ -n "$originalValue" ]; then
+			    actionVerb='Changing'
 			else
 			    actionVerb='Setting'
 			fi
@@ -129,9 +133,17 @@ makeDescription()
 	    esac
 	    ;;
 	unsetConfig)
-		actionVerb='Removing'
-		[ "$isReplace" ] && value="$matchValue" || value='all configured values'
+		actionVerb='Dropping'
 		multiActionPreposition='from'
+		if [ "$isReplace" ]; then
+		    actionVerb='Removing'
+		    value="${originalValue:-$matchValue}"
+		elif [ "$isAll" ]; then
+		    value="${originalValue:-all configured values}"
+		else
+		    value="${originalValue:-existing value}"
+		    multiActionPreposition='previously configured in'
+		fi
 		;;
 	*)	printf >&2 'ASSERT: Unhandled configAction: %s\n' "$configAction"; exit 3;;
     esac
@@ -139,12 +151,14 @@ makeDescription()
     local renderedValue=''; [ -z "${value+t}" ] || renderedValue="${value:-empty}"
     [ -n "$multiActionPreposition" ] \
 	&& printf '%s %s %s %s' "${actionVerbPrefix:-$actionVerb}${actionVerbPrefix:+ ${actionVerb,}}" "$renderedValue" "$multiActionPreposition" "$name" \
-	|| printf '%s %s%s' "${actionVerbPrefix:-$actionVerb}${actionVerbPrefix:+ ${actionVerb,}}" "$name" "${renderedValue:+ to }$renderedValue"
+	|| printf '%s %s%s' "${actionVerbPrefix:-$actionVerb}${actionVerbPrefix:+ ${actionVerb,}}" "$name" "${originalValue:+ from }${originalValue}${renderedValue:+ to }$renderedValue"
 }
 
+unset originalValue
 scalarCheck()
 {
-    [ "$(git config get "$@" "$name")" = "$value" ]
+    originalValue="$(git config get "$@" "$name")"
+    [ "$originalValue" = "$value" ]
 }
 
 dictCheck()
@@ -152,8 +166,9 @@ dictCheck()
     # --value may be a pattern or fixed value; cannot use simple set containment,
     # and instead query the config directly.
     if [ -n "${matchValue+t}" ]; then
-	if git config get --all "$@" "$name" >/dev/null; then
+	if originalValue="$(git config get --all "$@" "$name")"; then
 	    isReplace=t
+	    [[ "$originalValue" =~ $'\n' ]] && originalValue="${originalValue//$'\n'/, }"
 	    return 1
 	else
 	    return 0

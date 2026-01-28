@@ -121,6 +121,7 @@ do
     esac
 done
 
+
 # Extension: If a commit template is available (and no message was given via
 # command-line arguments), use it. The default editing behavior is not affected
 # by this. In order to avoid accidental pick up of old templates, they have the
@@ -132,6 +133,7 @@ then
     messageFileArgs+=(--file "$commitTemplateFilespec")
     [ ${#editArgs[@]} -gt 0 ] || editArgs+=(--edit)
 fi
+
 
 # Extension: Automatically add trailers containing system and/or platform information.
 # Execute the configured command-line; if there's output (individual lines are
@@ -164,6 +166,20 @@ done
 
 set -- "${messageDirectArgs[@]}" "${messageFileArgs[@]}" "${messageRefArgs[@]}" "${editArgs[@]}" "${trailerArgs[@]}" "${commitArgs[@]}" "$@"
 
+
+# Extension: Automatically add a Signed-off-by trailer (--signoff flag) if configured.
+# For legal / ideological reasons, Git doesn't offer such configuration by
+# default; cp. https://www.kernel.org/pub/software/scm/git/docs/gitfaq.html#sign-off
+# There is format.signOff for format-patch, but it's deemed a mistake.
+if choice="$(git config --type bool --get commit.signOff)"; then
+    case "$choice" in
+	true)	set -- --signoff "$@";;
+	false)	;;
+	*)	printf >&2 'ASSERT: Invalid choice: %s\n' "$choice"; exit 3;;
+    esac
+fi
+
+
 if signingKeyConfig="$(git config --get user.signingkey 2>&1)" \
     && [[ "$signingKeyConfig" =~ ssh ]]	# Either ~/.ssh/id_ed25519.pub or key::ssh-ed25519 ...
 then
@@ -190,6 +206,8 @@ then
 	ssh-add
     fi
 fi
+
+
 
 export GIT_COMMIT_CWD="$PWD"
 eval "typeset -a gitConfigArgs=($GIT_CONFIG_ARGS)"

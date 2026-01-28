@@ -1,0 +1,44 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Add FILE-PATTERN(s) to intentionally ignore matching untracked files in the
+current repository's local working copy only (via \$GIT_DIR/info/exclude), i.e.
+without commiting that specification in an gitignore file. This is a tightly-
+scoped alternative to a per-user / system-wide configuration that would apply to
+many repos.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-t|--test-only] [--] FILE-PATTERN [...] [-?|-h|--help]'
+}
+
+addOrUpdateMode=--in-place
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--test-only|-t)	addOrUpdateMode="$1"; shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if [ $# -eq 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+gitDir="$(git rev-parse --git-dir)" || exit 3
+
+overallStatus=
+for filePattern
+do
+    addOrUpdateLine "$addOrUpdateMode" --create-nonexisting --line "$filePattern" -- "${gitDir}/info/exclude"; status=$?
+    case $status in
+	0)  : ${overallStatus:=0};;
+	99) ;;
+	*)  overallStatus=$status
+    esac
+done
+exit ${overallStatus:-99}

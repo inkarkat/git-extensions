@@ -6,7 +6,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-d|--description DESCRIPTION] [--include-location] set|unset [CONFIG-OPTIONS ...] NAME VALUE [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-d|--description DESCRIPTION] [--include-location] [--accept-nonlocal|--localize] set|unset [CONFIG-OPTIONS ...] NAME VALUE [-?|-h|--help]'
 }
 printUsage()
 {
@@ -31,6 +31,18 @@ HELPDESCRIPTION
 			the passed arguments.
     --include-location	Append the working copy's directory to the message to
 			identify the repository.
+    --accept-nonlocal	Don't set the local configuration if the current
+			configuration (from another scope) already has that VALUE.
+			By default, the VALUE would be configured and therefore
+			the repo would become independent from changes in any
+			outer configuration scope.
+    --localize		Check for existence of VALUE in all configuration scopes
+			and set the local configuration even if VALUE is already
+			configured elsewhere (making the repo independent from
+			changes in any outer configuration scope). By default,
+			other configuration is completely ignored; the effect is
+			the same. This flag only changes the wording of the
+			generated message.
 EXIT STATUS:
     0	Complete success.
     $GIT_VERBOSELOCALCONFIG_NOOP_EXIT	Config already exists / already unset, no action necessary.
@@ -45,6 +57,7 @@ isAppend=
 isReplace=
 unset matchValue
 existenceCheck=scalarCheck
+nonLocalAction=
 typeset -a args=()
 while [ $# -ne 0 ]
 do
@@ -54,6 +67,10 @@ do
 			shift; description="${1:?}"; shift;;
 	--include-location)
 			shift; location="$PWD";;
+	--accept-nonlocal)
+			shift; nonLocalAction=acceptNonLocal;;
+	--localize)	shift; nonLocalAction=localize;;
+
 	set)		[ -n "$configAction" ] || configAction="${1}Config"; shift
 			if [ $# -lt 2 ]; then
 			    printUsage "$0" >&2
@@ -117,8 +134,8 @@ makeDescription()
     esac
 
     [ -n "$multiActionPreposition" ] \
-	&& printf '%s %s %s %s' "$actionVerb" "${value:-empty}" "$multiActionPreposition" "$name" \
-	|| printf '%s %s%s' "$actionVerb" "$name" "${value+ to }${value:-empty}"
+	&& printf '%s %s %s %s' "${actionVerbPrefix:-$actionVerb}${actionVerbPrefix:+ ${actionVerb,}}" "${value:-empty}" "$multiActionPreposition" "$name" \
+	|| printf '%s %s%s' "${actionVerbPrefix:-$actionVerb}${actionVerbPrefix:+ ${actionVerb,}}" "$name" "${value+ to }${value:-empty}"
 }
 
 scalarCheck()
@@ -147,6 +164,17 @@ dictCheck()
     [ "${configuredValues["$value"]}" ]
 }
 
+acceptNonLocal()
+{
+    exit $GIT_VERBOSELOCALCONFIG_NOOP_EXIT
+}
+
+actionVerbPrefix=
+localize()
+{
+    actionVerbPrefix='Localizing'
+}
+
 setConfig()
 {
     gitWrapper config set --local ${isAppend:+--append} "$@" "$name" "$value"
@@ -159,5 +187,8 @@ unsetConfig()
 
 
 $existenceCheck --local "$@" && exit $GIT_VERBOSELOCALCONFIG_NOOP_EXIT
+if [ -n "$nonLocalAction" ] && [ "$configAction" = setConfig ]; then
+    $existenceCheck "$@" && $nonLocalAction
+fi
 $configAction "$@" \
     && printf '%s\n' "${description:-$(makeDescription "$@")}${location:+ for $location}"

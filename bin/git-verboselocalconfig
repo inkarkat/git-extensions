@@ -6,7 +6,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-d|--description DESCRIPTION] [--include-location] [--accept-nonlocal|--localize] set|unset [CONFIG-OPTIONS ...] NAME VALUE [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-d|--description DESCRIPTION|--name NAME] [--include-location] [--accept-nonlocal|--localize] set|unset [CONFIG-OPTIONS ...] NAME VALUE [-?|-h|--help]'
 }
 printUsage()
 {
@@ -29,6 +29,8 @@ HELPDESCRIPTION
     --description|-d DESCRIPTION
 			Print DESCRIPTION instead of synthesizing a message from
 			the passed arguments.
+    --name NAME		Use NAME instead of the config key in the synthesized
+			message.
     --include-location	Append the working copy's directory to the message to
 			identify the repository.
     --accept-nonlocal	Don't set the local configuration if the current
@@ -52,6 +54,7 @@ HELPTEXT
 
 configAction=
 description=
+userFriendlyName=
 location=
 isAll=
 isAppend=
@@ -69,6 +72,7 @@ do
 	--color)	shift; shift;;
 	--description|-d)
 			shift; description="${1:?}"; shift;;
+	--name)		shift; userFriendlyName="${1:?}"; shift;;
 	--include-location)
 			shift; location="$PWD";;
 	--accept-nonlocal)
@@ -150,8 +154,8 @@ makeDescription()
 
     local renderedValue=''; [ -z "${value+t}" ] || renderedValue="${value:-empty}"
     [ -n "$multiActionPreposition" ] \
-	&& printf '%s %s %s %s' "${actionVerbPrefix:-$actionVerb}${actionVerbPrefix:+ ${actionVerb,}}" "$renderedValue" "$multiActionPreposition" "$name" \
-	|| printf '%s %s%s' "${actionVerbPrefix:-$actionVerb}${actionVerbPrefix:+ ${actionVerb,}}" "$name" "${originalValue:+ from }${originalValue}${renderedValue:+ to }$renderedValue"
+	&& printf '%s %s %s %s' "${actionVerbPrefix:-$actionVerb}${actionVerbPrefix:+ ${actionVerb,}}" "$renderedValue" "$multiActionPreposition" "${userFriendlyName:-$name}" \
+	|| printf '%s %s%s' "${actionVerbPrefix:-$actionVerb}${actionVerbPrefix:+ ${actionVerb,}}" "${userFriendlyName:-$name}" "${originalValue:+ from }${originalValue}${renderedValue:+ to }$renderedValue"
 }
 
 unset originalValue

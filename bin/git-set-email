@@ -19,10 +19,6 @@ if [ $# -ne 1 ]; then
     exit 2
 fi
 newEmail="${1:?}"; shift
-originalEmail="$(git config --get user.email)"
-
-[ "$newEmail" = "$originalEmail" ] && exit 99
 
 username="$(git config --get user.name)"
-git config --local user.email "$newEmail" && \
-    printf 'Email for %s changed from <%s> to <%s>.\n' "${username:-UNDEFINED}" "${originalEmail:-NOT SET}" "$newEmail"
+exec git-verboselocalconfig set --name "email for ${username:-UNDEFINED}" user.email "$newEmail"

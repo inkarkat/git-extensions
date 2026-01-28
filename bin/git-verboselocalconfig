@@ -6,7 +6,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-d|--description DESCRIPTION] [--include-location] set|unset [CONFIG-OPTIONS ...] NAME VALUE [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-d|--description DESCRIPTION|--name NAME] [--include-location] [--accept-nonlocal|--localize] set|unset [CONFIG-OPTIONS ...] NAME VALUE [-?|-h|--help]'
 }
 printUsage()
 {
@@ -29,8 +29,22 @@ HELPDESCRIPTION
     --description|-d DESCRIPTION
 			Print DESCRIPTION instead of synthesizing a message from
 			the passed arguments.
+    --name NAME		Use NAME instead of the config key in the synthesized
+			message.
     --include-location	Append the working copy's directory to the message to
 			identify the repository.
+    --accept-nonlocal	Don't set the local configuration if the current
+			configuration (from another scope) already has that VALUE.
+			By default, the VALUE would be configured and therefore
+			the repo would become independent from changes in any
+			outer configuration scope.
+    --localize		Check for existence of VALUE in all configuration scopes
+			and set the local configuration even if VALUE is already
+			configured elsewhere (making the repo independent from
+			changes in any outer configuration scope). By default,
+			other configuration is completely ignored; the effect is
+			the same. This flag only changes the wording of the
+			generated message.
 EXIT STATUS:
     0	Complete success.
     $GIT_VERBOSELOCALCONFIG_NOOP_EXIT	Config already exists / already unset, no action necessary.
@@ -40,20 +54,31 @@ HELPTEXT
 
 configAction=
 description=
+userFriendlyName=
 location=
+isAll=
 isAppend=
 isReplace=
 unset matchValue
 existenceCheck=scalarCheck
+nonLocalAction=
 typeset -a args=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
 	--description|-d)
 			shift; description="${1:?}"; shift;;
+	--name)		shift; userFriendlyName="${1:?}"; shift;;
 	--include-location)
 			shift; location="$PWD";;
+	--accept-nonlocal)
+			shift; nonLocalAction=acceptNonLocal;;
+	--localize)	shift; nonLocalAction=localize;;
+
 	set)		[ -n "$configAction" ] || configAction="${1}Config"; shift
 			if [ $# -lt 2 ]; then
 			    printUsage "$0" >&2
@@ -62,6 +87,7 @@ do
 			value="${!#}"; set -- "${@:1:$(($#-1))}"
 			;;
 	unset)		[ -n "$configAction" ] || configAction="${1}Config"; shift;;
+	--all)		args+=("$1"); shift; isAll=t;;
 	--append)	shift; isAppend=t; existenceCheck=dictCheck;;
 	--value)	args+=("$1" "${2?}"); matchValue="$2"; shift; shift; existenceCheck=dictCheck;;
 	--value=*)	args+=("$1"); matchValue="${1#--value=}"; shift; existenceCheck=dictCheck;;
@@ -97,11 +123,13 @@ makeDescription()
 		false)	actionVerb='Disabling'; unset value;;
 		'')	actionVerb='Clearing'; unset value;;
 		*)	if [ "$isReplace" ]; then
-			    actionVerb="Replacing $matchValue with"
+			    actionVerb="Replacing ${originalValue:-$matchValue} with"
 			    multiActionPreposition='in'
 			elif [ "$isAppend" ] || [ -n "${matchValue+t}" ]; then
 			    actionVerb='Adding'
 			    multiActionPreposition='to'
+			elif [ -n "$originalValue" ]; then
+			    actionVerb='Changing'
 			else
 			    actionVerb='Setting'
 			fi
@@ -109,21 +137,32 @@ makeDescription()
 	    esac
 	    ;;
 	unsetConfig)
-		actionVerb='Removing'
-		[ "$isReplace" ] && value="$matchValue" || value='all configured values'
+		actionVerb='Dropping'
 		multiActionPreposition='from'
+		if [ "$isReplace" ]; then
+		    actionVerb='Removing'
+		    value="${originalValue:-$matchValue}"
+		elif [ "$isAll" ]; then
+		    value="${originalValue:-all configured values}"
+		else
+		    value="${originalValue:-existing value}"
+		    multiActionPreposition='previously configured in'
+		fi
 		;;
 	*)	printf >&2 'ASSERT: Unhandled configAction: %s\n' "$configAction"; exit 3;;
     esac
 
+    local renderedValue=''; [ -z "${value+t}" ] || renderedValue="${value:-empty}"
     [ -n "$multiActionPreposition" ] \
-	&& printf '%s %s %s %s' "$actionVerb" "${value:-empty}" "$multiActionPreposition" "$name" \
-	|| printf '%s %s%s' "$actionVerb" "$name" "${value+ to }${value:-empty}"
+	&& printf '%s %s %s %s' "${actionVerbPrefix:-$actionVerb}${actionVerbPrefix:+ ${actionVerb,}}" "$renderedValue" "$multiActionPreposition" "${userFriendlyName:-$name}" \
+	|| printf '%s %s%s' "${actionVerbPrefix:-$actionVerb}${actionVerbPrefix:+ ${actionVerb,}}" "${userFriendlyName:-$name}" "${originalValue:+ from }${originalValue}${renderedValue:+ to }$renderedValue"
 }
 
+unset originalValue
 scalarCheck()
 {
-    [ "$(git config get --local "$@" "$name")" = "$value" ]
+    originalValue="$(git config get "$@" "$name")"
+    [ "$originalValue" = "$value" ]
 }
 
 dictCheck()
@@ -131,8 +170,9 @@ dictCheck()
     # --value may be a pattern or fixed value; cannot use simple set containment,
     # and instead query the config directly.
     if [ -n "${matchValue+t}" ]; then
-	if git config get --local --all "$@" "$name" >/dev/null; then
+	if originalValue="$(git config get --all "$@" "$name")"; then
 	    isReplace=t
+	    [[ "$originalValue" =~ $'\n' ]] && originalValue="${originalValue//$'\n'/, }"
 	    return 1
 	else
 	    return 0
@@ -143,8 +183,19 @@ dictCheck()
     local line; while IFS=$'\n' read -r line
     do
 	configuredValues["$line"]=t
-    done < <(git config get --local --all "$@" "$name")
+    done < <(git config get --all "$@" "$name")
     [ "${configuredValues["$value"]}" ]
+}
+
+acceptNonLocal()
+{
+    exit $GIT_VERBOSELOCALCONFIG_NOOP_EXIT
+}
+
+actionVerbPrefix=
+localize()
+{
+    actionVerbPrefix='Localizing'
 }
 
 setConfig()
@@ -158,6 +209,9 @@ unsetConfig()
 }
 
 
-$existenceCheck "$@" && exit $GIT_VERBOSELOCALCONFIG_NOOP_EXIT
+$existenceCheck --local "$@" && exit $GIT_VERBOSELOCALCONFIG_NOOP_EXIT
+if [ -n "$nonLocalAction" ] && [ "$configAction" = setConfig ]; then
+    $existenceCheck "$@" && $nonLocalAction
+fi
 $configAction "$@" \
     && printf '%s\n' "${description:-$(makeDescription "$@")}${location:+ for $location}"

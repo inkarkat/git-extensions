@@ -4,7 +4,7 @@ shopt -qs extglob
 
 printShortUsage()
 {
-    local commonArguments='[--authors|--files [--diff-filter=[(A|C|D|M|R|T|U|X|B)...[*]] [--[no-]renames] [-M<n>|--find-renames[=<n>]] [-C<n>|--find-copies[=<n>]|--find-copies-harder]]|--files-added|--files-deleted|--turmoil]'
+    local commonArguments='[--authors|--files [--diff-filter=[(A|C|D|M|R|T|U|X|B)...[*]] [--[no-]renames] [-M<n>|--find-renames[=<n>]] [-C<n>|--find-copies[=<n>]|--find-copies-harder]]|--files-added|--files-deleted|--turmoil|--turmoil-edstat]'
     local distributionCommonArguments='[--color=(always|auto|never)|--no-color] [--as colorbox-calendar|green-[large-]calendar|...]'
     local distributionOverAutorangeArguments='[--no-footer|--final-footer-only|footer-only-on-change|--footer-every N] [--force-legends] [--bucket-legend] [--over day|month|year|year-weekly|--weekly]'
     local distributionAutolinearArguments='-l|--linear [-w|--width W] [--no-today-base-date|--base-date today|"YYYY MM DD"] [--no-start-date] [--no-end-date] [--days-per-slot N|--slots-per-day N] [--reversed]'
@@ -51,6 +51,10 @@ HELPDESCRIPTION
     --turmoil		Consider the impact of changes (i.e. total number of
 			modified files, as well as number of added and deleted
 			lines) instead of solely the number of commits.
+    --turmoil-edstat	Consider the impact of changes through edit distance (at
+			character granularity), i.e. characters added and
+			removed between commits, instead of solely the number of
+			commits.
     --linear|-l		Choose a linear representation in one line with
 			auto-scaling of the time instead of the fixed reporting
 			over day, month, years.
@@ -117,6 +121,11 @@ do
 			shift; sourceLogCommand=(logFileCounts); gitArgs+=(--diff-filter=D);;
 	--turmoil)	shift
 			sourceLogCommand=(git turmoil --pretty=format:'%ai' --shortstat --join-shortstat ' ' --keep-turmoil)
+			distributionArgs+=(--field-separator '[[:space:]:_/,-]' --count-field 9 --default-count 1)
+			;;
+	--turmoil-edstat)
+			shift
+			sourceLogCommand=(git turmoil --pretty=format:$'%H\n%ai' --edstat --join-shortstat ' ' --keep-turmoil)
 			distributionArgs+=(--field-separator '[[:space:]:_/,-]' --count-field 9 --default-count 1)
 			;;
 	--)		gitArgs+=("$1"); shift; break;;

@@ -56,6 +56,7 @@ if [ ! -t 1 ]; then
 fi
 typeset -a sourceCommand=(git-log)
 sourceStatArg=--shortstat
+typeset -a awkSourceFieldSeparatorArgs=(--field-separator '^ |, ')
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -67,6 +68,7 @@ do
 	--stdin)	shift; sourceCommand=();;
 	--stat*|--shortstat)
 			sourceStatArg="$1"; shift;;
+	--edstat)	shift; [ ${#sourceCommand[@]} -eq 0 ] || sourceCommand=(git-logwithdedstat --shortstat); awkSourceFieldSeparatorArgs=();;
 	--reverse)	shift; sortOrderArg=();;
 	--keep-turmoil)	shift; processTurmoilArgs=(-e 's#^\([[:digit:]]\+\) #Turmoil \1, #');;
 	--no-shortstat)	shift; reassembleTurmoilArgs=(-e 's#^\([^\n]*\)\n\{1,2\}\(.*\)$#\2#');;   # Note: The shortstat is separated from the rest of the log output by an empty line.
@@ -93,7 +95,7 @@ evaluateChanges()
 {
     # Note: The shortstat line usually has a leading space; but let's accept also
     # those without it.
-    awk --field-separator '^ |, ' \
+    awk "${awkSourceFieldSeparatorArgs[@]}" \
 	-v "fileFactor=$GIT_TURMOIL_FILE_FACTOR" \
 '
 $1 ~ / files? changed$/ || ($1 == "" && $2 ~ / files? changed$/) {
@@ -107,6 +109,11 @@ $1 ~ / files? changed$/ || ($1 == "" && $2 ~ / files? changed$/) {
     }
 
     printf("%s %s%s\n", result, $0, zeroJoinedPreviousLines)
+    zeroJoinedPreviousLines = ""
+    next
+}
+$2 ~ /^characters?,$/ {
+    printf("%d %s%s\n", $1, $0, zeroJoinedPreviousLines)
     zeroJoinedPreviousLines = ""
     next
 }

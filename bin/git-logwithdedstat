@@ -1,0 +1,76 @@
+#!/bin/bash
+set -o pipefail
+
+printUsage()
+{
+    cat <<HELPTEXT
+Variant of "git log --stat" that calculates the edit distance via git-dedstat
+for each commit. This has to be a separate command because they --[short]stat
+flags are built into several Git commands and this would be very hard to provide
+by custom wrappers.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--shortstat] [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+}
+
+typeset -a allargs=()
+typeset -a colorArg=(--color=always)
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+if [ ! -t 1 ]; then
+    colorArg=()
+    pager=()
+fi
+edstatCommand=dpedstat
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--color=auto)	shift;;
+	--no-color|--color=*)
+			colorArg=("$1"); shift;;
+	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); shift; shift;;
+	--shortstat)	shift; edstatCommand=dpedsta;;
+	--)		allargs+=("$1"); shift; break;;
+	*)		allargs+=("$1"); shift;;
+    esac
+done
+set -- "${allargs[@]}" "$@"
+
+injectEdstat()
+{
+    awk -v "edstatCommand=$edstatCommand" '
+function nocolor(text) {
+    return gensub(/\x1b\[[0-9:;]*m/, "", "g", text)
+}
+function processPrevious() {
+    if (! commitId) return
+    "git " edstatCommand " " commitId | getline edstat
+    printf("%s" sep "\n", edstat)
+}
+nocolor($0) ~ /^commit/ && nocolor($1) == "commit" && (newCommitId = nocolor($2)) ~ /^[[:xdigit:]]+$/ {
+    processPrevious()
+    commitId = newCommitId
+    sep = "\n"
+}
+$0 ~ /^[[:xdigit:]]+$/ {
+    processPrevious()
+    commitId = $0
+    sep = ""
+    next
+}
+{
+    print
+}
+END {
+    if (isHashInput) {
+        printf("%s\t%s\t%s\n", total, added, removed)
+    } else {
+	processPrevious()
+    }
+}
+' 2>/dev/null
+}
+
+git log "${colorArg[@]}" "$@" \
+    | eval 'injectEdstat' \
+    "${pager:+|}" '"${pager[@]}"'

@@ -1,0 +1,34 @@
+#!/bin/bash
+set -o pipefail
+
+printUsage()
+{
+    cat <<HELPTEXT
+Generate a combined edit distance diffstat for all logged commits; "git
+logwithdedstat" will produce a separate diffstat for each commit; "git dedstat"
+can only cover successive commits.
+Specialized variant of "git logsta". Note that there's no git-logdedstat, as
+it's not required for git-logstabyeach and the per-file accounting would be
+difficult to implement.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--stat|--shortstat] [<log-options>] [<revision range>] [[--] <path>...] [-?|-h|--help]'
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+git-logwithdedstat --shortstat --pretty='tformat:%H' "$@" \
+    | awk '
+$2 ~ /^characters?,$/ && $4 = "inserted," && $6 = "deleted" {
+    changed += $1
+    inserted += $3
+    deleted += $5
+    next
+}
+{ print }
+END {
+    printf("%d character%s, %d inserted, %d deleted\n", changed, (changed == 1 ? "" : "s"), inserted, deleted)
+}
+'

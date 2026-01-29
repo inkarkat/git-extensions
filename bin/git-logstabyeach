@@ -40,6 +40,7 @@ HELPDESCRIPTION
 HELPTEXT
 }
 
+logCommand=logsta
 typeset -a logArgs=()
 typeset -a turmoilArgs=()
 while [ $# -ne 0 ]
@@ -49,6 +50,7 @@ do
 	--csv)		shift; formatter=(toCsv);;
 	--reverse|--keep-turmoil)
 			turmoilArgs+=("$1"); shift;;
+	--edstat)	turmoilArgs+=("$1"); shift; logCommand=logdedsta;;
 	--)		logArgs+=("$1"); shift; break;;
 	*)		logArgs+=("$1"); shift;;
     esac
@@ -61,14 +63,16 @@ toCsv()
     # columns.
     sed \
 	-e 's/,Turmoil /, /' \
-	-e '/ insertions\?(+)/!s#$#, 0 insertions(+)#' \
-	-e '/ deletions\?(-)/!s#$#, 0 deletions(-)#' \
-	-e 's# files\? changed\| insertions\?(+)\|deletions\?(-)##g'
+	-e '/ insertions\?(+)\| inserted/!s#$#, 0 insertions(+)#' \
+	-e '/ deletions\?(-)\| deleted/!s#$#, 0 deletions(-)#' \
+	-e 's# files\? changed\| insertions\?(+)\|deletions\?(-)##g' \
+	-e 's#,\([[:digit:]]\+\) characters\?,#, \1,#' \
+	-e 's# inserted\| deleted##g'
 }
 
 
 GIT_SEGREGATEDUSERCOMMAND_PREFIX_SEPARATOR=$'\n' \
-    git-segregated-user-command --prefixed --log-args-for-range -2 logsta USERFILTER "${logArgs[@]}" "$@" | \
+    git-segregated-user-command --prefixed --log-args-for-range -2 $logCommand USERFILTER "${logArgs[@]}" "$@" | \
 	eval 'git-turmoil --stdin --join-shortstat , "${turmoilArgs[@]}"' \
 	    "${formatter:+|}" '"${formatter[@]}"' \
 	    "${pager:+|}" '"${pager[@]}"'

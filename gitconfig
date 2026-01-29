@@ -2183,6 +2183,7 @@
 	logsta = logstat --shortstat
 	logstatbyeach = segregated-user-command --with-header --log-args-for-range -2 logstat USERFILTER	; Show a combined diffstat for each user that authored commits separately.
 	;; logstabyeach: Show a combined short one-line diffstat for each user that authored commits separately (descending by impact, starting with the most changes).
+	;; logdedsta: Generate a combined edit distance diffstat for all logged commits.
 	;; turmoil: Sort a Git log that includes a --shortstat containing line(s) with the total number of modified files, as well as number of added and deleted lines descending by impact, starting with the entries having the most changes.
 
 	;; whatdid: Summarizes commit title prefixes (like "Refactoring:") that appear at the beginning, according to frequency in the passed commit range.
@@ -2247,6 +2248,9 @@
 	dstatteam = team-command -2 logstatbyeach TEAM
 	dstatby = dashdash-default-command --with-files : authors-command -2 logstatbyeach AUTHORS :	; Show a diffstat of the combined commits for each passed or queried user(s).
 	dstaby = dashdash-default-command --with-files : authors-command -2 logstabyeach AUTHORS :	; Show a short one-line diffstat of the combined commits for each passed or queried user(s).
+
+	;; dedstat: Calculate the edit distance (at character granularity), characters added and removed between commits, for each file.
+	dedsta = dedstat --shortstat	; Calculate the edit distance (at character granularity), characters added and removed between commits; just the totals.
 
 	;; dl: Show separate diff of each file (instead of concatenating all changes), paged through with less.
 	dt = difftool
@@ -2372,6 +2376,8 @@
 	dhstas = dstas --revision HEAD
 	dhstat = dstat HEAD
 	dhstats = dstats --revision HEAD
+	dhedsta = dedsta HEAD
+	dhedstat = dedstat HEAD
 	dhl = dl HEAD
 	dth = difftool HEAD
 	dbh = db HEAD
@@ -2396,6 +2402,8 @@
 	dhhstas = dstas --revision HEAD^
 	dhhstat = dstat HEAD^
 	dhhstats = dstats --revision HEAD^
+	dhhedsta = dedsta HEAD^
+	dhhedstat = dedstat HEAD^
 	dhhl = dl HEAD^
 	dthh = difftool HEAD^
 	dbhh = db HEAD^
@@ -2444,6 +2452,8 @@
 	distas = dstas --cached
 	distat = dstat --cached
 	distats = dstats --cached
+	diedsta = dedsta --cached
+	diedstat = dedstat --cached
 	dil = dl --cached
 	dti = difftool --cached
 	dbi = db --cached
@@ -2546,6 +2556,8 @@
 	dpstas = dps --shortstat
 	dpstat = dp --stat --compact-summary
 	dpstats = dps --stat --compact-summary
+	dpedsta = dpedstat --shortstat
+	;; dpedstat
 	dpw = dp -c color.diff.old=red\\ reverse -c color.diff.new=green\\ reverse --color-words	; use word-based (not line-based) diff granularity
 	dpc = dp -c color.diff.old=red\\ reverse -c color.diff.new=green\\ reverse --color-words --word-diff-regex=.	; use character-based diff granularity
 	dpa = dp -c color.diff.old=red\\ reverse -c color.diff.new=green\\ reverse --color-words --word-diff-regex=(^|[^[:alnum:]_])[[:alnum:]_]+([^[:alnum:]_]|$)|[^[:space:]]	; use alnum-based diff granularity
@@ -2784,6 +2796,58 @@
 	dstabyeachtocommitrefz = dstabyeachtoselectedcommitref --max-count 100
 	dstabyeachtolastcommitref = lastcommitref-command -2 logstabyeach COMMITS
 	dstabyeachtopreviouscommitref = previouscommitref-command -2 logstabyeach COMMITS
+
+	dedstatoselected = selectedcommit-command --pass-file-args --single-only -2 dedsta COMMITS
+	dedstato1 = dedstatoselected --max-count 1
+	dedstato2 = dedstatoselected --max-count 2
+	dedstato3 = dedstatoselected --max-count 3
+	dedstato4 = dedstatoselected --max-count 4
+	dedstato5 = dedstatoselected --max-count 5
+	dedstato6 = dedstatoselected --max-count 6
+	dedstato7 = dedstatoselected --max-count 7
+	dedstatox = dedstatoselected --max-count 12
+	dedstatoq = dedstatoselected --max-count 25
+	dedstatoz = dedstatoselected --max-count 100
+
+	dedstatoselectedcommitref = selectedref-command --commits-only --single-only -2 dedsta COMMITS
+	dedstatocommitref1 = dedstatoselectedcommitref --max-count 1
+	dedstatocommitref2 = dedstatoselectedcommitref --max-count 2
+	dedstatocommitref3 = dedstatoselectedcommitref --max-count 3
+	dedstatocommitref4 = dedstatoselectedcommitref --max-count 4
+	dedstatocommitref5 = dedstatoselectedcommitref --max-count 5
+	dedstatocommitref6 = dedstatoselectedcommitref --max-count 6
+	dedstatocommitref7 = dedstatoselectedcommitref --max-count 7
+	dedstatocommitrefx = dedstatoselectedcommitref --max-count 12
+	dedstatocommitrefq = dedstatoselectedcommitref --max-count 25
+	dedstatocommitrefz = dedstatoselectedcommitref --max-count 100
+	dedstatolastcommitref = lastcommitref-command -2 dedsta COMMITS
+	dedstatopreviouscommitref = previouscommitref-command -2 dedsta COMMITS
+
+	dedstattoselected = selectedcommit-command --pass-file-args --single-only -2 dedstat COMMITS
+	dedstatto1 = dedstattoselected --max-count 1
+	dedstatto2 = dedstattoselected --max-count 2
+	dedstatto3 = dedstattoselected --max-count 3
+	dedstatto4 = dedstattoselected --max-count 4
+	dedstatto5 = dedstattoselected --max-count 5
+	dedstatto6 = dedstattoselected --max-count 6
+	dedstatto7 = dedstattoselected --max-count 7
+	dedstattox = dedstattoselected --max-count 12
+	dedstattoq = dedstattoselected --max-count 25
+	dedstattoz = dedstattoselected --max-count 100
+
+	dedstattoselectedcommitref = selectedref-command --commits-only --single-only -2 dedstat COMMITS
+	dedstattocommitref1 = dedstattoselectedcommitref --max-count 1
+	dedstattocommitref2 = dedstattoselectedcommitref --max-count 2
+	dedstattocommitref3 = dedstattoselectedcommitref --max-count 3
+	dedstattocommitref4 = dedstattoselectedcommitref --max-count 4
+	dedstattocommitref5 = dedstattoselectedcommitref --max-count 5
+	dedstattocommitref6 = dedstattoselectedcommitref --max-count 6
+	dedstattocommitref7 = dedstattoselectedcommitref --max-count 7
+	dedstattocommitrefx = dedstattoselectedcommitref --max-count 12
+	dedstattocommitrefq = dedstattoselectedcommitref --max-count 25
+	dedstattocommitrefz = dedstattoselectedcommitref --max-count 100
+	dedstattolastcommitref = lastcommitref-command -2 dedstat COMMITS
+	dedstattopreviouscommitref = previouscommitref-command -2 dedstat COMMITS
 
 	dltoselected = selectedcommit-command --pass-file-args --single-only -2 dl COMMITS
 	dlto1 = dltoselected --max-count 1
@@ -6407,6 +6471,8 @@
 	odstas = rev-remote-command origin dstas
 	odstat = rev-remote-command origin dstat
 	odstats = rev-remote-command origin dstats
+	odedsta = rev-remote-command origin dedsta
+	odedstat = rev-remote-command origin dedstat
 	odl = rev-remote-command origin dl
 	odt = rev-remote-command origin difftool ; Show differences to my GitHub clone.
 	odr = rev-remote-command origin dr
@@ -6583,6 +6649,8 @@
 	udstas = rev-remote-command upstream dstas
 	udstat = rev-remote-command upstream dstat
 	udstats = rev-remote-command upstream dstats
+	udedsta = rev-remote-command upstream dedsta
+	udedstat = rev-remote-command upstream dedstat
 	udl = rev-remote-command upstream dl
 	udt = rev-remote-command upstream difftool ; Show differences to upstream.
 	udr = rev-remote-command upstream dr
@@ -6735,6 +6803,8 @@
 	subd = subdiff
 	subdsta = subdiff --shortstat
 	subdstat = subdiff --stat --compact-summary
+	subdedsta = subdedstat --shortdiff
+	;; subdedstat
 	subdh = subdiff HEAD	; Show diff of both staged or unstaged changes since the last commit, only of submodules (excluding changes in the current superproject).
 	subdi = subdiff --cached	; Show diff of staged changes in the index only of submodules (excluding changes in the current superproject).
 

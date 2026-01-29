@@ -79,6 +79,10 @@ activity?(except)by\
 	$EXEC "git-${scopeCommand:?}" --no-range -2 diffuntil TIMESPAN --shortstat "$@";;
     dstat)
 	$EXEC "git-${scopeCommand:?}" --no-range -2 diffuntil TIMESPAN --stat --compact-summary "$@";;
+    dedsta)
+	$EXEC "git-${scopeCommand:?}" --no-range -2 duntiledstat TIMESPAN --shortstat "$@";;
+    dedstat)
+	$EXEC "git-${scopeCommand:?}" --no-range -2 duntiledstat TIMESPAN "$@";;
     ds)
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope d" "$@";;
     dss)

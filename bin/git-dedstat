@@ -37,7 +37,8 @@ BEGIN {
 /^\+/ && !/^\+\+\+/ { added += length(substr($0, 2)); }
 /^\-/ && !/^---/    { removed += length(substr($0, 2)); }
 END {
-    print added + removed "\t" added "\t" removed
+    sum = added + removed
+    printf("%d character%s, %d inserted, %d deleted\n", sum, (sum == 1 ? "" : "s"), added, removed)
 }
 '
 }
@@ -49,15 +50,30 @@ function reset() {
     added = 0
     removed = 0
 }
-function printStats() {
-    print added + removed "\t" added "\t" removed "\t" filespec
+function max(n1, n2) {
+    return n1 > n2 ? n1 : n2
+}
+function storeStats() {
+    file[++fileCnt] = filespec
+    fileWidth = max(fileWidth, length(filespec))
+    additions[fileCnt] = added
+    additionsMax = max(additionsMax, added)
+    removals[fileCnt] = removed
+    removalsMax = max(removalsMax, removed)
+    totalsMax = max(totalsMax, added + removed)
 }
 BEGIN { reset(); }
 /^\+\+\+ /	    { filespec = gensub("^[[:alpha:]]/", "", 1, substr($0, 5)); }
 /^\+/ && !/^\+\+\+/ { added += length(substr($0, 2)); }
 /^\-/ && !/^---/    { removed += length(substr($0, 2)); }
-/^diff / && NR > 1  { printStats(); reset(); }
-END { printStats(); reset(); }
+/^diff / && NR > 1  { storeStats(); reset(); }
+END {
+    storeStats()
+    for (i = 1; i <= fileCnt; ++i) {
+	sum = additions[i] + removals[i]
+	printf(" %-*s | %*d character%s, %*d inserted, %*d deleted\n", fileWidth, file[i], length("" totalsMax), sum, (sum == 1 ? "" : "s"), length("" additionsMax), additions[i], length("" removalsMax), removals[i])
+    }
+}
 '
 }
 

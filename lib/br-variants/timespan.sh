@@ -80,6 +80,10 @@ activity?(except)by\
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --no-range -2 diffuntil TIMESPAN --shortstat "$@";;
     dstat)
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --no-range -2 diffuntil TIMESPAN --stat --compact-summary "$@";;
+    dedsta)
+	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --no-range -2 duntiledstat TIMESPAN --shortstat "$@";;
+    dedstat)
+	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --no-range -2 duntiledstat TIMESPAN "$@";;
     ds)
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope d" "$@";;
     dss)

@@ -1,0 +1,72 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Calculate the edit distance (at character granularity), characters added and
+removed between commits, for each file or with --shortstat just the totals.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--shortstat] [<diff-options>] [<commit> [<commit>]] [--] [<path>...] [-?|-h|--help]'
+}
+
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+statCommand=perFileStat
+typeset -a args=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+	--shortstat)	shift; statCommand=shortstat;;
+	--)		args+=("$1"); shift; break;;
+	*)		args+=("$1"); shift;;
+    esac
+done
+set -- "${args[@]}" "$@"
+
+shortstat()
+{
+    awk '
+BEGIN {
+    added = 0
+    removed = 0
+}
+/^\+/ && !/^\+\+\+/ { added += length(substr($0, 2)); }
+/^\-/ && !/^---/    { removed += length(substr($0, 2)); }
+END {
+    print added + removed "\t" added "\t" removed
+}
+'
+}
+
+perFileStat()
+{
+    awk '
+function reset() {
+    added = 0
+    removed = 0
+}
+function printStats() {
+    print added + removed "\t" added "\t" removed "\t" filespec
+}
+BEGIN { reset(); }
+/^\+\+\+ /	    { filespec = gensub("^[[:alpha:]]/", "", 1, substr($0, 5)); }
+/^\+/ && !/^\+\+\+/ { added += length(substr($0, 2)); }
+/^\-/ && !/^---/    { removed += length(substr($0, 2)); }
+/^diff / && NR > 1  { printStats(); reset(); }
+END { printStats(); reset(); }
+'
+}
+
+edstat()
+{
+    git diff --word-diff=porcelain --word-diff-regex=. "$@" \
+	| $statCommand
+    return ${PIPESTATUS[0]}
+}
+
+eval 'edstat "$@"' \
+    "${pager:+|}" '"${pager[@]}"'

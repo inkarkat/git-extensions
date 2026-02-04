@@ -1,0 +1,121 @@
+#!/bin/bash
+set -o noglob
+
+printUsage()
+{
+    cat <<HELPTEXT
+Execute GIT-COMMAND with the same files (inside <path>) as were modified in the
+last commit / N'th commit / passed <commit>
+- appended
+- replacing FILES argument(s) anywhere
+- replacing FILES in the following GIT-COMMAND and -(N-1) arguments
+- replacing FILES in the following +(N) arguments and appending those
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND [-n N|--count N|<commit>] [GIT-COMMAND-ARGS ...] [--] [<path> [...]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--keep-position GIT-COMMAND [-n N|--count N|<commit>] [... FILES ...] [--] [<path> [...]]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [-n N|--count N|<commit>] [...] [--] [<path> [...]]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [-n N|--count N|<commit>] [...] [--] [<path> [...]]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+if [ $# -eq 0 ]; then
+    echo >&2 'ERROR: No GIT-COMMAND passed.'
+    exit 2
+fi
+
+commit=
+typeset -a args=()
+unset files
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--count|-n)	shift
+			if ! [[ "$1" =~ ^[0-9]+$ ]]; then
+			    printUsage "$0" >&2
+			    exit 2
+			fi
+			commit="HEAD~$(($1 - 1))"
+			shift
+			;;
+	--)		shift; typeset -a files=("$@"); break;;
+	-*)		args+=("$1"); shift;;
+	*)		if [ -z "$commit" ] && git rev-parse --verify --quiet "$1" >/dev/null; then
+			    commit="$1"
+			else
+			    args+=("$1")
+			fi; shift
+			;;
+    esac
+done
+if [ -z "${files+t}" ]; then
+    # No files after -- captured yet; need to investigate parsed and
+    # remaining args from behind for files.
+    typeset -a files=()
+    args+=("$@")
+    while [ ${#args[@]} -ne 0 ]
+    do
+	lastArg="${args[-1]}"
+	[ -e "$lastArg" ] || break
+
+	files=("$lastArg" "${files[@]}")
+	args=("${args[@]:0:${#args[@]}-1}")
+    done
+fi
+set -- "${args[@]}" "$@"
+if [ $# -eq 0 ]; then
+    echo >&2 'ERROR: No GIT-COMMAND passed.'
+    exit 2
+fi
+
+readarray -t committedFiles < <(
+    git-showfiles "${commit:-HEAD}" -- "${files[@]}" \
+	| { xargs -n 1 --no-run-if-empty sh -c 'test -r "$1" && printf %s\\n "$1"' sh || :; }
+)
+[ ${#committedFiles[@]} -gt 0 ] || exit 99
+
+isCountedAppend=
+case "$1" in
+    +[1-9])
+	isCountedAppend=t;&
+    -[1-9])
+	typeset countedArgNum=${1#[+-]}
+	typeset -a countedArgs=("${@:2:${countedArgNum}}")
+	set -- "${@:$((2 + countedArgNum))}"
+
+	typeset -a appendedArgs=()
+	for arg in "${countedArgs[@]}"
+	do
+	    if [ "$arg" = 'FILES' ]; then
+		appendedArgs+=("${committedFiles[@]}")
+	    else
+		appendedArgs+=("$arg")
+	    fi
+	done
+
+	[ "$isCountedAppend" ] \
+	    && exec git-wrapper "$@" "${appendedArgs[@]}" \
+	    || exec git-wrapper "${appendedArgs[@]}" "$@"
+	;;
+    --keep-position)
+	shift
+
+	typeset -a appendedArgs=()
+	for arg
+	do
+	    if [ "$arg" = 'FILES' ]; then
+		appendedArgs+=("${committedFiles[@]}")
+	    else
+		appendedArgs+=("$arg")
+	    fi
+	done
+
+	exec git-wrapper "${appendedArgs[@]}"
+	;;
+    *)
+	exec git-wrapper "$@" -- "${committedFiles[@]}"
+	;;
+esac

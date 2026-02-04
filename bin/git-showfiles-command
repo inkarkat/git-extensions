@@ -4,18 +4,18 @@ set -o noglob
 printUsage()
 {
     cat <<HELPTEXT
-Execute GIT-COMMAND with the files modified in the last commit / passed
--r|--revision REVISION
+Execute GIT-COMMAND with the files (inside <path>) that were modified in the
+last commit / N'th commit / passed -r|--revision REVISION.
 - appended
 - replacing FILES argument(s) anywhere
 - replacing FILES in the following GIT-COMMAND and -(N-1) arguments
 - replacing FILES in the following +(N) arguments and appending those
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-c ...] GIT-COMMAND [...] [-r|--revision REVISION] [...] [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '--keep-position GIT-COMMAND [... FILES ...]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-c ...] GIT-COMMAND [-n N|--count N|-r|--revision REVISION] [GIT-COMMAND-ARGS ...] [--] [<path> [...]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--keep-position GIT-COMMAND [-n N|--count N|-r|--revision REVISION] [... FILES ...] [--] [<path> [...]]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [-n N|--count N|-r|--revision REVISION] [...] [--] [<path> [...]]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [-n N|--count N|-r|--revision REVISION] [...] [--] [<path> [...]]'
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
@@ -23,35 +23,58 @@ esac
 
 revision=
 typeset -a args=()
+unset files
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--count|-n)	shift
+			if ! [[ "$1" =~ ^[0-9]+$ ]]; then
+			    printUsage "$0" >&2
+			    exit 2
+			fi
+			revision="HEAD~$(($1 - 1))"
+			shift
+			;;
 	--revision|-r)	if [ -n "$revision" ]; then
 			    args+=("$1" "$2"); shift; shift
 			else
 			    shift; revision="${1:?}"; shift
 			fi
 			;;
-	--)		args+=("$1"); shift; break;;
+	--)		shift; typeset -a files=("$@"); break;;
 	*)		args+=("$1"); shift;;
     esac
 done
-set -- "${args[@]}" "$@"
+if [ -z "${files+t}" ]; then
+    # No files after -- captured yet; need to investigate parsed and
+    # remaining args from behind for files.
+    typeset -a files=()
+    args+=("$@")
+    while [ ${#args[@]} -ne 0 ]
+    do
+	lastArg="${args[-1]}"
+	[ -e "$lastArg" ] || break
 
+	files=("$lastArg" "${files[@]}")
+	args=("${args[@]:0:${#args[@]}-1}")
+    done
+fi
+set -- "${args[@]}" "$@"
 if [ $# -eq 0 ]; then
     echo >&2 'ERROR: No GIT-COMMAND passed.'
     exit 2
 fi
 
-readarray -t files < <(eval "${GIT_LASTFILES_COMMAND:-git-showfiles}" '"${revision:-HEAD}"'; printf '\n%d\n' "$?")	# Exit status from the process substitution is lost; return the actual exit status via an appended additional line.
-[ ${files[-1]} -ne 0 ] && exit ${files[-1]}
-unset "files[$((${#files[@]}-1))]"
-[ -z "${files[-1]}" ] && unset "files[$((${#files[@]}-1))]"
-if [ ${#files[@]} -eq 0 ]; then
-    echo >&2 'ERROR: No files.'
-    exit 1
-fi
+readarray -t committedFiles < <(
+    eval "${GIT_LASTFILES_COMMAND:-git-showfiles}" '"${revision:-HEAD}" -- "${files[@]}"' \
+	| { xargs -n 1 --no-run-if-empty sh -c 'test -r "$1" && printf %s\\n "$1"' sh || :; }
+    printf '\n%d\n' ${PIPESTATUS[0]}
+)	# Exit status from the process substitution is lost; return the actual exit status via an appended additional line.
+[ ${committedFiles[-1]} -ne 0 ] && exit ${committedFiles[-1]}
+unset "committedFiles[$((${#committedFiles[@]}-1))]"
+[ -z "${committedFiles[-1]}" ] && unset "committedFiles[$((${#committedFiles[@]}-1))]"
+[ ${#committedFiles[@]} -gt 0 ] || exit 99
 
 isCountedAppend=
 case "$1" in
@@ -66,7 +89,7 @@ case "$1" in
 	for arg in "${countedArgs[@]}"
 	do
 	    if [ "$arg" = 'FILES' ]; then
-		appendedArgs+=("${files[@]}")
+		appendedArgs+=("${committedFiles[@]}")
 	    else
 		appendedArgs+=("$arg")
 	    fi
@@ -83,7 +106,7 @@ case "$1" in
 	for arg
 	do
 	    if [ "$arg" = 'FILES' ]; then
-		appendedArgs+=("${files[@]}")
+		appendedArgs+=("${committedFiles[@]}")
 	    else
 		appendedArgs+=("$arg")
 	    fi
@@ -92,6 +115,6 @@ case "$1" in
 	exec git-wrapper "${appendedArgs[@]}"
 	;;
     *)
-	exec git-wrapper "$@" -- "${files[@]}"
+	exec git-wrapper "$@" -- "${committedFiles[@]}"
 	;;
 esac

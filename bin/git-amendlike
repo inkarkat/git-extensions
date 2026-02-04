@@ -55,7 +55,10 @@ if [ -z "${files+t}" ]; then
     done
 fi
 
-readarray -t committedFiles < <(git-showfiles "${commit:-HEAD}" -- "${files[@]}")
+readarray -t committedFiles < <(
+    git-showfiles "${commit:-HEAD}" -- "${files[@]}" \
+	| { xargs -n 1 --no-run-if-empty sh -c 'test -r "$1" && printf %s\\n "$1"' sh || :; }
+)
 [ ${#committedFiles[@]} -gt 0 ] || exit 99
 
 exec git-wrapper commit --amend --only "${commitArgs[@]}" -- "${committedFiles[@]}"

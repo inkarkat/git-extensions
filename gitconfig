@@ -309,9 +309,9 @@
 	;; addempty: Add empty DIR(s).
 	;; adddeleted: Add manually deleted (or moved) files to the index.
 	;; addi: Add unstaged changes from already staged files; update stage.
-	addlike = like-command add	; Add the same files (inside <path>) as were modified in the last commit / N'th commit / passed <commit> to the index.
+	addlike = showfiles-command add	; Add the same files (inside <path>) as were modified in the last commit / N'th commit / passed -r|--revision REVISION to the index.
 	; addlast is built into addlike (with no arguments).
-	addlikeselected = selectedcommit-command --single-only -2 addlike COMMITS
+	addlikeselected = selectedcommit-command --single-only -3 addlike --revision COMMITS
 	addlike1 = addlikeselected --max-count 1
 	addlike2 = addlikeselected --max-count 2
 	addlike3 = addlikeselected --max-count 3
@@ -322,9 +322,9 @@
 	addlikex = addlikeselected --max-count 12
 	addlikeq = addlikeselected --max-count 25
 	addlikez = addlikeselected --max-count 100
-	addlikeg = selectedgcommit-command --single-only -2 addlike COMMITS
-	addlikechanged = selectedchangedcommit-command --single-only -2 addlike COMMITS
-	addliketouched = selectedtouchedcommit-command --single-only -2 addlike COMMITS
+	addlikeg = selectedgcommit-command --single-only -2 addlike --revision COMMITS
+	addlikechanged = selectedchangedcommit-command --single-only -3 addlike --revision COMMITS
+	addliketouched = selectedtouchedcommit-command --single-only -2 addlike --revision COMMITS
 	;; addr: Add from root (i.e. all in working copy, not just everything inside CWD); defaults to modified and deleted, without new.
 	;; adduntracked: Add only new files, respecting the ignore patterns.
 	addun = adduntracked
@@ -1301,8 +1301,8 @@
 	;; rewordaddprefix: Add a leading prefix to the commit message subject of the last commit.
 	;; rewordremovescope: Remove leading <scope>: arguments (but stop short of keywords) from the commit message subject of the last commit.
 
-	amendlike = like-command commit --amend --only 	; Amend the same files (inside <path>) as were modified in the last commit / N'th commit / passed revision to the last commit (ignoring any already staged changes).
-	amendlikeselected = selectedpermanentcommit-command --single-only -2 amendlike COMMITS
+	amendlike = showfiles-command commit --amend --only 	; Amend the same files (inside <path>) as were modified in the last commit / N'th commit / passed -r|--revision REVISION (ignoring any already staged changes).
+	amendlikeselected = selectedpermanentcommit-command --single-only -3 amendlike --revision COMMITS
 	amendlike1 = amendlikeselected --max-count 1
 	amendlike2 = amendlikeselected --max-count 2
 	amendlike3 = amendlikeselected --max-count 3
@@ -1313,9 +1313,9 @@
 	amendlikex = amendlikeselected --max-count 12
 	amendlikeq = amendlikeselected --max-count 25
 	amendlikez = amendlikeselected --max-count 100
-	amendlikeg = selectedgcommit-command --single-only -2 amendlike COMMITS
-	amendlikechanged = selectedchangedcommit-command --single-only -2 amendlike COMMITS
-	amendliketouched = selectedtouchedcommit-command --single-only -2 amendlike COMMITS
+	amendlikeg = selectedgcommit-command --single-only -3 amendlike --revision COMMITS
+	amendlikechanged = selectedchangedcommit-command --single-only -3 amendlike --revision COMMITS
+	amendliketouched = selectedtouchedcommit-command --single-only -3 amendlike --revision COMMITS
 
 	amenlike = amendlike --reuse-message=HEAD
 	amenlikeselected = selectedpermanentcommit-command --single-only -2 amenlike COMMITS
@@ -5637,22 +5637,23 @@
 	lg-iexceptby = dashdash-default-command --with-files : authors-command --invert-authors -2 lg-i AUTHORS :
 	lc-iexceptby = dashdash-default-command --with-files : authors-command --invert-authors -2 lc-i AUTHORS :
 
-	lglastfiles = showfiles-command lg	; One-line topology, author, date, tags and commit summary of files in the last commit / passed -r|--revision REVISION.
-	loglastfiles = showfiles-command log	; Commit logs of files in the last commit / passed -r|--revision REVISION.
-	logvlastfiles = showfiles-command logv	; Verbose commit logs (including filenames) of files in the last commit / passed -r|--revision REVISION.
-	logfileslastfiles = showfiles-command logfiles	; One-line author, date, tags and commit summary, plus the list of changed files of files in the last commit / passed -r|--revision REVISION.
-	lclastfiles = showfiles-command lc	; Logs together with diff between commits, of files in the last commit / passed -r|--revision REVISION.
-	lglastfilesmine = mine-command -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE lg ME RANGE	; One-line topology, author, date, tags and commit summary of the files of the commit last done by me [since -r|--revision REVISION].
-	loglastfilesmine = mine-command -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE log ME RANGE	; Commit logs of the files of the commit last done by me [since -r|--revision REVISION].
+	lglastfiles = showfiles-command lg	; One-line topology, author, date, tags and commit summary of files (inside <path>) in the last commit / N'th commit / passed -r|--revision REVISION.
+	loglastfiles = showfiles-command log	; Commit logs of files (inside <path>) in the last commit / N'th commit / passed -r|--revision REVISION.
+	logvlastfiles = showfiles-command logv	; Verbose commit logs (including filenames) of files (inside <path>) in the last commit / N'th commit / passed -r|--revision REVISION.
+	logfileslastfiles = showfiles-command logfiles	; One-line author, date, tags and commit summary, plus the list of changed files of files (inside <path>) in the last commit / N'th commit / passed -r|--revision REVISION.
+	lclastfiles = showfiles-command lc	; Logs together with diff between commits, of files in the last commit / N'th commit / passed -r|--revision REVISION.
+	lghilastfiles = showfiles-command lghifiles	; git lg, with commits that touch the same files (inside <path>) as were modified in the last commit / N'th commit / passed -r|--revision REVISION highlighted.
+	lglastfilesmine = mine-command -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE lg ME RANGE	; One-line topology, author, date, tags and commit summary of the files (inside <path>) of the commit last done by me [since -r|--revision REVISION].
+	loglastfilesmine = mine-command -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE log ME RANGE	; Commit logs of the files (inside <path>) of the commit last done by me [since -r|--revision REVISION].
 	lclastfilesmine = mine-command -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE lc ME RANGE
-	lglastfilesothers = others-command -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE lg OTHERS RANGE	; One-line topology, author, date, tags and commit summary of the files of the commit last done by others [since -r|--revision REVISION].
-	loglastfilesothers = others-command -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE log OTHERS RANGE	; Commit logs of the files of the commit last done by others [since -r|--revision REVISION].
+	lglastfilesothers = others-command -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE lg OTHERS RANGE	; One-line topology, author, date, tags and commit summary of the files (inside <path>) of the commit last done by others [since -r|--revision REVISION].
+	loglastfilesothers = others-command -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE log OTHERS RANGE	; Commit logs of the files (inside <path>) of the commit last done by others [since -r|--revision REVISION].
 	lclastfilesothers = others-command -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE lc OTHERS RANGE
-	lglastfilesteam = team-command -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE lg TEAM RANGE	; One-line topology, author, date, tags and commit summary of the files of the commit last done by my team [since -r|--revision REVISION].
-	loglastfilesteam = team-command -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE log TEAM RANGE	; Commit logs of the files of the commit last done by my team [since -r|--revision REVISION].
+	lglastfilesteam = team-command -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE lg TEAM RANGE	; One-line topology, author, date, tags and commit summary of the files (inside <path>) of the commit last done by my team [since -r|--revision REVISION].
+	loglastfilesteam = team-command -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE log TEAM RANGE	; Commit logs of the files (inside <path>) of the commit last done by my team [since -r|--revision REVISION].
 	lclastfilesteam = team-command -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE lc TEAM RANGE
-	lglastfilesby = dashdash-default-command --with-files : authors-command -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE lg AUTHORS RANGE :	; One-line topology, author, date, tags and commit summary of the files of the commit last done by the passed or queried user(s) [since -r|--revision REVISION].
-	loglastfilesby = dashdash-default-command --with-files : authors-command -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE log AUTHORS RANGE :	; Commit logs of the files of the commit last done by the passed or queried user(s) [since -r|--revision REVISION].
+	lglastfilesby = dashdash-default-command --with-files : authors-command -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE lg AUTHORS RANGE :	; One-line topology, author, date, tags and commit summary of the files (inside <path>) of the commit last done by the passed or queried user(s) [since -r|--revision REVISION].
+	loglastfilesby = dashdash-default-command --with-files : authors-command -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE log AUTHORS RANGE :	; Commit logs of the files (inside <path>) of the commit last done by the passed or queried user(s) [since -r|--revision REVISION].
 	lclastfilesby = dashdash-default-command --with-files : authors-command -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE lc AUTHORS RANGE :
 	lglastfilesexceptby = dashdash-default-command --with-files : authors-command --invert-authors -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE lg AUTHORS RANGE :
 	loglastfilesexceptby = dashdash-default-command --with-files : authors-command --invert-authors -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE log AUTHORS RANGE :

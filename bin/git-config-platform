@@ -1,0 +1,46 @@
+#!/bin/bash
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[PLATFORM-INFO-COMMAND] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Set / print the locally configured shell command that yields the commit trailer
+platform for this repository.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+Example:
+HELPTEXT
+    local pic; for pic in 'aptitude --version | head -n 1' 'withCommandPrefix borgmatic --version' 'unprefix --exec sox --version \; "sox:      "'
+    do
+	printf "%q '%s'\n" "$(basename "$1")" "$pic"
+    done
+HELPTEXT
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+esac
+case $# in
+    0)	git config get --local commit.trailer.platform;;
+    1)	platformInfoCommand="${1:?}"; shift
+	git-verboselocalconfig set commit.trailer.platform "$platformInfoCommand"
+	;;
+    *)	printUsage "$0"; exit 2;;
+esac >&2

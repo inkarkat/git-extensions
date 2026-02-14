@@ -24,6 +24,11 @@ do
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--accept-single|--single-only)
 			commandOnSelectedArgs+=("$1"); shift;;
+	--generate)	shift
+			reldate --date-pattern '' -- "${XDG_CACHE_HOME:-${HOME}/.cache}/git-recentcommits" \
+			    | column -s $'\t' -t
+			exit $?
+			;;
 	--)		shift; break;;
 	*)		break;;
     esac
@@ -107,7 +112,8 @@ while IFS=$'\t' read -r commitId commitDate workingCopy subject || { exitStatus=
 do
     commits+=("$commitId" "$workingCopy")
 done < <(
-    commandOnSelected --generator "reldate --date-pattern '' -- ${XDG_CACHE_HOME:-${HOME}/.cache}/git-recentcommits | column -s $'\t' -t" --filter '' "${commandOnSelectedArgs[@]}" "$@"
+    printf -v quotedScriptFilespec %q "${BASH_SOURCE[0]}"
+    commandOnSelected --generator "$quotedScriptFilespec --generate" --filter '' "${commandOnSelectedArgs[@]}" "$@"
     printf %d "$?"
 )
 

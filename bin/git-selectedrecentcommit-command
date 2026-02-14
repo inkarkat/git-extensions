@@ -1,5 +1,11 @@
 #!/bin/bash
 
+: ${GIT_SELECTEDRECENTCOMMITCOMMAND_COLOR_COMMIT='[36m'}
+: ${GIT_SELECTEDRECENTCOMMITCOMMAND_COLOR_DATE='[32m'}
+: ${GIT_SELECTEDRECENTCOMMITCOMMAND_COLOR_WORKINGCOPY='[35m'}
+: ${GIT_SELECTEDRECENTCOMMITCOMMAND_COLOR_SUBJECT='[0m'}
+: ${GIT_SELECTEDRECENTCOMMITCOMMAND_COLOR_RESET='[0m'}
+
 printUsage()
 {
     cat <<HELPTEXT
@@ -24,6 +30,12 @@ do
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--accept-single|--single-only)
 			commandOnSelectedArgs+=("$1"); shift;;
+	--generate)	shift
+			reldate --date-pattern '' -- "${XDG_CACHE_HOME:-${HOME}/.cache}/git-recentcommits" \
+			    | sed -e 's#^\([^\t]\+\)\t\([^\t]\+\)\t\([^\t]\+\)\t\(.*\)$#'"${GIT_SELECTEDRECENTCOMMITCOMMAND_COLOR_COMMIT}\\1${GIT_SELECTEDRECENTCOMMITCOMMAND_COLOR_RESET}\\t${GIT_SELECTEDRECENTCOMMITCOMMAND_COLOR_DATE}\\2${GIT_SELECTEDRECENTCOMMITCOMMAND_COLOR_RESET}\\t${GIT_SELECTEDRECENTCOMMITCOMMAND_COLOR_WORKINGCOPY}\\3${GIT_SELECTEDRECENTCOMMITCOMMAND_COLOR_RESET}\\t${GIT_SELECTEDRECENTCOMMITCOMMAND_COLOR_SUBJECT}\\4${GIT_SELECTEDRECENTCOMMITCOMMAND_COLOR_RESET}#" \
+			    | column -s $'\t' -t
+			exit $?
+			;;
 	--)		shift; break;;
 	*)		break;;
     esac
@@ -103,12 +115,14 @@ esac
 
 typeset -a commits=()
 exitStatus=
-while IFS=$'\t' read -r commitId commitDate workingCopy subject || { exitStatus="$commitId"; break; }	# Exit status from the process substitution (<()) is lost; return the actual exit status via an incomplete (i.e. missing the newline) last line.
+while IFS=$'\t' read -r commitId workingCopy || { exitStatus="$commitId"; break; }	# Exit status from the process substitution (<()) is lost; return the actual exit status via an incomplete (i.e. missing the newline) last line.
 do
-    commits+=("$commitId" "$workingCopy")
+    commits+=("$commitId" -- "$workingCopy")
 done < <(
-    commandOnSelected --generator "reldate --date-pattern '' -- ${XDG_CACHE_HOME:-${HOME}/.cache}/git-recentcommits | column -s $'\t' -t" --filter '' "${commandOnSelectedArgs[@]}" "$@"
-    printf %d "$?"
+    printf -v quotedScriptFilespec %q "${BASH_SOURCE[0]}"
+    commandOnSelected --generator "$quotedScriptFilespec --generate" --filter '' "${commandOnSelectedArgs[@]}" "$@" \
+	| sed -e "s#^${GIT_SELECTEDRECENTCOMMITCOMMAND_COLOR_COMMIT//\[/\\[}\\(.\\+\\)${GIT_SELECTEDRECENTCOMMITCOMMAND_COLOR_RESET//\[/\\[}[[:space:]]\\+${GIT_SELECTEDRECENTCOMMITCOMMAND_COLOR_DATE//\[/\\[}.\\+${GIT_SELECTEDRECENTCOMMITCOMMAND_COLOR_RESET//\[/\\[}[[:space:]]\\+${GIT_SELECTEDRECENTCOMMITCOMMAND_COLOR_WORKINGCOPY//\[/\\[}\\(.\\+\\)${GIT_SELECTEDRECENTCOMMITCOMMAND_COLOR_RESET//\[/\\[}[[:space:]]\\+${GIT_SELECTEDRECENTCOMMITCOMMAND_COLOR_SUBJECT//\[/\\[}.*${GIT_SELECTEDRECENTCOMMITCOMMAND_COLOR_RESET//\[/\\[}\$#\1\t\2#"
+    printf %d ${PIPESTATUS[0]}
 )
 
 if [ $exitStatus -eq 124 ]; then

@@ -40,7 +40,7 @@ superproject: `$ hub subsamebrdo --single-success --include-superproject prcomme
 superproject: `$ hub subsamebrdo --single-success --include-superproject prapproval`
 Do the integration:
 superproject: `$ hub subsamebrdo --interactive reintegratetom --no-push --no-delete --no-checks`
-(if you want to do this submodule by submodule: `$ hub reintegratetom --no-push --no-delete --no-checks`)
+(if you want to do this submodule by submodule: `$ hub reintegratetom --no-push --no-delete --no-checks`⏎)
 Note: When doing a bulk change, default check commands (that would run for each
 submodule) can be skipped via `reintegrate* --no-checks`
 Then update integration build after submodules have been reintegrated
@@ -86,7 +86,7 @@ a) amends to short-lived feature without API changes:
    `$ git amenu`
    `$ git ffintegratetom --no-push --push-branch --no-delete --no-submodule-checkout --no-submodule-update --rebase-single`
 b) across-submodule API changes / maintain history of how the feature grew:
-   `$ git cu -m 'feat-4711 Housekeeping: Reintegrate [...] submodule(s)'`   (no-op if all submodule branch(es) have been fast-forwarded)
+   `$ git cu -m 'feat-4711 Housekeeping: Reintegrate [...] submodule(s)'`⏎   (no-op if all submodule branch(es) have been fast-forwarded)
    `$ git ffintegratetom --no-push --push-branch --no-delete --no-submodule-checkout --no-submodule-update --no-ff`
 If the **GitHub action** does not **trigger** (if this is just a merge commit affecting
 submodule references but no actual files in the superproject), trigger it

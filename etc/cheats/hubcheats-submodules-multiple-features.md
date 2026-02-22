@@ -19,12 +19,12 @@ submodule(s): `-----------------*---*----------------*--> master  `
 2. superproject: `$ git mrb`
    run checks manually
 3. Check out `feat-B`,
-   reintegrate submodule(s) `$ hub supersubreintegratetom`;
+   reintegrate submodule(s) `$ hub supersubreintegratetom`
    accept that the master branch is ahead of origin
 4. superproject: `$ git rb feat-A`
    run checks manually
 5. Check out `feat-C`
-   submodule(s): rebase `$ git mrb` (this gets rid of the previous merge commit of
+   submodule(s): rebase `$ git mrb`⏎ (this gets rid of the previous merge commit of
    `feat-A` to `feat-B`; however, you need to re-apply manual merge adaptations!)
    then reintegrate submodule(s) `$ hub supersubreintegratetom`
    accept that the master branch is ahead of origin (again)
@@ -35,5 +35,5 @@ submodule(s): `-----------------*---*----------------*--> master  `
    branches will be pushed: `$ hub supersubreintegratetom`
 9. Delete all feature branches
 
-Undo/start over: Check out each feature branch and `$ git owipe -f` first
+Undo/start over: Check out each feature branch and `$ git owipe -f`⏎ first
 all submodule(s), then superproject

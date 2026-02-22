@@ -2,14 +2,14 @@
 
 Create subsequent branches (foo → foo-1 → foo-2 → ...) via `$ git supersubdo stackbr`
 
-View changes in the current stacked branch via `$ git ps` (ps=_previous stacked_)
+View changes in the current stacked branch via `$ git ps`⏎ (ps=_previous stacked_)
 
 ## Pull requests
 Create a (draft) pull request to the previous stacked branch via
 `$ hub [super][sub]pull-requesttops`
 
 Create pull requests for a series of stacked branches via
-`$ hub stackedbrpull-requesttops` (or `stackedbr[super][sub]pull-requesttops`)
+`$ hub stackedbrpull-requesttops`⏎ (or `stackedbr[super][sub]pull-requesttops`⏎)
 The first branch requests a reintegration [to the default branch / --base BASE]
 while following branches open drafts towards the previous branch, so everything
 can be reviewed separately and then the branches can be (subsequently rebased

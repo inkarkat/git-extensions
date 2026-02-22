@@ -1,6 +1,6 @@
 # Feature development
 superproject: `$ git com && git ofetchup-hushed`
-(directly from another feature: `$ git ofetchonly-hushed`)
+(directly from another feature: `$ git ofetchonly-hushed`⏎)
 ## a) start top-down
 superproject: Create a branch: `$ git omco -b feat-4711/super-cool`
 submodules: `$ c SUBMODULE1 git cosuperbr`
@@ -14,8 +14,9 @@ submodule(s): Create branch: `$ git checkoutbranch -b feat-4711/super-cool`
 superproject: Create branch: `$ git checkoutbranch -b $(git substdo --no-header brname | sort -u | singleLineOrSuppressAndError)`
 ## c) continue from development started on another system:
 superproject: `$ git ocosub feat-4711/super-cool`
-(or with querying: `$ git oco --queried-submodules feat-4711/super-cool`)
-(or separately for superproject and submodules: `$ git oco feat-4711/super-cool && $ git subcoremotebr --query|--all`
+(or with querying: `$ git oco --queried-submodules feat-4711/super-cool`⏎)
+(or separately for superproject and submodules:
+ `$ git oco feat-4711/super-cool && $ git subcoremotebr --query|--all`⏎)
 ## d) Create branches after uncommitted changes:
    `$ git subuntrackeddo -j checkoutbranch -b feat-4711/super-cool`
    `$ git subdirtydo -j checkoutbranch -b feat-4711/super-cool`
@@ -35,7 +36,7 @@ a) short-lived feature without API changes: `$ git amenu && git opush -f`
    or short `$ git amenupush`
    or short together with and in a submodule: `$ git osuperamensubpush [-f]`
 b) before API changes in each submodule:
-   `$ git superamen` # Amend the last compatible revision.
+   `$ git superamen`⏎ # Amend the last compatible revision.
    `$ git commit ...`
    superproject: `$ git cu && git opush`
 c) superproject: maintain history of how the feature grew: `$ git cu && git opush`

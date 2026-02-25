@@ -124,7 +124,7 @@ _git_complete_filterVariants()
     fi
 }
 
-_git_complete()
+_git_wrapper_complete()
 {
     local IFS=$'\n'
     typeset -a aliases=(); readarray -t aliases < <(compgen -A command -- 'git-' 2>/dev/null \
@@ -133,7 +133,7 @@ _git_complete()
     aliases=("${aliases[@]/#git-/}")
 
     if [ $COMP_CWORD -ge 3 ] && contains "${COMP_WORDS[1]}-${COMP_WORDS[2]}" "${aliases[@]}"; then
-	local gitAlias="_git_${COMP_WORDS[1]//-/_}_${COMP_WORDS[2]//-/_}"
+	local gitAlias="_git_${COMP_WORDS[1]//-/_}_${COMP_WORDS[2]//-/_}_complete"
 	# Completing a sub-alias; delegate to its custom completion function (if
 	# available)
 	if type -t "$gitAlias" >/dev/null; then
@@ -144,7 +144,7 @@ _git_complete()
 	fi
     fi
     if [ $COMP_CWORD -ge 2 ] && contains "${COMP_WORDS[1]}" "${aliases[@]}"; then
-	local gitAlias="_git_${COMP_WORDS[1]//-/_}"
+	local gitAlias="_git_${COMP_WORDS[1]//-/_}_complete"
 	# Completing an alias; delegate to its custom completion function (if
 	# available)
 	if type -t "$gitAlias" >/dev/null; then
@@ -198,9 +198,9 @@ _git_complete()
     _git_complete_filterAliasCounts
     _git_complete_filterVariants
 }
-complete -o bashdefault -o default -o nospace -F _git_complete git
+complete -o bashdefault -o default -o nospace -F _git_wrapper_complete git git-wrapper
 
-_hub_complete()
+_hub_wrapper_complete()
 {
     local IFS=$'\n'
 
@@ -226,7 +226,7 @@ _hub_complete()
     aliases+=("${multiModeAliases[@]}")
 
     if [ $COMP_CWORD -ge 3 ] && contains "${COMP_WORDS[1]}-${COMP_WORDS[2]}" "${aliases[@]}"; then
-	local hubAlias="_hub_${COMP_WORDS[1]//-/_}_${COMP_WORDS[2]//-/_}"
+	local hubAlias="_hub_${COMP_WORDS[1]//-/_}_${COMP_WORDS[2]//-/_}_complete"
 	# Completing a sub-alias; delegate to its custom completion function (if
 	# available)
 	if type -t "$hubAlias" >/dev/null; then
@@ -237,7 +237,7 @@ _hub_complete()
 	fi
     fi
     if [ $COMP_CWORD -ge 2 ] && contains "${COMP_WORDS[1]}" "${aliases[@]}"; then
-	local hubAlias="_hub_${COMP_WORDS[1]//-/_}"
+	local hubAlias="_hub_${COMP_WORDS[1]//-/_}_complete"
 	# Completing an alias; delegate to its custom completion function (if
 	# available)
 	if type -t "$hubAlias" >/dev/null; then
@@ -265,6 +265,6 @@ _hub_complete()
 	IFS=$' \t\n' __git_wrap__git_main "$@"
     fi
 }
-complete -o bashdefault -o default -o nospace -F _hub_complete hub
+complete -o bashdefault -o default -o nospace -F _hub_wrapper_complete hub hub-wrapper
 
 unset _scriptDir

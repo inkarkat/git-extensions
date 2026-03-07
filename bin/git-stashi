@@ -5,30 +5,62 @@ set -o pipefail
 printUsage()
 {
     cat <<HELPTEXT
-Save only index in a commit; keep the dirty working copy.
+Save only index [within <pathspec>] in a commit; keep the dirty working copy.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[push] [-p|--patch] [-q|--quiet] [-m|--message <message>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[push] [-p|--patch] [-q|--quiet] [-m|--message <message>] [--] [<pathspec>...] [-?|-h|--help]'
 }
 
 typeset -a stashVerb=()
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
+typeset -a stashArgs=()
+unset files
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
 			shift;;
-    --color)		shift; shift;;
-    push)		stashVerb=("$1"); shift;;
-esac
+	--color)	shift; shift;;
+	push)		[ ${#stashArgs[@]} -eq 0 ] && stashVerb=("$1") || stashArgs+=("$1"); shift;;
+	--)		shift; typeset -a files=("$@"); set --; break;;
+	*)		stashArgs+=("$1"); shift;;
+    esac
+done
+if [ -z "${files+t}" ]; then
+    # No files after -- captured yet; need to investigate parsed and
+    # remaining args from behind for files.
+    typeset -a files=()
+    stashArgs+=("$@")
+    while [ ${#stashArgs[@]} -ne 0 ]
+    do
+	lastArg="${stashArgs[-1]}"
+	[ -e "$lastArg" ] || break
 
-if ! git-staged --quiet; then
-    echo >&2 'ERROR: Nothing staged.'
+	files=("$lastArg" "${files[@]}")
+	stashArgs=("${stashArgs[@]:0:${#stashArgs[@]}-1}")
+    done
+fi
+
+if ! git-staged --quiet ${files:+--} "${files[@]}"; then
+    echo >&2 "ERROR: Nothing staged${files:+ here}."
     exit 1
-elif ! git-unstaged --quiet; then
+elif ! git-unstaged --quiet ${files:+--} "${files[@]}"; then
     # Every change is in the index already, we can simply stash it.
-    exec git-wrapper stash "${stashVerb[@]}" --no-keep-index "$@"
+    exec git-wrapper stash "${stashVerb[@]}" --no-keep-index "${stashArgs[@]}" ${files:+--} "${files[@]}"
 elif ! versionCompare "$(git --version 2>/dev/null)" -lt 2.35 2>/dev/null; then
     # Git 2.35 supports "git stash push --staged" out-of-the-box.
-    exec git-wrapper stash "${stashVerb[@]}" --staged "$@"
+
+    if [ ${#files[@]} -gt 0 ] \
+	&& readarray -t otherStagedFiles < <(comm -23 <(git-stifiles | sort) <(git-stifiles -- "${files[@]}" | sort)) \
+	&& [ ${#otherStagedFiles[@]} -gt 0 ]
+    then
+	# XXX: Git 2.50 does not consider <pathspec>... when --staged is used; the
+	# entire index is stashed. Use git-withoutstaged to temporarily remove the other
+	# staged files from the index. Don't supply "${files[@]}"; it's ignored, anyway.
+	exec git-withoutstaged "${otherStagedFiles[@]}" stash "${stashVerb[@]}" --staged "${stashArgs[@]}"
+    else
+	exec git-wrapper stash "${stashVerb[@]}" --staged "${stashArgs[@]}" ${files:+--} "${files[@]}"
+    fi
 fi
 
 
@@ -37,12 +69,12 @@ fi
 # working copy, then the index, then undoing the working copy stashing.
 
 # Stash only unstaged changes not yet in the index temporarily.
-command git stash push --keep-index --quiet --message 'unstaged changes' || exit $?
+git stash push --keep-index --quiet --message 'unstaged changes' ${files:+--} "${files[@]}" || exit $?
 
 # Stash everything that remains (only the staged changes should remain). This is
 # the stash we want to keep, allow to give it a name / influence the stashing
 # via additional arguments.
-git-wrapper stash "${stashVerb[@]}" "$@" || exit $?
+git-wrapper stash "${stashVerb[@]}" "${stashArgs[@]}" ${files:+--} "${files[@]}" || exit $?
 
 # Apply the original stash to get us back to where we started.
 git stash apply 'stash@{1}' || exit $?
@@ -62,8 +94,8 @@ if [ $status -ne 0 ]; then
 
     printf >&2 '\nERROR: The following reversals of the index failed and need to be applied manually (in reverse!):\n'
     type -t colordiff >/dev/null && [ -t 1 ] && hasColorDiff=t
-    eval 'cat "${rejectFilespecs[@]}"' "${hasColorDiff:+|}colordiff" && \
-	rm --force -- "${rejectFilespecs[@]}"
-
+    eval 'cat "${rejectFilespecs[@]}"' \
+	    "${hasColorDiff:+|}colordiff" \
+	&& rm --force -- "${rejectFilespecs[@]}"
     exit $status
 fi

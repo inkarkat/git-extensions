@@ -4,9 +4,10 @@
 printUsage()
 {
     cat <<HELPTEXT
-Swap the last and one-before-last commits.
+Swap the last and one-before-last commits [that should only cover changes within
+<pathspec>].
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--] [<pathspec>...] [-?|-h|--help]'
 }
 
 cherryPickOne()
@@ -21,7 +22,7 @@ cherryPickOne()
 	    printf 'hint: After resolving the conflicts, mark them with\nhint: "git add/rm <pathspec>", then run\nhint: "%q --continue-%d"\n' "$continueCommand" "$stageNum"
 	    printf 'hint: To abort and get back to the state before "%q",\nhint: run "%q --abort"\n' "$continueCommand" "$continueCommand"
 	fi >&2
-	exit $status
+	return $status
     }
 }
 cherryPickFirst()
@@ -38,6 +39,12 @@ cherryPickSecond()
 	|| local hint=$'hint: Apply the previously previous-to-last changes to the just made commit; i.e.\nhint: apply the change from the parent to theirs onto HEAD.'
     cherryPickOne _invert~1 2 "$hint"
 }
+cherryPick()
+{
+    cherryPickFirst \
+	&& cherryPickSecond
+}
+
 cleanup()
 {
     git tag -d _invert
@@ -61,7 +68,7 @@ do
 			cleanup
 			exit $?
 			;;
-	--abort)	git reset --hard _invert || exit $?
+	--abort)	shift; git reset --hard _invert "$@" || exit $?
 			cleanup
 			exit $?
 			;;
@@ -69,20 +76,36 @@ do
 	--no-hint)	shift; isPrintHint=;;
 	--continue-command)
 			shift; continueCommand="${1:?}"; shift;;
-	--)		shift; break;;
+	--cherrypick)	shift; cherryPick; exit $?;;
+	--)		break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
     esac
 done
-if [ $# -ne 0 ]; then
-    printUsage "$0" >&2
-    exit 2
+if git-existstag _invert; then
+    echo >&2 'ERROR: It looks like another git-swaplast is under way. Please finalize that first (via --continue|--quit|--abort|--cleanup).'
+    exit 1
+elif git-dirty --print-error "$@"; then
+    exit 1
 fi
 
-git-dirty --print-error && exit 1
-
+set -x
 git tag _invert || exit $?
-git reset --hard HEAD~2 || exit $?
-cherryPickFirst
-cherryPickSecond
+
+if [ $# -eq 0 ]; then
+    git reset --hard HEAD~2
+else
+    git reset --soft HEAD~2 \
+	&& git checkout HEAD "$@"
+fi || exit $?
+
+if [ $# -gt 0 ] && git-dirty --quiet; then
+    readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
+    # For git-swapstage use, we need to properly restore the staged files here via
+    # --index.
+    git-autostash --index "${scriptName#git-}" --continue-command "$continueCommand" --cherrypick
+else
+    cherryPick
+fi || exit $?
+
 cleanup

@@ -5,19 +5,26 @@ printUsage()
 {
     cat <<HELPTEXT
 Swap staged and unstaged (just updated; pass -A|--all to also include untracked
-files) changes.
+files) changes [within <pathspec>].
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-A|--all] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-A|--all] [--] [<pathspec>...] [-?|-h|--help]'
 }
 
 uncommit()
 {
-    git reset --mixed HEAD~1 || exit $?
-    git reset --soft  HEAD~1 || exit $?
+    if [ $# -eq 0 ]; then
+	git reset --mixed HEAD~1 \
+	    && git reset --soft HEAD~1
+    else
+	git reset --soft HEAD~1 \
+	    && git unstage --quiet -- "$@" \
+	    && git reset --soft HEAD~1
+    fi
 }
 
 continueCommand="$(basename "$0")"
 addArg=--update
+isAll=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -32,26 +39,46 @@ do
 			    && uncommit
 			exit $?
 			;;
-	--abort)	git-swaplast --abort \
+	--abort)	git-swaplast --abort "$@" \
 			    && uncommit
 			exit $?
 			;;
-	--all)		addArg="$1"; shift;;
-	--)		shift; break;;
+	--all)		addArg="$1"; shift; isAll=t;;
+	--)		break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
     esac
 done
-if [ $# -ne 0 ]; then
-    printUsage "$0" >&2
-    exit 2
-elif git-existsbr _invert; then
+if git-existstag _invert; then
     echo >&2 'ERROR: It looks like a git-swaplast is under way. Please finalize that first (via --continue|--quit|--abort|--cleanup).'
     exit 1
 fi
 
-git commit -m futureUnstaged || exit $?
-git add $addArg || exit $?
-git commit -m futureStage || exit $?
-git-swaplast --continue-command "$continueCommand" || exit $?
-uncommit
+typeset -a stagedFiles=()
+if [ $# -gt 0 ]; then
+    readarray -t stagedFiles < <(git-stifiles "$@")
+    if [ ${#stagedFiles[@]} -eq 0 ]; then
+	echo >&2 'ERROR: No staged files here.'
+	exit 2
+    fi
+fi
+git commit -m futureUnstaged ${stagedFiles:+--} "${stagedFiles[@]}" || exit $?
+
+if [ $# -eq 0 ]; then
+    git add $addArg "$@" \
+	&& git commit -m futureStage
+else
+    typeset -a unstagedFiles=()
+    readarray -t unstagedFiles < <(
+	git-stIfiles "$@"
+	[ "$isAll" ] && git-untracked --print "$@"
+    )
+    if [ ${#unstagedFiles[@]} -eq 0 ]; then
+	echo >&2 'ERROR: No unstaged files here.'
+	exit 2
+    fi
+    git commit -m futureStage -- "${unstagedFiles[@]}"
+fi || exit $?
+
+git-swaplast --continue-command "$continueCommand" "$@" || exit $?
+uncommit "$@"

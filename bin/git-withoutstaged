@@ -1,0 +1,127 @@
+#!/bin/bash
+
+: ${GIT_WITHOUTSTAGED_COMMAND_JOINER=;}
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '<pathspec> [...] -c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Temporarily remove changes in the index under the given <pathspec>(s) (while
+keeping any changes in the working copy) before executing "git SIMPLECOMMAND"
+and/or COMMANDLINE (which probably contains Git command(s)), and re-stage the
+saved changes afterwards.
+This allows you to e.g. commit only a subset of the changes in the index without
+loosing the staged vs. unstaged segregation that a temporary unstaging of the
+files would cause.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+EXIT STATUS:
+    0	Complete success.
+    2	Bad invocation, wrong or missing command-line arguments.
+    3	Internal error or failed assertion.
+    5	Failed to restore (some of the) staged files after executing the
+	COMMAND(s).
+    *   any exit status from COMMAND(s)
+HELPTEXT
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+esac
+
+typeset -a filespecs=()
+while [ $# -ne 0 ] && [ -r "$1" ]
+do
+    filespecs+=("$1"); shift
+done
+
+commands=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+	--command|-c)	shift; commands+="${commands:+ $GIT_WITHOUTSTAGED_COMMAND_JOINER }$1"; shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)  break;;
+    esac
+done
+readonly gitCommand='git-wrapper'
+if [ $# -ne 0 ]; then
+    # Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
+    # undo the effects of eval.
+    printf -v quotedSimpleCommand '%q ' "$gitCommand" "$@"
+    commands+="${commands:+ $GIT_WITHOUTSTAGED_COMMAND_JOINER }${quotedSimpleCommand% }"
+fi
+if [ ${#filespecs[@]} -eq 0 ]; then
+    echo 'ERROR: No <pathspec>(s) specified.'
+    echo
+    printUsage "$0"
+    exit 2
+elif [ -z "$commands" ]; then
+    echo 'ERROR: No COMMAND(s) specified; need to pass -c|--command "COMMANDLINE", or SIMPLECOMMAND.'
+    echo
+    printUsage "$0"
+    exit 2
+fi >&2
+
+readarray -t stagedFilespecs < <(git-stifiles -- "${filespecs[@]}")
+if [ ${#stagedFilespecs[@]} -eq 0 ]; then
+    IFS=' '
+    printf 'No staged files in the specified path(s): %s\n' "${filespecs[*]}"
+    exit 99
+fi
+
+tempDirspec="$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || { dirspec="${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM"; mkdir --parents -- "$dirspec" && printf %s "$dirspec"; })" || exit 3
+cleanup()
+{
+    rm -rf -- "$tempDirspec" 2>/dev/null
+}
+[ "${DEBUG:-}" ] || trap 'cleanup' EXIT
+
+let counter=0
+typeset -A originalFilespecs=()
+for stagedFilespec in "${stagedFilespecs[@]}"
+do
+    let counter+=1
+    filename="$(basename -- "$stagedFilespec")"
+    printf -v tempFilespec '%s/%04d-%s' "$tempDirspec" $counter "$filename"
+    git show ":$stagedFilespec" > "$tempFilespec" || exit 3
+    originalFilespecs["$tempFilespec"]="$stagedFilespec"
+done
+git unstage --quiet -- "${stagedFilespecs[@]}" || exit 3
+
+restoreStagedFiles()
+{
+    for tempFilespec in "${!originalFilespecs[@]}"
+    do
+	git-write-index "$tempFilespec" "${originalFilespecs[$tempFilespec]}" || status=5
+    done
+
+    cleanup
+    exit $status
+}
+trap restoreStagedFiles EXIT
+
+
+(eval "$commands"); status=$?

@@ -1,0 +1,33 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Write the contents of FILE to the index at <pathspec>, without updating the
+working copy. (This is a plumbing command; don't use directly.)
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'FILE <pathspec> [-?|-h|--help]'
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+if [ $# -ne 2 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+filespec="${1:?}"; shift
+if [ ! -r "$filespec" ]; then
+    printf >&2 'ERROR: No such file: %s\n' "$filespec"
+    exit 2
+fi
+path="${1:?}"; shift
+if [ ! -r "$path" ]; then
+    printf >&2 'ERROR: No such path: %s\n' "$path"
+    exit 2
+fi
+
+fileMode="$(git ls-files --stage "$path" | cut -d' ' -f1)"
+newIndexHash="$(git hash-object -w "$filespec")" \
+    && git update-index --cacheinfo "${fileMode:-100644}" "$newIndexHash" "$path"

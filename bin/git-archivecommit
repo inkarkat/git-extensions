@@ -33,5 +33,8 @@ do
 	*)		commitArgs+=("$1"); shift;;
     esac
 done
-git-wrapper commit "${commitArgs[@]}" "$@" && \
-    git-autostash archivelast "${archiveArgs[@]}"
+git-wrapper commit "${commitArgs[@]}" "$@" \
+    && git-autostash --try-index archivelast "${archiveArgs[@]}"
+    # Restoring the index might fail, as the archived commit has been removed from
+    # the current branch; however, this would only happen if passing a <pathspec>
+    # that's also partially staged, so a rather obscure corner case.

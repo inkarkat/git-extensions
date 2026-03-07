@@ -240,7 +240,9 @@ fi
 
 if [ ! "$isStashed" -a -z "$iterationAction" -a -n "$commands" ]; then
     readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
-    exec git-autostash "${scriptName#git-}" --stashed "${args[@]}"
+    # Restoring the original index should be safe as we return to the original
+    # branch at the end.
+    exec git-autostash --index "${scriptName#git-}" --stashed "${args[@]}"
 fi
 
 gitDir="$(git rev-parse --git-dir)" || exit 3

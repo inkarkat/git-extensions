@@ -21,5 +21,11 @@ case "$1" in
     --color)		shift; shift;;
 esac
 
+readarray -t stagedFiles < <(git-stifiles)
+if [ ${#stagedFiles[@]} -eq 0 ]; then
+    echo 'Note: No staged files to keep, just stashing the working copy.'
+    exec git-wrapper stash "$@"
+fi
+
 git-swapstage --continue-command "$(basename "$0")" || exit $?
-git-stashi "$@" && git add --update
+git-stashi "$@" && git add -- "${stagedFiles[@]}"

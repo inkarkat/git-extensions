@@ -7,7 +7,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-u|--include-untracked] [--index] [-a|--all] -c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-u|--include-untracked] [--index|--try-index] [-a|--all] -c|--command "COMMANDLINE" [-c ...] | [--] SIMPLECOMMAND [...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -33,13 +33,23 @@ HELPDESCRIPTION
     cat <<HELPTEXT
     --index		Try to reinstate not only the working tree's changes,
 			but also the index's ones. However, this can fail when
-			you have conflicts.
+			you have conflicts, and leave behind the temporary
+			stash.
+    --try-index		Try to reinstate not only the working tree's changes,
+			but also the index's ones, and fall back to restoring
+			solely to the working copy if the index update fails.
+EXIT STATUS:
+    0	Complete success.
+    2	Bad invocation, wrong or missing command-line arguments.
+    5	Failed to apply the stash after executing the COMMAND(s).
+    *   any exit status from COMMAND(s)
 HELPTEXT
 }
 
 commands=
 typeset -a stashSaveArgs=()
 typeset -a stashPopArgs=()
+stashUndo=pop
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -49,6 +59,7 @@ do
 	--color)	shift; shift;;
 	--include-untracked|-u|--all|-a) stashSaveArgs+=("$1"); shift;;
 	--index)	stashPopArgs+=("$1"); shift;;
+	--try-index)	shift; stashUndo=popWithRetry;;
 	--command|-c)	shift; commands+="${commands:+ $GIT_AUTOSTASH_COMMAND_JOINER }$1"; shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
@@ -83,14 +94,40 @@ if [ "$isDirty" ]; then
     printf 'Created autostash: %s\n' "$(git rev-parse --short stash@{0} 2>/dev/null || echo "???")"
     printf '%s\n' "$stashOutput" | sed -e '/^Saved working directory and index state /d'
 fi
-finally()
+
+pop()
 {
     if [ "$isDirty" ]; then
-	git stash pop --quiet "${stashPopArgs[@]}" && echo "Applied autostash." || exit $?
+	git stash pop --quiet "${stashPopArgs[@]}" \
+	    && echo 'Applied autostash.' \
+	    || exit 5
     fi
     exit $status
 }
-trap 'finally' EXIT
+popWithRetry()
+{
+    if [ "$isDirty" ]; then
+	# XXX: When "git stash pop --index" fails, previously staged files may be left
+	# unstaged; its failure mode is not side effect-free. To work around this (to be
+	# able to retry the pop without --index), save the staged changed and reapply
+	# them after the failed pop.
+	tempFilespec="$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM")"
+	git diff --cached > "$tempFilespec" || tempFilespec=''
+
+	if git stash pop --quiet --index "${stashPopArgs[@]}"; then
+	    echo 'Applied autostash.'
+	else
+	    echo '⮡ Failed to apply autostash to stage; trying to apply it solely to the working copy.'
+	    { [ -z "$tempFilespec" ] || git apply --cached --allow-empty -- "$tempFilespec"; } \
+		&& { rm --force -- "$tempFilespec" || :; } \
+		&& git stash pop --quiet "${stashPopArgs[@]}" \
+		&& echo 'Applied autostash.' \
+		|| exit 5
+	fi
+    fi
+    exit $status
+}
+trap $stashUndo EXIT
 
 
 (eval "$commands"); status=$?

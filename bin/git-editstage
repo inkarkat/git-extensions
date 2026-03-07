@@ -118,9 +118,6 @@ fi
 status=0
 for ((i = 0; i < ${#paths[@]}; i++))
 do
-    path="${paths[$i]}"
-    newIndexHash="$(git hash-object -w "${editFilespecs[$i]}")" || status=$?
-    fileMode=("$(git ls-files --stage "$path" | cut -d' ' -f1)")
-    git update-index --cacheinfo "${fileMode:-100644}" "$newIndexHash" "$path" || status=$?
+    git-write-index "${editFilespecs[$i]}" "${paths[$i]}" || status=$?
 done
 exit $status

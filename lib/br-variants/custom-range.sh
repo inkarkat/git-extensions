@@ -209,7 +209,9 @@ activity?(except)by\
     revert)
 	$EXEC git-"${scopeCommand[@]}" -2 revertselectedcommit RANGE "$@";;
     revert@(files|hunk))
-	$EXEC git-"${scopeCommand[@]}" -2 "revertselected${gitCommand#revert}"  RANGE "$@";;
+	$EXEC git-"${scopeCommand[@]}" -2 "revertselected${gitCommand#revert}" RANGE "$@";;
+    showfiles)
+	$EXEC git-"${scopeCommand[@]}" -2 showselectedfiles RANGE "$@";;
 
     fix@(up|amend|wording)rb)
 	onLocalBranch git-"${scopeCommand[@]}" -2 "${gitCommand%rb}selectedrb" RANGE "$@";;

@@ -156,6 +156,8 @@ activity?(except)by\
 	$EXEC "git-${scopeCommand:?}" -2 revertselectedcommit TIMESPAN "$@";;
     revert@(files|hunk))
 	$EXEC "git-${scopeCommand:?}" -2 "revertselected${gitCommand#revert}" TIMESPAN "$@";;
+    showfiles)
+	$EXEC "git-${scopeCommand:?}" -2 showselectedfiles TIMESPAN "$@";;
 
     fix@(up|amend|wording)rb)
 	$EXEC "git-${scopeCommand:?}" -2 "${gitCommand%rb}selectedrb" TIMESPAN "$@";;

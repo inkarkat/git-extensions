@@ -130,6 +130,8 @@ cat|cp\
 	withAggregateCommit revert --selected "$@";;
     reverthunk)
 	withAggregateCommit revert --patch "$@";;
+    showfiles)
+	withAggregateCommit showfiles "$@";;
 
     (\
 fix@(up|amend|wording)?(rb)|\

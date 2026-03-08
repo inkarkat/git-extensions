@@ -4,17 +4,34 @@ shopt -qs extglob
 
 : ${GIT_GSUB_COMMITTEMPLATE_KEYWORD=Renaming: }
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--untracked] [--no-exclude-standard] [--recurse-submodules] [-a|--text] [--[no-]textconv] [-r|--recursive|--no-recursive] [-E|--extended-regexp|-G|--basic-regexp|-F|--fixed-strings] [--max-depth <depth>] PATTERN REPLACEMENT [PATTERN REPLACEMENT ...] [--] [<pathspec>...] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 Replace all occurrences of (sed-style) PATTERN with REPLACEMENT in tracked files
 in the worktree.
-
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
 RELATED COMMANDS:
 - Inspired by git-sed from tj/git-extras, which can also directly commit.
 HELPTEXT
-    echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--untracked] [--no-exclude-standard] [--recurse-submodules] [-a|--text] [--[no-]textconv] [-r|--recursive|--no-recursive] [-E|--extended-regexp|-G|--basic-regexp|-F|--fixed-strings] [--max-depth <depth>] PATTERN REPLACEMENT [PATTERN REPLACEMENT ...] [--] [<path> ...] [-?|-h|--help]'
 }
 
 isLiteral=
@@ -25,7 +42,7 @@ unset files
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 
 	--fixed-strings|-F)
 			gitGrepArgs+=("$1"); shift; isLiteral=t;;

@@ -4,9 +4,10 @@ printUsage()
 {
     cat <<HELPTEXT
 Keep "base", the common ancestor in case of merge conflicts.
-Supply <paths> or use -a to apply this to all conflicted files in the index.
+Supply <pathspec> or use -a to apply this to all conflicted files in the index.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-a|--all] [--] [<file>...] [-?|-h|--help]'
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-a|--all] [--] [<pathspec>...] [-?|-h|--help]'
 }
 typeset -a gitCheckoutIndexArgs=()
 typeset -a gitAddArgs=()
@@ -24,5 +25,5 @@ if [ ${#gitCheckoutIndexArgs[@]} -eq 0 -a $# -eq 0 ]; then
 fi
 
 # git checkout apparently cannot do this: "error: path is unmerged"
-git checkout-index -f --stage=1 "${gitCheckoutIndexArgs[@]}" "$@" && \
-    git add "${gitAddArgs[@]}" "$@"
+git checkout-index -f --stage=1 "${gitCheckoutIndexArgs[@]}" "$@" \
+    && git add "${gitAddArgs[@]}" "$@"

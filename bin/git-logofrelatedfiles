@@ -4,7 +4,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-%|--percentage-threshold PCT] [<log-options>] [<revision range>] [--] <path>|<commit> [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-%|--percentage-threshold PCT] [<log-options>] [<revision range>] [--] <pathspec>|<commit> [...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -19,10 +19,10 @@ printLongUsage()
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
 Show log of commits that modify files that often get changed in commits that
-modify files in <path> / the files affected by <commit>. So it doesn't just show
-commits that modify the passed files, but also any commits that modify files
-that are often modified together with the passed files, even if those commits
-don't directly modify the passed files.
+modify files in <pathspec> / the files affected by <commit>. So it doesn't just
+show commits that modify the passed files, but also any commits that modify
+files that are often modified together with the passed files, even if those
+commits don't directly modify the passed files.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
@@ -76,14 +76,14 @@ if [ $# -eq 0 ]; then
 	gitLogArgs=("${gitLogArgs[@]:0:${#gitLogArgs[@]}-1}")
     done
     if [ ${#files[@]} -eq 0 ]; then
-	echo >&2 'ERROR: No <path>|<commit> passed.'
+	echo >&2 'ERROR: No <pathspec>|<commit> passed.'
 	exit 2
     fi
 else
     for arg
     do
 	if ! addPathOrCommit "$arg"; then
-	    printf >&2 'ERROR: Not a <path> or <commit>: %s\n' "$arg"
+	    printf >&2 'ERROR: Not a <pathspec> or <commit>: %s\n' "$arg"
 	    exit 2
 	fi
     done

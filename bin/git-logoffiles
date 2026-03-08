@@ -4,11 +4,11 @@ set -o pipefail
 printUsage()
 {
     cat <<HELPTEXT
-Show a log of commits that cover (at least partially) the files in <path> / the
-files affected by <commit>.
+Show a log of commits that cover (at least partially) the files in <pathspec> /
+the files affected by <commit>.
 Arguments are as to git log (e.g. --since="1 month ago" SUBDIR; but nothing that
 affects the output formatting) and only apply to the shown log; plus at least
-one mandatory <path> or <commit>.
+one mandatory <pathspec> or <commit>.
 
 RELATED COMMANDS:
 - git-logofrelatedfiles also includes any commits that modify related files
@@ -16,7 +16,7 @@ RELATED COMMANDS:
   modify the passed files.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--only-list-expanded-paths|<log-options>] [<revision range>] [--] <path>|<commit> [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--only-list-expanded-paths|<log-options>] [<revision range>] [--] <pathspec>|<commit> [...] [-?|-h|--help]'
 }
 
 typeset -a gitLogArgs=()
@@ -57,14 +57,14 @@ if [ $# -eq 0 ]; then
 	gitLogArgs=("${gitLogArgs[@]:0:${#gitLogArgs[@]}-1}")
     done
     if [ ${#files[@]} -eq 0 ]; then
-	echo >&2 'ERROR: No <path>|<commit> passed.'
+	echo >&2 'ERROR: No <pathspec>|<commit> passed.'
 	exit 2
     fi
 else
     for arg
     do
 	if ! addPathOrCommit "$arg"; then
-	    printf >&2 'ERROR: Not a <path> or <commit>: %s\n' "$arg"
+	    printf >&2 'ERROR: Not a <pathspec> or <commit>: %s\n' "$arg"
 	    exit 2
 	fi
     done

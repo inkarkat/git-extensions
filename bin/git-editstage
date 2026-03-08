@@ -7,9 +7,11 @@ Directly edit file(s) in the index (or the HEAD revision if the file hasn't been
 staged yet or --head is given) without modifying the corresponding files in the
 working copy. You can re-edit the same set of files again with --continue.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--head] [EDITOR-ARGS ... [--]] [<path> ...] [-?|-h|--help]'
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--head] [EDITOR-ARGS ... [--]] [<pathspec>...] [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '--continue [--head] [EDITOR-ARGS ... [--]]'
 }
+
 sourceRev=
 isContinue=
 while [ $# -ne 0 ]
@@ -67,7 +69,7 @@ if [ ! "$isContinue" ] && [ ${#paths[@]} -eq 0 ]; then
 	exit 1
     fi
 elif [ "$isContinue" ] && [ ${#paths[@]} -gt 0 ]; then
-    echo >&2 "ERROR: --continue uses the original <path>s, don't add new ones."
+    echo >&2 "ERROR: --continue uses the original <pathspec>..., don't add new ones."
     exit 2
 fi
 
@@ -87,10 +89,10 @@ if [ "$isContinue" ]; then
     readarray -t paths < "$indexEditPathsFilespec"
     readarray -t editFilespecs < "$indexEditFilesFilespec"
     if [ ${#editFilespecs[@]} -eq 0 ]; then
-	printf >&2 'ERROR: No <path> given but also no edited files found under %s/!\n' "$indexEditDirspec"
+	printf >&2 'ERROR: No <pathspec> given but also no edited files found under %s/!\n' "$indexEditDirspec"
 	exit 2
     elif [ ${#paths[@]} -ne ${#editFilespecs[@]} ]; then
-	echo >&2 "ERROR: Inconsistent numbers of <path> and edited files found. Aborting."
+	echo >&2 "ERROR: Inconsistent numbers of <pathspec> and edited files found. Aborting."
 	exit 2
     fi
 

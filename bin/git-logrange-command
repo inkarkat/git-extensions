@@ -39,6 +39,7 @@ revision from HEAD / passed REVISION where ${GIT_LOGRANGE_RANGE_WHAT:?} and incl
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
+    echo
     cat <<HELPTEXT
     --no-range		Only use the earliest matching commit.
     --with-range ...	Use ... instead of .. as the range specifier.
@@ -51,14 +52,14 @@ HELPDESCRIPTION
 			All GIT-COMMAND log arguments should exclusively be used
 			when determining the matching commits but not passed to
 			GIT-COMMAND.
-    FILE arguments by default are both used to determine the revision range and
-    passed to GIT-COMMAND.
-    --files-for-range	Only use FILE arguments to determine the revision range,
-			do not pass them to GIT-COMMAND.
-    --files-for-command Pass FILE arguments only to GIT-COMMAND, do not use them
-			to determine the revision range.
+    <pathspec> arguments by default are both used to determine the revision
+    range and passed to GIT-COMMAND.
+    --files-for-range	Only use <pathspec> arguments to determine the revision
+			range, do not pass them to GIT-COMMAND.
+    --files-for-command Pass <pathspec> arguments only to GIT-COMMAND, do not
+			use them to determine the revision range.
     --except-last	The very last argument is special and should not be
-			parsed as log-args or FILE(s).
+			parsed as log-args or <pathspec>...
 HELPTEXT
 }
 
@@ -169,7 +170,7 @@ fi
 
 < <(diff --unchanged-line-format= --old-line-format='%L' --new-line-format= -- \
     <(git log --first-parent --pretty=tformat:%H "$revision" ${isLogArgsForRange:+"${logArgs[@]}"} ${isFilesForRange:+-- "${files[@]}"}) \
-    <(git ${GIT_LOGRANGE_RANGE_COMMAND:?} --first-parent --pretty=tformat:%H "${grepModificationArgs[@]}" "${grepArgs[@]}" "$revision" ${isLogArgsForRange:+"${logArgs[@]}"} ${isFilesForRange:+-- "${files[@]}"} "${finalGrepArg[@]}") # Fortunately, "git log <revision> --follow -- <path>" also works; else, we would have to split logArgs into options and path arguments.
+    <(git ${GIT_LOGRANGE_RANGE_COMMAND:?} --first-parent --pretty=tformat:%H "${grepModificationArgs[@]}" "${grepArgs[@]}" "$revision" ${isLogArgsForRange:+"${logArgs[@]}"} ${isFilesForRange:+-- "${files[@]}"} "${finalGrepArg[@]}") # Fortunately, "git log <revision> --follow -- <pathspec>" also works; else, we would have to split logArgs into options and path arguments.
 ) IFS=$'\n' read -r firstDifferentRevision
 
 [ "$isWithRange" ] || revision=''   # Prevent "ERROR: --end-revision cannot be combined with --no-range!"; we don't need the end revision, as --no-range drops that, anyway.

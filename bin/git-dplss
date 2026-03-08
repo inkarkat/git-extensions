@@ -4,13 +4,13 @@ printUsage()
 {
     cat <<HELPTEXT
 Show separate diff of each interactively chosen file (instead of concatenating
-all changes) with predecessor [for FILE(s)] for the commit(s) interactively
-chosen / last commit from the commits [that cover FILE ...] in the passed
-<range>, paged through with less. First lets you select commit(s), then file(s)
-modified by those commit(s).
+all changes) with predecessor [for <pathspec>...] for the commit(s)
+interactively chosen / last commit from the commits [that cover <pathspec>...]
+in the passed <range>, paged through with less. First lets you select commit(s),
+then file(s) modified by those commit(s).
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" "--since <date>|--max-count <number>|-n <number>|<range> [<show-args> ...] [--] [FILE ...] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "--since <date>|--max-count <number>|-n <number>|<range> [<show-args> ...] [--] [<pathspec>...] [-?|-h|--help]"
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
@@ -28,7 +28,7 @@ case "$1" in
 			done
 			quotedRevisions=; [ ${#revisions[@]} -eq 0 ] || printf -v quotedRevisions ' %q' "${revisions[@]}"
 
-			# Generator / filter (if FILE(s) are passed) for the selection are the files modified in the selected commits.
+			# Generator / filter (if <pathspec>... are passed) for the selection are the files modified in the selected commits.
 			GIT_SELECTED_COMMAND_DEFAULT_FILES="git-showfiles${quotedRevisions} --" \
 			    exec git-selected-command --accept-single "dplss --on-file-selection${quotedRevisions} --" "${paths[@]}"
 			;;

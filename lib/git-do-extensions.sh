@@ -28,38 +28,38 @@ printExtendedUsage()
 Supports the following special commands and options:
     repo-missing	    Show $GIT_DOEXTENSIONS_WHAT that are
 			    not yet under Git source control.
-    [branch-range] counts* [<log-options>] [<revision range>] [[--] <path>...]
+    [branch-range] counts* [<log-options>] [<revision range>] [[--] <pathspec>...]
 			    Count and add up the amount of commits in
 			    $GIT_DOEXTENSIONS_WHAT that fall into
 			    the logged range.
 			    [branch-range] is td, year, etc.
 			    * stands for any filter (mine, team, ...)
-    [branch-range] countsleaderboard* [<log-options>] [<revision range>] [[--] <path>...]
+    [branch-range] countsleaderboard* [<log-options>] [<revision range>] [[--] <pathspec>...]
 			    List $GIT_DOEXTENSIONS_WHAT
 			    ordered by the amount of commits in the logged range
 			    (omitting those without any commits).
 			    [branch-range] is td, year, etc.
 			    * stands for any filter (mine, team, ...)
-    [branch-range] commitkeywordtallies* [OPTIONS ...] [<log-options>] [<revision range>] [[--] <path>...]
+    [branch-range] commitkeywordtallies* [OPTIONS ...] [<log-options>] [<revision range>] [[--] <pathspec>...]
 			    Report counts and percentages of commit message
 			    keywords or scopes in $GIT_DOEXTENSIONS_WHAT
 			    that fall into the logged range.
 			    [branch-range] is td, year, etc.
 			    * stands for any filter (mine, team, ...)
-    [branch-range] committaskidtallies* [OPTIONS ...] [<log-options>] [<revision range>] [[--] <path>...]
+    [branch-range] committaskidtallies* [OPTIONS ...] [<log-options>] [<revision range>] [[--] <pathspec>...]
 			    Report counts and percentages of external task IDs
 			    at the beginning of the commit summary in
 			    $GIT_DOEXTENSIONS_WHAT
 			    that fall into the logged range.
 			    [branch-range] is td, year, etc.
 			    * stands for any filter (mine, team, ...)
-    [branch-range] logs-distribution* [LOGDISTRIBUTION-OPTIONS ...] [<log-options>] [<revision range>] [[--] <path>...]
+    [branch-range] logs-distribution* [LOGDISTRIBUTION-OPTIONS ...] [<log-options>] [<revision range>] [[--] <pathspec>...]
 			    Print the distribution of the number of commits in
 			    $GIT_DOEXTENSIONS_WHAT that fall into
 			    the logged range.
 			    [branch-range] is td, year, etc.
 			    * stands for any filter (mine, team, ...)
-    [branch-range] br-lifetimes* [BRLIFETIMES-OPTIONS ...] [<log-options>] [<revision range>] [[--] <path>...]
+    [branch-range] br-lifetimes* [BRLIFETIMES-OPTIONS ...] [<log-options>] [<revision range>] [[--] <pathspec>...]
 			    One-line lifetime, number of commits, commit range,
 			    author, date, tags and commit summary of merged
 			    branches in
@@ -78,7 +78,7 @@ Supports the following special commands and options:
 			    branches staggered for date ranges in
 			    $GIT_DOEXTENSIONS_WHAT [that happened in
 			    the logged range]. [branch-range] is td, year, etc.
-    [branch-range] logs-msgstat* [LOGMSGSTAT-OPTIONS ...] [<log-options>] [<revision range>] [[--] <path>...]
+    [branch-range] logs-msgstat* [LOGMSGSTAT-OPTIONS ...] [<log-options>] [<revision range>] [[--] <pathspec>...]
 			    One-line statistics about the size of commit
 			    messages (excluding trailers and quoted parts) in
 			    $GIT_DOEXTENSIONS_WHAT [that happened in

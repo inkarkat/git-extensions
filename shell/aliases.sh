@@ -233,38 +233,38 @@ alias vimgitlll='commandOnSelected --command '"${_aliases_vim}"' --generator "gi
 
 
 
-# sgitshowfiles [<since>..<until>] [<path> ...] [-- SELECTIONs ...]
+# sgitshowfiles [<since>..<until>] [<pathspec>...] [-- SELECTIONs ...]
 #			Print selected filespecs modified in passed commit or
 #			commit range.
-# sgitshowfilesmine [<path> ...] [-- SELECTIONs ...]
+# sgitshowfilesmine [<pathspec>...] [-- SELECTIONs ...]
 #			Print selected filespecs modified by me in my last commit.
-# sgitshowfilesothers [<path> ...] [-- SELECTIONs ...]
+# sgitshowfilesothers [<pathspec>...] [-- SELECTIONs ...]
 #			Print selected filespecs modified by others in their
 #			last commit.
-# sgitshowfilesteam [<path> ...] [-- SELECTIONs ...]
+# sgitshowfilesteam [<pathspec>...] [-- SELECTIONs ...]
 #			Print selected filespecs modified by my team in our last
 #			commit.
-# sgitfileslastmine [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+# sgitfileslastmine [-r|--revision REVISION] [<pathspec>...] [-- SELECTIONs ...]
 #			Print selected filespecs modified by me in the last /
 #			passed -r <commit> and directly preceding, as long as
 #			they also were by me.
-# sgitfileslastothers [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+# sgitfileslastothers [-r|--revision REVISION] [<pathspec>...] [-- SELECTIONs ...]
 #			Print selected filespecs modified by others in the last
 #			/ passed -r <commit> and directly preceding, as long as
 #			they also were by them.
-# sgitfileslastteam [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+# sgitfileslastteam [-r|--revision REVISION] [<pathspec>...] [-- SELECTIONs ...]
 #			Print selected filespecs modified by my team in the last
 #			/ passed -r <commit> and directly preceding, as long as
 #			they also were by them.
-# sgitfilesg [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# sgitchangedfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# sgittouchedfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# sgitshowfileslastg [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# sgitshowfileslastchanged [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# sgitshowfileslasttouched [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# sgitshowfilesfirstg [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# sgitshowfilesfirstchanged [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# sgitshowfilesfirsttouched [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+# sgitfilesg [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# sgitchangedfiles [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# sgittouchedfiles [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# sgitshowfileslastg [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# sgitshowfileslastchanged [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# sgitshowfileslasttouched [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# sgitshowfilesfirstg [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# sgitshowfilesfirstchanged [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# sgitshowfilesfirsttouched [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
 alias                   sgitshowfiles='commandOnSelected --generator "git showfiles" --entries'
 alias               sgitshowfilesmine='commandOnSelected --generator "git showfilesmine" --entries'
 alias             sgitshowfilesothers='commandOnSelected --generator "git showfilesothers" --entries'
@@ -282,38 +282,38 @@ alias             sgitshowfilesfirstg='commandOnSelected --generator "git showfi
 alias       sgitshowfilesfirstchanged='commandOnSelected --generator "git showfilesfirstchanged" --entries'
 alias       sgitshowfilesfirsttouched='commandOnSelected --generator "git showfilesfirsttouched" --entries'
 
-# ygitshowfiles [<since>..<until>] [<path> ...] [-- SELECTIONs ...]
+# ygitshowfiles [<since>..<until>] [<pathspec>...] [-- SELECTIONs ...]
 #			Yank selected filespecs modified in passed commit or
 #			commit range.
-# ygitshowfilesmine [<path> ...] [-- SELECTIONs ...]
+# ygitshowfilesmine [<pathspec>...] [-- SELECTIONs ...]
 #			Yank selected filespecs modified by me in my last commit.
-# ygitshowfilesothers [<path> ...] [-- SELECTIONs ...]
+# ygitshowfilesothers [<pathspec>...] [-- SELECTIONs ...]
 #			Yank selected filespecs modified by others in their last
 #			commit.
-# ygitshowfilesteam [<path> ...] [-- SELECTIONs ...]
+# ygitshowfilesteam [<pathspec>...] [-- SELECTIONs ...]
 #			Yank selected filespecs modified by my team in our last
 #			commit.
-# ygitfileslastmine [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+# ygitfileslastmine [-r|--revision REVISION] [<pathspec>...] [-- SELECTIONs ...]
 #			Yank selected filespecs modified by me in the last /
 #			passed -r <commit> and directly preceding, as long as
 #			they also were by me.
-# ygitfileslastothers [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+# ygitfileslastothers [-r|--revision REVISION] [<pathspec>...] [-- SELECTIONs ...]
 #			Yank selected filespecs modified by others in the last /
 #			passed -r <commit> and directly preceding, as long as
 #			they also were by them.
-# ygitfileslastteam [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+# ygitfileslastteam [-r|--revision REVISION] [<pathspec>...] [-- SELECTIONs ...]
 #			Yank selected filespecs modified by my team in the last
 #			/ passed -r <commit> and directly preceding, as long as
 #			they also were by them.
-# ygitfilesg [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# ygitchangedfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# ygittouchedfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# ygitshowfileslastg [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# ygitshowfileslastchanged [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# ygitshowfileslasttouched [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# ygitshowfilesfirstg [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# ygitshowfilesfirstchanged [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# ygitshowfilesfirsttouched [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+# ygitfilesg [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# ygitchangedfiles [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# ygittouchedfiles [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# ygitshowfileslastg [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# ygitshowfileslastchanged [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# ygitshowfileslasttouched [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# ygitshowfilesfirstg [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# ygitshowfilesfirstchanged [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# ygitshowfilesfirsttouched [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
 alias                   ygitshowfiles='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git showfiles" --entries'
 alias               ygitshowfilesmine='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git showfilesmine" --entries'
 alias             ygitshowfilesothers='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git showfilesothers" --entries'
@@ -331,39 +331,39 @@ alias             sgitshowfilesfirstg='commandOnSelected --command "printf %s\\\
 alias       sgitshowfilesfirstchanged='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git showfilesfirstchanged" --entries'
 alias       sgitshowfilesfirsttouched='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git showfilesfirsttouched" --entries'
 
-# lgitshowfiles [<since>..<until>] [<path> ...] [-- SELECTIONs ...]
+# lgitshowfiles [<since>..<until>] [<pathspec>...] [-- SELECTIONs ...]
 #			View selected files modified in passed commit or commit
 #			range with the pager.
-# lgitshowfilesmine [<path> ...] [-- SELECTIONs ...]
+# lgitshowfilesmine [<pathspec>...] [-- SELECTIONs ...]
 #			View selected filespecs modified by me in my last commit
 #			with the pager.
-# lgitshowfilesothers [<path> ...] [-- SELECTIONs ...]
+# lgitshowfilesothers [<pathspec>...] [-- SELECTIONs ...]
 #			View selected filespecs modified by others in their last
 #			commit with the pager.
-# lgitshowfilesteam [<path> ...] [-- SELECTIONs ...]
+# lgitshowfilesteam [<pathspec>...] [-- SELECTIONs ...]
 #			View selected filespecs modified by my team in our last
 #			commit with the pager.
-# lgitfileslastmine [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+# lgitfileslastmine [-r|--revision REVISION] [<pathspec>...] [-- SELECTIONs ...]
 #			View selected filespecs modified by me in the last /
 #			passed -r <commit> and directly preceding, as long as
 #			they also were by me with the pager.
-# lgitfileslastothers [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+# lgitfileslastothers [-r|--revision REVISION] [<pathspec>...] [-- SELECTIONs ...]
 #			View selected filespecs modified by others in the last /
 #			passed -r <commit> and directly preceding, as long as
 #			they also were by them with the pager.
-# lgitfileslastteam [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+# lgitfileslastteam [-r|--revision REVISION] [<pathspec>...] [-- SELECTIONs ...]
 #			View selected filespecs modified by my team in the last
 #			/ passed -r <commit> and directly preceding, as long as
 #			they also were by them with the pager.
-# lgitfilesg [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# lgitchangedfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# lgittouchedfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# lgitshowfileslastg [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# lgitshowfileslastchanged [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# lgitshowfileslasttouched [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# lgitshowfilesfirstg [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# lgitshowfilesfirstchanged [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# lgitshowfilesfirsttouched [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+# lgitfilesg [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# lgitchangedfiles [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# lgittouchedfiles [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# lgitshowfileslastg [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# lgitshowfileslastchanged [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# lgitshowfileslasttouched [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# lgitshowfilesfirstg [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# lgitshowfilesfirstchanged [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# lgitshowfilesfirsttouched [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
 alias                   lgitshowfiles='commandOnSelected --command "${PAGER:-less}" --generator "git showfiles" --entries'
 alias               lgitshowfilesmine='commandOnSelected --command "${PAGER:-less}" --generator "git showfilesmine" --entries'
 alias             lgitshowfilesothers='commandOnSelected --command "${PAGER:-less}" --generator "git showfilesothers" --entries'
@@ -381,39 +381,39 @@ alias             lgitshowfilesfirstg='commandOnSelected --command "${PAGER:-les
 alias       lgitshowfilesfirstchanged='commandOnSelected --command "${PAGER:-less}" --generator "git showfilesfirstchanged" --entries'
 alias       lgitshowfilesfirsttouched='commandOnSelected --command "${PAGER:-less}" --generator "git showfilesfirsttouched" --entries'
 
-# vgitshowfiles [<since>..<until>] [<path> ...] [-- SELECTIONs ...]
+# vgitshowfiles [<since>..<until>] [<pathspec>...] [-- SELECTIONs ...]
 #			Edit selected files modified in passed commit or commit
 #			range in GVIM.
-# vgitshowfilesmine [<path> ...] [-- SELECTIONs ...]
+# vgitshowfilesmine [<pathspec>...] [-- SELECTIONs ...]
 #			Edit selected filespecs modified by me in my last commit
 #			in GVIM.
-# vgitshowfilesothers [<path> ...] [-- SELECTIONs ...]
+# vgitshowfilesothers [<pathspec>...] [-- SELECTIONs ...]
 #			Edit selected filespecs modified by others in their last
 #			commit in GVIM.
-# vgitshowfilesteam [<path> ...] [-- SELECTIONs ...]
+# vgitshowfilesteam [<pathspec>...] [-- SELECTIONs ...]
 #			Edit selected filespecs modified by my team in our last
 #			commit in GVIM.
-# vgitfileslastmine [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+# vgitfileslastmine [-r|--revision REVISION] [<pathspec>...] [-- SELECTIONs ...]
 #			Edit selected filespecs modified by me in the last /
 #			passed -r <commit> and directly preceding, as long as
 #			they also were by me in GVIM.
-# vgitfileslastothers [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+# vgitfileslastothers [-r|--revision REVISION] [<pathspec>...] [-- SELECTIONs ...]
 #			Edit selected filespecs modified by others in the last /
 #			passed -r <commit> and directly preceding, as long as
 #			they also were by them in GVIM.
-# vgitfileslastteam [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+# vgitfileslastteam [-r|--revision REVISION] [<pathspec>...] [-- SELECTIONs ...]
 #			Edit selected filespecs modified by my team in the last
 #			/ passed -r <commit> and directly preceding, as long as
 #			they also were by them in GVIM.
-# vgitfilesg [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# vgitchangedfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# vgittouchedfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# vgitshowfileslastg [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# vgitshowfileslastchanged [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# vgitshowfileslasttouched [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# vgitshowfilesfirstg [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# vgitshowfilesfirstchanged [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# vgitshowfilesfirsttouched [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+# vgitfilesg [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# vgitchangedfiles [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# vgittouchedfiles [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# vgitshowfileslastg [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# vgitshowfileslastchanged [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# vgitshowfileslasttouched [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# vgitshowfilesfirstg [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# vgitshowfilesfirstchanged [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# vgitshowfilesfirsttouched [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
 alias                   vgitshowfiles='commandOnSelected --command SendToGVIM --generator "git showfiles" --entries'
 alias               vgitshowfilesmine='commandOnSelected --command SendToGVIM --generator "git showfilesmine" --entries'
 alias             vgitshowfilesothers='commandOnSelected --command SendToGVIM --generator "git showfilesothers" --entries'
@@ -431,39 +431,39 @@ alias             vgitshowfilesfirstg='commandOnSelected --command SendToGVIM --
 alias       vgitshowfilesfirstchanged='commandOnSelected --command SendToGVIM --generator "git showfilesfirstchanged" --entries'
 alias       vgitshowfilesfirsttouched='commandOnSelected --command SendToGVIM --generator "git showfilesfirsttouched" --entries'
 
-# vimgitshowfiles [<since>..<until>] [<path> ...] [-- SELECTIONs ...]
+# vimgitshowfiles [<since>..<until>] [<pathspec>...] [-- SELECTIONs ...]
 #			Edit selected files modified in passed commit or commit
 #			range in Vim.
-# vimgitshowfilesmine [<path> ...] [-- SELECTIONs ...]
+# vimgitshowfilesmine [<pathspec>...] [-- SELECTIONs ...]
 #			Edit selected filespecs modified by me in my last commit
 #			in Vim.
-# vimgitshowfilesothers [<path> ...] [-- SELECTIONs ...]
+# vimgitshowfilesothers [<pathspec>...] [-- SELECTIONs ...]
 #			Edit selected filespecs modified by others in their last
 #			commit in Vim.
-# vimgitshowfilesteam [<path> ...] [-- SELECTIONs ...]
+# vimgitshowfilesteam [<pathspec>...] [-- SELECTIONs ...]
 #			Edit selected filespecs modified by my team in our last
 #			commit in Vim.
-# vimgitfileslastmine [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+# vimgitfileslastmine [-r|--revision REVISION] [<pathspec>...] [-- SELECTIONs ...]
 #			Edit selected filespecs modified by me in the last /
 #			passed -r <commit> and directly preceding, as long as
 #			they also were by me in Vim.
-# vimgitfileslastothers [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+# vimgitfileslastothers [-r|--revision REVISION] [<pathspec>...] [-- SELECTIONs ...]
 #			Edit selected filespecs modified by others in the last /
 #			passed -r <commit> and directly preceding, as long as
 #			they also were by them in Vim.
-# vimgitfileslastteam [-r|--revision REVISION] [<path> ...] [-- SELECTIONs ...]
+# vimgitfileslastteam [-r|--revision REVISION] [<pathspec>...] [-- SELECTIONs ...]
 #			Edit selected filespecs modified by my team in the last
 #			/ passed -r <commit> and directly preceding, as long as
 #			they also were by them in Vim.
-# vimgitfilesg [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# vimgitchangedfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# vimgittouchedfiles [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# vimgitshowfileslastg [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# vimgitshowfileslastchanged [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# vimgitshowfileslasttouched [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# vimgitshowfilesfirstg [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# vimgitshowfilesfirstchanged [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
-# vimgitshowfilesfirsttouched [<since>..<until>] [<path> ...] text|/regexp/ [-- SELECTIONs ...]
+# vimgitfilesg [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# vimgitchangedfiles [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# vimgittouchedfiles [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# vimgitshowfileslastg [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# vimgitshowfileslastchanged [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# vimgitshowfileslasttouched [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# vimgitshowfilesfirstg [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# vimgitshowfilesfirstchanged [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# vimgitshowfilesfirsttouched [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
 alias                   vimgitshowfiles='commandOnSelected --command '"${_aliases_vim}"' --generator "git showfiles" --entries'
 alias               vimgitshowfilesmine='commandOnSelected --command '"${_aliases_vim}"' --generator "git showfilesmine" --entries'
 alias             vimgitshowfilesothers='commandOnSelected --command '"${_aliases_vim}"' --generator "git showfilesothers" --entries'
@@ -505,29 +505,29 @@ alias vimgitconflicts='commandOnSelected --command '"${_aliases_vim}"' --generat
 
 
 
-# sgitlsprivate [-X|--orphaned-submodules] [-x] [<path>] [-- SELECTIONs ...]
+# sgitlsprivate [-X|--orphaned-submodules] [-x] [<pathspec>] [-- SELECTIONs ...]
 #			Print selected unversioned filespecs that are not under
 #			source control in the current directory and below.
 alias sgitlsprivate='commandOnSelected --generator "git-lsprivate --long --ignore-empty-directories" --entries'
 
-# ygitlsprivate [-X|--orphaned-submodules] [-x] [<path>] [-- SELECTIONs ...]
+# ygitlsprivate [-X|--orphaned-submodules] [-x] [<pathspec>] [-- SELECTIONs ...]
 #			Yank selected unversioned filespecs that are not under
 #			source control in the current directory and below.
 alias ygitlsprivate='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git-lsprivate --long --ignore-empty-directories" --entries'
 
-# lgitlsprivate [-X|--orphaned-submodules] [-x] [<path>] [-- SELECTIONs ...]
+# lgitlsprivate [-X|--orphaned-submodules] [-x] [<pathspec>] [-- SELECTIONs ...]
 #			View selected unversioned files that are not under
 #			source control in the current directory and below with
 #			the pager.
 alias lgitlsprivate='commandOnSelected --command "${PAGER:-less}" --generator "git-lsprivate --long --ignore-empty-directories" --entries'
 
-# vgitlsprivate [-X|--orphaned-submodules] [-x] [<path>] [-- SELECTIONs ...]
+# vgitlsprivate [-X|--orphaned-submodules] [-x] [<pathspec>] [-- SELECTIONs ...]
 #			Edit selected unversioned files that are not under
 #			source control in the current directory and below in
 #			GVIM.
 alias vgitlsprivate='commandOnSelected --command SendToGVIM --generator "git-lsprivate --long --ignore-empty-directories" --entries'
 
-# vimgitlsprivate [-X|--orphaned-submodules] [-x] [<path>] [-- SELECTIONs ...]
+# vimgitlsprivate [-X|--orphaned-submodules] [-x] [<pathspec>] [-- SELECTIONs ...]
 #			Edit selected unversioned files that are not under
 #			source control in the current directory and below in
 #			Vim.
@@ -535,130 +535,130 @@ alias vimgitlsprivate='commandOnSelected --command '"${_aliases_vim}"' --generat
 
 
 
-# sgitstfiles [<path>] [-- SELECTIONs ...] Print selected changed filespecs.
+# sgitstfiles [<pathspec>] [-- SELECTIONs ...] Print selected changed filespecs.
 alias sgitstfiles='commandOnSelected --generator "git-stfiles" --entries'
 
-# ygitstfiles [<path>] [-- SELECTIONs ...] Yank selected changed filespecs.
+# ygitstfiles [<pathspec>] [-- SELECTIONs ...] Yank selected changed filespecs.
 alias ygitstfiles='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git-stfiles" --entries'
 
-# lgitstfiles [<path>] [-- SELECTIONs ...]
+# lgitstfiles [<pathspec>] [-- SELECTIONs ...]
 #			View selected changed files with the pager.
 alias lgitstfiles='commandOnSelected --command "${PAGER:-less}" --generator "git-stfiles" --entries'
 
-# vgitstfiles [<path>] [-- SELECTIONs ...]
+# vgitstfiles [<pathspec>] [-- SELECTIONs ...]
 #			Edit selected changed files in GVIM.
 alias vgitstfiles='commandOnSelected --command SendToGVIM --generator "git-stfiles" --entries'
 
-# vimgitstfiles [<path>] [-- SELECTIONs ...]
+# vimgitstfiles [<pathspec>] [-- SELECTIONs ...]
 #			Edit selected changed files in Vim.
 alias vimgitstfiles='commandOnSelected --command '"${_aliases_vim}"' --generator "git-stfiles" --entries'
 
 
 
-# sgitstifiles [<path>] [-- SELECTIONs ...]
+# sgitstifiles [<pathspec>] [-- SELECTIONs ...]
 #			Print selected staged filespecs.
 alias sgitstifiles='commandOnSelected --generator "git-stifiles" --entries'
 
-# ygitstifiles [<path>] [-- SELECTIONs ...]
+# ygitstifiles [<pathspec>] [-- SELECTIONs ...]
 #			Yank selected staged filespecs.
 alias ygitstifiles='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git-stifiles" --entries'
 
-# lgitstifiles [<path>] [-- SELECTIONs ...]
+# lgitstifiles [<pathspec>] [-- SELECTIONs ...]
 #			View selected staged files with the pager.
 alias lgitstifiles='commandOnSelected --command "${PAGER:-less}" --generator "git-stifiles" --entries'
 
-# vgitstifiles [<path>] [-- SELECTIONs ...]
+# vgitstifiles [<pathspec>] [-- SELECTIONs ...]
 #			Edit selected staged files in GVIM.
 alias vgitstifiles='commandOnSelected --command SendToGVIM --generator "git-stifiles" --entries'
 
-# vimgitstifiles [<path>] [-- SELECTIONs ...]
+# vimgitstifiles [<pathspec>] [-- SELECTIONs ...]
 #			Edit selected staged files in Vim.
 alias vimgitstifiles='commandOnSelected --command '"${_aliases_vim}"' --generator "git-stifiles" --entries'
 
 
 
-# sgitstIfiles [<path>] [-- SELECTIONs ...]
+# sgitstIfiles [<pathspec>] [-- SELECTIONs ...]
 #			Print selected modified but not staged filespecs.
 alias sgitstIfiles='commandOnSelected --generator "git-stIfiles" --entries'
 
-# ygitstIfiles [<path>] [-- SELECTIONs ...]
+# ygitstIfiles [<pathspec>] [-- SELECTIONs ...]
 #			Yank selected modified but not staged filespecs.
 alias ygitstIfiles='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git-stIfiles" --entries'
 
-# lgitstIfiles [<path>] [-- SELECTIONs ...]
+# lgitstIfiles [<pathspec>] [-- SELECTIONs ...]
 #			View selected modified but not staged files with the
 #			pager.
 alias lgitstIfiles='commandOnSelected --command "${PAGER:-less}" --generator "git-stIfiles" --entries'
 
-# vgitstIfiles [<path>] [-- SELECTIONs ...]
+# vgitstIfiles [<pathspec>] [-- SELECTIONs ...]
 #			Edit selected modified but not staged files in GVIM.
 alias vgitstIfiles='commandOnSelected --command SendToGVIM --generator "git-stIfiles" --entries'
 
-# vimgitstIfiles [<path>] [-- SELECTIONs ...]
+# vimgitstIfiles [<pathspec>] [-- SELECTIONs ...]
 #			Edit selected modified but not staged files in Vim.
 alias vimgitstIfiles='commandOnSelected --command '"${_aliases_vim}"' --generator "git-stIfiles" --entries'
 
 
 
-# sgitstuntracked [<path>] [-- SELECTIONs ...]
+# sgitstuntracked [<pathspec>] [-- SELECTIONs ...]
 #			Print selected new files not yet added to version
 #			control.
 alias sgitstuntracked='commandOnSelected --generator "git stuntracked" --entries'
 
-# ygitstuntracked [<path>] [-- SELECTIONs ...]
+# ygitstuntracked [<pathspec>] [-- SELECTIONs ...]
 #			Yank selected new files not yet added to version
 #			control.
 alias ygitstuntracked='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git stuntracked" --entries'
 
-# lgitstuntracked [<path>] [-- SELECTIONs ...]
+# lgitstuntracked [<pathspec>] [-- SELECTIONs ...]
 #			View selected new files not yet added to version
 #			control.
 alias lgitstuntracked='commandOnSelected --command "${PAGER:-less}" --generator "git stuntracked" --entries'
 
-# vgitstuntracked [<path>] [-- SELECTIONs ...]
+# vgitstuntracked [<pathspec>] [-- SELECTIONs ...]
 #			Edit selected new files not yet added to version
 #			control.
 alias vgitstuntracked='commandOnSelected --command SendToGVIM --generator "git stuntracked" --entries'
 
-# vimgitstuntracked [<path>] [-- SELECTIONs ...]
+# vimgitstuntracked [<pathspec>] [-- SELECTIONs ...]
 #			Edit selected new files not yet added to version
 #			control.
 alias vimgitstuntracked='commandOnSelected --command '"${_aliases_vim}"' --generator "git stuntracked" --entries'
 
 
 
-# sgitgf [<GREP-OPTIONS> ...] [-e] PATTERN [<path> ...] [-- SELECTIONs ...]
+# sgitgf [<GREP-OPTIONS> ...] [-e] PATTERN [<pathspec>...] [-- SELECTIONs ...]
 #			Print selected filespecs that match PATTERN.
-# sgitgF [<GREP-OPTIONS> ...] [-e] PATTERN [<path> ...] [-- SELECTIONs ...]
+# sgitgF [<GREP-OPTIONS> ...] [-e] PATTERN [<pathspec>...] [-- SELECTIONs ...]
 #			Print selected filespecs that do not match PATTERN.
 alias sgitgf='commandOnSelected --generator "git gf" --entries'
 alias sgitgF='commandOnSelected --generator "git g-f" --entries'
 
-# ygitgf [<GREP-OPTIONS> ...] [-e] PATTERN [<path> ...] [-- SELECTIONs ...]
+# ygitgf [<GREP-OPTIONS> ...] [-e] PATTERN [<pathspec>...] [-- SELECTIONs ...]
 #			Yank selected filespecs that match PATTERN.
-# ygitgF [<GREP-OPTIONS> ...] [-e] PATTERN [<path> ...] [-- SELECTIONs ...]
+# ygitgF [<GREP-OPTIONS> ...] [-e] PATTERN [<pathspec>...] [-- SELECTIONs ...]
 #			Yank selected filespecs that do not match PATTERN.
 alias ygitgf='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git gf" --entries'
 alias ygitgF='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git g-f" --entries'
 
-# lgitgf [<GREP-OPTIONS> ...] [-e] PATTERN [<path> ...] [-- SELECTIONs ...]
+# lgitgf [<GREP-OPTIONS> ...] [-e] PATTERN [<pathspec>...] [-- SELECTIONs ...]
 #			View selected files that match PATTERN with the pager.
-# lgitgF [<GREP-OPTIONS> ...] [-e] PATTERN [<path> ...] [-- SELECTIONs ...]
+# lgitgF [<GREP-OPTIONS> ...] [-e] PATTERN [<pathspec>...] [-- SELECTIONs ...]
 #			View selected files that do not match PATTERN with the
 #			pager.
 alias lgitgf='commandOnSelected --command "${PAGER:-less}" --generator "git gf" --entries'
 alias lgitgF='commandOnSelected --command "${PAGER:-less}" --generator "git g-f" --entries'
 
-# vgitgf [<GREP-OPTIONS> ...] [-e] PATTERN [<path> ...] [-- SELECTIONs ...]
+# vgitgf [<GREP-OPTIONS> ...] [-e] PATTERN [<pathspec>...] [-- SELECTIONs ...]
 #			Edit selected files that match PATTERN in GVIM.
-# vgitgF [<GREP-OPTIONS> ...] [-e] PATTERN [<path> ...] [-- SELECTIONs ...]
+# vgitgF [<GREP-OPTIONS> ...] [-e] PATTERN [<pathspec>...] [-- SELECTIONs ...]
 #			Edit selected files that do not match PATTERN in GVIM.
 alias vgitgf='commandOnSelected --command SendToGVIM --generator "git gf" --entries'
 alias vgitgF='commandOnSelected --command SendToGVIM --generator "git g-f" --entries'
 
-# vimgitgf [<GREP-OPTIONS> ...] [-e] PATTERN [<path> ...] [-- SELECTIONs ...]
+# vimgitgf [<GREP-OPTIONS> ...] [-e] PATTERN [<pathspec>...] [-- SELECTIONs ...]
 #			Edit selected files that match PATTERN in Vim.
-# vimgitgF [<GREP-OPTIONS> ...] [-e] PATTERN [<path> ...] [-- SELECTIONs ...]
+# vimgitgF [<GREP-OPTIONS> ...] [-e] PATTERN [<pathspec>...] [-- SELECTIONs ...]
 #			Edit selected files that do not match PATTERN in Vim.
 alias vimgitgf='commandOnSelected --command '"${_aliases_vim}"' --generator "git gf" --entries'
 alias vimgitgF='commandOnSelected --command '"${_aliases_vim}"' --generator "git g-f" --entries'

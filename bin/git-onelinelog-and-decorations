@@ -8,10 +8,10 @@ printShortUsage()
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--full-decorations] [--decorate-refs=<pattern> [-i|--include <pattern>] [-e|--exclude <pattern>] ...] [<log-options>] [<revision range>] ...'
-    printf 'Usage: %q %s\n' "$(basename "$1")" "... [--commit-log-args <log-options> [...] ${GIT_ONELINELOGANDDECORATIONS_ARGS_END}] [--] <path> [...]"
-    printf 'Usage: %q %s\n' "$(basename "$1")" "... [--full-decorations] --commit-log-args <log-options> [...] $GIT_ONELINELOGANDDECORATIONS_ARGS_END [--] [<path> ...]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "... [--commit-log-args <log-options> [...] ${GIT_ONELINELOGANDDECORATIONS_ARGS_END}] [--] <pathspec>..."
+    printf 'Usage: %q %s\n' "$(basename "$1")" "... [--full-decorations] --commit-log-args <log-options> [...] $GIT_ONELINELOGANDDECORATIONS_ARGS_END [--] [<pathspec>...]"
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '... --only-decorations [--] [<path> ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... --only-decorations [--] [<pathspec>...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -25,9 +25,9 @@ printLongUsage()
     # This is the long "man page" when launched with the help argument.
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
-One-line author, date, tags and commit summary for files in <path> and/or for
-commits addressed by --commit-log-args <log-options>, plus any ref names, also
-of commits not covered.
+One-line author, date, tags and commit summary for files in <pathspec> and/or
+for commits addressed by --commit-log-args <log-options>, plus any ref names,
+also of commits not covered.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
@@ -44,7 +44,7 @@ HELPDESCRIPTION
     --commit-log-args <log-options> [...] $GIT_ONELINELOGANDDECORATIONS_ARGS_END
 			These log options are only used for filtering the
 			non-decorated commits, as an alternative or supplement
-			to filtering by <path>.
+			to filtering by <pathspec>.
     --decorate-refs=<pattern>
 			Only consider ref names matching <pattern>. This is
 			often provided by an alias; use --include and --exclude
@@ -60,6 +60,7 @@ Or to find out when a particular set of commits (e.g. by one author, done to one
 subdir) happened related to releases.
 HELPTEXT
 }
+
 unset decorationsFilterSedCommandSymbol
 decorationsFilterSedCommandPrefix='s/^\([^\n]\+\)\n.*\n\([^\n]\+\)$/\1'
 decorationsFilterSedCommandSymbol=' [01;31m[...][0;38;5;245m'
@@ -149,7 +150,7 @@ if [ -z "${files+t}" ]; then
     done
 fi
 if [ ${#files} -eq 0 -a ${#gitCommitLogArgs[@]} -eq 0 ] && [ ! "$isDecorationsOnly" ]; then
-    echo 'ERROR: Neither --commit-log-args <log-options> nor <path> passed.'
+    echo 'ERROR: Neither --commit-log-args <log-options> nor <pathspec> passed.'
     echo
     printUsage "$0"
     exit 2

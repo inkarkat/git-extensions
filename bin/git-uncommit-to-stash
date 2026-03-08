@@ -13,17 +13,17 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-n N|--count N|-r|--revision REVISION] [--first-parent|--unmerge|--parent-number N] [-?|-h|--help]'
     echo
     cat <<HELPTEXT
-Move changes to <path>s from the last commit to the stash.
+Move changes to <pathspec>... from the last commit to the stash.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--patch] [--] <path> [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--patch] [--] <pathspec>...'
     echo
     cat <<HELPTEXT
-Move changes [to <path>s] from passed COMMIT(s) to the stash (individually, via
-rebasing).
+Move changes [to <pathspec>...] from passed COMMIT(s) to the stash
+(individually, via rebasing).
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[--patch] --commits [COMMIT ...] $GIT_UNCOMMITTOSTASH_COMMITS_END [--edit|-i|--interactive] [--] [<path> ...]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[--patch] --commits [COMMIT ...] $GIT_UNCOMMITTOSTASH_COMMITS_END [--edit|-i|--interactive] [--] [<pathspec>...]"
 }
 
 action=uncommitRange
@@ -86,12 +86,12 @@ do
 done
 if [ $# -gt 0 ]; then
     if [ ${#resetToCommitArgs[@]} -gt 0 ]; then
-	echo 'ERROR: Cannot combine [-n N|--count N|-r|--revision REVISION] [--first-parent|--unmerge|--parent-number N] with <path>s.'
+	echo 'ERROR: Cannot combine [-n N|--count N|-r|--revision REVISION] [--first-parent|--unmerge|--parent-number N] with <pathspec>...'
 	echo
 	printUsage "$0"
 	exit 2
     elif git-ismerge; then
-	echo 'ERROR: Cannot stash <path>s from a merge commit.'
+	echo 'ERROR: Cannot stash <pathspec>... from a merge commit.'
 	exit 1
     fi
 elif [ ${#resetToCommitArgs[@]} -gt 0 -a ${#commits[@]} -gt 0 ]; then
@@ -122,7 +122,7 @@ uncommitRange()
     git-resetToCommit --soft "${resetToCommitArgs[@]}" || exit $?
 
     if [ $# -gt 0 ] || [ ${#resetArgs[@]} -gt 0 ]; then
-	git reset "${resetArgs[@]}" HEAD -- "$@"	# Note: This won't fail even if all <path>s do not exist.
+	git reset "${resetArgs[@]}" HEAD -- "$@"	# Note: This won't fail even if all <pathspec>... do not exist.
 	if git-staged --quiet; then
 	    git commit --reuse-message ORIG_HEAD || exit $?
 	fi
@@ -136,7 +136,7 @@ rebaseCommits()
 {
     local firstRevision; firstRevision="$(printf '%s\n' "${commits[@]}" | git-graphsortrevs --abbrev-commit | tail -n 1)" || exit 3
     readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
-    typeset -a noopArg=(--succeed-on-noop)	# Do not abort rebasing if a COMMIT doesn't have <path>s to stash.
+    typeset -a noopArg=(--succeed-on-noop)	# Do not abort rebasing if a COMMIT doesn't have <pathspec>... to stash.
     exec git-rebase-exec-for-commits "${rebaseExecForCommitsArgs[@]}" \
 	--commits "${commits[@]}" \; \
 	    -- "${scriptName#git-}" "${noopArg[@]}" "${resetArgs[@]}" -- "$@"

@@ -53,9 +53,9 @@
 	config-no-filemode = config core.filemode false
 	addx = add --chmod=+x	; Add files with the execute bit set (on Windows, where filemode = false).
 
-	;; iswc: Test whether the current directory / passed DIRSPEC / FILESPEC is inside a Git working copy.
-	;; iscontrolled: Test whether the current directory / passed DIRSPEC / FILESPEC is tracked by Git (i.e. not unversioned).
-	;; isnonemptyrepo: Test whether the current directory / passed DIRSPEC is a repository that has at least one commit in it. Fails if not a working copy or a just-initialized empty repo without any commits.
+	;; iswc: Test whether the current directory / passed DIR / FILE is inside a Git working copy.
+	;; iscontrolled: Test whether the current directory / passed DIR / FILE is tracked by Git (i.e. not unversioned).
+	;; isnonemptyrepo: Test whether the current directory / passed DIR is a repository that has at least one commit in it. Fails if not a working copy or a just-initialized empty repo without any commits.
 
 	;; init: Create an empty Git repository and automatically chdir into it.
 	;; clone: Clone a repository into a new directory and automatically chdir into it.
@@ -66,11 +66,11 @@
 	;; isworktree: Test whether the current working copy is a secondary worktree.
 	;; isdetached: Test whether the current working copy directly refers to a particular commit as opposed to a named branch.
 	;; istag: Test whether <commit> is a tag reference (or some other ref).
-	;; istagged: Test whether the current commit / REVISION in the working copy / passed FILESPEC directly refers to a tagged commit.
+	;; istagged: Test whether the current commit / REVISION in the working copy / passed <pathspec> directly refers to a tagged commit.
 
-	;; cat: Retrieve the contents of <path> as it exists in revision <ref>.
-	catselected = selectedcommit-command --single-only --pass-file-args -2 cat COMMITS	; Retrieve the contents of <path> as it exists in the commit interactively chosen from the commits in the passed <range>.
-	catselectedonemore = selectedcommit-command --single-only --pass-file-args --one-more -2 cat COMMITS	; Retrieve the contents of <path> as it exists in the commit interactively chosen from the commits in the passed <range> plus one more.
+	;; cat: Retrieve the contents of <pathspec> as it exists in revision <ref>.
+	catselected = selectedcommit-command --single-only --pass-file-args -2 cat COMMITS	; Retrieve the contents of <pathspec> as it exists in the commit interactively chosen from the commits in the passed <range>.
+	catselectedonemore = selectedcommit-command --single-only --pass-file-args --one-more -2 cat COMMITS	; Retrieve the contents of <pathspec> as it exists in the commit interactively chosen from the commits in the passed <range> plus one more.
 	cat1 = catselected --max-count 1
 	cat2 = catselected --max-count 2
 	cat3 = catselected --max-count 3
@@ -81,13 +81,13 @@
 	catx = catselected --max-count 12
 	catq = catselected --max-count 25
 	catz = catselected --max-count 100
-	catg = selectedgcommit-command --single-only --pass-file-args -2 cat COMMITS	; Retrieve the contents of <path> as it exists in the commit interactively chosen from the commits where log messages match the specified text or /regexp/.
-	catchanged = selectedchangedcommit-command --single-only --pass-file-args -2 cat COMMITS	; Retrieve the contents of <path> as it exists in the commit interactively chosen from the commits where the actual diff; i.e. those filepairs whose preimage and postimage have different number of occurrences of the text or /regexp/.
-	cattouched = selectedtouchedcommit-command --single-only --pass-file-args -2 cat COMMITS	; Retrieve the contents of <path> as it exists in the commit interactively chosen from the commits where in the diff the text or /regexp/ matches, without necessarily changing the number of occurrences themselves.
+	catg = selectedgcommit-command --single-only --pass-file-args -2 cat COMMITS	; Retrieve the contents of <pathspec> as it exists in the commit interactively chosen from the commits where log messages match the specified text or /regexp/.
+	catchanged = selectedchangedcommit-command --single-only --pass-file-args -2 cat COMMITS	; Retrieve the contents of <pathspec> as it exists in the commit interactively chosen from the commits where the actual diff; i.e. those filepairs whose preimage and postimage have different number of occurrences of the text or /regexp/.
+	cattouched = selectedtouchedcommit-command --single-only --pass-file-args -2 cat COMMITS	; Retrieve the contents of <pathspec> as it exists in the commit interactively chosen from the commits where in the diff the text or /regexp/ matches, without necessarily changing the number of occurrences themselves.
 
-	;; cp: Retrieve the contents of <path> as it exists in revision <ref> and save it as <path>.<ref> (or <target> if given).
-	cpselected = selectedcommit-command --single-only --pass-file-args -2 cp COMMITS	; Retrieve the contents of <path> as it exists in the commit interactively chosen from the commits in the passed <range> and save it as <path>.<ref> (to <target> is not supported here).
-	cpselectedonemore = selectedcommit-command --single-only --pass-file-args --one-more -2 cp COMMITS	; Retrieve the contents of <path> as it exists in the commit interactively chosen from the commits in the passed <range> plus one more and save it as <path>.<ref> (to <target> is not supported here).
+	;; cp: Retrieve the contents of <pathspec> as it exists in revision <ref> and save it as <pathspec>.<ref> (or <target> if given).
+	cpselected = selectedcommit-command --single-only --pass-file-args -2 cp COMMITS	; Retrieve the contents of <pathspec> as it exists in the commit interactively chosen from the commits in the passed <range> and save it as <pathspec>.<ref> (to <target> is not supported here).
+	cpselectedonemore = selectedcommit-command --single-only --pass-file-args --one-more -2 cp COMMITS	; Retrieve the contents of <pathspec> as it exists in the commit interactively chosen from the commits in the passed <range> plus one more and save it as <pathspec>.<ref> (to <target> is not supported here).
 	cp1 = cpselected --max-count 1
 	cp2 = cpselected --max-count 2
 	cp3 = cpselected --max-count 3
@@ -98,9 +98,9 @@
 	cpx = cpselected --max-count 12
 	cpq = cpselected --max-count 25
 	cpz = cpselected --max-count 100
-	cpg = selectedgcommit-command --single-only --pass-file-args -2 cp COMMITS	; Retrieve the contents of <path> as it exists in the commit interactively chosen from the commits where log messages match the specified text or /regexp/ and save it as <path>.<ref> (to <target> is not supported here).
-	cpchanged = selectedchangedcommit-command --single-only --pass-file-args -2 cp COMMITS	; Retrieve the contents of <path> as it exists in the commit interactively chosen from the commits where the actual diff; i.e. those filepairs whose preimage and postimage have different number of occurrences of the text or /regexp/.
-	cptouched = selectedtouchedcommit-command --single-only --pass-file-args -2 cp COMMITS	; Retrieve the contents of <path> as it exists in the commit interactively chosen from the commits where in the diff the text or /regexp/ matches, without necessarily changing the number of occurrences themselves.
+	cpg = selectedgcommit-command --single-only --pass-file-args -2 cp COMMITS	; Retrieve the contents of <pathspec> as it exists in the commit interactively chosen from the commits where log messages match the specified text or /regexp/ and save it as <pathspec>.<ref> (to <target> is not supported here).
+	cpchanged = selectedchangedcommit-command --single-only --pass-file-args -2 cp COMMITS	; Retrieve the contents of <pathspec> as it exists in the commit interactively chosen from the commits where the actual diff; i.e. those filepairs whose preimage and postimage have different number of occurrences of the text or /regexp/.
+	cptouched = selectedtouchedcommit-command --single-only --pass-file-args -2 cp COMMITS	; Retrieve the contents of <pathspec> as it exists in the commit interactively chosen from the commits where in the diff the text or /regexp/ matches, without necessarily changing the number of occurrences themselves.
 
 	rename = mv
 
@@ -164,12 +164,12 @@
 	ui = unapply-index
 	;; unapply-index-selected: Interactively select (from staged files or passed list of files) files (or directly pass N, M, ... selections) and drop the staged changes from the working copy; i.e. revert the changes that are in the index in the working copy.
 	uis = unapply-index-selected
-	;; checkout-committed: Revert changes [for FILE(s)] in the working copy to the latest commit, but keep any changes in the index. These can be put back into the working copy via checkout.
+	;; checkout-committed: Revert changes [for <pathspec>...] in the working copy to the latest commit, but keep any changes in the index. These can be put back into the working copy via checkout.
 	coc = checkout-committed
 	;; checkout-committed-selected: Interactively select (from modified files or passed list of files) files (or directly pass N, M, ... selections) and revert changes in the working copy to the latest commit, but keep any changes in the index. These can be put back into the working copy via checkout.
 	cocs = checkout-committed-selected
 
-	;; checkoutrevision: Revert changes [for FILE(s)] in the working copy to the (with --previous commit prior to the) passed <commit> / HEAD. Like "git checkout <commit> [-- FILE ...]" but doesn't write to the index / cause the "detached HEAD" status when no FILEs are passed. This is meant to be for temporary investigation or verifying a test failure without the committed fix, so no dirty working copy is allowed (unless forced).
+	;; checkoutrevision: Revert changes [for <pathspec>...] in the working copy to the (with --previous commit prior to the) passed <commit> / HEAD. Like "git checkout <commit> [-- <pathspec>...]" but doesn't write to the index / cause the "detached HEAD" status when no <pathspec>... are passed. This is meant to be for temporary investigation or verifying a test failure without the committed fix, so no dirty working copy is allowed (unless forced).
 	cor = checkoutrevision
 	;; checkoutrevisionselected: Interactively select (from files touched in <commit> / HEAD) files (or directly pass N, M, ... selections) to be reverted to what the content in (with --previous commit prior to the) passed <commit> was.
 	cors = checkoutrevisionselected
@@ -189,7 +189,7 @@
 	corschanged = selectedchangedcommit-command --single-only -4 checkoutrevisionselected --accept-single --revision COMMITS
 	corstouched = selectedtouchedcommit-command --single-only -4 checkoutrevisionselected --accept-single --revision COMMITS
 
-	checkoutprevious = checkoutrevision --previous	; Revert changes [for FILE(s)] in the working copy to the commit prior to passed <commit> / HEAD. Like "git checkout <commit>^ [-- FILE ...]" but doesn't write to the index / cause the "detached HEAD" status when no FILEs are passed. This is meant to be for temporary investigation or verifying a test failure without the committed fix, so no dirty working copy is allowed.
+	checkoutprevious = checkoutrevision --previous	; Revert changes [for <pathspec>...] in the working copy to the commit prior to passed <commit> / HEAD. Like "git checkout <commit>^ [-- <pathspec>...]" but doesn't write to the index / cause the "detached HEAD" status when no <pathspec>... are passed. This is meant to be for temporary investigation or verifying a test failure without the committed fix, so no dirty working copy is allowed.
 	cop = checkoutprevious
 	checkoutpreviousselected = checkoutrevisionselected --previous	; Interactively select (from files touched in <commit> / HEAD) files (or directly pass N, M, ... selections) to be reverted to what the content *before* <commit> was.
 	cops = checkoutpreviousselected
@@ -291,7 +291,7 @@
 
 
 	;; add: Add and show status; --all/-A stages all, . stages new and modified, without deleted, -u stages modified and deleted, without new.
-	;; addn: Add all modified and deleted files except those matching FILE(s) or the escaped GLOB(s). Like addu, but with inverted meaning of the file arguments.
+	;; addn: Add all modified and deleted files except those matching <pathspec>... or the escaped GLOB(s). Like addu, but with inverted meaning of the file arguments.
 	addns = selected-command addn	; Interactively select (from modified files or passed list of files) files (or directly pass N, M, ... selections) to add all modified and deleted files except those selected by number.
 	addns1 = addns 1
 	addns2 = addns 2
@@ -310,7 +310,7 @@
 	;; addempty: Add empty DIR(s).
 	;; adddeleted: Add manually deleted (or moved) files to the index.
 	;; addi: Add unstaged changes from already staged files; update stage.
-	addlastfiles = showfiles-command add	; Add the same files (inside <path>) as were modified in the last commit / N'th commit / passed -r|--revision REVISION to the index.
+	addlastfiles = showfiles-command add	; Add the same files (inside <pathspec>) as were modified in the last commit / N'th commit / passed -r|--revision REVISION to the index.
 	addlastfilesselected = selectedcommit-command --single-only -3 addlastfiles --revision COMMITS
 	addlastfiles1 = addlastfilesselected --max-count 1
 	addlastfiles2 = addlastfilesselected --max-count 2
@@ -409,7 +409,7 @@
 	cuu = uu-command commit;	Commit modified and deleted, and add new files, respecting the ignore patterns. Combination of git adduu && git commit.
 	;; testcommit: Do a test commit by appending MESSAGE to FILE and committing with MESSAGE(s).
 	;; wipcommit: Do a quick commit with a short MESSAGE and WIP: keyword. / Do an incomplete commit with synthesized message and FIXME: keyword (that should be reworded, rebased, or squashed before the merge).
-	;; commitwithdiff: Commit with the commit message seeded with the diff additions of the whole commit / passed FILE(s).
+	;; commitwithdiff: Commit with the commit message seeded with the diff additions of the whole commit / passed <pathspec>...
 	;; commitwithdiffselected: Interactively select (from staged files or those filtered by passed list of files) files (or directly pass N, M, ... selections) to seed the commit message with their diff additions.
 	;; commitpush: Commit and push [to REMOTE].
 	;; commitaddemptyfirst: Insert a completely empty commit as the new initial root commit (to retroactively start with a clean slate, or to rebase and split the first commit).
@@ -440,7 +440,7 @@
 	logprlinksz = logprlinks --max-count 100
 
 	;; correct: Commit as a correction of passed revision(s) [from the working copy that FILE or DIR resides in] (when it's too late or cumbersome to fixup the existing commit). This just adds a reference to the prior commit(s) in the commit message (title and body).
-	correctlast = selectedpermanentcommit-command --accept-single --single-only --pass-file-args --allow-outside-workingcopy -2 correct COMMITS --max-count 1	; Commit as a correction of the last commit (of FILE; if you omit that the HEAD commit would be referenced, and you could just amend there).
+	correctlast = selectedpermanentcommit-command --accept-single --single-only --pass-file-args --allow-outside-workingcopy -2 correct COMMITS --max-count 1	; Commit as a correction of the last commit (of <pathspec>; if you omit that the HEAD commit would be referenced, and you could just amend there).
 	correctselected = selectedpermanentcommit-command --pass-file-args --allow-outside-workingcopy -2 correct COMMITS	; Commit as a correction of the commit(s) interactively chosen from the commits in the passed <range> (when it's too late or cumbersome to fixup the existing commit).
 	correct1 = correctselected --max-count 1
 	correct2 = correctselected --max-count 2
@@ -518,7 +518,7 @@
 
 
 	;; correcttostash: Stash as a correction of passed revision(s) [from the working copy that FILE or DIR resides in].
-	correcttostashlast = selectedpermanentcommit-command --accept-single --single-only --pass-file-args --allow-outside-workingcopy -2 correcttostash COMMITS --max-count 1	; Stash as a correction of the last commit (of FILE).
+	correcttostashlast = selectedpermanentcommit-command --accept-single --single-only --pass-file-args --allow-outside-workingcopy -2 correcttostash COMMITS --max-count 1	; Stash as a correction of the last commit (of <pathspec>).
 	correcttostashselected = selectedpermanentcommit-command --pass-file-args --allow-outside-workingcopy -2 correcttostash COMMITS	; Stash as a correction of the commit(s) interactively chosen from the commits in the passed <range>.
 	correcttostash1 = correcttostashselected --max-count 1
 	correcttostash2 = correcttostashselected --max-count 2
@@ -577,7 +577,7 @@
 	correcttostashadst = selectedannotatediffcommit-command -3 correcttostash --keep-index COMMITS	; Stash (index and unstaged) and keep changes in index staged as a correction of the commit(s) interactively chosen from the commits affected by lines that have been changed in currently modified but not staged files.
 
 	;; fixup: Commit with the intent of squashing this with the passed revision via interactive rebase later (now with --rebase).
-	fixuplast = selectedpermanentcommit-command --accept-single --single-only -2 fixup COMMITS --max-count 1	; Commit with the intent of squashing this with the last commit (of FILE; if you omit that the HEAD commit would be referenced, and you could just amend there).
+	fixuplast = selectedpermanentcommit-command --accept-single --single-only -2 fixup COMMITS --max-count 1	; Commit with the intent of squashing this with the last commit (of <pathspec>; if you omit that the HEAD commit would be referenced, and you could just amend there).
 	fixupselected = selectedpermanentcommit-command --single-only -2 fixup COMMITS	; Commit with the intent of squashing this with the commit interactively chosen from the commits in the passed <range> via interactive rebase later.
 	fixup1 = fixupselected --max-count 1
 	fixup2 = fixupselected --max-count 2
@@ -655,7 +655,7 @@
 
 
 	fixamend = fixup --amend	; Commit with the intent of squashing this with the passed revision and overwriting the original commit message via interactive rebase later. Note: Keep the summary line 1 as-is; line 3 is the new summary and the commit message starts in line 5.
-	fixamendlast = selectedpermanentcommit-command --accept-single --single-only -2 fixamend COMMITS --max-count 1	; Commit with the intent of squashing this with the last commit (of FILE; if you omit that the HEAD commit would be referenced, and you could just amend there) and overwriting the original commit message via interactive rebase later.
+	fixamendlast = selectedpermanentcommit-command --accept-single --single-only -2 fixamend COMMITS --max-count 1	; Commit with the intent of squashing this with the last commit (of <pathspec>; if you omit that the HEAD commit would be referenced, and you could just amend there) and overwriting the original commit message via interactive rebase later.
 	fixamendselected = selectedpermanentcommit-command --single-only -2 fixamend COMMITS
 	fixamend1 = fixamendselected --max-count 1
 	fixamend2 = fixamendselected --max-count 2
@@ -715,7 +715,7 @@
 
 
 	fixwording = fixup --reword	; Commit with the intent of squashing this with the passed revision and just rewording the original commit message (no changes!) via interactive rebase later. Note: Keep the summary line 1 as-is; line 3 is the new summary and the commit message starts in line 5.
-	fixwordinglast = selectedpermanentcommit-command --accept-single --single-only -2 fixwording COMMITS --max-count 1	; Commit with the intent of squashing this with the last commit (of FILE; if you omit that the HEAD commit would be referenced, and you could just amend there) and just rewording the original commit message (no changes!) via interactive rebase later.
+	fixwordinglast = selectedpermanentcommit-command --accept-single --single-only -2 fixwording COMMITS --max-count 1	; Commit with the intent of squashing this with the last commit (of <pathspec>; if you omit that the HEAD commit would be referenced, and you could just amend there) and just rewording the original commit message (no changes!) via interactive rebase later.
 	fixwordingselected = selectedpermanentcommit-command --single-only -2 fixwording COMMITS
 	fixwording1 = fixwordingselected --max-count 1
 	fixwording2 = fixwordingselected --max-count 2
@@ -775,7 +775,7 @@
 
 
 	fixuprb = fixup --rebase	; Commit and squash with the passed revision via interactive rebase.
-	fixuprblast = selectedpermanentcommit-command --accept-single --single-only -2 fixuprb COMMITS --max-count 1	; Commit and squash with the last commit (of FILE; if you omit that the HEAD commit would be referenced, and you could just amend there).
+	fixuprblast = selectedpermanentcommit-command --accept-single --single-only -2 fixuprb COMMITS --max-count 1	; Commit and squash with the last commit (of <pathspec>; if you omit that the HEAD commit would be referenced, and you could just amend there).
 	fixupselectedrb = selectedpermanentcommit-command --single-only -2 fixuprb COMMITS	; Commit and squash with the commit interactively chosen from the commits in the passed <range> via interactive rebase.
 	fixuprb1 = fixupselectedrb --max-count 1
 	fixuprb2 = fixupselectedrb --max-count 2
@@ -853,7 +853,7 @@
 
 
 	fixamendrb = fixup --amend --rebase	; Commit and squash and overwrite the original commit message with the passed revision via interactive rebase.
-	fixamendrblast = selectedpermanentcommit-command --accept-single --single-only -2 fixamendrb COMMITS --max-count 1	; Commit and squash and overwrite the original commit message with the last commit (of FILE; if you omit that the HEAD commit would be referenced, and you could just amend there).
+	fixamendrblast = selectedpermanentcommit-command --accept-single --single-only -2 fixamendrb COMMITS --max-count 1	; Commit and squash and overwrite the original commit message with the last commit (of <pathspec>; if you omit that the HEAD commit would be referenced, and you could just amend there).
 	fixamendselectedrb = selectedpermanentcommit-command --single-only -2 fixamendrb COMMITS	; Commit and squash and overwrite the original commit message with the commit interactively chosen from the commits in the passed <range> via interactive rebase.
 	fixamendrb1 = fixamendselectedrb --max-count 1
 	fixamendrb2 = fixamendselectedrb --max-count 2
@@ -913,7 +913,7 @@
 
 
 	fixwordingrb = fixup --reword --rebase	; Commit and squash and just reword the original commit message (no changes!) with the passed revision via interactive rebase.
-	fixwordingrblast = selectedpermanentcommit-command --accept-single --single-only -2 fixwordingrb COMMITS --max-count 1	; Commit and squash and just reword the original commit message with the last commit (of FILE; if you omit that the HEAD commit would be referenced, and you could just amend there).
+	fixwordingrblast = selectedpermanentcommit-command --accept-single --single-only -2 fixwordingrb COMMITS --max-count 1	; Commit and squash and just reword the original commit message with the last commit (of <pathspec>; if you omit that the HEAD commit would be referenced, and you could just amend there).
 	fixwordingselectedrb = selectedpermanentcommit-command --single-only -2 fixwordingrb COMMITS	; Commit and squash and just reword the original commit message with the commit interactively chosen from the commits in the passed <range> via interactive rebase.
 	fixwordingrb1 = fixwordingselectedrb --max-count 1
 	fixwordingrb2 = fixwordingselectedrb --max-count 2
@@ -1301,7 +1301,7 @@
 	;; rewordaddprefix: Add a leading prefix to the commit message subject of the last commit.
 	;; rewordremovescope: Remove leading <scope>: arguments (but stop short of keywords) from the commit message subject of the last commit.
 
-	amendlastfiles = showfiles-command commit --amend --only 	; Amend the same files (inside <path>) as were modified in the last commit / N'th commit / passed -r|--revision REVISION (ignoring any already staged changes).
+	amendlastfiles = showfiles-command commit --amend --only 	; Amend the same files (inside <pathspec>) as were modified in the last commit / N'th commit / passed -r|--revision REVISION (ignoring any already staged changes).
 	amendlastfilesselected = selectedpermanentcommit-command --single-only -3 amendlastfiles --revision COMMITS
 	amendlastfiles1 = amendlastfilesselected --max-count 1
 	amendlastfiles2 = amendlastfilesselected --max-count 2
@@ -1841,11 +1841,11 @@
 	;; wcdo-core: Execute "git SIMPLECOMMAND" and/or COMMANDLINE on each passed WORKING-COPY.
 	;; wcdo: Execute "git SIMPLECOMMAND" and/or COMMANDLINE on each passed WORKING-COPY, with special synthesized commands.
 	;; wc-with-suffix-do: Like wcdo, but also work on clones or worktrees that sit next to the working copy.
-	;; wcs-in-dir-do: Execute "git SIMPLECOMMAND" and/or COMMANDLINE on all repositories found in passed DIRSPECs.
+	;; wcs-in-dir-do: Execute "git SIMPLECOMMAND" and/or COMMANDLINE on all repositories found in passed DIRs.
 	;; sh:  Enter a bunch of git commands interactively.
 	;; shell: Launch an interactive shell. That alone wouldn't be very interesting, but it's valuable in combination with git-wcdo and the selective invocation based on the provided options.
 	serve = !git daemon --reuseaddr --verbose  --base-path=. --export-all ./.git ; Fire up a git daemon for the repo you are currently in.
-	;; worktree: Use parallel checkouts of <repository> in <path> (without having to push or pull!)
+	;; worktree: Use parallel checkouts of <repository> in <pathspec> (without having to push or pull!)
 	; Source: /usr/share/doc/git-core/contrib/workdir/git-new-workdir
 	export = archive
 	;; export: git export -o latest.zip HEAD
@@ -1854,7 +1854,7 @@
 
 	;; whois: Look up person by name or email address.
 
-	;; whocreated: Show who did the initial commit for FILE(s) (grouped by author, or with --summary a count and percentage distribution of who contributed how many FILEs)
+	;; whocreated: Show who did the initial commit for <pathspec>... (grouped by author, or with --summary a count and percentage distribution of who contributed how many <pathspec>...
 	whocreatedst = stfiles-command whocreated
 	whocreatedi = stifiles-command whocreated
 	whocreated-i = stIfiles-command whocreated
@@ -1880,7 +1880,7 @@
 	whocreatedoveryears-i = stIfiles-command pasttimes-command --yearly -2 whocreated PASTTIMES
 	whocreatedoveryearslast = showfiles-command pasttimes-command --yearly -2 whocreated PASTTIMES
 
-	;; wholasttouched: Show who last committed FILE(s) grouped by author.
+	;; wholasttouched: Show who last committed <pathspec>... grouped by author.
 	wholasttouchedst = stfiles-command wholasttouched
 	wholasttouchedi = stifiles-command wholasttouched
 	wholasttouched-i = stIfiles-command wholasttouched
@@ -1969,7 +1969,7 @@
 	whocontributedoveryears-i = stIfiles-command pasttimes-command --yearly -2 whocontributed PASTTIMES
 	whocontributedoveryearslast = showfiles-command pasttimes-command --yearly -2 whocontributed PASTTIMES
 
-	;; whowhat: Show who created and last committed the FILE(s), did the most commits to them, currently have last changed how many lines, and did how many total changes over their history.
+	;; whowhat: Show who created and last committed the <pathspec>..., did the most commits to them, currently have last changed how many lines, and did how many total changes over their history.
 	whowhatst = stfiles-command whowhat
 	whowhati = stifiles-command whowhat
 	whowhat-i = stIfiles-command whowhat
@@ -2075,7 +2075,7 @@
 
 	;; whoworkedonthebranch: Print the creator, other authors, and the last author for the current / passed BRANCH while dropping duplicates.
 
-	;; relatedfiles: Show files that often get changed in commits that modify files in <path> / the files affected by <commit>, and the correlation between the commits; 100% means an affected file is included in every commit that touches a passed file; 0% means it's included in less than one commit out of hundred.
+	;; relatedfiles: Show files that often get changed in commits that modify files in <pathspec> / the files affected by <commit>, and the correlation between the commits; 100% means an affected file is included in every commit that touches a passed file; 0% means it's included in less than one commit out of hundred.
 	relatedfilesst = stfiles-command relatedfiles
 	relatedfilesi = stifiles-command relatedfiles
 	relatedfiles-i = stIfiles-command relatedfiles
@@ -2106,8 +2106,8 @@
 	relatedfilesexceptby-i = stIfiles-command relatedfilesexceptby
 	relatedfilesexceptbylast = showfiles-command relatedfilesexceptby
 
-	;; logoffiles: Show a log of commits that cover (at least partially) the files in <path> / the files affected by <commit>.
-	;; logofrelatedfiles: Show log of commits that modify files that often get changed in commits that modify files in <path> / the files affected by <commit>.
+	;; logoffiles: Show a log of commits that cover (at least partially) the files in <pathspec> / the files affected by <commit>.
+	;; logofrelatedfiles: Show log of commits that modify files that often get changed in commits that modify files in <pathspec> / the files affected by <commit>.
 
 	;; churn: Show sorted number of changes per file; arguments as to git log, e.g. --since="1 month ago" subdir
 	churnst = stfiles-command churn
@@ -2290,7 +2290,7 @@
 	d-y = diffY
 	;; annotatediff: Annotate changed lines between commits, commit and working tree, etc. Combination of diff with blame of the resulting lines.
 	ad = annotatediff
-	;; overwritten: Show aggregate blame information of lines that have been changed between commits, commit and working tree, etc. [in FILE ...]
+	;; overwritten: Show aggregate blame information of lines that have been changed between commits, commit and working tree, etc. [in <pathspec>...]
 	ov = overwritten
 	dr = diff --submodule=diff	; Recursive diff also showing all changes in submodules.
 	drl = dl --submodule=diff	; Show recursive diff including submodules, each file separately, paged through with less.
@@ -2760,7 +2760,7 @@
 	dpc = dp -c color.diff.old=red\\ reverse -c color.diff.new=green\\ reverse --color-words --word-diff-regex=.	; use character-based diff granularity
 	dpa = dp -c color.diff.old=red\\ reverse -c color.diff.new=green\\ reverse --color-words --word-diff-regex=(^|[^[:alnum:]_])[[:alnum:]_]+([^[:alnum:]_]|$)|[^[:space:]]	; use alnum-based diff granularity
 	;; dpl:  ... with predecessor, either current HEAD or passed revision.
-	;; dpls: Show separate diff of each file (instead of concatenating all changes) with predecessor [for FILE(s)] for the commit(s) interactively chosen / last commit from the commits [that cover FILE ...] in the passed <range>, paged through with less.
+	;; dpls: Show separate diff of each file (instead of concatenating all changes) with predecessor [for <pathspec>...] for the commit(s) interactively chosen / last commit from the commits [that cover <pathspec>...] in the passed <range>, paged through with less.
 	dpl1 = dpls HEAD~1..
 	dpl2 = dpls HEAD~2..
 	dpl3 = dpls HEAD~3..
@@ -2774,7 +2774,7 @@
 	dplg = selectedgcommit-command --single-only -2 dpl COMMITS
 	dplchanged = selectedchangedcommit-command --single-only -2 dpl COMMITS
 	dpltouched = selectedtouchedcommit-command --single-only -2 dpl COMMITS
-	;; dplss: Show separate diff of each interactively chosen file (instead of concatenating all changes) with predecessor [for FILE(s)] for the commit(s) interactively chosen / last commit from the commits [that cover FILE ...] in the passed <range>, paged through with less.
+	;; dplss: Show separate diff of each interactively chosen file (instead of concatenating all changes) with predecessor [for <pathspec>...] for the commit(s) interactively chosen / last commit from the commits [that cover <pathspec>...] in the passed <range>, paged through with less.
 	dpls1 = dplss HEAD~1..
 	dpls2 = dplss HEAD~2..
 	dpls3 = dplss HEAD~3..
@@ -2877,7 +2877,7 @@
 	dtoq = dtoselected --max-count 25
 	dtoz = dtoselected --max-count 100
 
-	dtoselectedcommitref = selectedref-command --commits-only --single-only -2 diff COMMITS	; Diff to the commit interactively chosen from the (recent | N) commits [that cover FILE ...] from the reflog.
+	dtoselectedcommitref = selectedref-command --commits-only --single-only -2 diff COMMITS	; Diff to the commit interactively chosen from the (recent | N) commits [that cover <pathspec>...] from the reflog.
 	dtocommitref1 = dtoselectedcommitref --max-count 1
 	dtocommitref2 = dtoselectedcommitref --max-count 2
 	dtocommitref3 = dtoselectedcommitref --max-count 3
@@ -3462,8 +3462,8 @@
 	;; rnlog: Show commit logs, limiting the number counting from the beginning instead of from the end. (You cannot do this via git log --reverse --max-count, because commit limiting is done before commit ordering.)
 	;; rnlg: One-line topology, author, date, tags and commit summary, limiting the number counting from the beginning instead of from the end.
 
-	;; invlog: Show commit logs with inverted commit-limiting arguments (but the actual <revision-range> and <path>), applying skips and number counting after filtering or reversing (like git rnlog).
-	;; invlg: One-line topology, author, date, tags and commit summary with inverted commit-limiting arguments (but the actual <revision-range> and <path>), applying skips and number counting after filtering or reversing (like git rnlg).
+	;; invlog: Show commit logs with inverted commit-limiting arguments (but the actual <revision-range> and <pathspec>), applying skips and number counting after filtering or reversing (like git rnlog).
+	;; invlg: One-line topology, author, date, tags and commit summary with inverted commit-limiting arguments (but the actual <revision-range> and <pathspec>), applying skips and number counting after filtering or reversing (like git rnlg).
 
 	logtimeshifted = discrepancylog --field1 AuthorDate: --field2 CommitDate: --pretty=fuller ; Show logs of amended or rebased commits only.
 	logonbehalf = discrepancylog --field1 Author: --field2 Commit: --pretty=fuller	; Show logs where author and committer are not the same person.
@@ -3845,7 +3845,7 @@
 	showmergeitself = show --diff-merges=remerge	; Log together with diff of the merge itself (i.e. only shows changes directly amended to the merge commit).
 	;; showfirst: Log together with diff of the first commit [in the passed range].
 
-	s = showselected --last-only --pass-file-args	; Log together with diff [for FILE(s)] for the last commit [that cover FILE ...] in the passed <range>.
+	s = showselected --last-only --pass-file-args	; Log together with diff [for <pathspec>...] for the last commit [that cover <pathspec>...] in the passed <range>.
 	s1 = s --max-count 1
 	s2 = s --max-count 2
 	s3 = s --max-count 3
@@ -3860,7 +3860,7 @@
 	schanged = selectedchangedcommit-command --last-only -2 show COMMITS	; Same as showlastchanged (but different implementation).
 	stouched = selectedtouchedcommit-command --last-only -2 show COMMITS	; Same as showlasttouched (but different implementation).
 
-	;; showselected: Log together with diff [for FILE(s)] for the commit(s) interactively chosen from the commits [that cover FILE ...] in the passed <range>.
+	;; showselected: Log together with diff [for <pathspec>...] for the commit(s) interactively chosen from the commits [that cover <pathspec>...] in the passed <range>.
 	ss = showselected --pass-file-args
 	ss1 = ss --max-count 1
 	ss2 = ss --max-count 2
@@ -3876,7 +3876,7 @@
 	sschanged = selectedchangedcommit-command --single-only -2 show COMMITS	; Log together with diff for the commit(s) interactively chosen from the commits where the actual diff; i.e. those filepairs whose preimage and postimage have different number of occurrences of the text or /regexp/.
 	sstouched = selectedtouchedcommit-command --single-only -2 show COMMITS	; Log together with diff for the commit(s) interactively chosen from the commits where in the diff the text or /regexp/ matches, without necessarily changing the number of occurrences themselves.
 
-	sselectedcommitref = selectedref-command --commits-only --single-only -2 show COMMITS	; Log together with diff for the commit interactively chosen from the (recent | N) commits [that cover FILE ...] from the reflog.
+	sselectedcommitref = selectedref-command --commits-only --single-only -2 show COMMITS	; Log together with diff for the commit interactively chosen from the (recent | N) commits [that cover <pathspec>...] from the reflog.
 	scommitref1 = sselectedcommitref --max-count 1
 	scommitref2 = sselectedcommitref --max-count 2
 	scommitref3 = sselectedcommitref --max-count 3
@@ -4402,7 +4402,7 @@
 	submoduleslastexceptby = dashdash-default-command --with-files : authors-command --invert-authors -3 byuserrange-command showsubmodules AUTHORS :	; Show all submodules modified exceptby the passed or queried user(s) in the last / passed -r <commit> and directly preceding, as long as they also were exceptby them.
 	;; Cannot implement subdolastexceptby via files-command.
 
-	;; showselectedfiles: Show the files for the commit(s) interactively chosen from the commits [that cover FILE ...] in the passed <range>.
+	;; showselectedfiles: Show the files for the commit(s) interactively chosen from the commits [that cover <pathspec>...] in the passed <range>.
 	showfiles1 = showselectedfiles --max-count 1
 	showfiles2 = showselectedfiles --max-count 2
 	showfiles3 = showselectedfiles --max-count 3
@@ -4453,7 +4453,7 @@
 	logvq = logv --max-count 25
 	logvz = logv --max-count 100
 	logvf = logv --first-parent
-	logfiles = onelinelog --name-status	; One-line author, date, tags and commit summary, plus the list of changed files (unlike logv, here filtered by a passed <path>).
+	logfiles = onelinelog --name-status	; One-line author, date, tags and commit summary, plus the list of changed files (unlike logv, here filtered by a passed <pathspec>).
 	logfiles1 = logfiles --max-count 1
 	logfiles2 = logfiles --max-count 2
 	logfiles3 = logfiles --max-count 3
@@ -4538,7 +4538,7 @@
 	countmaxdaycommitsby = dashdash-default-command --with-files : authors-command -2 countmaxdaycommits AUTHORS : ; Determine the maximum number of the user(s)' commits in a day in the given revision range. / Test whether the maximum number of the user(s)' commits in a day is greater / smaller than N.
 	countmaxdaycommitsexceptby = dashdash-default-command --with-files : authors-command --invert-authors -2 countmaxdaycommits AUTHORS : ; Determine the maximum number of the user(s)' commits in a day in the given revision range. / Test whether the maximum number of the user(s)' commits in a day is greater / smaller than N.
 
-	;; commitsperday: Calculate the average number of commits per day [in <path>].
+	;; commitsperday: Calculate the average number of commits per day [in <pathspec>].
 	commitsperdaymine = mine-command -2 commitsperday ME
 	commitsperdayothers = others-command -2 commitsperday OTHERS
 	commitsperdayteam = team-command -2 commitsperday TEAM
@@ -4915,13 +4915,13 @@
 	lgrelexceptbyz = dashdash-default-command --with-files : authors-command --invert-authors -4 relativeonelinelog --max-count 100 AUTHORS :
 	lgrellastexceptby = dashdash-default-command --with-files : authors-command --invert-authors -3 byuserrange-command relativeonelinelog AUTHORS :
 
-	lgandrefs = onelinelog-and-decorations	; One-line author, date, tags and commit summary for files in <path>, plus any ref names, also of commits not covered.
-	lgandtagged = onelinelog-and-decorations --decorate-refs=refs/tags/	; One-line author, date, tags and commit summary for files in <path>, plus any tags, also of commits not covered.
-	lgandlocalbr = onelinelog-and-decorations --decorate-refs=refs/heads/	; One-line author, date, tags and commit summary for files in <path>, plus any tips of local branches, also of commits not covered.
-	lgandbr = onelinelog-and-decorations --decorate-refs=refs/heads/ --decorate-refs=refs/remotes/	; One-line author, date, tags and commit summary for files in <path>, plus any tips of (local and remote) branches, also of commits not covered.
-	lgandremote = onelinelog-and-decorations --decorate-refs=refs/remotes/	; One-line author, date, tags and commit summary for files in <path>, plus any tips of remote branches, also of commits not covered.
-	lgandorigin = onelinelog-and-decorations --decorate-refs=refs/remotes/origin/	; One-line author, date, tags and commit summary for files in <path>, plus any tips of branches in my remote GitHub clone, also of commits not covered.
-	lgandupstream = onelinelog-and-decorations --decorate-refs=refs/remotes/upstream/	; One-line author, date, tags and commit summary for files in <path>, plus any tips of upstream branches, also of commits not covered.
+	lgandrefs = onelinelog-and-decorations	; One-line author, date, tags and commit summary for files in <pathspec>, plus any ref names, also of commits not covered.
+	lgandtagged = onelinelog-and-decorations --decorate-refs=refs/tags/	; One-line author, date, tags and commit summary for files in <pathspec>, plus any tags, also of commits not covered.
+	lgandlocalbr = onelinelog-and-decorations --decorate-refs=refs/heads/	; One-line author, date, tags and commit summary for files in <pathspec>, plus any tips of local branches, also of commits not covered.
+	lgandbr = onelinelog-and-decorations --decorate-refs=refs/heads/ --decorate-refs=refs/remotes/	; One-line author, date, tags and commit summary for files in <pathspec>, plus any tips of (local and remote) branches, also of commits not covered.
+	lgandremote = onelinelog-and-decorations --decorate-refs=refs/remotes/	; One-line author, date, tags and commit summary for files in <pathspec>, plus any tips of remote branches, also of commits not covered.
+	lgandorigin = onelinelog-and-decorations --decorate-refs=refs/remotes/origin/	; One-line author, date, tags and commit summary for files in <pathspec>, plus any tips of branches in my remote GitHub clone, also of commits not covered.
+	lgandupstream = onelinelog-and-decorations --decorate-refs=refs/remotes/upstream/	; One-line author, date, tags and commit summary for files in <pathspec>, plus any tips of upstream branches, also of commits not covered.
 
 	lgmineandrefs = "mine-command -4 onelinelog-and-decorations --commit-log-args ME ;"
 	lgmineandtagged = "mine-command -5 onelinelog-and-decorations --decorate-refs=refs/tags/ --commit-log-args ME ;"
@@ -5212,7 +5212,7 @@
 	lghiadst = selectedannotatediffcommit-command HEAD --all -4 lghighlightedcommits --range-to-last-commit --one-more COMMITS	; git lg with commits affected by lines that have been changed in currently modified files highlighted.
 	lghiadi = selectedannotatediffcommit-command --cached --all -4 lghighlightedcommits --range-to-last-commit --one-more COMMITS	; git lg with commits affected by lines that have been changed in currently staged files highlighted.
 	lghiad-i = selectedannotatediffcommit-command --all -4 lghighlightedcommits --range-to-last-commit --one-more COMMITS	; git lg with commits affected by lines that have been changed in currently modified but not staged files highlighted.
-	;; lghifiles: git lg, with commits that touch the passed <path>s getting highlighted.
+	;; lghifiles: git lg, with commits that touch the passed <pathspec>... getting highlighted.
 	lghist = lghighlightedcommits logst	; git lg, with commits touching currently modified files highlighted.
 	lghii = lghighlightedcommits logi	; git lg, with commits touching currently staged files highlighted.
 	lghi-i = lghighlightedcommits log-i	; git lg, with commits touching currently modified but not staged files highlighted.
@@ -5835,7 +5835,7 @@
 	lg-iexceptby = dashdash-default-command --with-files : authors-command --invert-authors -2 lg-i AUTHORS :
 	lc-iexceptby = dashdash-default-command --with-files : authors-command --invert-authors -2 lc-i AUTHORS :
 
-	lglastfiles = showfiles-command lg	; One-line topology, author, date, tags and commit summary of files (inside <path>) in the last commit / N'th commit / passed -r|--revision REVISION.
+	lglastfiles = showfiles-command lg	; One-line topology, author, date, tags and commit summary of files (inside <pathspec>) in the last commit / N'th commit / passed -r|--revision REVISION.
 	lglastfilesselected = selectedcommit-command --single-only -3 lglastfiles --revision COMMITS
 	lglastfiles1 = lglastfilesselected --max-count 1
 	lglastfiles2 = lglastfilesselected --max-count 2
@@ -5851,7 +5851,7 @@
 	lglastfileschanged = selectedchangedcommit-command --single-only -3 lglastfiles --revision COMMITS
 	lglastfilestouched = selectedtouchedcommit-command --single-only -3 lglastfiles --revision COMMITS
 
-	loglastfiles = showfiles-command log	; Commit logs of files (inside <path>) in the last commit / N'th commit / passed -r|--revision REVISION.
+	loglastfiles = showfiles-command log	; Commit logs of files (inside <pathspec>) in the last commit / N'th commit / passed -r|--revision REVISION.
 	loglastfilesselected = selectedcommit-command --single-only -3 loglastfiles --revision COMMITS
 	loglastfiles1 = loglastfilesselected --max-count 1
 	loglastfiles2 = loglastfilesselected --max-count 2
@@ -5867,7 +5867,7 @@
 	loglastfileschanged = selectedchangedcommit-command --single-only -3 loglastfiles --revision COMMITS
 	loglastfilestouched = selectedtouchedcommit-command --single-only -3 loglastfiles --revision COMMITS
 
-	logvlastfiles = showfiles-command logv	; Verbose commit logs (including filenames) of files (inside <path>) in the last commit / N'th commit / passed -r|--revision REVISION.
+	logvlastfiles = showfiles-command logv	; Verbose commit logs (including filenames) of files (inside <pathspec>) in the last commit / N'th commit / passed -r|--revision REVISION.
 	logvlastfilesselected = selectedcommit-command --single-only -3 logvlastfiles --revision COMMITS
 	logvlastfiles1 = logvlastfilesselected --max-count 1
 	logvlastfiles2 = logvlastfilesselected --max-count 2
@@ -5883,7 +5883,7 @@
 	logvlastfileschanged = selectedchangedcommit-command --single-only -3 logvlastfiles --revision COMMITS
 	logvlastfilestouched = selectedtouchedcommit-command --single-only -3 logvlastfiles --revision COMMITS
 
-	logfileslastfiles = showfiles-command logfiles	; One-line author, date, tags and commit summary, plus the list of changed files of files (inside <path>) in the last commit / N'th commit / passed -r|--revision REVISION.
+	logfileslastfiles = showfiles-command logfiles	; One-line author, date, tags and commit summary, plus the list of changed files of files (inside <pathspec>) in the last commit / N'th commit / passed -r|--revision REVISION.
 	logfileslastfilesselected = selectedcommit-command --single-only -3 logfileslastfiles --revision COMMITS
 	logfileslastfiles1 = logfileslastfilesselected --max-count 1
 	logfileslastfiles2 = logfileslastfilesselected --max-count 2
@@ -5915,7 +5915,7 @@
 	lclastfileschanged = selectedchangedcommit-command --single-only -3 lclastfiles --revision COMMITS
 	lclastfilestouched = selectedtouchedcommit-command --single-only -3 lclastfiles --revision COMMITS
 
-	lghilastfiles = showfiles-command lghifiles	; git lg, with commits that touch the same files (inside <path>) as were modified in the last commit / N'th commit / passed -r|--revision REVISION highlighted.
+	lghilastfiles = showfiles-command lghifiles	; git lg, with commits that touch the same files (inside <pathspec>) as were modified in the last commit / N'th commit / passed -r|--revision REVISION highlighted.
 	lghilastfilesselected = selectedcommit-command --single-only -3 lghilastfiles --revision COMMITS
 	lghilastfiles1 = lghilastfilesselected --max-count 1
 	lghilastfiles2 = lghilastfilesselected --max-count 2
@@ -5931,17 +5931,17 @@
 	lghilastfileschanged = selectedchangedcommit-command --single-only -3 lghilastfiles --revision COMMITS
 	lghilastfilestouched = selectedtouchedcommit-command --single-only -3 lghilastfiles --revision COMMITS
 
-	lglastfilesmine = mine-command -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE lg ME RANGE	; One-line topology, author, date, tags and commit summary of the files (inside <path>) of the commit last done by me [since -r|--revision REVISION].
-	loglastfilesmine = mine-command -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE log ME RANGE	; Commit logs of the files (inside <path>) of the commit last done by me [since -r|--revision REVISION].
+	lglastfilesmine = mine-command -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE lg ME RANGE	; One-line topology, author, date, tags and commit summary of the files (inside <pathspec>) of the commit last done by me [since -r|--revision REVISION].
+	loglastfilesmine = mine-command -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE log ME RANGE	; Commit logs of the files (inside <pathspec>) of the commit last done by me [since -r|--revision REVISION].
 	lclastfilesmine = mine-command -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE lc ME RANGE
-	lglastfilesothers = others-command -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE lg OTHERS RANGE	; One-line topology, author, date, tags and commit summary of the files (inside <path>) of the commit last done by others [since -r|--revision REVISION].
-	loglastfilesothers = others-command -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE log OTHERS RANGE	; Commit logs of the files (inside <path>) of the commit last done by others [since -r|--revision REVISION].
+	lglastfilesothers = others-command -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE lg OTHERS RANGE	; One-line topology, author, date, tags and commit summary of the files (inside <pathspec>) of the commit last done by others [since -r|--revision REVISION].
+	loglastfilesothers = others-command -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE log OTHERS RANGE	; Commit logs of the files (inside <pathspec>) of the commit last done by others [since -r|--revision REVISION].
 	lclastfilesothers = others-command -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE lc OTHERS RANGE
-	lglastfilesteam = team-command -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE lg TEAM RANGE	; One-line topology, author, date, tags and commit summary of the files (inside <path>) of the commit last done by my team [since -r|--revision REVISION].
-	loglastfilesteam = team-command -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE log TEAM RANGE	; Commit logs of the files (inside <path>) of the commit last done by my team [since -r|--revision REVISION].
+	lglastfilesteam = team-command -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE lg TEAM RANGE	; One-line topology, author, date, tags and commit summary of the files (inside <pathspec>) of the commit last done by my team [since -r|--revision REVISION].
+	loglastfilesteam = team-command -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE log TEAM RANGE	; Commit logs of the files (inside <pathspec>) of the commit last done by my team [since -r|--revision REVISION].
 	lclastfilesteam = team-command -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE lc TEAM RANGE
-	lglastfilesby = dashdash-default-command --with-files : authors-command -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE lg AUTHORS RANGE :	; One-line topology, author, date, tags and commit summary of the files (inside <path>) of the commit last done by the passed or queried user(s) [since -r|--revision REVISION].
-	loglastfilesby = dashdash-default-command --with-files : authors-command -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE log AUTHORS RANGE :	; Commit logs of the files (inside <path>) of the commit last done by the passed or queried user(s) [since -r|--revision REVISION].
+	lglastfilesby = dashdash-default-command --with-files : authors-command -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE lg AUTHORS RANGE :	; One-line topology, author, date, tags and commit summary of the files (inside <pathspec>) of the commit last done by the passed or queried user(s) [since -r|--revision REVISION].
+	loglastfilesby = dashdash-default-command --with-files : authors-command -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE log AUTHORS RANGE :	; Commit logs of the files (inside <pathspec>) of the commit last done by the passed or queried user(s) [since -r|--revision REVISION].
 	lclastfilesby = dashdash-default-command --with-files : authors-command -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE lc AUTHORS RANGE :
 	lglastfilesexceptby = dashdash-default-command --with-files : authors-command --invert-authors -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE lg AUTHORS RANGE :
 	loglastfilesexceptby = dashdash-default-command --with-files : authors-command --invert-authors -8 byuserrange-command --last-only --keep-position showfiles-command --revision RANGE log AUTHORS RANGE :
@@ -6142,7 +6142,7 @@
 
 	unstage-i = stIfiles-command unstage	; Remove those files from the index that also have unstaged changes.
 
-	;; uncommit: Cancel the last / N commit(s) / up to and including REVISION; keep working copy and index. / Remove <path>s / selected hunks from the last commit.
+	;; uncommit: Cancel the last / N commit(s) / up to and including REVISION; keep working copy and index. / Remove <pathspec>... / selected hunks from the last commit.
 	uncommithunk = uncommit --patch	; Interactively select and remove individual hunks from the last commit.
 	uncommits = uncommitselected
 	uncommits1 = uncommits 1
@@ -6168,7 +6168,7 @@
 	uncommitshq = uncommitsh 25
 	uncommitshz = uncommitsh 100
 
-	;; uncommit-to-stash: Undo the last / N commit(s) / up to and including REVISION and stash those changes (in a single stash) instead. / Move changes to <path>s from the last commit to the stash. / Move changes [to <path>s] from passed COMMIT(s) to the stash (individually, via rebasing).
+	;; uncommit-to-stash: Undo the last / N commit(s) / up to and including REVISION and stash those changes (in a single stash) instead. / Move changes to <pathspec>... from the last commit to the stash. / Move changes [to <pathspec>...] from passed COMMIT(s) to the stash (individually, via rebasing).
 	uncommithunk-to-stash = uncommit-to-stash --patch	; Interactively select individual hunks from the last commit and move them to stash.
 	uncommitselected-to-stash = "selectedcommit-command --pass-file-args -4 uncommit-to-stash --commits COMMITS ;"	; Undo commit(s) interactively chosen from the commits in the passed <range> and stash those commits.
 	uncommit1-to-stash = uncommitselected-to-stash --max-count 1
@@ -6197,7 +6197,7 @@
 
 	;; peel: Cancel the last / N commit(s) / REVISION also from index; keep only the working copy.
 	;; wipecommit: Completely remove the last / N commit(s) / up to and including REVISION, also from working copy and index. If a merge commit is wiped, asks which merge parent to pick up.
-	;; wipe: Reset HEAD, working copy and index [to <branch>] [<paths>...]. Ensures that the current branch isn't dirty.
+	;; wipe: Reset HEAD, working copy and index [to <branch>] [<pathspec>...]. Ensures that the current branch isn't dirty.
 	wipes = wipeselected	; Interactively select (from modified files or passed list of files) files (or directly pass N, M, ... selections) to reset HEAD, working copy and index for.
 
 	wipetoselected = selectedcommit-command --single-only --pass-file-args -2 wipe COMMITS	; Reset HEAD, working copy and index to the commit interactively chosen from the commits in the passed <range>.
@@ -6215,7 +6215,7 @@
 	wipetochanged = selectedchangedcommit-command --single-only -2 wipe COMMITS	; Reset HEAD, working copy and index to the commit interactively chosen from the commits where the actual diff; i.e. those filepairs whose preimage and postimage have different number of occurrences of the text or /regexp/.
 	wipetotouched = selectedtouchedcommit-command --single-only -2 wipe COMMITS	; Reset HEAD, working copy and index to the commit interactively chosen from the commits where in the diff the text or /regexp/ matches, without necessarily changing the number of occurrences themselves.
 
-	wipetoselectedref = selectedref-command --single-only -2 wipe COMMITS	; Reset HEAD, working copy and index to the commit interactively chosen from the (recent | N) refs [that cover FILE ...] from the reflog.
+	wipetoselectedref = selectedref-command --single-only -2 wipe COMMITS	; Reset HEAD, working copy and index to the commit interactively chosen from the (recent | N) refs [that cover <pathspec>...] from the reflog.
 	wipetoref1 = wipetoselectedref --max-count 1
 	wipetoref2 = wipetoselectedref --max-count 2
 	wipetoref3 = wipetoselectedref --max-count 3
@@ -6227,7 +6227,7 @@
 	wipetorefq = wipetoselectedref --max-count 25
 	wipetorefz = wipetoselectedref --max-count 100
 
-	wipetoselectedcommitref = selectedref-command --commits-only --single-only -2 wipe COMMITS	; Reset HEAD, working copy and index to the commit interactively chosen from the (recent | N) commits [that cover FILE ...] from the reflog.
+	wipetoselectedcommitref = selectedref-command --commits-only --single-only -2 wipe COMMITS	; Reset HEAD, working copy and index to the commit interactively chosen from the (recent | N) commits [that cover <pathspec>...] from the reflog.
 	wipetocommitref1 = wipetoselectedcommitref --max-count 1
 	wipetocommitref2 = wipetoselectedcommitref --max-count 2
 	wipetocommitref3 = wipetoselectedcommitref --max-count 3
@@ -6241,7 +6241,7 @@
 	wipetolastcommitref = lastcommitref-command -2 wipe COMMITS	; Reset HEAD, working copy and index to the last commit found in the reflog.
 	wipetopreviouscommitref = previouscommitref-command -2 wipe COMMITS	; Reset HEAD, working copy and index to the previous commit found in the reflog.
 
-	softresettoselectedref = selectedref-command --single-only -3 reset --soft COMMITS	; Reset only HEAD to the commit interactively chosen from the (recent | N) refs [that cover FILE ...] from the reflog.
+	softresettoselectedref = selectedref-command --single-only -3 reset --soft COMMITS	; Reset only HEAD to the commit interactively chosen from the (recent | N) refs [that cover <pathspec>...] from the reflog.
 	softresettoref1 = softresettoselectedref --max-count 1
 	softresettoref2 = softresettoselectedref --max-count 2
 	softresettoref3 = softresettoselectedref --max-count 3
@@ -6253,7 +6253,7 @@
 	softresettorefq = softresettoselectedref --max-count 25
 	softresettorefz = softresettoselectedref --max-count 100
 
-	softresettoselectedcommitref = selectedref-command --commits-only --single-only -3 reset --soft COMMITS	; Reset only HEAD to the commit interactively chosen from the (recent | N) commits [that cover FILE ...] from the reflog.
+	softresettoselectedcommitref = selectedref-command --commits-only --single-only -3 reset --soft COMMITS	; Reset only HEAD to the commit interactively chosen from the (recent | N) commits [that cover <pathspec>...] from the reflog.
 	softresettocommitref1 = softresettoselectedcommitref --max-count 1
 	softresettocommitref2 = softresettoselectedcommitref --max-count 2
 	softresettocommitref3 = softresettoselectedcommitref --max-count 3
@@ -6455,13 +6455,13 @@
 	mtsx = mts 12
 	mtsq = mts 25
 	mtsz = mts 100
-	;; conflictunresolve: Bring back merged FILE(s) into their conflicted state.
+	;; conflictunresolve: Bring back merged <pathspec>... into their conflicted state.
 	cxunresolve = conflictunresolve
-	;; conflictunresolves: Interactively select (from resolved conflicted files [in <path>]) files (or directly pass N, M, ... selections) file(s) to bring back into their conflicted state.
+	;; conflictunresolves: Interactively select (from resolved conflicted files [in <pathspec>]) files (or directly pass N, M, ... selections) file(s) to bring back into their conflicted state.
 	cxunresolves = conflictunresolves
 	;; conflictwipe: Abort the merge conflicts and MERGING / CHERRYPICKING state, e.g. when you want to wipe / change the working copy, anyway, and currently can't because of "error: you need to resolve your current index first".
 	cxwipe = conflictwipe
-	;; conflictpick: Take the contents of conflicted files / <path>(s) from <ref> to resolve current conflicts. Useful if you've already successfully done a merge (in <ref>) but now try to rebase the branch instead.
+	;; conflictpick: Take the contents of conflicted files / <pathspec>... from <ref> to resolve current conflicts. Useful if you've already successfully done a merge (in <ref>) but now try to rebase the branch instead.
 	cxpick = conflictpick
 	;; rerere: Extension of rerere, with the following additional subcommands: list|delete|wipe
 	; Source: http://akahn.net/2011/10/12/working-through-git-conflicts-in-vim.html
@@ -6469,9 +6469,9 @@
 	;; cob: Keep "base", the common ancestor in case of merge conflicts.
 	;; cobs: Interactively select (from conflicted files or passed list of files) files (or directly pass N, M, ... selections) and "base", the common ancestor.
 	;; coo: Keep "ours", the original one we had (ORIG_HEAD), or the one we're rebasing onto, in case of merge conflicts.
-	;; coos: Interactively select (from conflicted files [in <path>]) files (or directly pass N, M, ... selections) and keep "ours", the original one we had (ORIG_HEAD), or the one we're rebasing onto.
+	;; coos: Interactively select (from conflicted files [in <pathspec>]) files (or directly pass N, M, ... selections) and keep "ours", the original one we had (ORIG_HEAD), or the one we're rebasing onto.
 	;; cot: Keep "theirs", the version merged in (MERGE_HEAD), or the one from the branch we're rebasing, in case of merge conflicts.
-	;; cots: Interactively select (from conflicted files [in <path>]) files (or directly pass N, M, ... selections) and keep "theirs", the version merged in (MERGE_HEAD), or the one from the branch we're rebasing.
+	;; cots: Interactively select (from conflicted files [in <pathspec>]) files (or directly pass N, M, ... selections) and keep "theirs", the version merged in (MERGE_HEAD), or the one from the branch we're rebasing.
 	mergeo = wrapper-nocolor merge --ours	; merge that forces conflicting hunks to be auto-resolved cleanly by favoring our version. Changes from the other tree that do not conflict with our side are reflected in the merge result.
 	merget = wrapper-nocolor merge --theirs	; merge that forces conflicting hunks to be auto-resolved cleanly by favoring the other tree's version. Changes from our side that do not conflict with the other tree are reflected in the merge result.
 	mergerecordonly = wrapper-nocolor merge --record-only	; no-op merge that always uses the current branch head and ignores all changes from all other branches, effectively just recording that a merge has happened.

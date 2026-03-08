@@ -4,15 +4,15 @@ shopt -qs extglob
 printUsage()
 {
     cat <<HELPTEXT
-Reset HEAD, working copy and index [to <commit>] [for <paths> ... only]. Ensures
-that the current branch isn't dirty.
+Reset HEAD, working copy and index [to <commit>] [for <pathspec>... only].
+Ensures that the current branch isn't dirty.
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [--gui|--terminal|--none] [<commit>] [-?|-h|--help]'
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [CHECKOUT-ARGS ...] [--] <paths> ...'
-    #printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [CHECKOUT-ARGS ...] [<commit>] [--] <paths> ...'
-    # Note: "wipe <commit> [--] <paths>" is discouraged; better use checkout[selected][previous][selected].
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [CHECKOUT-ARGS ...] [--] <pathspec>...'
+    #printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [CHECKOUT-ARGS ...] [<commit>] [--] <pathspec>...'
+    # Note: "wipe <commit> [--] <pathspec>" is discouraged; better use checkout[selected][previous][selected].
 }
 
 isForce=
@@ -81,8 +81,8 @@ handleDirtyWorkingCopy()
 [ "$isForce" ] || handleDirtyWorkingCopy || exit $?
 
 if [ ${#paths[@]} -gt 0 ]; then
-    # git reset --hard ... <paths>... is not allowed ("fatal: Cannot do hard reset with paths.")
-    # The right command is git checkout HEAD <paths>...
+    # git reset --hard ... <pathspec>... is not allowed ("fatal: Cannot do hard reset with paths.")
+    # The right command is git checkout HEAD <pathspec>...
     if [ ${#gitArgs[@]} -eq 0 ] || ! git rev-parse --verify --quiet "${gitArgs[-1]}" >/dev/null 2>&1; then
 	gitArgs+=(HEAD)
     fi

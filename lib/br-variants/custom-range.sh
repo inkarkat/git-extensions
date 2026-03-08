@@ -139,9 +139,9 @@ detach@(g|changed|touched)\
     repomove)
 	$EXEC git-"${scopeCommand[@]}" reporangemove "$@";;
 
-    @(st|files|submodules)?(mine|others|team))
+    @(st|i|I|files|submodules)?(mine|others|team))
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -2 "show$gitCommand" RANGE "$@";;
-    @(st|files|submodules)?(except)by)
+    @(st|i|I|files|submodules)?(except)by)
 	gitCommand="show$gitCommand" othersCommand "$@";;
     subdo)
 	withScoped submodules --keep-position subdo --for FILES \; "$@";;

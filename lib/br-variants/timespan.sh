@@ -103,9 +103,9 @@ activity?(except)by\
     repomove)
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --no-range --one-more reporangemove "$@";;
 
-    @(st|files|submodules)?(mine|others|team))
+    @(st|i|I|files|submodules)?(mine|others|team))
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --range -2 "show$gitCommand" TIMESPAN "$@";;
-    @(st|files|submodules)?(except)by)
+    @(st|i|I|files|submodules)?(except)by)
 	gitCommand="show$gitCommand" othersCommand "$@";;
     subdo)
 	$EXEC git-revision-command --keep-position files-command --source-command "$scope submodules --revision REVISION" --keep-position subdo --for FILES \; "$@";;

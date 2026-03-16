@@ -8,6 +8,7 @@ HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-F] [<name> [<base>]] [-?|-h|--help]'
 }
+
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
     --no-color|--color=*)
@@ -16,11 +17,12 @@ case "$1" in
 esac
 
 # DWIM: Query for feature name, derive the suggested feature name from the
-# changed file.
+# (single) changed / untracked file.
 if [ $# -eq 0 ]; then
     # Duplicated to +/nameSuggestion= git-feat-fromcommit
     nameSuggestion=
     readarray -t filespecs < <(git-stfiles 2>/dev/null)
+    [ ${#filespecs[@]} -gt 0 ] || readarray -t filespecs < <(git-untracked --print 2>/dev/null)
     [ ${#filespecs[@]} -eq 1 ] && nameSuggestion="$(basename "${filespecs[0]}")"
 
     name="$(userquery -p 'Enter feature name: ' -e ${nameSuggestion:+-i "$nameSuggestion"} -r)" || exit $?

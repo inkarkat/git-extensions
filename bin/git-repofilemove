@@ -1,5 +1,8 @@
 #!/bin/bash
 
+: ${GIT_REPOFILEMOVE_MOVE_COMMIT_TITLE_PREFIX='Reorg: '}
+: ${GIT_REPOFILEMOVE_REMOVAL_COMMIT_TITLE_PREFIX='Reorg: Removed: '}
+
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
@@ -212,7 +215,7 @@ fileCommit()
 	cd "$targetRepo" || exit $?
 	commitCommand=commituntracked; git-iscontrolled -- "$targetFilepath" && commitCommand=commit
 
-	git-wrapper "$commitCommand" --author "$author" --date "$authorDate" --message "$actionName $originalSubPath here
+	git-wrapper "$commitCommand" --author "$author" --date "$authorDate" --message "${GIT_REPOFILEMOVE_MOVE_COMMIT_TITLE_PREFIX}${actionName} ${originalSubPath} here
 
 Originally committed at $originalLocation" "${gitCommitEditArg[@]}" -- "$targetFilepath"
     ) || return $?
@@ -233,7 +236,7 @@ fileRemove()
     local originalLocation="${1:?}"; shift
     local newLocation="${1:?}"; shift
 
-    local commitMessage="$actionName $originalSubPath to ${newRepoName:-???}
+    local commitMessage="${GIT_REPOFILEMOVE_REMOVAL_COMMIT_TITLE_PREFIX}${actionName} ${originalSubPath} to ${newRepoName:-???}
 
 Now${actionAlso:+ }${actionAlso} located at $newLocation"
 

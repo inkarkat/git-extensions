@@ -33,7 +33,7 @@ whereas "every 1 day" would yield true as long as the actual difference is
 within 86400 seconds.
 HELPDESCRIPTION
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '-w|--within|-W|--without second|minute|hour|day|week|month|year|every N (seconds|minutes|hours|days|weeks|months|years|generations) [<commit> ...]|([<log-options>] [<revision-range>] [[--] <pathspec>...])'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '-w|--within|-W|--without s[econd]|m[inute]|h[our]|d[ay]|w[eek]|mo[nth]|y[ear]|every N (s[econd[s]]|m[inute[s]]|h[our[s]]|d[ay[s]]|w[eek[s]]|mo[nth[s]]|y[ear[s]]|g[eneration[s]]) [<commit> ...]|([<log-options>] [<revision-range>] [[--] <pathspec>...])'
     echo
     cat <<HELPTEXT
 EXIT STATUS:
@@ -54,30 +54,30 @@ getSpan()
 parseTime()
 {
     case "$1" in
-	+([0-9])?(s))			age="${1%s}";;
-	+([0-9])m)			age=$((${1%m} * 60));;
-	+([0-9])h)			age=$((${1%h} * 3600));;
-	+([0-9])d)			age=$((${1%d} * 86400));;
-	+([0-9])w)			age=$((${1%w} * 86400 * 7));;
-	+([0-9])mo)			age=$((${1%mo} * 86400 * 30));;
-	+([0-9])y)			age=$((${1%y} * 86400 * 365));;
-	+([0-9])g)			age=$((${1%g} * 86400 * 9131));;
-	second)				timeformat='%s';;
-	minute)				timeformat='%F_%H:%M';;
-	hour)				timeformat='%F_%H';;
-	day)				timeformat='%F';;
-	week)				timeformat='%G_%V';;
-	month)				timeformat='%Y_%m';;
-	year)				timeformat='%Y';;
-	every\ +([0-9])\ seconds)	age="$(getSpan "$1")"; timedivider=1;;
-	every\ +([0-9])\ minutes)	age="$(getSpan "$1")"; timedivider=60;;
-	every\ +([0-9])\ hours)		age="$(getSpan "$1")"; timedivider=3600;;
-	every\ +([0-9])\ days)		age="$(getSpan "$1")"; timedivider=86400;;
-	every\ +([0-9])\ weeks)		age="$(getSpan "$1")"; timedivider=$((86400 * 7));;
-	every\ +([0-9])\ months)	age="$(getSpan "$1")"; timedivider=$((86400 * 30));;
-	every\ +([0-9])\ years)		age="$(getSpan "$1")"; timedivider=$((86400 * 365));;
-	every\ +([0-9])\ generations)	age="$(getSpan "$1")"; timedivider=$((86400 * 9131));;
-	*)				printf >&2 'ERROR: Invalid age/TIMESLOT: "%s".\n' "$1"; printUsage "$0" >&2; exit 2;;
+	+([0-9])?(s))			    age="${1%s}";;
+	+([0-9])m)			    age=$((${1%m} * 60));;
+	+([0-9])h)			    age=$((${1%h} * 3600));;
+	+([0-9])d)			    age=$((${1%d} * 86400));;
+	+([0-9])w)			    age=$((${1%w} * 86400 * 7));;
+	+([0-9])mo)			    age=$((${1%mo} * 86400 * 30));;
+	+([0-9])y)			    age=$((${1%y} * 86400 * 365));;
+	+([0-9])g)			    age=$((${1%g} * 86400 * 9131));;
+	s?(econd))			    timeformat='%s';;
+	m?(inute))			    timeformat='%F_%H:%M';;
+	h?(our))			    timeformat='%F_%H';;
+	d?(ay))				    timeformat='%F';;
+	w?(eek))			    timeformat='%G_%V';;
+	mo?(nth))			    timeformat='%Y_%m';;
+	y?(ear))			    timeformat='%Y';;
+	every\ +([0-9])\ s?(econd?(s)))	    age="$(getSpan "$1")"; timedivider=1;;
+	every\ +([0-9])\ m?(inute?(s)))	    age="$(getSpan "$1")"; timedivider=60;;
+	every\ +([0-9])\ h?(our?(s)))	    age="$(getSpan "$1")"; timedivider=3600;;
+	every\ +([0-9])\ d?(ay?(s)))	    age="$(getSpan "$1")"; timedivider=86400;;
+	every\ +([0-9])\ w?(eek?(s)))	    age="$(getSpan "$1")"; timedivider=$((86400 * 7));;
+	every\ +([0-9])\ mo?(nth?(s)))	    age="$(getSpan "$1")"; timedivider=$((86400 * 30));;
+	every\ +([0-9])\ y?(ear?(s)))	    age="$(getSpan "$1")"; timedivider=$((86400 * 365));;
+	every\ +([0-9])\ g?(eneration?(s))) age="$(getSpan "$1")"; timedivider=$((86400 * 9131));;
+	*)				    printf >&2 'ERROR: Invalid age/TIMESLOT: "%s".\n' "$1"; printUsage "$0" >&2; exit 2;;
     esac
 }
 

@@ -25,8 +25,8 @@ HELPDESCRIPTION
 Test whether the age of [all] commits falls inside / outside TIMESLOT.
 TIMESLOT can be one of second|minute|hour|day|week|month|year, or
 every N seconds|minutes|hours|days|weeks|months|years|generations, which doesn't
-translate to a fixed age, but instead ensures that this falls into / outside the
-slot.
+translate to a fixed age, but instead ensures that this (including negative ages
+from the future) falls into / outside the slot.
 For example, "day" would yield false despite an actual age difference of only
 seconds, if the one is before midnight and the other shortly after midnight,
 whereas "every 1 day" would yield true as long as the actual difference is
@@ -135,7 +135,8 @@ calculateTimeRange()
 	local nowDivision fileDivision
 	nowDivision="$((NOW / timedivider))"
 	fileDivision="$((epoch / timedivider))"
-	[ $age $spanCompareOp $((nowDivision - fileDivision)) ]
+	delta=$((nowDivision - fileDivision))
+	[ $age $spanCompareOp $((delta < 0 ? -delta : delta)) ]
     else
 	[ $age $spanCompareOp $((NOW - epoch)) ]
     fi

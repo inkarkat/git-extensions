@@ -52,7 +52,7 @@ git-isrebasing --print-positive-error && exit 2
 git-dirty --print-error && exit 2
 
 branch=HEAD
-if [ ${#rebaseArgs[@]} -ge 2 ] && git-commitid --quiet --no-error "${rebaseArgs[-1]}" && git-commitid --quiet --no-error "${rebaseArgs[-2]}"; then
+if [ ${#rebaseArgs[@]} -ge 2 ] && git-commitid --quiet --no-error -- "${rebaseArgs[-1]}" && git-commitid --quiet --no-error -- "${rebaseArgs[-2]}"; then
     # <upstream> <branch> variant: Move <branch> off rebaseArgs onto $@, so that it
     # doesn't get reapplied to git-bifurcate.
     branch="${rebaseArgs[-1]}"
@@ -60,7 +60,7 @@ if [ ${#rebaseArgs[@]} -ge 2 ] && git-commitid --quiet --no-error "${rebaseArgs[
     rebaseArgs=("${rebaseArgs[@]:0:$((${#rebaseArgs[@]}-1))}")
 fi
 
-originalCommit="$(git-commitid "$branch")" || exit 3
+originalCommit="$(git-commitid -- "$branch")" || exit 3
 export GIT_SEGREGATECOMMIT_FINAL_MESSAGE=''
 git-wrapper rebase --exec git-segregatecommit "${segregateCommitArgs[@]}" \; "${rebaseArgs[@]}" "$@" || exit $?
 if [ "$isBifurcate" ]; then

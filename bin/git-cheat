@@ -7,28 +7,39 @@ readonly cheatsDir="${projectDir}/etc/cheats"
 
 : ${GIT_CHEAT_FILE_PREFIX:=gitcheats}
 
-cheat()
+stage1()
 {
-    # Render primitive subset of Markdown.
     sed -e 's/^# \(.*\)$/[01;37;46m\1[0m/' \
 	-e 's/^## \(.*\)$/[01;36m\1[0m/' \
 	-e 's/^#\{3,\} \(.*\)$/[36m\1[0m/' \
 	-e 's/^    .*/[47m&[0m/' \
 	-e :codeLoop -e '/`\([^`]\+\)`$/{ $b codeLoopEnd; N; s/`\n`/``/; b codeLoop; }' \
 	-e :codeLoopEnd -e 's/`\([^`]\+\)`/\n\1\n/g' \
-	"${cheatsDir}/${GIT_CHEAT_FILE_PREFIX}${1:+"-$1"}.md" \
-	| sed -n \
-	    -e '/^/!s/^/\n/' \
-	    -e '/^/{ s/^\(.*\)/[47m\1[0m/; H; N; ${ /\n$/b eof; }; s/^.*\n//; }' \
-	    \
-	    -e 's/_\([^_]\+\)_/[03m\1[0m/g' \
-	    -e 's/<u>\([^<]\+\)<\/u>/[04m\1[0m/g' \
-	    -e 's/\(\n\| \)\*\*\([^ ].*[^ ]\)\*\*\([ .,;!]\|$\)/\1[01m\2[0m\3/g' \
-	    -e H \
-	    \
-	    -e :eof \
-	    -e '${ g; s/\n\(.\)/\1/g; p; }' \
+	"$@"
+}
 
+# shellcheck disable=SC2120
+stage2()
+{
+    sed -n \
+	-e '/^/!s/^/\n/' \
+	-e '/^/{ s/^\(.*\)/[47m\1[0m/; H; N; ${ /\n$/b eof; }; s/^.*\n//; }' \
+	\
+	-e 's/_\([^_]\+\)_/[03m\1[0m/g' \
+	-e 's/<u>\([^<]\+\)<\/u>/[04m\1[0m/g' \
+	-e 's/\(\n\| \)\*\*\([^ ].*[^ ]\)\*\*\([ .,;!]\|$\)/\1[01m\2[0m\3/g' \
+	-e H \
+	\
+	-e :eof \
+	-e '${ g; s/\n\(.\)/\1/g; p; }' \
+	"$@"
+}
+
+cheat()
+{
+    # Render primitive subset of Markdown.
+    stage1 "${cheatsDir}/${GIT_CHEAT_FILE_PREFIX}${1:+"-$1"}.md" \
+	| stage2
 }
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 eval 'cheat "$@"' "${pager:+|}" '"${pager[@]}"'

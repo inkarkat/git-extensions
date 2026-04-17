@@ -17,23 +17,21 @@ hub is a command-line wrapper for git that makes you better at GitHub.
 `$ hub browse mojombo/jekyll wiki`
 → open https://github.com/mojombo/jekyll/wiki
 
-### Example workflow for contributing to a project:
+### Example workflow for contributing to a project
 `$ hub clone github/hub`
 `$ cd hub`
-### create a topic branch
+`# create a topic branch`
 `$ git checkout -b feature`
-  ( making changes ... )
+  (Making changes...)
 `$ git commit -m "done with feature"`
-
-### It's time to fork the repo!
+  It's time to fork the repo:
 `$ hub fork`
 → (forking repo on GitHub...)
 → `git remote add YOUR_USER git://github.com/YOUR_USER/hub.git`
 `$ gh repo set-default` (select my fork)
-
-### push the changes to your new remote
+`# push the changes to your new remote`
 `$ git push YOUR_USER feature`
-### open a pull request for the topic branch you've just pushed
+  Open a pull request for the topic branch you've just pushed:
 `$ hub pull-request`
 → (opens a text editor for your pull request message)
 

@@ -3,7 +3,7 @@
 ----- addu ---> -- commit ----> -- push --------->
 ### [WORK.COPY]  [INDEX]    [LOCAL REPOSITORY]  [REMOTE REPO]
 <------------ pull or rebase ----------------------------/
-.                  XX                ^-- fetch ----------/
+.                  XX                      ^-- fetch ----/
 <--------- checkout-committed -------------/
 <-- checkout -- . /------------------------/
 ^- xǝpuᴉ-ʎʃddɐun -/

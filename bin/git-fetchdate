@@ -6,7 +6,7 @@ printUsage()
 Show when REMOTE(s) were last fetched.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-m|--message MESSAGE] [--absolute|-a|--epoch] [-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [[-r|--remote] REMOTE [...]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[-m|--message MESSAGE] [-a|--absolute|--epoch] $(datediff --get-short-usage) [[-r|--remote] REMOTE [...]] [-?|-h|--help]"
 }
 
 database()
@@ -18,7 +18,7 @@ database()
 unset message
 isAbsolute=
 isEpoch=
-typeset -a parseAgeArgs=()
+typeset -a datediffArgs=()
 typeset -a remotes=()
 while [ $# -ne 0 ]
 do
@@ -41,11 +41,19 @@ do
 			done
 			exit $?
 			;;
-	-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt)
-			parseAgeArgs=("$1" "$2"); shift; shift;;
 	--remote|-r)	shift; remotes+=("$1"); shift;;
 	--)		shift; break;;
-	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	-*)		if argCount=$(datediff --understands "$@"); then
+			    while ((argCount-- > 0))
+			    do
+				datediffArgs+=("$1"); shift
+			    done
+			elif [ $? -eq 2 ]; then
+			    exit 2
+			else
+			    { echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2
+			fi
+			;;
 	*)		remotes+=("$1"); shift;;
     esac
 done
@@ -67,9 +75,9 @@ processRemote()
 {
     local remote="${1:?}"; shift
 
-    if [ ${#parseAgeArgs[@]} -gt 0 -a -z "${message+t}" ]; then
+    if [ ${#datediffArgs[@]} -gt 0 -a -z "${message+t}" ]; then
 	:
-    elif [ ! "$isAbsolute" ]  && [ ! "$isEpoch" ]; then
+    elif [ ! "$isAbsolute" ] && [ ! "$isEpoch" ]; then
 	age="$(database --query "$remote" --get-diff '%R')" || return $?
 	printPrefix
 	printf '%s\n' "$age"
@@ -82,9 +90,9 @@ processRemote()
 	    date --date "@$epoch"
 	fi
     fi
-    if [ ${#parseAgeArgs[@]} -gt 0 ]; then
+    if [ ${#datediffArgs[@]} -gt 0 ]; then
 	epoch="$(database --time "$remote")" || epoch=0
-	parseAge "${parseAgeArgs[@]}" "@$epoch" || exit $?
+	datediff "${datediffArgs[@]}" "@$epoch" || exit $?
     fi
 }
 

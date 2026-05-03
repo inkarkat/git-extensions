@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-N|--commit|--correct|--fixup [--rebase]] [REVERT-ARGS ...] <commit> [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-y|--yes] [-N|--commit|--correct|--fixup [--rebase]] [REVERT-ARGS ...] <commit> [...] [-?|-h|--help]'
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-e|--edit|-p|--patch|-s|--selected] [-N|--commit|--correct|--fixup [--rebase] [--no-edit]] <commit> [--] [<pathspec> ...]'
 }
@@ -52,6 +52,7 @@ HELPDESCRIPTION
 HELPTEXT
 }
 
+isYes=
 addCommandExtension=
 typeset -a addArgs=()
 typeset -a commitArg=(--no-commit)
@@ -69,6 +70,7 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
+	--yes|-y)	shift; isYes=t;;
 	--@(continue|skip|abort|quit))
 			exec git revert "$@";;
 
@@ -228,6 +230,38 @@ partialManualFixup()
 
 # Reverting of the entire commit(s).
 if [ ${#addArgs[@]} -eq 0 -a ${#addFiles[@]} -eq 0 -a -z "$addCommandExtension" ]; then
+    if [ ${#revertMainlineArgs[@]} -eq 0 ]; then
+	separator=''
+	for commit in "${revertCommits[@]}"
+	do
+	    readarray -t parentCommits < <(git-ismerge --print "$commit"; printf '\n%d\n' "$?")	# Exit status from the process substitution is lost; return the actual exit status via an appended additional line.
+	    [ ${parentCommits[-1]} -ne 0 ] && exit ${parentCommits[-1]}
+	    unset 'parentCommits[-1]'; [ -z "${parentCommits[-1]}" ] && unset 'parentCommits[-1]'
+	    if [ ${#parentCommits[@]} -ge 2 ]; then
+		printf >&2 "%sYou're reverting a merge commit:\\n" "$separator"; separator=$'\n'
+		git log1 "$commit"
+		printf >&2 '\nThe first parent will be kept:\n'
+		git show --no-patch "${parentCommits[0]}"
+		if [ ${#parentCommits[@]} -gt 2 ]; then
+		    parentCounter='these'
+		    parentPlural='s'
+		else
+		    parentCounter='this'
+		    parentPlural=''
+		fi
+		printf >&2 '\nAnd %s parent%s will be reverted:\n' "$parentCounter" "$parentPlural"
+		for parent in "${parentCommits[@]:1}"
+		do
+		    git show --no-patch "$parent"
+		done
+		[ "$isYes" ] \
+		    || userBinaryChoice --keep-prompt --question $'\nTo keep a different parent, pass -m|--mainline N. Revert now?' --yes-no \
+		    || exit 4
+		[ ${#revertMainlineArgs[@]} -gt 0 ] || revertMainlineArgs=(--mainline 1)
+	    fi
+	done
+    fi
+
     complete${action^}; exit $?
 fi
 

@@ -57,6 +57,7 @@ typeset -a addArgs=()
 typeset -a commitArg=(--no-commit)
 typeset -a revertArgs=()
 typeset -a revertEditArgs=()
+typeset -a revertMainlineArgs=()
 unset addFiles
 action=revert
 isRebase=
@@ -84,6 +85,7 @@ do
 	--rebase-from)	shift; isRebase=t; earliestRev="${1:?}"; shift;;
 	--correct)	shift; action=correct; commitArg=(--no-commit);;
 	--)		shift; typeset -a addFiles=("$@"); break;;
+	--mainline|-m)	revertMainlineArgs+=("$1" "${2:?}"); shift; shift;;
 	*)		revertArgs+=("$1"); shift;;
     esac
 done
@@ -119,7 +121,7 @@ ensureClean()
 
 completeRevert()
 {
-    command git revert "${commitArg[@]}" "${revertEditArgs[@]}" "${revertArgs[@]}"
+    command git revert "${commitArg[@]}" "${revertEditArgs[@]}" "${revertMainlineArgs[@]}" "${revertArgs[@]}"
 }
 
 partialRevert()
@@ -144,7 +146,7 @@ partialManualRevert()
 completeCorrect()
 {
     ensureClean
-    if command git revert "${commitArg[@]}" "${revertEditArgs[@]}" "${revertArgs[@]}"; then
+    if command git revert "${commitArg[@]}" "${revertEditArgs[@]}" "${revertMainlineArgs[@]}" "${revertArgs[@]}"; then
 	git-correct "${revertArgs[@]}"
     else
 	status=$?

@@ -1,10 +1,11 @@
 #!/bin/bash
+set -o pipefail
 
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-v|--verbose|--authored] [-f|--format FORMAT] [-u|--utc|--universal] [-d|--diff [--diff-options DIFF-OPTIONS]] <revision-range>|--since=<date> [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[-v|--verbose|--authored] [-u|--utc|--universal] [-f|--format FORMAT|-d|--diff|$(datediff --get-short-usage)] <revision-range>|--since=<date> [-?|-h|--help]"
 }
 printUsage()
 {
@@ -31,7 +32,9 @@ HELPDESCRIPTION
 			are the same, only one line is printed, prefixed with
 			"Committed and authored ".
     --format|-f FORMAT	Use FORMAT as the format string for the date command.
-    --diff|-d		Print the difference between start and end dates.
+    --diff|-d|DATEDIFF-ARGS ...
+			Print / compare the difference between start and end
+			dates (through datediff).
     --utc|--universal|-u
 			Print Coordinated Universal Time (UTC) instead of local
 			time, and defaults the format to ISO 8601 format (with Z
@@ -42,10 +45,10 @@ HELPTEXT
 typeset -a dateSigils=(c)
 typeset -a dateArgs=()
 typeset -A prefixes=()
-isFormat=
 format=
 isDiff=
-diffOptions=
+typeset -a datediffArgs=()
+typeset -a logArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -56,21 +59,32 @@ do
 	--verbose|-v)	shift; dateSigils=(c a); prefixes=([c]='Committed ' [a]='Authored  ');;
 	--authored)	shift; dateSigils=(a);;
 	--utc|--universal|-u)
-			shift; dateArgs+=(--utc); : ${format:=%FT%TZ};;
-	--format|-f)	shift; isFormat=t; format="$1"; shift;;
+			dateArgs+=("$1"); datediffArgs+=("$1"); shift; : ${format:=%FT%TZ};;
+	--format|-f)	shift; format="$1"; shift;;
 	--diff|-d)	shift; isDiff=t;;
-	--diff-options)	shift; diffOptions="$1"; shift;;
 	--)		shift; break;;
-	*)		break;;
+	-*)		if argCount=$(datediff --understands "$@"); then
+			    while ((argCount-- > 0))
+			    do
+				isDiff=t
+				datediffArgs+=("$1"); shift
+			    done
+			elif [ $? -eq 2 ]; then
+			    exit 2
+			else
+			    logArgs+=("$1"); shift
+			fi
+			;;
+	*)		logArgs+=("$1"); shift;;
     esac
 done
+set -- "${logArgs[@]}" "$@"
 if [ $# -eq 0 ]; then
     echo 'ERROR: No <revision-range> passed.'
     echo
     printUsage "$0"
     exit 2
 fi >&2
-[ "$isDiff" ] || isFormat=t
 
 dateFormat()
 {
@@ -85,22 +99,14 @@ do
     if [ -z "$startDate" -o -z "$endDate" ]; then
 	echo >&2 'No revisions found'
 	exit 1
-    fi
-
-    printf %s "${prefixes[$dateSigil]}"
-    if [ $startDate -eq $endDate ]; then
-	if [ "$isFormat" ]; then
-	    printf '%s' "$(dateFormat "@$startDate")"
-	elif [ "$isDiff" ]; then
-	    printf 'at a single point in time'
-	fi
+    elif [ "$isDiff" ]; then
+	prefix="${prefixes[$dateSigil]}"
+	datediff ${prefix:+--prefix "${prefix}within "} "${datediffArgs[@]}" "@$startDate" "@$endDate"
     else
-	if [ "$isFormat" ]; then
-	    printf '%s until %s' "$(dateFormat "@$startDate")" "$(dateFormat "@$endDate")"
-	fi
-	if [ "$isDiff" ]; then
-	    printf '%s%s%s' "${isFormat:+ (}" "$(datediff $diffOptions "@$startDate" "@$endDate")" "${isFormat:+)}"
-	fi
+	printf %s "${prefixes[$dateSigil]}"
+	    [ $startDate -eq $endDate ] \
+		&& printf '%s' "$(dateFormat "@$startDate")" \
+		|| printf '%s until %s' "$(dateFormat "@$startDate")" "$(dateFormat "@$endDate")"
+	printf \\n
     fi
-    printf \\n
 done | sed -e '1N' -e '2s/^Committed \([^\n]*\)\nAuthored  \1$/Committed and authored \1/'

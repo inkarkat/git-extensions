@@ -65,34 +65,25 @@ if [ ${#remotes[@]} -eq 0 ]; then
     fi
 fi
 
-printPrefix()
-{
-    local prefix="${message}${message:+ }${isPrependRemote:+${remote}: }"
-    [ -z "$prefix" ] || printf '%s' "$prefix"
-}
-
 processRemote()
 {
     local remote="${1:?}"; shift
+    local prefix="${message}${message:+ }${isPrependRemote:+${remote}: }"
 
-    if [ ${#datediffArgs[@]} -gt 0 -a -z "${message+t}" ]; then
-	:
-    elif [ ! "$isAbsolute" ] && [ ! "$isEpoch" ]; then
-	age="$(database --query "$remote" --get-diff '%R')" || return $?
-	printPrefix
-	printf '%s\n' "$age"
-    else
-	epoch="$(database --time "$remote")" || return $?
-	printPrefix
-	if [ "$isEpoch" ]; then
-	    printf '%s\n' "$epoch"
-	else
-	    date --date "@$epoch"
-	fi
-    fi
     if [ ${#datediffArgs[@]} -gt 0 ]; then
 	epoch="$(database --time "$remote")" || epoch=0
-	datediff "${datediffArgs[@]}" "@$epoch" || exit $?
+	datediff ${prefix:+--prefix "$prefix"} "${datediffArgs[@]}" "@$epoch" || exit $?
+    elif [ ! "$isAbsolute" ] && [ ! "$isEpoch" ]; then
+	age="$(database --query "$remote" --get-diff '%R')" || return $?
+	printf '%s%s\n' "$prefix" "$age"
+    else
+	epoch="$(database --time "$remote")" || return $?
+	if [ "$isEpoch" ]; then
+	    printf '%s%s\n' "$prefix" "$epoch"
+	else
+	    [ -z "$prefix" ] || printf '%s' "$prefix"
+	    date --date "@$epoch"
+	fi
     fi
 }
 

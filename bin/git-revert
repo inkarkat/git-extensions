@@ -231,28 +231,29 @@ partialManualFixup()
 # Reverting of the entire commit(s).
 if [ ${#addArgs[@]} -eq 0 -a ${#addFiles[@]} -eq 0 -a -z "$addCommandExtension" ]; then
     if [ ${#revertMainlineArgs[@]} -eq 0 ]; then
-	separator=''
+	mergeSeparator=''
 	for commit in "${revertCommits[@]}"
 	do
 	    readarray -t parentCommits < <(git-ismerge --print "$commit"; printf '\n%d\n' "$?")	# Exit status from the process substitution is lost; return the actual exit status via an appended additional line.
 	    [ ${parentCommits[-1]} -ne 0 ] && exit ${parentCommits[-1]}
 	    unset 'parentCommits[-1]'; [ -z "${parentCommits[-1]}" ] && unset 'parentCommits[-1]'
 	    if [ ${#parentCommits[@]} -ge 2 ]; then
-		printf >&2 "%sYou're reverting a merge commit:\\n" "$separator"; separator=$'\n'
+		printf >&2 "%sYou're reverting a merge commit:\\n" "$mergeSeparator"; mergeSeparator=$'\n'
 		git log1 "$commit"
-		printf >&2 '\nThe first parent will be kept:\n'
-		git show --no-patch "${parentCommits[0]}"
+
 		if [ ${#parentCommits[@]} -gt 2 ]; then
 		    parentCounter='these'
-		    parentPlural='s'
+		    chainPlural='s'
 		else
 		    parentCounter='this'
-		    parentPlural=''
+		    chainPlural=''
 		fi
-		printf >&2 '\nAnd %s parent%s will be reverted:\n' "$parentCounter" "$parentPlural"
+		chainSeparator=''
+		printf >&2 '\nAnd %s chain%s will be reverted:\n' "$parentCounter" "$chainPlural"
 		for parent in "${parentCommits[@]:1}"
 		do
-		    git show --no-patch "$parent"
+		    printf %s "$chainSeparator"; chainSeparator=$'--\n'
+		    git-rev-range --revision "${parentCommits[0]}" --end-revision "$parent" --one-more-command greyonelinelog lg
 		done
 		[ "$isYes" ] \
 		    || userBinaryChoice --keep-prompt --question $'\nTo keep a different parent, pass -m|--mainline N. Revert now?' --yes-no \

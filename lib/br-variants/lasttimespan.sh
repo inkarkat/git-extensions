@@ -55,7 +55,8 @@ dp[sg]|dpl?(s)[sg]|dpls@(changed|touched)|\
 revert@(g|changed|touched|commit@(g|changed|touched))|\
 @(correct|fix@(up|amend|wording)|commit@(identical|like|relate)|amendrelate)@(g|changed|touched|st|i|I)|\
 detach@(g|changed|touched)|\
-who@(when|first|last)|whatdid|relatedfiles|churn\
+who@(when|first|last)|whatdid|relatedfiles|churn|\
+commitage|datediff\
 )
 	$EXEC "git-${scopeCommand:?}" -2 "$gitCommand" TIMESPAN "$@";;
 

@@ -78,6 +78,7 @@ revert@(g|changed|touched|commit@(g|changed|touched))|\
 @(correct|fix@(up|amend|wording)|commit@(identical|like|relate)|amendrelate)@(g|changed|touched|st|i|I)|\
 detach@(g|changed|touched)|\
 who@(when|first|last)|whatdid|relatedfiles|churn|\
+commitage|datediff|\
 subchanges|superchanges|subrevl@(?(o)g|c)\
 )
 	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -2 "$gitCommand" RANGE "$@";;

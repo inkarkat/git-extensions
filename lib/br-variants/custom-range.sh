@@ -106,6 +106,7 @@ ss@(?([wcag])|changed|touched)|\
 sls?(g|changed|touched)|\
 dp[sg]|dpl?(s)[sg]|dpls@(changed|touched)|\
 who@(when|first|last)|whatdid|relatedfiles|churn|\
+commitage|datediff|\
 subchanges|superchanges|subrevl@(?(o)g|c)\
 )
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -2 "$gitCommand" RANGE "$@";;

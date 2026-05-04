@@ -56,12 +56,13 @@ dp[sg]|dpl?(s)[sg]|dpls@(changed|touched)|\
 revert@(g|changed|touched|commit@(g|changed|touched))|\
 @(correct|fix@(up|amend|wording)|commit@(identical|like|relate)|amendrelate)@(g|changed|touched|st|i|I)|\
 detach@(g|changed|touched)|\
-who@(when|first|last)|whatdid|relatedfiles|churn\
+who@(when|first|last)|whatdid|relatedfiles|churn|\
+commitage|datediff\
 )
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 "$gitCommand" TIMESPAN "$@";;
 
     lgx)
-	# lgx is identical lg to because there's no one-more with timespans.
+	# lgx is identical to lg because there's no one-more with timespans.
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 lg TIMESPAN "$@";;
     (\
 l?(c?(f)|h|g|og)?(except)by|\

@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-N|--commit|--correct|--fixup [--rebase]] [REVERT-ARGS ...] <commit> [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-y|--yes] [-N|--commit|--correct|--fixup [--rebase]] [REVERT-ARGS ...] <commit> [...] [-?|-h|--help]'
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-e|--edit|-p|--patch|-s|--selected] [-N|--commit|--correct|--fixup [--rebase] [--no-edit]] <commit> [--] [<pathspec> ...]'
 }
@@ -52,11 +52,13 @@ HELPDESCRIPTION
 HELPTEXT
 }
 
-addCommand=
+isYes=
+addCommandExtension=
 typeset -a addArgs=()
 typeset -a commitArg=(--no-commit)
-typeset -a revertArgs=()
+typeset -a revertCommits=()
 typeset -a revertEditArgs=()
+typeset -a revertMainlineArgs=()
 unset addFiles
 action=revert
 isRebase=
@@ -68,6 +70,7 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
+	--yes|-y)	shift; isYes=t;;
 	--@(continue|skip|abort|quit))
 			exec git revert "$@";;
 
@@ -84,28 +87,29 @@ do
 	--rebase-from)	shift; isRebase=t; earliestRev="${1:?}"; shift;;
 	--correct)	shift; action=correct; commitArg=(--no-commit);;
 	--)		shift; typeset -a addFiles=("$@"); break;;
-	*)		revertArgs+=("$1"); shift;;
+	--mainline|-m)	revertMainlineArgs+=("$1" "${2:?}"); shift; shift;;
+	*)		revertCommits+=("$1"); shift;;
     esac
 done
 if [ -z "${addFiles+t}" ]; then
     # No files after -- captured yet; need to investigate parsed and
     # remaining args from behind for files.
     typeset -a addFiles=()
-    revertArgs+=("$@")
-    while [ ${#revertArgs[@]} -ne 0 ]
+    revertCommits+=("$@")
+    while [ ${#revertCommits[@]} -ne 0 ]
     do
-	lastArg="${revertArgs[-1]}"
+	lastArg="${revertCommits[-1]}"
 	[ -e "$lastArg" ] || break
 
 	addFiles=("$lastArg" "${addFiles[@]}")
-	revertArgs=("${revertArgs[@]:0:${#revertArgs[@]}-1}")
+	revertCommits=("${revertCommits[@]:0:${#revertCommits[@]}-1}")
     done
 fi
-# All arguments have been parsed into revertArgs and addFiles; don't use $@.
+# All arguments have been parsed into revertCommits and addFiles; don't use $@.
 
 ensureSingleCommit()
 {
-    if [ ${#revertArgs[@]} -ne 1 ]; then
+    if [ ${#revertCommits[@]} -ne 1 ]; then
 	echo 'ERROR: Need a single <commit> to revert parts of.'
 	echo
 	printUsage "$0"
@@ -119,7 +123,7 @@ ensureClean()
 
 completeRevert()
 {
-    command git revert "${commitArg[@]}" "${revertEditArgs[@]}" "${revertArgs[@]}"
+    command git revert "${commitArg[@]}" "${revertEditArgs[@]}" "${revertMainlineArgs[@]}" "${revertCommits[@]}"
 }
 
 partialRevert()
@@ -144,12 +148,12 @@ partialManualRevert()
 completeCorrect()
 {
     ensureClean
-    if command git revert "${commitArg[@]}" "${revertEditArgs[@]}" "${revertArgs[@]}"; then
-	git-correct "${revertArgs[@]}"
+    if command git revert "${commitArg[@]}" "${revertEditArgs[@]}" "${revertMainlineArgs[@]}" "${revertCommits[@]}"; then
+	git-correct "${revertCommits[@]}"
     else
 	status=$?
 	printf >&2 'Note: The revert failed; fix the conflicts and then conclude with: $ git correct'
-	printf >&2 ' %q' "${revertArgs[@]}"
+	printf >&2 ' %q' "${revertCommits[@]}"
 	printf >&2 '\n'
 	return $status
     fi
@@ -172,7 +176,7 @@ completeFixup()
     # Need to translate the <commit> refs into IDs first, as symbolic refs (like
     # HEAD^) are influenced by the fixup commits themselves.
     typeset -a revs=()
-    for commit in "${revertArgs[@]}"
+    for commit in "${revertCommits[@]}"
     do
 	revs+=("$(git-commitid -- "$commit")")
     done
@@ -191,7 +195,7 @@ completeFixup()
 		echo >&2   'Note: After the rebase, clean up empty commit(s) with\n      $ git trb rbni --no-keep-empty'
 	    else
 		printf >&2 'Note: The revert failed; fix the conflicts and then continue with: $ git revert --fixup%s' "${isRebase:+ --rebase-from $earliestRev}"
-		printf >&2 ' %q' "${revertArgs[@]}"
+		printf >&2 ' %q' "${revertCommits[@]}"
 		printf >&2 '\n'
 	    fi
 	    return $status
@@ -226,6 +230,39 @@ partialManualFixup()
 
 # Reverting of the entire commit(s).
 if [ ${#addArgs[@]} -eq 0 -a ${#addFiles[@]} -eq 0 -a -z "$addCommandExtension" ]; then
+    if [ ${#revertMainlineArgs[@]} -eq 0 ]; then
+	mergeSeparator=''
+	for commit in "${revertCommits[@]}"
+	do
+	    readarray -t parentCommits < <(git-ismerge --print "$commit"; printf '\n%d\n' "$?")	# Exit status from the process substitution is lost; return the actual exit status via an appended additional line.
+	    [ ${parentCommits[-1]} -ne 0 ] && exit ${parentCommits[-1]}
+	    unset 'parentCommits[-1]'; [ -z "${parentCommits[-1]}" ] && unset 'parentCommits[-1]'
+	    if [ ${#parentCommits[@]} -ge 2 ]; then
+		printf >&2 "%sYou're reverting a merge commit:\\n" "$mergeSeparator"; mergeSeparator=$'\n'
+		git log1 "$commit"
+
+		if [ ${#parentCommits[@]} -gt 2 ]; then
+		    parentCounter='these'
+		    chainPlural='s'
+		else
+		    parentCounter='this'
+		    chainPlural=''
+		fi
+		chainSeparator=''
+		printf >&2 '\nAnd %s chain%s will be reverted:\n' "$parentCounter" "$chainPlural"
+		for parent in "${parentCommits[@]:1}"
+		do
+		    printf %s "$chainSeparator"; chainSeparator=$'--\n'
+		    git-rev-range --revision "${parentCommits[0]}" --end-revision "$parent" --one-more-command greyonelinelog lg
+		done
+		[ "$isYes" ] \
+		    || userBinaryChoice --keep-prompt --question $'\nTo keep a different parent, pass -m|--mainline N. Revert now?' --yes-no \
+		    || exit 4
+		[ ${#revertMainlineArgs[@]} -gt 0 ] || revertMainlineArgs=(--mainline 1)
+	    fi
+	done
+    fi
+
     complete${action^}; exit $?
 fi
 
@@ -236,7 +273,7 @@ fi
 ensureSingleCommit && ensureClean
 
 set -e
-commit="${revertArgs[0]}"
+commit="${revertCommits[0]}"
 branch="$(git-brname --real-branch-only)"
 trap 'git checkout --force "$branch" 2>/dev/null' EXIT
 

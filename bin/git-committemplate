@@ -22,6 +22,13 @@ HELPTEXT
     printf 'Usage: echo TEXT | %q %s\n' "$(basename "$1")" '--save|--append'
     echo
     cat <<HELPTEXT
+Open the editor to record the commit template for a commit based on the current
+HEAD [for <pathspec>].
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--edit [-m|--message MESSAGE] [-F|--file FILE] [--] [<pathspec>...]'
+    echo
+    cat <<HELPTEXT
 Delete any residual commit template(s).
 HELPTEXT
     echo
@@ -35,10 +42,11 @@ case "$1" in
     --get-filespec)	shift; action=getFilespec;;
     --save)		shift; action=save;;
     --append)		shift; action=save; saveOperator='>>';;
+    --edit)		shift; action=edit;;
     --clean)		shift; action=clean;;
     -*)			{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 esac
-if [ $# -ne 0 ]; then
+if [ $# -ne 0 -a "$action" != 'edit' ]; then
     printUsage "$0" >&2
     exit 2
 fi
@@ -56,6 +64,44 @@ getFilespec()
 save()
 {
     eval "exec cat $saveOperator \"\${commitTemplateFilespec:?}\""
+}
+
+edit()
+{
+    local commitMessageFilespec="${gitDir}/COMMIT_EDITMSG"
+    {
+	local hasMessage
+	while [ $# -ne 0 ]
+	do
+	    case "$1" in
+		--message|-m)	shift; printf '%s\n' "$1"; shift; hasMessage=t;;
+		--file|-F)	shift; cat -- "$1"; shift; hasMessage=t;;
+		--)		break;;
+		-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+		*)		break;;
+	    esac
+	done
+	[ "$hasMessage" ] || printf '\n\n'  # Leave the first two lines blank for the user to fill in.
+	cat <<'EOF'
+# Please enter the pending commit message for your changes. Lines
+# starting with '#' will be ignored, and an empty message aborts the
+# recording of the commit message.
+#
+EOF
+	# Add commit boilerplate information at the bottom, just like a real commit
+	# message. It'll be stripped out before saving.
+	command git commit --dry-run "$@" | prefix \#\ | truncate-whitespace --trailing
+
+	# Automatic commit trailers are not part of the pre-commit message; these will
+	# be added on the commit itself.
+    } > "$commitMessageFilespec"
+
+    "$EDITOR" "$commitMessageFilespec" || { status=$?; echo 2>&1 "Unclean exit of editor; aborting!"; exit $status; }
+
+    git-commitMessageStrip --in-place "$commitMessageFilespec"
+
+    [ -s "$commitMessageFilespec" ] || { echo >&2 'Aborting: Empty commit message.'; exit 1; }
+    saveOperator='< "$commitMessageFilespec" >' save
 }
 
 clean()

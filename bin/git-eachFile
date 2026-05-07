@@ -41,13 +41,23 @@ do
 			eachFileArgs+=("$1"); shift; isHeader=t;;
 	--separate-errors)
 			eachFileArgs+=("$1"); shift; errorRedir='';;
-	--@(local-dir|with-prompt|trailing-prompt|no-trailing-prompt|no-output-no-prompt|no-output-no-error|emulate-prompt|no-success-no-count|exit-on-success|exit-on-failure|worst-status))
+	--@(local-dir|with-prompt))
 			eachFileArgs+=("$1"); shift;;
 	-[c])	eachFileArgs+=("$1" "$2"); shift; shift;;
-	--@(progress|initial-status|no-count-on|exit-on|summarize-failed|summarize-failed-separator|between-command|usage-redirect|command))
+	--@(progress|between-command|usage-redirect|command))
 			eachFileArgs+=("$1" "$2"); shift; shift;;
-
 	--)		shift; break;;
+	-*)		if argCount=$(runWithPrompt --understands "$@"); then
+			    while ((argCount-- > 0))
+			    do
+				eachFileArgs+=("$1"); shift
+			    done
+			elif [ $? -eq 2 ]; then
+			    exit 2
+			else
+			    { echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2
+			fi
+			;;
 	*)		break;;
     esac
 done

@@ -662,3 +662,23 @@ alias vgitgF='commandOnSelected --command SendToGVIM --generator "git g-f" --ent
 #			Edit selected files that do not match PATTERN in Vim.
 alias vimgitgf='commandOnSelected --command '"${_aliases_vim}"' --generator "git gf" --entries'
 alias vimgitgF='commandOnSelected --command '"${_aliases_vim}"' --generator "git g-f" --entries'
+
+eval "$(runWithPrompt --addAliasSupport git-eachFile \
+    'lprdf' \
+    'local-dir|no-git-color|paginate|separate-errors|recursive|directory|only-files' \
+    '' \
+    'submodule'
+)"
+
+eval "$(runWithPrompt --addAliasSupport git-ffintegrateto \
+    'y' \
+    'no-push|push|if-up-to-date|push-branch|force|push-submodules|delete-merged-submodule-branches|no-merge|no-delete|rebase-single|rebase|ff|ff-only|no-ff|no-submodule-checkout|no-submodule-update|no-merge-to-separate-integration-branch|yes' \
+    'b' \
+    'branch'
+)"
+eval "$(runWithPrompt --addAliasSupport git-reintegrate \
+    'y' \
+    'no-push|push|no-delete|delete-separate-integration-branch|rebase-single|rebase|ff|ff-only|no-ff|ff-target-to-tracked|no-submodule-update|ignore-dirty-submodules|yes|if-up-to-date' \
+    'b' \
+    'branch'
+)"

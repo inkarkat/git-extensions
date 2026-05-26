@@ -6,7 +6,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-b|--branch BRANCH [-b ...]|--local|-r|(--remote REMOTE [--remote ...])|-a|--all] [--committer] [-s|--shorter|-l|--longer|-lt|-le|-eq|-ne|-ge|-gt TIMESPAN[SUFFIX]]|[--first|--last [-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [--names-only]] [--follow] [<revision range>] [[--] <pathspec>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[-b|--branch BRANCH [-b ...]|--local|-r|(--remote REMOTE [--remote ...])|-a|--all] [--committer] [$(filterTimespan --get-short-usage compare 2>/dev/null)]|[--first|--last [-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [--names-only]] [--follow] [<revision range>] [[--] <pathspec>...] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -33,15 +33,19 @@ HELPDESCRIPTION
     --remote REMOTE	Consider all branches from a particular REMOTE.
     --all|-a		Consider both local and remote branches.
     --committer		Use commit times instead of authored times.
-    -s|--shorter|-l|--longer|-lt|-le|-eq|-ne|-ge|-gt TIMESPAN[SUFFIX]
+HELPTEXT
+    filterTimespan --get-long-usage compare 'Only print those dates and names where the difference
+			between earliest and latest commit match the TIMESPAN
+			comparison.'
+    cat <<HELPTEXT
     -n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]
-			Only print those dates and names that match the age /
-			timespan comparison.
-    --first		Only show the earliest commit dates of someone.
-    --last		Only show the latest commit dates of someone.
+			Only print those dates and names where the earliest /
+			latest commit matches the AGE comparison.
+    --first		Only show the earliest commit dates of someone, and
+			switch to AGE comparison.
+    --last		Only show the latest commit dates of someone, and switch
+			to AGE comparison.
     --names-only	Omit the date / age; just print the names that match.
-SUFFIX may be 's' for seconds (the default), 'm' for minutes, 'h' for hours, 'd'
-for days, 'w' for weeks, 'mo' for months, 'y' for years, 'g' for generations.
 HELPTEXT
 }
 
@@ -87,9 +91,6 @@ do
 	--first)	shift; uniqueStableArgs=(); timespanConverter=(); firstColumnType=Age;;
 	--last)		shift; uniqueStableArgs=(--last); timespanConverter=(); firstColumnType=Age;;
 
-	-s|--shorter|-l|--longer|-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt)
-			postAction=(filterFirstColumn --field-separator $'\t' "$1" "$2"); shift; shift;;
-
 	--names-only)	shift; endFilter=(field --field-separator $'\t' --remove 1);;
 
 	# Ignore options that influence commit formatting (we need just the
@@ -99,7 +100,20 @@ do
 	-[U])	shift; shift;;
 	--@(abbrev|pretty|format|notes|date|unified|stat|dirstat|submodule|color|word-diff|word-diff-regex|color-words)=*)	shift;;
 	--@(pretty|format|notes|date|unified|stat|dirstat|submodule|color|word-diff|word-diff-regex|color-words))	shift; shift;;
+
 	--)		break;;
+	-*)		if argCount=$(filterTimespan --understand-for compare --understands "$@"); then
+			    while ((argCount-- > 0))
+			    do
+				filterFirstColumnArgs+=("$1"); shift
+			    done
+			    postAction=(filterFirstColumn --field-separator $'\t' "${filterFirstColumnArgs[@]}")
+			elif [ $? -eq 2 ]; then
+			    exit 2
+			else
+			    { echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2
+			fi
+			;;
 	*)		logArgs+=("$1"); shift;;
     esac
 done

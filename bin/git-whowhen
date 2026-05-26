@@ -88,9 +88,6 @@ do
 	--first)	shift; uniqueStableArgs=(); timespanConverter=(); firstColumnType=Age;;
 	--last)		shift; uniqueStableArgs=(--last); timespanConverter=(); firstColumnType=Age;;
 
-	-s|--shorter|-l|--longer|-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt)
-			postAction=(filterFirstColumn --field-separator $'\t' "$1" "$2"); shift; shift;;
-
 	--names-only)	shift; endFilter=(field --field-separator $'\t' --remove 1);;
 
 	# Ignore options that influence commit formatting (we need just the
@@ -100,7 +97,20 @@ do
 	-[U])	shift; shift;;
 	--@(abbrev|pretty|format|notes|date|unified|stat|dirstat|submodule|color|word-diff|word-diff-regex|color-words)=*)	shift;;
 	--@(pretty|format|notes|date|unified|stat|dirstat|submodule|color|word-diff|word-diff-regex|color-words))	shift; shift;;
+
 	--)		break;;
+	-*)		if argCount=$(filterTimespan --understand-for compare --understands "$@"); then
+			    while ((argCount-- > 0))
+			    do
+				filterFirstColumnArgs+=("$1"); shift
+			    done
+			    postAction=(filterFirstColumn --field-separator $'\t' "${filterFirstColumnArgs[@]}")
+			elif [ $? -eq 2 ]; then
+			    exit 2
+			else
+			    { echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2
+			fi
+			;;
 	*)		logArgs+=("$1"); shift;;
     esac
 done

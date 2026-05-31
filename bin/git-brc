@@ -2,11 +2,16 @@
 set -o pipefail
 shopt -qs globstar # ** matches files and/only (as **/) subdirs recursively.
 
+filterAge()
+{
+    datediff --field-separator $'\t' "$@"
+}
+
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--bare|-l|--long] [-r|-a] [-b|--base <branch>] [-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]|DATE] [--] [<branch-glob> ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[--bare|-l|--long] [-r|-a] [-b|--base <branch>] [$(filterAge --get-short-usage filter 2>/dev/null)] [--] [<branch-glob> ...] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -36,10 +41,9 @@ HELPDESCRIPTION
 			(also by remotes)) is used as the merge base.
     -r			List remote-tracking branches.
     -a			List both local and remote-tracking branches.
-    -n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]|DATE
-			Only print those branches that match the age comparison.
-SUFFIX may be 's' for seconds (the default), 'm' for minutes, 'h' for hours, 'd'
-for days, 'w' for weeks, 'mo' for months, 'y' for years, 'g' for generations.
+HELPTEXT
+    filterAge --get-long-usage filter 'branches' 2>/dev/null
+    cat <<HELPTEXT
     <branch-glob>	Only consider branches that match <branch-glob>.
 HELPTEXT
 }
@@ -47,8 +51,8 @@ HELPTEXT
 locality='local'
 base=
 isBare=
-format='%at	%ai	(%ar)'
-typeset -a filterAction=(sed -e 's/^[^\t]*\t//')
+format='@%at	%ai	(%ar)'
+typeset -a filterAction=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -60,14 +64,24 @@ do
 	--all|-a)	shift; locality='all';;
 	--remote|-r)	shift; locality='remote';;
 	--base|-b)	shift; base="$1"; shift;;
-	--bare)		shift; isBare=t; format='%at';;
-	-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt)
-			filterAction=(filterAge --field-separator $'\t' "$1" "$2"); shift; shift;;
+	--bare)		shift; isBare=t; format='@%at';;
 	--)		shift; break;;
-	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	-*)		if argCount=$(filterAge --understand-for filter --understands "$@"); then
+			    [ ${#filterAction[@]} -gt 0 ] || filterAction=(filterAge --filter)
+			    while ((argCount-- > 0))
+			    do
+				filterAction+=("$1"); shift
+			    done
+			elif [ $? -eq 2 ]; then
+			    exit 2
+			else
+			    { echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2
+			fi
+			;;
 	*)		break;;
     esac
 done
+[ ${#filterAction[@]} -gt 0 ] || filterAction=(sed -e 's/^[^\t]*\t//')
 typeset -a what=()
 [ $# -gt 0 ] || set -- ''
 for branchGlob
@@ -108,6 +122,8 @@ fi
 
 # Print the sorted information without the leading Unix timestamp used as the
 # sort key.
-printf '%s\n' "${firstCommits[@]}" | \
-    sort --numeric-sort | \
-    eval '"${filterAction[@]}"' "${formatter:+|}" '"${formatter[@]}"' "${pager:+|}" '"${pager[@]}"'
+printf '%s\n' "${firstCommits[@]}" \
+    | sort --numeric-sort \
+    | eval '"${filterAction[@]}"' \
+	"${formatter:+|}" '"${formatter[@]}"' \
+	"${pager:+|}" '"${pager[@]}"'

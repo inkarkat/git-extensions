@@ -1,11 +1,16 @@
 #!/bin/bash
 set -o pipefail
 
+filterAge()
+{
+    datediff --field-separator $'\t' "$@"
+}
+
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--bare|-l|--long] [-r|--remote REMOTE|-a] [-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]|DATE] [--] [<branch-glob> ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[--bare|-l|--long] [-r|--remote REMOTE|-a] [$(filterAge --get-short-usage filter 2>/dev/null)] [--] [<branch-glob> ...] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -33,11 +38,8 @@ HELPDESCRIPTION
     -r			List remote-tracking branches.
     --remote REMOTE	List a particular REMOTE.
     -a			List both local and remote-tracking branches.
-    -n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]|DATE
-			Only print those branches that match the age comparison.
-SUFFIX may be 's' for seconds (the default), 'm' for minutes, 'h' for hours, 'd'
-for days, 'w' for weeks, 'mo' for months, 'y' for years, 'g' for generations.
 HELPTEXT
+    filterAge --get-long-usage filter 'branches' 2>/dev/null
 }
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
@@ -71,10 +73,20 @@ do
 			    additionalBranchFilters+=(-e $'\t'"${remote}\$")
 			done < <(git remote)
 			;;
-	-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt)
-			postAction=(filterAge --field-separator $'\t' "$1" "$2"); shift; shift; prefixRefFormat='%(committerdate:unix)';;
 	--)		shift; break;;
-	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	-*)		if argCount=$(filterAge --understand-for filter --understands "$@"); then
+			    [ ${#postAction[@]} -gt 0 ] || postAction=(filterAge --filter)
+			    while ((argCount-- > 0))
+			    do
+				postAction+=("$1"); shift
+			    done
+			    prefixRefFormat='@%(committerdate:unix)'
+			elif [ $? -eq 2 ]; then
+			    exit 2
+			else
+			    { echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2
+			fi
+			;;
 	*)		break;;
     esac
 done
@@ -91,4 +103,7 @@ branchAge()
 	grep --invert-match -e '/HEAD$' "${additionalBranchFilters[@]}"
 }
 
-eval 'branchAge "$@"' "${postAction:+|}" '"${postAction[@]}"' "${formatter:+|}" '"${formatter[@]}"' "${pager:+|}" '"${pager[@]}"'
+eval 'branchAge "$@"' \
+    "${postAction:+|}" '"${postAction[@]}"' \
+    "${formatter:+|}" '"${formatter[@]}"' \
+    "${pager:+|}" '"${pager[@]}"'

@@ -167,7 +167,7 @@ activity?(except)by\
 	$EXEC echo "Note: $gitCommand is a no-op, because it iterates over the current range without touching fixups.";;
     rbcheck)
 	$EXEC "git-${scopeCommand:?}" -- rebasecheck "$@" --check-range;;
-    check|command|exec|rewordaddprefix|rewordremovescope)
+    check|command|exec|sedreword|rewordaddprefix|rewordremovescope)
 	source "${libDir:?}/rebase.sh.part" "$@"
 	;&
     rb?(n)i|segregate@(commits|andbifurcate)|bifurcate)

@@ -135,7 +135,7 @@ cat|cp\
 
     (\
 fix@(up|amend|wording)?(rb)|\
-check|command|exec|rewordaddprefix|rewordremovescope|\
+check|command|exec|sedreword|rewordaddprefix|rewordremovescope|\
 rb|rbcheck|rb?(n)i|segregate@(commits|andbifurcate)|bifurcate|rblastfixup|\
 move-to-branch|uncommit-to-stash|uncommit-to-branch\
 )

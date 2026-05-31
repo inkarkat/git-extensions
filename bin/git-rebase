@@ -104,6 +104,7 @@ done
 gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit 3
 readonly originalPersistentCommitsFilespec="${gitDir}/rebaseOriginalPersistentCommits"
 readonly rebasedCommitHashesFilespec="${gitDir}/rebasedCommitHashes"
+typeset -ra rebaseDeduplicateLogArgs=(--grep '^\\(fixup\\|amend\\|squash\\)! ' --invert-grep --pretty=$'tformat:%H\t%at\t%aN\t%aE\t%s')
 if ! git-isrebasing; then
     if [ ${#rebaseArgs[@]} -ge 2 ] \
 	&& git-commitid --quiet --no-error -- "${rebaseArgs[-1]}" \
@@ -116,38 +117,55 @@ if ! git-isrebasing; then
 	branch=HEAD
 	upstream="${rebaseArgs[-1]}"
     fi
-    git log --grep '^\\(fixup\\|amend\\|squash\\)! ' --invert-grep --pretty='tformat:%H' "${upstream}..${branch}" > "$originalPersistentCommitsFilespec"
+    git log "${rebaseDeduplicateLogArgs[@]}" "${upstream}..${branch}" > "$originalPersistentCommitsFilespec"
 fi
 
 eval "typeset -a gitConfigArgs=($GIT_CONFIG_ARGS)"
 command git "${gitConfigArgs[@]}" rebase "${rebaseArgs[@]}" "$@" || exit $?
 
 if ! git-isrebasing && [ -r "$originalPersistentCommitsFilespec" ]; then
-    readarray -t rebasedPersistentCommitList < <(git-rev-range-to-pre-rebase log --grep '^\\(fixup\\|amend\\|squash\\)! ' --invert-grep --pretty='tformat:%H')
+    typeset -a rebasedPersistentCommitList=()
+    typeset -A rebasedPersistentRebasedKeys=() rebasedPersistentReworkedKeys=()
+    while IFS=$'\t' read -r commit authorEpoch additionalIdentifyingInformation
+    do
+	rebasedPersistentCommitList+=("$commit")
+	rebasedPersistentRebasedKeys["$commit"]="$authorEpoch"$'\t'"$additionalIdentifyingInformation"
+	rebasedPersistentReworkedKeys["$commit"]="$additionalIdentifyingInformation"
+    done < <(git-rev-range-to-pre-rebase log "${rebaseDeduplicateLogArgs[@]}")
+
     if [ ${#rebasedPersistentCommitList[@]} -gt 0 ]; then
-	typeset -a originalPersistentCommitList=()
-	typeset -A originalPersistentCommits=()
-	while IFS=$'\n' read -r commit
+	typeset -A originalPersistentCommits=() originalPersistentRebasedCommits=() originalPersistentReworkedCommits=()
+	while IFS=$'\t' read -r commit authorEpoch additionalIdentifyingInformation
 	do
-	    originalPersistentCommitList+=("$commit")
 	    originalPersistentCommits["$commit"]=t
+	    originalPersistentRebasedCommits["$authorEpoch"$'\t'"$additionalIdentifyingInformation"]="$commit"
+	    if [ -v originalPersistentReworkedCommits["$additionalIdentifyingInformation"] ]; then
+		# The additional identifying information is not unique, so we cannot reliably
+		# identify reworked commits by it. Clear the mapping to prevent false positives.
+		originalPersistentReworkedCommits["$additionalIdentifyingInformation"]=''
+	    else
+		originalPersistentReworkedCommits["$additionalIdentifyingInformation"]="$commit"
+	    fi
 	done < "$originalPersistentCommitsFilespec"
 
 	: > "$rebasedCommitHashesFilespec"
 	for ((i = 0; i < ${#rebasedPersistentCommitList[@]}; i++))
 	do
-	    originalCommit="${originalPersistentCommitList[$i]}"
 	    rebasedCommit="${rebasedPersistentCommitList[$i]}"
-	    if [ "$originalCommit" = "$rebasedCommit" ]; then
-		# First unchanged commit means we're reached the end of the rebased commits, and
-		# every commit has been neatly mapped to a previous one.
-		break
-	    elif [ "${originalPersistentCommits["$rebasedCommit"]}" ]; then
-		# The rebased commit is found in the original list, but at a different position.
-		# This means the number of commits has changed, and the mapping is no longer
-		# straightforward.
-		rm -- "$rebasedCommitHashesFilespec"
-		break
+
+	    # First unchanged commit means we're reached the end of the rebased commits.
+	    [ "${originalPersistentCommits["$rebasedCommit"]}" ] \
+		&& break
+
+	    originalCommit="${originalPersistentRebasedCommits["${rebasedPersistentRebasedKeys["$rebasedCommit"]}"]}"
+	    if [ -z "$originalCommit" ]; then
+		# The rebased commit isn't found in the original list. Maybe it got replaced by
+		# a different commit with the same identifying information?
+		originalCommit="${originalPersistentReworkedCommits["${rebasedPersistentReworkedKeys["$rebasedCommit"]}"]}"
+		if [ -z "$originalCommit" ]; then
+		    # Nope, this commit is new and doesn't correspond to any original commit.
+		    break
+		fi
 	    fi
 
 	    printf '%s\t%s\n' "$originalCommit" "$rebasedCommit" >> "$rebasedCommitHashesFilespec"

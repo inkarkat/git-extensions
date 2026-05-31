@@ -131,7 +131,7 @@ if ! git-isrebasing && [ -r "$originalPersistentCommitsFilespec" ]; then
 	rebasedPersistentCommitList+=("$commit")
 	rebasedPersistentRebasedKeys["$commit"]="$authorEpoch"$'\t'"$additionalIdentifyingInformation"
 	rebasedPersistentReworkedKeys["$commit"]="$additionalIdentifyingInformation"
-    done < <(git-rev-range-to-pre-rebase log "${rebaseDeduplicateLogArgs[@]}")
+    done < <(eval 'git-rev-range-to-pre-rebase log "${rebaseDeduplicateLogArgs[@]}"' "${DEBUG:+| debugtee --single-capture --for git-rebase --module rebasedCommitHashes --to ${gitDir@Q}/rebaseNewPersistentCommits}")
 
     if [ ${#rebasedPersistentCommitList[@]} -gt 0 ]; then
 	typeset -A originalPersistentCommits=() originalPersistentRebasedCommits=() originalPersistentReworkedCommits=()
@@ -158,16 +158,22 @@ if ! git-isrebasing && [ -r "$originalPersistentCommitsFilespec" ]; then
 		&& break
 
 	    originalCommit="${originalPersistentRebasedCommits["${rebasedPersistentRebasedKeys["$rebasedCommit"]}"]}"
-	    if [ -z "$originalCommit" ]; then
+	    if [ -n "$originalCommit" ]; then
+		whereFound=rebased
+	    else
 		# The rebased commit isn't found in the original list. Maybe it got replaced by
 		# a different commit with the same identifying information?
 		originalCommit="${originalPersistentReworkedCommits["${rebasedPersistentReworkedKeys["$rebasedCommit"]}"]}"
-		if [ -z "$originalCommit" ]; then
+		if [ -n "$originalCommit" ]; then
+		    whereFound=reworked
+		else
 		    # Nope, this commit is new and doesn't correspond to any original commit.
-		    break
+		    case ",${DEBUG:-}," in *,git-rebase:rebasedCommitHashes,*) printf >&2 '%sgit-rebase (rebasedCommitHashes): %s is new\n' "$PS5" "$rebasedCommit";; esac
+		    continue
 		fi
 	    fi
 
+	    case ",${DEBUG:-}," in *,git-rebase:rebasedCommitHashes,*) printf >&2 '%sgit-rebase (rebasedCommitHashes): %s got %s to %s\n' "$PS5" "$originalCommit" "$whereFound" "$rebasedCommit";; esac
 	    printf '%s\t%s\n' "$originalCommit" "$rebasedCommit" >> "$rebasedCommitHashesFilespec"
 	done
     fi

@@ -51,6 +51,8 @@ fi
 typeset -a messageDirectArgs=()
 typeset -a messageFileArgs=()
 typeset -a messageRefArgs=()
+typeset -a amendArg=()
+isReEdit=
 hasConflictingWithTemplateArgs=
 convertMessageFileArgsToDirectArgs()
 {
@@ -105,10 +107,15 @@ do
 			    messageFileArgs+=(--file "${filespec:?}"); shift; shift
 			fi
 			;;
-	--reedit-message|--reuse-message|-c|-C)
+	--reedit-message|-c)
+			isReEdit=t;&
+	--reuse-message|-C)
 			messageRefArgs+=("$1" "${2?}"); shift; shift;;
-	--reedit-message=*|--reuse-message=*|--amend)
+	--reedit-message=*)
+			isReEdit=t;&
+	--reuse-message=*)
 			messageRefArgs+=("$1"); shift;;
+	--amend)	amendArg=("$1"); shift;;
 	--edit|-e|--no-edit)
 			editArgs+=("$1"); shift;;
 	--fixup)	commitArgs+=("$1" "${2?}"); shift; shift; hasConflictingWithTemplateArgs=t;;
@@ -126,12 +133,23 @@ done
 # command-line arguments), use it. The default editing behavior is not affected
 # by this. In order to avoid accidental pick up of old templates, they have the
 # previous commit's ID in their name.
-if [ ${#messageDirectArgs[@]} -eq 0 -a ${#messageFileArgs[@]} -eq 0 -a ${#messageRefArgs[@]} -eq 0 ] \
+if [ ${#messageDirectArgs[@]} -eq 0 -a ${#messageFileArgs[@]} -eq 0 ] \
     && [ ! "$hasConflictingWithTemplateArgs" ] \
-    && commitTemplateFilespec="$(git-committemplate --get-filespec)"
+    && commitTemplateFilespec="$(git-committemplate --get-filespec "${amendArg[@]}")"
 then
-    messageFileArgs+=(--file "$commitTemplateFilespec")
-    [ ${#editArgs[@]} -gt 0 ] || editArgs+=(--edit)
+    if [ ${#amendArg[@]} -eq 0 -a ${#messageRefArgs[@]} -eq 0 ]; then
+	messageFileArgs+=(--file "$commitTemplateFilespec")
+	[ ${#editArgs[@]} -gt 0 ] || editArgs+=(--edit)
+    elif [ ${#amendArg[@]} -gt 0 ]; then
+	messageFileArgs+=(--file "$commitTemplateFilespec")
+
+	messageRefArgs=()   # Clear any message reference arguments, as the template is used instead.
+	# The message reference argument only indicates whether further editing is
+	# requested:
+	[ ${#editArgs[@]} -eq 0 ] && [ "$isReEdit" ] && editArgs+=(--edit)
+
+	isAddTrailers= # Equivalent to --no-trailer-add
+    fi
 fi
 
 
@@ -164,7 +182,7 @@ do
     fi
 done
 
-set -- "${messageDirectArgs[@]}" "${messageFileArgs[@]}" "${messageRefArgs[@]}" "${editArgs[@]}" "${trailerArgs[@]}" "${commitArgs[@]}" "$@"
+set -- "${messageDirectArgs[@]}" "${messageFileArgs[@]}" "${messageRefArgs[@]}" "${amendArg[@]}" "${editArgs[@]}" "${trailerArgs[@]}" "${commitArgs[@]}" "$@"
 
 
 # Extension: Automatically add a Signed-off-by trailer (--signoff flag) if configured.
@@ -213,7 +231,7 @@ export GIT_COMMIT_CWD="$PWD"
 eval "typeset -a gitConfigArgs=($GIT_CONFIG_ARGS)"
 command git "${gitConfigArgs[@]}" commit "$@" || exit $?
 
-git-committemplate --clean  # Clean up old commit templates after a successful commit.
+git-committemplate --clean "${amendArg[@]}"  # Clean up old commit templates after a successful commit.
 
 if [ "$isSkipBlame" ] \
     && root="$(git rev-parse --show-toplevel)" \

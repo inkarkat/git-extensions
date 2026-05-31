@@ -12,40 +12,52 @@ HELPTEXT
 Print the filespec of the current commit template.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '--get-filespec'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--get-filespec [--amend]'
     echo
     cat <<HELPTEXT
 Save / append input as the commit template for a commit based on the current
 HEAD.
 HELPTEXT
     echo
-    printf 'Usage: echo TEXT | %q %s\n' "$(basename "$1")" '--save|--append'
+    printf 'Usage: echo TEXT | %q %s\n' "$(basename "$1")" '--save|--append [--amend]'
     echo
     cat <<HELPTEXT
 Open the editor to record the commit template for a commit based on the current
 HEAD [for <pathspec>].
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '--edit [-m|--message MESSAGE] [-F|--file FILE] [--] [<pathspec>...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--edit [--amend] [-m|--message MESSAGE] [-F|--file FILE] [--] [<pathspec>...]'
     echo
     cat <<HELPTEXT
 Delete any residual commit template(s).
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '--clean'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--clean [--amend]'
 }
 
 action=print
+isAmend=
 saveOperator='>'
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --get-filespec)	shift; action=getFilespec;;
-    --save)		shift; action=save;;
-    --append)		shift; action=save; saveOperator='>>';;
-    --edit)		shift; action=edit;;
-    --clean)		shift; action=clean;;
-    -*)			{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
-esac
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--get-filespec)	shift; action=getFilespec;;
+	--save)		shift; action=save;;
+	--append)	shift; action=save; saveOperator='>>';;
+	--edit)		shift; action=edit;;
+	--clean)	shift; action=clean;;
+	--amend)	shift; isAmend=t;;
+	--)		shift; break;;
+	-*)		if [ "$action" = 'edit' ]; then
+			    break
+			else
+			    { echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2
+			fi
+			;;
+	*)		break;;
+    esac
+done
 if [ $# -ne 0 -a "$action" != 'edit' ]; then
     printUsage "$0" >&2
     exit 2
@@ -70,6 +82,13 @@ edit()
 {
     local commitMessageFilespec="${gitDir}/COMMIT_EDITMSG"
     {
+	if [ "$isAmend" ]; then
+	    # Original commit message comes first, followed by one empty line, and
+	    # potentially any passed message / file contents.
+	    git lo1 | truncate-whitespace --trailing
+	    printf '\n'
+	fi
+
 	local hasMessage
 	while [ $# -ne 0 ]
 	do
@@ -81,11 +100,14 @@ edit()
 		*)		break;;
 	    esac
 	done
-	[ "$hasMessage" ] || printf '\n\n'  # Leave the first two lines blank for the user to fill in.
-	cat <<'EOF'
-# Please enter the pending commit message for your changes. Lines
-# starting with '#' will be ignored, and an empty message aborts the
-# recording of the commit message.
+
+	if [ ! "$isAmend" ]; then
+	    [ "$hasMessage" ] || printf '\n\n'  # Leave the first two lines blank for the user to fill in.
+	fi
+	cat <<EOF
+# Please enter the pending commit message for your ${isAmend:+to-be-amended }changes.
+# Lines starting with '#' will be ignored, and an empty message aborts
+# the recording of the commit message.
 #
 EOF
 	# Add commit boilerplate information at the bottom, just like a real commit
@@ -110,6 +132,7 @@ clean()
 }
 
 gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit 3
-commitTemplateFileBase="${gitDir}/commit-template-"
+what='commit'; [ "$isAmend" ] && what='amend'
+commitTemplateFileBase="${gitDir}/${what}-template-"
 commitTemplateFilespec="${commitTemplateFileBase}$(git-commitid HEAD 2>/dev/null || echo HEAD)"
 $action "$@"

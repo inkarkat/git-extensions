@@ -37,15 +37,25 @@ HELPTEXT
 
 action=print
 saveOperator='>'
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --get-filespec)	shift; action=getFilespec;;
-    --save)		shift; action=save;;
-    --append)		shift; action=save; saveOperator='>>';;
-    --edit)		shift; action=edit;;
-    --clean)		shift; action=clean;;
-    -*)			{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
-esac
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--get-filespec)	shift; action=getFilespec;;
+	--save)		shift; action=save;;
+	--append)	shift; action=save; saveOperator='>>';;
+	--edit)		shift; action=edit;;
+	--clean)	shift; action=clean;;
+	--)		shift; break;;
+	-*)		if [ "$action" = 'edit' ]; then
+			    break
+			else
+			    { echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2
+			fi
+			;;
+	*)		break;;
+    esac
+done
 if [ $# -ne 0 -a "$action" != 'edit' ]; then
     printUsage "$0" >&2
     exit 2

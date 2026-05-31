@@ -51,6 +51,8 @@ fi
 typeset -a messageDirectArgs=()
 typeset -a messageFileArgs=()
 typeset -a messageRefArgs=()
+typeset -a amendArg=()
+isReEdit=
 hasConflictingWithTemplateArgs=
 convertMessageFileArgsToDirectArgs()
 {
@@ -105,10 +107,15 @@ do
 			    messageFileArgs+=(--file "${filespec:?}"); shift; shift
 			fi
 			;;
-	--reedit-message|--reuse-message|-c|-C)
+	--reedit-message|-c)
+			isReEdit=t;&
+	--reuse-message|-C)
 			messageRefArgs+=("$1" "${2?}"); shift; shift;;
-	--reedit-message=*|--reuse-message=*|--amend)
+	--reedit-message=*)
+			isReEdit=t;&
+	--reuse-message=*)
 			messageRefArgs+=("$1"); shift;;
+	--amend)	amendArg=("$1"); shift;;
 	--edit|-e|--no-edit)
 			editArgs+=("$1"); shift;;
 	--fixup)	commitArgs+=("$1" "${2?}"); shift; shift; hasConflictingWithTemplateArgs=t;;
@@ -164,7 +171,7 @@ do
     fi
 done
 
-set -- "${messageDirectArgs[@]}" "${messageFileArgs[@]}" "${messageRefArgs[@]}" "${editArgs[@]}" "${trailerArgs[@]}" "${commitArgs[@]}" "$@"
+set -- "${messageDirectArgs[@]}" "${messageFileArgs[@]}" "${messageRefArgs[@]}" "${amendArg[@]}" "${editArgs[@]}" "${trailerArgs[@]}" "${commitArgs[@]}" "$@"
 
 
 # Extension: Automatically add a Signed-off-by trailer (--signoff flag) if configured.

@@ -3,15 +3,16 @@
 printUsage()
 {
     cat <<HELPTEXT
-Adapt references (i.e. abbreviated and full commit hashes) in the commit message
-of the last commit that have become invald after rebasing.
+Adapt references (i.e. abbreviated and full commit hashes [from the working
+copies that FILE or DIR resides in]) in the commit message of the last commit
+that have become invald after rebasing.
 This relies on my rebase extension tracking the last rebase and providing a
 mapping of old commit hashes to new ones (whose update can be forced via
 --update-commit-hashes, which is necessary when invoked directly from the rebase
 todo list).
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--update-commit-hashes] [-p|--print|--sed] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--update-commit-hashes] [-p|--print|--sed] [[--] FILE|DIR ...] [-?|-h|--help]'
 }
 
 isPrint=
@@ -32,17 +33,23 @@ do
 done
 [ $# -gt 0 ] || set -- ''
 
+gitInWorkingCopy()
+{
+    local workingCopyFilespec="${1?}"; shift
+    git ${workingCopyFilespec:+inside} "$@" ${workingCopyFilespec:+-- "$workingCopyFilespec"}
+}
+
 typeset -a mappingFilespecs=()
 for filespec
 do
     if [ "$isUpdateCommitHashes" ]; then
-	git-wrapper rebase --generate-rebased-commit-hashes || {
+	gitInWorkingCopy "$filespec" rebase --generate-rebased-commit-hashes || {
 	    [ -z "$filespec" ] || printf >&2 'Note: No rebased commit hash mapping found in %s\n' "$filespec"
 	    continue
 	}
     fi
 
-    gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit 3
+    gitDir="$(gitInWorkingCopy "$filespec" rev-parse --path-format=absolute --git-dir 2>/dev/null)" || exit 3
     rebasedCommitHashesFilespec="${gitDir}/rebasedCommitHashes"
     [ -s "$rebasedCommitHashesFilespec" ] \
 	&& mappingFilespecs+=("$rebasedCommitHashesFilespec")

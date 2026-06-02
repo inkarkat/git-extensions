@@ -11,9 +11,10 @@ mapping of old commit hashes to new ones (whose update can be forced via
 todo list).
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--update-commit-hashes] [--sed] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--update-commit-hashes] [-p|--print|--sed] [-?|-h|--help]'
 }
 
+isPrint=
 processor=git-sedreword
 while [ $# -ne 0 ]
 do
@@ -21,6 +22,7 @@ do
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--update-commit-hashes)
 			shift; git-wrapper rebase --generate-rebased-commit-hashes || exit $?;;
+	--print|-p)	shift; isPrint=t;;
 	--sed)		shift; processor=sed;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
@@ -39,6 +41,9 @@ if [ ! -s "$rebasedCommitHashesFilespec" ]; then
     echo 'ERROR: No commit hash mapping found.' >&2
     exit 1
 fi
+
+[ "$isPrint" ] \
+    && exec cat -- "$rebasedCommitHashesFilespec"
 
 abbrevLen=$(git-config-abbrevlength)
 typeset -a sedProgram=()

@@ -35,6 +35,87 @@ addExec()
     rebaseArgs+=(--exec "$cmd")
 }
 
+gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit 3
+readonly originalPersistentCommitsFilespec="${gitDir}/rebaseOriginalPersistentCommits"
+readonly rebasedCommitHashesFilespec="${gitDir}/rebasedCommitHashes"
+typeset -ra rebaseDeduplicateLogArgs=(--grep '^\\(fixup\\|amend\\|squash\\)! ' --invert-grep --pretty=$'tformat:%H\t%at\t%aN\t%aE\t%s')
+recordOriginalPersistentCommits()
+{
+    if [ ${#rebaseArgs[@]} -ge 2 ] \
+	&& git-commitid --quiet --no-error -- "${rebaseArgs[-1]}" \
+	&& git-commitid --quiet --no-error -- "${rebaseArgs[-2]}"
+    then
+	# <upstream> <branch> variant
+	local branch="${rebaseArgs[-1]}"
+	local upstream="${rebaseArgs[-2]}"
+    else
+	local branch=HEAD
+	local upstream="${rebaseArgs[-1]}"
+    fi
+    git log "${rebaseDeduplicateLogArgs[@]}" "${upstream}..${branch}" > "$originalPersistentCommitsFilespec"
+}
+generateRebasedCommitHashes()
+{
+    [ -r "$originalPersistentCommitsFilespec" ] || return 1
+
+    typeset -a rebasedPersistentCommitList=()
+    typeset -A rebasedPersistentRebasedKeys=() rebasedPersistentReworkedKeys=()
+    local commit authorEpoch additionalIdentifyingInformation
+    while IFS=$'\t' read -r commit authorEpoch additionalIdentifyingInformation
+    do
+	rebasedPersistentCommitList+=("$commit")
+	rebasedPersistentRebasedKeys["$commit"]="$authorEpoch"$'\t'"$additionalIdentifyingInformation"
+	rebasedPersistentReworkedKeys["$commit"]="$additionalIdentifyingInformation"
+    done < <(eval 'git-rev-range-to-pre-rebase log "${rebaseDeduplicateLogArgs[@]}"' "${DEBUG:+| debugtee --single-capture --for git-rebase --module rebasedCommitHashes --to ${gitDir@Q}/rebaseNewPersistentCommits}")
+
+    [ ${#rebasedPersistentCommitList[@]} -gt 0 ] || return 99
+
+    typeset -A originalPersistentCommits=() originalPersistentRebasedCommits=() originalPersistentReworkedCommits=()
+    while IFS=$'\t' read -r commit authorEpoch additionalIdentifyingInformation
+    do
+	originalPersistentCommits["$commit"]=t
+	originalPersistentRebasedCommits["$authorEpoch"$'\t'"$additionalIdentifyingInformation"]="$commit"
+	if [ -v originalPersistentReworkedCommits["$additionalIdentifyingInformation"] ]; then
+	    # The additional identifying information is not unique, so we cannot reliably
+	    # identify reworked commits by it. Clear the mapping to prevent false positives.
+	    originalPersistentReworkedCommits["$additionalIdentifyingInformation"]=''
+	else
+	    originalPersistentReworkedCommits["$additionalIdentifyingInformation"]="$commit"
+	fi
+    done < "$originalPersistentCommitsFilespec"
+
+    : > "$rebasedCommitHashesFilespec"
+    for ((i = 0; i < ${#rebasedPersistentCommitList[@]}; i++))
+    do
+	local rebasedCommit="${rebasedPersistentCommitList[$i]}"
+
+	# First unchanged commit means we're reached the end of the rebased commits.
+	[ "${originalPersistentCommits["$rebasedCommit"]}" ] \
+	    && break
+
+	local originalCommit="${originalPersistentRebasedCommits["${rebasedPersistentRebasedKeys["$rebasedCommit"]}"]}"
+	if [ -n "$originalCommit" ]; then
+	    local whereFound=rebased
+	else
+	    # The rebased commit isn't found in the original list. Maybe it got replaced by
+	    # a different commit with the same identifying information?
+	    originalCommit="${originalPersistentReworkedCommits["${rebasedPersistentReworkedKeys["$rebasedCommit"]}"]}"
+	    if [ -n "$originalCommit" ]; then
+		local whereFound=reworked
+	    else
+		# Nope, this commit is new and doesn't correspond to any original commit.
+		case ",${DEBUG:-}," in *,git-rebase:rebasedCommitHashes,*) printf >&2 '%sgit-rebase (rebasedCommitHashes): %s is new\n' "$PS5" "$rebasedCommit";; esac
+		continue
+	    fi
+	fi
+
+	case ",${DEBUG:-}," in *,git-rebase:rebasedCommitHashes,*) printf >&2 '%sgit-rebase (rebasedCommitHashes): %s got %s to %s\n' "$PS5" "$originalCommit" "$whereFound" "$rebasedCommit";; esac
+	printf '%s\t%s\n' "$originalCommit" "$rebasedCommit" >> "$rebasedCommitHashesFilespec"
+    done
+
+    [ -s "$rebasedCommitHashesFilespec" ]
+}
+
 isChecks=t
 isSubmoduleUpdate=t
 typeset -a rebaseArgs=()
@@ -100,84 +181,12 @@ do
 done
 
 [ ! "$isChecks" ] || git-rebasecheck "${rebaseArgs[@]}" "$@" || exit $?
-
-gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit 3
-readonly originalPersistentCommitsFilespec="${gitDir}/rebaseOriginalPersistentCommits"
-readonly rebasedCommitHashesFilespec="${gitDir}/rebasedCommitHashes"
-typeset -ra rebaseDeduplicateLogArgs=(--grep '^\\(fixup\\|amend\\|squash\\)! ' --invert-grep --pretty=$'tformat:%H\t%at\t%aN\t%aE\t%s')
-if ! git-isrebasing; then
-    if [ ${#rebaseArgs[@]} -ge 2 ] \
-	&& git-commitid --quiet --no-error -- "${rebaseArgs[-1]}" \
-	&& git-commitid --quiet --no-error -- "${rebaseArgs[-2]}"
-    then
-	# <upstream> <branch> variant
-	branch="${rebaseArgs[-1]}"
-	upstream="${rebaseArgs[-2]}"
-    else
-	branch=HEAD
-	upstream="${rebaseArgs[-1]}"
-    fi
-    git log "${rebaseDeduplicateLogArgs[@]}" "${upstream}..${branch}" > "$originalPersistentCommitsFilespec"
-fi
+git-isrebasing || recordOriginalPersistentCommits
 
 eval "typeset -a gitConfigArgs=($GIT_CONFIG_ARGS)"
 command git "${gitConfigArgs[@]}" rebase "${rebaseArgs[@]}" "$@" || exit $?
 
-if [ -r "$originalPersistentCommitsFilespec" ]; then
-    typeset -a rebasedPersistentCommitList=()
-    typeset -A rebasedPersistentRebasedKeys=() rebasedPersistentReworkedKeys=()
-    while IFS=$'\t' read -r commit authorEpoch additionalIdentifyingInformation
-    do
-	rebasedPersistentCommitList+=("$commit")
-	rebasedPersistentRebasedKeys["$commit"]="$authorEpoch"$'\t'"$additionalIdentifyingInformation"
-	rebasedPersistentReworkedKeys["$commit"]="$additionalIdentifyingInformation"
-    done < <(eval 'git-rev-range-to-pre-rebase log "${rebaseDeduplicateLogArgs[@]}"' "${DEBUG:+| debugtee --single-capture --for git-rebase --module rebasedCommitHashes --to ${gitDir@Q}/rebaseNewPersistentCommits}")
-
-    if [ ${#rebasedPersistentCommitList[@]} -gt 0 ]; then
-	typeset -A originalPersistentCommits=() originalPersistentRebasedCommits=() originalPersistentReworkedCommits=()
-	while IFS=$'\t' read -r commit authorEpoch additionalIdentifyingInformation
-	do
-	    originalPersistentCommits["$commit"]=t
-	    originalPersistentRebasedCommits["$authorEpoch"$'\t'"$additionalIdentifyingInformation"]="$commit"
-	    if [ -v originalPersistentReworkedCommits["$additionalIdentifyingInformation"] ]; then
-		# The additional identifying information is not unique, so we cannot reliably
-		# identify reworked commits by it. Clear the mapping to prevent false positives.
-		originalPersistentReworkedCommits["$additionalIdentifyingInformation"]=''
-	    else
-		originalPersistentReworkedCommits["$additionalIdentifyingInformation"]="$commit"
-	    fi
-	done < "$originalPersistentCommitsFilespec"
-
-	: > "$rebasedCommitHashesFilespec"
-	for ((i = 0; i < ${#rebasedPersistentCommitList[@]}; i++))
-	do
-	    rebasedCommit="${rebasedPersistentCommitList[$i]}"
-
-	    # First unchanged commit means we're reached the end of the rebased commits.
-	    [ "${originalPersistentCommits["$rebasedCommit"]}" ] \
-		&& break
-
-	    originalCommit="${originalPersistentRebasedCommits["${rebasedPersistentRebasedKeys["$rebasedCommit"]}"]}"
-	    if [ -n "$originalCommit" ]; then
-		whereFound=rebased
-	    else
-		# The rebased commit isn't found in the original list. Maybe it got replaced by
-		# a different commit with the same identifying information?
-		originalCommit="${originalPersistentReworkedCommits["${rebasedPersistentReworkedKeys["$rebasedCommit"]}"]}"
-		if [ -n "$originalCommit" ]; then
-		    whereFound=reworked
-		else
-		    # Nope, this commit is new and doesn't correspond to any original commit.
-		    case ",${DEBUG:-}," in *,git-rebase:rebasedCommitHashes,*) printf >&2 '%sgit-rebase (rebasedCommitHashes): %s is new\n' "$PS5" "$rebasedCommit";; esac
-		    continue
-		fi
-	    fi
-
-	    case ",${DEBUG:-}," in *,git-rebase:rebasedCommitHashes,*) printf >&2 '%sgit-rebase (rebasedCommitHashes): %s got %s to %s\n' "$PS5" "$originalCommit" "$whereFound" "$rebasedCommit";; esac
-	    printf '%s\t%s\n' "$originalCommit" "$rebasedCommit" >> "$rebasedCommitHashesFilespec"
-	done
-    fi
-fi
+generateRebasedCommitHashes
 
 [ "$isSubmoduleUpdate" ] || exit 0
 readarray -t rebasedSubmodules < <(git subst)

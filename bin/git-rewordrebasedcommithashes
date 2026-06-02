@@ -1,0 +1,38 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Adapt references (i.e. abbreviated and full commit hashes) in the commit message
+of the last commit that have become invald after rebasing.
+This relies on my rebase extension tracking the last rebase and providing a
+mapping of old commit hashes to new ones.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+
+gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit 3
+readonly rebasedCommitHashesFilespec="${gitDir}/rebasedCommitHashes"
+
+if [ ! -s "$rebasedCommitHashesFilespec" ]; then
+    echo 'ERROR: No commit hash mapping found.' >&2
+    exit 1
+fi
+
+abbrevLen=$(git-config-abbrevlength)
+typeset -a sedProgram=()
+while IFS=$'\t' read -r oldCommit newCommit
+do
+    for ((i = ${#oldCommit}; i >= abbrevLen; i--))
+    do
+	sedProgram+=(-e "s#\\(^\\|[^[:xdigit:]]\\)${oldCommit:0:i}\\($\\|[^[:xdigit:]]\\)#\\1${newCommit:0:i}\\2#g")
+    done
+done <"$rebasedCommitHashesFilespec"
+
+exec git-sedreword "${sedProgram[@]}"

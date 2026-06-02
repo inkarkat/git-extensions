@@ -1,0 +1,58 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Adapt references (i.e. abbreviated and full commit hashes) in the commit message
+of the last commit that have become invald after rebasing.
+This relies on my rebase extension tracking the last rebase and providing a
+mapping of old commit hashes to new ones (whose update can be forced via
+--update-commit-hashes, which is necessary when invoked directly from the rebase
+todo list).
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--update-commit-hashes] [-p|--print|--sed] [-?|-h|--help]'
+}
+
+isPrint=
+processor=git-sedreword
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--update-commit-hashes)
+			shift; git-wrapper rebase --generate-rebased-commit-hashes || exit $?;;
+	--print|-p)	shift; isPrint=t;;
+	--sed)		shift; processor=sed;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit 3
+readonly rebasedCommitHashesFilespec="${gitDir}/rebasedCommitHashes"
+
+if [ ! -s "$rebasedCommitHashesFilespec" ]; then
+    echo 'ERROR: No commit hash mapping found.' >&2
+    exit 1
+fi
+
+[ "$isPrint" ] \
+    && exec cat -- "$rebasedCommitHashesFilespec"
+
+abbrevLen=$(git-config-abbrevlength)
+typeset -a sedProgram=()
+while IFS=$'\t' read -r oldCommit newCommit
+do
+    for ((i = ${#oldCommit}; i >= abbrevLen; i--))
+    do
+	sedProgram+=(-e "s#\\(^\\|[^[:xdigit:]]\\)${oldCommit:0:i}\\($\\|[^[:xdigit:]]\\)#\\1${newCommit:0:i}\\2#g")
+    done
+done <"$rebasedCommitHashesFilespec"
+
+exec $processor "${sedProgram[@]}"

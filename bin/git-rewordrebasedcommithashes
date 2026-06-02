@@ -15,13 +15,14 @@ HELPTEXT
 }
 
 isPrint=
+isUpdateCommitHashes=
 processor=git-sedreword
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--update-commit-hashes)
-			shift; git-wrapper rebase --generate-rebased-commit-hashes || exit $?;;
+			shift; isUpdateCommitHashes=t;;
 	--print|-p)	shift; isPrint=t;;
 	--sed)		shift; processor=sed;;
 	--)		shift; break;;
@@ -37,6 +38,9 @@ fi
 gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit 3
 readonly rebasedCommitHashesFilespec="${gitDir}/rebasedCommitHashes"
 
+if [ "$isUpdateCommitHashes" ]; then
+    git-wrapper rebase --generate-rebased-commit-hashes || exit $?
+fi
 if [ ! -s "$rebasedCommitHashesFilespec" ]; then
     echo 'ERROR: No commit hash mapping found.' >&2
     exit 1

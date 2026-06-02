@@ -30,33 +30,42 @@ do
 	*)		break;;
     esac
 done
-if [ $# -ne 0 ]; then
-    printUsage "$0" >&2
-    exit 2
-fi
+[ $# -gt 0 ] || set -- ''
 
-gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit 3
-readonly rebasedCommitHashesFilespec="${gitDir}/rebasedCommitHashes"
+typeset -a mappingFilespecs=()
+for filespec
+do
+    if [ "$isUpdateCommitHashes" ]; then
+	git-wrapper rebase --generate-rebased-commit-hashes || {
+	    [ -z "$filespec" ] || printf >&2 'Note: No rebased commit hash mapping found in %s\n' "$filespec"
+	    continue
+	}
+    fi
 
-if [ "$isUpdateCommitHashes" ]; then
-    git-wrapper rebase --generate-rebased-commit-hashes || exit $?
-fi
-if [ ! -s "$rebasedCommitHashesFilespec" ]; then
-    echo 'ERROR: No commit hash mapping found.' >&2
+    gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit 3
+    rebasedCommitHashesFilespec="${gitDir}/rebasedCommitHashes"
+    [ -s "$rebasedCommitHashesFilespec" ] \
+	&& mappingFilespecs+=("$rebasedCommitHashesFilespec")
+done
+if [ ${#mappingFilespecs[@]} -eq 0 ]; then
+    echo >&2 'ERROR: No rebased commit hash mapping found.'
     exit 1
 fi
 
 [ "$isPrint" ] \
-    && exec cat -- "$rebasedCommitHashesFilespec"
+    && exec cat -- "${mappingFilespecs[@]}"
 
 abbrevLen=$(git-config-abbrevlength)
 typeset -a sedProgram=()
-while IFS=$'\t' read -r oldCommit newCommit
+for mappingFilespec in "${mappingFilespecs[@]}"
 do
-    for ((i = ${#oldCommit}; i >= abbrevLen; i--))
+    while IFS=$'\t' read -r oldCommit newCommit
     do
-	sedProgram+=(-e "s#\\(^\\|[^[:xdigit:]]\\)${oldCommit:0:i}\\($\\|[^[:xdigit:]]\\)#\\1${newCommit:0:i}\\2#g")
-    done
-done <"$rebasedCommitHashesFilespec"
+	for ((i = ${#oldCommit}; i >= abbrevLen; i--))
+	do
+	    sedProgram+=(-e "s#\\(^\\|[^[:xdigit:]]\\)${oldCommit:0:i}\\($\\|[^[:xdigit:]]\\)#\\1${newCommit:0:i}\\2#g")
+	done
+    done <"$mappingFilespec"
+done
 
 exec $processor "${sedProgram[@]}"

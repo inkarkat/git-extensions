@@ -1,0 +1,43 @@
+#!/bin/bash
+set -o pipefail
+shopt -qs extglob
+
+printUsage()
+{
+    cat <<HELPTEXT
+Apply the staged changes to the working copy (when they have been dropped by
+unapply-index or edited away).
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [--ours|--theirs|-m|--merge|--conflict=<style>] [-p|--patch] [--] [<pathspec>...] [-?|-h|--help]'
+}
+
+typeset -a checkoutArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+
+	-[fmp])		checkoutArgs+=("$1"); shift;;
+	--@(force|ours|theirs|merge|patch))
+			checkoutArgs+=("$1"); shift;;
+	--conflict)	checkoutArgs+=("$1" "${2?}"); shift; shift;;
+	--conflict=*)	checkoutArgs+=("$1"); shift;;
+	--)		shift; break;;
+	*)		break;;
+    esac
+done
+
+# The difference to a plain checkout [--patch] is that we only consider files in
+# the index here, whereas checkout -- . would also overwrite unstaged changes in
+# the working copy.
+readarray -t paths < <(git-staged -- "$@")
+if [ ${#paths[@]} -eq 0 ]; then
+    echo >&2 'ERROR: Nothing staged.'
+    exit 1
+fi
+
+exec git checkout "${checkoutArgs[@]}" -- "${paths[@]}"

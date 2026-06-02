@@ -6,6 +6,7 @@
 .                  XX                      ^-- fetch ----/
 <--------- checkout-committed -------------/
 <-- checkout -- . /------------------------/
+<-- apply-index --/
 ^- xǝpuᴉ-ʎʃddɐun -/
 .                            ^- uncommit --/
 .                  <---------^- peel ------/

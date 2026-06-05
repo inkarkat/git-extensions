@@ -6,10 +6,12 @@ printUsage()
 Test whether there are / list staged files in index.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [--] [<pathspec>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet|-E|--print-error [--error-message MSG]] [--] [<pathspec>...] [-?|-h|--help]'
 }
 
 isQuiet=
+errorMessage='ERROR: Index is not empty:'
+isPrintError=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -18,6 +20,10 @@ do
 			shift;;
 	--color)	shift; shift;;
 	--quiet|-q)	shift; isQuiet=t;;
+	--print-error|-E)
+			shift; isPrintError=t;;
+	--error-message)
+			shift; errorMessage="$1"; shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -28,5 +34,9 @@ if [ "$isQuiet" ]; then
     ! git diff --cached --quiet --exit-code -- "$@"
 else
     paths="$(git-stifiles "$@")"
-    [ -n "$paths" ] && printf '%s\n' "$paths"
+    if [ -n "$paths" ]; then
+	[ ! "$isPrintError" ] || printf >&2 '%s\n' "$errorMessage"
+	printf '%s\n' "$paths"
+	[ ! "$isPrintError" ] || exit 1
+    fi
 fi

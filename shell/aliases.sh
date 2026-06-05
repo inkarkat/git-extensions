@@ -233,9 +233,23 @@ alias vimgitlll='commandOnSelected --command '"${_aliases_vim}"' --generator "gi
 
 
 
+multiplicityAliasOn()
+{
+    local what="${1:?}"; shift
+    local aliasDefinition="${1:?}"; shift
+    local multiplier; for multiplier in 1 2 3 4 5 6 7 x q z
+    do
+	alias "${aliasDefinition//"$what"/"${what}${multiplier}"}"
+    done
+}
+
 # sgitshowfiles [<since>..<until>] [<pathspec>...] [-- SELECTIONs ...]
 #			Print selected filespecs modified in passed commit or
 #			commit range.
+# sgitshowfiles{1..7,x,q,z} [<pathspec>...]
+#			Print selected filespecs modified in the commit(s)
+#			interactively chosen from the commits [that cover
+#			<pathspec>...] in the <range>.
 # sgitshowfilesmine [<pathspec>...] [-- SELECTIONs ...]
 #			Print selected filespecs modified by me in my last commit.
 # sgitshowfilesothers [<pathspec>...] [-- SELECTIONs ...]
@@ -266,6 +280,7 @@ alias vimgitlll='commandOnSelected --command '"${_aliases_vim}"' --generator "gi
 # sgitfilesfirstchanged [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
 # sgitfilesfirsttouched [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
 alias                   sgitshowfiles='commandOnSelected --generator "git showfiles" --entries'
+multiplicityAliasOn showfiles sgitshowfiles='commandOnSelected --generator "git showfiles" --entries'
 alias               sgitshowfilesmine='commandOnSelected --generator "git showfilesmine" --entries'
 alias             sgitshowfilesothers='commandOnSelected --generator "git showfilesothers" --entries'
 alias               sgitshowfilesteam='commandOnSelected --generator "git showfilesteam" --entries'
@@ -285,6 +300,10 @@ alias           sgitfilesfirsttouched='commandOnSelected --generator "git filesf
 # ygitshowfiles [<since>..<until>] [<pathspec>...] [-- SELECTIONs ...]
 #			Yank selected filespecs modified in passed commit or
 #			commit range.
+# ygitshowfiles{1..7,x,q,z} [<pathspec>...]
+#			Yank selected filespecs modified in the commit(s)
+#			interactively chosen from the commits [that cover
+#			<pathspec>...] in the <range>.
 # ygitshowfilesmine [<pathspec>...] [-- SELECTIONs ...]
 #			Yank selected filespecs modified by me in my last commit.
 # ygitshowfilesothers [<pathspec>...] [-- SELECTIONs ...]
@@ -315,6 +334,7 @@ alias           sgitfilesfirsttouched='commandOnSelected --generator "git filesf
 # ygitfilesfirstchanged [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
 # ygitfilesfirsttouched [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
 alias                   ygitshowfiles='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git showfiles" --entries'
+multiplicityAliasOn showfiles ygitshowfiles='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git showfiles" --entries'
 alias               ygitshowfilesmine='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git showfilesmine" --entries'
 alias             ygitshowfilesothers='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git showfilesothers" --entries'
 alias               ygitshowfilesteam='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git showfilesteam" --entries'
@@ -334,6 +354,10 @@ alias           sgitfilesfirsttouched='commandOnSelected --command "printf %s\\\
 # lgitshowfiles [<since>..<until>] [<pathspec>...] [-- SELECTIONs ...]
 #			View selected files modified in passed commit or commit
 #			range with the pager.
+# lgitshowfiles{1..7,x,q,z} [<pathspec>...]
+#			View selected files modified in the commit(s)
+#			interactively chosen from the commits [that cover
+#			<pathspec>...] in the <range>.
 # lgitshowfilesmine [<pathspec>...] [-- SELECTIONs ...]
 #			View selected filespecs modified by me in my last commit
 #			with the pager.
@@ -365,6 +389,7 @@ alias           sgitfilesfirsttouched='commandOnSelected --command "printf %s\\\
 # lgitfilesfirstchanged [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
 # lgitfilesfirsttouched [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
 alias                   lgitshowfiles='commandOnSelected --command "${PAGER:-less}" --generator "git showfiles" --entries'
+multiplicityAliasOn showfiles lgitshowfiles='commandOnSelected --command "${PAGER:-less}" --generator "git showfiles" --entries'
 alias               lgitshowfilesmine='commandOnSelected --command "${PAGER:-less}" --generator "git showfilesmine" --entries'
 alias             lgitshowfilesothers='commandOnSelected --command "${PAGER:-less}" --generator "git showfilesothers" --entries'
 alias               lgitshowfilesteam='commandOnSelected --command "${PAGER:-less}" --generator "git showfilesteam" --entries'
@@ -384,6 +409,10 @@ alias           lgitfilesfirsttouched='commandOnSelected --command "${PAGER:-les
 # vgitshowfiles [<since>..<until>] [<pathspec>...] [-- SELECTIONs ...]
 #			Edit selected files modified in passed commit or commit
 #			range in GVIM.
+# vgitshowfiles{1..7,x,q,z} [<pathspec>...]
+#			Edit selected filespecs modified in the commit(s)
+#			interactively chosen from the commits [that cover
+#			<pathspec>...] in the <range> in GVIM.
 # vgitshowfilesmine [<pathspec>...] [-- SELECTIONs ...]
 #			Edit selected filespecs modified by me in my last commit
 #			in GVIM.
@@ -415,6 +444,7 @@ alias           lgitfilesfirsttouched='commandOnSelected --command "${PAGER:-les
 # vgitfilesfirstchanged [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
 # vgitfilesfirsttouched [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
 alias                   vgitshowfiles='commandOnSelected --command SendToGVIM --generator "git showfiles" --entries'
+multiplicityAliasOn showfiles vgitshowfiles='commandOnSelected --command SendToGVIM --generator "git showfiles" --entries'
 alias               vgitshowfilesmine='commandOnSelected --command SendToGVIM --generator "git showfilesmine" --entries'
 alias             vgitshowfilesothers='commandOnSelected --command SendToGVIM --generator "git showfilesothers" --entries'
 alias               vgitshowfilesteam='commandOnSelected --command SendToGVIM --generator "git showfilesteam" --entries'
@@ -434,6 +464,10 @@ alias           vgitfilesfirsttouched='commandOnSelected --command SendToGVIM --
 # vimgitshowfiles [<since>..<until>] [<pathspec>...] [-- SELECTIONs ...]
 #			Edit selected files modified in passed commit or commit
 #			range in Vim.
+# vimgitshowfiles{1..7,x,q,z} [<pathspec>...]
+#			Edit selected files modified in the commit(s)
+#			interactively chosen from the commits [that cover
+#			<pathspec>...] in the <range> in Vim.
 # vimgitshowfilesmine [<pathspec>...] [-- SELECTIONs ...]
 #			Edit selected filespecs modified by me in my last commit
 #			in Vim.
@@ -465,6 +499,7 @@ alias           vgitfilesfirsttouched='commandOnSelected --command SendToGVIM --
 # vimgitfilesfirstchanged [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
 # vimgitfilesfirsttouched [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
 alias                   vimgitshowfiles='commandOnSelected --command '"${_aliases_vim}"' --generator "git showfiles" --entries'
+multiplicityAliasOn showfiles vimgitshowfiles='commandOnSelected --command '"${_aliases_vim}"' --generator "git showfiles" --entries'
 alias               vimgitshowfilesmine='commandOnSelected --command '"${_aliases_vim}"' --generator "git showfilesmine" --entries'
 alias             vimgitshowfilesothers='commandOnSelected --command '"${_aliases_vim}"' --generator "git showfilesothers" --entries'
 alias               vimgitshowfilesteam='commandOnSelected --command '"${_aliases_vim}"' --generator "git showfilesteam" --entries'
@@ -682,3 +717,5 @@ eval "$(runWithPrompt --addAliasSupport git-reintegrate \
     'b' \
     'branch'
 )"
+
+unset multiplicityAliasOn

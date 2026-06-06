@@ -11,6 +11,9 @@ HELPTEXT
 }
 
 addCommand='add'
+typeset -a selectedCommandArgs=()
+typeset -a allargs=()
+unset filespecs
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -20,10 +23,29 @@ do
 	--color)	shift; shift;;
 	--edit|--patch)	addCommand+=" $1"; shift;;
 	--force|-f)	addCommand+=" $1"; shift;;
-	--)		break;;
-	*)		break;;
+	--accept-single|--single-only)
+			selectedCommandArgs+=("$1"); shift;;
+	--filter)	selectedCommandArgs+=("$1" "$2"); shift; shift;;
+	--)		shift; typeset -a filespecs=("$@"); set --; break;;
+	*)		allargs+=("$1"); shift;;
     esac
 done
+if [ -z "${filespecs+t}" ]; then
+    # No files after -- captured yet; need to investigate parsed and
+    # remaining args from behind for files.
+    typeset -a filespecs=()
+    allargs+=("$@")
+    while [ ${#allargs[@]} -ne 0 ]
+    do
+	lastArg="${allargs[-1]}"
+	[ -e "$lastArg" ] || break
 
-export GIT_SELECTED_COMMAND_DEFAULT_FILES='git ls-files --modified --'
-exec git-selected-command --filter '' "$addCommand" "$@"    # Note: No root wrapper because ls-files is based off the CWD.
+	filespecs=("$lastArg" "${filespecs[@]}")
+	allargs=("${allargs[@]:0:${#allargs[@]}-1}")
+    done
+fi
+quotedFilespecs=; [ ${#filespecs[@]} -eq 0 ] || printf -v quotedFilespecs '%q ' "${filespecs[@]}"
+quotedFilespecs="${quotedFilespecs% }"
+
+export GIT_SELECTED_COMMAND_DEFAULT_FILES="git ls-files --modified -- $quotedFilespecs"
+exec git-selected-command "${selectedCommandArgs[@]}" "$addCommand" "${allargs[@]}"	# Note: No root wrapper because ls-files is based off the CWD.

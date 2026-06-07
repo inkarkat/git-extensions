@@ -1,17 +1,36 @@
 #!/bin/bash
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--previous] [-f|--force] [[-r|--revision] <commit>] [--] [<pathspec>...] [-?|-h|--help]'
+}
 printUsage()
 {
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Restore [<pathspec>... in] the working copy to the passed <commit> / HEAD.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
     cat <<HELPTEXT
-Revert changes [for <pathspec>...] in the working copy to the (with --previous
-commit prior to the) passed <commit> / HEAD.
+    --previous		Restore the commit prior to <commit> / HEAD^.
+
 Like "git checkout <commit> [-- <pathspec>...]" but doesn't write to the index /
 cause the "detached HEAD" status when no <pathspec>... are passed. This is meant
 to be for temporary investigation or verifying a test failure without the
 committed fix, so no dirty working copy is allowed (unless forced).
 HELPTEXT
-    echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--previous] [-f|--force] [[-r|--revision] <commit>] [--] [<pathspec>...] [-?|-h|--help]'
 }
 
 rev=
@@ -20,7 +39,7 @@ commitSuffix=
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;

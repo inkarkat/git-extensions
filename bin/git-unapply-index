@@ -9,18 +9,25 @@ revert in the working copy those changes that have been added to the index but
 not committed yet.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<commit>] [--] [<pathspec>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--revision REVISION] [--] [<pathspec>...] [-?|-h|--help]'
 }
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
-			shift;;
-    --color)		shift; shift;;
-esac
+
+typeset -a revision=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--revision|-r)	shift; revision=("${1:?}"); shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+
 
 if ! git-staged --quiet -- "$@"; then
     echo >&2 'ERROR: Nothing staged.'
     exit 1
 fi
 
-git diff --no-color --cached "$@" | git apply --reverse
+git diff --no-color --cached "${revision[@]}" -- "$@" | git apply --reverse

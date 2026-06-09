@@ -4,10 +4,10 @@
 ### [WORK.COPY]  [INDEX]    [LOCAL REPOSITORY]  [REMOTE REPO]
 <------------ pull or rebase ----------------------------/
 .                  XX                      ^-- fetch ----/
-<--------- checkout-committed -------------/
+<--------- checkout-committed -------------/    (leaves index intact)
 <-- checkout -- . /------------------------/
-<-- apply-index --/
-^- xǝpuᴉ-ʎʃddɐun -/
+<-- apply-index --/         (like above but only considers staged files)
+^- xǝpuᴉ-ʎʃddɐun -/         (drops the staged changes from the working copy)
 .                            ^- uncommit --/
 .                  <---------^- peel ------/
 <------------------^---------^- wipecommit-/

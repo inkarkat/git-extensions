@@ -4,7 +4,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, they can
     # skim the long one.
-    printf 'Usage: [GIT_COMPARECHECKOUTREVISION_COMMAND=COMMAND] [GIT_COMPARECHECKOUTREVISION_LASTARG=ARG] %q %s\n' "$(basename "$1")" "$(compareRuns --get-short-usage '' 2>/dev/null) [--previous] [-r|--revision <commit>] [--] [<pathspec>...] [-?|-h|--help] ..."
+    printf 'Usage: [GIT_COMPARECHECKOUTREVISION_COMMAND=COMMAND] %q %s\n' "$(basename "$1")" "$(compareRuns --get-short-usage '' 2>/dev/null) [--previous] [--except-last] [-r|--revision <commit>] [--] [<pathspec>...] [-?|-h|--help] ..."
     echo
     printf 'Usage: GIT_COMPARE_CHECK_COMMAND=CMD|GIT_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" '...'
     printf 'Usage: %q %s\n' "$(basename "$1")" "... -c|--command \"CHECK-COMMANDLINE\" [-c ...] | --exec SIMPLECOMMAND [...] ${COMPARERUNS_EXEC_END:-;} [--exec ...]"
@@ -34,6 +34,9 @@ HELPDESCRIPTION
     compareRuns --get-long-usage '' 2>/dev/null
     cat <<HELPTEXT
     --previous		Restore the commit prior to <commit> / HEAD^.
+    --except-last	The very last argument is special and should not be
+			parsed as <pathspec>, but passed as-is to the
+			checkoutrevision command.
 
 SEE ALSO:
 - (Commands offering complementary functionality, or commands using this command.)
@@ -49,6 +52,7 @@ HELPTEXT
 
 rev=HEAD
 isPrevious=
+typeset -a specialLastArg=()
 isCheckFromStdin=
 typeset -a compareRunsArgs=()
 typeset -a checkoutRevisionArgs=()
@@ -58,6 +62,12 @@ do
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--revision|-r)	checkoutRevisionArgs+=("$1" "${2:?}"); shift; rev="$1"; shift;;
 	--previous)	checkoutRevisionArgs+=("$1"); shift; isPrevious=t;;
+	--except-last)	shift
+			if [ $# -gt 0 ]; then
+			    specialLastArg=("${!#}")
+			    set -- "${@:1:$(($#-1))}"
+			fi
+			;;
 	-)		shift; isCheckFromStdin=t; break;;
 	--)		compareRunsArgs+=("$1"); shift; break;;
 	*)		compareRunsArgs+=("$1"); shift;;
@@ -101,7 +111,7 @@ exec compareRuns \
 	--subject "${subject}${longFileSummary:+ for }${longFileSummary}" \
 	--fallback-command "${GIT_COMPARE_CHECK_COMMAND:-$GIT_CHECK_COMMAND}" \
 	--run1 "$name" \
-	--setup-exec git-wrapper ${GIT_COMPARECHECKOUTREVISION_COMMAND:-checkoutrevision} "${checkoutRevisionArgs[@]}" ${filespecs:+--} "${filespecs[@]}" ${GIT_COMPARECHECKOUTREVISION_LASTARG+"$GIT_COMPARECHECKOUTREVISION_LASTARG"} "${COMPARERUNS_EXEC_END:-;}" \
+	--setup-exec git-wrapper ${GIT_COMPARECHECKOUTREVISION_COMMAND:-checkoutrevision} "${checkoutRevisionArgs[@]}" ${filespecs:+--} "${filespecs[@]}" "${specialLastArg[@]}" "${COMPARERUNS_EXEC_END:-;}" \
 	--run2 'current working copy' \
 	--reset-exec git-wipe --force -- "${filespecs[@]}" "${COMPARERUNS_EXEC_END:-;}" \
 	"$@"

@@ -4,7 +4,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, they can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" "$(compareRuns --get-short-usage '' 2>/dev/null) [--previous] [-r|--revision <commit>] [--] [<pathspec>...] [-?|-h|--help] ..."
+    printf 'Usage: [GIT_COMPARECHECKOUTREVISION_COMMAND=COMMAND] [GIT_COMPARECHECKOUTREVISION_LASTARG=ARG] %q %s\n' "$(basename "$1")" "$(compareRuns --get-short-usage '' 2>/dev/null) [--previous] [-r|--revision <commit>] [--] [<pathspec>...] [-?|-h|--help] ..."
     echo
     printf 'Usage: GIT_COMPARE_CHECK_COMMAND=CMD|GIT_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" '...'
     printf 'Usage: %q %s\n' "$(basename "$1")" "... -c|--command \"CHECK-COMMANDLINE\" [-c ...] | --exec SIMPLECOMMAND [...] ${COMPARERUNS_EXEC_END:-;} [--exec ...]"
@@ -101,7 +101,7 @@ exec compareRuns \
 	--subject "${subject}${longFileSummary:+ for }${longFileSummary}" \
 	--fallback-command "${GIT_COMPARE_CHECK_COMMAND:-$GIT_CHECK_COMMAND}" \
 	--run1 "$name" \
-	--setup-exec git-checkoutrevision "${checkoutRevisionArgs[@]}" -- "${filespecs[@]}" "${COMPARERUNS_EXEC_END:-;}" \
+	--setup-exec git-wrapper ${GIT_COMPARECHECKOUTREVISION_COMMAND:-checkoutrevision} "${checkoutRevisionArgs[@]}" ${filespecs:+--} "${filespecs[@]}" ${GIT_COMPARECHECKOUTREVISION_LASTARG+"$GIT_COMPARECHECKOUTREVISION_LASTARG"} "${COMPARERUNS_EXEC_END:-;}" \
 	--run2 'current working copy' \
 	--reset-exec git-wipe --force -- "${filespecs[@]}" "${COMPARERUNS_EXEC_END:-;}" \
 	"$@"

@@ -48,6 +48,7 @@ HELPTEXT
 
 isCheckFromStdin=
 typeset -a compareRunsArgs=()
+isPatch=
 otherWhat=
 typeset -a otherFilesSourceCommand=()
 typeset -a stashArgs=()
@@ -55,8 +56,8 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
-	--patch|-p|--quiet|-q)
-			stashArgs+=("$1"); shift;;
+	--patch|-p)	shift; isPatch=t;;
+	--quiet|-q)	stashArgs+=("$1"); shift;;
 	--include-untracked)
 			stashArgs+=("$1"); shift; otherWhat='untracked files'; otherFilesSourceCommand=(git-untracked --print);;
 	--all|-a)	stashArgs+=("$1"); shift; otherWhat='untracked and ignored files'; otherFilesSourceCommand=(git-lsprivate -x --long);;
@@ -103,15 +104,62 @@ if [ ${#stashedOtherFiles[@]} -gt 0 ]; then
     subject+="${subject:+ and }$(joinBy --truncate-after 7 -- ', ' "${stashedOtherFiles[@]}")"
 fi
 
+if [ "$isPatch" ]; then
+    # When only parts of a file are stashed, a dirty working copy is left behind,
+    # and "git stash pop" will balk. Even my git-stash-pop-to-dirty will have to
+    # fall back to the patch command, as even "git apply" doesn't deal with fuzzing.
+    # All that adds complexity and potential failures, while we simply want to
+    # return to the original state, so why not save that (i.e. full contents of
+    # stashed files) separately?
+    # My git-stash-snapshot even offers a handy command for this.
+
+    # The stash is a stack; the setup and reset commands depend on the preceding
+    # command's success.
+    export COMPARERUNS_SETUP_COMMAND_JOINER='&&' COMPARERUNS_RESET_COMMAND_JOINER='&&'
+
+    # Do a full snapshot stash that's immediately restored and then the interactive
+    # hunk selection adds another (subset) stash.
+    typeset -a setupArgs=(
+	--setup-exec git-stash-snapshot
+		--quiet
+		--message "complete snapshot for git-compare-stash to $(git log --pretty=format:'%h %s' --max-count 1)"
+		"${stashArgs[@]}"
+		${filespecs:+--} "${filespecs[@]}"
+	    "${COMPARERUNS_EXEC_END:-;}"
+	--setup-exec git stash push
+		--patch
+		--message "selected hunks for git-compare-stash to $(git log --pretty=format:'%h %s' --max-count 1)"
+		"${stashArgs[@]}"
+		${filespecs:+--} "${filespecs[@]}"
+	    "${COMPARERUNS_EXEC_END:-;}"
+    )
+
+    # First drop the stashed hunks, wipe the left-behind declined hunks, and then
+    # restore the complete file contents from the first snapshot stash. This is
+    # guaranteed to work.
+    typeset -a resetArgs=(
+	--reset-exec git stash drop --quiet "${COMPARERUNS_EXEC_END:-;}"
+	--reset-exec git-wipe --force -- "${filespecs[@]}" "${COMPARERUNS_EXEC_END:-;}"
+	--reset-exec git stash pop --index "${COMPARERUNS_EXEC_END:-;}"
+    )
+else
+    typeset -a setupArgs=(
+	--setup-exec git stash push
+		--message "git-compare-stash to $(git log --pretty=format:'%h %s' --max-count 1)"
+		"${stashArgs[@]}"
+		${filespecs:+--} "${filespecs[@]}"
+	    "${COMPARERUNS_EXEC_END:-;}"
+    )
+    typeset -a resetArgs=(
+	--reset-exec git stash pop --index "${COMPARERUNS_EXEC_END:-;}"
+    )
+fi
+
 exec compareRuns \
-    --subject "Dropped $subject" \
+    --subject "Dropped${isPatch:+ selected} $subject" \
 	--fallback-command "${GIT_COMPARE_CHECK_COMMAND:-$GIT_CHECK_COMMAND}" \
 	--run1 "stashed $what" \
-	--setup-exec git stash push \
-		--message "git-compare-stash to $(git log --pretty=format:'%h %s' --max-count 1)" \
-		"${stashArgs[@]}" \
-		${filespecs:+--} "${filespecs[@]}" \
-	    "${COMPARERUNS_EXEC_END:-;}" \
+	"${setupArgs[@]}" \
 	--run2 "current $what" \
-	--reset-exec git stash pop --index "${COMPARERUNS_EXEC_END:-;}" \
+	"${resetArgs[@]}" \
 	"$@"

@@ -8,13 +8,14 @@ printUsage()
 Force application of stash to dirty working copy when "stash apply" complains.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--check] [--cached|--index|-3|--3way] [-u|--include-untracked|--only-untracked] [<diff-options>] [<stash>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--check] [--cached|--index|-3|--3way] [-F|--fuzz num] [-u|--include-untracked|--only-untracked] [<diff-options>] [<stash>] [-?|-h|--help]'
 }
 
 stash='stash@{0}'
 typeset -a stashShowArgs=()
 typeset -a applyArgs=()
 typeset -a applyCheckArg=()
+typeset -a patchArgs=()
 typeset -a patchCheckArg=()
 while [ $# -ne 0 ]
 do
@@ -28,12 +29,16 @@ do
 	--cached|--index|--3way|-3)
 			applyArgs+=("$1"); shift;;
 	--check)	applyCheckArg+=("$1"); shift; patchCheckArg+=(--dry-run);;
+	--fuzz|-F)	patchArgs+=("$1" "${2?}"); shift; shift;;
+	--fuzz=*)	patchArgs+=("$1"); shift;;
 	--)		stashShowArgs+=("$1"); shift; break;;
 	*)		stashShowArgs+=("$1"); shift;;
     esac
 done
 
-if [ ${#applyArgs[@]} -eq 0 ]; then
+if [ ${#patchArgs[@]} -gt 0 ]; then
+    git stash show --patch "${stashShowArgs[@]}" "$@" "$stash" | patch -p1 "${patchCheckArg[@]}" "${patchArgs[@]}"
+elif [ ${#applyArgs[@]} -eq 0 ]; then
     # Only switch to 3-way merge if the stash doesn't apply cleanly, as --3way
     # implies index manipulation, and that is different from normal "stash apply"
     # behavior.

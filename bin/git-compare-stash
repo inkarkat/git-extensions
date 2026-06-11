@@ -1,0 +1,117 @@
+#!/bin/bash
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, they can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" "$(compareRuns --get-short-usage '' 2>/dev/null) [-p|--patch|--include-untracked|-a|--all] [-q|--quiet] [--] [<pathspec>...] [-?|-h|--help]"
+    echo
+    printf 'Usage: GIT_COMPARE_CHECK_COMMAND=CMD|GIT_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" '...'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "... -c|--command \"CHECK-COMMANDLINE\" [-c ...] | --exec SIMPLECOMMAND [...] ${COMPARERUNS_EXEC_END:-;} [--exec ...]"
+    printf 'Usage: echo CHECK-COMMANDLINES | %q %s\n' "$(basename "$1")" "... [--bare|$(runWithPrompt --get-short-usage 2>/dev/null)] - ..."
+    printf 'Usage: %q %s - <<EOF\n  CHECK-COMMANDLINE\n...\nEOF\n' "$(basename "$1")" '...'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Temporarily save local modifications to a new stash entry, roll them back to
+HEAD, and run the passed check COMMAND(s) / default \$GIT_COMPARE_CHECK_COMMAND
+/ \$GIT_CHECK_COMMAND, and compare that with a run with the stashed changes
+reapplied.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    compareRuns --get-long-usage '' 2>/dev/null
+    cat <<HELPTEXT
+
+SEE ALSO:
+- (Commands offering complementary functionality, or commands using this command.)
+
+EXIT STATUS:
+HELPTEXT
+    compareRuns --get-long-usage exitstatus 2>/dev/null
+    cat <<HELPTEXT
+    2	Bad invocation, wrong or missing command-line arguments.
+    4	Prerequisite of something to stash [inside <pathspec>] not met.
+HELPTEXT
+}
+
+isCheckFromStdin=
+typeset -a compareRunsArgs=()
+otherWhat=
+typeset -a otherFilesSourceCommand=()
+typeset -a stashArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--patch|-p|--quiet|-q)
+			stashArgs+=("$1"); shift;;
+	--include-untracked)
+			stashArgs+=("$1"); shift; otherWhat='untracked files'; otherFilesSourceCommand=(git-untracked --print);;
+	--all|-a)	stashArgs+=("$1"); shift; otherWhat='untracked and ignored files'; otherFilesSourceCommand=(git-lsprivate -x --long);;
+	-)		shift; isCheckFromStdin=t; break;;
+	--)		compareRunsArgs+=("$1"); shift; break;;
+	*)		compareRunsArgs+=("$1"); shift;;
+    esac
+done
+set -- "${compareRunsArgs[@]}" "$@"
+typeset -a filespecs=()
+if [ ! "$isCheckFromStdin" ]; then
+    while [ $# -gt 0 ]
+    do
+	lastArg="${!#}"
+	if [ "$lastArg" = '--' ]; then
+	    set -- "${@:1:$(($#-1))}"
+	    break
+	fi
+	[ -e "$lastArg" ] || break
+
+	filespecs=("$lastArg" "${filespecs[@]}")
+	set -- "${@:1:$(($#-1))}"
+    done
+fi
+
+typeset -a stashedChanges=() stashedOtherFiles=()
+readarray -t stashedChanges < <(git-stIfiles -- "${filespecs[@]}")
+[ ${#otherFilesSourceCommand[@]} -eq 0 ] \
+    || readarray -t stashedOtherFiles < <("${otherFilesSourceCommand[@]}" -- "${filespecs[@]}")
+
+if [ ${#stashedChanges[@]} -eq 0 -a ${#stashedOtherFiles[@]} -eq 0 ]; then
+    echo >&2 'ERROR: Nothing to stash.'
+    exit 4
+fi
+
+what=''
+subject=''
+if [ ${#stashedChanges[@]} -gt 0 ]; then
+    what="${what:+ and }working copy"
+    subject+="${subject:+ and }changes in $(joinBy --truncate-after 7 -- ', ' "${stashedChanges[@]}")"
+fi
+if [ ${#stashedOtherFiles[@]} -gt 0 ]; then
+    what="${what:+ and }${otherWhat}"
+    subject+="${subject:+ and }$(joinBy --truncate-after 7 -- ', ' "${stashedOtherFiles[@]}")"
+fi
+
+exec compareRuns \
+    --subject "Dropped $subject" \
+	--fallback-command "${GIT_COMPARE_CHECK_COMMAND:-$GIT_CHECK_COMMAND}" \
+	--run1 "stashed $what" \
+	--setup-exec git stash push \
+		--message "git-compare-stash to $(git log --pretty=format:'%h %s' --max-count 1)" \
+		"${stashArgs[@]}" \
+		${filespecs:+--} "${filespecs[@]}" \
+	    "${COMPARERUNS_EXEC_END:-;}" \
+	--run2 "current $what" \
+	--reset-exec git stash pop --index "${COMPARERUNS_EXEC_END:-;}" \
+	"$@"

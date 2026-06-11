@@ -52,12 +52,13 @@ isPatch=
 otherWhat=
 typeset -a otherFilesSourceCommand=()
 typeset -a stashArgs=()
+typeset -a stashQuietArg=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--patch|-p)	shift; isPatch=t;;
-	--quiet|-q)	stashArgs+=("$1"); shift;;
+	--quiet|-q)	stashQuietArg+=("$1"); shift;;
 	--include-untracked)
 			stashArgs+=("$1"); shift; otherWhat='untracked files'; otherFilesSourceCommand=(git-untracked --print);;
 	--all|-a)	stashArgs+=("$1"); shift; otherWhat='untracked and ignored files'; otherFilesSourceCommand=(git-lsprivate -x --long);;
@@ -123,13 +124,13 @@ if [ "$isPatch" ]; then
 	--setup-exec git-stash-snapshot
 		--quiet
 		--message "complete snapshot for git-compare-stash to $(git log --pretty=format:'%h %s' --max-count 1)"
-		"${stashArgs[@]}"
+		"${stashArgs[@]}" "${stashQuietArg[@]}"
 		${filespecs:+--} "${filespecs[@]}"
 	    "${COMPARERUNS_EXEC_END:-;}"
 	--setup-exec git stash push
 		--patch
 		--message "selected hunks for git-compare-stash to $(git log --pretty=format:'%h %s' --max-count 1)"
-		"${stashArgs[@]}"
+		"${stashArgs[@]}" "${stashQuietArg[@]}"
 		${filespecs:+--} "${filespecs[@]}"
 	    "${COMPARERUNS_EXEC_END:-;}"
     )
@@ -140,18 +141,18 @@ if [ "$isPatch" ]; then
     typeset -a resetArgs=(
 	--reset-exec git stash drop --quiet "${COMPARERUNS_EXEC_END:-;}"
 	--reset-exec git-wipe --force -- "${filespecs[@]}" "${COMPARERUNS_EXEC_END:-;}"
-	--reset-exec git stash pop --index "${COMPARERUNS_EXEC_END:-;}"
+	--reset-exec git stash pop --index "${stashQuietArg[@]}" "${COMPARERUNS_EXEC_END:-;}"
     )
 else
     typeset -a setupArgs=(
 	--setup-exec git stash push
 		--message "git-compare-stash to $(git log --pretty=format:'%h %s' --max-count 1)"
-		"${stashArgs[@]}"
+		"${stashArgs[@]}" "${stashQuietArg[@]}"
 		${filespecs:+--} "${filespecs[@]}"
 	    "${COMPARERUNS_EXEC_END:-;}"
     )
     typeset -a resetArgs=(
-	--reset-exec git stash pop --index "${COMPARERUNS_EXEC_END:-;}"
+	--reset-exec git stash pop --index "${stashQuietArg[@]}" "${COMPARERUNS_EXEC_END:-;}"
     )
 fi
 

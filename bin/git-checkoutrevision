@@ -33,6 +33,11 @@ Like "git checkout <commit> [-- <pathspec>...]" but doesn't write to the index /
 cause the "detached HEAD" status when no <pathspec>... are passed. This is meant
 to be for temporary investigation or verifying a test failure without the
 committed fix, so no dirty working copy is allowed (unless forced).
+
+EXIT STATUS:
+    0	Complete success.
+    1	Failed to check out any files from the specified <commit> / HEAD.
+    2	Bad invocation, wrong or missing command-line arguments.
 HELPTEXT
 }
 
@@ -56,7 +61,12 @@ do
     esac
 done
 
-[ ! "$isForce" ] && git-dirty --print-error "$@" && exit 1
+isDirty=
+if [ "$isForce" ]; then
+    git-dirty --quiet -- "$@" && isDirty=t
+else
+    git-dirty --print-error "$@" && exit 1
+fi
 
 if [ -z "$rev" ]; then
     if [ "$1" = '--' ]; then
@@ -68,6 +78,11 @@ if [ -z "$rev" ]; then
     [ -n "$rev" ] || rev='HEAD'
 fi
 
-git-wrapper checkout "${rev}${commitSuffix}" -- "${@:-.}" \
-    && git unstage "$@" >/dev/null \
-    && { [ "$isQuiet" ] || git status -sb; }
+set -e
+git-wrapper checkout "${rev}${commitSuffix}" -- "${@:-.}"
+if [ ! "$isDirty" ] && ! git-staged --quiet -- "$@"; then
+    printf 'Nothing checked out from %s\n' "$(git-commitid -- "${rev}${commitSuffix}")"
+    exit 1
+fi
+git unstage "$@" >/dev/null
+[ "$isQuiet" ] || git status -sb

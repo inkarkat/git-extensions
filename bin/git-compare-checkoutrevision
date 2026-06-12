@@ -4,7 +4,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, they can
     # skim the long one.
-    printf 'Usage: [GIT_COMPARECHECKOUTREVISION_COMMAND=COMMAND] %q %s\n' "$(basename "$1")" "$(compareRuns --get-short-usage '' 2>/dev/null) [--previous] [--except-last] [--invert-grep] [--grep=<pattern>] [-r|--revision <commit>] [--] [<pathspec>...] [-?|-h|--help] ..."
+    printf 'Usage: [GIT_COMPARECHECKOUTREVISION_COMMAND=COMMAND] %q %s\n' "$(basename "$1")" "$(compareRuns --get-short-usage '' 2>/dev/null) [--previous] [-q|--quiet] [--except-last] [--invert-grep] [--grep=<pattern>] [-r|--revision <commit>] [--] [<pathspec>...] [-?|-h|--help] ..."
     echo
     printf 'Usage: GIT_COMPARE_CHECK_COMMAND=CMD|GIT_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" '...'
     printf 'Usage: %q %s\n' "$(basename "$1")" "... -c|--command \"CHECK-COMMANDLINE\" [-c ...] | --exec SIMPLECOMMAND [...] ${COMPARERUNS_EXEC_END:-;} [--exec ...] | [--] SIMPLECOMMAND [...]"
@@ -58,12 +58,14 @@ typeset -a compareRunsArgs=()
 typeset -a checkoutRevisionArgs=()
 typeset -a checkoutRevisionGrepArgs=()
 typeset -a checkoutRevisionGrepModificationArgs=()
+typeset -a wipeArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--revision|-r)	checkoutRevisionArgs+=("$1" "${2:?}"); shift; rev="$1"; shift;;
 	--previous)	checkoutRevisionArgs+=("$1"); shift; isPrevious=t;;
+	--quiet|-q)	checkoutRevisionArgs+=("$1"); wipeArgs+=("$1"); shift;;
 
 	--except-last)	shift
 			if [ $# -gt 0 ]; then
@@ -128,5 +130,5 @@ exec compareRuns \
 		${filespecs:+--} "${filespecs[@]}" "${specialLastArg[@]}" \
 	    "${COMPARERUNS_EXEC_END:-;}" \
 	--run2 'current working copy' \
-	--reset-exec git-wipe --force -- "${filespecs[@]}" "${COMPARERUNS_EXEC_END:-;}" \
+	--reset-exec git-wipe --force "${wipeArgs[@]}" -- "${filespecs[@]}" "${COMPARERUNS_EXEC_END:-;}" \
 	"$@"

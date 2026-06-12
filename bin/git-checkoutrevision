@@ -4,7 +4,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--previous] [-f|--force] [[-r|--revision] <commit>] [--] [<pathspec>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--previous] [-f|--force] [-q|--quiet] [[-r|--revision] <commit>] [--] [<pathspec>...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -25,6 +25,7 @@ HELPDESCRIPTION
     echo
     cat <<HELPTEXT
     --previous		Restore the commit prior to <commit> / HEAD^.
+    --quiet|-q		Don't print the status.
 
 Like "git checkout <commit> [-- <pathspec>...]" but doesn't write to the index /
 cause the "detached HEAD" status when no <pathspec>... are passed. This is meant
@@ -35,6 +36,7 @@ HELPTEXT
 
 rev=
 isForce=
+isQuiet=
 commitSuffix=
 while [ $# -ne 0 ]
 do
@@ -45,6 +47,7 @@ do
 	--color)	shift; shift;;
 	--previous)	shift; commitSuffix='^';;
 	--force|-f)	shift; isForce=t;;
+	--quiet|-q)	shift; isQuiet=t;;
 	--revision|-r)	shift; rev="${1:?}"; shift;;
 	--)		shift; break;;
 	*)		break;;
@@ -65,4 +68,4 @@ fi
 
 git-wrapper checkout "${rev}${commitSuffix}" -- "${@:-.}" \
     && git unstage "$@" >/dev/null \
-    && git status -sb
+    && { [ "$isQuiet" ] || git status -sb; }

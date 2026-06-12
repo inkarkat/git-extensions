@@ -5,7 +5,7 @@ printShortUsage()
     # Note: short followed by long option; if the user knows the short one, they can
     # skim the long one.
     printf 'Usage: %q %s\n' "$(basename "$1")" "$(compareRuns --get-short-usage '' 2>/dev/null) [-p|--patch|--include-untracked|-a|--all] [-q|--quiet] [--] [<pathspec>...] [-?|-h|--help]"
-    printf 'Usage: %q %s\n' "$(basename "$1")" '... --selected [N [M ...]] [--] [<pathspec>...] ...'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... --selected [--select N [--select ...]|N [M ...]] [--] [<pathspec>...] ...'
     echo
     printf 'Usage: GIT_COMPARE_CHECK_COMMAND=CMD|GIT_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" '...'
     printf 'Usage: %q %s\n' "$(basename "$1")" "... -c|--command \"CHECK-COMMANDLINE\" [-c ...] | --exec SIMPLECOMMAND [...] ${COMPARERUNS_EXEC_END:-;} [--exec ...]"
@@ -56,6 +56,7 @@ typeset -a otherFilesSourceCommand=()
 typeset -a stashArgs=()
 typeset -a stashQuietArg=()
 isSelectFiles=
+typeset -a selections=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -66,6 +67,7 @@ do
 			stashArgs+=("$1"); shift; otherWhat='untracked files'; otherFilesSourceCommand=(git-untracked --print);;
 	--all|-a)	stashArgs+=("$1"); shift; otherWhat='untracked and ignored files'; otherFilesSourceCommand=(git-lsprivate -x --long);;
 	--selected)	shift; isSelectFiles=t;;
+	--select)	shift; selections+=("${1:?}"); shift;;
 	-)		shift; isCheckFromStdin=t; break;;
 	--)		compareRunsArgs+=("$1"); shift; break;;
 	*)		compareRunsArgs+=("$1"); shift;;
@@ -134,7 +136,7 @@ if [ "$isSelectFiles" ]; then
 	 quotedArgs+=" $quotedArg"
     done
 
-    exec git-selected-command "compare-stash${quotedArgs}" "${selectionArgs[@]}" ${filespecs:+--} "${filespecs[@]}"
+    exec git-selected-command "compare-stash${quotedArgs}" "${selections[@]}" "${selectionArgs[@]}" ${filespecs:+--} "${filespecs[@]}"
 fi
 
 typeset -a stashedChanges=() stashedOtherFiles=()

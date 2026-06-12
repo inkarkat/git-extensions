@@ -89,8 +89,13 @@ if [ ! "$isCheckFromStdin" ]; then
 fi
 
 if [ "$isSelectFiles" ]; then
-    # TODO: Handle --include-untracked / --all
-    export GIT_SELECTED_COMMAND_DEFAULT_FILES='git-unstaged --' # Only offer unstaged files; "git stash push --keep-index" does not touch the index and the legacy implementation needs a clean index, anyway.
+    if [ ${#otherFilesSourceCommand[@]} -gt 0 ]; then
+	eval "compareStashDefaultFiles() { { git-unstaged -- \"\$@\"; ${otherFilesSourceCommand[*]} -- \"\$@\"; } | sort --unique; }"
+	export -f compareStashDefaultFiles
+	export GIT_SELECTED_COMMAND_DEFAULT_FILES=compareStashDefaultFiles
+    else
+	export GIT_SELECTED_COMMAND_DEFAULT_FILES='git-unstaged --'
+    fi
 
     set -- "${allargs[@]}"
 

@@ -5,9 +5,9 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-y|--yes] [-N|--commit|--correct|--fixup [--rebase]] [REVERT-ARGS ...] <commit> [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-y|--yes] [-N|--commit|--correct|--fixup [--rebase]] [REVERT-ARGS ...] [[-r|--revision] <commit>] [...] [-?|-h|--help]'
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-e|--edit|-p|--patch|-s|--selected] [-N|--commit|--correct|--fixup [--rebase] [--no-edit]] <commit> [--] [<pathspec> ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-e|--edit|-p|--patch|-s|--selected] [-N|--commit|--correct|--fixup [--rebase] [--no-edit]] ([-r|--revision] <commit>) [--] [<pathspec> ...]'
 }
 printUsage()
 {
@@ -86,8 +86,9 @@ do
 	--rebase)	shift; isRebase=t;;
 	--rebase-from)	shift; isRebase=t; earliestRev="${1:?}"; shift;;
 	--correct)	shift; action=correct; commitArg=(--no-commit);;
-	--)		shift; typeset -a addFiles=("$@"); break;;
+	--revision|-r)	shift; revertCommits+=("${1:?}"); shift;;
 	--mainline|-m)	revertMainlineArgs+=("$1" "${2:?}"); shift; shift;;
+	--)		shift; typeset -a addFiles=("$@"); break;;
 	*)		revertCommits+=("$1"); shift;;
     esac
 done

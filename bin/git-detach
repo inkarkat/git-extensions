@@ -10,7 +10,7 @@ Unassociate from the current branch without changing the current commit. Useful
 e.g. for separate worktrees, because they all must be on distinct branches.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [-?|-h|--help]'
     echo
     cat <<HELPTEXT
 Detach HEAD at passed <commit>.
@@ -19,18 +19,25 @@ Detach HEAD at passed <commit>.
 			and <commit> will be kept as untracked files.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-u|--added-to-untracked] <commit> [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [-u|--added-to-untracked] <commit> [-?|-h|--help]'
 }
 
 isAddedToUntracked=
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
+typeset -a checkoutArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
 			shift;;
-    --color)		shift; shift;;
-    --added-to-untracked|-u)
+	--color)	shift; shift;;
+	--added-to-untracked|-u)
 			shift; isAddedToUntracked=t;;
-esac
+	--)		checkoutArgs+=("$1"); shift; break;;
+	*)		checkoutArgs+=("$1"); shift;;
+    esac
+done
+set -- "${checkoutArgs[@]}" "$@"
 
 TMPFILE=
 typeset -a addedFiles=()

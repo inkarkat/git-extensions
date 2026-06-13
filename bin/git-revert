@@ -5,9 +5,9 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-y|--yes] [-N|--commit|--correct|--fixup [--rebase]] [REVERT-ARGS ...] [[-r|--revision] <commit>] [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [-y|--yes] [-N|--commit|--correct|--fixup [--rebase]] [REVERT-ARGS ...] [[-r|--revision] <commit>] [...] [-?|-h|--help]'
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-e|--edit|-p|--patch|-s|--selected] [-N|--commit|--correct|--fixup [--rebase] [--no-edit]] ([-r|--revision] <commit>) [--] [<pathspec> ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [-e|--edit|-p|--patch|-s|--selected] [-N|--commit|--correct|--fixup [--rebase] [--no-edit]] ([-r|--revision] <commit>) [--] [<pathspec> ...]'
 }
 printUsage()
 {
@@ -56,6 +56,7 @@ isYes=
 addCommandExtension=
 typeset -a addArgs=()
 typeset -a commitArg=(--no-commit)
+typeset -a quietArg=()
 typeset -a revertCommits=()
 typeset -a revertEditArgs=()
 typeset -a revertMainlineArgs=()
@@ -76,6 +77,7 @@ do
 
 	--commit|-N)	shift; commitArg=();;
 	--no-commit|-n)	shift; commitArg=(--no-commit);;
+	--quiet|-q)	quietArg=("$1"); shift;;
 
 	--edit|-e|--patch|-p)
 			addArgs+=("$1"); shift;;
@@ -108,6 +110,15 @@ if [ -z "${addFiles+t}" ]; then
 fi
 # All arguments have been parsed into revertCommits and addFiles; don't use $@.
 
+doRevert()
+{
+    if [ ${#quietArg[@]} -eq 0 ]; then
+	command git revert "$@"
+    else
+	command git revert "$@" >/dev/null
+    fi
+}
+
 ensureSingleCommit()
 {
     if [ ${#revertCommits[@]} -ne 1 ]; then
@@ -124,7 +135,7 @@ ensureClean()
 
 completeRevert()
 {
-    command git revert "${commitArg[@]}" "${revertEditArgs[@]}" "${revertMainlineArgs[@]}" "${revertCommits[@]}"
+    doRevert "${commitArg[@]}" "${revertEditArgs[@]}" "${revertMainlineArgs[@]}" "${revertCommits[@]}"
 }
 
 partialRevert()
@@ -149,7 +160,7 @@ partialManualRevert()
 completeCorrect()
 {
     ensureClean
-    if command git revert "${commitArg[@]}" "${revertEditArgs[@]}" "${revertMainlineArgs[@]}" "${revertCommits[@]}"; then
+    if doRevert "${commitArg[@]}" "${revertEditArgs[@]}" "${revertMainlineArgs[@]}" "${revertCommits[@]}"; then
 	git-correct "${revertCommits[@]}"
     else
 	status=$?
@@ -187,7 +198,7 @@ completeFixup()
     while [ $# -gt 0 ]
     do
 	commit="$1"; shift
-	if command git revert "${commitArg[@]}" "${revertEditArgs[@]}" "$commit"; then
+	if doRevert "${commitArg[@]}" "${revertEditArgs[@]}" "$commit"; then
 	    git-fixup "$commit" || return $?    # Don't directly pass --rebase here, it would lead to multiple rebases if multiple <commit>s are given.
 	else
 	    status=$?
@@ -279,23 +290,23 @@ branch="$(git-brname --real-branch-only)"
 trap 'git checkout --force "$branch" 2>/dev/null' EXIT
 
 # Checkout the commit that contains the changes you want to revert in detached HEAD state.
-git-detach "$commit"
+git-detach "${quietArg[@]}" "$commit"
 
 # Reset the index to the previous commit.
-git reset HEAD~
+git reset "${quietArg[@]}" HEAD~
 
 # Select the changes you want to revert.
 git add$addCommandExtension "${addArgs[@]}" -- "${addFiles[@]}"
 
 # Create a commit that only contains the changes you want to revert.
 printf -v commitMessage 'Partial revert of "%s"\n\nThis reverts parts of commit %s' "$(git l1 "$commit")" "$(git-commitid "$commit")"
-git commit --message "$commitMessage"
+command git commit --quiet --message "$commitMessage"
 reversionCommit="$(git-commitid HEAD)"
 
 # Revert the isolated changes on top of the original branch.
 trap EXIT
 git checkout --force --quiet "$branch"
-if git revert --no-commit "$reversionCommit"; then   # Note: Don't directly commit (on --commit) because the commit message would reference the intermediate partial commit, not the original.
+if doRevert --no-commit "$reversionCommit"; then   # Note: Don't directly commit (on --commit) because the commit message would reference the intermediate partial commit, not the original.
     partial${action^}
 else
     status=$?

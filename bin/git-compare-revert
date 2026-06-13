@@ -1,0 +1,137 @@
+#!/bin/bash
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, they can
+    # skim the long one.
+    printf 'Usage: [GIT_COMPAREREVERT_COMMAND=COMMAND] %q %s\n' "$(basename "$1")" "$(compareRuns --get-short-usage '' 2>/dev/null) [-q|--quiet] [--except-last] [--invert-grep] [--grep=<pattern>] -r|--revision <commit> [-r ...] [--] [<pathspec>...] [-?|-h|--help] ..."
+    echo
+    printf 'Usage: GIT_COMPARE_CHECK_COMMAND=CMD|GIT_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" '...'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "... -c|--command \"CHECK-COMMANDLINE\" [-c ...] | --exec SIMPLECOMMAND [...] ${COMPARERUNS_EXEC_END:-;} [--exec ...] | [--] SIMPLECOMMAND [...]"
+    printf 'Usage: echo CHECK-COMMANDLINES | %q %s\n' "$(basename "$1")" "... [--bare|$(runWithPrompt --get-short-usage 2>/dev/null)] - ..."
+    printf 'Usage: %q %s - <<EOF\n  CHECK-COMMANDLINE\n...\nEOF\n' "$(basename "$1")" '...'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Temporarily apply the reverted changes from the passed <commit>(s) / HEAD
+[affecting <pathspec>...] to the working copy and run the passed check
+COMMAND(s) / default \$GIT_COMPARE_CHECK_COMMAND / \$GIT_CHECK_COMMAND, and
+compare that with a run with the reverted changes wiped.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    compareRuns --get-long-usage '' 2>/dev/null
+    cat <<HELPTEXT
+    --except-last	The very last argument is special and should not be
+			parsed as <pathspec>, but passed as-is to the
+			checkoutrevision command.
+
+SEE ALSO:
+- (Commands offering complementary functionality, or commands using this command.)
+
+EXIT STATUS:
+HELPTEXT
+    compareRuns --get-long-usage exitstatus 2>/dev/null
+    cat <<HELPTEXT
+    2	Bad invocation, wrong or missing command-line arguments.
+    4	Prerequisite of no dirty working copy [inside <pathspec>] not met.
+HELPTEXT
+}
+
+typeset -a revisions=()
+typeset -a specialLastArg=()
+isCheckFromStdin=
+typeset -a compareRunsArgs=()
+typeset -a revertArgs=()
+typeset -a revertGrepArgs=()
+typeset -a revertGrepModificationArgs=()
+typeset -a wipeArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--revision|-r)	revertArgs+=("$1" "${2:?}"); shift; revisions+=("$(git-commitid --short -- "$1")") || exit 2; shift;;
+	--quiet|-q)	revertArgs+=("$1"); wipeArgs+=("$1"); shift;;
+	--mainline|-m)	revertArgs+=("$1" "${2:?}"); shift; shift;;
+
+	--except-last)	shift
+			if [ $# -gt 0 ]; then
+			    specialLastArg=("${!#}")
+			    set -- "${@:1:$(($#-1))}"
+			fi
+			;;
+	--grep)		revertGrepArgs+=("$1" "$2"); shift; shift;;
+	--grep=*)	revertGrepArgs+=("$1"); shift;;
+	--invert-grep)	revertGrepModificationArgs+=("$1"); shift;;
+
+	-)		shift; isCheckFromStdin=t; break;;
+	--)		compareRunsArgs+=("$1"); shift; break;;
+	*)		compareRunsArgs+=("$1"); shift;;
+    esac
+done
+set -- "${compareRunsArgs[@]}" "$@"
+if [ ${#revertGrepArgs[@]} -gt 0 -a ${#specialLastArg[@]} -gt 0 ]; then
+    # --grep is an alternative to text|/regexp/
+    set -- "$@" "${specialLastArg[@]}"
+    specialLastArg=()
+fi
+typeset -a filespecs=()
+if [ ! "$isCheckFromStdin" ]; then
+    while [ $# -gt 0 ]
+    do
+	lastArg="${!#}"
+	if [ "$lastArg" = '--' ]; then
+	    set -- "${@:1:$(($#-1))}"
+	    break
+	fi
+	[ -e "$lastArg" ] || break
+
+	filespecs=("$lastArg" "${filespecs[@]}")
+	set -- "${@:1:$(($#-1))}"
+    done
+fi
+if [ ${#revisions[@]} -eq 0 ]; then
+    echo >&2 'ERROR: No -r|--revision <commit> passed.'
+    exit 2
+fi
+
+git-modified --print-error -- "${filespecs[@]}" || exit 4
+
+
+shortFileSummary=
+longFileSummary=
+if [ ${#filespecs[@]} -gt 0 ]; then
+    shortFileSummary="$(joinBy --summarize-larger '1 files' -- ', ' "${filespecs[@]}")"
+    longFileSummary="$(joinBy --truncate-after 7 -- ', ' "${filespecs[@]}")"
+fi
+
+if [ ${#revisions[@]} -eq 1 ]; then
+    revisionList="${revisions[0]}"
+    subject="Reverted $revisionList revision"
+else
+    revisionList="$(joinBy -- ', ' "${revisions[@]}")"
+    subject="Reverted revisions $revisionList"
+fi
+name="reverted ${shortFileSummary}${shortFileSummary:+ from }${revisionList}"
+exec compareRuns \
+	--subject "${subject}${longFileSummary:+ for }${longFileSummary}" \
+	--fallback-command "${GIT_COMPARE_CHECK_COMMAND:-$GIT_CHECK_COMMAND}" \
+	--run1 "$name" \
+	--setup-exec git-wrapper ${GIT_COMPAREREVERT_COMMAND:-revert} --yes \
+		"${revertArgs[@]}" "${revertGrepArgs[@]}" "${revertGrepModificationArgs[@]}" \
+		${filespecs:+--} "${filespecs[@]}" "${specialLastArg[@]}" \
+	    "${COMPARERUNS_EXEC_END:-;}" \
+	--run2 'current working copy' \
+	--reset-exec git-wipe --force "${wipeArgs[@]}" -- "${filespecs[@]}" "${COMPARERUNS_EXEC_END:-;}" \
+	"$@"

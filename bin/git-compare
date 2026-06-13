@@ -36,6 +36,8 @@ case "$1" in
 			shift
 			exec git-compare-checkoutrevision "${additionalCompareArgs[@]}" "$@"
 			;;
+    revert*)		export GIT_COMPAREREVERT_COMMAND="$1"; shift
+			exec git-compare-revert "${additionalCompareArgs[@]}" "$@"
 			;;
     *)			if type -t -- "git-compare-$1" >/dev/null; then
 			    # Dedicated compare command; usually is directly invoked by git-wrapper as a
@@ -48,6 +50,12 @@ case "$1" in
 			    export GIT_COMPARECHECKOUTREVISION_COMMAND="$1 $2"
 			    shift; shift
 			    exec git-compare-checkoutrevision "${additionalCompareArgs[@]}" "$@"
+			elif [[ "$2" = revert* ]] && type -t -- "git-$1" >/dev/null; then
+			    # Handle br-variants.
+			    handleTrailingTextRegexpArg "$2"
+			    export GIT_COMPAREREVERT_COMMAND="$1 $2"
+			    shift; shift
+			    exec git-compare-revert "${additionalCompareArgs[@]}" "$@"
 			else
 			    command hub compare "$@"
 			fi

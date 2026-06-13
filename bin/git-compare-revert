@@ -101,7 +101,7 @@ if [ ! "$isCheckFromStdin" ]; then
 	set -- "${@:1:$(($#-1))}"
     done
 fi
-if [ ${#revisions[@]} -eq 0 ]; then
+if [ ${#revisions[@]} -eq 0 -a -z "$GIT_COMPAREREVERT_COMMAND" ]; then
     echo >&2 'ERROR: No -r|--revision <commit> passed.'
     exit 2
 fi
@@ -116,13 +116,17 @@ if [ ${#filespecs[@]} -gt 0 ]; then
     longFileSummary="$(joinBy --truncate-after 7 -- ', ' "${filespecs[@]}")"
 fi
 
-if [ ${#revisions[@]} -eq 1 ]; then
-    revisionList="${revisions[0]}"
-    subject="Reverted $revisionList revision"
-else
-    revisionList="$(joinBy -- ', ' "${revisions[@]}")"
-    subject="Reverted revisions $revisionList"
-fi
+case ${#revisions[@]} in
+    0)	revisionList='selected revision(s)'
+	subject="Reverted $revisionList"
+	;;
+    1)	revisionList="${revisions[0]}"
+	subject="Reverted $revisionList revision"
+	;;
+    *)	revisionList="$(joinBy -- ', ' "${revisions[@]}")"
+	subject="Reverted revisions $revisionList"
+	;;
+esac
 name="reverted ${shortFileSummary}${shortFileSummary:+ from }${revisionList}"
 exec compareRuns \
 	--subject "${subject}${longFileSummary:+ for }${longFileSummary}" \

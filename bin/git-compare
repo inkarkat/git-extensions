@@ -19,16 +19,23 @@ HELPTEXT
     printf 'Usage: %q-* %s - <<EOF\n  CHECK-COMMANDLINE\n...\nEOF\n' "$(basename "$1")" '...'
 }
 
-typeset -a additionalCompareCheckoutRevisionArgs=()
+typeset -a additionalCompareArgs=()
+handleTrailingTextRegexpArg()
+{
+    local compareCommand="${1:?}"; shift
+    if [[ "$compareCommand" =~ (g|changed|touched)$ ]]; then
+	# Instruct git-compare-* to handle the trailing text|/regexp/ argument.
+	additionalCompareArgs+=(--except-last)
+    fi
+}
+
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    co[rp]s@(g|changed|touched))
-			# Instruct git-compare-checkoutrevision to handle the trailing text|/regexp/
-			# argument.
-			additionalCompareCheckoutRevisionArgs+=(--except-last)
-			;&
-    co[rp]?(s)*)	export GIT_COMPARECHECKOUTREVISION_COMMAND="$1"; shift
-			exec git-compare-checkoutrevision "${additionalCompareCheckoutRevisionArgs[@]}" "$@"
+    co[rp]?(s)*)	handleTrailingTextRegexpArg "$1"
+			export GIT_COMPARECHECKOUTREVISION_COMMAND="$1"
+			shift
+			exec git-compare-checkoutrevision "${additionalCompareArgs[@]}" "$@"
+			;;
 			;;
     *)			if type -t -- "git-compare-$1" >/dev/null; then
 			    # Dedicated compare command; usually is directly invoked by git-wrapper as a
@@ -37,8 +44,10 @@ case "$1" in
 			    exec "$delegate" "$@"
 			elif [[ "$2" = co[rp]s ]] && type -t -- "git-$1" >/dev/null; then
 			    # Handle br-variants.
-			    export GIT_COMPARECHECKOUTREVISION_COMMAND="$1 $2"; shift; shift
-			    exec git-compare-checkoutrevision "$@"
+			    handleTrailingTextRegexpArg "$2"
+			    export GIT_COMPARECHECKOUTREVISION_COMMAND="$1 $2"
+			    shift; shift
+			    exec git-compare-checkoutrevision "${additionalCompareArgs[@]}" "$@"
 			else
 			    command hub compare "$@"
 			fi

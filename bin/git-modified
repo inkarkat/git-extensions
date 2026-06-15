@@ -6,16 +6,29 @@ printUsage()
 Test whether there are / list modified (staged and unstaged) files.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--] [<pathspec>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet|-E|--print-error [--error-message MSG]] [--] [<pathspec>...] [-?|-h|--help]'
 }
 
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
+isQuiet=
+errorMessage='ERROR: Working copy has changes and/or index is not empty:'
+isPrintError=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
 			shift;;
-    --color)		shift; shift;;
-    --)			shift;;
-esac
+	--color)	shift; shift;;
+	--quiet|-q)	shift; isQuiet=t;;
+	--print-error|-E)
+			shift; isPrintError=t;;
+	--error-message)
+			shift; errorMessage="$1"; shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 
 typeset -A stagedFiles=()
 while IFS=$'\n' read -r filespec
@@ -23,7 +36,7 @@ do
     stagedFiles["$filespec"]=t
 done < <(git-stifiles -- "$@")
 
-readarray -t modifiedFiles < <(git-stIfiles HEAD -- "$@")
+readarray -t modifiedFiles < <(git-stIfiles HEAD -- "$@")   # Note: "HEAD" includes staged and unstaged changes, but not those where the staged change is undone in the working copy.
 # Note: I could also use { git-stifiles; git-stIfiles; } | sort -u, but that
 # requires another external command unconditionally.
 
@@ -35,6 +48,8 @@ if [ ${#stagedFiles[@]} -gt 0 ]; then
 fi
 
 if [ ${#modifiedFiles[@]} -gt 0 -o ${#stagedFiles[@]} -gt 0 ]; then
+    [ ! "$isQuiet" ] || exit 0
+    [ ! "$isPrintError" ] || printf >&2 '%s\n' "$errorMessage"
     if [ ${#stagedFiles[@]} -eq 0 ]; then
 	printf '%s\n' "${modifiedFiles[@]}"
     else
@@ -43,6 +58,7 @@ if [ ${#modifiedFiles[@]} -gt 0 -o ${#stagedFiles[@]} -gt 0 ]; then
 	# lists.
 	printf '%s\n' "${modifiedFiles[@]}" "${!stagedFiles[@]}" | sort
     fi
+    [ ! "$isPrintError" ] || exit 1
 else
-    exit 1
+    [ "$isPrintError" ] || exit 1
 fi

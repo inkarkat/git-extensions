@@ -1,0 +1,94 @@
+#!/bin/bash
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, they can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" "$(compareRuns --get-short-usage '' 2>/dev/null) [--] [<pathspec>...] [-?|-h|--help]"
+    echo
+    printf 'Usage: GIT_COMPARE_CHECK_COMMAND=CMD|GIT_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" '...'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "... -c|--command \"CHECK-COMMANDLINE\" [-c ...] | --exec SIMPLECOMMAND [...] ${COMPARERUNS_EXEC_END:-;} [--exec ...] | [--] SIMPLECOMMAND [...]"
+    printf 'Usage: echo CHECK-COMMANDLINES | %q %s\n' "$(basename "$1")" "... [--bare|$(runWithPrompt --get-short-usage 2>/dev/null)] - ..."
+    printf 'Usage: %q %s - <<EOF\n  CHECK-COMMANDLINE\n...\nEOF\n' "$(basename "$1")" '...'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Temporarily revert in the working copy those changes that have been added to the
+stage and run the passed check COMMAND(s) / default \$GIT_COMPARE_CHECK_COMMAND /
+\$GIT_CHECK_COMMAND, and compare that with a run with the staged changes
+included again.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    compareRuns --get-long-usage '' 2>/dev/null
+    cat <<HELPTEXT
+SEE ALSO:
+- (Commands offering complementary functionality, or commands using this command.)
+
+EXIT STATUS:
+HELPTEXT
+    compareRuns --get-long-usage exitstatus 2>/dev/null
+    cat <<HELPTEXT
+    4	Prerequisite of staged files [inside <pathspec>] and those don't have
+	any unstaged changes not met.
+HELPTEXT
+}
+
+isCheckFromStdin=
+typeset -a compareRunsArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	-)		shift; isCheckFromStdin=t; break;;
+	--)		compareRunsArgs+=("$1"); shift; break;;
+	*)		compareRunsArgs+=("$1"); shift;;
+    esac
+done
+set -- "${compareRunsArgs[@]}" "$@"
+typeset -a filespecs=()
+if [ ! "$isCheckFromStdin" ]; then
+    while [ $# -gt 0 ]
+    do
+	lastArg="${!#}"
+	if [ "$lastArg" = '--' ]; then
+	    set -- "${@:1:$(($#-1))}"
+	    break
+	fi
+	[ -e "$lastArg" ] || break
+
+	filespecs=("$lastArg" "${filespecs[@]}")
+	set -- "${@:1:$(($#-1))}"
+    done
+fi
+
+
+# Prerequisite: We have staged files [inside <pathspec>] and those don't have
+# any unstaged changes (because they would be overwritten by apply-index).
+typeset -a stagedFilespecs; readarray -t stagedFilespecs < <(git-staged -- "${filespecs[@]}")
+if [ ${#stagedFilespecs[@]} -eq 0 ]; then
+    echo >&2 'ERROR: Nothing staged.'
+    exit 4
+fi
+git-unstaged --print-error -- "${stagedFilespecs[@]}" || exit 4
+
+
+exec compareRuns \
+	--subject "Dropped staged changes in $(joinBy --truncate-after 7 -- ', ' "${stagedFilespecs[@]}")" \
+	--fallback-command "${GIT_COMPARE_CHECK_COMMAND:-$GIT_CHECK_COMMAND}" \
+	--run1 'without stage' \
+	--setup-exec git-unapply-index -- "${stagedFilespecs[@]}" "${COMPARERUNS_EXEC_END:-;}" \
+	--run2 'including stage' \
+	--reset-exec git-apply-index -- "${stagedFilespecs[@]}" "${COMPARERUNS_EXEC_END:-;}" \
+	"$@"

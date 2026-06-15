@@ -1,0 +1,221 @@
+#!/bin/bash
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, they can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" "$(compareRuns --get-short-usage '' 2>/dev/null) [-p|--patch|--include-untracked|-a|--all] [-q|--quiet] [--] [<pathspec>...] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... --selected [--select N [--select ...]|N [M ...]] [--] [<pathspec>...] ...'
+    echo
+    printf 'Usage: GIT_COMPARE_CHECK_COMMAND=CMD|GIT_CHECK_COMMAND=CMD %q %s\n' "$(basename "$1")" '...'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "... -c|--command \"CHECK-COMMANDLINE\" [-c ...] | --exec SIMPLECOMMAND [...] ${COMPARERUNS_EXEC_END:-;} [--exec ...] | [--] SIMPLECOMMAND [...]"
+    printf 'Usage: echo CHECK-COMMANDLINES | %q %s\n' "$(basename "$1")" "... [--bare|$(runWithPrompt --get-short-usage 2>/dev/null)] - ..."
+    printf 'Usage: %q %s - <<EOF\n  CHECK-COMMANDLINE\n...\nEOF\n' "$(basename "$1")" '...'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Temporarily save local modifications to a new stash entry, roll them back to
+HEAD, and run the passed check COMMAND(s) / default \$GIT_COMPARE_CHECK_COMMAND
+/ \$GIT_CHECK_COMMAND, and compare that with a run with the stashed changes
+reapplied.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    compareRuns --get-long-usage '' 2>/dev/null
+    cat <<HELPTEXT
+
+SEE ALSO:
+- (Commands offering complementary functionality, or commands using this command.)
+
+EXIT STATUS:
+HELPTEXT
+    compareRuns --get-long-usage exitstatus 2>/dev/null
+    cat <<HELPTEXT
+    2	Bad invocation, wrong or missing command-line arguments.
+    4	Prerequisite of something to stash [inside <pathspec>] not met.
+HELPTEXT
+}
+
+typeset -a allargs=("$@")
+isCheckFromStdin=
+typeset -a compareRunsArgs=()
+isPatch=
+otherWhat=
+typeset -a otherFilesSourceCommand=()
+typeset -a stashArgs=()
+typeset -a stashQuietArg=()
+isSelectFiles=
+typeset -a selections=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--patch|-p)	shift; isPatch=t;;
+	--quiet|-q)	stashQuietArg+=("$1"); shift;;
+	--include-untracked)
+			stashArgs+=("$1"); shift; otherWhat='untracked files'; otherFilesSourceCommand=(git-untracked --print);;
+	--all|-a)	stashArgs+=("$1"); shift; otherWhat='untracked and ignored files'; otherFilesSourceCommand=(git-lsprivate -x --long);;
+	--selected)	shift; isSelectFiles=t;;
+	--select)	shift; selections+=("${1:?}"); shift;;
+	-)		shift; isCheckFromStdin=t; break;;
+	--)		compareRunsArgs+=("$1"); shift; break;;
+	*)		compareRunsArgs+=("$1"); shift;;
+    esac
+done
+set -- "${compareRunsArgs[@]}" "$@"
+typeset -a filespecs=()
+if [ ! "$isCheckFromStdin" ]; then
+    while [ $# -gt 0 ]
+    do
+	lastArg="${!#}"
+	if [ "$lastArg" = '--' ]; then
+	    set -- "${@:1:$(($#-1))}"
+	    break
+	fi
+	[ -e "$lastArg" ] || break
+
+	filespecs=("$lastArg" "${filespecs[@]}")
+	set -- "${@:1:$(($#-1))}"
+    done
+fi
+
+if [ "$isSelectFiles" ]; then
+    if [ ${#otherFilesSourceCommand[@]} -gt 0 ]; then
+	eval "compareStashDefaultFiles() { { git-unstaged -- \"\$@\"; ${otherFilesSourceCommand[*]} -- \"\$@\"; } | sort --unique; }"
+	export -f compareStashDefaultFiles
+	export GIT_SELECTED_COMMAND_DEFAULT_FILES=compareStashDefaultFiles
+    else
+	export GIT_SELECTED_COMMAND_DEFAULT_FILES='git-unstaged --'
+    fi
+
+    set -- "${allargs[@]}"
+
+    # Remove <pathspec>... again.
+    if [ ! "$isCheckFromStdin" ]; then
+	while [ $# -gt 0 ]
+	do
+	    lastArg="${!#}"
+	    if [ "$lastArg" = '--' ]; then
+		set -- "${@:1:$(($#-1))}"
+		break
+	    fi
+	    [ -e "$lastArg" ] || break
+
+	    set -- "${@:1:$(($#-1))}"
+	done
+    fi
+
+    # Remove the selection arguments.
+    typeset -a selectionArgs=()
+    while [ $# -gt 0 ]
+    do
+	lastArg="${!#}"
+	[[ "$lastArg" =~ [0-9] ]] || break  # FIXME: Rudimentary check for a selection (vs. compareRuns argument): just needs to contain a decimal digit.
+
+	selectionArgs=("$lastArg" "${selectionArgs[@]}")
+	set -- "${@:1:$(($#-1))}"
+    done
+
+    # Remove the --selected flag itself for the recursive invocation.
+    quotedArgs=''
+    for arg
+    do
+	 [ "$arg" = --selected ] && continue
+	 printf -v quotedArg %q "$arg"
+	 quotedArgs+=" $quotedArg"
+    done
+
+    exec git-selected-command "compare-stash${quotedArgs}" "${selections[@]}" "${selectionArgs[@]}" ${filespecs:+--} "${filespecs[@]}"
+fi
+
+typeset -a stashedChanges=() stashedOtherFiles=()
+readarray -t stashedChanges < <(git-stIfiles -- "${filespecs[@]}")
+[ ${#otherFilesSourceCommand[@]} -eq 0 ] \
+    || readarray -t stashedOtherFiles < <("${otherFilesSourceCommand[@]}" -- "${filespecs[@]}")
+
+if [ ${#stashedChanges[@]} -eq 0 -a ${#stashedOtherFiles[@]} -eq 0 ]; then
+    echo >&2 'ERROR: Nothing to stash.'
+    exit 4
+fi
+
+what=''
+subject=''
+if [ ${#stashedChanges[@]} -gt 0 ]; then
+    what="${what:+ and }working copy"
+    subject+="${subject:+ and }changes in $(joinBy --truncate-after 7 -- ', ' "${stashedChanges[@]}")"
+fi
+if [ ${#stashedOtherFiles[@]} -gt 0 ]; then
+    what="${what:+ and }${otherWhat}"
+    subject+="${subject:+ and }$(joinBy --truncate-after 7 -- ', ' "${stashedOtherFiles[@]}")"
+fi
+
+if [ "$isPatch" ]; then
+    # When only parts of a file are stashed, a dirty working copy is left behind,
+    # and "git stash pop" will balk. Even my git-stash-pop-to-dirty will have to
+    # fall back to the patch command, as even "git apply" doesn't deal with fuzzing.
+    # All that adds complexity and potential failures, while we simply want to
+    # return to the original state, so why not save that (i.e. full contents of
+    # stashed files) separately?
+    # My git-stash-snapshot even offers a handy command for this.
+
+    # The stash is a stack; the setup and reset commands depend on the preceding
+    # command's success.
+    export COMPARERUNS_SETUP_COMMAND_JOINER='&&' COMPARERUNS_RESET_COMMAND_JOINER='&&'
+
+    # Do a full snapshot stash that's immediately restored and then the interactive
+    # hunk selection adds another (subset) stash.
+    typeset -a setupArgs=(
+	--setup-exec git-stash-snapshot
+		--quiet
+		--message "complete snapshot for git-compare-stash to $(git log --pretty=format:'%h %s' --max-count 1)"
+		"${stashArgs[@]}" "${stashQuietArg[@]}"
+		${filespecs:+--} "${filespecs[@]}"
+	    "${COMPARERUNS_EXEC_END:-;}"
+	--setup-exec git stash push
+		--patch
+		--message "selected hunks for git-compare-stash to $(git log --pretty=format:'%h %s' --max-count 1)"
+		"${stashArgs[@]}" "${stashQuietArg[@]}"
+		${filespecs:+--} "${filespecs[@]}"
+	    "${COMPARERUNS_EXEC_END:-;}"
+    )
+
+    # First drop the stashed hunks, wipe the left-behind declined hunks, and then
+    # restore the complete file contents from the first snapshot stash. This is
+    # guaranteed to work.
+    typeset -a resetArgs=(
+	--reset-exec git stash drop --quiet "${COMPARERUNS_EXEC_END:-;}"
+	--reset-exec git-wipe --force -- "${filespecs[@]}" "${COMPARERUNS_EXEC_END:-;}"
+	--reset-exec git stash pop --index "${stashQuietArg[@]}" "${COMPARERUNS_EXEC_END:-;}"
+    )
+else
+    typeset -a setupArgs=(
+	--setup-exec git stash push
+		--message "git-compare-stash to $(git log --pretty=format:'%h %s' --max-count 1)"
+		"${stashArgs[@]}" "${stashQuietArg[@]}"
+		${filespecs:+--} "${filespecs[@]}"
+	    "${COMPARERUNS_EXEC_END:-;}"
+    )
+    typeset -a resetArgs=(
+	--reset-exec git stash pop --index "${stashQuietArg[@]}" "${COMPARERUNS_EXEC_END:-;}"
+    )
+fi
+
+exec compareRuns \
+    --subject "Dropped${isPatch:+ selected} $subject" \
+	--fallback-command "${GIT_COMPARE_CHECK_COMMAND:-$GIT_CHECK_COMMAND}" \
+	--run1 "stashed $what" \
+	"${setupArgs[@]}" \
+	--run2 "current $what" \
+	"${resetArgs[@]}" \
+	"$@"

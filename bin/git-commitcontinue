@@ -1,0 +1,23 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Commit with the same commit message as passed revision(s) [from the working copy
+that FILE or DIR resides in] as the base for further editing, referencing prior
+commit(s) (when it's too late to amend the existing commit).
+This just adds a link to the preceding commit(s) in the commit message (title
+and body), indicating that it builds on it.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[<commit-arguments> ...] (<ref>|:/<pattern> [[--] FILE|DIR] ...) [-?|-h|--help]'
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+GIT_CORRECT_REFERENCE_MESSAGE='This continues commit' \
+GIT_CORRECT_REFERENCE_REFERRER_PREFIX='' \
+GIT_CORRECT_REFERENCE_REFERRER_SUFFIX='continued' \
+    exec git-correct "$@"

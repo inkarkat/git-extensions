@@ -3,7 +3,8 @@ set -o pipefail
 shopt -qs extglob
 
 : ${GIT_CORRECT_REFERENCE_MESSAGE:=This corrects commit}
-: ${GIT_CORRECT_REFERENCE_REFERRER:=after}
+: ${GIT_CORRECT_REFERENCE_REFERRER_PREFIX=after}
+: ${GIT_CORRECT_REFERENCE_REFERRER_SUFFIX=}
 readonly INCLUDED_TAGS_CONFIG_KEY='correct.includedTags'
 
 printUsage()
@@ -120,7 +121,7 @@ cleanup()
     refGlob='+([0-9A-Fa-f])'
     [ ${#includedGlobs[@]} -eq 0 ] || refGlob="@(${refGlob}|$(joinBy '|' "${includedGlobs[@]}"))"
     IFS=$'\n' read -r titleLine
-    titleLine="${titleLine% (${GIT_CORRECT_REFERENCE_REFERRER}${GIT_CORRECT_REFERENCE_REFERRER:+ }?(+([^ ])@)${refGlob}*(, +([^ ])@)${refGlob})}"
+    titleLine="${titleLine% (${GIT_CORRECT_REFERENCE_REFERRER_PREFIX}${GIT_CORRECT_REFERENCE_REFERRER_PREFIX:+ }?(+([^ ])@)${refGlob}*(, +([^ ])@)${refGlob}${GIT_CORRECT_REFERENCE_REFERRER_SUFFIX:+ }${GIT_CORRECT_REFERENCE_REFERRER_SUFFIX})}"
 
     remainingLines="$(grep -v -e "^(${GIT_CORRECT_REFERENCE_MESSAGE} [[:xdigit:]]\\+\\(\\(,\\| and\\) [[:xdigit:]]\\+\\)*)\$")"
     remainingLines="${remainingLines%%+($'\n')}"
@@ -140,10 +141,11 @@ cleanup()
 	done
     fi
 )
-printf "%s (%s%s)\\n%s\\n\\n(${GIT_CORRECT_REFERENCE_MESSAGE} %s)\\n" \
+printf "%s (%s%s%s)\\n%s\\n\\n(${GIT_CORRECT_REFERENCE_MESSAGE} %s)\\n" \
     "$titleLine" \
-    "${GIT_CORRECT_REFERENCE_REFERRER}${GIT_CORRECT_REFERENCE_REFERRER:+ }" \
+    "${GIT_CORRECT_REFERENCE_REFERRER_PREFIX}${GIT_CORRECT_REFERENCE_REFERRER_PREFIX:+ }" \
     "$(joinBy ', ' "${contextualizedShortCommitIds[@]}")" \
+    "${GIT_CORRECT_REFERENCE_REFERRER_SUFFIX:+ }${GIT_CORRECT_REFERENCE_REFERRER_SUFFIX}" \
     "$remainingLines" \
     "$(joinBy --last-separator ' and ' ', ' "${contextualizedCommitIds[@]}")" \
     > "$commitMessageFilespec" || exit $?

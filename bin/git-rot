@@ -1,0 +1,42 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Rotate the last three / N commits left: x y z → y z x
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--edit|-i|--interactive] [-n|--count N] [REBASE-ARGS ...] [-?|-h|--help]'
+    echo
+    cat <<HELPTEXT
+Rotate the last three / N commits right: x y z → z x y
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '-r|--reverse|--right [--edit|-i|--interactive] [-n|--count N] [REBASE-ARGS ...] [-?|-h|--help]'
+}
+
+typeset -a sedProgram=(-e '1{ h; d; }' -e '$G')
+count=3
+typeset -a rebaseArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+	--reverse|--right|-r)
+			shift
+			sedProgram=(-e '${ p; g; b; }' -e '1h' -e '1!H' -e d)
+			;;
+	--count|-n)	shift; count="${1:?}"; shift;;
+	--)		rebaseArgs+=("$1"); shift; break;;
+	*)		rebaseArgs+=("$1"); shift;;
+    esac
+done
+if [ $count -lt 3 ]; then
+    echo >&2 'ERROR: -n|--count N must be at least 3.'
+    exit 2
+fi
+
+exec git-rebase-todo-list-command --no-autosquash --exec sed "${sedProgram[@]}" \; "${rebaseArgs[@]}" "$@" "HEAD~${count}"

@@ -36,8 +36,23 @@ HELPDESCRIPTION
 HELPTEXT
 }
 
-typeset -a logArgs=()
 typeset -A uniqueRevisions=()
+addUniqueRevision()
+{
+    local candidate="${1:?}"; shift
+    local candidateLength=${#candidate}
+    local r; for r in "${!uniqueRevisions[@]}"
+    do
+	if [ $candidateLength -lt ${#r} ]; then
+	    [ "${r:0:$candidateLength}" = "$candidate" ] \
+		&& return  # Candidate is a prefix of already known revision.
+	elif [ $candidateLength -gt ${#r} -a "${candidate:0:${#r}}" = "$r" ]; then
+	    unset "uniqueRevisions[$r]"	# Candidate is a longer form of already known revision; drop the shorter one.
+	fi
+    done
+    uniqueRevisions["$candidate"]=t
+}
+typeset -a logArgs=()
 typeset -a grepArgs=()
 while [ $# -ne 0 ]
 do
@@ -48,11 +63,11 @@ do
 	--color)	shift; shift;;
 	--separate-discontinuous)
 			shift; grepArgs+=(--context=0);;
-	--revision|-r)	shift; uniqueRevisions["${1:?}"]=t; shift;;
+	--revision|-r)	shift; addUniqueRevision "${1:?}"; shift;;
 	--revisions)	shift
 			while [ $# -gt 0 -a "$1" != "$GIT_GRAPHSORTREVS_REVISIONS_END" ]
 			do
-			    uniqueRevisions["${1:?}"]=t
+			    addUniqueRevision "${1:?}"
 			    shift
 			done
 			if [ $# -eq 0 ]; then
@@ -81,7 +96,7 @@ done
 if [ ${#uniqueRevisions[@]} -eq 0 ]; then
     input="$(</dev/stdin)"
     IFS=$' \t' read -r -a revisions <<<"${input//$'\n'/ }"
-    readarray -t revisions < <(printf '%s\n' "${revisions[@]}" | sort --unique)
+    readarray -t revisions < <(printf '%s\n' "${revisions[@]}" | uniquePrefixes)
 else
     typeset -a revisions=("${!uniqueRevisions[@]}")
 fi

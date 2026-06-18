@@ -1,0 +1,31 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Squash the last two / N commits into a single one.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--edit|-i|--interactive] [-n|--count N] [REBASE-ARGS ...] [-?|-h|--help]'
+}
+
+count=2
+typeset -a rebaseArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+	--count|-n)	shift; count="${1:?}"; shift;;
+	--)		rebaseArgs+=("$1"); shift; break;;
+	*)		rebaseArgs+=("$1"); shift;;
+    esac
+done
+if [ $count -lt 2 ]; then
+    echo >&2 'ERROR: -n|--count N must be at least 2.'
+    exit 2
+fi
+
+exec git-rebase-todo-list-command --no-autosquash --exec sed -e '2,$s/^[^ ]\+/squash/' \; "${rebaseArgs[@]}" "$@" "HEAD~${count}"

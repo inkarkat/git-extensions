@@ -6,9 +6,10 @@ printUsage()
 Do a test commit by appending MESSAGE to FILE and committing with MESSAGE(s).
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-p|--prepend] MESSAGE FILE [[MESSAGE] FILE ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-commit] [-p|--prepend] MESSAGE FILE [[MESSAGE] FILE ...] [-?|-h|--help]'
 }
 
+isCommit=t
 modifier=append
 typeset -a messages=()
 typeset -a files=()
@@ -19,6 +20,7 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
+	--no-commit)	shift; isCommit=;;
 	--prepend|-p)	shift; modifier=prepend;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		messages+=("$1"); shift
@@ -50,9 +52,12 @@ do
 done
 commitMessage="$(joinBy --truncate-after 3 -- ', ' "${messages[@]}")"
 
-if [ ${#existingFiles[@]} -gt 0 -a ${#newFiles[@]} -gt 0 ]; then
-    git-wrapper commit --message "$commitMessage" -- "${existingFiles[@]}" && \
-	git-commituntracked --amend --reuse-message=HEAD -- "${newFiles[@]}"
+if [ ! "$isCommit" ]; then
+    git add -- "${existingFiles[@]}" "${newFiles[@]}" \
+	&& printf '%s\n' "$commitMessage" | git-committemplate --save
+elif [ ${#existingFiles[@]} -gt 0 -a ${#newFiles[@]} -gt 0 ]; then
+    git-wrapper commit --message "$commitMessage" -- "${existingFiles[@]}" \
+	&& git-commituntracked --amend --reuse-message=HEAD -- "${newFiles[@]}"
 elif [ ${#existingFiles[@]} -gt 0 ]; then
     git-wrapper commit --message "$commitMessage" -- "${existingFiles[@]}"
 elif [ ${#newFiles[@]} -gt 0 ]; then

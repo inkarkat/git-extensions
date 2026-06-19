@@ -1,0 +1,115 @@
+#!/bin/bash
+
+: ${GIT_CORRECT_REFERENCE_MESSAGE:=This corrects commit}
+: ${GIT_CORRECT_REFERENCE_REFERRER_PREFIX=after}
+: ${GIT_CORRECT_REFERENCE_REFERRER_SUFFIX=}
+readonly INCLUDED_TAGS_CONFIG_KEY='correct.includedTags'
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, they can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--follow-chain] [--local-only] [LOG-ARGS ...] [<revision range>] [[--] <pathspec>...] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Show commit logs of commits that correct / reference previous revision(s) (when
+it's too late or cumbersome to fixup / amend the existing commit).
+This checks for references to the prior commit(s) in the commit message (title
+and body; in the title alternatively to a unique tag matched by the glob(s) in
+the $INCLUDED_TAGS_CONFIG_KEY config setting)).
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --follow-chain	Include the commit(s) that are referenced in the commit
+			message(s), too.
+    --local-only	Omit commits that reference another repository.
+
+SEE ALSO:
+- (Commands offering complementary functionality, or commands using this command.)
+
+RELATED COMMANDS:
+- (Alternatives from other authors, other approaches, references not used here.)
+
+cla-exitstatus
+
+Example:
+HELPTEXT
+    printf '%q %s\n' "$(basename "$1")" '--foo bar /tmp/foobar' # TODO
+}
+
+action=logCorrections
+isAllowRemoteReferences=t
+typeset -a gitPrettyArg=()
+typeset -a logArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--follow-chain) shift; action=logCorrectionsAndChain
+			if [ -n "$GIT_LOGCORRECTIONS_COMMAND" ]; then
+			    # Workaround: git-logrevs passes all revisions to a Git command with "git show"
+			    # semantics, but the customization here asks for a command with "git log"
+			    # semantics. Convert by invoking it for each revision separately (keeping any
+			    # command-line options (that git-logrevs itself passes)) while limiting the
+			    # scope to a single commit.
+			    export GIT_LOGREVS_SHOW_COMMAND="exec eachArg --trailing-argument-match-exec git rev-parse --verify --quiet ; git-wrapper $GIT_LOGCORRECTIONS_COMMAND --max-count 1"
+			fi
+			GIT_LOGCORRECTIONS_COMMAND=log
+			;;
+	--local-only)	shift; isAllowRemoteReferences=;;
+	--pretty=*)	gitPrettyArg=("$1"); shift;;
+	--)		logArgs+=("$1"); shift; break;;
+	*)		logArgs+=("$1"); shift;;
+    esac
+done
+remoteReferencePattern="${isAllowRemoteReferences:+\\([^ ]\\+@\\)\\?}"
+titleReferencePattern="\\(${remoteReferencePattern}[^ )]\\+\\)"; titleReferencePattern="${titleReferencePattern}\\(, ${titleReferencePattern}\\)*"
+bodyReferencePattern="${remoteReferencePattern}[[:xdigit:]]\\+\\(\\(,\\| and\\) ${remoteReferencePattern}[[:xdigit:]]\\+\\)*"
+typeset -a grepArgs=(
+    " (${GIT_CORRECT_REFERENCE_REFERRER_PREFIX}${GIT_CORRECT_REFERENCE_REFERRER_PREFIX:+ }\\(${titleReferencePattern}\\)${GIT_CORRECT_REFERENCE_REFERRER_SUFFIX:+ }${GIT_CORRECT_REFERENCE_REFERRER_SUFFIX})\$" \
+    "^(${GIT_CORRECT_REFERENCE_MESSAGE} ${bodyReferencePattern})\$" \
+)
+
+logSource()
+{
+    git-wrapper ${GIT_LOGCORRECTIONS_COMMAND:-log} "${grepArgs[@]/#/--grep=}" "$@"
+}
+
+logCorrections()
+{
+    logSource "${gitPrettyArg[@]}" "$@"
+}
+
+extractReferences()
+{
+    sed \
+	-e 's/^commit //' \
+	-e "s/^ (${GIT_CORRECT_REFERENCE_REFERRER_PREFIX}${GIT_CORRECT_REFERENCE_REFERRER_PREFIX:+ }//" \
+	-e "s/${GIT_CORRECT_REFERENCE_REFERRER_SUFFIX:+ }${GIT_CORRECT_REFERENCE_REFERRER_SUFFIX})\$//" \
+	-e "s/^(${GIT_CORRECT_REFERENCE_MESSAGE} //" \
+	-e "s/)\$//" \
+	-e 's/, \| and /\n/g'
+}
+
+logCorrectionsAndChain()
+{
+    logSource --pretty=tformat:'commit %H%n%B' "$@" \
+	| grep --only-matching -e '^commit [[:xdigit:]]\+$' "${grepArgs[@]/#/--regexp=}" \
+	| extractReferences \
+	| git-logrevs "${gitPrettyArg[@]}"
+}
+
+$action "${logArgs[@]}" "$@"

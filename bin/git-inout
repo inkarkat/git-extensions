@@ -6,6 +6,13 @@ set -o pipefail
 : ${GIT_INOUT_COLOR_IN='[3m'}
 : ${GIT_INOUT_COLOR_OUT='[1m'}
 : ${GIT_INOUT_COLOR_RESET='[0m'}
+: ${GIT_EXTRACTCORECOMMITSUBJECTCOMMAND=extractCoreCommitSubject.sh}
+
+readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
+[ -d "$scriptDir" ] || { echo >&2 'ERROR: Cannot determine script directory!'; exit 3; }
+readonly projectDir="${scriptDir}/.."
+readonly libDir="${projectDir}/lib"
+PATH="${libDir}:${PATH}"
 
 printShortUsage()
 {
@@ -194,18 +201,26 @@ inoutPlain()
     return $status
 }
 
+# Duplicated to /getLenientIdentifyingInformation() git-rebase
+getLenientIdentifyingInformation()
+{
+    ${GIT_EXTRACTCORECOMMITSUBJECTCOMMAND:-false} "$@"
+}
 inout()
 {
     local -r deduplicateFormat='%at %aN %aE %s'
-    typeset -A incomingRebasedKeys=() incomingReworkedKeys=()
+    typeset -A incomingRebasedKeys=() incomingReworkedKeys=() incomingReworkedLenientKeys=()
     local count=0 line; while IFS=$'\n' read -r line
     do
 	let count+=1
 	incomingRebasedKeys["$line"]=$count
 	incomingReworkedKeys["${line#* }"]=$count
+	lenientAdditionalIdentifyingInformation="$(getLenientIdentifyingInformation "${line#* }")" \
+	    && incomingReworkedLenientKeys["$lenientAdditionalIdentifyingInformation"]=$count
     done < <(git log --pretty="tformat:$deduplicateFormat" "$baseRev..$otherRev")
 
-    typeset -A incomingRebasedIndices=() outgoingRebasedIndices=() incomingReworkedIndices=() outgoingReworkedIndices=()
+    typeset -A incomingRebasedIndices=() outgoingRebasedIndices=() incomingReworkedIndices=() outgoingReworkedIndices=() incomingReworkedLenientIndices=() outgoingReworkedLenientIndices=()
+    local lenientAdditionalIdentifyingInformation
     count=0; while IFS=$'\n' read -r line
     do
 	let count+=1
@@ -215,10 +230,14 @@ inout()
 	elif [ "${incomingReworkedKeys["${line#* }"]}" ]; then
 	    incomingReworkedIndices["${incomingReworkedKeys["${line#* }"]}"]=t
 	    outgoingReworkedIndices[$count]=t
+	elif lenientAdditionalIdentifyingInformation="$(getLenientIdentifyingInformation "${line#* }")" \
+	    && [ "${incomingReworkedLenientKeys["$lenientAdditionalIdentifyingInformation"]}" ]; then
+	    incomingReworkedLenientIndices["${incomingReworkedLenientKeys["$lenientAdditionalIdentifyingInformation"]}"]=t
+	    outgoingReworkedLenientIndices[$count]=t
 	fi
     done < <(git log --pretty="tformat:$deduplicateFormat" "$otherRev..$baseRev")
 
-    typeset -a incoming=() outgoing=() rebasedIncoming=() rebasedOutgoing=() reworkedIncoming=() reworkedOutgoing=()
+    typeset -a incoming=() outgoing=() rebasedIncoming=() rebasedOutgoing=() reworkedIncoming=() reworkedOutgoing=() reworkedLenientIncoming=() reworkedLenientOutgoing=()
     count=0; while IFS=$'\n' read -r line
     do
 	let count+=1
@@ -229,6 +248,8 @@ inout()
 	    rebasedIncoming+=("${line%% *}")
 	elif [ "${incomingReworkedIndices[$count]}" ]; then
 	    reworkedIncoming+=("${line%% *}")
+	elif [ "${incomingReworkedLenientIndices[$count]}" ]; then
+	    reworkedLenientIncoming+=("${line%% *}")
 	else
 	    incoming+=("$line")
 	fi
@@ -240,6 +261,8 @@ inout()
 	    rebasedOutgoing+=("$line")
 	elif [ "${outgoingReworkedIndices[$count]}" ]; then
 	    reworkedOutgoing+=("$line")
+	elif [ "${outgoingReworkedLenientIndices[$count]}" ]; then
+	    reworkedLenientOutgoing+=("$line")
 	else
 	    outgoing+=("$line")
 	fi
@@ -263,6 +286,16 @@ inout()
 	local i; for ((i = 0; i < ${#reworkedOutgoing[@]}; i++))
 	do
 	    printf '%s / %s\n' "${reworkedIncoming[$i]}" "${reworkedOutgoing[$i]}"
+	done
+	status=0
+	padding=$'\n'
+    fi
+    if [ ${#reworkedLenientOutgoing[@]} -gt 0 ]; then
+	printf '%s%sleniently reworked %s <-> %s:%s\n' "$padding" "$GIT_INOUT_COLOR_TITLE" "${otherName:-$otherRev}" "${baseName:-$baseRev}" "$GIT_INOUT_COLOR_RESET"
+	# Only take the commit hash from the incoming and the full onelinelog line from the outgoing.
+	local i; for ((i = 0; i < ${#reworkedLenientOutgoing[@]}; i++))
+	do
+	    printf '%s / %s\n' "${reworkedLenientIncoming[$i]}" "${reworkedLenientOutgoing[$i]}"
 	done
 	status=0
 	padding=$'\n'

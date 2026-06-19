@@ -1,6 +1,13 @@
 #!/bin/bash
 
 : ${GIT_REBASE_EXEC_END=;}
+: ${GIT_EXTRACTCORECOMMITSUBJECTCOMMAND=extractCoreCommitSubject.sh}
+
+readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
+[ -d "$scriptDir" ] || { echo >&2 'ERROR: Cannot determine script directory!'; exit 3; }
+readonly projectDir="${scriptDir}/.."
+readonly libDir="${projectDir}/lib"
+PATH="${libDir}:${PATH}"
 
 printUsage()
 {
@@ -54,23 +61,30 @@ recordOriginalPersistentCommits()
     fi
     git log "${rebaseDeduplicateLogArgs[@]}" "${upstream}..${branch}" > "$originalPersistentCommitsFilespec"
 }
+# Duplicated to /getLenientIdentifyingInformation() git-inout
+getLenientIdentifyingInformation()
+{
+    ${GIT_EXTRACTCORECOMMITSUBJECTCOMMAND:-false} "$@"
+}
 generateRebasedCommitHashes()
 {
     [ -r "$originalPersistentCommitsFilespec" ] || return 1
 
     typeset -a rebasedPersistentCommitList=()
-    typeset -A rebasedPersistentRebasedKeys=() rebasedPersistentReworkedKeys=()
-    local commit authorEpoch additionalIdentifyingInformation
+    typeset -A rebasedPersistentRebasedKeys=() rebasedPersistentReworkedKeys=() rebasedPersistentReworkedLenientKeys=()
+    local commit authorEpoch additionalIdentifyingInformation lenientAdditionalIdentifyingInformation
     while IFS=$'\t' read -r commit authorEpoch additionalIdentifyingInformation
     do
 	rebasedPersistentCommitList+=("$commit")
 	rebasedPersistentRebasedKeys["$commit"]="$authorEpoch"$'\t'"$additionalIdentifyingInformation"
 	rebasedPersistentReworkedKeys["$commit"]="$additionalIdentifyingInformation"
+	lenientAdditionalIdentifyingInformation="$(getLenientIdentifyingInformation "$additionalIdentifyingInformation")" \
+	    && rebasedPersistentReworkedLenientKeys["$commit"]="$lenientAdditionalIdentifyingInformation"
     done < <(eval 'git-rev-range-to-pre-rebase log "${rebaseDeduplicateLogArgs[@]}"' "${DEBUG:+| debugtee --single-capture --for git-rebase --module rebasedCommitHashes --to ${gitDir@Q}/rebaseNewPersistentCommits}")
 
     [ ${#rebasedPersistentCommitList[@]} -gt 0 ] || return 99
 
-    typeset -A originalPersistentCommits=() originalPersistentRebasedCommits=() originalPersistentReworkedCommits=()
+    typeset -A originalPersistentCommits=() originalPersistentRebasedCommits=() originalPersistentReworkedCommits=() originalPersistentReworkedLenientCommits=()
     while IFS=$'\t' read -r commit authorEpoch additionalIdentifyingInformation
     do
 	originalPersistentCommits["$commit"]=t
@@ -81,6 +95,15 @@ generateRebasedCommitHashes()
 	    originalPersistentReworkedCommits["$additionalIdentifyingInformation"]=''
 	else
 	    originalPersistentReworkedCommits["$additionalIdentifyingInformation"]="$commit"
+	    lenientAdditionalIdentifyingInformation="$(getLenientIdentifyingInformation "$additionalIdentifyingInformation")" \
+		&&  if [ -v originalPersistentReworkedLenientCommits["$lenientAdditionalIdentifyingInformation"] ]; then
+			# The lenient additional identifying information is not unique, so we cannot
+			# reliably identify reworked commits by it. Clear the mapping to prevent false
+			# positives.
+			originalPersistentReworkedLenientCommits["$lenientAdditionalIdentifyingInformation"]=''
+		    else
+			originalPersistentReworkedLenientCommits["$lenientAdditionalIdentifyingInformation"]="$commit"
+		    fi
 	fi
     done < "$originalPersistentCommitsFilespec"
 
@@ -102,6 +125,8 @@ generateRebasedCommitHashes()
 	    originalCommit="${originalPersistentReworkedCommits["${rebasedPersistentReworkedKeys["$rebasedCommit"]}"]}"
 	    if [ -n "$originalCommit" ]; then
 		local whereFound=reworked
+	    elif originalCommit="${originalPersistentReworkedLenientCommits["${rebasedPersistentReworkedLenientKeys["$rebasedCommit"]}"]}"; then
+		local whereFound='leniently reworked'
 	    else
 		# Nope, this commit is new and doesn't correspond to any original commit.
 		case ",${DEBUG:-}," in *,git-rebase:rebasedCommitHashes,*) printf >&2 '%sgit-rebase (rebasedCommitHashes): %s is new\n' "$PS5" "$rebasedCommit";; esac

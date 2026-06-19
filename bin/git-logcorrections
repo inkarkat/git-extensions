@@ -1,4 +1,5 @@
 #!/bin/bash
+set -o pipefail
 
 : ${GIT_CORRECT_REFERENCE_MESSAGE:=This corrects commit}
 : ${GIT_CORRECT_REFERENCE_REFERRER_PREFIX=after}
@@ -15,7 +16,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, they can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--follow-chain] [--local-only] [LOG-ARGS ...] [<revision range>] [[--] <pathspec>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--first-chain|--follow-chains] [--local-only] [LOG-ARGS ...] [<revision range>] [[--] <pathspec>...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -39,7 +40,11 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
-    --follow-chain	Include the commit(s) that are referenced in the commit
+    --first-chain	Only follow the first encountered commit that corrects
+			or references previous revision(s) and include the
+			commit(s) that are referenced in the commit message(s),
+			too.
+    --follow-chains	Include the commit(s) that are referenced in the commit
 			message(s), too.
     --local-only	Omit commits that reference another repository.
 
@@ -57,6 +62,7 @@ HELPTEXT
 }
 
 action=logCorrections
+chainSource=logCorrectionsAndReferences
 isAllowRemoteReferences=t
 typeset -a gitPrettyArg=()
 typeset -a logArgs=()
@@ -67,7 +73,9 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
-	--follow-chain) shift; action=logCorrectionsAndChain
+	--first-chain)	chainSource=logSingleCorrectionAndChain;&
+	--follow-chains)
+			shift; action=logCorrectionsAndChain
 			if [ -n "$GIT_LOGCORRECTIONS_COMMAND" ]; then
 			    # Workaround: git-logrevs passes all revisions to a Git command with "git show"
 			    # semantics, but the customization here asks for a command with "git log"
@@ -134,11 +142,45 @@ extractReferences()
 	-e 's/, \| and /\n/g'
 }
 
-logCorrectionsAndChain()
+logCorrectionsAndReferences()
 {
     logSource --pretty=tformat:'commit %H%n%B' "${logGeneralArgs[@]}" "${logRange[@]}" "$@" \
 	| grep --only-matching -e '^commit [[:xdigit:]]\+$' "${grepArgs[@]/#/--regexp=}" \
-	| extractReferences \
+	| extractReferences
+}
+
+logSingleCorrectionAndChain()
+{
+    {
+	# First line is the correction commit, the following lines are the references
+	# (if any).
+	read -r correctionCommit
+	[ -n "$correctionCommit" ] || return 0
+
+	typeset -a references=(); readarray -t references
+	case ",${DEBUG:-}," in *,git-logcorrections:recursion,*) printf >&2 '%sgit-logcorrections (recursion): %s references %s\n' "$PS5" "$correctionCommit" "$(joinBy --empty 'nothing' ', ' "${references[@]}")";; esac
+
+	printf '%s\n' "$correctionCommit"
+	local ref; for ref in "${references[@]}"
+	do
+	    # Recurse for each reference.
+	    logRange=("$ref")
+	    logSingleCorrectionAndChain "$@"
+
+	    # Include the reference itself, too (to include leaf nodes that don't reference
+	    # any other commit).
+	    printf '%s\n' "$ref"
+	done
+    } < <(
+	    # Optimization: Filter out duplicate references, also of varying lengths.
+	    logCorrectionsAndReferences --max-count 1 "${logRange[@]}" "$@" \
+		| firstRestLines --rest-command uniquePrefixes
+	)
+}
+
+logCorrectionsAndChain()
+{
+    $chainSource "$@" \
 	| git-logrevs "${gitPrettyArg[@]}" "${logOutputArgs[@]}"
 }
 

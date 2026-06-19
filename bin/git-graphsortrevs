@@ -36,21 +36,35 @@ HELPDESCRIPTION
 HELPTEXT
 }
 
+consistentRevisionLength=
 typeset -A uniqueRevisions=()
 addUniqueRevision()
 {
     local candidate="${1:?}"; shift
     local candidateLength=${#candidate}
-    local r; for r in "${!uniqueRevisions[@]}"
-    do
-	if [ $candidateLength -lt ${#r} ]; then
-	    [ "${r:0:$candidateLength}" = "$candidate" ] \
-		&& return  # Candidate is a prefix of already known revision.
-	elif [ $candidateLength -gt ${#r} -a "${candidate:0:${#r}}" = "$r" ]; then
-	    unset "uniqueRevisions[$r]"	# Candidate is a longer form of already known revision; drop the shorter one.
-	fi
-    done
+    : ${consistentRevisionLength:=$candidateLength}
+
+    # We can skip the length-aware comparisons if all known revisions have a
+    # consistent length and the candidate has that length, too.
+    if [ $candidateLength -ne $consistentRevisionLength ]; then
+	local newConsistentRevisionLength   # Rebuild the consistent revision length as a shorter known revision may be replaced with a longer one that may make the known revisions consistent again.
+	local r; for r in "${!uniqueRevisions[@]}"
+	do
+	    if [ $candidateLength -lt ${#r} ]; then
+		[ "${r:0:$candidateLength}" = "$candidate" ] \
+		    && return  # Candidate is a prefix of already known revision.
+	    elif [ $candidateLength -gt ${#r} -a "${candidate:0:${#r}}" = "$r" ]; then
+		unset "uniqueRevisions[$r]"	# Candidate is a longer form of already known revision; drop the shorter one.
+		continue    # Do not consider the dropped shorter revision for the consistent revision length.
+	    fi
+
+	    [ ${newConsistentRevisionLength:=${#r}} -eq ${#r} ] || newConsistentRevisionLength=0
+	done
+	consistentRevisionLength=${newConsistentRevisionLength:-$consistentRevisionLength}
+    fi
+
     uniqueRevisions["$candidate"]=t
+    [ $candidateLength -eq $consistentRevisionLength ] || consistentRevisionLength=0
 }
 typeset -a logArgs=()
 typeset -a grepArgs=()

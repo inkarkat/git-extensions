@@ -62,6 +62,7 @@ typeset -a gitPrettyArg=()
 typeset -a logArgs=()
 typeset -a logOutputArgs=()
 typeset -a logGeneralArgs=()
+typeset -a logRange=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -94,6 +95,9 @@ do
 				logGeneralArgs+=("$1")
 				shift
 			    done
+			elif [ -n "$(git rev-parse --revs-only "$1" 2>/dev/null)" ]; then
+			    logRange+=("$1")
+			    shift
 			else
 			    logArgs+=("$1")
 			    shift
@@ -116,7 +120,7 @@ logSource()
 
 logCorrections()
 {
-    logSource "${gitPrettyArg[@]}" "${logGeneralArgs[@]}" "${logOutputArgs[@]}" "$@"
+    logSource "${gitPrettyArg[@]}" "${logGeneralArgs[@]}" "${logOutputArgs[@]}" "${logRange[@]}" "$@"
 }
 
 extractReferences()
@@ -132,7 +136,7 @@ extractReferences()
 
 logCorrectionsAndChain()
 {
-    logSource --pretty=tformat:'commit %H%n%B' "${logGeneralArgs[@]}" "$@" \
+    logSource --pretty=tformat:'commit %H%n%B' "${logGeneralArgs[@]}" "${logRange[@]}" "$@" \
 	| grep --only-matching -e '^commit [[:xdigit:]]\+$' "${grepArgs[@]/#/--regexp=}" \
 	| extractReferences \
 	| git-logrevs "${gitPrettyArg[@]}" "${logOutputArgs[@]}"

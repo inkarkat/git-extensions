@@ -5,6 +5,12 @@
 : ${GIT_CORRECT_REFERENCE_REFERRER_SUFFIX=}
 readonly INCLUDED_TAGS_CONFIG_KEY='correct.includedTags'
 
+readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
+[ -d "$scriptDir" ] || { echo >&2 'ERROR: Cannot determine script directory!'; exit 3; }
+readonly projectDir="${scriptDir}/.."
+readonly libDir="${projectDir}/lib"
+source "${libDir}/logArgParser.sh" || exit 3
+
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, they can
@@ -54,6 +60,8 @@ action=logCorrections
 isAllowRemoteReferences=t
 typeset -a gitPrettyArg=()
 typeset -a logArgs=()
+typeset -a logOutputArgs=()
+typeset -a logGeneralArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -72,7 +80,25 @@ do
 	--local-only)	shift; isAllowRemoteReferences=;;
 	--pretty=*)	gitPrettyArg=("$1"); shift;;
 	--)		logArgs+=("$1"); shift; break;;
-	*)		logArgs+=("$1"); shift;;
+	*)		if argCount=$(countLogArgsInfluencingOutput "$1") \
+			    || argCount=$(countDiffArgs "$1")
+			then
+			    while ((argCount-- > 0))
+			    do
+				logOutputArgs+=("$1")
+				shift
+			    done
+			elif argCount=$(countLogArgs '' "$1"); then
+			    while ((argCount-- > 0))
+			    do
+				logGeneralArgs+=("$1")
+				shift
+			    done
+			else
+			    logArgs+=("$1")
+			    shift
+			fi
+			;;
     esac
 done
 remoteReferencePattern="${isAllowRemoteReferences:+\\([^ ]\\+@\\)\\?}"
@@ -90,7 +116,7 @@ logSource()
 
 logCorrections()
 {
-    logSource "${gitPrettyArg[@]}" "$@"
+    logSource "${gitPrettyArg[@]}" "${logGeneralArgs[@]}" "${logOutputArgs[@]}" "$@"
 }
 
 extractReferences()
@@ -106,10 +132,10 @@ extractReferences()
 
 logCorrectionsAndChain()
 {
-    logSource --pretty=tformat:'commit %H%n%B' "$@" \
+    logSource --pretty=tformat:'commit %H%n%B' "${logGeneralArgs[@]}" "$@" \
 	| grep --only-matching -e '^commit [[:xdigit:]]\+$' "${grepArgs[@]/#/--regexp=}" \
 	| extractReferences \
-	| git-logrevs "${gitPrettyArg[@]}"
+	| git-logrevs "${gitPrettyArg[@]}" "${logOutputArgs[@]}"
 }
 
 $action "${logArgs[@]}" "$@"

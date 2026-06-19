@@ -1,12 +1,18 @@
 #!/bin/bash
 set -o pipefail
-shopt -qs extglob
 
 : ${GIT_INOUT_COLOR_TITLE='[1m'}
 : ${GIT_INOUT_COLOR_HEADER=}
 : ${GIT_INOUT_COLOR_IN='[3m'}
 : ${GIT_INOUT_COLOR_OUT='[1m'}
 : ${GIT_INOUT_COLOR_RESET='[0m'}
+: ${GIT_EXTRACTCORECOMMITSUBJECTCOMMAND=extractCoreCommitSubject.sh}
+
+readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
+[ -d "$scriptDir" ] || { echo >&2 'ERROR: Cannot determine script directory!'; exit 3; }
+readonly projectDir="${scriptDir}/.."
+readonly libDir="${projectDir}/lib"
+PATH="${libDir}:${PATH}"
 
 printShortUsage()
 {
@@ -198,16 +204,7 @@ inoutPlain()
 # Duplicated to /getLenientIdentifyingInformation() git-rebase
 getLenientIdentifyingInformation()
 {
-    local information="${1?}"; shift
-    local lenientInformation="$information"
-
-    # Remove all parenthesized information information.
-    lenientInformation="${lenientInformation//(+([^)]))/}"
-    # Remove all leading "scope:" and "keyword:" prefixes.
-    lenientInformation="${lenientInformation/#+(+([^ ]): )/}"
-
-    [ -n "$lenientInformation" -a "$lenientInformation" != "$information" ] \
-	&& printf '%s' "$lenientInformation"
+    ${GIT_EXTRACTCORECOMMITSUBJECTCOMMAND:-false} "$@"
 }
 inout()
 {

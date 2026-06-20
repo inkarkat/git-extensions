@@ -4,7 +4,6 @@ set -o pipefail
 : ${GIT_CORRECT_REFERENCE_MESSAGE:=This corrects commit}
 : ${GIT_CORRECT_REFERENCE_REFERRER_PREFIX=after}
 : ${GIT_CORRECT_REFERENCE_REFERRER_SUFFIX=}
-readonly INCLUDED_TAGS_CONFIG_KEY='correct.includedTags'
 
 readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
 [ -d "$scriptDir" ] || { echo >&2 'ERROR: Cannot determine script directory!'; exit 3; }
@@ -33,8 +32,7 @@ printLongUsage()
 Show commit logs of commits that correct / reference previous revision(s) (when
 it's too late or cumbersome to fixup / amend the existing commit).
 This checks for references to the prior commit(s) in the commit message (title
-and body; in the title alternatively to a unique tag matched by the glob(s) in
-the $INCLUDED_TAGS_CONFIG_KEY config setting)).
+and body, hexadecimal syntax only; no configured tag references in the title).
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
@@ -114,7 +112,7 @@ do
     esac
 done
 remoteReferencePattern="${isAllowRemoteReferences:+\\([^ ]\\+@\\)\\?}"
-titleReferencePattern="\\(${remoteReferencePattern}[^ )]\\+\\)"; titleReferencePattern="${titleReferencePattern}\\(, ${titleReferencePattern}\\)*"
+titleReferencePattern="\\(${remoteReferencePattern}[[:xdigit:]]\\+\\)"; titleReferencePattern="${titleReferencePattern}\\(, ${titleReferencePattern}\\)*"
 bodyReferencePattern="${remoteReferencePattern}[[:xdigit:]]\\+\\(\\(,\\| and\\) ${remoteReferencePattern}[[:xdigit:]]\\+\\)*"
 typeset -a grepArgs=(
     " (${GIT_CORRECT_REFERENCE_REFERRER_PREFIX}${GIT_CORRECT_REFERENCE_REFERRER_PREFIX:+ }\\(${titleReferencePattern}\\)${GIT_CORRECT_REFERENCE_REFERRER_SUFFIX:+ }${GIT_CORRECT_REFERENCE_REFERRER_SUFFIX})\$" \

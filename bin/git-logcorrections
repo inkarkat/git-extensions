@@ -1,5 +1,6 @@
 #!/bin/bash
 set -o pipefail
+shopt -qs extglob
 
 : ${GIT_CORRECT_REFERENCE_MESSAGE:=This corrects commit}
 : ${GIT_CORRECT_REFERENCE_REFERRER_PREFIX=after}
@@ -102,6 +103,15 @@ do
 			exit $status
 			;;
 
+	--remote-follow)
+			shift
+			remote="${1:?}"; shift
+			logRange=("${1:?}"); shift
+			chainSource=logSingleCorrectionAndChain
+			action=logCorrectionsAndChain
+			gitPrettyArg=(--pretty=tformat:"${remote}@%H%n")    # Note: Include an empty separator line so that the caller doesn't do the uniquePrefixes filtering that would scramble the order of the commits. The deduplication of references has already been done by the callee, anyway.
+			;;
+
 	--first-chain)	chainSource=logSingleCorrectionAndChain;&
 	--follow-chains)
 			shift; action=logCorrectionsAndChain
@@ -194,7 +204,19 @@ logSingleCorrectionAndChain()
 	do
 	    # Recurse for each reference.
 	    logRange=("$ref")
-	    logSingleCorrectionAndChain "$@"
+	    if [[ "$ref" = +([^ ])@+([[:xdigit:]]) ]]; then
+		IFS='@' read -r remote remoteReference <<<"$ref"; shift
+		remoteDirspec="$(resolveRemoteDirspec "$remote")"
+		if [ -d "$remoteDirspec" ]; then
+		    readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
+		    git-inside "${scriptName#git-}" --remote-follow "$remote" "$remoteReference" "$remoteDirspec"
+		else
+		    printf >&2 'Note: Working copy for %s@%s not available; skipping.\n' "$remote" "$remoteReference"
+		fi
+		continue
+	    else
+		logSingleCorrectionAndChain "$@"
+	    fi
 
 	    # Include the reference itself, too (to include leaf nodes that don't reference
 	    # any other commit).
@@ -211,8 +233,12 @@ logCorrectionsAndChain()
 {
     $chainSource "$@" \
 	|   if [ "$isAllowRemoteReferences" ]; then
+		# Note: Empty lines serve as separators between remote references returned by
+		# the recursive calls, so that there's no uniquePrefixes filtering that would
+		# scramble the order of the commits. We'll swallow them here.
 		segregateInput \
 		    --regexp-exec '^[[:xdigit:]]+$' git-logrevs "${gitPrettyArg[@]}" "${logOutputArgs[@]}" \; \
+		    --regexp-exec '^$' swallow \; \
 		    --fallback-exec uniquePrefixes \; \
 		    --fallback-exec "${BASH_SOURCE[0]}" --remote-log "${gitPrettyArg[@]}" "${logOutputArgs[@]}" \;
 	    else

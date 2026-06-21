@@ -202,6 +202,10 @@ logSingleCorrectionAndChain()
 	printf '%s\n' "$correctionCommit"
 	local ref; for ref in "${references[@]}"
 	do
+	    # Include the reference itself, too (to include leaf nodes that don't reference
+	    # any other commit).
+	    printf '%s\n' "$ref"
+
 	    # Recurse for each reference.
 	    logRange=("$ref")
 	    if [[ "$ref" = +([^ ])@+([[:xdigit:]]) ]]; then
@@ -217,10 +221,6 @@ logSingleCorrectionAndChain()
 	    else
 		logSingleCorrectionAndChain "$@"
 	    fi
-
-	    # Include the reference itself, too (to include leaf nodes that don't reference
-	    # any other commit).
-	    printf '%s\n' "$ref"
 	done
     } < <(
 	    # Optimization: Filter out duplicate references, also of varying lengths.

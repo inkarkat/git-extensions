@@ -62,6 +62,15 @@ HELPTEXT
     printf '%q %s\n' "$(basename "$1")" '--foo bar /tmp/foobar' # TODO
 }
 
+resolveRemoteDirspec()
+{
+    if [ -n "$GIT_LOGCORRECTIONS_REMOTE_WORKINGCOPY_LOOKUP_COMMAND" ]; then
+	eval "$GIT_LOGCORRECTIONS_REMOTE_WORKINGCOPY_LOOKUP_COMMAND" "$remote" 2>/dev/null
+    else
+	printf %s "../${remote##*/}"
+    fi
+}
+
 action=logCorrections
 chainSource=logCorrectionsAndReferences
 isAllowRemoteReferences=t
@@ -77,21 +86,17 @@ do
 
 	--remote-log)	shift
 			status=0
-			while IFS='@' read -r remote reference
+			while IFS='@' read -r remote remoteReference
 			do
-			    if [ -n "$GIT_LOGCORRECTIONS_REMOTE_WORKINGCOPY_LOOKUP_COMMAND" ]; then
-				remoteDirspec="$(eval "$GIT_LOGCORRECTIONS_REMOTE_WORKINGCOPY_LOOKUP_COMMAND" "$remote" 2>/dev/null)"
-			    else
-				remoteDirspec="../${remote##*/}"
-			    fi
+			    remoteDirspec="$(resolveRemoteDirspec "$remote")"
 			    if [ -d "$remoteDirspec" ]; then
 				{
 				    printf '%s: ' "$remote"
-				    git-inside ${GIT_LOGCORRECTIONS_COMMAND:-log} "$@" --max-count 1 "$reference" -- "$remoteDirspec"
+				    git-inside ${GIT_LOGCORRECTIONS_COMMAND:-log} "$@" --max-count 1 "$remoteReference" -- "$remoteDirspec"
 				} | padding --multiple-lines --after '' \
 				    || status=$?
 			    else
-				printf '\n%s@%s (working copy not available)\n' "$remote" "$reference"
+				printf '\n%s@%s (working copy not available)\n' "$remote" "$remoteReference"
 			    fi
 			done
 			exit $status

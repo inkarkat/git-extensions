@@ -5,6 +5,9 @@ set -o pipefail
 : ${GIT_CORRECT_REFERENCE_REFERRER_PREFIX=after}
 : ${GIT_CORRECT_REFERENCE_REFERRER_SUFFIX=}
 
+: ${GIT_LOGCORRECTIONS_REMOTE_WORKINGCOPY_LOOKUP_COMMAND="sh -c 'zd --best-match \${1##*/}' sh"}
+gitLogCorrectionsCommand="${GIT_LOGCORRECTIONS_COMMAND:-log}"
+
 readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
 [ -d "$scriptDir" ] || { echo >&2 'ERROR: Cannot determine script directory!'; exit 3; }
 readonly projectDir="${scriptDir}/.."
@@ -71,6 +74,29 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+
+	--remote-log)	shift
+			status=0
+			while IFS='@' read -r remote reference
+			do
+			    if [ -n "$GIT_LOGCORRECTIONS_REMOTE_WORKINGCOPY_LOOKUP_COMMAND" ]; then
+				remoteDirspec="$(eval "$GIT_LOGCORRECTIONS_REMOTE_WORKINGCOPY_LOOKUP_COMMAND" "$remote" 2>/dev/null)"
+			    else
+				remoteDirspec="../${remote##*/}"
+			    fi
+			    if [ -d "$remoteDirspec" ]; then
+				{
+				    printf '%s: ' "$remote"
+				    git-inside ${GIT_LOGCORRECTIONS_COMMAND:-log} "$@" --max-count 1 "$reference" -- "$remoteDirspec"
+				} | padding --multiple-lines --after '' \
+				    || status=$?
+			    else
+				printf '\n%s@%s (working copy not available)\n' "$remote" "$reference"
+			    fi
+			done
+			exit $status
+			;;
+
 	--first-chain)	chainSource=logSingleCorrectionAndChain;&
 	--follow-chains)
 			shift; action=logCorrectionsAndChain
@@ -80,9 +106,9 @@ do
 			    # semantics. Convert by invoking it for each revision separately (keeping any
 			    # command-line options (that git-logrevs itself passes)) while limiting the
 			    # scope to a single commit.
-			    export GIT_LOGREVS_SHOW_COMMAND="exec eachArg --trailing-argument-match-exec git rev-parse --verify --quiet ; git-wrapper $GIT_LOGCORRECTIONS_COMMAND --max-count 1"
+			    export GIT_LOGREVS_SHOW_COMMAND="exec eachArg --trailing-argument-match-exec git rev-parse --verify --quiet ; git-wrapper $gitLogCorrectionsCommand --max-count 1"
 			fi
-			GIT_LOGCORRECTIONS_COMMAND=log
+			gitLogCorrectionsCommand=log
 			;;
 	--local-only)	shift; isAllowRemoteReferences=;;
 	--pretty=*)	gitPrettyArg=("$1"); shift;;
@@ -121,7 +147,7 @@ typeset -a grepArgs=(
 
 logSource()
 {
-    git-wrapper ${GIT_LOGCORRECTIONS_COMMAND:-log} "${grepArgs[@]/#/--grep=}" "$@"
+    git-wrapper $gitLogCorrectionsCommand "${grepArgs[@]/#/--grep=}" "$@"
 }
 
 logCorrections()
@@ -179,7 +205,14 @@ logSingleCorrectionAndChain()
 logCorrectionsAndChain()
 {
     $chainSource "$@" \
-	| git-logrevs "${gitPrettyArg[@]}" "${logOutputArgs[@]}"
+	|   if [ "$isAllowRemoteReferences" ]; then
+		segregateInput \
+		    --regexp-exec '^[[:xdigit:]]+$' git-logrevs "${gitPrettyArg[@]}" "${logOutputArgs[@]}" \; \
+		    --fallback-exec uniquePrefixes \; \
+		    --fallback-exec "${BASH_SOURCE[0]}" --remote-log "${gitPrettyArg[@]}" "${logOutputArgs[@]}" \;
+	    else
+		git-logrevs "${gitPrettyArg[@]}" "${logOutputArgs[@]}"
+	    fi
 }
 
 $action "${logArgs[@]}" "$@"

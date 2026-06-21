@@ -242,6 +242,12 @@ logSingleCorrectionAndChain()
 
 logCorrectionsAndChain()
 {
+    # First just collect references, because these are single lines that can be
+    # segregated and deduplicated (whereas the final log output has uncontrollable
+    # often multi-line output). That may switch to other working copies and recurse
+    # in order to follow remote refereces. Only at the end, back at the initial call after
+    # the recursions, we render the commits, again switching to other working copies
+    # of remote references as needed.
     $chainSource "$@" \
 	|   if [ "$isAllowRemoteReferences" ]; then
 		typeset -a segregateInputInitialCallArgs=()

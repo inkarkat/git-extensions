@@ -14,6 +14,7 @@ readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" 
 readonly projectDir="${scriptDir}/.."
 readonly libDir="${projectDir}/lib"
 source "${libDir}/logArgParser.sh" || exit 3
+readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
 
 printShortUsage()
 {
@@ -207,18 +208,19 @@ logSingleCorrectionAndChain()
 	    printf '%s\n' "$ref"
 
 	    # Recurse for each reference.
-	    logRange=("$ref")
 	    if [[ "$ref" = +([^ ])@+([[:xdigit:]]) ]]; then
 		IFS='@' read -r remote remoteReference <<<"$ref"; shift
 		remoteDirspec="$(resolveRemoteDirspec "$remote")"
 		if [ -d "$remoteDirspec" ]; then
-		    readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
+		    # Recurse for the remote reference (through recursive invocation inside that
+		    # working copy).
 		    git-inside "${scriptName#git-}" --remote-follow "$remote" "$remoteReference" "$remoteDirspec"
 		else
 		    printf >&2 'Note: Working copy for %s@%s not available; skipping.\n' "$remote" "$remoteReference"
 		fi
-		continue
 	    else
+		# Recurse for the local reference (through $logRange).
+		logRange=("$ref")
 		logSingleCorrectionAndChain "$@"
 	    fi
 	done

@@ -162,7 +162,7 @@ if [ -z "${files+t}" ]; then
 fi
 : ${revision:=HEAD}
 
-revision="$(git ${GIT_LOGRANGE_RANGE_COMMAND:?} --max-count 1 --pretty=tformat:%H "${grepModificationArgs[@]}" "${grepArgs[@]}" ${isLogArgsForRange:+"${logArgs[@]}"} "$revision" ${isFilesForRange:+-- "${files[@]}"} "${finalGrepArg[@]}")"
+revision="$(git-wrapper ${GIT_LOGRANGE_RANGE_COMMAND:?} --max-count 1 --pretty=tformat:%H "${grepModificationArgs[@]}" "${grepArgs[@]}" ${isLogArgsForRange:+"${logArgs[@]}"} "$revision" ${isFilesForRange:+-- "${files[@]}"} "${finalGrepArg[@]}")"
 if [ -z "$revision" ]; then
     echo >&2 'Could not find a matching commit.'
     exit 1
@@ -170,7 +170,7 @@ fi
 
 < <(diff --unchanged-line-format= --old-line-format='%L' --new-line-format= -- \
     <(git log --first-parent --pretty=tformat:%H "$revision" ${isLogArgsForRange:+"${logArgs[@]}"} ${isFilesForRange:+-- "${files[@]}"}) \
-    <(git ${GIT_LOGRANGE_RANGE_COMMAND:?} --first-parent --pretty=tformat:%H "${grepModificationArgs[@]}" "${grepArgs[@]}" "$revision" ${isLogArgsForRange:+"${logArgs[@]}"} ${isFilesForRange:+-- "${files[@]}"} "${finalGrepArg[@]}") # Fortunately, "git log <revision> --follow -- <pathspec>" also works; else, we would have to split logArgs into options and path arguments.
+    <(git-wrapper ${GIT_LOGRANGE_RANGE_COMMAND:?} --first-parent --pretty=tformat:%H "${grepModificationArgs[@]}" "${grepArgs[@]}" "$revision" ${isLogArgsForRange:+"${logArgs[@]}"} ${isFilesForRange:+-- "${files[@]}"} "${finalGrepArg[@]}") # Fortunately, "git log <revision> --follow -- <pathspec>" also works; else, we would have to split logArgs into options and path arguments.
 ) IFS=$'\n' read -r firstDifferentRevision
 
 [ "$isWithRange" ] || revision=''   # Prevent "ERROR: --end-revision cannot be combined with --no-range!"; we don't need the end revision, as --no-range drops that, anyway.

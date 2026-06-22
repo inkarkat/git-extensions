@@ -89,6 +89,7 @@ isInRecursion=
 action=logCorrections
 chainSource=logCorrectionsAndReferences
 isAllowRemoteReferences=t
+logRevsShowCommand=
 typeset -a gitPrettyArg=()
 typeset -a logArgs=()
 typeset -a logOutputArgs=()
@@ -134,10 +135,20 @@ do
 			if [ -n "$GIT_LOGCORRECTIONS_COMMAND" ]; then
 			    # Workaround: git-logrevs passes all revisions to a Git command with "git show"
 			    # semantics, but the customization here asks for a command with "git log"
-			    # semantics. Convert by invoking it for each revision separately (keeping any
-			    # command-line options (that git-logrevs itself passes)) while limiting the
-			    # scope to a single commit.
-			    export GIT_LOGREVS_SHOW_COMMAND="exec eachArg --trailing-argument-match-exec git rev-parse --verify --quiet ; git-wrapper $gitLogCorrectionsCommand --max-count 1"
+			    # semantics. Convert (unless a custom GIT_LOGREVS_SHOW_COMMAND is given as well)
+			    # by invoking it for each revision separately (keeping any command-line options
+			    # (that git-logrevs itself passes)) while limiting the scope to a single commit.
+			    typeset -a gitLogCorrectionsCommandWithShowSemantics=(exec eachArg
+				# All trailing revisions are extracted by eachArg.
+				--trailing-argument-match-exec git rev-parse --verify --quiet \;
+				# And fed one-by-one to the custom GIT_LOGCORRECTIONS_COMMAND which is limited
+				# to a single commit.
+				git-wrapper $gitLogCorrectionsCommand --max-count 1
+			    )
+			    # Note: This isn't directly exported via GIT_LOGREVS_SHOW_COMMAND because the
+			    # recursive invocations (to follow remote references) must not use this; only
+			    # the initial call does any configurable commit rendering.
+			    logRevsShowCommand="${GIT_LOGCORRECTIONS_SHOW_COMMAND:-${gitLogCorrectionsCommandWithShowSemantics[*]}}"
 			fi
 			gitLogCorrectionsCommand=log
 			;;
@@ -290,7 +301,7 @@ logCorrectionsAndChain()
 		    # whole going to that working copy and invoking the log command there.
 		    # Just strip off the remote prefix and handle it as the local reference it is.
 		    --regexp-exec "^${startingUserRepo}@[[:xdigit:]]+\$" unprefix -- "${startingUserRepo}@" \;
-		    --regexp-exec "^${startingUserRepo}@[[:xdigit:]]+\$" git-logrevs "${gitPrettyArg[@]}" "${logOutputArgs[@]}" \;
+		    --regexp-exec "^${startingUserRepo}@[[:xdigit:]]+\$" GIT_LOGREVS_SHOW_COMMAND="$logRevsShowCommand" git-logrevs "${gitPrettyArg[@]}" "${logOutputArgs[@]}" \;
 
 		    # Note: Empty lines serve as separators between remote references returned by
 		    # the recursive calls, so that there's no uniquePrefixes filtering that would
@@ -308,10 +319,10 @@ logCorrectionsAndChain()
 		# pass through any other input; the initial call will render all those collected
 		# remote references.
 		segregateInput \
-		    --regexp-exec '^[[:xdigit:]]+$' git-logrevs "${gitPrettyArg[@]}" "${logOutputArgs[@]}" \; \
+		    --regexp-exec '^[[:xdigit:]]+$' GIT_LOGREVS_SHOW_COMMAND="$logRevsShowCommand" git-logrevs "${gitPrettyArg[@]}" "${logOutputArgs[@]}" \; \
 		    "${segregateInputInitialCallArgs[@]}"
 	    else
-		git-logrevs "${gitPrettyArg[@]}" "${logOutputArgs[@]}"
+		GIT_LOGREVS_SHOW_COMMAND="$logRevsShowCommand" git-logrevs "${gitPrettyArg[@]}" "${logOutputArgs[@]}"
 	    fi
 }
 

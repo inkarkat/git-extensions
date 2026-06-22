@@ -9,21 +9,15 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[<options>] [<revision range>] [[--] <pathspec>...] [-?|-h|--help]'
 }
 
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-esac
-
-typeset arg
 typeset -a allargs=()
-typeset isLiteral=
-for arg
+while [ $# -ne 0 ]
 do
-    if [ ! "$isLiteral" -a "$arg" = '-v' ]; then
-	allargs+=('--name-status')
-    else
-	[ "$arg" = '--' ] && isLiteral=t
-	allargs+=("$arg")
-    fi
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	-v)		shift; allargs+=('--name-status');;
+	--)		allargs+=("$1"); shift; break;;
+	*)		allargs+=("$1"); shift;;
+    esac
 done
 
-exec git log --decorate --topo-order "${allargs[@]}"
+exec git log --decorate --topo-order "${allargs[@]}" "$@"

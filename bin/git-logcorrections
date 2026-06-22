@@ -20,7 +20,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, they can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--first-chain|--follow-chains] [--local-only] [LOG-ARGS ...] [<revision range>] [[--] <pathspec>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--follow-first-chain|-i|--include-references] [-l|--local-only] [LOG-ARGS ...] [<revision range>] [[--] <pathspec>...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -35,33 +35,45 @@ printLongUsage()
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
 Show commit logs of commits that correct / reference previous revision(s) (when
-it's too late or cumbersome to fixup / amend the existing commit).
-This checks for references to the prior commit(s) in the commit message (title
-and body, hexadecimal syntax only; no configured tag references in the title).
+it's too late or cumbersome to fixup / amend the existing commit) by looking for
+references to the prior commit(s) in the commit message (title and body,
+hexadecimal syntax only; no configured tag references in the title).
+This shows you which commits actively reference other commits (without showing
+those).
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
-    --first-chain	Only follow the first encountered commit that corrects
-			or references previous revision(s) and include the
+    --follow-first-chain|-f
+			Stop after encountering the first commit that corrects
+			or references previous revision(s), but include those
 			commit(s) that are referenced in the commit message(s),
-			too.
-    --follow-chains	Include the commit(s) that are referenced in the commit
-			message(s), too.
-    --local-only	Omit commits that reference another repository.
+			and follow those references recursively, too.
+			This gives you a full picture of the web of corrections
+			and references, and is therefore limited to a single
+			root commit.
+    --include-references|-i
+			Include the commit(s) that are referenced in the commit
+			message(s), too (but don't follow them any further).
+			This shows you which commits reference and are
+			referenced by reachable commits / the passed revision
+			range.
+    --local-only|-l	Omit commits that reference another repository. Only
+			list commits that reference at least one commit in the
+			same repository. Don't follow references to other
+			repositories, either.
 
 SEE ALSO:
-- (Commands offering complementary functionality, or commands using this command.)
+- git-correct can be used to create a commit as a correction of previous
+  revision(s).
 
-RELATED COMMANDS:
-- (Alternatives from other authors, other approaches, references not used here.)
-
-cla-exitstatus
-
-Example:
+EXIT STATUS:
+    0	Complete success.
+    1	Failed to log.
+    2	Bad invocation, wrong or missing command-line arguments.
+    3	Internal error or failed assertion.
 HELPTEXT
-    printf '%q %s\n' "$(basename "$1")" '--foo bar /tmp/foobar' # TODO
 }
 
 resolveRemoteDirspec()
@@ -115,8 +127,9 @@ do
 			gitPrettyArg=(--pretty=tformat:"${remote}@%H%n")    # Note: Include an empty separator line so that the caller doesn't do the uniquePrefixes filtering that would scramble the order of the commits. The deduplication of references has already been done by the callee, anyway.
 			;;
 
-	--first-chain)	chainSource=logSingleCorrectionAndChain;&
-	--follow-chains)
+	--follow-first-chain|-f)
+			chainSource=logSingleCorrectionAndChain;&
+	--include-references|-i)
 			shift; action=logCorrectionsAndChain
 			if [ -n "$GIT_LOGCORRECTIONS_COMMAND" ]; then
 			    # Workaround: git-logrevs passes all revisions to a Git command with "git show"
@@ -128,7 +141,8 @@ do
 			fi
 			gitLogCorrectionsCommand=log
 			;;
-	--local-only)	shift; isAllowRemoteReferences=;;
+	--local-only|-l)
+			shift; isAllowRemoteReferences=;;
 	--pretty=*)	gitPrettyArg=("$1"); shift;;
 	--)		logArgs+=("$1"); shift; break;;
 	*)		if argCount=$(countLogArgsInfluencingOutput "$1") \

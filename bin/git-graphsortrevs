@@ -122,8 +122,18 @@ readarray -t revisionsInOrder < <(git lh "${logArgs[@]}" "$@" | grep "${grepArgs
 typeset -a netRevisionsInOrder=(${revisionsInOrder[@]/#--/})	# Drop the separators; remove the holes by omitting the quoting, which is fine here as it's only hashes.
 revisionDifference=$((${#revisions[@]} - ${#netRevisionsInOrder[@]}))
 if [ $revisionDifference -gt 0 ]; then
+    # This assumes that the input revisions are hashes in the exact format as
+    # produced by "git lh". If some are shorter or tag names, there will be more
+    # discrepancies, and we'd have to compare each one (which is too costly). Just
+    # report the number of missing revisions then.
+    readarray -t discrepancyRevisions < <(comm -23 -- <(printf '%s\n' "${revisions[@]}" | sort) <(printf '%s\n' "${netRevisionsInOrder[@]}" | sort) 2>/dev/null)
+
     revisionDifferencePlural=s; [ $revisionDifference -eq 1 ] && revisionDifferencePlural=
-    printf >&2 'ERROR: Did not find %d revision%s.\n' "$revisionDifference" "$revisionDifferencePlural"
+    if [ ${#discrepancyRevisions[@]} -eq $revisionDifference ]; then
+	printf >&2 'ERROR: Did not find %d revision%s: %s\n' "$revisionDifference" "$revisionDifferencePlural" "$(joinBy ', ' "${discrepancyRevisions[@]}")"
+    else
+	printf >&2 'ERROR: Did not find %d revision%s.\n' "$revisionDifference" "$revisionDifferencePlural"
+    fi
     exit 1
 fi
 

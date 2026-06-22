@@ -205,13 +205,19 @@ extractReferences()
 	-e 's/, \| and /\n/g'
 }
 
-logCorrectionsAndReferences()
+obtainCorrectionsAndReferencesWith()
 {
-    logSource --pretty=tformat:'commit %H%n%B' "${logGeneralArgs[@]}" "${logRange[@]}" "$@" \
+    local sourceCommand="${1:?}"; shift
+    $sourceCommand --pretty=tformat:'commit %H%n%B' "${logGeneralArgs[@]}" "${logRange[@]}" "$@" \
 	| grep --only-matching -e '^commit [[:xdigit:]]\+$' "${grepArgs[@]/#/--regexp=}" \
 	| extractReferences
 }
+logCorrectionsAndReferences()
+{
+    obtainCorrectionsAndReferencesWith logSource "$@"
+}
 
+isFollowing=
 logSingleCorrectionAndChain()
 {
     {
@@ -244,13 +250,26 @@ logSingleCorrectionAndChain()
 	    else
 		# Recurse for the local reference (through $logRange).
 		logRange=("$ref")
+		isFollowing=t
 		logSingleCorrectionAndChain "$@"
 	    fi
 	done
     } < <(
-	    # Optimization: Filter out duplicate references, also of varying lengths.
-	    logCorrectionsAndReferences --max-count 1 "$@" \
+	    if [ "$isFollowing" ] || [ "$isInRecursion" ]; then
+		# Only extract references from the exact commit (in logRange) we're following;
+		# do not look any further back. logSource() would search for the (first) commit
+		# matching the grepArgs; this is not what we want here, we need a plain "git
+		# log".
+		local sourceCommand='git log'
+	    else
+		# To find the first correction commit look at all commits in logRange, and
+		# extract from the first we encounter.
+		local sourceCommand=logSource
+	    fi
+	    # The --max-count 1 limits the scope to a single commit.
+	    obtainCorrectionsAndReferencesWith "$sourceCommand" --max-count 1 "$@" \
 		| firstRestLines --rest-command uniquePrefixes
+		# Optimization: Filter out duplicate references, also of varying lengths.
 	)
 }
 

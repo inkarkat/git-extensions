@@ -108,8 +108,9 @@ do
 			    remoteDirspec="$(resolveRemoteDirspec "$remote")"
 			    if [ -d "$remoteDirspec" ]; then
 				{
-				    printf '%s: ' "$remote"
-				    git-inside ${GIT_LOGCORRECTIONS_COMMAND:-log} "$@" --max-count 1 "$remoteReference" -- "$remoteDirspec"
+				    GIT_PRETTY_PREHASH="(in ${remote}) " \
+				    GIT_ONELINELOG_PREHASH="${remote}@" \
+					git-inside ${GIT_LOGCORRECTIONS_COMMAND:-log} "$@" --max-count 1 "$remoteReference" -- "$remoteDirspec"
 				} | padding --multiple-lines --after '' \
 				    || status=$?
 			    else

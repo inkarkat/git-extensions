@@ -8,6 +8,7 @@ shopt -qs extglob
 
 : ${GIT_LOGCORRECTIONS_REMOTE_WORKINGCOPY_LOOKUP_COMMAND="sh -c 'zd --best-match \${1##*/}' sh"}
 gitLogCorrectionsCommand="${GIT_LOGCORRECTIONS_COMMAND:-log}"
+: ${GIT_LOGCORRECTIONS_LOGREVS_COMMAND:=logrevs}
 
 readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
 [ -d "$scriptDir" ] || { echo >&2 'ERROR: Cannot determine script directory!'; exit 3; }
@@ -126,6 +127,7 @@ do
 			chainSource=logSingleCorrectionAndChain
 			action=logCorrectionsAndChain
 			gitPrettyArg=(--pretty=tformat:"${remote}@%H%n")    # Note: Include an empty separator line so that the caller doesn't do the uniquePrefixes filtering that would scramble the order of the commits. The deduplication of references has already been done by the callee, anyway.
+			GIT_LOGCORRECTIONS_LOGREVS_COMMAND=logrevs  # Any output customizations only apply to the initial call; use the original logrevs command for the recursive calls, as we need the expected output of remote commit message to parse.
 			;;
 
 	--follow-first-chain|-f)
@@ -301,7 +303,7 @@ logCorrectionsAndChain()
 		    # whole going to that working copy and invoking the log command there.
 		    # Just strip off the remote prefix and handle it as the local reference it is.
 		    --regexp-exec "^${startingUserRepo}@[[:xdigit:]]+\$" unprefix -- "${startingUserRepo}@" \;
-		    --regexp-exec "^${startingUserRepo}@[[:xdigit:]]+\$" GIT_LOGREVS_SHOW_COMMAND="$logRevsShowCommand" git-logrevs "${gitPrettyArg[@]}" "${logOutputArgs[@]}" \;
+		    --regexp-exec "^${startingUserRepo}@[[:xdigit:]]+\$" GIT_LOGREVS_SHOW_COMMAND="$logRevsShowCommand" git-wrapper $GIT_LOGCORRECTIONS_LOGREVS_COMMAND "${gitPrettyArg[@]}" "${logOutputArgs[@]}" \;
 
 		    # Note: Empty lines serve as separators between remote references returned by
 		    # the recursive calls, so that there's no uniquePrefixes filtering that would
@@ -319,10 +321,10 @@ logCorrectionsAndChain()
 		# pass through any other input; the initial call will render all those collected
 		# remote references.
 		segregateInput \
-		    --regexp-exec '^[[:xdigit:]]+$' GIT_LOGREVS_SHOW_COMMAND="$logRevsShowCommand" git-logrevs "${gitPrettyArg[@]}" "${logOutputArgs[@]}" \; \
+		    --regexp-exec '^[[:xdigit:]]+$' GIT_LOGREVS_SHOW_COMMAND="$logRevsShowCommand" git-wrapper $GIT_LOGCORRECTIONS_LOGREVS_COMMAND "${gitPrettyArg[@]}" "${logOutputArgs[@]}" \; \
 		    "${segregateInputInitialCallArgs[@]}"
 	    else
-		GIT_LOGREVS_SHOW_COMMAND="$logRevsShowCommand" git-logrevs "${gitPrettyArg[@]}" "${logOutputArgs[@]}"
+		GIT_LOGREVS_SHOW_COMMAND="$logRevsShowCommand" git-wrapper $GIT_LOGCORRECTIONS_LOGREVS_COMMAND "${gitPrettyArg[@]}" "${logOutputArgs[@]}"
 	    fi
 }
 

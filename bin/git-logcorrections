@@ -20,24 +20,24 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, they can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--follow-first-chain|-i|--include-references] [-l|--local-only] [LOG-ARGS ...] [<revision range>] [[--] <pathspec>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "${GIT_LOGCORRECTIONS:-$(basename "$1")}" '[-f|--follow-first-chain|-i|--include-references] [-l|--local-only] [LOG-ARGS ...] [<revision range>] [[--] <pathspec>...] [-?|-h|--help]'
 }
 printUsage()
 {
     # This is the short help when launched with no or incorrect arguments.
     # It is printed to stderr to avoid accidental processing.
     printShortUsage "$1" >&2
-    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+    printf >&2 '\nTry %q --help for more information.\n' "${GIT_LOGCORRECTIONS:-$(basename "$1")}"
 }
 printLongUsage()
 {
     # This is the long "man page" when launched with the help argument.
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
-Show commit logs of commits that correct / reference previous revision(s) (when
-it's too late or cumbersome to fixup / amend the existing commit) by looking for
-references to the prior commit(s) in the commit message (title and body,
-hexadecimal syntax only; no configured tag references in the title).
+Show commit logs of commits that ${GIT_LOGCORRECTIONS_WHAT:-correct} / reference previous revision(s)
+(when it's too late or cumbersome to fixup / amend the existing commit) by
+looking for references to the prior commit(s) in the commit message (title and
+body, hexadecimal syntax only; no configured tag references in the title).
 This shows you which commits actively reference other commits (without showing
 those).
 HELPDESCRIPTION
@@ -65,8 +65,8 @@ HELPDESCRIPTION
 			repositories, either.
 
 SEE ALSO:
-- git-correct can be used to create a commit as a correction of previous
-  revision(s).
+- ${GIT_LOGCORRECTIONS_SEE_ALSO:-git-correct} can be used to create a commit as a ${GIT_LOGCORRECTIONS_SEE_ALSO_WHAT:-correction} of
+  previous revision(s).
 
 EXIT STATUS:
     0	Complete success.

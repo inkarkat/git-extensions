@@ -313,8 +313,14 @@ logCorrectionsAndChain()
 		    # original repository. We don't want the remote prefix there, and don't need the
 		    # whole going to that working copy and invoking the log command there.
 		    # Just strip off the remote prefix and handle it as the local reference it is.
+		    # Unfortunately, even though we could process all those references as one group,
+		    # as these were processed like remote references and these do need an empty line
+		    # separator to maintain their order, each one here will be processed separately,
+		    # and we have to add separation between each (but only multi-line) commit
+		    # message on our own.
 		    --regexp-exec "^${startingUserRepo}@[[:xdigit:]]+\$" unprefix -- "${startingUserRepo}@" \;
 		    --regexp-exec "^${startingUserRepo}@[[:xdigit:]]+\$" GIT_LOGREVS_SHOW_COMMAND="$logRevsShowCommand" git-wrapper $GIT_LOGCORRECTIONS_LOGREVS_COMMAND "${colorArg[@]}" "${gitPrettyArg[@]}" "${logOutputArgs[@]}" \;
+		    --regexp-exec "^${startingUserRepo}@[[:xdigit:]]+\$" padding --multiple-lines --after '' \;
 
 		    # Note: Empty lines serve as separators between remote references returned by
 		    # the recursive calls, so that there's no uniquePrefixes filtering that would

@@ -50,7 +50,7 @@ do
     esac
 done
 
-FORMAT="%C(cyan)%h%Creset %Cgreen(%aN, ${GIT_ONELINELOG_DATEFORMAT:-%ar})%Creset ${decorationFormat}%s"
+FORMAT="%C(cyan)${GIT_ONELINELOG_PREHASH-$GIT_PRETTY_PREHASH}%h${GIT_ONELINELOG_POSTHASH-$GIT_PRETTY_POSTHASH}%Creset %Cgreen(%aN, ${GIT_ONELINELOG_DATEFORMAT:-%ar})%Creset ${decorationFormat}%s"
 if [ "$isColorOff" ]; then
     FORMAT=${FORMAT//%C\(+([^\)])\)/}
     FORMAT=${FORMAT//%C+([a-z])/}
@@ -91,5 +91,5 @@ if [ ${#graphLogArg[@]} -gt 0 ]; then
     fi
 fi
 
-eval 'git $GIT_ONELINELOG_DIRECT_ARG log --abbrev-commit "${colorArg[@]}" "${decorateLogArg[@]}" "${graphLogArg[@]}" "${reverseLogArg[@]}" --pretty="${isTerminatorSemantics:+t}format:${GIT_ONELINELOG_PREFORMAT:-}${FORMAT//${GIT_ONELINELOG_NOFORMAT:-}/}${GIT_ONELINELOG_POSTFORMAT:-}" "${logArgs[@]}" "$@"' \
+eval 'git $GIT_ONELINELOG_DIRECT_ARG log --abbrev-commit "${colorArg[@]}" "${decorateLogArg[@]}" "${graphLogArg[@]}" "${reverseLogArg[@]}" --pretty="${isTerminatorSemantics:+t}format:${GIT_ONELINELOG_PREFORMAT-$GIT_PRETTY_PREFORMAT}${FORMAT//${GIT_ONELINELOG_NOFORMAT}/}${GIT_ONELINELOG_POSTFORMAT-$GIT_PRETTY_POSTFORMAT}" "${logArgs[@]}" "$@"' \
     "${reversePipeline:+|}$reversePipeline"

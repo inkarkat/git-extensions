@@ -1,19 +1,34 @@
 #!/bin/bash
 
-case "$1" in
-    --help|-h|-\?)	exec git-logrevs "$@";;
-esac
+typeset -a logrevsArgs=()
+tempDirspec=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	exec git-logrevs "$@";;
+	--into)		shift; tempDirspec="${1:?}"; shift;;
+	--)		logrevsArgs+=("$1"); shift; break;;
+	*)		logrevsArgs+=("$1"); shift;;
+    esac
+done
+typeset -a postAction=()
+if [ -z "$tempDirspec" ]; then
+    tempDirspec="$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || { dirspec="${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM"; mkdir -p -- "$dirspec" && printf %s "$dirspec"; })" || exit $?
+    [ "$DEBUG" ] || trap 'rm -rf "$tempDirspec" 2>/dev/null' EXIT
 
-tempDirspec="$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || { dirspec="${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM"; mkdir -p -- "$dirspec" && printf %s "$dirspec"; })" || exit $?
-[ "$DEBUG" ] || trap 'rm -rf "$tempDirspec" 2>/dev/null' EXIT
+    # Explicitly trigger the display of the accumulated split commits.
+    # But only when we're in control of the lifetime of the tempdir, i.e. when the
+    # user didn't specify one via --into.
+    postAction=(exec git-lcl --into "$tempDirspec" --show)
+fi
 
 # Use git-lcl as the "git-show" of git-logrevs, so that the passed list of
 # commits is split into individual ones.
 # git-lcl is instructed (via --into) to accumulate the potentially multiple
 # invocations into the single tempdir.
+printf -v quotedTempDirspec %q "$tempDirspec"
 GIT_LCL_COMMAND=show \
-GIT_LOGREVS_SHOW_COMMAND="lcl --into $tempDirspec" \
-    git-logrevs --patch "$@" || exit $?
+GIT_LOGREVS_SHOW_COMMAND="lcl --into $quotedTempDirspec" \
+    git-logrevs "${logrevsArgs[@]}" "$@" || exit $?
 
-# Explicitly trigger the display of the accumulated split commits.
-exec git-lcl --into "$tempDirspec" --show
+"${postAction[@]}"

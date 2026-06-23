@@ -1,29 +1,38 @@
 #!/bin/bash
 
-printUsage()
+# Duplicated to /+augmentPretty() git-show
+augmentPretty()
 {
-    cat <<HELPTEXT
-Show commit logs.
-HELPTEXT
-    echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<options>] [<revision range>] [[--] <pathspec>...] [-?|-h|--help]'
+    local format="${1?}"; shift
+    if [[ "$format" =~ ^(t?format:)(.*)$ ]]; then
+	format="${BASH_REMATCH[1]}${GIT_LOG_PREFORMAT-$GIT_PRETTY_PREFORMAT}${BASH_REMATCH[2]}${GIT_LOG_POSTFORMAT-$GIT_PRETTY_POSTFORMAT}"
+	format="${format//%h/${GIT_LOG_PREHASH-$GIT_PRETTY_PREHASH}%h${GIT_LOG_POSTHASH-$GIT_PRETTY_POSTHASH}}"
+	format="${format//%H/${GIT_LOG_PREHASH-$GIT_PRETTY_PREHASH}%H${GIT_LOG_POSTHASH-$GIT_PRETTY_POSTHASH}}"
+    fi
+    printf %s "$format"
 }
 
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-esac
-
-typeset arg
 typeset -a allargs=()
-typeset isLiteral=
-for arg
+typeset -a prettyArgs=()
+while [ $# -ne 0 ]
 do
-    if [ ! "$isLiteral" -a "$arg" = '-v' ]; then
-	allargs+=('--name-status')
-    else
-	[ "$arg" = '--' ] && isLiteral=t
-	allargs+=("$arg")
-    fi
+    case "$1" in
+	-v)		shift; allargs+=('--name-status');;
+	--pretty=*)	prettyArgs+=("--pretty=$(augmentPretty "${1#--pretty=}")"); shift;;
+	--pretty)	prettyArgs+=("$1" "$(augmentPretty "${2?}")"); shift; shift;;
+	--)		allargs+=("$1"); shift; break;;
+	*)		allargs+=("$1"); shift;;
+    esac
 done
 
-exec git log --decorate --topo-order "${allargs[@]}"
+if [ ${#prettyArgs[@]} -eq 0 ] \
+    && [ -n "${GIT_LOG_PREFORMAT-$GIT_PRETTY_PREFORMAT}${GIT_LOG_POSTFORMAT-$GIT_PRETTY_POSTFORMAT}${GIT_LOG_PREHASH-$GIT_PRETTY_PREHASH}${GIT_LOG_POSTHASH-$GIT_PRETTY_POSTHASH}" ]
+then
+    # Note: To be completely correct the format.pretty config option value would
+    # have to be checked, but I'll only hard-code the format of the default "medium"
+    # pretty format.
+    prettyArgs=("--pretty=format:${GIT_LOG_PREFORMAT-$GIT_PRETTY_PREFORMAT}%C(ul magenta)commit ${GIT_LOG_PREHASH-$GIT_PRETTY_PREHASH}%H${GIT_LOG_POSTHASH-$GIT_PRETTY_POSTHASH}%C(bold red)%d%Creset%nAuthor: %aN <%aE>%nDate:   %ad%n%n    %s%n%n%w(0,4,4)%b${GIT_LOG_POSTFORMAT-$GIT_PRETTY_POSTFORMAT}")
+fi
+
+eval "typeset -a gitConfigArgs=($GIT_CONFIG_ARGS)"
+exec git "${gitConfigArgs[@]}" log --decorate --topo-order "${prettyArgs[@]}" "${allargs[@]}" "$@"

@@ -1,4 +1,37 @@
 #!/bin/bash
 
+# Duplicated to /+augmentPretty() git-log
+augmentPretty()
+{
+    local format="${1?}"; shift
+    if [[ "$format" =~ ^(t?format:)(.*)$ ]]; then
+	format="${BASH_REMATCH[1]}${GIT_SHOW_PREFORMAT-$GIT_PRETTY_PREFORMAT}${BASH_REMATCH[2]}${GIT_SHOW_POSTFORMAT-$GIT_PRETTY_POSTFORMAT}"
+	format="${format//%h/${GIT_SHOW_PREHASH-$GIT_PRETTY_PREHASH}%h${GIT_SHOW_POSTHASH-$GIT_PRETTY_POSTHASH}}"
+	format="${format//%H/${GIT_SHOW_PREHASH-$GIT_PRETTY_PREHASH}%H${GIT_SHOW_POSTHASH-$GIT_PRETTY_POSTHASH}}"
+    fi
+    printf %s "$format"
+}
+
+typeset -a allargs=()
+typeset -a prettyArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--pretty=*)	prettyArgs+=("--pretty=$(augmentPretty "${1#--pretty=}")"); shift;;
+	--pretty)	prettyArgs+=("$1" "$(augmentPretty "${2?}")"); shift; shift;;
+	--)		allargs+=("$1"); shift; break;;
+	*)		allargs+=("$1"); shift;;
+    esac
+done
+
+if [ ${#prettyArgs[@]} -eq 0 ] \
+    && [ -n "${GIT_SHOW_PREFORMAT-$GIT_PRETTY_PREFORMAT}${GIT_SHOW_POSTFORMAT-$GIT_PRETTY_POSTFORMAT}${GIT_SHOW_PREHASH-$GIT_PRETTY_PREHASH}${GIT_SHOW_POSTHASH-$GIT_PRETTY_POSTHASH}" ]
+then
+    # Note: To be completely correct the format.pretty config option value would
+    # have to be checked, but I'll only hard-code the format of the default "medium"
+    # pretty format.
+    prettyArgs=("--pretty=format:${GIT_SHOW_PREFORMAT-$GIT_PRETTY_PREFORMAT}%C(ul magenta)commit ${GIT_SHOW_PREHASH-$GIT_PRETTY_PREHASH}%H${GIT_SHOW_POSTHASH-$GIT_PRETTY_POSTHASH}%C(bold red)%d%Creset%nAuthor: %aN <%aE>%nDate:   %ad%n%n    %s%n%n%w(0,4,4)%b${GIT_SHOW_POSTFORMAT-$GIT_PRETTY_POSTFORMAT}")
+fi
+
 eval "typeset -a gitConfigArgs=($GIT_CONFIG_ARGS)"
-exec git "${gitConfigArgs[@]}" show --diff-merges=first-parent "$@"
+exec git "${gitConfigArgs[@]}" show --diff-merges=first-parent "${prettyArgs[@]}" "${allargs[@]}" "$@"

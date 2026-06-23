@@ -86,6 +86,12 @@ resolveRemoteDirspec()
     fi
 }
 
+typeset -a colorArg=(--color=always)
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+if [ ! -t 1 ]; then
+    colorArg=()
+    pager=()
+fi
 isInRecursion=
 action=logCorrections
 chainSource=logCorrectionsAndReferences
@@ -100,6 +106,10 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--color=auto)	shift;;
+	--no-color|--color=*)
+			colorArg=("$1"); shift;;
+	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); shift; shift;;
 
 	--remote-log)	shift
 			status=0
@@ -200,7 +210,7 @@ fi
 
 logSource()
 {
-    git-wrapper $gitLogCorrectionsCommand "${grepArgs[@]/#/--grep=}" "$@"
+    git-wrapper $gitLogCorrectionsCommand "${grepArgs[@]/#/--grep=}" "${colorArg[@]}" "$@"
 }
 
 logCorrections()
@@ -304,7 +314,7 @@ logCorrectionsAndChain()
 		    # whole going to that working copy and invoking the log command there.
 		    # Just strip off the remote prefix and handle it as the local reference it is.
 		    --regexp-exec "^${startingUserRepo}@[[:xdigit:]]+\$" unprefix -- "${startingUserRepo}@" \;
-		    --regexp-exec "^${startingUserRepo}@[[:xdigit:]]+\$" GIT_LOGREVS_SHOW_COMMAND="$logRevsShowCommand" git-wrapper $GIT_LOGCORRECTIONS_LOGREVS_COMMAND "${gitPrettyArg[@]}" "${logOutputArgs[@]}" \;
+		    --regexp-exec "^${startingUserRepo}@[[:xdigit:]]+\$" GIT_LOGREVS_SHOW_COMMAND="$logRevsShowCommand" git-wrapper $GIT_LOGCORRECTIONS_LOGREVS_COMMAND "${colorArg[@]}" "${gitPrettyArg[@]}" "${logOutputArgs[@]}" \;
 
 		    # Note: Empty lines serve as separators between remote references returned by
 		    # the recursive calls, so that there's no uniquePrefixes filtering that would
@@ -315,18 +325,19 @@ logCorrectionsAndChain()
 		    # log command there. As this is too involved for a single commandline, we invoke
 		    # ourselves for it.
 		    --fallback-exec uniquePrefixes \;
-		    --fallback-exec "${BASH_SOURCE[0]}" --remote-log "${gitPrettyArg[@]}" "${logOutputArgs[@]}" \;
+		    --fallback-exec "${BASH_SOURCE[0]}" --remote-log "${colorArg[@]}" "${gitPrettyArg[@]}" "${logOutputArgs[@]}" \;
 		)
 
 		# Render references in the current working copy; recursive invocations will just
 		# pass through any other input; the initial call will render all those collected
 		# remote references.
 		segregateInput \
-		    --regexp-exec '^[[:xdigit:]]+$' GIT_LOGREVS_SHOW_COMMAND="$logRevsShowCommand" git-wrapper $GIT_LOGCORRECTIONS_LOGREVS_COMMAND "${gitPrettyArg[@]}" "${logOutputArgs[@]}" \; \
+		    --regexp-exec '^[[:xdigit:]]+$' GIT_LOGREVS_SHOW_COMMAND="$logRevsShowCommand" git-wrapper $GIT_LOGCORRECTIONS_LOGREVS_COMMAND "${colorArg[@]}" "${gitPrettyArg[@]}" "${logOutputArgs[@]}" \; \
 		    "${segregateInputInitialCallArgs[@]}"
 	    else
-		GIT_LOGREVS_SHOW_COMMAND="$logRevsShowCommand" git-wrapper $GIT_LOGCORRECTIONS_LOGREVS_COMMAND "${gitPrettyArg[@]}" "${logOutputArgs[@]}"
+		GIT_LOGREVS_SHOW_COMMAND="$logRevsShowCommand" git-wrapper $GIT_LOGCORRECTIONS_LOGREVS_COMMAND "${colorArg[@]}" "${gitPrettyArg[@]}" "${logOutputArgs[@]}"
 	    fi
 }
 
-$action "${logArgs[@]}" "$@"
+eval '$action "${logArgs[@]}" "$@"' \
+    "${pager:+|}" '"${pager[@]}"'

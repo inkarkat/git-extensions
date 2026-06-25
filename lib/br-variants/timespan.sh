@@ -16,8 +16,12 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" 'GIT-COMMAND [...] [-r|--revision REVISION] [...] [-?|-h|--help]'
 }
 
+typeset -a colorArg=()
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --no-color|--color=*)
+			colorArg=("$1"); shift;;
+    --color)		colorArg=("$1" "$2"); shift; shift;;
 esac
 
 othersCommand()
@@ -35,6 +39,7 @@ elif [ $# -eq ${#scopeMandatoryArgs[@]} ]; then
 else
     gitCommand="${1:?}"; shift
 fi
+set -- "${colorArg[@]}" "$@"
 
 case "$gitCommand" in
     (\

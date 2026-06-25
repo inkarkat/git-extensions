@@ -23,8 +23,12 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" "GIT-COMMAND ${scopeArgsOverride:-[...] ${scopeArgs:+[}${scopeArgs}${scopeArgs:+]}${scopeAdditionalArgs:+ }${scopeAdditionalArgs}${scopeArgs:+ [...] }${scopeFinalArgs}${scopeFinalArgs:+ }}${scopeArgsOverride:+ }[-?|-h|--help]"
 }
 
+typeset -a colorArg=()
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --no-color|--color=*)
+			colorArg=("$1"); shift;;
+    --color)		colorArg=("$1" "$2"); shift; shift;;
 esac
 
 onLocalBranch()
@@ -69,6 +73,7 @@ elif [ $# -eq ${#scopeMandatoryArgs[@]} ]; then
 else
     gitCommand="${1:?}"; shift
 fi
+set -- "${colorArg[@]}" "$@"
 
 typeset -a revRangeAdditionalArgs=()
 case "$gitCommand" in

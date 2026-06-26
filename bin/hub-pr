@@ -7,7 +7,8 @@ printUsage()
     command hub pr --help 2>&1 | sed \
 	-e '/\[-f$/{ N; s/\n[[:space:]]*/ /; }' \
 	-e 's/\[-b BASE\]/[-b BASE [-b ...]] [-d|--since DATE]/g' \
-	-e 's/\[-f FORMAT\]/[--age|-v|--verbose|--browse|-f|--format FORMAT]/g'
+	-e 's/\[-f FORMAT\]/[--age|-v|--verbose|--browse|-f|--format FORMAT]/g' \
+	-e '/ pr show /{ p; s/ pr show / pr browse /g; s/|--browse|/|/g; }'
 }
 
 typeset -a colorArg=(--color=always)
@@ -21,7 +22,8 @@ fi
 action=pullRequestList
 prAction=list	# XXX: hub pr (in version 2.14.2) does not default to "list" (like hub issue). DWIM and add this.
 format=
-defaultFormat='%pC%>(8)%i%Creset  %t%  l%n'
+defaultFormat='%pC%>(8)%i%Creset  %t%  l'
+defaultFormatLineEnding='%n'
 issueFormatEmulation='%sC%>(8)%i%Creset  %t%  l'
 typeset -a formatter=()
 typeset -a args=()
@@ -43,12 +45,14 @@ do
 	--assignee=*|--creator=*|--mentioned=*|--since=*)
 			args+=("$1"); shift; action=pullRequestsFromIssues;;
 	--since|-d)	args+=("$1" "${2:?}"); shift; shift; action=pullRequestsFromIssues;;
-	--browse)	shift; defaultFormat='%U%n'; issueFormatEmulation='%U'; formatter=(linesToArgs git-browse);;
+	--browse)	shift; defaultFormat='%U'; issueFormatEmulation='%U'; formatter=(linesToArgs git-browse); pager=();;
 	--verbose|-v)	shift; defaultFormat="${defaultFormat/  /  %Ccyan%H%Creset → %Cblue%B%Creset	}"; formatter=("${defaultFormatter[@]}");;
 	--age)		shift; defaultFormat="${defaultFormat/  /  %cI	(%cr)	}"; issueFormatEmulation="${issueFormatEmulation/  / %cI	(%cr)	}"; formatter=("${defaultFormatter[@]}");;
 
 	checkout)	action=pullRequestOther; prAction="$1"; shift; pager=();;
-	list|show)	prAction="$1"; shift;;
+	list)		prAction="$1"; shift;;
+	browse)		defaultFormat='%U'; issueFormatEmulation='%U'; formatter=(linesToArgs git-browse); pager=();&
+	show)		prAction="$1"; shift; defaultFormatLineEnding='';;
 
 	--base|-b)	shift; bases+=("${1:?}"); shift;;
 	--base=*)	bases+=("${1#--base=}"); shift;;
@@ -89,7 +93,7 @@ pullRequestList()
 {
     local status=0 base; for base in "${bases[@]:-}"
     do
-	command hub pr ${prAction:?} ${base:+--base "$base"} --format "${format:-$defaultFormat}" "${colorArg[@]}" "$@" || status=$?
+	command hub pr ${prAction:?} ${base:+--base "$base"} --format "${format:-${defaultFormat}${defaultFormatLineEnding}}" "${colorArg[@]}" "$@" || status=$?
     done
     return $status
 }

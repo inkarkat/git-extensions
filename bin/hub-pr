@@ -7,7 +7,8 @@ printUsage()
     command hub pr --help 2>&1 | sed \
 	-e '/\[-f$/{ N; s/\n[[:space:]]*/ /; }' \
 	-e 's/\[-b BASE\]/[-b BASE [-b ...]] [-d|--since DATE]/g' \
-	-e 's/\[-f FORMAT\]/[--age|-v|--verbose|--browse|-f|--format FORMAT]/g'
+	-e 's/\[-f FORMAT\]/[--age|-v|--verbose|--browse|-f|--format FORMAT]/g' \
+	-e '/ pr show /{ p; s/ pr show / pr browse /g; s/|--browse|/|/g; }'
 }
 
 typeset -a colorArg=(--color=always)
@@ -50,6 +51,7 @@ do
 
 	checkout)	action=pullRequestOther; prAction="$1"; shift; pager=();;
 	list)		prAction="$1"; shift;;
+	browse)		defaultFormat='%U'; issueFormatEmulation='%U'; formatter=(linesToArgs git-browse); pager=();&
 	show)		prAction="$1"; shift; defaultFormatLineEnding='';;
 
 	--base|-b)	shift; bases+=("${1:?}"); shift;;

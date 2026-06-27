@@ -54,7 +54,7 @@ log?(mod|added|deleted|renamed)?(files)|glog|log@(browse|size|trailers|prlinks)|
 lg@(rel|tagged|st|i|I)|\
 l[ou]url?([fv])|\
 lghi?(st|i|I)|\
-ss@(?([wcag])|changed|touched)|\
+ss@(?([wcag])?(st|i|I|last)|changed|touched)|\
 sls?(g|changed|touched)|\
 dp[sg]|dpl?(s)[sg]|dpls@(changed|touched)|\
 co[pr]s?(s)|\

@@ -107,7 +107,7 @@ l?(o)g?([fv]|merges)@(mine|others|team)|\
 @(brlifetimes|logmsgstat)byeach|\
 log?(mod|added|deleted|renamed)?(files)|glog|log@(browse|size|trailers|prlinks)|\
 l[ou]url?([fv])|\
-ss@(?([wcag])?(st|i|I|last)|changed|touched)|\
+ss@(?([wcag])?(st|i|I|samefiles)|changed|touched)|\
 sls?(g|changed|touched)|\
 dp[sg]|dpl?(s)[sg]|dpls@(changed|touched)|\
 who@(when|first|last)|whatdid|changesetfiles|churn|\

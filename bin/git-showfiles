@@ -58,7 +58,7 @@ typeset -a diffRange=()
 typeset -a logRange=()
 isIncludeIntermediate=
 typeset -a gitNameStatusArg=(--name-only)
-sorter='sort -u'
+typeset -a sortArgs=(-u)
 statusFilter=
 typeset -a allargs=()
 typeset -a renameArgs=()
@@ -69,7 +69,7 @@ do
 	--cached)	diffRange+=("$1"); shift;;
 	--to)		shift; diffRange+=("${1:?}"); shift;;
 	--intermediate)	shift; isIncludeIntermediate=t;;
-	--status|-s)	shift; gitNameStatusArg=(--name-status); sorter='sort -k 2 -u';;
+	--status|-s)	shift; gitNameStatusArg=(--name-status); sortArgs=(-k 2 -u);;
 	--no-renames|--renames|--find-renames|--find-renames=*|-M?*|--find-copies|--find-copies=*|-C?*|--find-copies-harder)
 			renameArgs+=("$1"); shift;;
 	--added|-a)	shift; statusFilter+='A';;
@@ -124,6 +124,11 @@ done
 
 typeset -a statusFilterArg=(); [ -z "$statusFilter" ] || statusFilterArg=(--diff-filter="$statusFilter")
 
+deleteEmptyLines()
+{
+    sed -e '/^$/d'
+}
+
 if [ "$isIncludeIntermediate" ]; then
     git-subdir-relativizer log --pretty='format:' "${gitNameStatusArg[@]}" "${renameArgs[@]}" "${statusFilterArg[@]}" "${allargs[@]}" "${logRange[@]}" "$@"
 elif [ -n "$range" ]; then
@@ -149,7 +154,6 @@ else
     git-subdir-relativizer loglimit-to-range-command -2 \
 	show LIMITRANGE --pretty='format:' "${gitNameStatusArg[@]}" "${renameArgs[@]}" "${statusFilterArg[@]}" "${argsWithResolvedCommitIds[@]}"
 fi \
-    | eval "$filter ${filter:+|}" \
-	"$sorter" \
-	"| sed -e '/^\$/d'" \
+    | sort "${sortArgs[@]}" \
+	| eval deleteEmptyLines \
 	"${pager:+|}" '"${pager[@]}"'

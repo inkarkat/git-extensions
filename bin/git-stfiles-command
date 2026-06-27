@@ -1,23 +1,53 @@
 #!/bin/bash
 set -o noglob
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--except-last] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [-c ...] GIT-COMMAND [GIT-COMMAND-ARGS ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... --keep-position GIT-COMMAND [... FILES ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [...]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 Execute GIT-COMMAND with modified (staged and unstaged) files
 - appended
 - replacing FILES argument(s) anywhere
 - replacing FILES in the following GIT-COMMAND and -(N-1) arguments
 - replacing FILES in the following +(N) arguments and appending those
-HELPTEXT
+HELPDESCRIPTION
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-c ...] GIT-COMMAND [GIT-COMMAND-ARGS ...] [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '--keep-position GIT-COMMAND [... FILES ...]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [...]'
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --except-last	The very last argument is special and should not be
+			parsed as <pathspec>..., just passed to the command used
+			to determine the commits.
+HELPTEXT
 }
+
+typeset -a specialLastArg=()
 case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+    --except-last)	shift
+			if [ $# -gt 0 ]; then
+			    specialLastArg=("${!#}")
+			    set -- "${@:1:$(($#-1))}"
+			fi
+			;;
 esac
 
 if [ $# -eq 0 ]; then
@@ -54,8 +84,8 @@ case "$1" in
 	done
 
 	[ "$isCountedAppend" ] \
-	    && exec git-wrapper "$@" "${appendedArgs[@]}" \
-	    || exec git-wrapper "${appendedArgs[@]}" "$@"
+	    && exec git-wrapper "$@" "${appendedArgs[@]}" "${specialLastArg[@]}" \
+	    || exec git-wrapper "${appendedArgs[@]}" "$@" "${specialLastArg[@]}"
 	;;
     --keep-position)
 	shift
@@ -70,9 +100,9 @@ case "$1" in
 	    fi
 	done
 
-	exec git-wrapper "${appendedArgs[@]}"
+	exec git-wrapper "${appendedArgs[@]}" "${specialLastArg[@]}"
 	;;
     *)
-	exec git-wrapper "$@" -- "${stfiles[@]}"
+	exec git-wrapper "$@" -- "${stfiles[@]}" "${specialLastArg[@]}"
 	;;
 esac

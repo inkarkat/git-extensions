@@ -113,13 +113,9 @@ activity?(except)by\
 	othersCommand "$@"
 	;;
 
-    cors)
-	withAggregateCommit checkoutrevisionselected "$@";;
-    cops)
-	withAggregateCommit checkoutpreviousselected "$@";;
-
     (\
 @(show|tree)[ou]url?(f)|\
+co[pr]s?(s)|\
 revert?(commit)|\
 correct|commit@(identical|like|relate)|amendrelate\
 )

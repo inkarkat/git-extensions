@@ -58,6 +58,7 @@ lghi?(st|i|I)|\
 ss@(?([wcag])|changed|touched)|\
 sls?(g|changed|touched)|\
 dp[sg]|dpl?(s)[sg]|dpls@(changed|touched)|\
+co[pr]s?(s)|\
 revert@(g|changed|touched|commit@(g|changed|touched))|\
 @(correct|fix@(up|amend|wording)|commit@(identical|like|relate)|amendrelate)@(g|changed|touched|st|i|I)|\
 detach@(g|changed|touched)|\
@@ -144,11 +145,6 @@ activity?(except)by\
     files@(l?(o)g|logv|lc|logfiles))
 	# Logs of files modified in the timespan starting from before it.
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --range -- -3 showfiles-command --revision TIMESPAN ${scopeCommand:?} --inverted -2 "${gitCommand#files}" TIMESPAN "$@";;
-
-    cors)
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 checkoutselectedrevisionselected TIMESPAN "$@";;
-    cops)
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 checkoutselectedpreviousselected TIMESPAN "$@";;
 
     revert)
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 revertselectedcommit TIMESPAN "$@";;

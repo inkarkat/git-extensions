@@ -57,6 +57,7 @@ lghi?(st|i|I)|\
 ss@(?([wcag])|changed|touched)|\
 sls?(g|changed|touched)|\
 dp[sg]|dpl?(s)[sg]|dpls@(changed|touched)|\
+co[pr]s?(s)|\
 revert@(g|changed|touched|commit@(g|changed|touched))|\
 @(correct|fix@(up|amend|wording)|commit@(identical|like|relate)|amendrelate)@(g|changed|touched|st|i|I)|\
 detach@(g|changed|touched)|\
@@ -152,11 +153,6 @@ activity?(except)by\
 	    ${EXEC#exec} printf >&2 'Note: Failed to determine the start revision of the range; the %s scope is included in the log now.\n' "$scope"
 	fi
 	$EXEC git-"${scopeCommand:?}" --range -3 showfiles-command --revision TIMESPAN "${gitCommand#files}" "$@";;
-
-    cors)
-	$EXEC "git-${scopeCommand:?}" -2 checkoutselectedrevisionselected TIMESPAN "$@";;
-    cops)
-	$EXEC "git-${scopeCommand:?}" -2 checkoutselectedpreviousselected TIMESPAN "$@";;
 
     revert)
 	$EXEC "git-${scopeCommand:?}" -2 revertselectedcommit TIMESPAN "$@";;

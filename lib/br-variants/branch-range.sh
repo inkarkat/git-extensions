@@ -76,7 +76,7 @@ log?(mod|added|deleted|renamed)?(files)|glog|log@(browse|size|trailers|prlinks)|
 l[ou]url?([fv])|\
 @(files|versions|tags)@(g|changed|touched)|\
 @(files|version|tag)@(last|first)@(g|changed|touched)|\
-ss@(?([wcag])|changed|touched)|\
+ss@(?([wcag])?(st|i|I|last)|changed|touched)|\
 sls?(g|changed|touched)|\
 dp[sg]|dpl?(s)[sg]|dpls@(changed|touched)|\
 co[pr]s?(s)|\

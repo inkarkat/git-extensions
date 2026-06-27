@@ -252,14 +252,17 @@ if [ ${#rangeArgs[@]} -eq 0 ] && [ ! "$GIT_SELECTEDCOMMIT_NO_MANDATORY_RANGE" ];
     exit 2
 fi
 
+: ${GIT_SELECTEDCOMMIT_COMMAND:=log --topo-order}
 logRange()
 {
     if [ -n "$GIT_SELECTEDCOMMIT_COMMITS" ]; then
 	# Allow override of the entire commit source; the desired log format can be interpolated via {}.
 	local quotedArgs=; if [ $# -gt 0 ]; then printf -v quotedArgs '%q ' "$@"; quotedArgs="${quotedArgs% }"; fi
 	eval "${GIT_SELECTEDCOMMIT_COMMITS//\{\}/"$quotedArgs"}"
+    elif [ "$isAllowOutsideWorkingCopy" ] && [ ${#files[@]} -gt 0 ]; then
+	eval "git-inside ${GIT_SELECTEDCOMMIT_COMMAND:?}" '"${rangeModificationArgs[@]}" "${rangeArgs[@]}" "$@" \$FILE -- "${files[@]}" "${specialLastArg[@]}"'
     else
-	eval "git${files:+${isAllowOutsideWorkingCopy:+-inside}} ${GIT_SELECTEDCOMMIT_COMMAND:-log --topo-order}" '"${rangeModificationArgs[@]}" "${rangeArgs[@]}" "$@" ${files:+${isAllowOutsideWorkingCopy:+\$FILE }--} "${files[@]}" "${specialLastArg[@]}"'
+	eval "git-wrapper ${GIT_SELECTEDCOMMIT_COMMAND:?}" '"${rangeModificationArgs[@]}" "${rangeArgs[@]}" "$@" ${files:+--} "${files[@]}" "${specialLastArg[@]}"'
     fi
 }
 

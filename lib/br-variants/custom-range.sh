@@ -110,7 +110,7 @@ l[ou]url?([fv])|\
 ss@(?([wcag])?(st|i|I|last)|changed|touched)|\
 sls?(g|changed|touched)|\
 dp[sg]|dpl?(s)[sg]|dpls@(changed|touched)|\
-who@(when|first|last)|whatdid|relatedfiles|churn|\
+who@(when|first|last)|whatdid|changesetfiles|churn|\
 commitage|datediff|\
 subchanges|superchanges|subrevl@(?(o)g|c)\
 )

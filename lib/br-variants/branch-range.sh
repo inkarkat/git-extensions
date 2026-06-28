@@ -76,14 +76,14 @@ log?(mod|added|deleted|renamed)?(files)|glog|log@(browse|size|trailers|prlinks)|
 l[ou]url?([fv])|\
 @(files|versions|tags)@(g|changed|touched)|\
 @(files|version|tag)@(last|first)@(g|changed|touched)|\
-ss@(?([wcag])?(st|i|I|last)|changed|touched)|\
+ss@(?([wcag])?(st|i|I|samefiles)|changed|touched)|\
 sls?(g|changed|touched)|\
 dp[sg]|dpl?(s)[sg]|dpls@(changed|touched)|\
 co[pr]s?(s)|\
 revert@(g|changed|touched|commit@(g|changed|touched))|\
 @(correct|fix@(up|amend|wording)|commit@(identical|like|relate)|amendrelate)@(g|changed|touched|st|i|I)|\
 detach@(g|changed|touched)|\
-who@(when|first|last)|whatdid|relatedfiles|churn|\
+who@(when|first|last)|whatdid|changesetfiles|churn|\
 commitage|datediff|\
 subchanges|superchanges|subrevl@(?(o)g|c)\
 )

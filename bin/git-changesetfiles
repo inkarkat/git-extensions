@@ -1,8 +1,8 @@
 #!/bin/bash
 set -o pipefail
 
-: ${GIT_RELATEDCHANGEDFILES_ORIGINAL_FILE_PREFIX='[01;37m'}
-: ${GIT_RELATEDCHANGEDFILES_ORIGINAL_FILE_SUFFIX='[0m'}
+: ${GIT_CHANGESETFILES_ORIGINAL_FILE_PREFIX='[01;37m'}
+: ${GIT_CHANGESETFILES_ORIGINAL_FILE_SUFFIX='[0m'}
 
 printShortUsage()
 {
@@ -50,7 +50,7 @@ HELPTEXT
 typeset -a gitLogArgs=()
 isPercentage=t
 percentageThreshold=10
-filterCommand="s/.*/${GIT_RELATEDCHANGEDFILES_ORIGINAL_FILE_PREFIX}&${GIT_RELATEDCHANGEDFILES_ORIGINAL_FILE_SUFFIX}/"
+filterCommand="s/.*/${GIT_CHANGESETFILES_ORIGINAL_FILE_PREFIX}&${GIT_CHANGESETFILES_ORIGINAL_FILE_SUFFIX}/"
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -79,7 +79,7 @@ removeStatus()
 	-e 's/^\(.*\)	\(.*\)$/\1\n\2/'
 }
 
-extractRelatedFiles()
+extractChangesetFiles()
 {
     if [ "$isPercentage" ] || [ $percentageThreshold -gt 0 ]; then
 	GIT_LOGOFFILES_COMMAND=logv git-logoffiles --pretty=format:--- "${gitLogArgs[@]}" "$@" | \
@@ -125,6 +125,6 @@ if [ -n "$filterCommand" ]; then
 fi
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
-eval 'extractRelatedFiles "$@"' \
+eval 'extractChangesetFiles "$@"' \
     "${filterPipeline:+|}" '"${filterPipeline[@]}"' \
     "${pager:+|}" '"${pager[@]}"'

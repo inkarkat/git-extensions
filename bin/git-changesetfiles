@@ -116,10 +116,18 @@ END {
 if [ -n "$filterCommand" ]; then
     originalFilePrefixPattern='^'; [ $percentageThreshold -gt 0 ] && originalFilePrefixPattern='^ *[0-9]\+%	'
     typeset -a filterPipeline=()
-    while IFS=$'\n' read -r literalOriginalFile
+    while IFS=$'\n' read -r literalOriginalPathspec
     do
+	pathspecAnchor='$'
+	if [[ "$literalOriginalPathspec" =~ /$ ]]; then
+	    pathspecAnchor=''
+	elif [ -d "$literalOriginalPathspec" ]; then
+	    literalOriginalPathspec+='/'
+	    pathspecAnchor=''
+	fi
+
 	[ ${#filterPipeline[@]} -eq 0 ] && filterPipeline+=(sed)
-	filterPipeline+=(-e "/${originalFilePrefixPattern}${literalOriginalFile}\$/${filterCommand}")
+	filterPipeline+=(-e "/${originalFilePrefixPattern}${literalOriginalPathspec}${pathspecAnchor}/${filterCommand}")
     done < <(git-logoffiles --only-list-expanded-paths "${gitLogArgs[@]}" "$@" 2>/dev/null | sed -e 's/[][\$*.^/]/\\&/g')
 
 fi

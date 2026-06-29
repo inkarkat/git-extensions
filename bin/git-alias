@@ -9,6 +9,16 @@ unTranslateUppercaseAlias()
     sed -e 's/^\(\[01m[^ ]\+\)-\('"$UPPERCASE_ALIAS_PATTERN"'\)\(.*\[0m\)/\1\u\2\3/'
 }
 
+translateUppercaseAlias()
+{
+    local aliasName="${1?}"; shift
+    if [[ "$aliasName" =~ ^[^-].*[[:upper:]] ]]; then
+	# Translate "X" to "-x" to enable looking up aliases with uppercase letters.
+	aliasName="$(echo "$aliasName" | sed -e 's/[[:upper:]]/-\l\0/g')"
+    fi
+    printf '%s\n' "$aliasName"
+}
+
 printUsage()
 {
     cat <<HELPTEXT
@@ -22,6 +32,7 @@ case "$1" in
     --no-color|--color=*)
 			shift;;
     --color)		shift; shift;;
+    --translate)	shift; translateUppercaseAlias "${1?}"; exit 0;;
     --un-translate)	shift; unTranslateUppercaseAlias; exit 0;;
 esac
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
@@ -32,10 +43,7 @@ printAliases()
     typeset -a aliasSearchSedArgs=()
 
     if [ -n "$aliasName" ]; then
-	if [[ "$aliasName" =~ ^[^-].*[[:upper:]] ]]; then
-	    # Translate "X" to "-x" to enable looking up aliases with uppercase letters.
-	    aliasName="$(echo "$aliasName" | sed -e 's/[[:upper:]]/-\l\0/g')"
-	fi
+	aliasName="$(translateUppercaseAlias "$aliasName")"
 
 	aliasSearchSedArgs=(
 	    -e "/^${aliasName}/!d"

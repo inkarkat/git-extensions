@@ -25,16 +25,22 @@ printUsage()
 List all Git aliases [starting with <pattern>].
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<pattern>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--] [<pattern>] [-?|-h|--help]'
 }
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
-			shift;;
-    --color)		shift; shift;;
-    --translate)	shift; translateUppercaseAlias "${1?}"; exit 0;;
-    --un-translate)	shift; unTranslateUppercaseAlias; exit 0;;
-esac
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+    			shift;;
+	--color)	shift; shift;;
+	--translate)	shift; translateUppercaseAlias "${1?}"; exit 0;;
+	--un-translate)	shift; unTranslateUppercaseAlias; exit 0;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 
 printAliases()

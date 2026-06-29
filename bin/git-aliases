@@ -56,12 +56,17 @@ printAliases()
 printFoundAliases()
 {
     local aliasName="$(git-alias --translate "${1:?}")"
+    local isUnAnchored=t
+    if [[ "$aliasName" =~ ^(.*)\$$ ]]; then
+	aliasName="${BASH_REMATCH[1]}"
+	isUnAnchored=
+    fi
 
     sed -n \
-	-e '/^;; \('"$aliasName"'[^:]*\):[ \t]\+/{
+	-e '/^;; \('"${aliasName}${isUnAnchored:+[^:]*}"'\):[[:space:]]\+/{
 		s/^;; \([^:]\+\):[ \t]\+\(.*\)/[01m\1[0m\n\2/p
 	    }
-	    /^'"$aliasName"'[^=]*=[ \t]/{
+	    /^'"${aliasName}${isUnAnchored:+[^=[:space:]]*}"'[[:space:]]*=[[:space:]]/{
 		s/[^=]*/[01m&[0m/
 		s/=[ \t][^;]*[ \t];[ \t]*/\n/;
 		p

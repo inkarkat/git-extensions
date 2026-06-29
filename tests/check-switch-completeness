@@ -1,5 +1,8 @@
 #!/bin/bash
 
+readonly COMMANDS_SUPPORTED_FILENAME='commands-supported.txt'	# Aliases and Git commands that are supported by the br-variants scripts.
+readonly COMMANDS_NEW_FILENAME='commands-new.txt'   # New synthesized commands only for br-variants.
+
 readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && absoluteScriptFile="$(readlink -nf -- "${BASH_SOURCE[0]}")" && dirname -- "$absoluteScriptFile" || exit 3)"
 [ -d "$scriptDir" ] || { echo >&2 'ERROR: Cannot determine script directory!'; exit 3; }
 readonly projectDir="${scriptDir}/.."
@@ -15,15 +18,46 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[TYPE[.sh] ...] [-?|-h|--help]'
 }
 
+isCheckAll=
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
 if [ $# -eq 0 ]; then
+    isCheckAll=t
     cd "$libDir" || exit 3
     set -- *.sh
 fi
 
-readarray -t gitCommands < "${libDir}/commands.txt"
+typeset -A allGitCommands=()
+duplicateCheck()
+{
+    local originFilename="${1:?}"; shift
+    if [ "${allGitCommands["$gitCommand"]}" ]; then
+	printf >&2 'ERROR: Git command "%s" is already defined in %s\n' "$gitCommand" "${allGitCommands["$gitCommand"]}"
+	exit 1
+    fi
+    allGitCommands["$gitCommand"]="$originFilename"
+}
+
+readarray -t gitSupportedCommands < "${libDir}/$COMMANDS_SUPPORTED_FILENAME"
+[ "$isCheckAll" ] && for gitCommand in "${gitSupportedCommands[@]}"
+do
+    duplicateCheck "$COMMANDS_SUPPORTED_FILENAME"
+    if ! git-aliases --quiet "${gitCommand}\$"; then
+	printf >&2 'ERROR: Supported Git command "%s" is not defined as an alias. Add it to gitconfig, or move to %s\n' "$gitCommand" "$GIT_NEW_COMMANDS_FILENAME"
+	exit 1
+    fi
+done
+
+readarray -t gitNewCommands < "${libDir}/$COMMANDS_NEW_FILENAME"
+[ "$isCheckAll" ] && for gitCommand in "${gitNewCommands[@]}"
+do
+    duplicateCheck "$COMMANDS_NEW_FILENAME"
+    if git-aliases --quiet "${gitCommand}\$"; then
+	printf >&2 'ERROR: New Git command "%s" is defined as an alias. Move it to %s, or remove it from gitconfig if it is there erroneously.\n' "$gitCommand" "$COMMANDS_SUPPORTED_FILENAME"
+	exit 1
+    fi
+done
 
 EXEC=:	# Don't execute handled commands.
 typeset -ra scopeCommand=(SCOPE-command)
@@ -31,7 +65,7 @@ scopeRevision=REVISION
 scopeEndRevision=BRANCH
 for typeScript in "$@"
 do
-    for gitCommand in "${gitCommands[@]}"
+    for gitCommand in "${gitSupportedCommands[@]}" "${gitNewCommands[@]}"
     do (
 	source "${libDir}/${typeScript%.sh}.sh" "$gitCommand"
     ) done 2>&1 | withHeader --id "check-switch-completeness-$$-$RANDOM" -- "$typeScript"

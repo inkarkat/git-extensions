@@ -77,7 +77,7 @@ case "$gitCommand" in
     dss)
 	withAggregateCommit --single-only dp "$@";;
 
-    @(st|i|I|files|submodules)?(except)by)
+    @(files|submodules)?(except)by)
 	gitCommand="show$gitCommand" othersCommand "$@";;
 
     subdo)

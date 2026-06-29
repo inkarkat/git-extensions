@@ -109,9 +109,9 @@ activity?(except)by\
     repomove)
 	$EXEC "git-${scopeCommand:?}" --no-range --one-more reporangemove "$@";;
 
-    @(st|i|I|files|submodules)?(mine|others|team))
+    @(files|submodules)?(mine|others|team))
 	$EXEC "git-${scopeCommand:?}" --range -2 "show$gitCommand" TIMESPAN "$@";;
-    @(st|i|I|files|submodules)?(except)by)
+    @(files|submodules)?(except)by)
 	gitCommand="show$gitCommand" othersCommand "$@";;
     subdo)
 	$EXEC git-files-command --source-command "$scope submodules" --keep-position subdo --for FILES \; "$@";;

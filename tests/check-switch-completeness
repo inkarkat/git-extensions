@@ -28,9 +28,21 @@ if [ $# -eq 0 ]; then
     set -- *.sh
 fi
 
+typeset -A allGitCommands=()
+duplicateCheck()
+{
+    local originFilename="${1:?}"; shift
+    if [ "${allGitCommands["$gitCommand"]}" ]; then
+	printf >&2 'ERROR: Git command "%s" is already defined in %s\n' "$gitCommand" "${allGitCommands["$gitCommand"]}"
+	exit 1
+    fi
+    allGitCommands["$gitCommand"]="$originFilename"
+}
+
 readarray -t gitSupportedCommands < "${libDir}/$COMMANDS_SUPPORTED_FILENAME"
 [ "$isCheckAll" ] && for gitCommand in "${gitSupportedCommands[@]}"
 do
+    duplicateCheck "$COMMANDS_SUPPORTED_FILENAME"
     if ! git-aliases --quiet "${gitCommand}\$"; then
 	printf >&2 'ERROR: Supported Git command "%s" is not defined as an alias. Add it to gitconfig, or move to %s\n' "$gitCommand" "$GIT_NEW_COMMANDS_FILENAME"
 	exit 1
@@ -40,6 +52,7 @@ done
 readarray -t gitNewCommands < "${libDir}/$COMMANDS_NEW_FILENAME"
 [ "$isCheckAll" ] && for gitCommand in "${gitNewCommands[@]}"
 do
+    duplicateCheck "$COMMANDS_NEW_FILENAME"
     if git-aliases --quiet "${gitCommand}\$"; then
 	printf >&2 'ERROR: New Git command "%s" is defined as an alias. Move it to %s, or remove it from gitconfig if it is there erroneously.\n' "$gitCommand" "$COMMANDS_SUPPORTED_FILENAME"
 	exit 1

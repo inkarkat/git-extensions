@@ -78,21 +78,23 @@ set -- "${colorArg[@]}" "$@"
 case "$gitCommand" in
     (\
 lg?([fv]|merges)|\
-lg@(rel|tagged|st|i|I)\
+lg@(rel|tagged|st|i|I)|\
+logfiles\
 )
-	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" --one-more-command greyonelinelog --one-more-only-to-terminal -2 "$gitCommand" RANGE "$@";;
+	typeset -a revRangeAdditionalArgs=(); [ "$gitCommand" = logfiles ] && revRangeAdditionalArgs=(--one-more-with-padding)
+	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" --one-more-command greyonelinelog --one-more-only-to-terminal "${revRangeAdditionalArgs[@]}" -2 "$gitCommand" RANGE "$@";;
     (\
-log?([fv]|merges|files)|\
-lc?([fh])?(mine|others|team)\
+log?([fv]|merges)|\
+log?(v)@(st|i|I)?(mine|others|team)|\
+lc?([fh]|@(st|i|I))?(mine|others|team)\
 )
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal -2 "$gitCommand" RANGE "$@";;
-    lghi)
-	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" --one-more-command 'greyonelineloghighlight lghighlight' --one-more-only-to-terminal -2 "$gitCommand" RANGE "$@";;
-    lghi?(st|i|I))
+    lghi?(st|i|I|samefiles))
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" --one-more-command "greyonelineloghighlight $gitCommand" --one-more-only-to-terminal -2 "$gitCommand" RANGE "$@";;
 
     (\
 @(@(log?(v)|show)@(last|first)?(f)|lc?(l)?(f)|l?(o)g?([fv])|count)@(g|changed|touched)?(mine|others|team)|\
+logfiles?(st|i|I)?(mine|others|team)|\
 l?(o)gfg|\
 @(files|versions|tags)@(g|changed|touched)|\
 @(files|version|tag)@(last|first)@(g|changed|touched)\
@@ -144,9 +146,9 @@ detach@(g|changed|touched)\
     repomove)
 	$EXEC git-"${scopeCommand[@]}" reporangemove "$@";;
 
-    @(st|i|I|files|submodules)?(mine|others|team))
+    @(files|submodules)?(mine|others|team))
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -2 "show$gitCommand" RANGE "$@";;
-    @(st|i|I|files|submodules)?(except)by)
+    @(files|submodules)?(except)by)
 	gitCommand="show$gitCommand" othersCommand "$@";;
     subdo)
 	withScoped submodules --keep-position subdo --for FILES \; "$@";;
@@ -164,7 +166,8 @@ detach@(g|changed|touched)\
 
 	(\
 l?(h|g|og)?(except)by|\
-lc?(f)?(except)by|\
+log?(v|files)?(st|i|I)?(except)by|\
+lc?([fh]|@(st|i|I))?(except)by|\
 lc?(l)@(g|changed|touched)?(except)by|\
 @(@(log?(v)|show)@(last|first)|@(l?(o)g?(v)|count))@(g|changed|touched)?(except)by|\
 l?(o)g?([fv]|merges)?(except)by|\

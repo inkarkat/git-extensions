@@ -7,6 +7,12 @@ set -o pipefail
 : ${GIT_SHOWH_FILE_HUNK_SEPARATOR=: }
 : ${GIT_SHOWH_COLOR_RESET='[0m'}
 
+readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
+[ -d "$scriptDir" ] || { echo >&2 'ERROR: Cannot determine script directory!'; exit 3; }
+readonly projectDir="${scriptDir}/.."
+readonly libDir="${projectDir}/lib"
+source "${libDir}/logArgParser.sh" || exit 3
+
 printUsage()
 {
     cat <<HELPTEXT
@@ -19,6 +25,7 @@ HELPTEXT
 }
 
 typeset -a objects=()
+typeset -a logArgs=()
 unset files
 isColor=t
 typeset -a colorArg=(--color=always)
@@ -38,7 +45,17 @@ do
 	--color=*)	colorArg=("$1"); shift;;
 	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); case "$2" in never) isColor=;; always) isColor=t;; esac; shift; shift;;
 	--)		shift; typeset -a files=("$@"); break;;
-	*)		objects+=("$1"); shift;;
+	*)		if argCount=$(countLogArgs t "$1"); then
+			    while ((argCount-- > 0))
+			    do
+				logArgs+=("$1")
+				shift
+			    done
+			else
+			    objects+=("$1")
+			    shift
+			fi
+			;;
     esac
 done
 if [ -z "${files+t}" ]; then
@@ -63,7 +80,7 @@ showh()
     local isFirst=t status=0 object; for object in "${objects[@]}"
     do
 	local hunkHeaders; hunkHeaders="$(
-	    git-wrapper log --patch --max-count 1 --no-color --pretty= "$object" ${files[*]:+--} "${files[@]}" \
+	    git-wrapper log --patch --max-count 1 --no-color --pretty= "${logArgs[@]}" "$object" ${files[*]:+--} "${files[@]}" \
 		| sed -n \
 		    -e '/^--- /{ N; /\n+++ /{ s/^[^\n]*\n//; s#^+++ \([biw]/\)\?##; h; }; }' \
 		    -e 't next' -e :next \

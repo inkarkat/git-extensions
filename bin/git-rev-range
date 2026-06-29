@@ -220,8 +220,8 @@ case "$1" in
 	    done
 
 	    [ "$isCountedAppend" ] \
-		&& $wrapper "$@" "${appendedArgs[@]}" \
-		|| $wrapper "${appendedArgs[@]}" "$@"
+		&& $wrapper "$@" "${ancilliaryArgs[@]}" "${appendedArgs[@]}" \
+		|| $wrapper "${appendedArgs[@]}" "${ancilliaryArgs[@]}" "$@"
 	}
 	;;
     --keep-position)
@@ -234,7 +234,8 @@ case "$1" in
 	    for arg
 	    do
 		if [ "$arg" = 'RANGE' ]; then
-		    appendedArgs+=("${rangeArgs[@]}")
+		    appendedArgs+=("${rangeArgs[@]}" "${ancilliaryArgs[@]}")
+		    ancilliaryArgs=()
 		else
 		    appendedArgs+=("$arg")
 		fi
@@ -247,7 +248,7 @@ case "$1" in
 	executor()
 	{
 	    local wrapper="${1:?}"; shift
-	    $wrapper "$@" "${rangeArgs[@]}"
+	    $wrapper "$@" "${ancilliaryArgs[@]}" "${rangeArgs[@]}"
 	}
 	;;
 esac
@@ -263,15 +264,25 @@ revRangeWithOneMore()
     if contains '--reverse' "${countedArgs[@]}" "$@"; then
 	# The (log) output is in reverse order, so the "one more" also needs to
 	# come first instead of last.
-	typeset -a rangeArgs=(--max-count 1 "${colorArg[@]}" "${mergeBase:-$revision}")
+	typeset -a rangeArgs=("${mergeBase:-$revision}")
+	typeset -a ancilliaryArgs=(--max-count 1 "${colorArg[@]}")
 	executor oneMore "$@" \
 	    && potentialPadding \
-	    && { rangeArgs=("${colorArg[@]}" "${revision}${revisionModifier}"$range"${endRevision:-${range:+HEAD}}"); executor wrapper "$@"; }
+	    && {
+		rangeArgs=("${revision}${revisionModifier}"$range"${endRevision:-${range:+HEAD}}")
+		ancilliaryArgs=("${colorArg[@]}")
+		executor wrapper "$@"
+	    }
     else
-	typeset -a rangeArgs=("${colorArg[@]}" "${revision}${revisionModifier}"$range"${endRevision:-${range:+HEAD}}")
+	typeset -a rangeArgs=("${revision}${revisionModifier}"$range"${endRevision:-${range:+HEAD}}")
+	typeset -a ancilliaryArgs=("${colorArg[@]}")
 	executor wrapper "$@" \
 	    && potentialPadding \
-	    && { rangeArgs=(--max-count 1 "${colorArg[@]}" "${mergeBase:-$revision}"); executor oneMore "$@"; }
+	    && {
+		rangeArgs=("${mergeBase:-$revision}")
+		ancilliaryArgs=(--max-count 1 "${colorArg[@]}" )
+		executor oneMore "$@"
+	    }
     fi
 }
 if [ "$isShowOneMoreOutput" ] && [ ! "$isOneMoreOnlyToTerminal" -o -t 1 ]; then
@@ -282,6 +293,7 @@ if [ "$isShowOneMoreOutput" ] && [ ! "$isOneMoreOnlyToTerminal" -o -t 1 ]; then
     typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
     eval 'revRangeWithOneMore "$@"' "${pager:+|}" '"${pager[@]}"'
 else
-    typeset -a rangeArgs=("${colorArg[@]}" "${revision}${revisionModifier}${isShowOneMore:+^}"$range"${endRevision:-${range:+HEAD}}")
+    typeset -a rangeArgs=("${revision}${revisionModifier}${isShowOneMore:+^}"$range"${endRevision:-${range:+HEAD}}")
+    typeset -a ancilliaryArgs=("${colorArg[@]}")
     executor wrapper "$@"
 fi

@@ -1,4 +1,5 @@
 #!/bin/bash
+set -o pipefail
 
 # I use the translation for these letters:
 readonly UPPERCASE_ALIAS_PATTERN='[iy]'
@@ -25,8 +26,10 @@ printUsage()
 List all Git aliases [starting with <pattern>].
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--] [<pattern>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--quiet] [--] [<pattern>] [-?|-h|--help]'
 }
+
+postProcessor=unTranslateUppercaseAlias
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -34,6 +37,7 @@ do
 	--no-color|--color=*)
     			shift;;
 	--color)	shift; shift;;
+	--quiet|-q)	shift; postProcessor=checkForOutput;;
 	--translate)	shift; translateUppercaseAlias "${1?}"; exit 0;;
 	--un-translate)	shift; unTranslateUppercaseAlias; exit 0;;
 	--)		shift; break;;
@@ -42,6 +46,12 @@ do
     esac
 done
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+
+checkForOutput()
+{
+    readarray -t lines
+    [ -n "${lines[*]}" ]
+}
 
 printAliases()
 {
@@ -61,7 +71,7 @@ printAliases()
 	    -e 's/^alias\.//' \
 	    "${aliasSearchSedArgs[@]}" \
 	    -e 's/^\([^ ]\+\) /[01m\1[0m = /' \
-	| unTranslateUppercaseAlias
+	| $postProcessor
 }
 
 eval 'printAliases "$@"' \

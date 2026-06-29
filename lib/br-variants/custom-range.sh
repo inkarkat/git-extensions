@@ -88,7 +88,7 @@ lc?([fh])?(mine|others|team)\
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal -2 "$gitCommand" RANGE "$@";;
     lghi)
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" --one-more-command 'greyonelineloghighlight lghighlight' --one-more-only-to-terminal -2 "$gitCommand" RANGE "$@";;
-    lghi?(st|i|I))
+    lghi?(st|i|I|samefiles))
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" --one-more-command "greyonelineloghighlight $gitCommand" --one-more-only-to-terminal -2 "$gitCommand" RANGE "$@";;
 
     (\

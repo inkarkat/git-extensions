@@ -1,4 +1,5 @@
 #!/bin/bash
+set -o pipefail
 
 readonly scriptDir=$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)
 [ -d "$scriptDir" ] || { echo >&2 "ERROR: Cannot determine script directory!"; exit 3; }
@@ -11,14 +12,22 @@ printUsage()
 List all (documented) Git aliases, command extensions, and newly defined
 commands [starting with <pattern>].
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<pattern>] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|-quiet] [--] [<pattern>] [-?|-h|--help]'
 }
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
-			shift;;
-    --color)		shift; shift;;
-esac
+
+postProcessor='git-alias --un-translate'
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+    			shift;;
+	--color)	shift; shift;;
+	--quiet|-q)	shift; postProcessor=checkForOutput;;
+	--)		shift; break;;
+	*)		break;;
+    esac
+done
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 
 extractAliases()
@@ -55,30 +64,34 @@ printAliases()
 
 printFoundAliases()
 {
-    local aliasName="${1:?}"
-    if [[ "$aliasName" =~ ^[^-].*[[:upper:]] ]]; then
-	# Translate "X" to "-x" to enable looking up aliases with uppercase letters.
-	aliasName="$(echo "$aliasName" | sed -e 's/[[:upper:]]/-\l\0/g')"
+    local aliasName="$(git-alias --translate "${1:?}")"
+    local isUnAnchored=t
+    if [[ "$aliasName" =~ ^(.*)\$$ ]]; then
+	aliasName="${BASH_REMATCH[1]}"
+	isUnAnchored=
     fi
 
     sed -n \
-	-e '/^;; \('"$aliasName"'[^:]*\):[ \t]\+/{
-		s/^;; \([^:]\+\):[ \t]\+\(.*\)/[01m\1[0m\n\2/p
+	-e '/^;; \('"${aliasName}${isUnAnchored:+[^:]*}"'\):[[:space:]]\+/{
+		s/^;; \([^:]\+\):[[:space:]]\+\(.*\)/[01m\1[0m\n\2/p
 	    }
-	    /^'"$aliasName"'[^=]*=[ \t]/{
+	    /^;; \('"${aliasName}${isUnAnchored:+[^:]*}"'\)[[:space:]]*$/{
+		s/^;; \([^:]\+\)[[:space:]]*$/[01m\1[0m/p
+	    }
+	    /^'"${aliasName}${isUnAnchored:+[^=[:space:]]*}"'[[:space:]]*=[[:space:]]/{
 		s/[^=]*/[01m&[0m/
-		s/=[ \t][^;]*[ \t];[ \t]*/\n/;
+		s/=[[:space:]][^;]*[[:space:]];[[:space:]]*/\n/;
 		p
 	    }'
 }
 
-translateUppercaseAlias()
+checkForOutput()
 {
-    # Translate "-x" to "X" to correctly render aliases with uppercase letters.
-    sed -e 's/^\(\[01m[^ ]\+\)-\([[:lower:]]\)\(\(do\|[^[:lower:]].*\)\?\[0m\)/\1\u\2\3/'
+    readarray -t lines
+    [ -n "${lines[*]}" ]
 }
 
 extractAliases \
     | print${*+Found}Aliases "$@" \
-    | eval 'translateUppercaseAlias' \
+    | eval '$postProcessor' \
     "${pager:+|}" '"${pager[@]}"'

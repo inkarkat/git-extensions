@@ -78,14 +78,15 @@ set -- "${colorArg[@]}" "$@"
 case "$gitCommand" in
     (\
 lg?([fv]|merges)|\
-lg@(rel|tagged|st|i|I)\
+lg@(rel|tagged|st|i|I)|\
 logfiles\
 )
 	typeset -a revRangeAdditionalArgs=(); [ "$gitCommand" = logfiles ] && revRangeAdditionalArgs=(--one-more-with-padding)
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" --one-more-command greyonelinelog --one-more-only-to-terminal "${revRangeAdditionalArgs[@]}" -2 "$gitCommand" RANGE "$@";;
     (\
 log?([fv]|merges)|\
-lc?([fh])?(mine|others|team)\
+log?(v)@(st|i|I)?(mine|others|team)|\
+lc?([fh]|@(st|i|I))?(mine|others|team)\
 )
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal -2 "$gitCommand" RANGE "$@";;
     lghi?(st|i|I|samefiles))
@@ -93,6 +94,7 @@ lc?([fh])?(mine|others|team)\
 
     (\
 @(@(log?(v)|show)@(last|first)?(f)|lc?(l)?(f)|l?(o)g?([fv])|count)@(g|changed|touched)?(mine|others|team)|\
+logfiles?(st|i|I)?(mine|others|team)|\
 l?(o)gfg|\
 @(files|versions|tags)@(g|changed|touched)|\
 @(files|version|tag)@(last|first)@(g|changed|touched)\
@@ -164,7 +166,8 @@ detach@(g|changed|touched)\
 
 	(\
 l?(h|g|og)?(except)by|\
-lc?(f)?(except)by|\
+log?(v|files)?(st|i|I)?(except)by|\
+lc?([fh]|@(st|i|I))?(except)by|\
 lc?(l)@(g|changed|touched)?(except)by|\
 @(@(log?(v)|show)@(last|first)|@(l?(o)g?(v)|count))@(g|changed|touched)?(except)by|\
 l?(o)g?([fv]|merges)?(except)by|\

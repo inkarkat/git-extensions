@@ -47,9 +47,9 @@ case "$gitCommand" in
 l?(h|o|ogv)f|\
 @(files|versions|tags)@(g|changed|touched)|\
 @(files|version|tag)@(last|first)@(g|changed|touched)|\
-lc?(h)|\
+lc?(h|@(st|i|I))?(mine|others|team)|\
 lc@(?(l)?(f)|?(f)@(mine|others|team))|\
-@(l?(o)g?([fv]|merges)|l?([ho])|count?(f)|countmaxdaycommits|commitsperday|log@(distribution|msgstat)|l?(o)gtitle?(f)g|brlifetimes|devstat)?(mine|others|team)|\
+@(l?(o)g?([fv]|merges)|l?([ho])|count?(f)|countmaxdaycommits|commitsperday|log@(distribution|msgstat|files|st|i|I)|l?(o)gtitle?(f)g|brlifetimes|devstat)?(mine|others|team)|\
 @(brlifetimes|logmsgstat)byeach|\
 log?(mod|added|deleted|renamed)?(files)|glog|log@(browse|size|trailers|prlinks)|\
 lg@(rel|tagged|st|i|I)|\
@@ -71,7 +71,7 @@ commitage|datediff\
 	# lgx is identical to lg because there's no one-more with timespans.
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 lg TIMESPAN "$@";;
     (\
-l?(c?(f)|h|g|og)?(except)by|\
+l?(c?(f|h|st|i|I)|h|g|og?(files|st|i|I))?(except)by|\
 @(@(log?(v)|show)@(last|first)|@(lc?(l)|l?(o)g?(v)|count))@(g|changed|touched)?(except)by|\
 lc@(?(l)?(f)|?(f))?(except)by|\
 @(l?(o)g?([fv]|merges)|l?(o)|count?(f)|countmaxdaycommits|commitsperday|log@(distribution|msgstat)|l?(o)gtitleg|brlifetimes|devstat)?(except)by|\

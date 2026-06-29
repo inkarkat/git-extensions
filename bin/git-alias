@@ -1,10 +1,20 @@
 #!/bin/bash
 
+# I use the translation for these letters:
+readonly UPPERCASE_ALIAS_PATTERN='[iy]'
+
+unTranslateUppercaseAlias()
+{
+    # Translate "-x" to "X" to correctly render aliases with uppercase letters.
+    sed -e 's/^\(\[01m[^ ]\+\)-\('"$UPPERCASE_ALIAS_PATTERN"'\)\(.*\[0m\)/\1\u\2\3/'
+}
+
 printUsage()
 {
     cat <<HELPTEXT
 List all Git aliases [starting with <pattern>].
 HELPTEXT
+    echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[<pattern>] [-?|-h|--help]'
 }
 case "$1" in
@@ -12,6 +22,7 @@ case "$1" in
     --no-color|--color=*)
 			shift;;
     --color)		shift; shift;;
+    --un-translate)	shift; unTranslateUppercaseAlias; exit 0;;
 esac
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 
@@ -31,12 +42,13 @@ printAliases()
 	)
     fi
 
-    git config --get-regexp '^alias\.' | \
-	sed -e 's/^alias\.//' \
-	    -e 's/^\([^ ]\+\) /\1 = /' \
+    git config --get-regexp '^alias\.' \
+	| sed \
+	    -e 's/^alias\.//' \
 	    "${aliasSearchSedArgs[@]}" \
-	    -e 's/^\([^ ]\+\)-\([[:lower:]]\)\([^[:lower:]]\)/\1\u\2\3/'
-	    # Translate "-x" to "X" to correctly render aliases with uppercase letters.
+	    -e 's/^\([^ ]\+\) /[01m\1[0m = /' \
+	| unTranslateUppercaseAlias
 }
 
-eval 'printAliases "$@"' "${pager:+|}" '"${pager[@]}"'
+eval 'printAliases "$@"' \
+    "${pager:+|}" '"${pager[@]}"'

@@ -34,7 +34,7 @@ esac
 othersCommand()
 {
     typeset -a inversionArg=(); [[ "$gitCommand" =~ exceptby$ ]] && inversionArg=(--invert-authors)
-    $EXEC git-dashdash-default-command --with-files : branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" "${revRangeAdditionalArgs[@]}" -$((7 + ${#inversionArg[@]})) authors-command "${inversionArg[@]}" --range RANGE -2 "${gitCommand%%?(except)by}" AUTHORS RANGE : "$@"
+    $EXEC git-dashdash-default-command --with-files : branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -$((7 + ${#inversionArg[@]})) authors-command "${inversionArg[@]}" --range RANGE -2 "${gitCommand%%?(except)by}" AUTHORS RANGE : "$@"
 }
 
 : ${EXEC:=exec}
@@ -48,18 +48,16 @@ else
 fi
 set -- "${colorArg[@]}" "$@"
 
-typeset -a revRangeAdditionalArgs=()
 case "$gitCommand" in
-    lc?(f)?(mine|others|team))
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --one-more-command log --one-more-with-padding -2 "$gitCommand" RANGE "$@";;
-    lch)
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --one-more-command showh --one-more-with-padding -2 "$gitCommand" RANGE "$@";;
     (\
 lg?([fv]|merges)|\
 lg@(rel|tagged|st|i|I)\
 )
 	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --one-more-command greyonelinelog --one-more-only-to-terminal -2 "$gitCommand" RANGE "$@";;
-    log?([fv]|merges|files))
+    (\
+log?([fv]|merges|files)|\
+lc?([fh])?(mine|others|team)\
+)
 	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal -2 "$gitCommand" RANGE "$@";;
     lghi)
 	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --one-more-command 'greyonelineloghighlight lghighlight' --one-more-only-to-terminal -2 "$gitCommand" RANGE "$@";;
@@ -124,14 +122,11 @@ subchanges|superchanges|subrevl@(?(o)g|c)\
 
     revive)
 	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -3 "$gitCommand" --all RANGE "$@";;
-    (\
-lc?(f)?(except)by|\
-lc?(l)@(g|changed|touched)?(except)by\
-)
-	revRangeAdditionalArgs=(--one-more-command log --one-more-with-padding)
-	;&
+
 	(\
 l?(h|g|og)?(except)by|\
+lc?(f)?(except)by|\
+lc?(l)@(g|changed|touched)?(except)by|\
 @(@(log?(v)|show)@(last|first)|@(l?(o)g?(v)|count))@(g|changed|touched)?(except)by|\
 l?(o)g?([fv]|merges)?(except)by|\
 @(l?(o)|count?(f)|countmaxdaycommits|commitsperday|log@(distribution|msgstat)|l?(o)gtitleg|brlifetimes|devstat)?(except)by|\

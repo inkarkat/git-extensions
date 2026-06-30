@@ -5,11 +5,51 @@ set -o pipefail
 : ${GIT_CHANGESETFILES_ORIGINAL_FILE_PREFIX='[01;37m'}
 : ${GIT_CHANGESETFILES_ORIGINAL_FILE_SUFFIX='[0m'}
 
+readonly allArgs='[-N|--no-percentage] [-%|--percentage-threshold PCT] [-a|--include-original-files|-d|--drop-original-files]'
+readonly filterArgs='[-%|--percentage-threshold PCT] [-d|--drop-original-files]'
+readonly formatArgs='[-N|--no-percentage] [-a|--include-original-files]'
+getShortUsage()
+{
+    case "$1" in
+	'') printf %s "$allArgs";;
+	filter)
+	    printf %s "$filterArgs";;
+	format)
+	    printf %s "$formatArgs";;
+	*)  echo "ERROR: Unknown short usage topic \"$1\"!" >&2; return 2;;
+    esac
+}
+getLongUsage()
+{
+    local topic="$1"; shift
+    local hadTopic=
+    case "$topic" in
+	''|filter)
+	    cat <<HELPTEXT
+    --percentage-threshold|-% PCT
+			Show only files with a correlation of at least PCT%.
+    --drop-original-files|-d
+			Omit the original files from the output.
+HELPTEXT
+	    hadTopic=t
+	    ;;&
+	''|format)
+	    cat <<HELPTEXT
+    --no-percentage|-N	Omit the percentage; just list the files.
+    --include-original-files|-a
+			Include the original files in the output without extra
+			highlighting.
+HELPTEXT
+	    hadTopic=t
+	    ;;&
+	*)  [ "$hadTopic" ] || { echo "ERROR: Unknown long usage topic \"$topic\"!" >&2; return 2; };;
+    esac
+}
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-N|--no-percentage] [-%|--percentage-threshold PCT] [-a|--include-original-files|-d|--drop-original-files] [<log-options>] [<revision range>] [--] <pathspec>|<commit> [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "$allArgs [<log-options>] [<revision range>] [--] <pathspec>|<commit> [...] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -31,15 +71,8 @@ HELPDESCRIPTION
     echo
     printShortUsage "$1"
     echo
+    getLongUsage ''
     cat <<HELPTEXT
-    --no-percentage|-N	Omit the percentage; just list the files.
-    --percentage-threshold|-% PCT
-			Show only files with a correlation of at least PCT%.
-    --include-original-files|-a
-			Include the original files in the output without extra
-			highlighting.
-    --drop-original-files|-d
-			Omit the original files from the output.
 Files are shown if correlation is at least ${GIT_CHANGESETFILES_PERCENTAGE_THRESHOLD}% / PCT.
 
 RELATED COMMANDS:
@@ -51,20 +84,47 @@ HELPTEXT
 typeset -a gitLogArgs=()
 isPercentage=t
 filterCommand="s/.*/${GIT_CHANGESETFILES_ORIGINAL_FILE_PREFIX}&${GIT_CHANGESETFILES_ORIGINAL_FILE_SUFFIX}/"
+option() { :; }
+parameter() { :; }
+endOfOptionsAndParameters() { :; }
+noUnderstand() { :; }
+typeset -A understandsSubtopics=()
+isUnderstandSubtopic() {
+    [ $# -gt 0 -a ${#understandsSubtopics[@]} -gt 0 ] || return 0
+    local subtopic; for subtopic
+    do
+	[ "${understandsSubtopics["$subtopic"]}" ] && return 0
+    done
+    return 1
+}
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--get-short-usage)
+			shift; getShortUsage "$@"; exit $?;;
+	--get-long-usage)
+			shift; getLongUsage "$@"; exit $?;;
+	--understand-for)
+			shift; understandsSubtopics["$1"]=t; shift;;
+	--understands)	shift
+			option() { isUnderstandSubtopic "$@" || exit 1; printf 1; exit 0; }
+			parameter() { isUnderstandSubtopic "$@" || exit 1; printf 2; exit 0; }
+			endOfOptionsAndParameters() { exit 99; }
+			noUnderstand() { exit 1; }
+			;;
+
 	--no-percentage|-N)
-			shift; isPercentage=;;
+			shift; isPercentage=; option format;;
 	--percentage-threshold|-%)
-			shift; GIT_CHANGESETFILES_PERCENTAGE_THRESHOLD="$1"; shift;;
+			shift; GIT_CHANGESETFILES_PERCENTAGE_THRESHOLD="$1"; shift; parameter filter;;
 	--include-original-files|-a)
-			shift; filterCommand='';;
+			shift; filterCommand=''; option format;;
 	--drop-original-files|-d)
-			shift; filterCommand='d';;
-	--)		gitLogArgs+=("$1"); shift; break;;
-	*)		gitLogArgs+=("$1"); shift;;
+			shift; filterCommand='d'; option filter;;
+
+	--)		gitLogArgs+=("$1"); shift; endOfOptionsAndParameters; break;;
+	*)		gitLogArgs+=("$1"); shift; endOfOptionsAndParameters;;
     esac
 done
 

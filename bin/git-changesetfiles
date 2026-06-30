@@ -1,6 +1,7 @@
 #!/bin/bash
 set -o pipefail
 
+: ${GIT_CHANGESETFILES_PERCENTAGE_THRESHOLD:=10}
 : ${GIT_CHANGESETFILES_ORIGINAL_FILE_PREFIX='[01;37m'}
 : ${GIT_CHANGESETFILES_ORIGINAL_FILE_SUFFIX='[0m'}
 
@@ -39,7 +40,7 @@ HELPDESCRIPTION
 			highlighting.
     --drop-original-files|-d
 			Omit the original files from the output.
-Files are shown if correlation is at least 10% / PCT.
+Files are shown if correlation is at least ${GIT_CHANGESETFILES_PERCENTAGE_THRESHOLD}% / PCT.
 
 RELATED COMMANDS:
 - git-also (https://github.com/anvaka/git-also) prints the number of shared
@@ -49,7 +50,6 @@ HELPTEXT
 
 typeset -a gitLogArgs=()
 isPercentage=t
-percentageThreshold=10
 filterCommand="s/.*/${GIT_CHANGESETFILES_ORIGINAL_FILE_PREFIX}&${GIT_CHANGESETFILES_ORIGINAL_FILE_SUFFIX}/"
 while [ $# -ne 0 ]
 do
@@ -58,7 +58,7 @@ do
 	--no-percentage|-N)
 			shift; isPercentage=;;
 	--percentage-threshold|-%)
-			shift; percentageThreshold="$1"; shift;;
+			shift; GIT_CHANGESETFILES_PERCENTAGE_THRESHOLD="$1"; shift;;
 	--include-original-files|-a)
 			shift; filterCommand='';;
 	--drop-original-files|-d)
@@ -81,9 +81,9 @@ removeStatus()
 
 extractChangesetFiles()
 {
-    if [ "$isPercentage" ] || [ $percentageThreshold -gt 0 ]; then
+    if [ "$isPercentage" ] || [ $GIT_CHANGESETFILES_PERCENTAGE_THRESHOLD -gt 0 ]; then
 	GIT_LOGOFFILES_COMMAND=logv git-logoffiles --pretty=format:--- "${gitLogArgs[@]}" "$@" | \
-	    removeStatus | awk -v "isPercentage=$isPercentage" -v percentageThreshold="$percentageThreshold" '
+	    removeStatus | awk -v "isPercentage=$isPercentage" -v percentageThreshold="$GIT_CHANGESETFILES_PERCENTAGE_THRESHOLD" '
 BEGIN {
     PROCINFO["sorted_in"] = "@val_num_desc"
 }
@@ -114,7 +114,7 @@ END {
 }
 
 if [ -n "$filterCommand" ]; then
-    originalFilePrefixPattern='^'; [ $percentageThreshold -gt 0 ] && originalFilePrefixPattern='^ *[0-9]\+%	'
+    originalFilePrefixPattern='^'; [ $GIT_CHANGESETFILES_PERCENTAGE_THRESHOLD -gt 0 ] && originalFilePrefixPattern='^ *[0-9]\+%	'
     typeset -a filterPipeline=()
     while IFS=$'\n' read -r literalOriginalPathspec
     do

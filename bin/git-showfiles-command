@@ -4,22 +4,39 @@ shopt -qs extglob
 
 : ${GIT_SHOWFILESCOMMAND_REVISIONS_END=;}
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    local revisionRangeArgs="[-n|--count N|-r|--revision REVISION|--revisions REVISION1 [...] $GIT_SHOWFILESCOMMAND_REVISIONS_END|--since <date>|--max-count <number>|--range <range> [--range ...]]"
+    local delegationArgs; [ -n "$GIT_SHOWFILES_USAGE_DELEGATION_COMMAND" ] && delegationArgs="$(${GIT_SHOWFILES_USAGE_DELEGATION_COMMAND/--understands/--get-short-usage} 2>/dev/null)"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[-c ...] GIT-COMMAND ${revisionRangeArgs}${delegationArgs:+ }${delegationArgs} [GIT-COMMAND-ARGS ...] [--] [<pathspec>...] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "--keep-position GIT-COMMAND ${revisionRangeArgs}${delegationArgs:+ }${delegationArgs} [... FILES ...] [--] [<pathspec>...]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] ${revisionRangeArgs}${delegationArgs:+ }${delegationArgs} [...] [--] [<pathspec>...]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND ${revisionRangeArgs}${delegationArgs:+ }${delegationArgs} [...] [--] [<pathspec>...]"
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 Execute GIT-COMMAND with the files (inside <pathspec>) that were modified in the
-last commit / N'th commit / passed -r|--revision[s] REVISION(s).
+last commit / N'th commit / passed -r|--revision[s] REVISION(s) / revision range
 - appended
 - replacing FILES argument(s) anywhere
 - replacing FILES in the following GIT-COMMAND and -(N-1) arguments
 - replacing FILES in the following +(N) arguments and appending those
-HELPTEXT
+HELPDESCRIPTION
     echo
-    local revisionRangeArgs="[-n|--count N|-r|--revision REVISION|--revisions REVISION1 [...] $GIT_SHOWFILESCOMMAND_REVISIONS_END|--since <date>|--max-count <number>|--range <range> [--range ...]]"
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[-c ...] GIT-COMMAND $revisionRangeArgs [GIT-COMMAND-ARGS ...] [--] [<pathspec>...] [-?|-h|--help]"
-    printf 'Usage: %q %s\n' "$(basename "$1")" "--keep-position GIT-COMMAND $revisionRangeArgs [... FILES ...] [--] [<pathspec>...]"
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] $revisionRangeArgs [...] [--] [<pathspec>...]"
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND $revisionRangeArgs [...] [--] [<pathspec>...]"
+    printShortUsage "$1"
+    echo
     cat <<HELPTEXT
     --count|-n N	Use files modified in the N'th previous commit.
     --revision|-r REVISION
@@ -28,11 +45,20 @@ HELPTEXT
 			Use files modified in REVISION(s); all following
 			arguments until an argument consisting of '$GIT_SHOWFILESCOMMAND_REVISIONS_END' is
 			encountered.
+    --since <date>	Use files modified since <date> (inclusive) instead of
+			the last commit.
+    --max-count <number>
+			Use files modified in the last <number> commits instead
+			of the last commit.
+    --range <range>	Use files modified in the commits in <range>.
 HELPTEXT
+    if [ -n "$GIT_SHOWFILES_USAGE_DELEGATION_COMMAND" ]; then
+	${GIT_SHOWFILES_USAGE_DELEGATION_COMMAND/--understands/--get-long-usage} 2>/dev/null
+    fi
 }
 
 case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 esac
 
 typeset -a revisionRanges=()
@@ -41,7 +67,7 @@ unset files
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--count|-n)	shift
 			if ! [[ "$1" =~ ^[0-9]+$ ]]; then
 			    printUsage "$0" >&2
@@ -74,7 +100,17 @@ do
 	--range=*)	revisionRanges+=("${1#--range=}"); shift;;
 	--range)	shift; revisionRanges+=("${1:?}"); shift;;
 	--)		shift; typeset -a files=("$@"); break;;
-	*)		args+=("$1"); shift;;
+	*)		if [ -n "$GIT_SHOWFILES_USAGE_DELEGATION_COMMAND" ] && argCount=$($GIT_SHOWFILES_USAGE_DELEGATION_COMMAND --understands "$@"); then
+			    while ((argCount-- > 0))
+			    do
+				showfilesArgs+=("$1"); shift
+			    done
+			elif [ $? -eq 2 ]; then
+			    exit 2
+			else
+			    args+=("$1"); shift
+			fi
+			;;
     esac
 done
 if [ -z "${files+t}" ]; then
@@ -98,7 +134,7 @@ if [ $# -eq 0 ]; then
 fi
 
 readarray -t committedFiles < <(
-    eval "${GIT_SHOWFILES_COMMAND:-git-showfiles}" '"${revisionRanges[@]}" -- "${files[@]}"' \
+    eval "${GIT_SHOWFILES_COMMAND:-git-showfiles}" '"${showfilesArgs[@]}" "${revisionRanges[@]}" -- "${files[@]}"' \
 	| { xargs -n 1 --no-run-if-empty sh -c 'test -r "$1" && printf %s\\n "$1"' sh || :; }
     printf '\n%d\n' ${PIPESTATUS[0]}
 )	# Exit status from the process substitution is lost; return the actual exit status via an appended additional line.

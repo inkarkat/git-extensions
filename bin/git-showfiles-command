@@ -1,5 +1,6 @@
 #!/bin/bash
 set -o noglob
+shopt -qs extglob
 
 : ${GIT_SHOWFILESCOMMAND_REVISIONS_END=;}
 
@@ -14,17 +15,27 @@ last commit / N'th commit / passed -r|--revision[s] REVISION(s).
 - replacing FILES in the following +(N) arguments and appending those
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[-c ...] GIT-COMMAND [-n N|--count N|-r|--revision REVISION|--revisions REVISION1 [...] $GIT_SHOWFILESCOMMAND_REVISIONS_END] [GIT-COMMAND-ARGS ...] [--] [<pathspec>...] [-?|-h|--help]"
-    printf 'Usage: %q %s\n' "$(basename "$1")" "--keep-position GIT-COMMAND [-n N|--count N|-r|--revision REVISION|--revisions REVISION1 [...] $GIT_SHOWFILESCOMMAND_REVISIONS_END] [... FILES ...] [--] [<pathspec>...]"
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [-n N|--count N|-r|--revision REVISION|--revisions REVISION1 [...] $GIT_SHOWFILESCOMMAND_REVISIONS_END] [...] [--] [<pathspec>...]"
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [-n N|--count N|-r|--revision REVISION|--revisions REVISION1 [...] $GIT_SHOWFILESCOMMAND_REVISIONS_END] [...] [--] [<pathspec>...]"
+    local revisionRangeArgs="[-n|--count N|-r|--revision REVISION|--revisions REVISION1 [...] $GIT_SHOWFILESCOMMAND_REVISIONS_END|--since <date>|--max-count <number>|--range <range> [--range ...]]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[-c ...] GIT-COMMAND $revisionRangeArgs [GIT-COMMAND-ARGS ...] [--] [<pathspec>...] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "--keep-position GIT-COMMAND $revisionRangeArgs [... FILES ...] [--] [<pathspec>...]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] $revisionRangeArgs [...] [--] [<pathspec>...]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND $revisionRangeArgs [...] [--] [<pathspec>...]"
+    cat <<HELPTEXT
+    --count|-n N	Use files modified in the N'th previous commit.
+    --revision|-r REVISION
+			Use files modified in REVISION.
+    --revisions REVISION1 [...] $GIT_SHOWFILESCOMMAND_REVISIONS_END
+			Use files modified in REVISION(s); all following
+			arguments until an argument consisting of '$GIT_SHOWFILESCOMMAND_REVISIONS_END' is
+			encountered.
+HELPTEXT
 }
 
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
 
-typeset -a revisions=()
+typeset -a revisionRanges=()
 typeset -a args=()
 unset files
 while [ $# -ne 0 ]
@@ -36,11 +47,11 @@ do
 			    printUsage "$0" >&2
 			    exit 2
 			fi
-			revisions+=("HEAD~$(($1 - 1))")
+			revisionRanges+=("HEAD~$(($1 - 1))")
 			shift
 			;;
-	--revision|-r)	if [ ${#revisions[@]} -eq 0 ]; then
-			    shift; revisions+=("${1:?}"); shift
+	--revision|-r)	if [ ${#revisionRanges[@]} -eq 0 ]; then
+			    shift; revisionRanges+=("${1:?}"); shift
 			else
 			    args+=("$1" "${2:?}"); shift; shift
 			fi
@@ -48,7 +59,7 @@ do
 	--revisions)	shift
 			while [ $# -gt 0 -a "$1" != "$GIT_SHOWFILESCOMMAND_REVISIONS_END" ]
 			do
-			    revisions+=("${1:?}"); shift
+			    revisionRanges+=("${1:?}"); shift
 			done
 			if [ $# -eq 0 ]; then
 			    echo "ERROR: --revisions must be concluded with '${GIT_SHOWFILESCOMMAND_REVISIONS_END}'"; echo; printUsage "$0"
@@ -56,6 +67,12 @@ do
 			fi >&2
 			shift
 			;;
+	--@(since|max-count)=*)
+			revisionRanges+=("$1"); shift;;
+	--@(since|max-count))
+			revisionRanges+=("$1" "${2?}"); shift; shift;;
+	--range=*)	revisionRanges+=("${1#--range=}"); shift;;
+	--range)	shift; revisionRanges+=("${1:?}"); shift;;
 	--)		shift; typeset -a files=("$@"); break;;
 	*)		args+=("$1"); shift;;
     esac
@@ -81,7 +98,7 @@ if [ $# -eq 0 ]; then
 fi
 
 readarray -t committedFiles < <(
-    eval "${GIT_SHOWFILES_COMMAND:-git-showfiles}" '"${revisions[@]}" -- "${files[@]}"' \
+    eval "${GIT_SHOWFILES_COMMAND:-git-showfiles}" '"${revisionRanges[@]}" -- "${files[@]}"' \
 	| { xargs -n 1 --no-run-if-empty sh -c 'test -r "$1" && printf %s\\n "$1"' sh || :; }
     printf '\n%d\n' ${PIPESTATUS[0]}
 )	# Exit status from the process substitution is lost; return the actual exit status via an appended additional line.

@@ -6,7 +6,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[--accept-single|--single-only] [--last-only] [--pass-file-args] --since <date>|--max-count <number>|-n <number>|<range> [<show-args> ...] [--] [<pathspec>...] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[--accept-single|--single-only] [--all|-n|--count N|--last-only] [--pass-file-args] --since <date>|--max-count <number>|-<number>|<range> [<show-args> ...] [--] [<pathspec>...] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -21,17 +21,22 @@ printLongUsage()
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
 Log together with diff [for <pathspec>...] for the commit interactively chosen /
-last commit from the commits [that cover <pathspec>...] in the passed <range>.
+last / N'th commit from the commits [that cover <pathspec>...] in the passed
+<range>.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
-    --last-only	    Choose the last commit in the range without querying.
-    --pass-file-args
-		    Pass <pathspec> arguments also to git show, and not just use
-		    them to determine the commits. I.e. also limit the diff to
-		    the passed <pathspec>...
+    --all		Choose all commits in the range without querying.
+    --count|-n N	Choose the N'th commit from the commits in the passed
+			<range> without querying.
+    --last-only		Choose the latest commit in the range without querying.
+			This is the same as --max-count 1, but doesn't yet
+			satisfy the mandatory <range> argument.
+    --pass-file-args	Pass <pathspec> arguments also to git show, and not just
+			use them to determine the commits; i.e. also limit the
+			diff to the passed <pathspec>...
 HELPTEXT
 }
 
@@ -67,6 +72,7 @@ if [ -z "${files+t}" ]; then
 fi
 set -- "${gitCommandArgs[@]}"
 
+count=1	# Last commit is the first in the list (which goes backwards in time).
 action=getSelected
 isPassFileArgs=
 typeset -a rangeArgs=()
@@ -74,11 +80,13 @@ typeset -a rangeModificationArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--last-only)	shift; action=getLast;;
+	--all)		shift; action=getAll;;
+	--last-only)	shift; action=getCounted;;
+	--count|-n)	shift; count=${1:?}; shift; action=getCounted; rangeArgs+=(--max-count $count);;
 	--pass-file-args)
 			shift; isPassFileArgs=t;;
 	--since)	rangeArgs+=("$1" "$2"); shift; shift;;
-	--max-count|-n)	rangeArgs+=("$1" "$2"); shift; shift;;
+	--max-count)	rangeArgs+=("$1" "$2"); shift; shift;;
 	--max-count=*|-+([0-9]))
 			rangeArgs+=("$1"); shift;;
 	--follow)	rangeModificationArgs+=("$1"); shift;;
@@ -121,14 +129,28 @@ getSelected()
     fi
 }
 
-getLast()
+getAll()
 {
     readarray -t commits < <(commitSource --pretty='tformat:%H')
     if [ ${#commits[@]} -eq 0 ]; then
 	echo >&2 'ERROR: No commits available.'
 	return 1
     fi
-    commits=("${commits[0]}")	# Last commit is the first in the list (which goes backwards in time).
+}
+
+getCounted()
+{
+    readarray -t commits < <(commitSource --pretty='tformat:%H')
+    if [ ${#commits[@]} -lt $count ]; then
+	if [ ${#commits[@]} -eq 0 ]; then
+	    echo >&2 'ERROR: No commits available.'
+	else
+	    countPlural=s; [ ${#commits[@]} -eq 1 ] && countPlural=
+	    printf >&2 'ERROR: Only %d commit%s available.\n' ${#commits[@]} "$countPlural"
+	fi
+	return 1
+    fi
+    commits=("${commits[$((count - 1))]}")
 }
 
 $action || exit $?

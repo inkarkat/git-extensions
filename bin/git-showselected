@@ -6,7 +6,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[--accept-single|--single-only] [-n|--count N|--last-only] [--pass-file-args] --since <date>|--max-count <number>|-<number>|<range> [<show-args> ...] [--] [<pathspec>...] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[--accept-single|--single-only] [--all|-n|--count N|--last-only] [--pass-file-args] --since <date>|--max-count <number>|-<number>|<range> [<show-args> ...] [--] [<pathspec>...] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -28,6 +28,7 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
+    --all		Choose all commits in the range without querying.
     --count|-n N	Choose the N'th commit from the commits in the passed
 			<range> without querying.
     --last-only		Choose the latest commit in the range without querying.
@@ -79,6 +80,7 @@ typeset -a rangeModificationArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
+	--all)		shift; action=getAll;;
 	--last-only)	shift; action=getCounted;;
 	--count|-n)	shift; count=${1:?}; shift; action=getCounted; rangeArgs+=(--max-count $count);;
 	--pass-file-args)
@@ -124,6 +126,15 @@ getSelected()
 	return 1
     elif [ $status -ne 0 ]; then
 	return $status
+    fi
+}
+
+getAll()
+{
+    readarray -t commits < <(commitSource --pretty='tformat:%H')
+    if [ ${#commits[@]} -eq 0 ]; then
+	echo >&2 'ERROR: No commits available.'
+	return 1
     fi
 }
 

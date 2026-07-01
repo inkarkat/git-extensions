@@ -19,7 +19,11 @@ printShortUsage()
     local delegationArgs; [ -n "$GIT_SHOWFILES_USAGE_DELEGATION_COMMAND" ] && delegationArgs="$(${GIT_SHOWFILES_USAGE_DELEGATION_COMMAND/--understands/--get-short-usage} 2>/dev/null)"
     printf 'Usage: %q %s\n' "$(basename "$1")" "[${revisionRangeArgs}]${delegationArgs:+ }${delegationArgs} ... GIT-COMMAND [${revisionRangeArgs}]${delegationArgs:+ }${delegationArgs} [...] [-?|-h|--help]"
     local ofOrRevisionRangeArgs="[--of (<pathspec>...|REVISION-RANGE-ARG ...) [--of ...]] [REVISION-RANGE-ARG ...]${delegationArgs:+ }${delegationArgs}"
+    local toOrRevisionRangeArgs="[--to (<pathspec>...|REVISION-RANGE-ARG ...) [--to ...]] [REVISION-RANGE-ARG ...]${delegationArgs:+ }${delegationArgs}"
+    local ofOrToArgs="[--of (<pathspec>...|REVISION-RANGE-ARG ...) [--of ...]] [--to <pathspec>...|REVISION-RANGE-ARG ... [--to ...]]${delegationArgs:+ }${delegationArgs}"
     printf 'Usage: %q %s\n' "$(basename "$1")" "--differentiate-source-range-via-of $ofOrRevisionRangeArgs ... GIT-COMMAND $ofOrRevisionRangeArgs [...]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "--differentiate-command-range-via-to $toOrRevisionRangeArgs ... GIT-COMMAND $toOrRevisionRangeArgs [...]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "--differentiate-source-range-via-of --differentiate-command-range-via-to $ofOrToArgs ... GIT-COMMAND $ofOrToArgs [...]"
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" "... GIT-COMMAND [...] [--] [<pathspec>...] [-?|-h|--help]"
     printf 'Usage: %q %s\n' "$(basename "$1")" "... --keep-position GIT-COMMAND [... FILES ...] [--] [<pathspec>...]"
@@ -78,6 +82,28 @@ HELPDESCRIPTION
 			$GIT_SHOWFILES_WHAT
 			in the last commit / the source commits to those within
 			<pathspec>(s).
+    --differentiate-command-range-via-to
+			The GIT-COMMAND itself takes range arguments; we need to
+			differentiate between a range that should be applied to
+			$GIT_SHOWFILES_COMMAND to determine the files and a
+			range that should be applied to GIT-COMMAND itself (e.g.
+			"git log"). For example:
+	--differentiate-command-range-via-to --since=00:00 log
+			shows a log of all changes to files that were
+			modified in today's commits; this is the same as
+	--since=00:00 log
+	--differentiate-command-range-via-to --to --since=00:00 lg
+			shows a log of today's changes to files that were
+			modified in the last commit
+	--differentiate-command-range-via-to --to --since=1-Jan --since=00:00 log
+			shows a log of this year's changes to files that were
+			modified in today's commits
+    --to $revisionRangeArgs
+			Pass the specified revisions to GIT-COMMAND only.
+    --to <pathspec>...	Pass the specified <pathspec>(s) to GIT-COMMAND only (in
+			addition to any files reported by ${GIT_SHOWFILES_COMMAND});
+			do not use those to limit the scope of
+			$GIT_SHOWFILES_WHAT.
 HELPTEXT
     GIT_LOGARGPARSER_REVISIONS_END="$GIT_SHOWFILESCOMMAND_REVISIONS_END" getShowRangeArgsLongUsage 'Use files'
     if [ -n "$GIT_SHOWFILES_USAGE_DELEGATION_COMMAND" ]; then
@@ -90,8 +116,11 @@ case "$1" in
 esac
 
 isDifferentiatingSourceRangeViaOf=
+isDifferentiatingCommandRangeViaTo=
 typeset -a sourceRangeArgs=()
 typeset -a sourceFiles=()
+typeset -a commandRangeArgs=()
+typeset -a commandFiles=()
 typeset -a showfilesArgs=()
 typeset -a args=()
 unset files
@@ -101,6 +130,8 @@ do
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--differentiate-source-range-via-of)
 			isDifferentiatingSourceRangeViaOf=t; shift;;
+	--differentiate-command-range-via-to)
+			isDifferentiatingCommandRangeViaTo=t; shift;;
 	--)		shift; typeset -a files=("$@"); break;;
 	--of)		if [ ! "$isDifferentiatingSourceRangeViaOf" ]; then
 			    echo 'ERROR: --of is only valid after --differentiate-source-range-via-of'
@@ -124,6 +155,28 @@ do
 			    exit 2
 			fi >&2
 			;;
+	--to)		if [ ! "$isDifferentiatingCommandRangeViaTo" ]; then
+			    echo 'ERROR: --to is only valid after --differentiate-command-range-via-to'
+			    echo
+			    printUsage "$0"
+			    exit 2
+			fi >&2
+			shift; commandArgCount=0; typeset -a newCommandFiles=()
+			while [ $# -gt 0 -a -e "$1" ]
+			do
+			    newCommandFiles+=("$1"); shift
+			done
+			if [ ${#newCommandFiles[@]} -gt 0 ]; then
+			    commandFiles=("${newCommandFiles[@]}")
+			elif GIT_LOGARGPARSER_REVISIONS_END="$GIT_SHOWFILESCOMMAND_REVISIONS_END" parseShowRangeArgsInto commandArgCount commandRangeArgs "$@"; then
+			    shift $commandArgCount
+			else
+			    printf 'ERROR: --to must be followed by <pathspec>(s) or a valid revision range; this is neither: %s\n' "$1"
+			    echo
+			    printUsage "$0"
+			    exit 2
+			fi >&2
+			;;
 	*)		argCount=0
 			if [ -n "$GIT_SHOWFILES_USAGE_DELEGATION_COMMAND" ] && argCount=$($GIT_SHOWFILES_USAGE_DELEGATION_COMMAND --understands "$@"); then
 			    while ((argCount-- > 0))
@@ -132,7 +185,7 @@ do
 			    done
 			elif [ $? -eq 2 ]; then
 			    exit 2
-			elif [ ! "$isDifferentiatingSourceRangeViaOf" ] \
+			elif [ ! "$isDifferentiatingSourceRangeViaOf" ] && [ ! "$isDifferentiatingCommandRangeViaTo" ] \
 			    && typeset -a rangeArgs=() \
 			    && GIT_LOGARGPARSER_REVISIONS_END="$GIT_SHOWFILESCOMMAND_REVISIONS_END" parseShowRangeArgsInto argCount rangeArgs "$@"; then
 			    args+=("${rangeArgs[@]}")
@@ -157,7 +210,7 @@ if [ -z "${files+t}" ]; then
 	args=("${args[@]:0:${#args[@]}-1}")
     done
 fi
-set -- "${args[@]}" "$@"
+set -- "${commandRangeArgs[@]}" "${args[@]}" "$@" "${commandFiles[@]}"
 if [ $# -eq 0 ]; then
     echo >&2 'ERROR: No GIT-COMMAND passed.'
     exit 2

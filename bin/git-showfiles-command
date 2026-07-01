@@ -2,6 +2,7 @@
 set -o noglob
 shopt -qs extglob
 
+: ${GIT_SHOWFILES_COMMAND:=git-showfiles}
 : ${GIT_SHOWFILESCOMMAND_REVISIONS_END=;}
 
 readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
@@ -14,12 +15,16 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    local revisionRangeArgs="[$(GIT_LOGARGPARSER_REVISIONS_END="$GIT_SHOWFILESCOMMAND_REVISIONS_END" getShowRangeArgsShortUsage)]"
+    local revisionRangeArgs="$(GIT_LOGARGPARSER_REVISIONS_END="$GIT_SHOWFILESCOMMAND_REVISIONS_END" getShowRangeArgsShortUsage)"
     local delegationArgs; [ -n "$GIT_SHOWFILES_USAGE_DELEGATION_COMMAND" ] && delegationArgs="$(${GIT_SHOWFILES_USAGE_DELEGATION_COMMAND/--understands/--get-short-usage} 2>/dev/null)"
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[-c ...] GIT-COMMAND ${revisionRangeArgs}${delegationArgs:+ }${delegationArgs} [GIT-COMMAND-ARGS ...] [--] [<pathspec>...] [-?|-h|--help]"
-    printf 'Usage: %q %s\n' "$(basename "$1")" "--keep-position GIT-COMMAND ${revisionRangeArgs}${delegationArgs:+ }${delegationArgs} [... FILES ...] [--] [<pathspec>...]"
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] ${revisionRangeArgs}${delegationArgs:+ }${delegationArgs} [...] [--] [<pathspec>...]"
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND ${revisionRangeArgs}${delegationArgs:+ }${delegationArgs} [...] [--] [<pathspec>...]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[${revisionRangeArgs}]${delegationArgs:+ }${delegationArgs} ... GIT-COMMAND [${revisionRangeArgs}]${delegationArgs:+ }${delegationArgs} [...] [-?|-h|--help]"
+    local ofOrRevisionRangeArgs="[--of (<pathspec>...|REVISION-RANGE-ARG ...) [--of ...]] [REVISION-RANGE-ARG ...]${delegationArgs:+ }${delegationArgs}"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "--differentiate-source-range-via-of $ofOrRevisionRangeArgs ... GIT-COMMAND $ofOrRevisionRangeArgs [...]"
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" "... GIT-COMMAND [...] [--] [<pathspec>...] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "... --keep-position GIT-COMMAND [... FILES ...] [--] [<pathspec>...]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...] [--] [<pathspec>...]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "... [+1 ARG1|+2 ARG1 ARG2|+3 ARG1 ARG2 ARG3|...] GIT-COMMAND [...] [--] [<pathspec>...]"
 }
 printUsage()
 {
@@ -32,8 +37,9 @@ printLongUsage()
 {
     # This is the long "man page" when launched with the help argument.
     # It is printed to stdout to allow paging with 'more'.
+    : ${GIT_SHOWFILES_WHAT:=the files (inside <pathspec>) that were modified}
     cat <<HELPDESCRIPTION
-Execute GIT-COMMAND with ${GIT_SHOWFILES_WHAT:-the files (inside <pathspec>) that were modified}
+Execute GIT-COMMAND with $GIT_SHOWFILES_WHAT
 in the last commit / N'th commit / passed -r|--revision[s] REVISION(s) /
 revision range
 - appended
@@ -44,6 +50,35 @@ HELPDESCRIPTION
     echo
     printShortUsage "$1"
     echo
+    local revisionRangeArgs="$(GIT_LOGARGPARSER_REVISIONS_END="$GIT_SHOWFILESCOMMAND_REVISIONS_END" getShowRangeArgsShortUsage)"
+    cat <<HELPTEXT
+    --differentiate-source-range-via-of
+			The GIT-COMMAND itself takes range arguments; we need to
+			differentiate between a range that should be applied to
+			$GIT_SHOWFILES_COMMAND to determine the files and a
+			range that should be applied to GIT-COMMAND itself (e.g.
+			"git log"). For example:
+	--differentiate-source-range-via-of --since=00:00 log
+			shows a log of today's changes to files that were
+			modified in the last commit
+	--differentiate-source-range-via-of --of --since=00:00 log
+			shows a log of all changes to files that were
+			modified in today's commits; this is the same as
+	--since=00:00 log
+	--differentiate-source-range-via-of --of --since=00:00 log --since=1-Jan
+			shows a log of this year's changes to files that were
+			modified in today's commits
+    --of $revisionRangeArgs
+			Use files modified in commits from the specified
+			revisions (the "source commits") to locate
+			$GIT_SHOWFILES_WHAT
+			together with those files. By default, only the last
+			commit is considered.
+    --of <pathspec>...	Limit the scope of
+			$GIT_SHOWFILES_WHAT
+			in the last commit / the source commits to those within
+			<pathspec>(s).
+HELPTEXT
     GIT_LOGARGPARSER_REVISIONS_END="$GIT_SHOWFILESCOMMAND_REVISIONS_END" getShowRangeArgsLongUsage 'Use files'
     if [ -n "$GIT_SHOWFILES_USAGE_DELEGATION_COMMAND" ]; then
 	${GIT_SHOWFILES_USAGE_DELEGATION_COMMAND/--understands/--get-long-usage} 2>/dev/null
@@ -54,26 +89,54 @@ case "$1" in
     --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 esac
 
-typeset -a rangeArgs=()
+isDifferentiatingSourceRangeViaOf=
+typeset -a sourceRangeArgs=()
+typeset -a sourceFiles=()
+typeset -a showfilesArgs=()
 typeset -a args=()
 unset files
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--differentiate-source-range-via-of)
+			isDifferentiatingSourceRangeViaOf=t; shift;;
 	--)		shift; typeset -a files=("$@"); break;;
-	*)		argCnt=0
-			if [ ${#rangeArgs[@]} -eq 0 ] \
-			    && GIT_LOGARGPARSER_REVISIONS_END="$GIT_SHOWFILESCOMMAND_REVISIONS_END" parseShowRangeArgsInto argCnt rangeArgs "$@"
-			then
-			    shift $argCnt
-			elif [ -n "$GIT_SHOWFILES_USAGE_DELEGATION_COMMAND" ] && argCount=$($GIT_SHOWFILES_USAGE_DELEGATION_COMMAND --understands "$@"); then
+	--of)		if [ ! "$isDifferentiatingSourceRangeViaOf" ]; then
+			    echo 'ERROR: --of is only valid after --differentiate-source-range-via-of'
+			    echo
+			    printUsage "$0"
+			    exit 2
+			fi >&2
+			shift; sourceArgCount=0; typeset -a newSourceFiles=()
+			while [ $# -gt 0 -a -e "$1" ]
+			do
+			    newSourceFiles+=("$1"); shift
+			done
+			if [ ${#newSourceFiles[@]} -gt 0 ]; then
+			    sourceFiles=("${newSourceFiles[@]}")
+			elif GIT_LOGARGPARSER_REVISIONS_END="$GIT_SHOWFILESCOMMAND_REVISIONS_END" parseShowRangeArgsInto sourceArgCount sourceRangeArgs "$@"; then
+			    shift $sourceArgCount
+			else
+			    printf 'ERROR: --of must be followed by <pathspec>(s) or a valid revision range; this is neither: %s\n' "$1"
+			    echo
+			    printUsage "$0"
+			    exit 2
+			fi >&2
+			;;
+	*)		argCount=0
+			if [ -n "$GIT_SHOWFILES_USAGE_DELEGATION_COMMAND" ] && argCount=$($GIT_SHOWFILES_USAGE_DELEGATION_COMMAND --understands "$@"); then
 			    while ((argCount-- > 0))
 			    do
 				showfilesArgs+=("$1"); shift
 			    done
 			elif [ $? -eq 2 ]; then
 			    exit 2
+			elif [ ! "$isDifferentiatingSourceRangeViaOf" ] \
+			    && typeset -a rangeArgs=() \
+			    && GIT_LOGARGPARSER_REVISIONS_END="$GIT_SHOWFILESCOMMAND_REVISIONS_END" parseShowRangeArgsInto argCount rangeArgs "$@"; then
+			    args+=("${rangeArgs[@]}")
+			    shift $argCount
 			else
 			    args+=("$1"); shift
 			fi
@@ -101,7 +164,8 @@ if [ $# -eq 0 ]; then
 fi
 
 readarray -t committedFiles < <(
-    eval "${GIT_SHOWFILES_COMMAND:-git-showfiles}" '"${showfilesArgs[@]}" "${rangeArgs[@]}" -- "${files[@]}"' \
+    [ ${#sourceFiles[@]} -gt 0 ] || sourceFiles=("${files[@]}")	# Default to the <pathspec>s for GIT-COMMAND - these presumably are limitations that can already restrict the source.
+    eval "$GIT_SHOWFILES_COMMAND" '"${showfilesArgs[@]}" "${sourceRangeArgs[@]}" ${sourceFiles:+--} "${sourceFiles[@]}"' \
 	| { xargs -n 1 --no-run-if-empty sh -c 'test -r "$1" && printf %s\\n "$1"' sh || :; }
     printf '\n%d\n' ${PIPESTATUS[0]}
 )	# Exit status from the process substitution is lost; return the actual exit status via an appended additional line.

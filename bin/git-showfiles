@@ -62,6 +62,7 @@ typeset -a sortArgs=(-u)
 statusFilter=
 typeset -a allargs=()
 typeset -a renameArgs=()
+typeset -a prettyArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -72,6 +73,8 @@ do
 	--status|-s)	shift; gitNameStatusArg=(--name-status); sortArgs=(-k 2 -u);;
 	--no-renames|--renames|--find-renames|--find-renames=*|-M?*|--find-copies|--find-copies=*|-C?*|--find-copies-harder)
 			renameArgs+=("$1"); shift;;
+	--pretty=*)	prettyArgs=("$1"); shift;;
+	--pretty)	prettyArgs=("$1" "${2?}"); shift; shift;;
 	--added|-a)	shift; statusFilter+='A';;
 	--not-added|-A)	shift; statusFilter+='a';;
 	--copied|-c)	shift; statusFilter+='C';;
@@ -121,7 +124,13 @@ do
 			;;
     esac
 done
-
+if [ ${#prettyArgs[@]} -eq 0 ]; then
+    # Omit any commit message parts by default.
+    prettyArgs=(--pretty='format:')
+else
+    # If custom commit message rendering is requested, don't sort the output.
+    sortArgs=()
+fi
 typeset -a statusFilterArg=(); [ -z "$statusFilter" ] || statusFilterArg=(--diff-filter="$statusFilter")
 
 deleteEmptyLines()
@@ -129,31 +138,36 @@ deleteEmptyLines()
     sed -e '/^$/d'
 }
 
-if [ "$isIncludeIntermediate" ]; then
-    git-subdir-relativizer log --pretty='format:' "${gitNameStatusArg[@]}" "${renameArgs[@]}" "${statusFilterArg[@]}" "${allargs[@]}" "${logRange[@]}" "$@"
-elif [ -n "$range" ]; then
-    if [ ${#diffRange[@]} -gt 0 ]; then
-	printUsage "$0" >&2
-	exit 2
-    fi
-    # Source: http://stackoverflow.com/a/1552353/813602
-    GIT_LOGLIMITTORANGECOMMAND_RANGE="$range" \
+showfiles()
+{
+    if [ "$isIncludeIntermediate" ]; then
+	git-subdir-relativizer log "${prettyArgs[@]}" "${gitNameStatusArg[@]}" "${renameArgs[@]}" "${statusFilterArg[@]}" "${allargs[@]}" "${logRange[@]}" "$@"
+    elif [ -n "$range" ]; then
+	if [ ${#diffRange[@]} -gt 0 ]; then
+	    printUsage "$0" >&2
+	    exit 2
+	fi
+	# Source: http://stackoverflow.com/a/1552353/813602
+	GIT_LOGLIMITTORANGECOMMAND_RANGE="$range" \
+	    git-subdir-relativizer loglimit-to-range-command -2 \
+		diff LIMITRANGE "${gitNameStatusArg[@]}" "${renameArgs[@]}" "${statusFilterArg[@]}" "${allargs[@]}" "${logRange[@]}" "$@"
+    elif [ ${#diffRange[@]} -gt 0 ]; then
+	# Source: http://stackoverflow.com/a/1552353/813602
+	git-subdir-relativizer diff "${gitNameStatusArg[@]}" "${renameArgs[@]}" "${statusFilterArg[@]}" "${allargs[@]}" "${diffRange[@]}" "$@"
+    else
+	# Need to convert tags to commit ids, to avoid that "git show" also shows
+	# details about the tag itself.
+	typeset -a argsWithResolvedCommitIds=()
+	for arg in "${allargs[@]}" "$@"
+	do
+	    argsWithResolvedCommitIds+=("$(git-commitid --no-error -- "$arg" || printf %s "$arg")")
+	done
 	git-subdir-relativizer loglimit-to-range-command -2 \
-	    diff LIMITRANGE "${gitNameStatusArg[@]}" "${renameArgs[@]}" "${statusFilterArg[@]}" "${allargs[@]}" "${logRange[@]}" "$@"
-elif [ ${#diffRange[@]} -gt 0 ]; then
-    # Source: http://stackoverflow.com/a/1552353/813602
-    git-subdir-relativizer diff "${gitNameStatusArg[@]}" "${renameArgs[@]}" "${statusFilterArg[@]}" "${allargs[@]}" "${diffRange[@]}" "$@"
-else
-    # Need to convert tags to commit ids, to avoid that "git show" also shows
-    # details about the tag itself.
-    typeset -a argsWithResolvedCommitIds=()
-    for arg in "${allargs[@]}" "$@"
-    do
-	argsWithResolvedCommitIds+=("$(git-commitid --no-error -- "$arg" || printf %s "$arg")")
-    done
-    git-subdir-relativizer loglimit-to-range-command -2 \
-	show LIMITRANGE --pretty='format:' "${gitNameStatusArg[@]}" "${renameArgs[@]}" "${statusFilterArg[@]}" "${argsWithResolvedCommitIds[@]}"
-fi \
-    | sort "${sortArgs[@]}" \
-    | eval deleteEmptyLines \
+	    show LIMITRANGE "${prettyArgs[@]}" "${gitNameStatusArg[@]}" "${renameArgs[@]}" "${statusFilterArg[@]}" "${argsWithResolvedCommitIds[@]}"
+    fi
+}
+
+eval 'showfiles "$@"' \
+    "${sortArgs:+| sort}" '"${sortArgs[@]}"' \
+    '| deleteEmptyLines' \
     "${pager:+|}" '"${pager[@]}"'

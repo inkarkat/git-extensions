@@ -15,7 +15,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--intermediate] [-s|--status [--[no-]renames] [-M<n>|--find-renames[=<n>]] [-C<n>|--find-copies[=<n>]|--find-copies-harder] ([-a|--added] [-c|--copied] [-d|--deleted] [-m|--modified] [-r|--renamed] [-t|--retyped] ... | [-A|--not-added] [-C|--not-copied] [-D|--not-deleted] [-M|--not-modified] [-R|--not-renamed] [-T|--not-retyped] ...) ([--cached] [--to COMMIT])|<since>..<until>|--since <date>|--max-count <number>|-n <number>|COMMIT-LIMITING-ARGS] [[--] <pathspec>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--intermediate] [-s|--status [--[no-]renames] [-M<n>|--find-renames[=<n>]] [-C<n>|--find-copies[=<n>]|--find-copies-harder] ([-a|--added] [-c|--copied] [-d|--deleted] [-m|--modified] [-r|--renamed] [-t|--retyped] ... | [-A|--not-added] [-C|--not-copied] [-D|--not-deleted] [-M|--not-modified] [-R|--not-renamed] [-T|--not-retyped] ...) ([--cached] [--to COMMIT])|<since>..<until>|--since <date>|--max-count <number>|-n <number>|COMMIT-LIMITING-ARGS|--range <range> [--range ...]] [[--] <pathspec>...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -50,12 +50,44 @@ HELPDESCRIPTION
 		    changed in type files (can be combined).
 		    If you want renames / copies to be counted as added /
 		    deleted, pass --no-renames.
+    --range <range> Show files modified in the commits in <range>.
 HELPTEXT
+}
+
+typeset -a argsWithResolvedCommitIds=()
+typeset -a logRange=()
+range=
+addRange()
+{
+    # XXX: Semantics of r1..r2 and r1...r2 are swapped between rev-range and
+    # diff.
+    #
+    # For diff, r1..r2 is synonymous to r1 r2; i.e. changes between the two
+    # commits are shown. r1...r2 views the changes on the branch containing
+    # and up to the r2, starting at a common ancestor of both r1 and r2.
+    # "git diff r1...r2" is equivalent to "git diff $(git merge-base r1 r2)
+    # r2"
+    #
+    # For log / rev-parse, r1..r2 means reachable from r2 but not r1.
+    # r1...r2 is the symmetric difference of r1 and r2 and is defined as r1
+    # r2 --not $(git merge-base --all r1 r2). It is the set of commits that
+    # are reachable from either one of r1 (left side) or r2 (right side) but
+    # not from both.
+    #
+    # So, the symmetric one is ... for log, but .. for diff, and the one
+    # that excludes changes from the first is .. for log but ... for diff.
+    # WTF.
+    case "${1:?}" in
+	*...*)		logRange+=("$1"); range='..'; shift;;
+	*..*)		logRange+=("$1"); range='...'; shift;;
+	*)		resolvedCommitId="$(git-commitid -- "$1")" || exit 2; shift
+			argsWithResolvedCommitIds+=("$resolvedCommitId")
+			;;
+    esac
 }
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 typeset -a diffRange=()
-typeset -a logRange=()
 isIncludeIntermediate=
 typeset -a gitNameStatusArg=(--name-only)
 typeset -a sortArgs=(-u)
@@ -93,26 +125,9 @@ do
 	--not-retyped|-T)
 			shift; statusFilter+='t';;
 
-	# XXX: Semantics of r1..r2 and r1...r2 are swapped between rev-range and
-	# diff.
-	#
-	# For diff, r1..r2 is synonymous to r1 r2; i.e. changes between the two
-	# commits are shown. r1...r2 views the changes on the branch containing
-	# and up to the r2, starting at a common ancestor of both r1 and r2.
-	# "git diff r1...r2" is equivalent to "git diff $(git merge-base r1 r2)
-	# r2"
-	#
-	# For log / rev-parse, r1..r2 means reachable from r2 but not r1.
-	# r1...r2 is the symmetric difference of r1 and r2 and is defined as r1
-	# r2 --not $(git merge-base --all r1 r2). It is the set of commits that
-	# are reachable from either one of r1 (left side) or r2 (right side) but
-	# not from both.
-	#
-	# So, the symmetric one is ... for log, but .. for diff, and the one
-	# that excludes changes from the first is .. for log but ... for diff.
-	# WTF.
-	*...*)		logRange=("$1"); range='..'; shift;;
-	*..*)		logRange=("$1"); range='...'; shift;;
+	--range=*)	addRange "${1#--range=}"; shift;;
+	--range)	shift; addRange "${1:?}"; shift;;
+	*..*)		addRange "$1"; shift;;
 
 	--)		break;;
 	*)		if argCount=$(countDiffArgs "$1"); then
@@ -157,7 +172,6 @@ showfiles()
     else
 	# Need to convert tags to commit ids, to avoid that "git show" also shows
 	# details about the tag itself.
-	typeset -a argsWithResolvedCommitIds=()
 	for arg in "${allargs[@]}" "$@"
 	do
 	    argsWithResolvedCommitIds+=("$(git-commitid --no-error -- "$arg" || printf %s "$arg")")

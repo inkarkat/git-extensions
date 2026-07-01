@@ -4,6 +4,12 @@
 : ${GIT_LGHIGHLIGHTEDCOMMITS_ARGS_MARKER='{}'}
 argsMarker="$GIT_LGHIGHLIGHTEDCOMMITS_ARGS_MARKER"; unset GIT_LGHIGHLIGHTEDCOMMITS_ARGS_MARKER
 
+readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
+[ -d "$scriptDir" ] || { echo >&2 'ERROR: Cannot determine script directory!'; exit 3; }
+readonly projectDir="${scriptDir}/.."
+readonly libDir="${projectDir}/lib"
+source "${libDir}/logArgParser.sh" || exit 3
+
 printUsage()
 {
     cat <<HELPTEXT
@@ -12,13 +18,13 @@ With --range-to-last-commit, the range will be ended at the last given commit;
 naturally, no log range can then be given.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--range-to-last-commit [--one-more]] <commit> [...] [GIT-LOG-ARGUMENTS ...] [<revision range>] [[--] <pathspec>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--range-to-last-commit [--one-more]] [GIT-LOG-ARGUMENTS ...] <commit1> [<commit2> ...] [<revision range>|--range <range> [--range...]] [[--] <pathspec>...] [-?|-h|--help]'
     echo
     cat <<HELPTEXT
 git ${GIT_LGHIGHLIGHT_LG}, with commit hashes read from stdin highlighted.
 HELPTEXT
     echo
-    printf 'Usage: git lh [...] | %q %s\n' "$(basename "$1")" '[--range-to-last-commit [--one-more]] - [GIT-LOG-ARGUMENTS ...] [<revision range>] [[--] <pathspec>...] [-?|-h|--help]'
+    printf 'Usage: git lh [...] | %q %s\n' "$(basename "$1")" '[--range-to-last-commit [--one-more]] [GIT-LOG-ARGUMENTS ...] - [<revision range>|--range <range> [--range...]] [[--] <pathspec>...] [-?|-h|--help]'
     echo
     cat <<HELPTEXT
 git ${GIT_LGHIGHLIGHT_LG}, with commits that result from GIT-LOG-COMMAND (which will be configured
@@ -28,7 +34,7 @@ With --except-last, the last argument will only be passed to GIT-LOG-COMMAND,
 but not to git ${GIT_LGHIGHLIGHT_LG}.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--range-to-last-commit [--one-more]] [--except-last] GIT-LOG-COMMAND [GIT-LOG-ARGUMENTS ...] [<revision range>] [[--] <pathspec>...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--range-to-last-commit [--one-more]] [--except-last] GIT-LOG-COMMAND [GIT-LOG-ARGUMENTS ...] [<revision range>|--range <range> [--range...]] [[--] <pathspec>...]'
 }
 
 typeset -a commits=()
@@ -48,11 +54,17 @@ readCommits()
 
 isRangeToLastCommit=
 isOneMore=
+typeset -a colorArg=()
+typeset -a logArgs=()
 typeset -a lastArg=()
+typeset -a rangeArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)	colorArg=("$1"); shift;;
+	--color)		colorArg=("$1" "$2"); shift; shift;;
+
 	--range-to-last-commit)
 			shift; isRangeToLastCommit=t;;
 	--one-more)	shift; isOneMore=t;;
@@ -62,11 +74,21 @@ do
 			    set -- "${@:1:$(($#-1))}"
 			fi
 			;;
+	--range)	shift; rangeArgs+=("${1:?}"); shift;;
 	-)		shift
 			readCommits
 			[ ${#commits[@]} -gt 0 ] || exit 1
 			;;
-	*)		break;;
+	*)		if argCount=$(countLogArgs t "$1"); then
+			    while ((argCount-- > 0))
+			    do
+				logArgs+=("$1")
+				shift
+			    done
+			else
+			    break
+			fi
+			;;
     esac
 done
 if [ $# -eq 0 -a ${#commits[@]} -eq 0 ]; then
@@ -84,14 +106,14 @@ if [ ${#commits[@]} -eq 0 ]; then
     done
 fi
 if [ ${#commits[@]} -eq 0 ]; then
-    gitLogCommand="${1:?}"; shift
+    gitCommand="${1:?}"; shift
 
-    typeset -a logArgs=(--pretty=tformat:%h "$@" "${lastArg[@]}")
-    printf -v quotedLogArgs '%q ' "${logArgs[@]}"; quotedLogArgs="${quotedLogArgs% }"
-    interpolatedGitLogCommand="${gitLogCommand//"$argsMarker"/$quotedLogArgs}"
-    [ "$interpolatedGitLogCommand" = "$gitLogCommand" ] || logArgs=()
+    typeset -a gitCommandArgs=(--pretty=tformat:%h "${logArgs[@]}" "${rangeArgs[@]}" "$@" "${lastArg[@]}")
+    printf -v quotedGitCommandArgs '%q ' "${gitCommandArgs[@]}"; quotedGitCommandArgs="${quotedGitCommandArgs% }"
+    interpolatedGitCommand="${gitCommand//"$argsMarker"/$quotedGitCommandArgs}"
+    [ "$interpolatedGitCommand" = "$gitCommand" ] || gitCommandArgs=()
 
-    readarray -t commits < <(eval "git-wrapper $interpolatedGitLogCommand" '"${logArgs[@]}"')
+    readarray -t commits < <(eval "git-wrapper $interpolatedGitCommand" '"${gitCommandArgs[@]}"')
     if [ ${#commits[@]} -eq 0 ]; then
 	echo >&2 'No commits found.'
 	exit 1
@@ -106,4 +128,4 @@ IFS=' '
 concatenatedCommits="${commits[*]}"
 concatenatedCommitsPattern="^\\([ |/\\*]\\|\\x1b\\[[0-9:;]*m\\)\\+ \\(\\x1b\[[0-9:;]*m\\)*\\(${concatenatedCommits// /\\|}\\)\\(\\x1b\\[[0-9:;]*m\\)* "
 
-GIT_LGHIGHLIGHT_RAW_PATTERN=t exec git-lghighlight --grep "$concatenatedCommitsPattern" "$@"
+GIT_LGHIGHLIGHT_RAW_PATTERN=t exec git-lghighlight --grep "$concatenatedCommitsPattern" "${colorArg[@]}" "${logArgs[@]}" "${rangeArgs[@]}" "$@"

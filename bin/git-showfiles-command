@@ -4,11 +4,17 @@ shopt -qs extglob
 
 : ${GIT_SHOWFILESCOMMAND_REVISIONS_END=;}
 
+readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
+[ -d "$scriptDir" ] || { echo >&2 'ERROR: Cannot determine script directory!'; exit 3; }
+readonly projectDir="${scriptDir}/.."
+readonly libDir="${projectDir}/lib"
+source "${libDir}/logArgParser.sh" || exit 3
+
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    local revisionRangeArgs="[-n|--count N|-r|--revision REVISION|--revisions REVISION1 [...] $GIT_SHOWFILESCOMMAND_REVISIONS_END|--since <date>|--max-count <number>|--range <range> [--range ...]]"
+    local revisionRangeArgs="[$(GIT_LOGARGPARSER_REVISIONS_END="$GIT_SHOWFILESCOMMAND_REVISIONS_END" getShowRangeArgsShortUsage)]"
     local delegationArgs; [ -n "$GIT_SHOWFILES_USAGE_DELEGATION_COMMAND" ] && delegationArgs="$(${GIT_SHOWFILES_USAGE_DELEGATION_COMMAND/--understands/--get-short-usage} 2>/dev/null)"
     printf 'Usage: %q %s\n' "$(basename "$1")" "[-c ...] GIT-COMMAND ${revisionRangeArgs}${delegationArgs:+ }${delegationArgs} [GIT-COMMAND-ARGS ...] [--] [<pathspec>...] [-?|-h|--help]"
     printf 'Usage: %q %s\n' "$(basename "$1")" "--keep-position GIT-COMMAND ${revisionRangeArgs}${delegationArgs:+ }${delegationArgs} [... FILES ...] [--] [<pathspec>...]"
@@ -38,21 +44,7 @@ HELPDESCRIPTION
     echo
     printShortUsage "$1"
     echo
-    cat <<HELPTEXT
-    --count|-n N	Use files modified in the N'th previous commit.
-    --revision|-r REVISION
-			Use files modified in REVISION.
-    --revisions REVISION1 [...] $GIT_SHOWFILESCOMMAND_REVISIONS_END
-			Use files modified in REVISION(s); all following
-			arguments until an argument consisting of '$GIT_SHOWFILESCOMMAND_REVISIONS_END' is
-			encountered.
-    --since <date>	Use files modified since <date> (inclusive) instead of
-			the last commit.
-    --max-count <number>
-			Use files modified in the last <number> commits instead
-			of the last commit.
-    --range <range>	Use files modified in the commits in <range>.
-HELPTEXT
+    GIT_LOGARGPARSER_REVISIONS_END="$GIT_SHOWFILESCOMMAND_REVISIONS_END" getShowRangeArgsLongUsage 'Use files'
     if [ -n "$GIT_SHOWFILES_USAGE_DELEGATION_COMMAND" ]; then
 	${GIT_SHOWFILES_USAGE_DELEGATION_COMMAND/--understands/--get-long-usage} 2>/dev/null
     fi
@@ -62,46 +54,20 @@ case "$1" in
     --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 esac
 
-typeset -a revisionRanges=()
+typeset -a rangeArgs=()
 typeset -a args=()
 unset files
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
-	--count|-n)	shift
-			if ! [[ "$1" =~ ^[0-9]+$ ]]; then
-			    printUsage "$0" >&2
-			    exit 2
-			fi
-			revisionRanges+=("HEAD~$(($1 - 1))")
-			shift
-			;;
-	--revision|-r)	if [ ${#revisionRanges[@]} -eq 0 ]; then
-			    shift; revisionRanges+=("${1:?}"); shift
-			else
-			    args+=("$1" "${2:?}"); shift; shift
-			fi
-			;;
-	--revisions)	shift
-			while [ $# -gt 0 -a "$1" != "$GIT_SHOWFILESCOMMAND_REVISIONS_END" ]
-			do
-			    revisionRanges+=("${1:?}"); shift
-			done
-			if [ $# -eq 0 ]; then
-			    echo "ERROR: --revisions must be concluded with '${GIT_SHOWFILESCOMMAND_REVISIONS_END}'"; echo; printUsage "$0"
-			    exit 2
-			fi >&2
-			shift
-			;;
-	--@(since|max-count)=*)
-			revisionRanges+=("$1"); shift;;
-	--@(since|max-count))
-			revisionRanges+=("$1" "${2?}"); shift; shift;;
-	--range=*)	revisionRanges+=("${1#--range=}"); shift;;
-	--range)	shift; revisionRanges+=("${1:?}"); shift;;
 	--)		shift; typeset -a files=("$@"); break;;
-	*)		if [ -n "$GIT_SHOWFILES_USAGE_DELEGATION_COMMAND" ] && argCount=$($GIT_SHOWFILES_USAGE_DELEGATION_COMMAND --understands "$@"); then
+	*)		argCnt=0
+			if [ ${#rangeArgs[@]} -eq 0 ] \
+			    && GIT_LOGARGPARSER_REVISIONS_END="$GIT_SHOWFILESCOMMAND_REVISIONS_END" parseShowRangeArgsInto argCnt rangeArgs "$@"
+			then
+			    shift $argCnt
+			elif [ -n "$GIT_SHOWFILES_USAGE_DELEGATION_COMMAND" ] && argCount=$($GIT_SHOWFILES_USAGE_DELEGATION_COMMAND --understands "$@"); then
 			    while ((argCount-- > 0))
 			    do
 				showfilesArgs+=("$1"); shift
@@ -135,7 +101,7 @@ if [ $# -eq 0 ]; then
 fi
 
 readarray -t committedFiles < <(
-    eval "${GIT_SHOWFILES_COMMAND:-git-showfiles}" '"${showfilesArgs[@]}" "${revisionRanges[@]}" -- "${files[@]}"' \
+    eval "${GIT_SHOWFILES_COMMAND:-git-showfiles}" '"${showfilesArgs[@]}" "${rangeArgs[@]}" -- "${files[@]}"' \
 	| { xargs -n 1 --no-run-if-empty sh -c 'test -r "$1" && printf %s\\n "$1"' sh || :; }
     printf '\n%d\n' ${PIPESTATUS[0]}
 )	# Exit status from the process substitution is lost; return the actual exit status via an appended additional line.

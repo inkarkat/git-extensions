@@ -2,11 +2,20 @@
 set -o pipefail
 shopt -qs extglob
 
+: ${GIT_WHOIS_REVISIONS_END=;}
+
+readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
+[ -d "$scriptDir" ] || { echo >&2 'ERROR: Cannot determine script directory!'; exit 3; }
+readonly projectDir="${scriptDir}/.."
+readonly libDir="${projectDir}/lib"
+source "${libDir}/logArgParser.sh" || exit 3
+
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-1|--first|-s|--select|-S|--select-many] [-n|--name|-e|--email] [--via-email|-E] [--accept-unknown] [--range-is-last|--since <date>|--max-count <number>|-<number>|--range <range> [--range ...]] AUTHOR-PATTERN [...] [-?|-h|--help]'
+    local revisionRangeArgs="[$(GIT_LOGARGPARSER_REVISIONS_END="$GIT_WHOIS_REVISIONS_END" getShowRangeArgsShortUsage)]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[-1|--first|-s|--select|-S|--select-many] [-n|--name|-e|--email] [--via-email|-E] [--accept-unknown] [--range-is-last|${revisionRangeArgs}] AUTHOR-PATTERN [...] [-?|-h|--help]"
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --accept-unknown AUTHOR-PATTERN [...]|NAME EMAIL@HOST|"NAME <EMAIL@HOST>"'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --accept-unknown --select-many AUTHOR-PATTERN|NAME EMAIL@HOST|"NAME <EMAIL@HOST>" [...]'
@@ -44,6 +53,7 @@ HELPDESCRIPTION
 			arguments) or "NAME <EMAIL@HOST>" (one argument) that
 			are not yet found in the repository.
 HELPTEXT
+    GIT_LOGARGPARSER_REVISIONS_END="$GIT_WHOIS_REVISIONS_END" getShowRangeArgsLongUsage 'Use files'
 }
 
 isAcceptUnknown=
@@ -75,17 +85,19 @@ do
 
 	--range-is-last)
 			shift; isRangeLastArg=t;;
-	--since)	rangeArgs+=("$1" "$2"); shift; shift;;
-	--max-count)	rangeArgs+=("$1" "$2"); shift; shift;;
-	--max-count=*|-+([0-9]))
-			rangeArgs+=("$1"); shift;;
-	--range)	shift; rangeArgs+=("$1"); shift;;
-	--range=*)	rangeArgs+=("${1#--range=}"); shift;;
 	--follow)	rangeModificationArgs+=("$1"); shift;;
 
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
-	*)		break;;
+	*)		argCount=0
+			typeset -a parsedRangeArgs=()
+			if GIT_LOGARGPARSER_REVISIONS_END="$GIT_WHOIS_REVISIONS_END" parseShowRangeArgsInto argCount parsedRangeArgs "$@"; then
+			    rangeArgs+=("${parsedRangeArgs[@]}")
+			    shift $argCount
+			else
+			    break
+			fi
+			;;
     esac
 done
 

@@ -74,7 +74,8 @@ _git_cheat()
 complete -F _git_cheat git-cheat hub-cheat
 
 typeset -ga _git_complete_brvariant_commands=()
-readarray -t _git_complete_brvariant_commands < "${_scriptDir}/../lib/br-variants/commands.txt"
+readarray -t _git_complete_brvariant_commands < "${_scriptDir}/../etc/br-variants/commands-supported.txt"
+readarray -O ${#_git_complete_brvariant_commands[@]} -t _git_complete_brvariant_commands < "${_scriptDir}/../etc/br-variants/commands-new.txt"
 typeset -gA _git_complete_brvariants=()
 while IFS=$'\n' read -r _line
 do

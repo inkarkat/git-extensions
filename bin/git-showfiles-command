@@ -81,7 +81,11 @@ HELPDESCRIPTION
     --of <pathspec>...	Limit the scope of
 			$GIT_SHOWFILES_WHAT
 			in the last commit / the source commits to those within
-			<pathspec>(s).
+			<pathspec>(s). Any trailing <pathspec> arguments are
+			used to filter the resulting files then. If no argument
+			--of <pathspec> is passed, the trailing <pathspec>s are
+			both used to limit the scope and filter the resulting
+			files.
     --differentiate-command-range-via-to
 			The GIT-COMMAND itself takes range arguments; we need to
 			differentiate between a range that should be applied to
@@ -225,6 +229,18 @@ readarray -t committedFiles < <(
 [ ${committedFiles[-1]} -ne 0 ] && exit ${committedFiles[-1]}
 unset "committedFiles[$((${#committedFiles[@]}-1))]"
 [ -z "${committedFiles[-1]}" ] && unset "committedFiles[$((${#committedFiles[@]}-1))]"
+
+if [ "$isDifferentiatingSourceRangeViaOf" ] && [ ${#files[@]} -gt 0 ]; then
+    # Any trailing <pathspec>s should be used to filter the committed files. (Simply
+    # appending them doesn't make sense.) We just need to expand any dirspecs in the
+    # passed <pathspec>s and then can take the intersection of the two sets.
+    readarray -t committedFiles < <(
+	comm -12 \
+	    <(printf '%s\n' "${committedFiles[@]}" | sort) \
+	    <(git-ls --recursive --only-files -- "${files[@]}" | sort)
+    )
+fi
+
 [ ${#committedFiles[@]} -gt 0 ] || exit 99
 
 isCountedAppend=

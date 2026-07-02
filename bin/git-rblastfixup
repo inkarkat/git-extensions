@@ -10,9 +10,10 @@ be rewritten any more] fixup / amend / squash commit(s) to, well, incorporate
 the fixes / rewordings / squash the commits into the current branch.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '-<number>|-n <number>|--max-count=<number> [<log-options>] [<revision-range>] [[--] <pathspec>...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-i|--interactive] -<number>|-n <number>|--max-count=<number> [<log-options>] [<revision-range>] [[--] <pathspec>...] [-?|-h|--help]'
 }
 
+rebaseCommand=rbni
 typeset -a gitArgs=()
 typeset -a rangeArg=()
 rangeStart=
@@ -24,6 +25,8 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
+	--interactive|-i)
+			shift; rebaseCommand=rbi;;
 	--max-count)	shift; number="${1:?}"; shift;;
 	--max-count=*)	number="${1#--max-count=}"; shift;;
 	-n)		shift; number="${1:?}"; shift;;
@@ -65,4 +68,4 @@ case ${#targetCommits[@]} in
     *)	targetCommit="$(git-logrevs --pretty='tformat:%H' --revisions "${!targetCommits[@]}" \; "${gitArgs[@]}" "$@" | tail -n 1)" || exit 3;;
 esac
 
-exec git-rbni "${targetCommit:?}^"
+exec git-wrapper $rebaseCommand "${targetCommit:?}^"

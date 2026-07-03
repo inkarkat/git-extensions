@@ -223,7 +223,7 @@ fi
 readarray -t committedFiles < <(
     [ ${#sourceFiles[@]} -gt 0 ] || sourceFiles=("${files[@]}")	# Default to the <pathspec>s for GIT-COMMAND - these presumably are limitations that can already restrict the source.
     eval "git-wrapper $GIT_SHOWFILES_COMMAND" '"${showfilesArgs[@]}" "${sourceRangeArgs[@]}" ${sourceFiles:+--} "${sourceFiles[@]}"' \
-	| { xargs -n 1 --no-run-if-empty sh -c 'test -r "$1" && printf %s\\n "$1"' sh || :; }
+	| { xargs -d '\n' -n 1 --no-run-if-empty sh -c 'test -r "$1" && printf %s\\n "$1"' sh || :; }
     printf '\n%d\n' ${PIPESTATUS[0]}
 )	# Exit status from the process substitution is lost; return the actual exit status via an appended additional line.
 [ ${committedFiles[-1]} -ne 0 ] && exit ${committedFiles[-1]}

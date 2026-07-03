@@ -2,7 +2,7 @@
 set -o noglob
 shopt -qs extglob
 
-: ${GIT_SHOWFILES_COMMAND:=git-showfiles}
+: ${GIT_SHOWFILES_COMMAND:=showfiles}
 : ${GIT_SHOWFILESCOMMAND_REVISIONS_END=;}
 
 readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
@@ -16,7 +16,7 @@ printShortUsage()
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
     local revisionRangeArgs="$(GIT_LOGARGPARSER_REVISIONS_END="$GIT_SHOWFILESCOMMAND_REVISIONS_END" getShowRangeArgsShortUsage)"
-    local delegationArgs; [ -n "$GIT_SHOWFILES_USAGE_DELEGATION_COMMAND" ] && delegationArgs="$(${GIT_SHOWFILES_USAGE_DELEGATION_COMMAND/--understands/--get-short-usage} 2>/dev/null)"
+    local delegationArgs; [ -n "$GIT_SHOWFILES_USAGE_DELEGATION_COMMAND" ] && delegationArgs="$(git-wrapper ${GIT_SHOWFILES_USAGE_DELEGATION_COMMAND/--understands/--get-short-usage} 2>/dev/null)"
     printf 'Usage: %q %s\n' "$(basename "$1")" "[${revisionRangeArgs}]${delegationArgs:+ }${delegationArgs} ... GIT-COMMAND [${revisionRangeArgs}]${delegationArgs:+ }${delegationArgs} [...] [-?|-h|--help]"
     local ofOrRevisionRangeArgs="[--of (<pathspec>...|REVISION-RANGE-ARG ...) [--of ...]] [REVISION-RANGE-ARG ...]${delegationArgs:+ }${delegationArgs}"
     local toOrRevisionRangeArgs="[--to (<pathspec>...|REVISION-RANGE-ARG ...) [--to ...]] [REVISION-RANGE-ARG ...]${delegationArgs:+ }${delegationArgs}"
@@ -111,7 +111,7 @@ HELPDESCRIPTION
 HELPTEXT
     GIT_LOGARGPARSER_REVISIONS_END="$GIT_SHOWFILESCOMMAND_REVISIONS_END" getShowRangeArgsLongUsage 'Use files'
     if [ -n "$GIT_SHOWFILES_USAGE_DELEGATION_COMMAND" ]; then
-	${GIT_SHOWFILES_USAGE_DELEGATION_COMMAND/--understands/--get-long-usage} 2>/dev/null
+	git-wrapper ${GIT_SHOWFILES_USAGE_DELEGATION_COMMAND/--understands/--get-long-usage} 2>/dev/null
     fi
 }
 
@@ -182,7 +182,7 @@ do
 			fi >&2
 			;;
 	*)		argCount=0
-			if [ -n "$GIT_SHOWFILES_USAGE_DELEGATION_COMMAND" ] && argCount=$($GIT_SHOWFILES_USAGE_DELEGATION_COMMAND --understands "$@"); then
+			if [ -n "$GIT_SHOWFILES_USAGE_DELEGATION_COMMAND" ] && argCount=$(git-wrapper $GIT_SHOWFILES_USAGE_DELEGATION_COMMAND --understands "$@"); then
 			    while ((argCount-- > 0))
 			    do
 				showfilesArgs+=("$1"); shift
@@ -222,7 +222,7 @@ fi
 
 readarray -t committedFiles < <(
     [ ${#sourceFiles[@]} -gt 0 ] || sourceFiles=("${files[@]}")	# Default to the <pathspec>s for GIT-COMMAND - these presumably are limitations that can already restrict the source.
-    eval "$GIT_SHOWFILES_COMMAND" '"${showfilesArgs[@]}" "${sourceRangeArgs[@]}" ${sourceFiles:+--} "${sourceFiles[@]}"' \
+    eval "git-wrapper $GIT_SHOWFILES_COMMAND" '"${showfilesArgs[@]}" "${sourceRangeArgs[@]}" ${sourceFiles:+--} "${sourceFiles[@]}"' \
 	| { xargs -n 1 --no-run-if-empty sh -c 'test -r "$1" && printf %s\\n "$1"' sh || :; }
     printf '\n%d\n' ${PIPESTATUS[0]}
 )	# Exit status from the process substitution is lost; return the actual exit status via an appended additional line.

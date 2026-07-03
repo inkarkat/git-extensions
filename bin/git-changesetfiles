@@ -23,43 +23,52 @@ getShortUsage()
     local -r filterArgs='[-%|--percentage-threshold PCT] [-d|--drop-original-files]'
     local -r formatArgs='[-N|--no-percentage] [-a|--include-original-files]'
     local -r forRangeArgs="--for ($(GIT_LOGARGPARSER_REVISIONS_END="$GIT_CHANGESETFILES_REVISIONS_END" getShowRangeArgsShortUsage))"
-    case "$1" in
-	'') printf %s "$filterAndFormatArgs [<log-options>] ${forRangeArgs}";;
-	filter)
-	    printf %s "$filterArgs";;
-	format)
-	    printf %s "$formatArgs";;
-	for-range)
-	    printf %s "$forRangeArgs";;
-	*)  echo "ERROR: Unknown short usage topic \"$1\"!" >&2; return 2;;
-    esac
+    local usageSep
+    [ $# -gt 0 ] || set -- ''
+    while [ $# -gt 0 ]
+    do
+	case "$1" in
+	    '') printf %s "$usageSep" "$filterAndFormatArgs [<log-options>] ${forRangeArgs}";;
+	    filter)
+		printf %s "$usageSep" "$filterArgs";;
+	    format)
+		printf %s "$usageSep" "$formatArgs";;
+	    for-range)
+		printf %s "$usageSep" "$forRangeArgs";;
+	    *)  echo "ERROR: Unknown short usage topic \"$1\"!" >&2; return 2;;
+	esac
+	shift; usageSep=' '
+    done
 }
 getLongUsage()
 {
-    local topic="$1"; shift
-    local hadTopic=
-    case "$topic" in
-	''|filter)
-	    cat <<HELPTEXT
+    [ $# -gt 0 ] || set -- ''
+    while [ $# -gt 0 ]
+    do
+	local topic="${1?}"; shift
+	local hadTopic=
+	case "$topic" in
+	    ''|filter)
+		cat <<HELPTEXT
     --percentage-threshold|-% PCT
 			Show only files with a correlation of at least PCT%.
     --drop-original-files|-d
 			Omit the original files from the output.
 HELPTEXT
-	    hadTopic=t
-	    ;;&
-	''|format)
-	    cat <<HELPTEXT
+		hadTopic=t
+		;;&
+	    ''|format)
+		cat <<HELPTEXT
     --no-percentage|-N	Omit the percentage; just list the files.
     --include-original-files|-a
 			Include the original files in the output without extra
 			highlighting.
 HELPTEXT
-	    hadTopic=t
-	    ;;&
-	''|for-range)
-	    local -r forRangeArgs="--for ($(GIT_LOGARGPARSER_REVISIONS_END="$GIT_CHANGESETFILES_REVISIONS_END" getShowRangeArgsShortUsage))"
-	    cat <<HELPTEXT
+		hadTopic=t
+		;;&
+	    ''|for-range)
+		local forRangeArgs="--for ($(GIT_LOGARGPARSER_REVISIONS_END="$GIT_CHANGESETFILES_REVISIONS_END" getShowRangeArgsShortUsage))"
+		cat <<HELPTEXT
     $forRangeArgs
 			Use files modified in commits from the specified
 			revisions [that fall within <pathspec>...] to determine
@@ -71,10 +80,11 @@ HELPTEXT
 			passed, it defaults to the last commit's files (instead
 			of complaing about missing <pathspec>s).
 HELPTEXT
-	    hadTopic=t
-	    ;;&
-	*)  [ "$hadTopic" ] || { echo "ERROR: Unknown long usage topic \"$topic\"!" >&2; return 2; };;
-    esac
+		hadTopic=t
+		;;&
+	    *)  [ "$hadTopic" ] || { echo "ERROR: Unknown long usage topic \"$topic\"!" >&2; return 2; };;
+	esac
+    done
 }
 printShortUsage()
 {

@@ -7,8 +7,9 @@ if [ -z "$GIT_SHOWFILES_COMMAND" ]; then
     : ${GIT_SHOWFILES_UNDERSTANDS_COMMAND='showfiles --understand-for filter'} # Don't allow custom formatting, and we're passing ranges, anyway.
 fi
 : ${GIT_SHOWFILES_UNDERSTANDS_COMMAND=$GIT_SHOWFILES_COMMAND}
-: ${GIT_SHOWFILES_LONG_USAGE_DELEGATION_COMMAND=${GIT_SHOWFILES_UNDERSTANDS_COMMAND/--understands/--get-long-usage}}
-: ${GIT_SHOWFILES_SHORT_USAGE_DELEGATION_COMMAND=${GIT_SHOWFILES_UNDERSTANDS_COMMAND/--understands/--get-short-usage}}
+defaultUsageDelegationCommand="${GIT_SHOWFILES_UNDERSTANDS_COMMAND/--understand-for/--get-what-usage}"; defaultUsageDelegationCommand="${defaultUsageDelegationCommand//--understand-for/}"
+: ${GIT_SHOWFILES_LONG_USAGE_DELEGATION_COMMAND=${defaultUsageDelegationCommand/--get-what-usage/--get-long-usage}}
+: ${GIT_SHOWFILES_SHORT_USAGE_DELEGATION_COMMAND=${defaultUsageDelegationCommand/--get-what-usage/--get-short-usage}}
 : ${GIT_SHOWFILESCOMMAND_REVISIONS_END=;}
 GIT_LOGARGPARSER_REVISIONS_END="$GIT_SHOWFILESCOMMAND_REVISIONS_END"
 
@@ -32,8 +33,11 @@ printShortUsage()
     local ofOrRevisionRangeArgs="[--of (<pathspec>...|REVISION-RANGE-ARG ...) [--of ...]] [REVISION-RANGE-ARG ...]${delegationArgs:+ }${delegationArgs}"
     local toOrRevisionRangeArgs="[--to (<pathspec>...|REVISION-RANGE-ARG ...) [--to ...]] [REVISION-RANGE-ARG ...]${delegationArgs:+ }${delegationArgs}"
     local ofOrToArgs="[--of (<pathspec>...|REVISION-RANGE-ARG ...) [--of ...]] [--to <pathspec>...|REVISION-RANGE-ARG ... [--to ...]]${delegationArgs:+ }${delegationArgs}"
+    echo
     printf 'Usage: %q %s\n' "$(basename "$1")" "--differentiate-source-range-via-of $ofOrRevisionRangeArgs ... GIT-COMMAND $ofOrRevisionRangeArgs [...]"
+    echo
     printf 'Usage: %q %s\n' "$(basename "$1")" "--differentiate-command-range-via-to $toOrRevisionRangeArgs ... GIT-COMMAND $toOrRevisionRangeArgs [...]"
+    echo
     printf 'Usage: %q %s\n' "$(basename "$1")" "--differentiate-source-range-via-of --differentiate-command-range-via-to $ofOrToArgs ... GIT-COMMAND $ofOrToArgs [...]"
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" "... GIT-COMMAND [...] [--] [<pathspec>...] [-?|-h|--help]"

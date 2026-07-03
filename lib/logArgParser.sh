@@ -79,9 +79,25 @@ countRangeArgs()
     esac
 }
 
+###############################################################################
+# PURPOSE:
+#   Parses Git show arguments that specify a range of commits, plus extensions
+#   like --count, --revision[s], and --range.
+# ASSUMPTIONS / PRECONDITIONS:
+#   None.
+# EFFECTS / POSTCONDITIONS:
+#   - Calls printUsage and exits with 2 if the arguments are invalid.
+# INPUTS:
+#   argCountRef A reference to a variable that will be set to the number of
+#               arguments consumed.
+#   revisionRangesRef   A reference to an array variable that will be set to the
+#                       parsed arguments.
+# RETURN VALUES:
+#   0 if the argument is a range argument, 1 if not.
+###############################################################################
 parseShowRangeArgsInto()
 {
-    local -n argCntRef="${1:?}"; shift
+    local -n argCountRef="${1:?}"; shift
     local -n revisionRangesRef="${1:?}"; shift
     case "${1?}" in
 	# Note: Exclude -N because that's taken by git-*-command(s).
@@ -92,26 +108,26 @@ parseShowRangeArgsInto()
 			fi
 			revisionRangesRef+=("HEAD~$(($1 - 1))")
 			shift
-			argCntRef=2
+			argCountRef=2
 			;;
-	--revision|-r)	shift; revisionRangesRef+=("${1:?}"); argCntRef=2; shift;;
-	--revisions)	shift; let argCntRef=1
+	--revision|-r)	shift; revisionRangesRef+=("${1:?}"); argCountRef=2; shift;;
+	--revisions)	shift; let argCountRef=1
 			while [ $# -gt 0 -a "$1" != "${GIT_LOGARGPARSER_REVISIONS_END?}" ]
 			do
 			    revisionRangesRef+=("${1:?}"); shift
-			    let argCntRef+=1
+			    let argCountRef+=1
 			done
 			if [ $# -eq 0 ]; then
 			    echo "ERROR: --revisions must be concluded with '${GIT_LOGARGPARSER_REVISIONS_END}'"; echo; printUsage "$0"
 			    exit 2
 			fi >&2
-			shift; let argCntRef+=1
+			shift; let argCountRef+=1
 			;;
-	--range=*)	revisionRangesRef+=("${1#--range=}"); shift; argCntRef=1;;
-	--range)	shift; revisionRangesRef+=("${1:?}"); shift; argCntRef=2;;
-	-*)		local argCount; if argCount=$(countRangeArgs "$@"); then
-			    argCntRef=$argCount
-			    while ((argCount-- > 0))
+	--range=*)	revisionRangesRef+=("${1#--range=}"); shift; argCountRef=1;;
+	--range)	shift; revisionRangesRef+=("${1:?}"); shift; argCountRef=2;;
+	-*)		local _rangeArgCount; if _rangeArgCount=$(countRangeArgs "$@"); then
+			    argCountRef=$_rangeArgCount
+			    while ((_rangeArgCount-- > 0))
 			    do
 				revisionRangesRef+=("$1"); shift
 			    done

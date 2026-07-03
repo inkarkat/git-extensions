@@ -189,10 +189,14 @@ do
 			    done
 			elif [ $? -eq 2 ]; then
 			    exit 2
-			elif [ ! "$isDifferentiatingSourceRangeViaOf" ] && [ ! "$isDifferentiatingCommandRangeViaTo" ] \
-			    && typeset -a rangeArgs=() \
-			    && GIT_LOGARGPARSER_REVISIONS_END="$GIT_SHOWFILESCOMMAND_REVISIONS_END" parseShowRangeArgsInto argCount rangeArgs "$@"; then
-			    args+=("${rangeArgs[@]}")
+			elif typeset -a rangeArgs=() \
+			    && GIT_LOGARGPARSER_REVISIONS_END="$GIT_SHOWFILESCOMMAND_REVISIONS_END" parseShowRangeArgsInto argCount rangeArgs "$@"
+			then
+			    if [ "$isDifferentiatingCommandRangeViaTo" ]; then
+				sourceRangeArgs+=("${rangeArgs[@]}")
+			    else
+				args+=("${rangeArgs[@]}")
+			    fi
 			    shift $argCount
 			else
 			    args+=("$1"); shift

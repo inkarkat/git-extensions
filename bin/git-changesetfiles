@@ -7,6 +7,10 @@ shopt -qs extglob
 : ${GIT_CHANGESETFILES_ORIGINAL_FILE_SUFFIX='[0m'}
 : ${GIT_CHANGESETFILES_REVISIONS_END=;}
 
+# Usage: [DEBUG=git-changesetfiles:showfiles[!]]
+# DEBUG=git-changesetfiles:showfiles also prints it, DEBUG=git-changesetfiles:*! just prints and skips execution
+DEBUGPREFIX=; case ",${DEBUG:-}," in *,git-changesetfiles:showfiles,*) DEBUGPREFIX=verbose;; *,git-changesetfiles:showfiles\!,*) DEBUGPREFIX=echotrace;; esac
+
 readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
 [ -d "$scriptDir" ] || { echo >&2 'ERROR: Cannot determine script directory!'; exit 3; }
 readonly projectDir="${scriptDir}/.."
@@ -185,7 +189,7 @@ if [ -z "${files+t}" ]; then
 fi
 set -- "${args[@]}" "$@"
 if [ ${#forRangeArgs[@]} -gt 0 ]; then
-    readarray -t files < <(git-showfiles "${forRangeArgs[@]}" -- "${files[@]}")
+    readarray -t files < <($DEBUGPREFIX git-showfiles "${forRangeArgs[@]}" ${files:+--} "${files[@]}")
 fi
 if [ ${#files[@]} -eq 0 ]; then
     echo >&2 'ERROR: No <pathspec> passed.'
@@ -206,7 +210,7 @@ removeStatus()
 logFiles()
 {
     local prettyArg="${1:?}"; shift
-    git-logv "$prettyArg" "$@" -- "${files[@]}"
+    git-logv "$prettyArg" "$@" ${files:+--} "${files[@]}"
 }
 extractChangesetFiles()
 {

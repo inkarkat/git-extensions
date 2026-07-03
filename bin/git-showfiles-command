@@ -3,6 +3,9 @@ set -o noglob
 shopt -qs extglob
 
 : ${GIT_SHOWFILES_COMMAND:=showfiles}
+: ${GIT_SHOWFILES_UNDERSTANDS_COMMAND=$GIT_SHOWFILES_COMMAND}
+: ${GIT_SHOWFILES_LONG_USAGE_DELEGATION_COMMAND=${GIT_SHOWFILES_UNDERSTANDS_COMMAND/--understands/--get-long-usage}}
+: ${GIT_SHOWFILES_SHORT_USAGE_DELEGATION_COMMAND=${GIT_SHOWFILES_UNDERSTANDS_COMMAND/--understands/--get-short-usage}}
 : ${GIT_SHOWFILESCOMMAND_REVISIONS_END=;}
 
 readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
@@ -16,7 +19,7 @@ printShortUsage()
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
     local revisionRangeArgs="$(GIT_LOGARGPARSER_REVISIONS_END="$GIT_SHOWFILESCOMMAND_REVISIONS_END" getShowRangeArgsShortUsage)"
-    local delegationArgs; [ -n "$GIT_SHOWFILES_USAGE_DELEGATION_COMMAND" ] && delegationArgs="$(git-wrapper ${GIT_SHOWFILES_USAGE_DELEGATION_COMMAND/--understands/--get-short-usage} 2>/dev/null)"
+    local delegationArgs; [ -n "$GIT_SHOWFILES_SHORT_USAGE_DELEGATION_COMMAND" ] && delegationArgs="$(git-wrapper $GIT_SHOWFILES_SHORT_USAGE_DELEGATION_COMMAND 2>/dev/null)"
     printf 'Usage: %q %s\n' "$(basename "$1")" "[${revisionRangeArgs}]${delegationArgs:+ }${delegationArgs} ... GIT-COMMAND [${revisionRangeArgs}]${delegationArgs:+ }${delegationArgs} [...] [-?|-h|--help]"
     local ofOrRevisionRangeArgs="[--of (<pathspec>...|REVISION-RANGE-ARG ...) [--of ...]] [REVISION-RANGE-ARG ...]${delegationArgs:+ }${delegationArgs}"
     local toOrRevisionRangeArgs="[--to (<pathspec>...|REVISION-RANGE-ARG ...) [--to ...]] [REVISION-RANGE-ARG ...]${delegationArgs:+ }${delegationArgs}"
@@ -110,8 +113,8 @@ HELPDESCRIPTION
 			$GIT_SHOWFILES_WHAT.
 HELPTEXT
     GIT_LOGARGPARSER_REVISIONS_END="$GIT_SHOWFILESCOMMAND_REVISIONS_END" getShowRangeArgsLongUsage 'Use files'
-    if [ -n "$GIT_SHOWFILES_USAGE_DELEGATION_COMMAND" ]; then
-	git-wrapper ${GIT_SHOWFILES_USAGE_DELEGATION_COMMAND/--understands/--get-long-usage} 2>/dev/null
+    if [ -n "$GIT_SHOWFILES_LONG_USAGE_DELEGATION_COMMAND" ]; then
+	git-wrapper $GIT_SHOWFILES_LONG_USAGE_DELEGATION_COMMAND 2>/dev/null
     fi
 }
 
@@ -182,7 +185,7 @@ do
 			fi >&2
 			;;
 	*)		argCount=0
-			if [ -n "$GIT_SHOWFILES_USAGE_DELEGATION_COMMAND" ] && argCount=$(git-wrapper $GIT_SHOWFILES_USAGE_DELEGATION_COMMAND --understands "$@"); then
+			if [ -n "$GIT_SHOWFILES_UNDERSTANDS_COMMAND" ] && argCount=$(git-wrapper $GIT_SHOWFILES_UNDERSTANDS_COMMAND --understands "$@"); then
 			    while ((argCount-- > 0))
 			    do
 				showfilesArgs+=("$1"); shift

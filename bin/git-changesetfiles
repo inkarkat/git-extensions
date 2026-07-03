@@ -5,18 +5,28 @@ shopt -qs extglob
 : ${GIT_CHANGESETFILES_PERCENTAGE_THRESHOLD:=10}
 : ${GIT_CHANGESETFILES_ORIGINAL_FILE_PREFIX='[01;37m'}
 : ${GIT_CHANGESETFILES_ORIGINAL_FILE_SUFFIX='[0m'}
+: ${GIT_CHANGESETFILES_REVISIONS_END=;}
 
-readonly allArgs="[-N|--no-percentage] [-%|--percentage-threshold PCT] [-a|--include-original-files|-d|--drop-original-files]"
-readonly filterArgs='[-%|--percentage-threshold PCT] [-d|--drop-original-files]'
-readonly formatArgs='[-N|--no-percentage] [-a|--include-original-files]'
+readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
+[ -d "$scriptDir" ] || { echo >&2 'ERROR: Cannot determine script directory!'; exit 3; }
+readonly projectDir="${scriptDir}/.."
+readonly libDir="${projectDir}/lib"
+source "${libDir}/logArgParser.sh" || exit 3
+
 getShortUsage()
 {
+    local -r filterAndFormatArgs="[-N|--no-percentage] [-%|--percentage-threshold PCT] [-a|--include-original-files|-d|--drop-original-files]"
+    local -r filterArgs='[-%|--percentage-threshold PCT] [-d|--drop-original-files]'
+    local -r formatArgs='[-N|--no-percentage] [-a|--include-original-files]'
+    local -r forRangeArgs="--for ($(GIT_LOGARGPARSER_REVISIONS_END="$GIT_CHANGESETFILES_REVISIONS_END" getShowRangeArgsShortUsage))"
     case "$1" in
-	'') printf %s "$allArgs";;
+	'') printf %s "$filterAndFormatArgs [<log-options>] ${forRangeArgs}";;
 	filter)
 	    printf %s "$filterArgs";;
 	format)
 	    printf %s "$formatArgs";;
+	for-range)
+	    printf %s "$forRangeArgs";;
 	*)  echo "ERROR: Unknown short usage topic \"$1\"!" >&2; return 2;;
     esac
 }
@@ -43,6 +53,17 @@ HELPTEXT
 HELPTEXT
 	    hadTopic=t
 	    ;;&
+	''|for-range)
+	    local -r forRangeArgs="--for ($(GIT_LOGARGPARSER_REVISIONS_END="$GIT_CHANGESETFILES_REVISIONS_END" getShowRangeArgsShortUsage))"
+	    cat <<HELPTEXT
+    $forRangeArgs
+			Use files modified in commits from the specified
+			revisions [that fall within <pathspec>...] to determine
+			the changeset files. (Basically an indirection so that
+			you don't have to invoke git-showfiles[-command].)
+HELPTEXT
+	    hadTopic=t
+	    ;;&
 	*)  [ "$hadTopic" ] || { echo "ERROR: Unknown long usage topic \"$topic\"!" >&2; return 2; };;
     esac
 }
@@ -50,7 +71,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" "$allArgs [<log-options>] [<revision range>] [--] <pathspec>... [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "$(getShortUsage '') [--] <pathspec>... [-?|-h|--help]"
 }
 printUsage()
 {
@@ -64,11 +85,11 @@ printLongUsage()
     # This is the long "man page" when launched with the help argument.
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
-Show files that often get changed in commits that modify files in <pathspec>
-[within <revision range>] [while applying <log-options>] and the correlation
-between the commits; 100% means an affected file is included in every commit
-that touches a passed file; 0% means it's included in less than one commit out
-of hundred.
+Show files that often get changed in commits [within <revision range>] [while
+applying <log-options>] that modify files in <pathspec> / modified in --for
+FOR-REVISION-RANGE and the correlation between the commits; 100% means an
+affected file is included in every commit that touches a passed file; 0% means
+it's included in less than one commit out of hundred.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
@@ -84,11 +105,13 @@ HELPTEXT
 }
 
 typeset -a args=()
+typeset -a forRangeArgs=()
 isPercentage=t
 filterCommand="s/.*/${GIT_CHANGESETFILES_ORIGINAL_FILE_PREFIX}&${GIT_CHANGESETFILES_ORIGINAL_FILE_SUFFIX}/"
 unset files
 option() { :; }
 parameter() { :; }
+argCount() { :; }
 endOfOptionsAndParameters() { :; }
 noUnderstand() { :; }
 typeset -A understandsSubtopics=()
@@ -113,6 +136,7 @@ do
 	--understands)	shift
 			option() { isUnderstandSubtopic "$@" || exit 1; printf 1; exit 0; }
 			parameter() { isUnderstandSubtopic "$@" || exit 1; printf 2; exit 0; }
+			argCount() { local argCount="${1:?}"; shift; isUnderstandSubtopic "$@" || exit 1; printf $argCount; exit 0; }
 			endOfOptionsAndParameters() { exit 99; }
 			noUnderstand() { exit 1; }
 			;;
@@ -125,6 +149,21 @@ do
 			shift; filterCommand=''; option format;;
 	--drop-original-files|-d)
 			shift; filterCommand='d'; option filter;;
+
+	--for)		shift
+			argCount=0
+			typeset -a parsedRangeArgs=()
+			if GIT_LOGARGPARSER_REVISIONS_END="$GIT_WHOIS_REVISIONS_END" parseShowRangeArgsInto argCount parsedRangeArgs "$@"; then
+			    forRangeArgs+=("${parsedRangeArgs[@]}")
+			    shift $argCount
+			    argCount $((argCount + 1)) for-range    # Account for the --for itself.
+			elif argCount=$(countDiffArgs "$1"); then
+			    shift $argCount
+			    argCount $((argCount + 1)) for-range    # Account for the --for itself.
+			else
+			    endOfOptionsAndParameters; break
+			fi
+			;;
 
 	--)		args+=("$1"); shift; typeset -a files=("$@"); set --; endOfOptionsAndParameters; break;;
 	*)		args+=("$1"); shift; endOfOptionsAndParameters;;
@@ -145,6 +184,9 @@ if [ -z "${files+t}" ]; then
     done
 fi
 set -- "${args[@]}" "$@"
+if [ ${#forRangeArgs[@]} -gt 0 ]; then
+    readarray -t files < <(git-showfiles "${forRangeArgs[@]}" -- "${files[@]}")
+fi
 if [ ${#files[@]} -eq 0 ]; then
     echo >&2 'ERROR: No <pathspec> passed.'
     exit 2

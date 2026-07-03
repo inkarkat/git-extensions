@@ -10,6 +10,7 @@ fi
 : ${GIT_SHOWFILES_LONG_USAGE_DELEGATION_COMMAND=${GIT_SHOWFILES_UNDERSTANDS_COMMAND/--understands/--get-long-usage}}
 : ${GIT_SHOWFILES_SHORT_USAGE_DELEGATION_COMMAND=${GIT_SHOWFILES_UNDERSTANDS_COMMAND/--understands/--get-short-usage}}
 : ${GIT_SHOWFILESCOMMAND_REVISIONS_END=;}
+GIT_LOGARGPARSER_REVISIONS_END="$GIT_SHOWFILESCOMMAND_REVISIONS_END"
 
 readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
 [ -d "$scriptDir" ] || { echo >&2 'ERROR: Cannot determine script directory!'; exit 3; }
@@ -21,7 +22,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    local revisionRangeArgs="$(GIT_LOGARGPARSER_REVISIONS_END="$GIT_SHOWFILESCOMMAND_REVISIONS_END" getShowRangeArgsShortUsage)"
+    local revisionRangeArgs="$(getShowRangeArgsShortUsage)"
     local delegationArgs; [ -n "$GIT_SHOWFILES_SHORT_USAGE_DELEGATION_COMMAND" ] && delegationArgs="$(git-wrapper $GIT_SHOWFILES_SHORT_USAGE_DELEGATION_COMMAND 2>/dev/null)"
     printf 'Usage: %q %s\n' "$(basename "$1")" "[${revisionRangeArgs}]${delegationArgs:+ }${delegationArgs} ... GIT-COMMAND [${revisionRangeArgs}]${delegationArgs:+ }${delegationArgs} [...] [-?|-h|--help]"
     local ofOrRevisionRangeArgs="[--of (<pathspec>...|REVISION-RANGE-ARG ...) [--of ...]] [REVISION-RANGE-ARG ...]${delegationArgs:+ }${delegationArgs}"
@@ -60,7 +61,7 @@ HELPDESCRIPTION
     echo
     printShortUsage "$1"
     echo
-    local revisionRangeArgs="$(GIT_LOGARGPARSER_REVISIONS_END="$GIT_SHOWFILESCOMMAND_REVISIONS_END" getShowRangeArgsShortUsage)"
+    local revisionRangeArgs="$(getShowRangeArgsShortUsage)"
     cat <<HELPTEXT
     --differentiate-source-range-via-of
 			The GIT-COMMAND itself takes range arguments; we need to
@@ -115,7 +116,7 @@ HELPDESCRIPTION
 			do not use those to limit the scope of
 			$GIT_SHOWFILES_WHAT.
 HELPTEXT
-    GIT_LOGARGPARSER_REVISIONS_END="$GIT_SHOWFILESCOMMAND_REVISIONS_END" getShowRangeArgsLongUsage 'Use files'
+    getShowRangeArgsLongUsage 'Use files'
     if [ -n "$GIT_SHOWFILES_LONG_USAGE_DELEGATION_COMMAND" ]; then
 	git-wrapper $GIT_SHOWFILES_LONG_USAGE_DELEGATION_COMMAND 2>/dev/null
     fi
@@ -156,7 +157,7 @@ do
 			done
 			if [ ${#newSourceFiles[@]} -gt 0 ]; then
 			    sourceFiles=("${newSourceFiles[@]}")
-			elif GIT_LOGARGPARSER_REVISIONS_END="$GIT_SHOWFILESCOMMAND_REVISIONS_END" parseShowRangeArgsInto sourceArgCount sourceRangeArgs "$@"; then
+			elif parseShowRangeArgsInto sourceArgCount sourceRangeArgs "$@"; then
 			    shift $sourceArgCount
 			else
 			    printf 'ERROR: --of must be followed by <pathspec>(s) or a valid revision range; this is neither: %s\n' "$1"
@@ -178,7 +179,7 @@ do
 			done
 			if [ ${#newCommandFiles[@]} -gt 0 ]; then
 			    commandFiles=("${newCommandFiles[@]}")
-			elif GIT_LOGARGPARSER_REVISIONS_END="$GIT_SHOWFILESCOMMAND_REVISIONS_END" parseShowRangeArgsInto commandArgCount commandRangeArgs "$@"; then
+			elif parseShowRangeArgsInto commandArgCount commandRangeArgs "$@"; then
 			    shift $commandArgCount
 			else
 			    printf 'ERROR: --to must be followed by <pathspec>(s) or a valid revision range; this is neither: %s\n' "$1"
@@ -196,7 +197,7 @@ do
 			elif [ $? -eq 2 ]; then
 			    exit 2
 			elif typeset -a rangeArgs=() \
-			    && GIT_LOGARGPARSER_REVISIONS_END="$GIT_SHOWFILESCOMMAND_REVISIONS_END" parseShowRangeArgsInto argCount rangeArgs "$@"
+			    && parseShowRangeArgsInto argCount rangeArgs "$@"
 			then
 			    if [ "$isDifferentiatingCommandRangeViaTo" ]; then
 				sourceRangeArgs+=("${rangeArgs[@]}")

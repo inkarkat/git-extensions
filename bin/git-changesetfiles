@@ -65,6 +65,11 @@ HELPTEXT
 			revisions [that fall within <pathspec>...] to determine
 			the changeset files. (Basically an indirection so that
 			you don't have to invoke git-showfiles[-command].)
+    --for-commits	Use files (inside <pathspec>) that were modified in the
+			last commit / N'th commit / passed -r|--revision[s]
+			REVISION(s) / revision range. If no revision [range] is
+			passed, it defaults to the last commit's files (instead
+			of complaing about missing <pathspec>s).
 HELPTEXT
 	    hadTopic=t
 	    ;;&
@@ -110,6 +115,7 @@ HELPTEXT
 
 typeset -a args=()
 typeset -a forRangeArgs=()
+typeset -a defaultForRangeArgs=()
 isPercentage=t
 filterCommand="s/.*/${GIT_CHANGESETFILES_ORIGINAL_FILE_PREFIX}&${GIT_CHANGESETFILES_ORIGINAL_FILE_SUFFIX}/"
 unset files
@@ -154,6 +160,7 @@ do
 	--drop-original-files|-d)
 			shift; filterCommand='d'; option filter;;
 
+	--for-commits)	shift; defaultForRangeArgs=(--revision HEAD); option for-range;;
 	--for)		shift
 			argCount=0
 			typeset -a parsedRangeArgs=()
@@ -188,6 +195,7 @@ if [ -z "${files+t}" ]; then
     done
 fi
 set -- "${args[@]}" "$@"
+[ ${#forRangeArgs[@]} -eq 0 ] && forRangeArgs=("${defaultForRangeArgs[@]}")
 if [ ${#forRangeArgs[@]} -gt 0 ]; then
     readarray -t files < <($DEBUGPREFIX git-showfiles "${forRangeArgs[@]}" ${files:+--} "${files[@]}")
 fi

@@ -2,7 +2,10 @@
 set -o noglob
 shopt -qs extglob
 
-: ${GIT_SHOWFILES_COMMAND:=showfiles}
+if [ -z "$GIT_SHOWFILES_COMMAND" ]; then
+    GIT_SHOWFILES_COMMAND=showfiles
+    : ${GIT_SHOWFILES_UNDERSTANDS_COMMAND='showfiles --understand-for filter'} # Don't allow custom formatting, and we're passing ranges, anyway.
+fi
 : ${GIT_SHOWFILES_UNDERSTANDS_COMMAND=$GIT_SHOWFILES_COMMAND}
 : ${GIT_SHOWFILES_LONG_USAGE_DELEGATION_COMMAND=${GIT_SHOWFILES_UNDERSTANDS_COMMAND/--understands/--get-long-usage}}
 : ${GIT_SHOWFILES_SHORT_USAGE_DELEGATION_COMMAND=${GIT_SHOWFILES_UNDERSTANDS_COMMAND/--understands/--get-short-usage}}

@@ -13,12 +13,70 @@ readonly projectDir="${scriptDir}/.."
 readonly libDir="${projectDir}/lib"
 source "${libDir}/logArgParser.sh" || exit 3
 
+readonly filterArgs='[-s|--short|-l|--long] [--[no-]renames] [-M<n>|--find-renames[=<n>]] [-C<n>|--find-copies[=<n>]|--find-copies-harder] ([-a|--added] [-c|--copied] [-d|--deleted] [-m|--modified] [-r|--renamed] [-t|--retyped] ... | [-A|--not-added] [-C|--not-copied] [-D|--not-deleted] [-M|--not-modified] [-R|--not-renamed] [-T|--not-retyped] ...)'
+readonly formatArgs='[-s|--status]'
+rangeArgs()
+{
+    local revisionRangeArgs="$(GIT_LOGARGPARSER_REVISIONS_END="$GIT_SHOWFILES_REVISIONS_END" getShowRangeArgsShortUsage)"
+    echo "[--intermediate] ([--cached] [--to COMMIT])|<since>..<until>|${revisionRangeArgs//-r|--revision/--revision}"
+}
+getShortUsage()
+{
+    case "$1" in
+	'') printf %s "$filterArgs $formatArgs $(rangeArgs)";;
+	filter)
+	    printf %s "$filterArgs";;
+	format)
+	    printf %s "$formatArgs";;
+	range)
+	    printf %s "$(rangeArgs)";;
+	*)  echo "ERROR: Unknown short usage topic \"$1\"!" >&2; return 2;;
+    esac
+}
+getLongUsage()
+{
+    local topic="$1"; shift
+    local hadTopic=
+    case "$topic" in
+	''|filter)
+	    cat <<HELPTEXT
+    --added|-a --copied|-c --deleted|-d --modified|-m --renamed|-r --retyped|-t
+		    Only list added / copied / deleted / modified / renamed /
+		    changed in type files (can be combined).
+		    If you want renames / copies to be counted as added /
+		    deleted, pass --no-renames.
+    --not-added|-A --not-copied|-C --not-deleted|-D --not-modified|-M
+    --not-renamed|-R --not-retyped|-T
+		    Don't list added / copied / deleted / modified / renamed /
+		    changed in type files (can be combined).
+		    If you want renames / copies to be counted as added /
+		    deleted, pass --no-renames.
+HELPTEXT
+	    hadTopic=t
+	    ;;&
+	''|format)
+	    cat <<HELPTEXT
+    -s|--status	    Include the status (added, modified, etc.) as a first
+		    column.
+HELPTEXT
+	    hadTopic=t
+	    ;;&
+	''|range)
+	    cat <<HELPTEXT
+    --intermediate  Files that are again the same but were changed and then
+		    changed back, are included, too. Requires a commit range.
+HELPTEXT
+	    GIT_LOGARGPARSER_REVISIONS_END="$GIT_SHOWFILES_REVISIONS_END" getShowRangeArgsLongUsage 'Show files'
+	    hadTopic=t
+	    ;;&
+	*)  [ "$hadTopic" ] || { echo "ERROR: Unknown long usage topic \"$topic\"!" >&2; return 2; };;
+    esac
+}
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    local revisionRangeArgs="$(GIT_LOGARGPARSER_REVISIONS_END="$GIT_SHOWFILES_REVISIONS_END" getShowRangeArgsShortUsage)"
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[--intermediate] [-s|--status [--[no-]renames] [-M<n>|--find-renames[=<n>]] [-C<n>|--find-copies[=<n>]|--find-copies-harder] ([-a|--added] [-c|--copied] [-d|--deleted] [-m|--modified] [-r|--renamed] [-t|--retyped] ... | [-A|--not-added] [-C|--not-copied] [-D|--not-deleted] [-M|--not-modified] [-R|--not-renamed] [-T|--not-retyped] ...) ([--cached] [--to COMMIT])|<since>..<until>|${revisionRangeArgs//-r|--revision/--revision}] [[--] <pathspec>...] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "$filterArgs $formatArgs $(rangeArgs) [[--] <pathspec>...] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -37,24 +95,7 @@ HELPDESCRIPTION
     echo
     printShortUsage "$1"
     echo
-    cat <<HELPTEXT
-    --intermediate  Files that are again the same but were changed and then
-		    changed back, are included, too. Requires a commit range.
-    -s|--status	    Include the status (added, modified, etc.) as a first
-		    column.
-    --added|-a --copied|-c --deleted|-d --modified|-m --renamed|-r --retyped|-t
-		    Only list added / copied / deleted / modified / renamed /
-		    changed in type files (can be combined).
-		    If you want renames / copies to be counted as added /
-		    deleted, pass --no-renames.
-    --not-added|-A --not-copied|-C --not-deleted|-D --not-modified|-M
-    --not-renamed|-R --not-retyped|-T
-		    Don't list added / copied / deleted / modified / renamed /
-		    changed in type files (can be combined).
-		    If you want renames / copies to be counted as added /
-		    deleted, pass --no-renames.
-    --range <range> Show files modified in the commits in <range>.
-HELPTEXT
+    getLongUsage ''
 }
 
 typeset -a argsWithResolvedCommitIds=()
@@ -98,51 +139,81 @@ statusFilter=
 typeset -a allargs=()
 typeset -a renameArgs=()
 typeset -a prettyArgs=()
+option() { :; }
+parameter() { :; }
+argCount() { :; }
+endOfOptionsAndParameters() { :; }
+noUnderstand() { :; }
+typeset -A understandsSubtopics=()
+isUnderstandSubtopic() {
+    [ $# -gt 0 -a ${#understandsSubtopics[@]} -gt 0 ] || return 0
+    local subtopic; for subtopic
+    do
+	[ "${understandsSubtopics["$subtopic"]}" ] && return 0
+    done
+    return 1
+}
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
-	--cached)	diffRange+=("$1"); shift;;
-	--to)		shift; diffRange+=("${1:?}"); shift;;
-	--intermediate)	shift; isIncludeIntermediate=t;;
-	--status|-s)	shift; gitNameStatusArg=(--name-status); sortArgs=(-k 2 -u);;
+	--get-short-usage)
+			shift; getShortUsage "$@"; exit $?;;
+	--get-long-usage)
+			shift; getLongUsage "$@"; exit $?;;
+	--understand-for)
+			shift; understandsSubtopics["$1"]=t; shift;;
+	--understands)	shift
+			option() { isUnderstandSubtopic "$@" || exit 1; printf 1; exit 0; }
+			parameter() { isUnderstandSubtopic "$@" || exit 1; printf 2; exit 0; }
+			argCount() { local argCount="${1:?}"; shift; isUnderstandSubtopic "$@" || exit 1; printf $argCount; exit 0; }
+			endOfOptionsAndParameters() { exit 99; }
+			noUnderstand() { exit 1; }
+			;;
+
+	--cached)	diffRange+=("$1"); shift; option range;;
+	--to)		shift; diffRange+=("${1:?}"); shift; option range;;
+	--intermediate)	shift; isIncludeIntermediate=t; option range;;
+	--status|-s)	shift; gitNameStatusArg=(--name-status); sortArgs=(-k 2 -u); option format;;
 	--no-renames|--renames|--find-renames|--find-renames=*|-M?*|--find-copies|--find-copies=*|-C?*|--find-copies-harder)
-			renameArgs+=("$1"); shift;;
-	--pretty=*)	prettyArgs=("$1"); shift;;
-	--pretty)	prettyArgs=("$1" "${2?}"); shift; shift;;
-	--added|-a)	shift; statusFilter+='A';;
-	--not-added|-A)	shift; statusFilter+='a';;
-	--copied|-c)	shift; statusFilter+='C';;
+			renameArgs+=("$1"); shift; option filter;;
+	--pretty=*)	prettyArgs=("$1"); shift; option format;;
+	--pretty)	prettyArgs=("$1" "${2?}"); shift; shift; option format;;
+	--added|-a)	shift; statusFilter+='A'; option filter;;
+	--not-added|-A)	shift; statusFilter+='a'; option filter;;
+	--copied|-c)	shift; statusFilter+='C'; option filter;;
 	--not-copied|-C)
-			shift; statusFilter+='c';;
-	--deleted|-d)	shift; statusFilter+='D';;
+			shift; statusFilter+='c'; option filter;;
+	--deleted|-d)	shift; statusFilter+='D'; option filter;;
 	--not-deleted|-D)
-			shift; statusFilter+='d';;
-	--modified|-m)	shift; statusFilter+='M';;
+			shift; statusFilter+='d'; option filter;;
+	--modified|-m)	shift; statusFilter+='M'; option filter;;
 	--not-modified|-M)
-			shift; statusFilter+='m';;
-	--renamed|-r)	shift; statusFilter+='R';;
+			shift; statusFilter+='m'; option filter;;
+	--renamed|-r)	shift; statusFilter+='R'; option filter;;
 	--not-renamed|-R)
-			shift; statusFilter+='r';;
-	--retyped|-t)	shift; statusFilter+='T';;
+			shift; statusFilter+='r'; option filter;;
+	--retyped|-t)	shift; statusFilter+='T'; option filter;;
 	--not-retyped|-T)
-			shift; statusFilter+='t';;
+			shift; statusFilter+='t'; option filter;;
 
-	--range=*)	addRange "${1#--range=}"; shift;;
-	--range)	shift; addRange "${1:?}"; shift;;
-	*..*)		addRange "$1"; shift;;
+	--range=*)	addRange "${1#--range=}"; shift; option range;;
+	--range)	shift; addRange "${1:?}"; shift; parameter range;;
+	*..*)		addRange "$1"; shift; option range;;
 
-	--)		break;;
+	--)		endOfOptionsAndParameters; break;;
 	*)		argCount=0
 			typeset -a parsedRangeArgs=()
 			if GIT_LOGARGPARSER_REVISIONS_END="$GIT_WHOIS_REVISIONS_END" parseShowRangeArgsInto argCount parsedRangeArgs "$@"; then
 			    logRange+=("${parsedRangeArgs[@]}")
 			    argsWithResolvedCommitIds+=("${parsedRangeArgs[@]}")
 			    shift $argCount
+			    argCount $argCount
 			elif argCount=$(countDiffArgs "$1"); then
 			    shift $argCount
+			    argCount $argCount
 			else
-			    break
+			    endOfOptionsAndParameters; break
 			fi
 			;;
     esac

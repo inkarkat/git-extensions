@@ -1,6 +1,7 @@
 #!/bin/bash
 set -o pipefail
 
+: ${GIT_SHOWFILES_WHAT:=files}
 : ${GIT_SHOWFILES_REVISIONS_END=;}
 
 # Sources:
@@ -18,7 +19,7 @@ readonly formatArgs='[-s|--status]'
 rangeArgs()
 {
     local revisionRangeArgs="$(GIT_LOGARGPARSER_REVISIONS_END="$GIT_SHOWFILES_REVISIONS_END" getShowRangeArgsShortUsage)"
-    echo "[--intermediate] ([--cached] [--to COMMIT])|<since>..<until>|${revisionRangeArgs//-r|--revision/--revision}"
+    echo "[--intermediate] ([--cached] [--to COMMIT])|<revision-range>|${revisionRangeArgs//-r|--revision/--revision}"
 }
 getShortUsage()
 {
@@ -42,13 +43,13 @@ getLongUsage()
 	    cat <<HELPTEXT
     --added|-a --copied|-c --deleted|-d --modified|-m --renamed|-r --retyped|-t
 		    Only list added / copied / deleted / modified / renamed /
-		    changed in type files (can be combined).
+		    changed in type $GIT_SHOWFILES_WHAT (can be combined).
 		    If you want renames / copies to be counted as added /
 		    deleted, pass --no-renames.
     --not-added|-A --not-copied|-C --not-deleted|-D --not-modified|-M
     --not-renamed|-R --not-retyped|-T
 		    Don't list added / copied / deleted / modified / renamed /
-		    changed in type files (can be combined).
+		    changed in type $GIT_SHOWFILES_WHAT (can be combined).
 		    If you want renames / copies to be counted as added /
 		    deleted, pass --no-renames.
 HELPTEXT
@@ -63,10 +64,13 @@ HELPTEXT
 	    ;;&
 	''|range)
 	    cat <<HELPTEXT
-    --intermediate  Files that are again the same but were changed and then
-		    changed back, are included, too. Requires a commit range.
+    --intermediate  Also include $GIT_SHOWFILES_WHAT that are again the same but were changed
+		    and then changed back. Requires a commit range.
+    --cached	    Show $GIT_SHOWFILES_WHAT that were staged for commit (i.e. in the index).
+    --to COMMIT	    Show $GIT_SHOWFILES_WHAT that were changed (both staged or unstaged, only
+		    staged with --cached) changes since COMMIT.
 HELPTEXT
-	    GIT_LOGARGPARSER_REVISIONS_END="$GIT_SHOWFILES_REVISIONS_END" getShowRangeArgsLongUsage 'Show files'
+	    GIT_LOGARGPARSER_REVISIONS_END="$GIT_SHOWFILES_REVISIONS_END" getShowRangeArgsLongUsage "Show $GIT_SHOWFILES_WHAT"
 	    hadTopic=t
 	    ;;&
 	*)  [ "$hadTopic" ] || { echo "ERROR: Unknown long usage topic \"$topic\"!" >&2; return 2; };;
@@ -90,7 +94,7 @@ printLongUsage()
     # This is the long "man page" when launched with the help argument.
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
-Show the files modified in passed commit or commit range.
+Show the $GIT_SHOWFILES_WHAT modified in passed commit or commit range.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"

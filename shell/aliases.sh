@@ -243,7 +243,7 @@ multiplicityAliasOn()
     done
 }
 
-# sgitshowfiles [<since>..<until>] [<pathspec>...] [-- SELECTIONs ...]
+# sgitshowfiles [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] [-- SELECTIONs ...]
 #			Print selected filespecs modified in passed commit or
 #			commit range.
 # sgitshowfiles{1..7,x,q,z} [<pathspec>...]
@@ -270,15 +270,15 @@ multiplicityAliasOn()
 #			Print selected filespecs modified by my team in the last
 #			/ passed -r <commit> and directly preceding, as long as
 #			they also were by them.
-# sgitfilesg [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
-# sgitfileschanged [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
-# sgitfilestouched [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
-# sgitfileslastg [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
-# sgitfileslastchanged [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
-# sgitfileslasttouched [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
-# sgitfilesfirstg [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
-# sgitfilesfirstchanged [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
-# sgitfilesfirsttouched [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# sgitfilesg [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# sgitfileschanged [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# sgitfilestouched [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# sgitfileslastg [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# sgitfileslastchanged [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# sgitfileslasttouched [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# sgitfilesfirstg [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# sgitfilesfirstchanged [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# sgitfilesfirsttouched [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
 alias                   sgitshowfiles='commandOnSelected --generator "git showfiles" --entries'
 multiplicityAliasOn showfiles sgitshowfiles='commandOnSelected --generator "git showfiles" --entries'
 alias               sgitshowfilesmine='commandOnSelected --generator "git showfilesmine" --entries'
@@ -297,7 +297,7 @@ alias                 sgitfilesfirstg='commandOnSelected --generator "git filesf
 alias           sgitfilesfirstchanged='commandOnSelected --generator "git filesfirstchanged" --entries'
 alias           sgitfilesfirsttouched='commandOnSelected --generator "git filesfirsttouched" --entries'
 
-# ygitshowfiles [<since>..<until>] [<pathspec>...] [-- SELECTIONs ...]
+# ygitshowfiles [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] [-- SELECTIONs ...]
 #			Yank selected filespecs modified in passed commit or
 #			commit range.
 # ygitshowfiles{1..7,x,q,z} [<pathspec>...]
@@ -324,15 +324,15 @@ alias           sgitfilesfirsttouched='commandOnSelected --generator "git filesf
 #			Yank selected filespecs modified by my team in the last
 #			/ passed -r <commit> and directly preceding, as long as
 #			they also were by them.
-# ygitfilesg [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
-# ygitfileschanged [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
-# ygitfilestouched [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
-# ygitfileslastg [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
-# ygitfileslastchanged [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
-# ygitfileslasttouched [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
-# ygitfilesfirstg [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
-# ygitfilesfirstchanged [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
-# ygitfilesfirsttouched [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# ygitfilesg [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# ygitfileschanged [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# ygitfilestouched [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# ygitfileslastg [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# ygitfileslastchanged [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# ygitfileslasttouched [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# ygitfilesfirstg [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# ygitfilesfirstchanged [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# ygitfilesfirsttouched [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
 alias                   ygitshowfiles='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git showfiles" --entries'
 multiplicityAliasOn showfiles ygitshowfiles='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git showfiles" --entries'
 alias               ygitshowfilesmine='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git showfilesmine" --entries'
@@ -351,7 +351,7 @@ alias                 sgitfilesfirstg='commandOnSelected --command "printf %s\\\
 alias           sgitfilesfirstchanged='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git filesfirstchanged" --entries'
 alias           sgitfilesfirsttouched='commandOnSelected --command "printf %s\\\\n {} | clipboard" --generator "git filesfirsttouched" --entries'
 
-# lgitshowfiles [<since>..<until>] [<pathspec>...] [-- SELECTIONs ...]
+# lgitshowfiles [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] [-- SELECTIONs ...]
 #			View selected files modified in passed commit or commit
 #			range with the pager.
 # lgitshowfiles{1..7,x,q,z} [<pathspec>...]
@@ -379,15 +379,15 @@ alias           sgitfilesfirsttouched='commandOnSelected --command "printf %s\\\
 #			View selected filespecs modified by my team in the last
 #			/ passed -r <commit> and directly preceding, as long as
 #			they also were by them with the pager.
-# lgitfilesg [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
-# lgitfileschanged [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
-# lgitfilestouched [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
-# lgitfileslastg [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
-# lgitfileslastchanged [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
-# lgitfileslasttouched [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
-# lgitfilesfirstg [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
-# lgitfilesfirstchanged [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
-# lgitfilesfirsttouched [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# lgitfilesg [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# lgitfileschanged [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# lgitfilestouched [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# lgitfileslastg [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# lgitfileslastchanged [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# lgitfileslasttouched [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# lgitfilesfirstg [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# lgitfilesfirstchanged [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# lgitfilesfirsttouched [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
 alias                   lgitshowfiles='commandOnSelected --command "${PAGER:-less}" --generator "git showfiles" --entries'
 multiplicityAliasOn showfiles lgitshowfiles='commandOnSelected --command "${PAGER:-less}" --generator "git showfiles" --entries'
 alias               lgitshowfilesmine='commandOnSelected --command "${PAGER:-less}" --generator "git showfilesmine" --entries'
@@ -406,7 +406,7 @@ alias                 lgitfilesfirstg='commandOnSelected --command "${PAGER:-les
 alias           lgitfilesfirstchanged='commandOnSelected --command "${PAGER:-less}" --generator "git filesfirstchanged" --entries'
 alias           lgitfilesfirsttouched='commandOnSelected --command "${PAGER:-less}" --generator "git filesfirsttouched" --entries'
 
-# vgitshowfiles [<since>..<until>] [<pathspec>...] [-- SELECTIONs ...]
+# vgitshowfiles [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] [-- SELECTIONs ...]
 #			Edit selected files modified in passed commit or commit
 #			range in GVIM.
 # vgitshowfiles{1..7,x,q,z} [<pathspec>...]
@@ -434,15 +434,15 @@ alias           lgitfilesfirsttouched='commandOnSelected --command "${PAGER:-les
 #			Edit selected filespecs modified by my team in the last
 #			/ passed -r <commit> and directly preceding, as long as
 #			they also were by them in GVIM.
-# vgitfilesg [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
-# vgitfileschanged [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
-# vgitfilestouched [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
-# vgitfileslastg [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
-# vgitfileslastchanged [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
-# vgitfileslasttouched [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
-# vgitfilesfirstg [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
-# vgitfilesfirstchanged [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
-# vgitfilesfirsttouched [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# vgitfilesg [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# vgitfileschanged [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# vgitfilestouched [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# vgitfileslastg [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# vgitfileslastchanged [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# vgitfileslasttouched [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# vgitfilesfirstg [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# vgitfilesfirstchanged [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# vgitfilesfirsttouched [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
 alias                   vgitshowfiles='commandOnSelected --command SendToGVIM --generator "git showfiles" --entries'
 multiplicityAliasOn showfiles vgitshowfiles='commandOnSelected --command SendToGVIM --generator "git showfiles" --entries'
 alias               vgitshowfilesmine='commandOnSelected --command SendToGVIM --generator "git showfilesmine" --entries'
@@ -461,7 +461,7 @@ alias                 vgitfilesfirstg='commandOnSelected --command SendToGVIM --
 alias           vgitfilesfirstchanged='commandOnSelected --command SendToGVIM --generator "git filesfirstchanged" --entries'
 alias           vgitfilesfirsttouched='commandOnSelected --command SendToGVIM --generator "git filesfirsttouched" --entries'
 
-# vimgitshowfiles [<since>..<until>] [<pathspec>...] [-- SELECTIONs ...]
+# vimgitshowfiles [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] [-- SELECTIONs ...]
 #			Edit selected files modified in passed commit or commit
 #			range in Vim.
 # vimgitshowfiles{1..7,x,q,z} [<pathspec>...]
@@ -489,15 +489,15 @@ alias           vgitfilesfirsttouched='commandOnSelected --command SendToGVIM --
 #			Edit selected filespecs modified by my team in the last
 #			/ passed -r <commit> and directly preceding, as long as
 #			they also were by them in Vim.
-# vimgitfilesg [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
-# vimgitfileschanged [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
-# vimgitfilestouched [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
-# vimgitfileslastg [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
-# vimgitfileslastchanged [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
-# vimgitfileslasttouched [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
-# vimgitfilesfirstg [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
-# vimgitfilesfirstchanged [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
-# vimgitfilesfirsttouched [<since>..<until>] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# vimgitfilesg [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# vimgitfileschanged [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# vimgitfilestouched [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# vimgitfileslastg [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# vimgitfileslastchanged [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# vimgitfileslasttouched [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# vimgitfilesfirstg [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# vimgitfilesfirstchanged [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
+# vimgitfilesfirsttouched [<revision-range>|COMMIT-LIMITING-ARGS] [<pathspec>...] text|/regexp/ [-- SELECTIONs ...]
 alias                   vimgitshowfiles='commandOnSelected --command '"${_aliases_vim}"' --generator "git showfiles" --entries'
 multiplicityAliasOn showfiles vimgitshowfiles='commandOnSelected --command '"${_aliases_vim}"' --generator "git showfiles" --entries'
 alias               vimgitshowfilesmine='commandOnSelected --command '"${_aliases_vim}"' --generator "git showfilesmine" --entries'

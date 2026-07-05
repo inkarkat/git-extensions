@@ -1,14 +1,96 @@
 #!/bin/bash
 set -o pipefail
+shopt -qs extglob
 
+: ${GIT_CHANGESETFILES_PERCENTAGE_THRESHOLD:=10}
 : ${GIT_CHANGESETFILES_ORIGINAL_FILE_PREFIX='[01;37m'}
 : ${GIT_CHANGESETFILES_ORIGINAL_FILE_SUFFIX='[0m'}
+: ${GIT_CHANGESETFILES_REVISIONS_END=;}
 
+# Usage: [DEBUG=git-changesetfiles:showfiles[!]]
+# DEBUG=git-changesetfiles:showfiles also prints it, DEBUG=git-changesetfiles:*! just prints and skips execution
+DEBUGPREFIX=; case ",${DEBUG:-}," in *,git-changesetfiles:showfiles,*) DEBUGPREFIX=verbose;; *,git-changesetfiles:showfiles\!,*) DEBUGPREFIX=echotrace;; esac
+
+readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
+[ -d "$scriptDir" ] || { echo >&2 'ERROR: Cannot determine script directory!'; exit 3; }
+readonly projectDir="${scriptDir}/.."
+readonly libDir="${projectDir}/lib"
+source "${libDir}/logArgParser.sh" || exit 3
+
+getShortUsage()
+{
+    local -r filterAndFormatArgs="[-N|--no-percentage] [-%|--percentage-threshold PCT] [-a|--include-original-files|-d|--drop-original-files]"
+    local -r filterArgs='[-%|--percentage-threshold PCT] [-d|--drop-original-files]'
+    local -r formatArgs='[-N|--no-percentage] [-a|--include-original-files]'
+    local -r forRangeArgs="--for ($(GIT_LOGARGPARSER_REVISIONS_END="$GIT_CHANGESETFILES_REVISIONS_END" getShowRangeArgsShortUsage))"
+    local usageSep
+    [ $# -gt 0 ] || set -- ''
+    while [ $# -gt 0 ]
+    do
+	case "$1" in
+	    '') printf %s "$usageSep" "$filterAndFormatArgs [<log-options>] ${forRangeArgs}";;
+	    filter)
+		printf %s "$usageSep" "$filterArgs";;
+	    format)
+		printf %s "$usageSep" "$formatArgs";;
+	    for-range)
+		printf %s "$usageSep" "$forRangeArgs";;
+	    *)  echo "ERROR: Unknown short usage topic \"$1\"!" >&2; return 2;;
+	esac
+	shift; usageSep=' '
+    done
+}
+getLongUsage()
+{
+    [ $# -gt 0 ] || set -- ''
+    while [ $# -gt 0 ]
+    do
+	local topic="${1?}"; shift
+	local hadTopic=
+	case "$topic" in
+	    ''|filter)
+		cat <<HELPTEXT
+    --percentage-threshold|-% PCT
+			Show only files with a correlation of at least PCT%.
+    --drop-original-files|-d
+			Omit the original files from the output.
+HELPTEXT
+		hadTopic=t
+		;;&
+	    ''|format)
+		cat <<HELPTEXT
+    --no-percentage|-N	Omit the percentage; just list the files.
+    --include-original-files|-a
+			Include the original files in the output without extra
+			highlighting.
+HELPTEXT
+		hadTopic=t
+		;;&
+	    ''|for-range)
+		local forRangeArgs="--for ($(GIT_LOGARGPARSER_REVISIONS_END="$GIT_CHANGESETFILES_REVISIONS_END" getShowRangeArgsShortUsage))"
+		cat <<HELPTEXT
+    $forRangeArgs
+			Use files modified in commits from the specified
+			revisions [that fall within <pathspec>...] to determine
+			the changeset files. (Basically an indirection so that
+			you don't have to invoke git-showfiles[-command].)
+    --for-commits	Use files (inside <pathspec>) that were modified in the
+			last commit / N'th commit / passed -r|--revision[s]
+			REVISION(s) / revision range. If no revision [range] is
+			passed, it defaults to the last commit's files (instead
+			of complaing about missing <pathspec>s).
+HELPTEXT
+		hadTopic=t
+		;;&
+	    *)  [ "$hadTopic" ] || { echo "ERROR: Unknown long usage topic \"$topic\"!" >&2; return 2; };;
+	esac
+    done
+}
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-N|--no-percentage] [-%|--percentage-threshold PCT] [-a|--include-original-files|-d|--drop-original-files] [<log-options>] [<revision range>] [--] <pathspec>|<commit> [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "$(getShortUsage '') [--] <pathspec>... [-?|-h|--help]"
 }
 printUsage()
 {
@@ -22,24 +104,18 @@ printLongUsage()
     # This is the long "man page" when launched with the help argument.
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
-Show files that often get changed in commits that modify files in <pathspec> /
-the files affected by <commit>, and the correlation between the commits; 100%
-means an affected file is included in every commit that touches a passed file;
-0% means it's included in less than one commit out of hundred.
+Show files that often get changed in commits [within <revision range>] [while
+applying <log-options>] that modify files in <pathspec> / modified in --for
+FOR-REVISION-RANGE and the correlation between the commits; 100% means an
+affected file is included in every commit that touches a passed file; 0% means
+it's included in less than one commit out of hundred.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
     echo
+    getLongUsage ''
     cat <<HELPTEXT
-    --no-percentage|-N	Omit the percentage; just list the files.
-    --percentage-threshold|-% PCT
-			Show only files with a correlation of at least PCT%.
-    --include-original-files|-a
-			Include the original files in the output without extra
-			highlighting.
-    --drop-original-files|-d
-			Omit the original files from the output.
-Files are shown if correlation is at least 10% / PCT.
+Files are shown if correlation is at least ${GIT_CHANGESETFILES_PERCENTAGE_THRESHOLD}% / PCT.
 
 RELATED COMMANDS:
 - git-also (https://github.com/anvaka/git-also) prints the number of shared
@@ -47,26 +123,96 @@ RELATED COMMANDS:
 HELPTEXT
 }
 
-typeset -a gitLogArgs=()
+typeset -a args=()
+typeset -a forRangeArgs=()
+typeset -a defaultForRangeArgs=()
 isPercentage=t
-percentageThreshold=10
 filterCommand="s/.*/${GIT_CHANGESETFILES_ORIGINAL_FILE_PREFIX}&${GIT_CHANGESETFILES_ORIGINAL_FILE_SUFFIX}/"
+unset files
+option() { :; }
+parameter() { :; }
+argCount() { :; }
+endOfOptionsAndParameters() { :; }
+noUnderstand() { :; }
+typeset -A understandsSubtopics=()
+isUnderstandSubtopic() {
+    [ $# -gt 0 -a ${#understandsSubtopics[@]} -gt 0 ] || return 0
+    local subtopic; for subtopic
+    do
+	[ "${understandsSubtopics["$subtopic"]}" ] && return 0
+    done
+    return 1
+}
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--get-short-usage)
+			shift; getShortUsage "$@"; exit $?;;
+	--get-long-usage)
+			shift; getLongUsage "$@"; exit $?;;
+	--understand-for)
+			shift; understandsSubtopics["$1"]=t; shift;;
+	--understands)	shift
+			option() { isUnderstandSubtopic "$@" || exit 1; printf 1; exit 0; }
+			parameter() { isUnderstandSubtopic "$@" || exit 1; printf 2; exit 0; }
+			argCount() { local argCount="${1:?}"; shift; isUnderstandSubtopic "$@" || exit 1; printf $argCount; exit 0; }
+			endOfOptionsAndParameters() { exit 99; }
+			noUnderstand() { exit 1; }
+			;;
+
 	--no-percentage|-N)
-			shift; isPercentage=;;
+			shift; isPercentage=; option format;;
 	--percentage-threshold|-%)
-			shift; percentageThreshold="$1"; shift;;
+			shift; GIT_CHANGESETFILES_PERCENTAGE_THRESHOLD="$1"; shift; parameter filter;;
 	--include-original-files|-a)
-			shift; filterCommand='';;
+			shift; filterCommand=''; option format;;
 	--drop-original-files|-d)
-			shift; filterCommand='d';;
-	--)		gitLogArgs+=("$1"); shift; break;;
-	*)		gitLogArgs+=("$1"); shift;;
+			shift; filterCommand='d'; option filter;;
+
+	--for-commits)	shift; defaultForRangeArgs=(--revision HEAD); option for-range;;
+	--for)		shift
+			argCount=0
+			typeset -a parsedRangeArgs=()
+			if GIT_LOGARGPARSER_REVISIONS_END="$GIT_WHOIS_REVISIONS_END" parseShowRangeArgsInto argCount parsedRangeArgs "$@"; then
+			    forRangeArgs+=("${parsedRangeArgs[@]}")
+			    shift $argCount
+			    argCount $((argCount + 1)) for-range    # Account for the --for itself.
+			elif argCount=$(countDiffArgs "$1"); then
+			    shift $argCount
+			    argCount $((argCount + 1)) for-range    # Account for the --for itself.
+			else
+			    endOfOptionsAndParameters; break
+			fi
+			;;
+
+	--)		args+=("$1"); shift; typeset -a files=("$@"); set --; endOfOptionsAndParameters; break;;
+	*)		args+=("$1"); shift; endOfOptionsAndParameters;;
     esac
 done
+if [ -z "${files+t}" ]; then
+    # No files after -- captured yet; need to investigate parsed and
+    # remaining args from behind for files.
+    typeset -a files=()
+    args+=("$@")
+    while [ ${#args[@]} -ne 0 ]
+    do
+	lastArg="${args[-1]}"
+	[ -e "$lastArg" ] || break
+
+	files=("$lastArg" "${files[@]}")
+	args=("${args[@]:0:${#args[@]}-1}")
+    done
+fi
+set -- "${args[@]}" "$@"
+[ ${#forRangeArgs[@]} -eq 0 ] && forRangeArgs=("${defaultForRangeArgs[@]}")
+if [ ${#forRangeArgs[@]} -gt 0 ]; then
+    readarray -t files < <($DEBUGPREFIX git-showfiles "${forRangeArgs[@]}" ${files:+--} "${files[@]}")
+fi
+if [ ${#files[@]} -eq 0 ]; then
+    echo >&2 'ERROR: No <pathspec> passed.'
+    exit 2
+fi
 
 removeStatus()
 {
@@ -79,11 +225,17 @@ removeStatus()
 	-e 's/^\(.*\)	\(.*\)$/\1\n\2/'
 }
 
+logFiles()
+{
+    local prettyArg="${1:?}"; shift
+    git-logv "$prettyArg" "$@" ${files:+--} "${files[@]}"
+}
 extractChangesetFiles()
 {
-    if [ "$isPercentage" ] || [ $percentageThreshold -gt 0 ]; then
-	GIT_LOGOFFILES_COMMAND=logv git-logoffiles --pretty=format:--- "${gitLogArgs[@]}" "$@" | \
-	    removeStatus | awk -v "isPercentage=$isPercentage" -v percentageThreshold="$percentageThreshold" '
+    if [ "$isPercentage" ]; then
+	logFiles --pretty=format:--- "$@" \
+	    | removeStatus \
+	    | awk -v "isPercentage=$isPercentage" -v percentageThreshold="$GIT_CHANGESETFILES_PERCENTAGE_THRESHOLD" '
 BEGIN {
     PROCINFO["sorted_in"] = "@val_num_desc"
 }
@@ -108,13 +260,14 @@ END {
 }
 '
     else
-	GIT_LOGOFFILES_COMMAND=logv git-logoffiles --pretty= "${gitLogArgs[@]}" "$@" | \
-	    removeStatus | sort -u
+	logFiles --pretty= "$@" \
+	    | removeStatus \
+	    | sort --unique
     fi
 }
 
 if [ -n "$filterCommand" ]; then
-    originalFilePrefixPattern='^'; [ $percentageThreshold -gt 0 ] && originalFilePrefixPattern='^ *[0-9]\+%	'
+    originalFilePrefixPattern='^'; [ "$isPercentage" ] && originalFilePrefixPattern='^ *[0-9]\+%	'
     typeset -a filterPipeline=()
     while IFS=$'\n' read -r literalOriginalPathspec
     do
@@ -128,7 +281,10 @@ if [ -n "$filterCommand" ]; then
 
 	[ ${#filterPipeline[@]} -eq 0 ] && filterPipeline+=(sed)
 	filterPipeline+=(-e "/${originalFilePrefixPattern}${literalOriginalPathspec}${pathspecAnchor}/${filterCommand}")
-    done < <(git-logoffiles --only-list-expanded-paths "${gitLogArgs[@]}" "$@" 2>/dev/null | sed -e 's/[][\$*.^/]/\\&/g')
+    done < <(
+	printf '%s\n' "${files[@]}" \
+	    | sed -e 's/[][\$*.^/]/\\&/g'
+	)
 
 fi
 

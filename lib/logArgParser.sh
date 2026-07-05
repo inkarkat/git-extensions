@@ -10,11 +10,12 @@ countLogArgs()
     fi
 
     case "${1?}" in
+	# Note: Excluding color arguments because they are generic.
 	# Note: Exclude -N because that's taken by git-*-command(s).
 	# +([0-9])
 	-+([BCDEFMPgimstz]))
 		printf 1;;
-	--@(?(no-)mailmap|?(no-)rename-empty|?(no-)standard-notes|?(no-)use-mailmap|abbrev|abbrev-commit|all|all-match|alternate-refs|ancestry-path|author-date-order|basic-regexp|binary|bisect|boundary|branches|break-rewrites|check|cherry|cherry-mark|cherry-pick|children|clear-decorations|combined-all-paths|date-order|decorate|dense|dense|do-walk|exclude-first-parent-only|expand-tabs|extended-regexp|find-copies|find-copies-harder|find-renames|first-parent|fixed-strings|follow|full-history|full-index|graph|ignore-missing|indent-heuristic|invert-grep|irreversible-delete|left-only|left-right|log-size|merge|merges|name-only|name-status|no-abbrev-commit|no-decorate|no-diff-merges|no-expand-tabs|no-indent-heuristic|no-max-parents|no-merges|no-min-parents|no-notes|no-patch|no-renames|no-walk|not|notes|oneline|parents|perl-regexp|pickaxe-all|pickaxe-regex|pretty|raw|reflog|regexp-ignore-case|relative-date|remotes|remove-empty|reverse|right-only|show-linear-break|show-notes|show-notes-by-default|show-pulls|show-pulls|show-signature|simplify-by-decoration|simplify-merges|simplify-merges|single-worktree|source|sparse|sparse|stdin|submodule|summary|tags|topo-order|walk-reflogs))
+	--@(?(no-)mailmap|?(no-)rename-empty|?(no-)standard-notes|?(no-)use-mailmap|abbrev|abbrev-commit|all|all-match|alternate-refs|ancestry-path|author-date-order|basic-regexp|binary|bisect|boundary|branches|break-rewrites|check|cherry|cherry-mark|cherry-pick|children|clear-decorations|combined-all-paths|date-order|decorate|dense|dense|do-walk|exclude-first-parent-only|expand-tabs|extended-regexp|find-copies|find-copies-harder|find-renames|first-parent|fixed-strings|follow|full-history|full-index|graph|ignore-missing|indent-heuristic|invert-grep|irreversible-delete|left-only|left-right|log-size|merge|merges|name-only|name-status|no-abbrev-commit|no-decorate|no-diff-merges|no-expand-tabs|no-indent-heuristic|no-max-parents|no-merges|no-min-parents|no-notes|no-patch|no-renames|no-walk|not|notes|oneline|parents|perl-regexp|pickaxe-all|pickaxe-regex|pretty|raw|reflog|regexp-ignore-case|relative-date|remotes|remove-empty|reverse|right-only|show-linear-break|show-notes|show-notes-by-default|show-pulls|show-signature|simplify-by-decoration|simplify-merges|simplify-merges|single-worktree|source|sparse|sparse|stdin|submodule|summary|tags|topo-order|walk-reflogs))
 		printf 1;;
 	-[GLSln])
 		printf 2;;
@@ -57,4 +58,114 @@ countDiffArgs()
 		printf 2;;
 	*)	return 1;;
     esac
+}
+
+countRangeArgs()
+{
+    case "${1?}" in
+	# Note: Exclude -N because that's taken by git-*-command(s).
+	# +([0-9])
+	-+([EFPi]))
+		printf 1;;
+	--@(all-match|basic-regexp|extended-regexp|fixed-strings|follow|invert-grep|perl-regexp|pickaxe-all|pickaxe-regex|regexp-ignore-case))
+		printf 1;;
+	-[GSn])
+		printf 2;;
+	--@(after|author|before|committer|grep|max-count|since-as-filter|since|skip|until)=*)
+		printf 1;;
+	--@(after|author|before|committer|grep|max-count|since-as-filter|since|skip|until))
+		printf 2;;
+	*)	return 1;;
+    esac
+}
+
+###############################################################################
+# PURPOSE:
+#   Parses Git show arguments that specify a range of commits, plus extensions
+#   like --count, --revision[s], and --range.
+# ASSUMPTIONS / PRECONDITIONS:
+#   None.
+# EFFECTS / POSTCONDITIONS:
+#   - Calls printUsage and exits with 2 if the arguments are invalid.
+# INPUTS:
+#   argCountRef A reference to a variable that will be set to the number of
+#               arguments consumed.
+#   revisionRangesRef   A reference to an array variable that will be set to the
+#                       parsed arguments.
+# RETURN VALUES:
+#   0 if the argument is a range argument, 1 if not.
+###############################################################################
+parseShowRangeArgsInto()
+{
+    local -n argCountRef="${1:?}"; shift
+    local -n revisionRangesRef="${1:?}"; shift
+    case "${1?}" in
+	# Note: Exclude -N because that's taken by git-*-command(s).
+	--count|-n)	shift
+			if ! [[ "$1" =~ ^[0-9]+$ ]]; then
+			    printUsage "$0" >&2
+			    exit 2
+			fi
+			revisionRangesRef+=("HEAD~$(($1 - 1))")
+			shift
+			argCountRef=2
+			;;
+	--revision|-r)	shift; revisionRangesRef+=("${1:?}"); argCountRef=2; shift;;
+	--revisions)	shift; let argCountRef=1
+			while [ $# -gt 0 -a "$1" != "${GIT_LOGARGPARSER_REVISIONS_END?}" ]
+			do
+			    revisionRangesRef+=("${1:?}"); shift
+			    let argCountRef+=1
+			done
+			if [ $# -eq 0 ]; then
+			    echo "ERROR: --revisions must be concluded with '${GIT_LOGARGPARSER_REVISIONS_END}'"; echo; printUsage "$0"
+			    exit 2
+			fi >&2
+			shift; let argCountRef+=1
+			;;
+	--range=*)	revisionRangesRef+=("${1#--range=}"); shift; argCountRef=1;;
+	--range)	shift; revisionRangesRef+=("${1:?}"); shift; argCountRef=2;;
+	-*)		local _rangeArgCount; if _rangeArgCount=$(countRangeArgs "$@"); then
+			    argCountRef=$_rangeArgCount
+			    while ((_rangeArgCount-- > 0))
+			    do
+				revisionRangesRef+=("$1"); shift
+			    done
+			else
+			    return 1
+			fi
+			;;
+	*)		return 1;;
+    esac
+}
+
+getShowRangeArgsShortUsage()
+{
+    printf %s "-r|--revision REVISION|--revisions REVISION1 [...] ${GIT_LOGARGPARSER_REVISIONS_END?}|--range <range> [--range ...]|-n|--count N|--max-count <number>|--since[-as-filter]|--after <date>|--until|--before <date>|--author|--committer <pattern>|--grep <pattern> [--all-match] [--basic-regexp|--extended-regexp|--perl-regexp|--fixed-strings] [--regexp-ignore-case]|-S<string>|-G<string> [--pickaxe-all|--pickaxe-regex]"
+}
+
+getShowRangeArgsLongUsage()
+{
+    local what="${1:?}"; shift
+    cat <<HELPTEXT
+    --revision|-r REVISION
+			$what in REVISION.
+    --revisions REVISION1 [...] ${GIT_LOGARGPARSER_REVISIONS_END?}
+			$what in REVISION(s); all following
+			arguments until an argument consisting of '$GIT_LOGARGPARSER_REVISIONS_END' is
+			encountered.
+    --range <range>	$what in the commits in <range>.
+    --count|-n N	$what in the N'th previous commit.
+    --max-count <number>
+			$what in the last <number> commits.
+    --since <date>	$what since <date> (inclusive).
+    --since[-as-filter]|--after <date>|--until|--before <date>
+			$what based on the time filtering.
+    --author|--committer <pattern>
+			$what based on the person.
+    --grep <pattern> [--all-match] [--basic-regexp|--extended-regexp|--perl-regexp|--fixed-strings] [--regexp-ignore-case]
+			$what based on the commit message.
+    -S<string>|-G<string> [--pickaxe-all|--pickaxe-regex]"
+			$what based on the content changes.
+HELPTEXT
 }

@@ -61,7 +61,6 @@ co[pr]s?(s)|\
 revert@(g|changed|touched|commit@(g|changed|touched))|\
 @(correct|fix@(up|amend|wording)|commit@(identical|like|relate)|amendrelate)@(g|changed|touched|st|i|I)|\
 detach@(g|changed|touched)|\
-who@(when|first|last)|whatdid|changesetfiles|churn|\
 commitage|datediff\
 )
 	$EXEC "git-${scopeCommand:?}" -2 "$gitCommand" TIMESPAN "$@";;
@@ -212,9 +211,11 @@ revertcommit|\
     cat|cp)
 	$EXEC "git-${scopeCommand:?}" -2 "${gitCommand}selectedonemore" TIMESPAN "$@";;
 
-    who@(created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what)thosechangedfiles)
-	$EXEC git-files-command --source-command "$scope files" "${gitCommand%thosechangedfiles}" "$@";;
-    who@(created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what)here)
+    @(whatdid|changesetfiles|churn|who@(when|first|last|created|lasttouched|did?(f)|owns|contributed|what))thosefiles)
+	$EXEC git-files-command --source-command "$scope files" "${gitCommand%thosefiles}" "$@";;
+    @(who@(g|changed|touched))thosefiles)
+	$EXEC git-files-command --except-last --source-command "$scope files" "${gitCommand%thosefiles}" "$@";;
+    @(whatdid|changesetfiles|churn|who@(when|first|last|created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what))here)
 	$EXEC "git-${scopeCommand:?}" -2 "${gitCommand%here}" TIMESPAN "$@";;
 
     activity?(mine|others|team))

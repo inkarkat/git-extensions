@@ -43,10 +43,13 @@ onLocalBranch()
 withScoped()
 {
     local what="${1:?}"; shift
+    local filesCommandArg="${1?}"; shift
     if [ ${#scopeArgSyphon[@]} -gt 0 ]; then
-	$EXEC git-argsyphon-command "${scopeArgSyphon[@]}" --keep-position "${scopeCommand[@]}" ARGS "${argsForLogScopeCommands[@]}" --keep-position files-command --source-exec "show$what" RANGE \; "$@"
+	$EXEC git-argsyphon-command "${scopeArgSyphon[@]}" --keep-position "${scopeCommand[@]}" ARGS "${argsForLogScopeCommands[@]}" --keep-position \
+	    files-command $filesCommandArg --source-exec "show$what" RANGE \; "$@"
     else
-	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" --keep-position files-command --source-exec "show$what" RANGE \; "$@"
+	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" --keep-position \
+	    files-command $filesCommandArg --source-exec "show$what" RANGE \; "$@"
     fi
 }
 
@@ -112,7 +115,6 @@ l[ou]url?([fv])|\
 ss@(?([wcag])?(st|i|I|samefiles)|changed|touched)|\
 sls?(g|changed|touched)|\
 dp[sg]|dpl?(s)[sg]|dpls@(changed|touched)|\
-who@(when|first|last)|whatdid|changesetfiles|churn|\
 commitage|datediff|\
 subchanges|superchanges|subrevl@(?(o)g|c)\
 )
@@ -136,7 +138,7 @@ detach@(g|changed|touched)\
 	[ "${argsForLogScopeCommands[*]}" = --log-args-for-range ] \
 	    && argsForLogScopeCommands=(--log-args-only-for-range)
 
-	withScoped files diffselected --log-range RANGE "$@";;
+	withScoped files '' diffselected --log-range RANGE "$@";;
     dss)
 	$EXEC git-"${scopeCommand[@]}" --keep-position selectedcommit-command "${argsForLogScopeCommands[@]}" --single-only --with-range-from-end ^... --range-is-last -3 diff COMMITS RANGE "$@";;
     dsta?(t)byeach)
@@ -153,7 +155,7 @@ detach@(g|changed|touched)\
     @(files|submodules)?(except)by)
 	gitCommand="show$gitCommand" othersCommand "$@";;
     subdo)
-	withScoped submodules --keep-position subdo --for FILES \; "$@";;
+	withScoped submodules '' --keep-position subdo --for FILES \; "$@";;
 
     inout|io?(files|submodules)|ab)
 	if [ -n "$scopeInoutNote" ]; then
@@ -266,9 +268,11 @@ revertcommit|\
     cat|cp)
 	$EXEC git-"${scopeCommand[@]}" -2 "${gitCommand}selectedonemore" RANGE "$@";;
 
-    who@(created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what)thosechangedfiles)
-	withScoped files "${gitCommand%thosechangedfiles}" "$@";;
-    who@(created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what)here)
+    @(whatdid|changesetfiles|churn|who@(when|first|last|created|lasttouched|did?(f)|owns|contributed|what))thosefiles)
+	withScoped files '' "${gitCommand%thosefiles}" "$@";;
+    @(who@(g|changed|touched))thosefiles)
+	withScoped files --except-last "${gitCommand%thosefiles}" "$@";;
+    @(whatdid|changesetfiles|churn|who@(when|first|last|created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what))here)
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -2 "${gitCommand%here}" RANGE "$@";;
 
     emaillog)

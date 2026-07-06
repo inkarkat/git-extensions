@@ -30,7 +30,7 @@ esac
 withAggregateSelectedFiles()
 {
     # FIXME: Extract FILE arguments and pass them to the source command.
-    GIT_SELECTED_COMMAND_DEFAULT_FILES="GIT_REVRANGE_SEPARATE_ERRORS=t git-$scope files --no-header 2>/dev/null | sort --unique" \
+    GIT_SELECTED_COMMAND_DEFAULT_FILES="GIT_REVRANGE_SEPARATE_ERRORS=t git-$scope files${aggregateFilesSuffix} --no-header 2>/dev/null | sort --unique" \
 	$EXEC git-selected-command "$@"
 }
 
@@ -170,8 +170,24 @@ move-to-branch|uncommit-to-stash|uncommit-to-branch\
 	withAggregateFiles '' "${gitCommand%thosefiles}" "$@";;
     @(who@(g|changed|touched))thosefiles)
 	withAggregateFiles --except-last "${gitCommand%thosefiles}" "$@";;
-    who@(created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what)here)
+    @(whatdid|churn|who@(when|first|last|created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what))here)
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -2 "${gitCommand%here}" RANGE "$@";;
+    changesetfileshere@(st|i|I|samefiles)?(mine|others|team))
+	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -2 "changesetfiles${gitCommand#changesetfileshere}" RANGE "$@";;
+    changesetfileshere@(st|i|I|samefiles)?(except)by)
+	gitCommand="changesetfiles${gitCommand#changesetfileshere}" othersCommand "$@";;
+    changesetfileshere?(mine|others|team)passedfiles)
+	gitCommand="changesetfiles${gitCommand#changesetfileshere}"; gitCommand="${gitCommand%passedfiles}"
+	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -2 "$gitCommand" RANGE "$@";;
+    changesetfileshere?(except)bypassedfiles)
+	gitCommand="changesetfiles${gitCommand#changesetfileshere}"; gitCommand="${gitCommand%passedfiles}"
+	othersCommand "$@";;
+    changesetfileshere?(mine|others|team))
+	quotedArgs=; [ $# -eq 0 ] || printf -v quotedArgs ' %q' "$@"
+	aggregateFilesSuffix="${gitCommand#changesetfileshere}" withAggregateSelectedFiles "$scope changesetfilesherepassedfiles${quotedArgs}";;
+    changesetfileshere?(except)by)
+	quotedAuthorsAndRange="$(gitCommand=quoted othersCommand "$@")" || exit $?
+	withAggregateSelectedFiles "$scope changesetfilesherepassedfiles${quotedAuthorsAndRange}";;
 
     emaillog)
 	GIT_REVRANGE_SEPARATE_ERRORS=t \

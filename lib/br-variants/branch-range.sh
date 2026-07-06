@@ -60,7 +60,7 @@ fi
 set -- "${colorArg[@]}" "$@"
 
 predCommit="$(getPredCommit "$@")"
-if [ -z "$predCommit" -a -n "$scopeWhat" ]; then    # Note: Exempt on empty $scopeWhat for testing.
+if [ -z "$predCommit" -a "$EXEC" = exec ]; then    # Note: Exempt on non-standard $EXEC for testing and debugging.
     printf >&2 'ERROR: Cannot find merge base with %s.\n' "$scopeWhat"
     return 1
 fi
@@ -167,7 +167,7 @@ activity?(except)by\
     lghifiles)
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope lghipassedfiles" "$@";;
     lgfiles?(mine|others|team))
-	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope lg${gitCommand#lgfiles}" "$@";;
+	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope ${gitCommand#lgfiles}files" $EXEC git-selected-command "$scope lg${gitCommand#lgfiles}" "$@";;
     lgfiles?(except)by)
 	quotedAuthorsAndRange="$(gitCommand=quoted othersCommand "$@")" || exit $?
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files $quotedAuthorsAndRange" $EXEC git-selected-command "onelinelog $quotedAuthorsAndRange --"
@@ -245,8 +245,24 @@ revertcommit|\
 	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --keep-position files-command --source-exec showfiles RANGE \; "${gitCommand%thosefiles}" "$@";;
     @(who@(g|changed|touched))thosefiles)
 	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --keep-position files-command --except-last --source-exec showfiles RANGE \; "${gitCommand%thosefiles}" "$@";;
-    @(whatdid|changesetfiles|churn|who@(when|first|last|created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what))here)
+    @(whatdid|churn|who@(when|first|last|created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what))here)
 	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -2 "${gitCommand%here}" RANGE "$@";;
+    changesetfileshere@(st|i|I|samefiles)?(mine|others|team))
+	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -2 "changesetfiles${gitCommand#changesetfileshere}" RANGE "$@";;
+    changesetfileshere@(st|i|I|samefiles)?(except)by)
+	gitCommand="changesetfiles${gitCommand#changesetfileshere}" othersCommand "$@";;
+    changesetfileshere?(mine|others|team)passedfiles)
+	gitCommand="changesetfiles${gitCommand#changesetfileshere}"; gitCommand="${gitCommand%passedfiles}"
+	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -2 "$gitCommand" RANGE "$@";;
+    changesetfileshere?(except)bypassedfiles)
+	gitCommand="changesetfiles${gitCommand#changesetfileshere}"; gitCommand="${gitCommand%passedfiles}"
+	othersCommand "$@";;
+    changesetfileshere?(mine|others|team))
+	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files${gitCommand#changesetfileshere}" $EXEC git-selected-command "$scope ${gitCommand}passedfiles" "$@";;
+    changesetfileshere?(except)by)
+	quotedAuthorsAndRange="$(gitCommand=quoted othersCommand "$@")" || exit $?
+	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files $quotedAuthorsAndRange" $EXEC git-selected-command "$scope changesetfilesherepassedfiles $quotedAuthorsAndRange --"
+	;;
 
     emaillog)
 	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -3 email-command log RANGE "$@";;

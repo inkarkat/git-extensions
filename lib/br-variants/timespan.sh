@@ -136,7 +136,7 @@ activity?(except)by\
     lghifiles)
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope lghipassedfiles" "$@";;
     lgfiles?(mine|others|team))
-	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope lg${gitCommand#lgfiles}" "$@";;
+	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope ${gitCommand#lgfiles}files" $EXEC git-selected-command "$scope lg${gitCommand#lgfiles}" "$@";;
     lgfiles?(except)by)
 	quotedAuthorsAndRange="$(gitCommand=quoted othersCommand "$@")" || exit $?
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files $quotedAuthorsAndRange" $EXEC git-selected-command "onelinelog $quotedAuthorsAndRange --"
@@ -207,8 +207,24 @@ revertcommit|\
 	$EXEC git-revision-command --keep-position files-command --source-command "$scope files --revision REVISION" "${gitCommand%thosefiles}" "$@";;
     @(who@(g|changed|touched))thosefiles)
 	$EXEC git-revision-command --keep-position files-command --except-last --source-command "$scope files --revision REVISION" "${gitCommand%thosefiles}" "$@";;
-    @(whatdid|changesetfiles|churn|who@(when|first|last|created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what))here)
+    @(whatdid|churn|who@(when|first|last|created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what))here)
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 "${gitCommand%here}" TIMESPAN "$@";;
+    changesetfileshere@(st|i|I|samefiles)?(mine|others|team))
+	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 "changesetfiles${gitCommand#changesetfileshere}" TIMESPAN "$@";;
+    changesetfileshere@(st|i|I|samefiles)?(except)by)
+	gitCommand="changesetfiles${gitCommand#changesetfileshere}" othersCommand "$@";;
+    changesetfileshere?(mine|others|team)passedfiles)
+	gitCommand="changesetfiles${gitCommand#changesetfileshere}"; gitCommand="${gitCommand%passedfiles}"
+	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 "$gitCommand" TIMESPAN "$@";;
+    changesetfileshere?(except)bypassedfiles)
+	gitCommand="changesetfiles${gitCommand#changesetfileshere}"; gitCommand="${gitCommand%passedfiles}"
+	othersCommand "$@";;
+    changesetfileshere?(mine|others|team))
+	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files${gitCommand#changesetfileshere}" $EXEC git-selected-command "$scope ${gitCommand}passedfiles" "$@";;
+    changesetfileshere?(except)by)
+	quotedAuthorsAndRange="$(gitCommand=quoted othersCommand "$@")" || exit $?
+	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files $quotedAuthorsAndRange" $EXEC git-selected-command "$scope changesetfilesherepassedfiles $quotedAuthorsAndRange --"
+	;;
 
     activity?(mine|others|team))
 	$EXEC echo "Note: $gitCommand would just trim activity to ${scopeWhat}.";;

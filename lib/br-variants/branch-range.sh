@@ -37,6 +37,16 @@ othersCommand()
     $EXEC git-dashdash-default-command --with-files : branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -$((7 + ${#inversionArg[@]})) authors-command "${inversionArg[@]}" --range RANGE -2 "${gitCommand%%?(except)by}" AUTHORS RANGE : "$@"
 }
 
+getPredCommit()
+{
+    # Only extract a -b|--branch BRANCH argument, but skip any other arguments for
+    # merge-base.
+    local rangeWithArgs endRange range _
+    rangeWithArgs="$(${EXEC#exec} git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --with-range ' ' -2 echo RANGE "$@")" \
+	&& IFS=' ' read -r endRange range _ <<<"$rangeWithArgs" \
+	&& git merge-base "$endRange" "$range"
+}
+
 : ${EXEC:=exec}
 if [ $# -lt ${#scopeMandatoryArgs[@]} ]; then
     printf >&2 'ERROR: Required arguments missing: %s\n' "${scopeMandatoryArgs[*]}"
@@ -47,6 +57,12 @@ else
     gitCommand="${1:?}"; shift
 fi
 set -- "${colorArg[@]}" "$@"
+
+predCommit="$(getPredCommit "$@")"
+if [ -z "$predCommit" -a -n "$scopeWhat" ]; then    # Note: Exempt on empty $scopeWhat for testing.
+    printf >&2 'ERROR: Cannot find merge base with %s.\n' "$scopeWhat"
+    return 1
+fi
 
 case "$gitCommand" in
     (\
@@ -219,7 +235,6 @@ revertcommit|\
 	;;
     pred?(lg|s))
 	typeset -A mapping=([pred]=echo [predlg]=lg1 [preds]=show)
-	predCommit="$(${EXEC#exec} git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --with-range ' ' -2 merge-base RANGE "$@")"
 	$EXEC git "${mapping["$gitCommand"]}" "$predCommit"
 	;;
 

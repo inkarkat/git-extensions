@@ -6,7 +6,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" "--source-command \"SOURCE-COMMANDLINE\"|--source-exec COMMAND [...] $GIT_FILESCOMMAND_EXEC_END [-?|-h|--help] ..."
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[--except-last] --source-command \"SOURCE-COMMANDLINE\"|--source-exec COMMAND [...] $GIT_FILESCOMMAND_EXEC_END [-?|-h|--help] ..."
     printf 'Usage: %q %s\n' "$(basename "$1")" "... GIT-COMMAND [GIT-COMMAND-ARGS ...] [-?|-h|--help]"
     printf 'Usage: %q %s\n' "$(basename "$1")" "... --keep-position GIT-COMMAND SOURCE-COMMAND [GIT-COMMAND-ARGS ... FILES ...]"
     printf 'Usage: %q %s\n' "$(basename "$1")" "... [-2 GIT-COMMAND ARG1|-3 GIT-COMMAND ARG1 ARG2|...] [...]"
@@ -35,13 +35,26 @@ instead passed to SOURCE-COMMAND.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --except-last	The very last argument is special and should remain at
+			the end; i.e. passed to GIT-COMMAND after any appended
+			FILES.
+HELPTEXT
 }
 
+typeset -a specialLastArg=()
 sourceCommand=
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+    	--except-last)	shift
+    			if [ $# -gt 0 ]; then
+    			    specialLastArg=("${!#}")
+    			    set -- "${@:1:$(($#-1))}"
+    			fi
+    			;;
 	--source-command)
 			shift; sourceCommand+="${sourceCommand:+; }${1:?}"; shift;;
 	--source-exec)	shift
@@ -90,8 +103,8 @@ case "$1" in
 	    done
 
 	    [ "$isCountedAppend" ] \
-		&& exec git-wrapper "$@" "${appendedArgs[@]}" \
-		|| exec git-wrapper "${appendedArgs[@]}" "$@"
+		&& exec git-wrapper "$@" "${appendedArgs[@]}" "${specialLastArg[@]}" \
+		|| exec git-wrapper "${appendedArgs[@]}" "$@" "${specialLastArg[@]}"
 	}
 	;;
     --keep-position)
@@ -109,13 +122,13 @@ case "$1" in
 		fi
 	    done
 
-	    exec git-wrapper "${appendedArgs[@]}"
+	    exec git-wrapper "${appendedArgs[@]}" "${specialLastArg[@]}"
 	}
 	;;
     *)
 	executor()
 	{
-	    exec git-wrapper "$@" -- "${files[@]}"
+	    exec git-wrapper "$@" -- "${files[@]}" "${specialLastArg[@]}"
 	}
 	;;
 esac

@@ -272,8 +272,12 @@ revertcommit|\
 	withScoped files '' "${gitCommand%thosefiles}" "$@";;
     @(who@(g|changed|touched))thosefiles)
 	withScoped files --except-last "${gitCommand%thosefiles}" "$@";;
-    @(whatdid|changesetfiles|churn|who@(when|first|last|created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what))here)
+    @(whatdid|churn|who@(when|first|last|created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what))here)
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -2 "${gitCommand%here}" RANGE "$@";;
+    changesetfilespassedfileshere)
+	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -2 "${gitCommand%passedfileshere}" RANGE "$@";;
+    changesetfileshere)
+	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope changesetfilespassedfileshere" "$@";;
 
     emaillog)
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -3 email-command log RANGE "$@";;

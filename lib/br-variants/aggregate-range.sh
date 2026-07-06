@@ -166,12 +166,17 @@ move-to-branch|uncommit-to-stash|uncommit-to-branch\
     preds)
 	$EXEC git-"${scopeCommand[@]}" --no-range --one-more -2 show RANGE "$@";;
 
-    @(whatdid|changesetfiles|churn|who@(when|first|last|created|lasttouched|did?(f)|owns|contributed|what))thosefiles)
+    @(whatdid|churn|who@(when|first|last|created|lasttouched|did?(f)|owns|contributed|what))thosefiles)
 	withAggregateFiles '' "${gitCommand%thosefiles}" "$@";;
     @(who@(g|changed|touched))thosefiles)
 	withAggregateFiles --except-last "${gitCommand%thosefiles}" "$@";;
     who@(created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what)here)
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -2 "${gitCommand%here}" RANGE "$@";;
+    changesetfilespassedfileshere)
+	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -2 "${gitCommand%passedfileshere}" RANGE "$@";;
+    changesetfileshere)
+	quotedArgs=; [ $# -eq 0 ] || printf -v quotedArgs ' %q' "$@"
+	withAggregateSelectedFiles "$scope changesetfilespassedfileshere${quotedArgs}";;
 
     emaillog)
 	GIT_REVRANGE_SEPARATE_ERRORS=t \

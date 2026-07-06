@@ -215,8 +215,12 @@ revertcommit|\
 	$EXEC git-files-command --source-command "$scope files" "${gitCommand%thosefiles}" "$@";;
     @(who@(g|changed|touched))thosefiles)
 	$EXEC git-files-command --except-last --source-command "$scope files" "${gitCommand%thosefiles}" "$@";;
-    @(whatdid|changesetfiles|churn|who@(when|first|last|created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what))here)
+    @(whatdid|churn|who@(when|first|last|created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what))here)
 	$EXEC "git-${scopeCommand:?}" -2 "${gitCommand%here}" TIMESPAN "$@";;
+    changesetfilespassedfileshere)
+	$EXEC "git-${scopeCommand:?}" -2 "${gitCommand%passedfileshere}" TIMESPAN "$@";;
+    changesetfileshere)
+	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope changesetfilespassedfileshere" "$@";;
 
     activity?(mine|others|team))
 	$EXEC echo "Note: $gitCommand would just trim activity to ${scopeWhat}.";;

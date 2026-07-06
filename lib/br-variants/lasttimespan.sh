@@ -211,8 +211,8 @@ revertcommit|\
     cat|cp)
 	$EXEC "git-${scopeCommand:?}" -2 "${gitCommand}selectedonemore" TIMESPAN "$@";;
 
-    @(whatdid|changesetfiles|churn|who@(when|first|last|created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what))thosechangedfiles)
-	$EXEC git-files-command --source-command "$scope files" "${gitCommand%thosechangedfiles}" "$@";;
+    @(whatdid|changesetfiles|churn|who@(when|first|last|created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what))thosefiles)
+	$EXEC git-files-command --source-command "$scope files" "${gitCommand%thosefiles}" "$@";;
     @(whatdid|changesetfiles|churn|who@(when|first|last|created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what))here)
 	$EXEC "git-${scopeCommand:?}" -2 "${gitCommand%here}" TIMESPAN "$@";;
 

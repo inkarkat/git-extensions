@@ -215,7 +215,7 @@ revertcommit|\
 	$EXEC git-files-command --source-command "$scope files" "${gitCommand%thosefiles}" "$@";;
     @(who@(g|changed|touched))thosefiles)
 	$EXEC git-files-command --except-last --source-command "$scope files" "${gitCommand%thosefiles}" "$@";;
-    @(whatdid|churn|who@(when|first|last|created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what))here)
+    @(whatdid|changesetfiles@(st|i|I|samefiles)|churn|who@(when|first|last|created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what))here)
 	$EXEC "git-${scopeCommand:?}" -2 "${gitCommand%here}" TIMESPAN "$@";;
     changesetfilespassedfileshere)
 	$EXEC "git-${scopeCommand:?}" -2 "${gitCommand%passedfileshere}" TIMESPAN "$@";;

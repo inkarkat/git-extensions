@@ -112,7 +112,6 @@ l[ou]url?([fv])|\
 ss@(?([wcag])?(st|i|I|samefiles)|changed|touched)|\
 sls?(g|changed|touched)|\
 dp[sg]|dpl?(s)[sg]|dpls@(changed|touched)|\
-who@(when|first|last)|whatdid|changesetfiles|churn|\
 commitage|datediff|\
 subchanges|superchanges|subrevl@(?(o)g|c)\
 )
@@ -266,9 +265,9 @@ revertcommit|\
     cat|cp)
 	$EXEC git-"${scopeCommand[@]}" -2 "${gitCommand}selectedonemore" RANGE "$@";;
 
-    who@(created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what)thosechangedfiles)
+    @(whatdid|changesetfiles|churn|who@(when|first|last|created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what))thosechangedfiles)
 	withScoped files "${gitCommand%thosechangedfiles}" "$@";;
-    who@(created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what)here)
+    @(whatdid|changesetfiles|churn|who@(when|first|last|created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what))here)
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -2 "${gitCommand%here}" RANGE "$@";;
 
     emaillog)

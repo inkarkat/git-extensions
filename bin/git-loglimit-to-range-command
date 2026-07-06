@@ -47,7 +47,6 @@ HELPTEXT
 typeset -a limitRange=()
 typeset -a limitRangeArgs=()
 typeset -a args=()
-isRangeLastArg=
 limitFileArgs=t
 passFileArgs=t
 while [ $# -ne 0 ]
@@ -83,7 +82,6 @@ fi >&2
 
 [ $# -gt 0 ] || set -- echo
 
-typeset -a rangeArgs=()
 isCountedAppend=
 typeset -a countedAppendGitCommand=()
 case "$1" in
@@ -94,11 +92,6 @@ case "$1" in
 	typeset countedArgNum=${1#-}
 	typeset -a countedArgs=("${@:2:${countedArgNum}}")
 	set -- "${@:$((2 + countedArgNum))}"
-	if [ "$isRangeLastArg" ]; then
-	    rangeArgs=("${countedArgs[$((${#countedArgs[@]}-1))]}")
-	    countedArgs=("${countedArgs[@]:0:$((${#countedArgs[@]}-1))}")
-	    isRangeLastArg=
-	fi
 	if [ "$isCountedAppend" ]; then
 	    # Need to shift the GIT-COMMAND off to avoid that it is later parsed off as a rangeArg.
 	    countedAppendGitCommand=("$1"); shift

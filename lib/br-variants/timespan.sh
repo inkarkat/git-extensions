@@ -203,8 +203,10 @@ revertcommit|\
     cat|cp)
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 "${gitCommand}selectedonemore" TIMESPAN "$@";;
 
-    @(whatdid|changesetfiles|churn|who@(when|first|last|created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what))thosefiles)
+    @(whatdid|changesetfiles|churn|who@(when|first|last|created|lasttouched|did?(f)|owns|contributed|what))thosefiles)
 	$EXEC git-revision-command --keep-position files-command --source-command "$scope files --revision REVISION" "${gitCommand%thosefiles}" "$@";;
+    @(who@(g|changed|touched))thosefiles)
+	$EXEC git-revision-command --keep-position files-command --except-last --source-command "$scope files --revision REVISION" "${gitCommand%thosefiles}" "$@";;
     @(whatdid|changesetfiles|churn|who@(when|first|last|created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what))here)
 	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 "${gitCommand%here}" TIMESPAN "$@";;
 

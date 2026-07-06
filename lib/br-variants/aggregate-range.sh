@@ -36,10 +36,12 @@ withAggregateSelectedFiles()
 
 withAggregateFiles()
 {
+    local filesCommandArg="${1?}"; shift
     # FIXME: Extract FILE arguments and pass them to the source command.
     GIT_FILESCOMMAND_COMMAND_JOINER='|' \
     GIT_REVRANGE_SEPARATE_ERRORS=t  \
     $EXEC git-files-command \
+	$filesCommandArg \
 	--source-exec $scope files --no-header \; \
 	--source-exec sort --unique \; \
 	"$@"
@@ -164,8 +166,10 @@ move-to-branch|uncommit-to-stash|uncommit-to-branch\
     preds)
 	$EXEC git-"${scopeCommand[@]}" --no-range --one-more -2 show RANGE "$@";;
 
-    who@(created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what)thosefiles)
-	withAggregateFiles "${gitCommand%thosefiles}" "$@";;
+    @(whatdid|changesetfiles|churn|who@(when|first|last|created|lasttouched|did?(f)|owns|contributed|what))thosefiles)
+	withAggregateFiles '' "${gitCommand%thosefiles}" "$@";;
+    @(who@(g|changed|touched))thosefiles)
+	withAggregateFiles --except-last "${gitCommand%thosefiles}" "$@";;
     who@(created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what)here)
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -2 "${gitCommand%here}" RANGE "$@";;
 

@@ -43,6 +43,7 @@ getPredCommit()
     # merge-base.
     local rangeWithArgs endRange range _
     rangeWithArgs="$(${EXEC#exec} git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --with-range ' ' -2 echo RANGE "$@")" \
+	&& [ -n "$rangeWithArgs" ] \
 	&& IFS=' ' read -r endRange range _ <<<"$rangeWithArgs" \
 	&& git merge-base "$endRange" "$range"
 }

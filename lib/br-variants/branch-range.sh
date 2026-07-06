@@ -68,15 +68,15 @@ fi
 case "$gitCommand" in
     (\
 lg?([fv]|merges)|\
-lg@(rel|tagged|st|i|I)|\
+lg@(rel|tagged|st|i|I|samefiles)|\
 logfiles\
 )
 	typeset -a revRangeAdditionalArgs=(); [ "$gitCommand" = logfiles ] && revRangeAdditionalArgs=(--one-more-with-padding)
 	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --one-more-command greyonelinelog --one-more-only-to-terminal "${revRangeAdditionalArgs[@]}" -2 "$gitCommand" RANGE "$@";;
     (\
 log?([fv]|merges)|\
-log?(v)@(st|i|I)?(mine|others|team)|\
-lc?([fh]|@(st|i|I))?(mine|others|team)\
+log?(v)@(st|i|I|samefiles)?(mine|others|team)|\
+lc?([fh]|@(st|i|I|samefiles))?(mine|others|team)\
 )
 	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal -2 "$gitCommand" RANGE "$@";;
     lghi?(st|i|I|samefiles))
@@ -86,7 +86,7 @@ lc?([fh]|@(st|i|I))?(mine|others|team)\
 
     (\
 @(@(log?(v)|show)@(last|first)?(f)|lc?(l)?(f)|l?(o)g?([fv])|count)@(g|changed|touched)?(mine|others|team)|\
-logfiles?(st|i|I)?(mine|others|team)|\
+logfiles?(st|i|I|samefiles)?(mine|others|team)|\
 l?(h|o|ogv)f|l?(o)gfg|lcl?(f)|\
 l?(o)g?([fv]|merges)@(mine|others|team)|\
 @(l?([ho])|count?(f)|countmaxdaycommits|commitsperday|log@(distribution|msgstat)|l?(o)gtitle?(f)g|activity|brlifetimes|devstat)?(mine|others|team)|\
@@ -145,8 +145,8 @@ subchanges|superchanges|subrevl@(?(o)g|c)\
 
 	(\
 l?(h|g|og)?(except)by|\
-log?(v|files)?(st|i|I)?(except)by|\
-lc?([fh]|@(st|i|I))?(except)by|\
+log?(v|files)?(st|i|I|samefiles)?(except)by|\
+lc?([fh]|@(st|i|I|samefiles))?(except)by|\
 lc?(l)@(g|changed|touched)?(except)by|\
 @(@(log?(v)|show)@(last|first)|@(l?(o)g?(v)|count))@(g|changed|touched)?(except)by|\
 l?(o)g?([fv]|merges)?(except)by|\

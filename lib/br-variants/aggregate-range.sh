@@ -29,7 +29,6 @@ esac
 
 withAggregateFiles()
 {
-    local quotedArgs=; [ $# -eq 0 ] || printf -v quotedArgs ' %q' "$@"
     # FIXME: Extract FILE arguments and pass them to the source command.
     GIT_SELECTED_COMMAND_DEFAULT_FILES="GIT_REVRANGE_SEPARATE_ERRORS=t git-$scope files --no-header 2>/dev/null | sort --unique" \
 	$EXEC git-"$@"
@@ -73,6 +72,7 @@ set -- "${colorArg[@]}" "$@"
 
 case "$gitCommand" in
     ds)
+	quotedArgs=; [ $# -eq 0 ] || printf -v quotedArgs ' %q' "$@"
 	withAggregateFiles selected-command "$scope d${quotedArgs}";;
     dss)
 	withAggregateCommit --single-only dp "$@";;

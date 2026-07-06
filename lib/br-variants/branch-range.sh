@@ -60,7 +60,7 @@ fi
 set -- "${colorArg[@]}" "$@"
 
 predCommit="$(getPredCommit "$@")"
-if [ -z "$predCommit" -a -n "$scopeWhat" ]; then    # Note: Exempt on empty $scopeWhat for testing.
+if [ -z "$predCommit" -a "$EXEC" = exec ]; then    # Note: Exempt on non-standard $EXEC for testing and debugging.
     printf >&2 'ERROR: Cannot find merge base with %s.\n' "$scopeWhat"
     return 1
 fi

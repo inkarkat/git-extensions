@@ -24,6 +24,22 @@ case "$1" in
     --color)		colorArg=("$1" "$2"); shift; shift;;
 esac
 
+timespanCommand()
+{
+    $EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION "$@"
+}
+
+filesCommand()
+{
+    $EXEC git-revision-command --keep-position files-command "$@"
+}
+
+selectedFilesCommand()
+{
+    GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files${filesAppendix}" \
+	$EXEC git-selected-command "$@"
+}
+
 othersCommand()
 {
     typeset -a inversionArg=(); [[ "$gitCommand" =~ exceptby$ ]] && inversionArg=(--invert-authors)
@@ -64,11 +80,11 @@ revert@(g|changed|touched|commit@(g|changed|touched))|\
 detach@(g|changed|touched)|\
 commitage|datediff\
 )
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 "$gitCommand" TIMESPAN "$@";;
+	timespanCommand -2 "$gitCommand" TIMESPAN "$@";;
 
     lgx)
 	# lgx is identical to lg because there's no one-more with timespans.
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 lg TIMESPAN "$@";;
+	timespanCommand -2 lg TIMESPAN "$@";;
     (\
 l?(c?(f|h|st|i|I|samefiles)|h|g|og?(files?(st|i|I|samefiles)|st|i|I|samefiles))?(except)by|\
 @(@(log?(v)|show)@(last|first)|@(lc?(l)|l?(o)g?(v)|count))@(g|changed|touched)?(except)by|\
@@ -81,158 +97,164 @@ activity?(except)by\
 	;;
 
     d)
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --no-range -2 diffuntil TIMESPAN "$@";;
+	timespanCommand --no-range -2 diffuntil TIMESPAN "$@";;
     dsta)
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --no-range -2 diffuntil TIMESPAN --shortstat "$@";;
+	timespanCommand --no-range -2 diffuntil TIMESPAN --shortstat "$@";;
     dstat)
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --no-range -2 diffuntil TIMESPAN --stat --compact-summary "$@";;
+	timespanCommand --no-range -2 diffuntil TIMESPAN --stat --compact-summary "$@";;
     dedsta)
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --no-range -2 duntiledstat TIMESPAN --shortstat "$@";;
+	timespanCommand --no-range -2 duntiledstat TIMESPAN --shortstat "$@";;
     dedstat)
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --no-range -2 duntiledstat TIMESPAN "$@";;
+	timespanCommand --no-range -2 duntiledstat TIMESPAN "$@";;
     ds)
-	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope d" "$@";;
+	selectedFilesCommand "$scope d" "$@";;
     dss)
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -8 selectedcommit-command --single-only --with-range-from-end ^... -2 diff COMMITS TIMESPAN "$@";;
+	timespanCommand -8 selectedcommit-command --single-only --with-range-from-end ^... -2 diff COMMITS TIMESPAN "$@";;
     dsta?(t)byeach)
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 "log${gitCommand#d}" TIMESPAN "$@";;
+	timespanCommand -2 "log${gitCommand#d}" TIMESPAN "$@";;
     dt)
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --no-range -2 difftooluntil TIMESPAN "$@";;
+	timespanCommand --no-range -2 difftooluntil TIMESPAN "$@";;
     d[lbwcayYr]|drl)
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --no-range -2 "diffuntil${gitCommand#d}" TIMESPAN "$@";;
+	timespanCommand --no-range -2 "diffuntil${gitCommand#d}" TIMESPAN "$@";;
     @(ad|ov))
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --no-range -2 annotatediffuntil TIMESPAN "$@";;
+	timespanCommand --no-range -2 annotatediffuntil TIMESPAN "$@";;
     @(ad|ov)p)
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -6 selectedcommit-command --single-only -2 "$gitCommand" COMMITS TIMESPAN "$@";;
+	timespanCommand -6 selectedcommit-command --single-only -2 "$gitCommand" COMMITS TIMESPAN "$@";;
     ma)
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --no-range --one-more -2 format-patch TIMESPAN "$@";;
+	timespanCommand --no-range --one-more -2 format-patch TIMESPAN "$@";;
     repomove)
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --no-range --one-more reporangemove "$@";;
+	timespanCommand --no-range --one-more reporangemove "$@";;
 
     @(files|submodules)?(mine|others|team))
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --range -2 "show$gitCommand" TIMESPAN "$@";;
+	timespanCommand --range -2 "show$gitCommand" TIMESPAN "$@";;
     @(files|submodules)?(except)by)
 	gitCommand="show$gitCommand" othersCommand "$@";;
     subdo)
-	$EXEC git-revision-command --keep-position files-command --source-command "$scope submodules --revision REVISION" --keep-position subdo --for FILES \; "$@";;
+	filesCommand --source-command "$scope submodules --revision REVISION" --keep-position subdo --for FILES \; "$@";;
     subchanges|superchanges|subrevl@(?(o)g|c))
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --range -2 "$gitCommand" TIMESPAN "$@";;
+	timespanCommand --range -2 "$gitCommand" TIMESPAN "$@";;
     subrevdiff)
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --with-range ... -2 "$gitCommand" TIMESPAN "$@";;
+	timespanCommand --with-range ... -2 "$gitCommand" TIMESPAN "$@";;
 
     inout|io?(files|submodules)|ab)
 	$EXEC echo "Note: $gitCommand does not make sense here because the second revision always is an ancestor of the first.";;
 
     revive)
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -3 "$gitCommand" --all TIMESPAN "$@";;
+	timespanCommand -3 "$gitCommand" --all TIMESPAN "$@";;
     @(show|tree)[ou]url?(f))
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -5 selectedcommit-command -2 "$gitCommand" COMMITS TIMESPAN "$@";;
+	timespanCommand -5 selectedcommit-command -2 "$gitCommand" COMMITS TIMESPAN "$@";;
     compareourl)
 	$EXEC git-branch-command --real-branch-name --keep-position rbrurl-compare-to-base --remote origin --base-command "$scope pred --branch" --base-to-rev --commit BRANCH "$@";;
     compareuurl)
 	$EXEC git-branch-command --real-branch-name --keep-position rbrurl-compare-to-base --remote upstream --base-command "$scope pred --branch" --base-to-rev --commit BRANCH "$@";;
     lghipassedfiles)
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 lghifiles TIMESPAN "$@";;
+	timespanCommand -2 lghifiles TIMESPAN "$@";;
     lghifiles)
-	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope lghipassedfiles" "$@";;
+	selectedFilesCommand "$scope lghipassedfiles" "$@";;
     lgfiles?(mine|others|team))
-	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files${gitCommand#lgfiles}" $EXEC git-selected-command "$scope lg${gitCommand#lgfiles}" "$@";;
+	filesAppendix="${gitCommand#lgfiles}" \
+	    selectedFilesCommand "$scope lg${gitCommand#lgfiles}" "$@";;
     lgfiles?(except)by)
 	quotedAuthorsAndRange="$(gitCommand=quoted othersCommand "$@")" || exit $?
-	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files $quotedAuthorsAndRange" $EXEC git-selected-command "onelinelog $quotedAuthorsAndRange --"
+	filesAppendix=" $quotedAuthorsAndRange" \
+	    selectedFilesCommand "onelinelog $quotedAuthorsAndRange --"
 	;;
     files@(l?(o)g|logv|lc|logfiles))
 	# Logs of files modified in the timespan starting from before it.
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --range -- -3 showfiles-command --revision TIMESPAN ${scopeCommand:?} --inverted -2 "${gitCommand#files}" TIMESPAN "$@";;
+	timespanCommand --range -- -3 showfiles-command --revision TIMESPAN ${scopeCommand:?} --inverted -2 "${gitCommand#files}" TIMESPAN "$@";;
 
     revert)
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 revertselectedcommit TIMESPAN "$@";;
+	timespanCommand -2 revertselectedcommit TIMESPAN "$@";;
     revert@(files|hunk))
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 "revertselected${gitCommand#revert}" TIMESPAN "$@";;
+	timespanCommand -2 "revertselected${gitCommand#revert}" TIMESPAN "$@";;
     showfiles)
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 showselectedfiles TIMESPAN "$@";;
+	timespanCommand -2 showselectedfiles TIMESPAN "$@";;
 
     fix@(up|amend|wording)rb)
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 "${gitCommand%rb}selectedrb" TIMESPAN "$@";;
+	timespanCommand -2 "${gitCommand%rb}selectedrb" TIMESPAN "$@";;
 
     rb)
 	$EXEC echo "Note: $gitCommand is a no-op, because it iterates over the current range without touching fixups.";;
     rbcheck)
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -- rebasecheck "$@" --check-range;;
+	timespanCommand -- rebasecheck "$@" --check-range;;
     check|command|exec|sedreword|rewordaddprefix|rewordremovescope)
 	source "${libDir:?}/rebase.sh.part" "$@"
 	;&
     rb?(n)i|segregate@(commits|andbifurcate)|bifurcate)
 	typeset -a segregateArgs=(); [[ "$gitCommand" =~ ^segregate ]] && segregateArgs=(--explicit-file-args)  # Avoid that the second argument of --path PATH-GLOB is parsed off as a FILE for commit selection.
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -$((8 + ${#segregateArgs[@]})) selectedcommit-command --single-only "${segregateArgs[@]}" -4 previouscommit-command --commit COMMITS "$gitCommand" TIMESPAN "$@";;
+	timespanCommand -$((8 + ${#segregateArgs[@]})) selectedcommit-command --single-only "${segregateArgs[@]}" -4 previouscommit-command --commit COMMITS "$gitCommand" TIMESPAN "$@"
+	;;
     rblastfixup)
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --one-more -2 "$gitCommand" TIMESPAN "$@";;
+	timespanCommand --one-more -2 "$gitCommand" TIMESPAN "$@";;
     move-to-branch)
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --no-range --one-more +1 TIMESPAN uncommit-to-branch --exclude-commit "$@";;
+	timespanCommand --no-range --one-more +1 TIMESPAN uncommit-to-branch --exclude-commit "$@";;
     uncommit-to-stash)
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -8 selectedcommit-command --pass-file-args -4 uncommit-to-branch --commits COMMITS \; TIMESPAN "$@";;
+	timespanCommand -8 selectedcommit-command --pass-file-args -4 uncommit-to-branch --commits COMMITS \; TIMESPAN "$@";;
     uncommit-to-branch)
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -7 selectedcommit-command --single-only -3 uncommit-to-branch --from COMMITS TIMESPAN "$@";;
+	timespanCommand -7 selectedcommit-command --single-only -3 uncommit-to-branch --from COMMITS TIMESPAN "$@";;
 
     (\
 createbr|stackbrfrom|reset[mn]|\
 revertcommit|\
 @(correct|fix@(up|amend|wording))|commit@(identical|like|relate)|amendrelate\
 )
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 "${gitCommand}selected" TIMESPAN "$@";;
+	timespanCommand -2 "${gitCommand}selected" TIMESPAN "$@";;
     detach)
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --range --one-more -2 "${gitCommand}selected" TIMESPAN "$@";;
+	timespanCommand --range --one-more -2 "${gitCommand}selected" TIMESPAN "$@";;
     wipe)
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --range --one-more -2 "${gitCommand}toselected" TIMESPAN "$@";;
+	timespanCommand --range --one-more -2 "${gitCommand}toselected" TIMESPAN "$@";;
     wipe@(g|changed|touched))
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 "wipeto${gitCommand#wipe}" TIMESPAN "$@";;
+	timespanCommand -2 "wipeto${gitCommand#wipe}" TIMESPAN "$@";;
 
     base)
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --no-range -3 name-rev --name-only TIMESPAN "$@";;
+	timespanCommand --no-range -3 name-rev --name-only TIMESPAN "$@";;
     baselg)
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --no-range -2 lg1 TIMESPAN "$@";;
+	timespanCommand --no-range -2 lg1 TIMESPAN "$@";;
     bases)
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --no-range -2 show TIMESPAN "$@";;
+	timespanCommand --no-range -2 show TIMESPAN "$@";;
     pred)
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --no-range --one-more -3 name-rev --name-only TIMESPAN "$@";;
+	timespanCommand --no-range --one-more -3 name-rev --name-only TIMESPAN "$@";;
     predlg)
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --no-range --one-more -2 lg1 TIMESPAN "$@";;
+	timespanCommand --no-range --one-more -2 lg1 TIMESPAN "$@";;
     preds)
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION --no-range --one-more -2 show TIMESPAN "$@";;
+	timespanCommand --no-range --one-more -2 show TIMESPAN "$@";;
 
     cat|cp)
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 "${gitCommand}selectedonemore" TIMESPAN "$@";;
+	timespanCommand -2 "${gitCommand}selectedonemore" TIMESPAN "$@";;
 
     @(whatdid|changesetfiles|churn|who@(when|first|last|created|lasttouched|did?(f)|owns|contributed|what))thosefiles)
-	$EXEC git-revision-command --keep-position files-command --source-command "$scope files --revision REVISION" "${gitCommand%thosefiles}" "$@";;
+	filesCommand --source-command "$scope files --revision REVISION" "${gitCommand%thosefiles}" "$@";;
     @(who@(g|changed|touched))thosefiles)
-	$EXEC git-revision-command --keep-position files-command --except-last --source-command "$scope files --revision REVISION" "${gitCommand%thosefiles}" "$@";;
+	filesCommand --except-last --source-command "$scope files --revision REVISION" "${gitCommand%thosefiles}" "$@";;
     @(whatdid|churn|who@(when|first|last|created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what))here)
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 "${gitCommand%here}" TIMESPAN "$@";;
+	timespanCommand -2 "${gitCommand%here}" TIMESPAN "$@";;
     changesetfileshere@(st|i|I|samefiles)?(mine|others|team))
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 "changesetfiles${gitCommand#changesetfileshere}" TIMESPAN "$@";;
+	timespanCommand -2 "changesetfiles${gitCommand#changesetfileshere}" TIMESPAN "$@";;
     changesetfileshere@(st|i|I|samefiles)?(except)by)
-	gitCommand="changesetfiles${gitCommand#changesetfileshere}" othersCommand "$@";;
+	gitCommand="changesetfiles${gitCommand#changesetfileshere}" \
+	    othersCommand "$@";;
     changesetfileshere?(mine|others|team)passedfiles)
 	gitCommand="changesetfiles${gitCommand#changesetfileshere}"; gitCommand="${gitCommand%passedfiles}"
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -2 "$gitCommand" TIMESPAN "$@";;
+	timespanCommand -2 "$gitCommand" TIMESPAN "$@";;
     changesetfileshere?(except)bypassedfiles)
 	gitCommand="changesetfiles${gitCommand#changesetfileshere}"; gitCommand="${gitCommand%passedfiles}"
 	othersCommand "$@";;
     changesetfileshere?(mine|others|team))
-	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files${gitCommand#changesetfileshere}" $EXEC git-selected-command "$scope ${gitCommand}passedfiles" "$@";;
+	filesAppendix="${gitCommand#changesetfileshere}" \
+	    selectedFilesCommand "$scope ${gitCommand}passedfiles" "$@";;
     changesetfileshere?(except)by)
 	quotedAuthorsAndRange="$(gitCommand=quoted othersCommand "$@")" || exit $?
-	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files $quotedAuthorsAndRange" $EXEC git-selected-command "$scope changesetfilesherepassedfiles $quotedAuthorsAndRange --"
+	filesAppendix=" $quotedAuthorsAndRange" \
+	    selectedFilesCommand "$scope changesetfilesherepassedfiles $quotedAuthorsAndRange --"
 	;;
 
     activity?(mine|others|team))
 	$EXEC echo "Note: $gitCommand would just trim activity to ${scopeWhat}.";;
 
     emaillog)
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -3 email-command log TIMESPAN "$@";;
+	timespanCommand -3 email-command log TIMESPAN "$@";;
     emaillc)
-	$EXEC git-revision-command --keep-position "${scopeCommand:?}" --revision REVISION -3 email-command show TIMESPAN "$@";;
+	timespanCommand -3 email-command show TIMESPAN "$@";;
 
     '')	echo >&2 'ERROR: No GIT-COMMAND.'; echo >&2; printUsage "$0" >&2; exit 2;;
     *)	printf >&2 "ERROR: '%s' cannot be used with a %s scope.\\n" "$gitCommand" "$scope"; exit 2;;

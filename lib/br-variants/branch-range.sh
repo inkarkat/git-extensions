@@ -48,6 +48,33 @@ getPredCommit()
 	&& git merge-base "$endRange" "$range"
 }
 
+
+branchCommand()
+{
+    $EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" "$@"
+}
+branchWithRangeCommand()
+{
+    local gitCommand="${1:?}"; shift
+    branchCommand -2 "$gitCommand" RANGE "$@"
+}
+
+branchSelectedCommitCommand()
+{
+    branchCommand --keep-position selectedcommit-command "$@"
+}
+
+branchFilesCommand()
+{
+    branchCommand --keep-position files-command "$@"
+}
+
+compareRUrlCommand()
+{
+    local remote="${1:?}"; shift
+    $EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --real-branch-name --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rbrurl-compare-to-base --remote "$remote" --base "${scopeRevision:?}" --commit "${scopeEndRevision:?}" "${scopeCompareUrlArgs[@]}" "$@"
+}
+
 : ${EXEC:=exec}
 if [ $# -lt ${#scopeMandatoryArgs[@]} ]; then
     printf >&2 'ERROR: Required arguments missing: %s\n' "${scopeMandatoryArgs[*]}"
@@ -72,17 +99,17 @@ lg@(rel|tagged|st|i|I|samefiles)|\
 logfiles\
 )
 	typeset -a revRangeAdditionalArgs=(); [ "$gitCommand" = logfiles ] && revRangeAdditionalArgs=(--one-more-with-padding)
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --one-more-command greyonelinelog --one-more-only-to-terminal "${revRangeAdditionalArgs[@]}" -2 "$gitCommand" RANGE "$@";;
+	branchCommand --one-more-command greyonelinelog --one-more-only-to-terminal "${revRangeAdditionalArgs[@]}" -2 "$gitCommand" RANGE "$@";;
     (\
 log?([fv]|merges)|\
 log?(v)@(st|i|I|samefiles)?(mine|others|team)|\
 lc?([fh]|@(st|i|I|samefiles))?(mine|others|team)\
 )
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal -2 "$gitCommand" RANGE "$@";;
+	branchCommand --one-more-command greylog --one-more-with-padding --one-more-only-to-terminal -2 "$gitCommand" RANGE "$@";;
     lghi?(st|i|I|samefiles))
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --one-more-command "greyonelineloghighlight $gitCommand" --one-more-only-to-terminal -2 "$gitCommand" RANGE "$@";;
+	branchCommand --one-more-command "greyonelineloghighlight $gitCommand" --one-more-only-to-terminal -2 "$gitCommand" RANGE "$@";;
     lghicommits)
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --one-more-command "greyonelineloghighlight $gitCommand" --one-more-only-to-terminal -3 "$gitCommand" --range RANGE "$@";;
+	branchCommand --one-more-command "greyonelineloghighlight $gitCommand" --one-more-only-to-terminal -3 "$gitCommand" --range RANGE "$@";;
 
     (\
 @(@(log?(v)|show)@(last|first)?(f)|lc?(l)?(f)|l?(o)g?([fv])|count)@(g|changed|touched)?(mine|others|team)|\
@@ -105,32 +132,32 @@ detach@(g|changed|touched)|\
 commitage|datediff|\
 subchanges|superchanges|subrevl@(?(o)g|c)\
 )
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -2 "$gitCommand" RANGE "$@";;
+	branchWithRangeCommand "$gitCommand" "$@";;
 
     lgx)
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -2 lg RANGE "$@";;
+	branchWithRangeCommand lg "$@";;
 
     d?([lbwcayYrt]|rl)|d?(ed)sta?(t)|@(ad|ov)|subrevdiff)
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --with-range ... -2 "$gitCommand" RANGE "$@";;
+	branchCommand --with-range ... -2 "$gitCommand" RANGE "$@";;
     ds)
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --keep-position files-command --source-exec showfiles RANGE \; diffselected --log-range RANGE "$@";;
+	branchFilesCommand --source-exec showfiles RANGE \; diffselected --log-range RANGE "$@";;
     dss)
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --keep-position selectedcommit-command --single-only --with-range-from-end ^... --range-is-last -3 diff COMMITS RANGE "$@";;
+	branchSelectedCommitCommand --single-only --with-range-from-end ^... --range-is-last -3 diff COMMITS RANGE "$@";;
     dsta?(t)byeach)
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -2 "log${gitCommand#d}" RANGE "$@";;
+	branchWithRangeCommand "log${gitCommand#d}" "$@";;
     @(ad|ov)p)
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --keep-position selectedcommit-command --single-only --range-is-last -3 "$gitCommand" COMMITS RANGE "$@";;
+	branchSelectedCommitCommand --single-only --range-is-last -3 "$gitCommand" COMMITS RANGE "$@";;
     ma)
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -2 format-patch RANGE "$@";;
+	branchWithRangeCommand format-patch "$@";;
     repomove)
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" reporangemove "$@";;
+	branchCommand reporangemove "$@";;
 
     @(files|submodules)?(mine|others|team))
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -2 "show$gitCommand" RANGE "$@";;
+	branchWithRangeCommand "show$gitCommand" "$@";;
     @(files|submodules)?(except)by)
 	gitCommand="show$gitCommand" othersCommand "$@";;
     subdo)
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --keep-position files-command --source-exec showfiles RANGE \; --keep-position subdo --for FILES \; "$@";;
+	branchFilesCommand --source-exec showfiles RANGE \; --keep-position subdo --for FILES \; "$@";;
 
     inout|io?(files|submodules)|ab)
 	if [ -n "$scopeInoutNote" ]; then
@@ -141,7 +168,7 @@ subchanges|superchanges|subrevl@(?(o)g|c)\
 	;;
 
     revive)
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -3 "$gitCommand" --all RANGE "$@";;
+	branchCommand -3 "$gitCommand" --all RANGE "$@";;
 
 	(\
 l?(h|g|og)?(except)by|\
@@ -157,34 +184,37 @@ activity?(except)by\
 	othersCommand "$@"
 	;;
     @(show|tree)[ou]url?(f))
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --keep-position selectedcommit-command --range-is-last -3 "$gitCommand" COMMITS RANGE "$@";;
+	branchSelectedCommitCommand --range-is-last -3 "$gitCommand" COMMITS RANGE "$@";;
     compareourl)
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --real-branch-name --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rbrurl-compare-to-base --remote origin --base "${scopeRevision:?}" --commit "${scopeEndRevision:?}" "${scopeCompareUrlArgs[@]}" "$@";;
+	compareRUrlCommand origin "$@";;
     compareuurl)
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --real-branch-name --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rbrurl-compare-to-base --remote upstream --base "${scopeRevision:?}" --commit "${scopeEndRevision:?}" "${scopeCompareUrlArgs[@]}" "$@";;
+	compareRUrlCommand upstream "$@";;
     lghipassedfiles)
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --one-more-command 'greyonelineloghighlight lghighlight' --one-more-only-to-terminal -2 lghifiles RANGE "$@";;
+	branchCommand --one-more-command 'greyonelineloghighlight lghighlight' --one-more-only-to-terminal -2 lghifiles RANGE "$@";;
     lghifiles)
-	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope lghipassedfiles" "$@";;
+	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" \
+	    $EXEC git-selected-command "$scope lghipassedfiles" "$@";;
     lgfiles?(mine|others|team))
-	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope ${gitCommand#lgfiles}files" $EXEC git-selected-command "$scope lg${gitCommand#lgfiles}" "$@";;
+	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope ${gitCommand#lgfiles}files" \
+	    $EXEC git-selected-command "$scope lg${gitCommand#lgfiles}" "$@";;
     lgfiles?(except)by)
 	quotedAuthorsAndRange="$(gitCommand=quoted othersCommand "$@")" || exit $?
-	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files $quotedAuthorsAndRange" $EXEC git-selected-command "onelinelog $quotedAuthorsAndRange --"
+	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files $quotedAuthorsAndRange" \
+	    $EXEC git-selected-command "onelinelog $quotedAuthorsAndRange --"
 	;;
     files@(l?(o)g|logv|lc|logfiles))
 	# Logs of files modified in the additions of the branch starting from before it.
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -3 showfiles-command --revision RANGE "${gitCommand#files}" "$scopeRevision" "$@";;
+	branchCommand -3 showfiles-command --revision RANGE "${gitCommand#files}" "$scopeRevision" "$@";;
 
     revert)
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -2 revertselectedcommit RANGE "$@";;
+	branchWithRangeCommand revertselectedcommit "$@";;
     revert@(files|hunk))
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -2 "revertselected${gitCommand#revert}" RANGE "$@";;
+	branchWithRangeCommand "revertselected${gitCommand#revert}" "$@";;
     showfiles)
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -2 showselectedfiles RANGE "$@";;
+	branchWithRangeCommand showselectedfiles "$@";;
 
     fix@(up|amend|wording)rb)
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -2 "${gitCommand%rb}selectedrb" RANGE "$@";;
+	branchWithRangeCommand "${gitCommand%rb}selectedrb" "$@";;
 
     rb)
 	if [ "$scopeRevision" = BRANCH ]; then
@@ -194,7 +224,7 @@ activity?(except)by\
 	fi
 	;;
     rbcheck)
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -- rebasecheck "$@" --check-range;;
+	branchCommand -- rebasecheck "$@" --check-range;;
     check|command|exec|sedreword|rewordaddprefix|rewordremovescope)
 	source "${libDir:?}/rebase.sh.part" "$@"
 	;&
@@ -203,71 +233,80 @@ activity?(except)by\
 	    $EXEC echo "Note: ${gitCommand} is a no-op, because it always yields HEAD as the starting point."
 	else
 	    typeset -a segregateArgs=(); [[ "$gitCommand" =~ ^segregate ]] && segregateArgs=(--explicit-file-args)  # Avoid that the second argument of --path PATH-GLOB is parsed off as a FILE for commit selection.
-	    $EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --keep-position selectedcommit-command --single-only --range-is-last "${segregateArgs[@]}" -5 previouscommit-command --commit COMMITS "$gitCommand" RANGE "$@"
+	    branchSelectedCommitCommand --single-only --range-is-last "${segregateArgs[@]}" -5 previouscommit-command --commit COMMITS "$gitCommand" RANGE "$@"
 	fi
 	;;
     rblastfixup)
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --one-more -2 "$gitCommand" RANGE "$@";;
+	branchCommand --one-more -2 "$gitCommand" RANGE "$@";;
     move-to-branch)
 	$EXEC git "${scopeCommand[@]}" ${scopeCommand:+-4} uncommit-to-branch --exclude-commit --from "${scopeRevision:?}" "$@";;
     uncommit-to-stash)
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --keep-position selectedcommit-command --pass-file-args --range-is-last -5 "$gitCommand" --commits COMMITS \; RANGE "$@";;
+	branchSelectedCommitCommand --pass-file-args --range-is-last -5 "$gitCommand" --commits COMMITS \; RANGE "$@";;
     uncommit-to-branch)
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --keep-position selectedcommit-command --single-only --range-is-last -4 "$gitCommand" --from COMMITS RANGE "$@";;
+	branchSelectedCommitCommand --single-only --range-is-last -4 "$gitCommand" --from COMMITS RANGE "$@";;
 
     (\
 createbr|stackbrfrom|reset[mn]|\
 revertcommit|\
 @(correct|fix@(up|amend|wording))|commit@(identical|like|relate)|amendrelate\
 )
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -2 "${gitCommand}selected" RANGE "$@";;
+	branchWithRangeCommand "${gitCommand}selected" "$@";;
     detach)
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --one-more -2 "${gitCommand}selected" RANGE "$@";;  # Note: --one-more to be able to select one beyond the range.
+	branchCommand --one-more -2 "${gitCommand}selected" RANGE "$@";;  # Note: --one-more to be able to select one beyond the range.
     wipe)
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --one-more -2 "${gitCommand}toselected" RANGE "$@";;	# Note: --one-more to be able to select one beyond the range.
+	branchCommand --one-more -2 "${gitCommand}toselected" RANGE "$@";;	# Note: --one-more to be able to select one beyond the range.
     wipe@(g|changed|touched))
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -2 "wipeto${gitCommand#wipe}" RANGE "$@";;
+	branchWithRangeCommand "wipeto${gitCommand#wipe}" "$@";;
 
-    base?(lg|s))
-	typeset -A mapping=([base]=lh [baselg]=onelinelog [bases]=show)
-	GIT_RNLOG_COMMAND="${mapping["$gitCommand"]}" \
-	    $EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -2 logfirst RANGE "$@"
-	;;
-    pred?(lg|s))
-	typeset -A mapping=([pred]=echo [predlg]=lg1 [preds]=show)
-	$EXEC git "${mapping["$gitCommand"]}" "$predCommit"
-	;;
+    base)
+	GIT_RNLOG_COMMAND=lh \
+	    branchCommand -2 logfirst RANGE "$@";;
+    baselg)
+	GIT_RNLOG_COMMAND=onelinelog \
+	    branchCommand -2 logfirst RANGE "$@";;
+    bases)
+	GIT_RNLOG_COMMAND=show \
+	    branchCommand -2 logfirst RANGE "$@";;
+    pred)
+	$EXEC git echo "$predCommit";;
+    predlg)
+	$EXEC git lg1 "$predCommit";;
+    preds)
+	$EXEC git show "$predCommit";;
 
     cat|cp)
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -2 "${gitCommand}selectedonemore" RANGE "$@";;
+	branchWithRangeCommand "${gitCommand}selectedonemore" "$@";;
 
     @(whatdid|changesetfiles|churn|who@(when|first|last|created|lasttouched|did?(f)|owns|contributed|what))thosefiles)
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --keep-position files-command --source-exec showfiles RANGE \; "${gitCommand%thosefiles}" "$@";;
+	branchFilesCommand --source-exec showfiles RANGE \; "${gitCommand%thosefiles}" "$@";;
     @(who@(g|changed|touched))thosefiles)
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" --keep-position files-command --except-last --source-exec showfiles RANGE \; "${gitCommand%thosefiles}" "$@";;
+	branchFilesCommand --except-last --source-exec showfiles RANGE \; "${gitCommand%thosefiles}" "$@";;
     @(whatdid|churn|who@(when|first|last|created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what))here)
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -2 "${gitCommand%here}" RANGE "$@";;
+	branchWithRangeCommand "${gitCommand%here}" "$@";;
     changesetfileshere@(st|i|I|samefiles)?(mine|others|team))
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -2 "changesetfiles${gitCommand#changesetfileshere}" RANGE "$@";;
+	branchWithRangeCommand "changesetfiles${gitCommand#changesetfileshere}" "$@";;
     changesetfileshere@(st|i|I|samefiles)?(except)by)
-	gitCommand="changesetfiles${gitCommand#changesetfileshere}" othersCommand "$@";;
+	gitCommand="changesetfiles${gitCommand#changesetfileshere}" \
+	    othersCommand "$@";;
     changesetfileshere?(mine|others|team)passedfiles)
 	gitCommand="changesetfiles${gitCommand#changesetfileshere}"; gitCommand="${gitCommand%passedfiles}"
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -2 "$gitCommand" RANGE "$@";;
+	branchWithRangeCommand "$gitCommand" "$@";;
     changesetfileshere?(except)bypassedfiles)
 	gitCommand="changesetfiles${gitCommand#changesetfileshere}"; gitCommand="${gitCommand%passedfiles}"
 	othersCommand "$@";;
     changesetfileshere?(mine|others|team))
-	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files${gitCommand#changesetfileshere}" $EXEC git-selected-command "$scope ${gitCommand}passedfiles" "$@";;
+	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files${gitCommand#changesetfileshere}" \
+	    $EXEC git-selected-command "$scope ${gitCommand}passedfiles" "$@";;
     changesetfileshere?(except)by)
 	quotedAuthorsAndRange="$(gitCommand=quoted othersCommand "$@")" || exit $?
-	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files $quotedAuthorsAndRange" $EXEC git-selected-command "$scope changesetfilesherepassedfiles $quotedAuthorsAndRange --"
+	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files $quotedAuthorsAndRange" \
+	    $EXEC git-selected-command "$scope changesetfilesherepassedfiles $quotedAuthorsAndRange --"
 	;;
 
     emaillog)
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -3 email-command log RANGE "$@";;
+	branchCommand -3 email-command log RANGE "$@";;
     emaillc)
-	$EXEC git-branch-command "${branchCommandAdditionalArgs[@]}" --keep-position "${scopeCommand[@]}" ${scopeCommand:+--keep-position} rev-range --revision "${scopeRevision:?}" --end-revision "${scopeEndRevision:?}" -3 email-command lc RANGE "$@";;
+	branchCommand -3 email-command lc RANGE "$@";;
 
     '')	echo >&2 'ERROR: No GIT-COMMAND.'; echo >&2; printUsage "$0" >&2; exit 2;;
     *)	printf >&2 "ERROR: '%s' cannot be used with a %s scope.\\n" "$gitCommand" "$scope"; exit 2;;

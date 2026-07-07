@@ -27,6 +27,12 @@ case "$1" in
     --color)		colorArg=("$1" "$2"); shift; shift;;
 esac
 
+aggregateWithRangeCommand()
+{
+    local gitCommand="${1:?}"; shift
+    $EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -2 "$gitCommand" RANGE "$@"
+}
+
 withAggregateSelectedFiles()
 {
     # FIXME: Extract FILE arguments and pass them to the source command.
@@ -171,20 +177,21 @@ move-to-branch|uncommit-to-stash|uncommit-to-branch\
     @(who@(g|changed|touched))thosefiles)
 	withAggregateFiles --except-last "${gitCommand%thosefiles}" "$@";;
     @(whatdid|churn|who@(when|first|last|created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what))here)
-	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -2 "${gitCommand%here}" RANGE "$@";;
+	aggregateWithRangeCommand "${gitCommand%here}" "$@";;
     changesetfileshere@(st|i|I|samefiles)?(mine|others|team))
 	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -2 "changesetfiles${gitCommand#changesetfileshere}" RANGE "$@";;
     changesetfileshere@(st|i|I|samefiles)?(except)by)
 	gitCommand="changesetfiles${gitCommand#changesetfileshere}" othersCommand "$@";;
     changesetfileshere?(mine|others|team)passedfiles)
 	gitCommand="changesetfiles${gitCommand#changesetfileshere}"; gitCommand="${gitCommand%passedfiles}"
-	$EXEC git-"${scopeCommand[@]}" "${argsForLogScopeCommands[@]}" -2 "$gitCommand" RANGE "$@";;
+	aggregateWithRangeCommand "$gitCommand" "$@";;
     changesetfileshere?(except)bypassedfiles)
 	gitCommand="changesetfiles${gitCommand#changesetfileshere}"; gitCommand="${gitCommand%passedfiles}"
 	othersCommand "$@";;
     changesetfileshere?(mine|others|team))
 	quotedArgs=; [ $# -eq 0 ] || printf -v quotedArgs ' %q' "$@"
-	aggregateFilesSuffix="${gitCommand#changesetfileshere}" withAggregateSelectedFiles "$scope changesetfilesherepassedfiles${quotedArgs}";;
+	aggregateFilesSuffix="${gitCommand#changesetfileshere}" \
+	    withAggregateSelectedFiles "$scope changesetfilesherepassedfiles${quotedArgs}";;
     changesetfileshere?(except)by)
 	quotedAuthorsAndRange="$(gitCommand=quoted othersCommand "$@")" || exit $?
 	withAggregateSelectedFiles "$scope changesetfilesherepassedfiles${quotedAuthorsAndRange}";;

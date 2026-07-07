@@ -195,7 +195,7 @@ activity?(except)by\
 	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" \
 	    $EXEC git-selected-command "$scope lghipassedfiles" "$@";;
     lgfiles?(mine|others|team))
-	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope ${gitCommand#lgfiles}files" \
+	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files${gitCommand#lgfiles}" \
 	    $EXEC git-selected-command "$scope lg${gitCommand#lgfiles}" "$@";;
     lgfiles?(except)by)
 	quotedAuthorsAndRange="$(gitCommand=quoted othersCommand "$@")" || exit $?

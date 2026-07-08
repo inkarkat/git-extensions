@@ -1,6 +1,39 @@
 #!/bin/bash
 
 : ${GIT_BLAME_IGNORE_REVS_FILE=.git-blame-ignore-revs}
+: ${GIT_ANNOTATE_COMMAND_JOINER=|}
+: ${GIT_ANNOTATE_EXEC_END=;}
+
+postProcessCommands=
+typeset -a annotateArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+
+	--post-process-exec)
+			shift
+			cmd=
+			while [ $# -gt 0 -a "$1" != "$GIT_ANNOTATE_EXEC_END" ]
+			do
+			    printf -v quotedArg %q "$1"
+			    cmd+="${cmd:+ }${quotedArg}"
+			    shift
+			done
+			if [ $# -eq 0 ]; then
+			    echo "ERROR: --post-process-exec command must be concluded with '${GIT_ANNOTATE_EXEC_END}'"; echo; printUsage "$0"
+			    exit 2
+			fi >&2
+			shift
+			postProcessCommands+="${postProcessCommands:+ $GIT_ANNOTATE_COMMAND_JOINER }${cmd}"
+			;;
+	--)		break;;
+	*)		annotateArgs+=("$1"); shift;;
+    esac
+done
 
 root="$(git rev-parse --show-toplevel)" || exit 3
 blameIgnoreRevsFilespec="${root}/${GIT_BLAME_IGNORE_REVS_FILE}"
@@ -16,4 +49,5 @@ if [ -r "$blameIgnoreRevsFilespec" ]; then
 fi
 
 eval "typeset -a gitConfigArgs=($GIT_CONFIG_ARGS)"
-exec git "${gitConfigArgs[@]}" ${GIT_ANNOTATE_COMMAND:-annotate} "${ignoreRevsFileArgs[@]}" "$@"
+eval 'git "${gitConfigArgs[@]}" ${GIT_ANNOTATE_COMMAND:-annotate} "${ignoreRevsFileArgs[@]}" "${annotateArgs[@]}" "$@"' \
+    "${postProcessCommands:+|}$postProcessCommands"

@@ -88,9 +88,11 @@ case ${#files[@]} in
     *)	tempDirspec="$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || { dirspec="${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM"; mkdir --parents -- "$dirspec" && printf %s "$dirspec"; })" || exit 3
 	[ "${DEBUG:-}" ] || trap 'rm -rf -- "$tempDirspec" 2>/dev/null' EXIT
 	[ "$PAGER" = smartless ] && PAGER=less	# smartless does not page small outputs that fit the terminal, but we explicitly want to page through each file separately.
+	let count=0
 	for filespec in "${files[@]}"
 	do
-	    annotateFile "$filespec" > "${tempDirspec}/$(basename -- "$filespec")"
+	    printf -v tempFilespec '%s/%04d-%s' "$tempDirspec" $((++count)) "$(basename -- "$filespec")"
+	    annotateFile "$filespec" > "$tempFilespec"
 	done
 	"${PAGER:-less}" --RAW-CONTROL-CHARS "${tempDirspec}"/*
 esac

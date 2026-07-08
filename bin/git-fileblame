@@ -8,31 +8,49 @@ printUsage()
     cat <<HELPTEXT
 Show author name and last date for each file.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--] [<pathspec>...] [-?|-h|--help]'
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-t] [--] [<pathspec>...] [-?|-h|--help]'
 }
 
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
-			shift;;
-    --color)		shift; shift;;
-    -t)			shift; additionalSort='%at'; additionalSorter="sort --reverse --numeric-sort --key 1 | sed 's/^[0-9]\\+[[:space:]]\\+//'";;
-esac
+isColor=t
+typeset -a colorArg=(--color=always)
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
+typeset -a formatter=(column -s $'\t' -t)
+if [ ! -t 1 ]; then
+    isColor=
+    colorArg=()
+    pager=()
+    formatter=()
+fi
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=never)
+			colorArg=("$1"); shift; isColor=;;
+	--color=always)	colorArg=("$1"); shift; isColor=t;;
+	--color=*)	colorArg=("$1"); shift;;
+	--color)	[ "$2" = auto ] || colorArg=("$1" "$2"); case "$2" in never) isColor=;; always) isColor=t;; esac; shift; shift;;
 
+	-t)		shift; additionalSort='%at'; additionalSorter="sort --reverse --numeric-sort --key 1 | sed 's/^[0-9]\\+[[:space:]]\\+//'";;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+FORMAT="%C(cyan)${GIT_ONELINELOG_PREHASH-$GIT_PRETTY_PREHASH}%h${GIT_ONELINELOG_POSTHASH-$GIT_PRETTY_POSTHASH}%Creset %Cgreen(%aN (${GIT_ONELINELOG_DATEFORMAT:-%ar})%Creset {}"
+if [ ! "$isColor" ]; then
+    FORMAT=${FORMAT//%C\(+([^\)])\)/}
+    FORMAT=${FORMAT//%C+([a-z])/}
+fi
 
 fileBlame()
 {
     git ls-files "$@" \
-	| xargs --no-run-if-empty --delimiter '\n' -n 1 -I {} git log --max-count 1 --pretty=tformat:"${additionalSort}${additionalSort:+ }%h %aN (%ar)	{}" -- {} \
+	| xargs --no-run-if-empty --delimiter '\n' -n 1 -I {} \
+	    git log "${colorArg[@]}" --max-count 1 --pretty=tformat:"${additionalSort}${additionalSort:+ }$FORMAT" -- {} \
 	| column -s $'\t' -t
 }
-
-typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS)
-typeset -a formatter=(column -s $'\t' -t)
-if [ ! -t 1 ]; then
-    pager=()
-    formatter=()
-fi
 
 eval 'fileBlame "$@"' \
     "${additionalSorter:+|}${additionalSorter}" \

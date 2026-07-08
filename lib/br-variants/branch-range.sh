@@ -274,8 +274,8 @@ revertcommit|\
     preds)
 	$EXEC git show "$predCommit";;
 
-    cat|cp)
-	branchWithRangeCommand "${gitCommand}selectedonemore" "$@";;
+    @(cat|cp)?(p))
+	branchWithRangeCommand "${gitCommand}selected" "$@";;
 
     @(whatdid|changesetfiles|churn|who@(when|first|last|created|lasttouched|did?(f)|owns|contributed|what))thosefiles)
 	branchFilesCommand --source-exec showfiles RANGE \; "${gitCommand%thosefiles}" "$@";;

@@ -285,8 +285,8 @@ revertcommit|\
     preds)
 	scopeCommand --no-range --one-more -2 show RANGE "$@";;
 
-    cat|cp)
-	customRangeWithRangeCommand "${gitCommand}selectedonemore" "$@";;
+    @(cat|cp)?(p))
+	customRangeWithRangeCommand "${gitCommand}selected" "$@";;
 
     @(whatdid|changesetfiles|churn|who@(when|first|last|created|lasttouched|did?(f)|owns|contributed|what))thosefiles)
 	withScoped files '' "${gitCommand%thosefiles}" "$@";;

@@ -137,7 +137,7 @@ correct|commit@(identical|like|relate|continue)|amendrelate\
     (\
 @(ad|ov)p|\
 createbr|stackbrfrom|reset[mn]|detach|wipe|\
-cat|cp\
+@(cat|cp)?(p)\
 )
 	withAggregateCommit --single-only "$gitCommand" "$@";;
 

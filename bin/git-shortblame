@@ -16,25 +16,20 @@ spaces with "_", so that it can be matched and operated on in an easier way.
 Subversion), which don't allow spaces in the author name.)
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[ANNOTATE-ARGS ...] file [revision] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[ANNOTATE-ARGS ...] [<revision>] [--] <pathspec>... [-?|-h|--help]'
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
-			shift;;
-    --color)		shift; shift;;
 esac
 
-annotate()
-{
-    # -w ignores whitespace
-    # -M detects moving lines in the file
-    # -C detects moving lines into other files
-    # -t uses raw timestamps; which are easiest to parse
-    git-wrapper annotate -w -M -C -t "$@" | perl \
+# -w ignores whitespace
+# -M detects moving lines in the file
+# -C detects moving lines into other files
+# -t uses raw timestamps; which are easiest to parse
+exec git-wrapper annotate -w -M -C -t \
+    --post-process-exec \
+	perl \
 	-e 'sub fix { my $arg = shift; $arg =~ s/ /_/g; return sprintf("%-14.14s", $arg); }' \
-	-lpe 's/^([^\t]*)\t\(([^\t]+)\t\d+ [+-]\d+\t+\d+\)/$1 . " " . fix($2) . $3 . ") "/e'
-}
-
-typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
-eval 'annotate "$@"' "${pager:+|}" '"${pager[@]}"'
+	-lpe 's/^([^\t]*)\t\(([^\t]+)\t\d+ [+-]\d+\t+\d+\)/$1 . " " . fix($2) . $3 . ") "/e' \
+	\; \
+    "$@"

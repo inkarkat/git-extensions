@@ -1,6 +1,56 @@
 #!/bin/bash
+set -o pipefail
+shopt -qs nullglob
 
 : ${GIT_BLAME_IGNORE_REVS_FILE=.git-blame-ignore-revs}
+: ${GIT_ANNOTATE_COMMAND_JOINER=|}
+: ${GIT_ANNOTATE_EXEC_END=;}
+
+postProcessCommands=
+typeset -a annotateArgs=()
+unset files
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-color|--color=*)
+			shift;;
+	--color)	shift; shift;;
+
+	--post-process-exec)
+			shift
+			cmd=
+			while [ $# -gt 0 -a "$1" != "$GIT_ANNOTATE_EXEC_END" ]
+			do
+			    printf -v quotedArg %q "$1"
+			    cmd+="${cmd:+ }${quotedArg}"
+			    shift
+			done
+			if [ $# -eq 0 ]; then
+			    echo "ERROR: --post-process-exec command must be concluded with '${GIT_ANNOTATE_EXEC_END}'"; echo; printUsage "$0"
+			    exit 2
+			fi >&2
+			shift
+			postProcessCommands+="${postProcessCommands:+ $GIT_ANNOTATE_COMMAND_JOINER }${cmd}"
+			;;
+	--)		shift; typeset -a files=("$@"); set --; break;;
+	*)		annotateArgs+=("$1"); shift;;
+    esac
+done
+if [ -z "${files+t}" ]; then
+    # No files after -- captured yet; need to investigate parsed and
+    # remaining args from behind for files.
+    typeset -a files=()
+    annotateArgs+=("$@")
+    while [ ${#annotateArgs[@]} -ne 0 ]
+    do
+	lastArg="${annotateArgs[-1]}"
+	[ -e "$lastArg" ] || break
+
+	files=("$lastArg" "${files[@]}")
+	annotateArgs=("${annotateArgs[@]:0:${#annotateArgs[@]}-1}")
+    done
+fi
 
 root="$(git rev-parse --show-toplevel)" || exit 3
 blameIgnoreRevsFilespec="${root}/${GIT_BLAME_IGNORE_REVS_FILE}"
@@ -16,4 +66,26 @@ if [ -r "$blameIgnoreRevsFilespec" ]; then
 fi
 
 eval "typeset -a gitConfigArgs=($GIT_CONFIG_ARGS)"
-exec git "${gitConfigArgs[@]}" ${GIT_ANNOTATE_COMMAND:-annotate} "${ignoreRevsFileArgs[@]}" "$@"
+annotateFile()
+{
+    eval 'git "${gitConfigArgs[@]}" ${GIT_ANNOTATE_COMMAND:-annotate} "${ignoreRevsFileArgs[@]}" "${annotateArgs[@]}" -- "$@"' \
+	"${postProcessCommands:+|}$postProcessCommands"
+}
+
+case ${#files[@]} in
+    0)	echo >&2 'ERROR: No <pathspec> passed.'
+	exit 2
+	;;
+    1)	typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+	eval 'annotateFile "${files[0]}"' \
+	    "${pager:+|}" '"${pager[@]}"'
+	;;
+    *)	tempDirspec="$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || { dirspec="${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM"; mkdir --parents -- "$dirspec" && printf %s "$dirspec"; })" || exit 3
+	[ "${DEBUG:-}" ] || trap 'rm -rf -- "$tempDirspec" 2>/dev/null' EXIT
+	[ "$PAGER" = smartless ] && PAGER=less	# smartless does not page small outputs that fit the terminal, but we explicitly want to page through each date range separately.
+	for filespec in "${files[@]}"
+	do
+	    annotateFile "$filespec" > "${tempDirspec}/$(basename -- "$filespec")"
+	done
+	"${PAGER:-less}" --RAW-CONTROL-CHARS "${tempDirspec}"/*
+esac

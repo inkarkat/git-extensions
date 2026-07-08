@@ -47,7 +47,12 @@ if [ -z "${files+t}" ]; then
 	lastArg="${annotateArgs[-1]}"
 	[ -e "$lastArg" ] || break
 
-	files=("$lastArg" "${files[@]}")
+	if [ -d "$lastArg" ]; then
+	    readarray -t containedFiles < <(git-ls --recursive --only-files -- "$lastArg")
+	    files=("${containedFiles[@]}" "${files[@]}")
+	else
+	    files=("$lastArg" "${files[@]}")
+	fi
 	annotateArgs=("${annotateArgs[@]:0:${#annotateArgs[@]}-1}")
     done
 fi

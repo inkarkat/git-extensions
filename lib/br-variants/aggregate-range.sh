@@ -131,7 +131,7 @@ activity?(except)by\
 @(show|tree)[ou]url?(f)|\
 co[pr]s?(s)|\
 revert?(commit)|\
-correct|commit@(identical|like|relate)|amendrelate\
+correct|commit@(identical|like|relate|continue)|amendrelate\
 )
 	withAggregateCommit "$gitCommand" "$@";;
     (\

@@ -127,7 +127,7 @@ sls?(g|changed|touched)|\
 dp[sg]|dpl?(s)[sg]|dpls@(changed|touched)|\
 co[pr]s?(s)|\
 revert@(g|changed|touched|commit@(g|changed|touched))|\
-@(correct|fix@(up|amend|wording)|commit@(identical|like|relate)|amendrelate)@(g|changed|touched|st|i|I)|\
+@(correct|fix@(up|amend|wording)|commit@(identical|like|relate|continue)|amendrelate)@(g|changed|touched|st|i|I)|\
 detach@(g|changed|touched)|\
 commitage|datediff|\
 subchanges|superchanges|subrevl@(?(o)g|c)\
@@ -248,7 +248,7 @@ activity?(except)by\
     (\
 createbr|stackbrfrom|reset[mn]|\
 revertcommit|\
-@(correct|fix@(up|amend|wording))|commit@(identical|like|relate)|amendrelate\
+@(correct|fix@(up|amend|wording))|commit@(identical|like|relate|continue)|amendrelate\
 )
 	branchWithRangeCommand "${gitCommand}selected" "$@";;
     detach)

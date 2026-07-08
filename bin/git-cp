@@ -3,11 +3,12 @@
 printUsage()
 {
     cat <<HELPTEXT
-Retrieve the contents of <pathspec> as it exists in revision <ref> and save it
-as <pathspec>.<ref> (or override with -O|--override, or <target> if given).
+Retrieve the contents of <pathspec> as it exists in revision <revision> and save
+it as <pathspec>.<revision> (or override with -O|--override, or <target> if
+given).
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-O|--override] <ref> [--] <pathspec> [to <target>] [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-O|--override] <revision> [--] (<pathspec> [to <target>]) [...] [-?|-h|--help]'
 }
 
 isOverride=
@@ -24,9 +25,9 @@ if [ $# -lt 2 ]; then
 fi
 
 
-ref="$1"; shift
+revision="$1"; shift
 [ "$1" = -- ] && shift
-commitId=$(git-commitid "$ref") || exit $?
+commitId=$(git-commitid "$revision") || exit $?
 
 status=0
 while [ $# -ne 0 ]
@@ -38,7 +39,7 @@ do
     elif [ "$isOverride" ]; then
 	target="$path"
     else
-	target="${path}.${ref}"
+	target="${path}.${revision}"
     fi
 
     git show "${commitId}:$path" > "$target" || status=$?

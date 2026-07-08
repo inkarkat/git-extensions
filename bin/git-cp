@@ -4,7 +4,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-O|--override] [-r|--revision] <commit> [--] (<pathspec> [to <target>]) [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-O|--override] [--previous] [-r|--revision] <commit> [--] (<pathspec> [to <target>]) [...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -25,9 +25,13 @@ HELPDESCRIPTION
     echo
     printShortUsage "$1"
     echo
+    cat <<HELPTEXT
+    --previous		Retrieve the commit prior to <commit> / HEAD^.
+HELPTEXT
 }
 
 revision=
+commitSuffix=
 isOverride=
 while [ $# -ne 0 ]
 do
@@ -37,6 +41,7 @@ do
 			shift;;
 	--color)	shift; shift;;
 	--revision|-r)	shift; revision="${1:?}"; shift;;
+	--previous)	shift; commitSuffix='^';;
 	--override|-O)	shift; isOverride=t;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
@@ -55,7 +60,7 @@ if [ -z "$revision" ]; then
     exit 2
 fi >&2
 
-commitId=$(git-commitid "$revision") || exit $?
+commitId=$(git-commitid "${revision}${commitSuffix}") || exit $?
 
 status=0
 while [ $# -ne 0 ]
@@ -67,7 +72,7 @@ do
     elif [ "$isOverride" ]; then
 	target="$path"
     else
-	target="${path}.${revision}"
+	target="${path}.${revision}${commitSuffix}"
     fi
 
     git show "${commitId}:$path" > "$target" || status=$?

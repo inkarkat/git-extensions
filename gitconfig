@@ -68,7 +68,7 @@
 	;; istag: Test whether <commit> is a tag reference (or some other ref).
 	;; istagged: Test whether the current commit / REVISION in the working copy / passed <pathspec> directly refers to a tagged commit.
 
-	;; cat: Retrieve the contents of <pathspec> as it exists in <revision>.
+	;; cat: Retrieve the contents of <pathspec> as it exists in <commit>.
 	catst = stfiles-command catrevisionselected
 	cati = stifiles-command catrevisionselected
 	cat-i = stIfiles-command catrevisionselected
@@ -90,14 +90,35 @@
 	catchanged = selectedchangedcommit-command --single-only --pass-file-args -2 catrevisionselected COMMITS	; Retrieve the contents of selected files [in <pathspec>] as it exists in the commit interactively chosen from the commits where the actual diff; i.e. those filepairs whose preimage and postimage have different number of occurrences of the text or /regexp/.
 	cattouched = selectedtouchedcommit-command --single-only --pass-file-args -2 catrevisionselected COMMITS	; Retrieve the contents of selected files [in <pathspec>] as it exists in the commit interactively chosen from the commits where in the diff the text or /regexp/ matches, without necessarily changing the number of occurrences themselves.
 
-	;; cp: Retrieve the contents of selected files [in <pathspec>] as it exists in revision <revision> and save it as <pathspec>.<revision> (or override with -O|--override, or <target> if given).
+	catp = cat --previous	; Retrieve the contents of <pathspec> as it exists prior to passed <commit> / HEAD.
+	catpst = stfiles-command catrevisionselected --previous
+	catpi = stifiles-command catrevisionselected --previous
+	catp-i = stIfiles-command catrevisionselected --previous
+	catpsamefiles = showfiles-command catrevisionselected --previous
+	catpselected = selectedcommit-command --single-only --pass-file-args -3 catrevisionselected --previous COMMITS	; Retrieve the contents of selected files [in <pathspec>] as it exists in the commit interactively chosen from the commits in the passed <range>.
+	catpselectedonemore = selectedcommit-command --single-only --pass-file-args --one-more -3 catrevisionselected --previous COMMITS	; Retrieve the contents of selected files [in <pathspec>] as it exists prior to the commit interactively chosen from the commits in the passed <range> plus one more.
+	catp1 = catpselected --max-count 1
+	catp2 = catpselected --max-count 2
+	catp3 = catpselected --max-count 3
+	catp4 = catpselected --max-count 4
+	catp5 = catpselected --max-count 5
+	catp6 = catpselected --max-count 6
+	catp7 = catpselected --max-count 7
+	catpx = catpselected --max-count 12
+	catpq = catpselected --max-count 25
+	catpz = catpselected --max-count 100
+	catpg = selectedgcommit-command --single-only --pass-file-args -3 catrevisionselected --previous COMMITS	; Retrieve the contents of selected files [in <pathspec>] as it exists prior to the commit interactively chosen from the commits where log messages match the specified text or /regexp/.
+	catpchanged = selectedchangedcommit-command --single-only --pass-file-args -3 catrevisionselected --previous COMMITS	; Retrieve the contents of selected files [in <pathspec>] as it exists prior to the commit interactively chosen from the commits where the actual diff; i.e. those filepairs whose preimage and postimage have different number of occurrences of the text or /regexp/.
+	catptouched = selectedtouchedcommit-command --single-only --pass-file-args -3 catrevisionselected --previous COMMITS	; Retrieve the contents of selected files [in <pathspec>] as it exists prior to the commit interactively chosen from the commits where in the diff the text or /regexp/ matches, without necessarily changing the number of occurrences themselves.
+
+	;; cp: Retrieve the contents of selected files [in <pathspec>] as it exists in revision <commit> and save it as <pathspec>.<commit> (or override with -O|--override, or <target> if given).
 	cpst = stfiles-command cprevisionselected
 	cpi = stifiles-command cprevisionselected
 	cp-i = stIfiles-command cprevisionselected
 	cpsamefiles = showfiles-command cprevisionselected
 	# Note: cpsamefilesselected and cpsamefiles{1-7,x,q,z,g,changed,touched} would use one passed / determined revision for the files and another for the source revision; that's too cumbersome.
-	cpselected = selectedcommit-command --single-only --pass-file-args -2 cprevisionselected COMMITS	; Retrieve the contents of selected files [in <pathspec>] as it exists in the commit interactively chosen from the commits in the passed <range> and save it as <pathspec>.<revision> (or override with -O|--override; to <target> is not supported here).
-	cpselectedonemore = selectedcommit-command --single-only --pass-file-args --one-more -2 cprevisionselected COMMITS	; Retrieve the contents of selected files [in <pathspec>] as it exists in the commit interactively chosen from the commits in the passed <range> plus one more and save it as <pathspec>.<revision> (or override with -O|--override; to <target> is not supported here).
+	cpselected = selectedcommit-command --single-only --pass-file-args -2 cprevisionselected COMMITS	; Retrieve the contents of selected files [in <pathspec>] as it exists in the commit interactively chosen from the commits in the passed <range> and save it as <pathspec>.<commit> (or override with -O|--override; to <target> is not supported here).
+	cpselectedonemore = selectedcommit-command --single-only --pass-file-args --one-more -2 cprevisionselected COMMITS	; Retrieve the contents of selected files [in <pathspec>] as it exists in the commit interactively chosen from the commits in the passed <range> plus one more and save it as <pathspec>.<commit> (or override with -O|--override; to <target> is not supported here).
 	cp1 = cpselected --max-count 1
 	cp2 = cpselected --max-count 2
 	cp3 = cpselected --max-count 3
@@ -108,9 +129,30 @@
 	cpx = cpselected --max-count 12
 	cpq = cpselected --max-count 25
 	cpz = cpselected --max-count 100
-	cpg = selectedgcommit-command --single-only --pass-file-args -2 cprevisionselected COMMITS	; Retrieve the contents of selected files [in <pathspec>] as it exists in the commit interactively chosen from the commits where log messages match the specified text or /regexp/ and save it as <pathspec>.<revision> (or override with -O|--override; to <target> is not supported here).
+	cpg = selectedgcommit-command --single-only --pass-file-args -2 cprevisionselected COMMITS	; Retrieve the contents of selected files [in <pathspec>] as it exists in the commit interactively chosen from the commits where log messages match the specified text or /regexp/ and save it as <pathspec>.<commit> (or override with -O|--override; to <target> is not supported here).
 	cpchanged = selectedchangedcommit-command --single-only --pass-file-args -2 cprevisionselected COMMITS	; Retrieve the contents of selected files [in <pathspec>] as it exists in the commit interactively chosen from the commits where the actual diff; i.e. those filepairs whose preimage and postimage have different number of occurrences of the text or /regexp/.
 	cptouched = selectedtouchedcommit-command --single-only --pass-file-args -2 cprevisionselected COMMITS	; Retrieve the contents of selected files [in <pathspec>] as it exists in the commit interactively chosen from the commits where in the diff the text or /regexp/ matches, without necessarily changing the number of occurrences themselves.
+
+	cpp = cp --previous	; Retrieve the contents of selected files [in <pathspec>] as it exists prior to revision <commit> and save it as <pathspec>.<commit>^ (or override with -O|--override, or <target> if given).
+	cppst = stfiles-command cprevisionselected --previous
+	cppi = stifiles-command cprevisionselected --previous
+	cpp-i = stIfiles-command cprevisionselected --previous
+	cppsamefiles = showfiles-command cprevisionselected --previous
+	cppselected = selectedcommit-command --single-only --pass-file-args -3 cprevisionselected --previous COMMITS	; Retrieve the contents of selected files [in <pathspec>] as it exists prior to the commit interactively chosen from the commits in the passed <range> and save it as <pathspec>.<commit> (or override with -O|--override; to <target> is not supported here).
+	cppselectedonemore = selectedcommit-command --single-only --pass-file-args --one-more -3 cprevisionselected --previous COMMITS	; Retrieve the contents of selected files [in <pathspec>] as it exists prior to the commit interactively chosen from the commits in the passed <range> plus one more and save it as <pathspec>.<commit> (or override with -O|--override; to <target> is not supported here).
+	cpp1 = cppselected --max-count 1
+	cpp2 = cppselected --max-count 2
+	cpp3 = cppselected --max-count 3
+	cpp4 = cppselected --max-count 4
+	cpp5 = cppselected --max-count 5
+	cpp6 = cppselected --max-count 6
+	cpp7 = cppselected --max-count 7
+	cppx = cppselected --max-count 12
+	cppq = cppselected --max-count 25
+	cppz = cppselected --max-count 100
+	cppg = selectedgcommit-command --single-only --pass-file-args -3 cprevisionselected --previous COMMITS	; Retrieve the contents of selected files [in <pathspec>] as it exists prior to the commit interactively chosen from the commits where log messages match the specified text or /regexp/ and save it as <pathspec>.<commit> (or override with -O|--override; to <target> is not supported here).
+	cppchanged = selectedchangedcommit-command --single-only --pass-file-args -3 cprevisionselected --previous COMMITS	; Retrieve the contents of selected files [in <pathspec>] as it exists prior to the commit interactively chosen from the commits where the actual diff; i.e. those filepairs whose preimage and postimage have different number of occurrences of the text or /regexp/.
+	cpptouched = selectedtouchedcommit-command --single-only --pass-file-args -3 cprevisionselected --previous COMMITS	; Retrieve the contents of selected files [in <pathspec>] as it exists prior to the commit interactively chosen from the commits where in the diff the text or /regexp/ matches, without necessarily changing the number of occurrences themselves.
 
 	rename = mv
 

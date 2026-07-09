@@ -25,8 +25,7 @@ do
 	*)		break;;
     esac
 done
-printf -v quotedStashCommand '%q ' "${stashCommand[@]}"; quotedStashCommand=${quotedStashCommand% }
-printf -v doubleQuotedStashCommand %q "$quotedStashCommand"
 
+printf -v quotedStashCommand '%q ' "${stashCommand[@]}"; quotedStashCommand=${quotedStashCommand% }
 export GIT_SELECTED_COMMAND_DEFAULT_FILES='git stash list'
-exec git-selected-command --single-only "exec argsToLines --command 'sed s/:.*//' --sink-command git-wrapper\\ $doubleQuotedStashCommand" "$@"
+exec git-selected-command --single-only --exec exec argsToLines --command 'sed s/:.*//' --sink-command "git-wrapper $quotedStashCommand" \; "$@"

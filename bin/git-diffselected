@@ -17,7 +17,7 @@ HELPTEXT
 
 export GIT_SELECTED_COMMAND_DEFAULT_FILES='git-stIfiles'
 typeset -a allargs=()
-diffCommand="${GIT_DIFFSELECTED_DIFFCOMMAND:-diff}"
+eval "typeset -a diffCommand=(${GIT_DIFFSELECTED_DIFFCOMMAND:-diff})"
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -25,30 +25,28 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
-	--cached)	diffCommand+=" $1"; shift; export GIT_SELECTED_COMMAND_DEFAULT_FILES='git-stifiles';;
+	--cached)	diffCommand+=("$1"); shift; export GIT_SELECTED_COMMAND_DEFAULT_FILES='git-stifiles';;
 	--modified-but-not-cached)
 			shift; export GIT_SELECTED_COMMAND_DEFAULT_FILES='git-stIwithoutifiles';;
 	--shortstat|--stat|--compact-summary)
-			diffCommand+=" $1"; shift;;
+			diffCommand+=("$1"); shift;;
 	--log-range)	shift
 			case "$1" in
-			    *...*)   diffCommand+=" ${1/.../..}";;
-			    *..*)   diffCommand+=" ${1/../...}";;
+			    *...*)   diffCommand+=("${1/.../..}");;
+			    *..*)   diffCommand+=("${1/../...}");;
 			esac
 			export GIT_SELECTED_COMMAND_DEFAULT_FILES="git-showfiles $1"
 			shift
 			;;
-	*..*)		diffCommand+=" $1"; export GIT_SELECTED_COMMAND_DEFAULT_FILES="git-showfiles ${1%%..*}...${1#*..}"; shift;;
-	--revision)	shift; diffCommand+=" ${1:?}"; export GIT_SELECTED_COMMAND_DEFAULT_FILES="git-showfiles --to $1"; shift;;
-	--revisions)	shift; diffCommand+=" ${1:?} ${2:?}"; export GIT_SELECTED_COMMAND_DEFAULT_FILES="git-showfiles $1..$2"; shift; shift;;
+	*..*)		diffCommand+=("$1"); export GIT_SELECTED_COMMAND_DEFAULT_FILES="git-showfiles ${1%%..*}...${1#*..}"; shift;;
+	--revision)	shift; diffCommand+=("${1:?}"); export GIT_SELECTED_COMMAND_DEFAULT_FILES="git-showfiles --to $1"; shift;;
+	--revisions)	shift; diffCommand+=("${1:?}" "${2:?}"); export GIT_SELECTED_COMMAND_DEFAULT_FILES="git-showfiles $1..$2"; shift; shift;;
 
 	--)		break;;
 	*)		if argCount=$(countLogArgs t "$1"); then
 			    while ((argCount-- > 0))
 			    do
-				printf -v quotedArg %q "$1"
-				diffCommand+=" $quotedArg"
-				shift
+				diffCommand+=("$1"); shift
 			    done
 			else
 			    allargs+=("$1")
@@ -58,4 +56,4 @@ do
     esac
 done
 
-exec git-selected-command --filter '' "$diffCommand --" "${allargs[@]}" "$@"
+exec git-selected-command --filter '' --exec "${diffCommand[@]}" -- \; "${allargs[@]}" "$@"

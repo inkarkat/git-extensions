@@ -10,7 +10,7 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [N [M ...]] [--] [<pathspec>...] [-?|-h|--help]'
 }
 
-wipeCommand='wipe'
+typeset -a wipeCommand=('wipe')
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -18,10 +18,10 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
-	--force|-f)	wipeCommand+=" $1"; shift;;
+	--force|-f)	wipeCommand+=("$1"); shift;;
 	--)		break;;
 	*)		break;;
     esac
 done
 
-exec git-selected-command "$wipeCommand" "$@"
+exec git-selected-command --exec "${wipeCommand[@]}" \; "$@"

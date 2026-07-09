@@ -10,7 +10,7 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [N [M ...]] [--] [<pathspec>...] [-?|-h|--help]'
 }
 
-addCommand='add'
+typeset -a addCommand=('add')
 typeset -a selectedCommandArgs=()
 typeset -a allargs=()
 unset filespecs
@@ -21,8 +21,8 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
-	--edit|--patch)	addCommand+=" $1"; shift;;
-	--force|-f)	addCommand+=" $1"; shift;;
+	--edit|--patch)	addCommand+=("$1"); shift;;
+	--force|-f)	addCommand+=("$1"); shift;;
 	--accept-single|--single-only)
 			selectedCommandArgs+=("$1"); shift;;
 	--filter)	selectedCommandArgs+=("$1" "$2"); shift; shift;;
@@ -44,8 +44,8 @@ if [ -z "${filespecs+t}" ]; then
 	allargs=("${allargs[@]:0:${#allargs[@]}-1}")
     done
 fi
+
 quotedFilespecs=; [ ${#filespecs[@]} -eq 0 ] || printf -v quotedFilespecs '%q ' "${filespecs[@]}"
 quotedFilespecs="${quotedFilespecs% }"
-
 export GIT_SELECTED_COMMAND_DEFAULT_FILES="git ls-files --modified -- $quotedFilespecs"
-exec git-selected-command "${selectedCommandArgs[@]}" "$addCommand" "${allargs[@]}"	# Note: No root wrapper because ls-files is based off the CWD.
+exec git-selected-command "${selectedCommandArgs[@]}" --exec "${addCommand[@]}" \; "${allargs[@]}"	# Note: No root wrapper because ls-files is based off the CWD.

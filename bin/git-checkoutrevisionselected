@@ -32,7 +32,6 @@ HELPTEXT
 }
 
 rev=
-commitSuffix=
 checkoutrevisionCommand="${GITCHECKOUTREVISIONSELECTED_COMMAND:-checkoutrevision}"
 typeset -a selectedCommandArgs=()
 typeset -a allargs=()
@@ -45,7 +44,7 @@ do
 			shift;;
 	--color)	shift; shift;;
 
-	--previous)	checkoutrevisionCommand+=" $1"; shift; commitSuffix='^';;
+	--previous)	checkoutrevisionCommand+=" $1"; shift;;
 	--force|-f)	checkoutrevisionCommand+=" $1"; shift;;
 	--revision|-r)	shift; rev="${1:?}"; shift;;
 	--accept-single|--single-only)
@@ -75,9 +74,9 @@ if [ -z "${filespecs+t}" ]; then
 	allargs=("${allargs[@]:0:${#allargs[@]}-1}")
     done
 fi
+
 quotedFilespecs=; [ ${#filespecs[@]} -eq 0 ] || printf -v quotedFilespecs '%q ' "${filespecs[@]}"
 quotedFilespecs="${quotedFilespecs% }"
-
 printf -v quotedRev '%q' "${rev:-HEAD}"
 export GIT_SELECTED_COMMAND_DEFAULT_FILES="git-showfiles ${quotedRev} -- $quotedFilespecs"
-exec git-selected-command "${selectedCommandArgs[@]}" "$checkoutrevisionCommand --revision $quotedRev --" "${allargs[@]}"
+exec git-selected-command "${selectedCommandArgs[@]}" --command "$checkoutrevisionCommand --revision $quotedRev --" "${allargs[@]}"

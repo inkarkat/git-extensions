@@ -2,25 +2,47 @@
 set -o pipefail
 shopt -qs nullglob
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--previous] [-r|--revision] <commit> [--] <pathspec>... [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
-Retrieve the contents of <pathspec> as it exists in <revision>.
-HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Retrieve the contents of <pathspec> as it exists in <commit>.
+HELPDESCRIPTION
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '<revision> [--] <pathspec>... [-?|-h|--help]'
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --previous		Retrieve the commit prior to <commit> / HEAD^.
+HELPTEXT
 }
 
 typeset -a allargs=()
 unset files
 revision=
+commitSuffix=
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
+	--revision|-r)	shift; revision="${1:?}"; shift;;
+	--previous)	shift; commitSuffix='^';;
 	--)		shift; typeset -a files=("$@"); set --; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		if [ -z "$revision" ]; then
@@ -57,7 +79,7 @@ if [ -z "$revision" ]; then
     exit 2
 fi >&2
 
-commitId=$(git-commitid "$revision") || exit $?
+commitId=$(git-commitid "${revision}${commitSuffix}") || exit $?
 readarray -t submodules < <(git-sublist --revision "$commitId")
 
 catFile()
@@ -73,7 +95,7 @@ catFile()
 	    # Another benefit of this implementation is that the tempfile collection and
 	    # file counting can be managed by the initial invocation, as recursive calls
 	    # only output a single (submodule's) file.
-	    submoduleRef="$(git-subhash "$revision" "$submodule")" || { status=$?; continue 2; }
+	    submoduleRef="$(git-subhash "$commitId" "$submodule")" || { status=$?; continue 2; }
 	    (cd "$submodule" && exec "${BASH_SOURCE[0]}" "$submoduleRef" "${BASH_REMATCH[1]}")
 	    return $?
 	fi

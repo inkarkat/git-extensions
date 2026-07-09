@@ -219,8 +219,8 @@ revertcommit|\
     preds)
 	timespanCommand --no-range --one-more -2 show TIMESPAN "$@";;
 
-    cat|cp)
-	timespanCommand -2 "${gitCommand}selectedonemore" TIMESPAN "$@";;
+    @(cat|cp)?(p))
+	timespanCommand -2 "${gitCommand}selected" TIMESPAN "$@";;
 
     @(whatdid|changesetfiles|churn|who@(when|first|last|created|lasttouched|did?(f)|owns|contributed|what))thosefiles)
 	filesCommand --source-command "$scope files --revision REVISION" "${gitCommand%thosefiles}" "$@";;

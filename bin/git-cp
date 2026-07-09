@@ -1,33 +1,70 @@
 #!/bin/bash
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-O|--override] [--previous] [-r|--revision] <commit> [--] (<pathspec> [to <target>]) [...] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
-Retrieve the contents of <pathspec> as it exists in revision <revision> and save
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Retrieve the contents of <pathspec> as it exists in revision <commit> and save
 it as <pathspec>.<revision> (or override with -O|--override, or <target> if
 given).
-HELPTEXT
+HELPDESCRIPTION
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-O|--override] <revision> [--] (<pathspec> [to <target>]) [...] [-?|-h|--help]'
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --previous		Retrieve the commit prior to <commit> / HEAD^.
+
+SEE ALSO:
+- git-checkoutrevision directly checks out [passed <pathspec>...] of a passed
+  <commit> to the working directory, like using -O|--override here.
+HELPTEXT
 }
 
+revision=
+commitSuffix=
 isOverride=
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--no-color|--color=*)
 			shift;;
-    --color)		shift; shift;;
-    --override|-O)	shift; isOverride=t;;
-esac
-if [ $# -lt 2 ]; then
+	--color)	shift; shift;;
+	--revision|-r)	shift; revision="${1:?}"; shift;;
+	--previous)	shift; commitSuffix='^';;
+	--override|-O)	shift; isOverride=t;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		if [ -z "$revision" ]; then
+			    revision="${1:?}"; shift
+			else
+			    break
+			fi
+			;;
+    esac
+done
+if [ -z "$revision" ]; then
+    echo 'ERROR: No <revision> passed.'
+    echo
     printUsage "$0"
     exit 2
-fi
+fi >&2
 
-
-revision="$1"; shift
-[ "$1" = -- ] && shift
-commitId=$(git-commitid "$revision") || exit $?
+commitId=$(git-commitid "${revision}${commitSuffix}") || exit $?
 
 status=0
 while [ $# -ne 0 ]
@@ -39,7 +76,7 @@ do
     elif [ "$isOverride" ]; then
 	target="$path"
     else
-	target="${path}.${revision}"
+	target="${path}.${revision}${commitSuffix}"
     fi
 
     git show "${commitId}:$path" > "$target" || status=$?

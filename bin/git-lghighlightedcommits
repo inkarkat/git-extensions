@@ -3,6 +3,8 @@
 : ${GIT_LGHIGHLIGHT_LG:=lg}
 : ${GIT_LGHIGHLIGHTEDCOMMITS_ARGS_MARKER='{}'}
 argsMarker="$GIT_LGHIGHLIGHTEDCOMMITS_ARGS_MARKER"; unset GIT_LGHIGHLIGHTEDCOMMITS_ARGS_MARKER
+: ${GIT_LGHIGHLIGHTEDCOMMITS_COMMAND_JOINER=;}
+: ${GIT_LGHIGHLIGHTEDCOMMITS_EXEC_END=;}
 
 readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
 [ -d "$scriptDir" ] || { echo >&2 'ERROR: Cannot determine script directory!'; exit 3; }
@@ -27,14 +29,14 @@ HELPTEXT
     printf 'Usage: git lh [...] | %q %s\n' "$(basename "$1")" '[--range-to-last-commit [--one-more]] [GIT-LOG-ARGUMENTS ...] - [<revision-range>|--range <range> [--range...]] [[--] <pathspec>...] [-?|-h|--help]'
     echo
     cat <<HELPTEXT
-git ${GIT_LGHIGHLIGHT_LG}, with commits that result from GIT-LOG-COMMAND (which will be configured
+git ${GIT_LGHIGHLIGHT_LG}, with commits that result from GIT-COMMAND (which will be configured
 to output just commit hashes) highlighted. That argument and GIT-LOG-ARGUMENTS
-${argsMarker:+replace a $argsMarker marker in GIT-LOG-COMMAND or }will be appended.
-With --except-last, the last argument will only be passed to GIT-LOG-COMMAND,
-but not to git ${GIT_LGHIGHLIGHT_LG}.
+${argsMarker:+replace a $argsMarker marker in GIT-COMMAND or }will be appended.
+With --except-last, the last argument will only be passed to GIT-COMMAND, but
+not to git ${GIT_LGHIGHLIGHT_LG}.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--range-to-last-commit [--one-more]] [--except-last [...]] GIT-LOG-COMMAND [GIT-LOG-ARGUMENTS ...] [<revision-range>|--range <range> [--range...]] [[--] <pathspec>...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[--range-to-last-commit [--one-more]] [--except-last [...]] --command \"GIT-COMMANDLINE\" | --exec GIT-COMMAND [...] ${GIT_LGHIGHLIGHTEDCOMMITS_EXEC_END}} [GIT-LOG-ARGUMENTS ...] [<revision-range>|--range <range> [--range...]] [[--] <pathspec>...]"
 }
 
 typeset -a commits=()
@@ -52,6 +54,8 @@ readCommits()
     shopt -qu lastpipe
 }
 
+preCommand=
+commands=
 isRangeToLastCommit=
 isOneMore=
 typeset -a colorArg=()
@@ -75,6 +79,26 @@ do
 			fi
 			;;
 	--range)	shift; rangeArgs+=("${1:?}"); shift;;
+
+	-c)		printf -v cmd %q "${2?}"; preCommand+="$1 $cmd "; shift; shift;;
+	--command)	shift; commands+="${commands:+ $GIT_LGHIGHLIGHTEDCOMMITS_COMMAND_JOINER }$1"; shift;;
+	--exec)		shift
+			cmd=
+			printf -v escapedArgsMarker %q "$argsMarker"
+			while [ $# -gt 0 -a "$1" != "$GIT_LGHIGHLIGHTEDCOMMITS_EXEC_END" ]
+			do
+			    printf -v quotedArg %q "$1"
+			    cmd+="${cmd:+ }${quotedArg//"$escapedArgsMarker"/$argsMarker}"	# %q escapes {}, we don't want that to have it interpolated later.
+			    shift
+			done
+			if [ $# -eq 0 ]; then
+			    echo "ERROR: --exec command must be concluded with '${GIT_LGHIGHLIGHTEDCOMMITS_EXEC_END}'"; echo; printUsage "$0"
+			    exit 2
+			fi >&2
+			shift
+			commands+="${commands:+ $GIT_LGHIGHLIGHTEDCOMMITS_COMMAND_JOINER }${cmd}"
+			;;
+
 	-)		shift
 			readCommits
 			[ ${#commits[@]} -gt 0 ] || exit 1
@@ -91,29 +115,28 @@ do
 			;;
     esac
 done
-if [ $# -eq 0 -a ${#commits[@]} -eq 0 ]; then
-    echo 'ERROR: No <commit> / - / GIT-LOG-COMMAND passed.'
+if [ -z "$commands" -a ${#commits[@]} -eq 0 ]; then
+    echo 'ERROR: No <commit> / - / GIT-COMMAND passed.'
     echo
     printUsage "$0"
     exit 2
 fi >&2
 
 if [ ${#commits[@]} -eq 0 ]; then
-    while commit="$(git rev-parse --short "$1" 2>/dev/null)"
-    do
-	shift
-	commits+=("$commit")
-    done
-fi
-if [ ${#commits[@]} -eq 0 ]; then
-    gitCommand="${1:?}"; shift
+    if [ -n "$commands" ]; then
+	typeset -a gitCommandArgs=(--pretty=tformat:%h "${logArgs[@]}" "${rangeArgs[@]}" "$@" "${lastArg[@]}")
+	printf -v quotedGitCommandArgs '%q ' "${gitCommandArgs[@]}"; quotedGitCommandArgs="${quotedGitCommandArgs% }"
+	interpolatedCommands="${commands//"$argsMarker"/$quotedGitCommandArgs}"
+	[ "$interpolatedCommands" = "$commands" ] || gitCommandArgs=()
 
-    typeset -a gitCommandArgs=(--pretty=tformat:%h "${logArgs[@]}" "${rangeArgs[@]}" "$@" "${lastArg[@]}")
-    printf -v quotedGitCommandArgs '%q ' "${gitCommandArgs[@]}"; quotedGitCommandArgs="${quotedGitCommandArgs% }"
-    interpolatedGitCommand="${gitCommand//"$argsMarker"/$quotedGitCommandArgs}"
-    [ "$interpolatedGitCommand" = "$gitCommand" ] || gitCommandArgs=()
-
-    readarray -t commits < <(eval "git-wrapper $interpolatedGitCommand" '"${gitCommandArgs[@]}"')
+	readarray -t commits < <(eval "git-wrapper ${preCommand}${interpolatedCommands}" '"${gitCommandArgs[@]}"')
+    else
+	while commit="$(git rev-parse --short "$1" 2>/dev/null)"
+	do
+	    shift
+	    commits+=("$commit")
+	done
+    fi
     if [ ${#commits[@]} -eq 0 ]; then
 	echo >&2 'No commits found.'
 	exit 1

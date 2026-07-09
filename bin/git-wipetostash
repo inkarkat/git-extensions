@@ -1,0 +1,35 @@
+#!/bin/bash
+
+: ${GIT_WIPETOSTASH_TITLE_PREFIX:=Backup:}
+
+printUsage()
+{
+    cat <<HELPTEXT
+Save your local modifications to a new stash entry with an auto-generated title
+that indicates it's a temporary backup and roll them back to HEAD (in the
+working tree and in the index). Use for rolling back changes where there's a
+slight chance you might want to restore them later.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[STASH-PUSH-ARGS ...] [--] [<pathspec>...] [-?|-h|--help]'
+}
+
+message=
+typeset -a stashPushArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--message|-m)	shift; message="${1:?}"; shift;;
+	--message=*)	message="${1#--message=}"; shift;;
+	--)		stashPushArgs+=("$1"); shift; break;;
+	*)		stashPushArgs+=("$1"); shift;;
+    esac
+done
+
+synthesizeDefaultMessage()
+{
+    printf 'WIP on %s' "$(git log --max-count 1 --pretty=format:'%h %s')"
+}
+
+exec git-wrapper ${GIT_WIPETOSTASH_STASH_COMMAND:-stash} push --message "${GIT_WIPETOSTASH_TITLE_PREFIX} ${message:-$(synthesizeDefaultMessage)}" "$@"

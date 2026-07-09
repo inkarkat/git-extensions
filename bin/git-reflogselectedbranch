@@ -38,9 +38,7 @@ do
     fi
 done
 
-printf -v quotedReflogCommand '%q ' reflog show "$@"
 quotedBranchArgs=; [ ${#branchArgs[@]} -eq 0 ] || printf -v quotedBranchArgs ' %q' "${branchArgs[@]}"
 quotedBranchGlobArgs=; [ ${#branchGlobArgs[@]} -eq 0 ] || printf -v quotedBranchGlobArgs ' %q' "${branchGlobArgs[@]}"
-
 export GIT_SELECTED_COMMAND_DEFAULT_FILES="${GIT_REFLOGSELECTEDBRANCH_BRANCH_COMMAND:-git-localbr}${GIT_REFLOGSELECTEDBRANCH_BRANCH_ARGUMENT:+ }${GIT_REFLOGSELECTEDBRANCH_BRANCH_ARGUMENT:- --include-master --include-base}${quotedBranchArgs}${quotedBranchGlobArgs}${GIT_REFLOGSELECTEDBRANCH_BRANCH_FILTERCOMMAND:+ | }${GIT_REFLOGSELECTEDBRANCH_BRANCH_FILTERCOMMAND}"
-exec git-selected-command --single-only "${quotedReflogCommand% }"
+exec git-selected-command --single-only --exec reflog show "$@" \;

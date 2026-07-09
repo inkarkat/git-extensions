@@ -1,28 +1,24 @@
 #!/bin/bash
 
+: ${GIT_CHANGEDCOMMAND_COMMAND_JOINER=;}
+: ${GIT_CHANGEDCOMMAND_EXEC_END=;}
+
 printUsage()
 {
     cat <<HELPTEXT
-${gitCommand:-Execute GIT-COMMAND} where text or /regexp/ was added or removed (i.e. those
+${commands:+Git }${commands:-Execute GIT-COMMAND} where text or /regexp/ was added or removed (i.e. those
 filepairs whose preimage and postimage have different number of occurrences of
 the text).
 With --more also log where lines were modified where text or /regexp/ just
 appears (without necessarily modifying text or /regexp/ itself).
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" "${gitCommand:-GIT-COMMAND} [--more] [--unique] [<log-options>] [<revision-range>] [[--] <pathspec>...] text|/regexp/ [-?|-h|--help]"
-    printf 'Usage: %q %s\n' "$(basename "$1")" "${gitCommand:-GIT-COMMAND} [--more] [--unique] [<log-options>] [<revision-range>] --grep=<pattern> [[--] <pathspec>...]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${commands:+--exec }${commands:---command \"GIT-COMMANDLINE\" | --exec GIT-COMMAND [...] ${GIT_CHANGEDCOMMAND_EXEC_END}}${commands:+ ${GIT_CHANGEDCOMMAND_EXEC_END}} [--more] [--unique] [<log-options>] [<revision-range>] [[--] <pathspec>...] text|/regexp/ [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${commands:+--exec }${commands:---command \"GIT-COMMANDLINE\" | --exec GIT-COMMAND [...] ${GIT_CHANGEDCOMMAND_EXEC_END}}${commands:+ ${GIT_CHANGEDCOMMAND_EXEC_END}} [--more] [--unique] [<log-options>] [<revision-range>] --grep=<pattern> [[--] <pathspec>...]"
 }
 
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-esac
-if [ $# -eq 0 ]; then
-    echo >&2 'ERROR: No GIT-COMMAND passed.'
-    exit 2
-fi
-gitCommand="$1"; shift
-
+preCommand=
+commands=
 isMore=
 isUnique=
 typeset -a args=()
@@ -35,15 +31,38 @@ do
 	--unique)	shift; isUnique=t;;
 	--grep)		shift; grepPatterns+=("$1"); shift;;
 	--grep=*)	grepPatterns+=("${1#--grep=}"); shift;;
+
+	-c)		printf -v cmd %q "${2?}"; preCommand+="$1 $cmd "; shift; shift;;
+	--command)	shift; commands+="${commands:+ $GIT_CHANGEDCOMMAND_COMMAND_JOINER }$1"; shift;;
+	--exec)		shift
+			cmd=
+			while [ $# -gt 0 -a "$1" != "$GIT_CHANGEDCOMMAND_EXEC_END" ]
+			do
+			    printf -v quotedArg %q "$1"
+			    cmd+="${cmd:+ }${quotedArg}"
+			    shift
+			done
+			if [ $# -eq 0 ]; then
+			    echo "ERROR: --exec command must be concluded with '${GIT_CHANGEDCOMMAND_EXEC_END}'"; echo; printUsage "$0"
+			    exit 2
+			fi >&2
+			shift
+			commands+="${commands:+ $GIT_CHANGEDCOMMAND_COMMAND_JOINER }${cmd}"
+			;;
 	--)		args+=("$1"); shift; break;;
 	*)		args+=("$1"); shift;;
     esac
 done
 set -- "${args[@]}" "$@"
-if [ $# -eq 0 ]; then
-    printUsage "$0" >&2
+if [ -z "$commands" ]; then
+    echo "ERROR: No GIT-COMMAND specified; need to pass -c|--command \"GIT-COMMANDLINE\", or --exec GIT-COMMAND [...] $GIT_CHANGEDCOMMAND_EXEC_END"
+    echo
+    printUsage "$0"
     exit 2
-fi
+elif [ $# -eq 0 ]; then
+    printUsage "$0"
+    exit 2
+fi >&2
 
 if [ ${#grepPatterns[@]} -eq 0 ]; then
     # The last argument is the text or /regexp/.
@@ -78,10 +97,14 @@ else
     fi
 fi
 
+EXEC=exec
+typeset -a pager=()
+typeset -a sorter=()
 if [ "$isUnique" ]; then
-    typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
-    git-wrapper $gitCommand "${pickaxeArgs[@]}" "$@" \
-	| eval 'sort --unique' "${pager:+|}" '"${pager[@]}"'
-else
-    exec git-wrapper $gitCommand "${pickaxeArgs[@]}" "$@"
+    EXEC=''
+    pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+    sorter=(sort --unique)
 fi
+eval "$EXEC git-wrapper ${preCommand}${commands}" '"${pickaxeArgs[@]}" "$@"' \
+    "${sorter:+|}" '"${sorter[@]}"' \
+    "${pager:+|}" '"${pager[@]}"'

@@ -106,7 +106,7 @@ activity?(except)by\
     dedstat)
 	timespanCommand --no-range -2 duntiledstat TIMESPAN "$@";;
     ds)
-	selectedFilesCommand "$scope d" "$@";;
+	selectedFilesCommand --exec "$scope" d \; "$@";;
     dss)
 	timespanCommand -8 selectedcommit-command --single-only --with-range-from-end ^... -2 diff COMMITS TIMESPAN "$@";;
     dsta?(t)byeach)
@@ -150,14 +150,14 @@ activity?(except)by\
     lghipassedfiles)
 	timespanCommand -2 lghifiles TIMESPAN "$@";;
     lghifiles)
-	selectedFilesCommand "$scope lghipassedfiles" "$@";;
+	selectedFilesCommand --exec "$scope" lghipassedfiles \; "$@";;
     lgfiles?(mine|others|team))
 	filesAppendix="${gitCommand#lgfiles}" \
-	    selectedFilesCommand "$scope lg${gitCommand#lgfiles}" "$@";;
+	    selectedFilesCommand --exec "$scope" "lg${gitCommand#lgfiles}" \; "$@";;
     lgfiles?(except)by)
 	quotedAuthorsAndRange="$(gitCommand=quoted othersCommand "$@")" || exit $?
 	filesAppendix=" $quotedAuthorsAndRange" \
-	    selectedFilesCommand "onelinelog $quotedAuthorsAndRange --"
+	    selectedFilesCommand --command "onelinelog $quotedAuthorsAndRange --"
 	;;
     files@(l?(o)g|logv|lc|logfiles))
 	# Logs of files modified in the last timespan starting from before it.
@@ -250,11 +250,11 @@ revertcommit|\
 	othersCommand "$@";;
     changesetfileshere?(mine|others|team))
 	filesAppendix="${gitCommand#changesetfileshere}" \
-	    selectedFilesCommand "$scope ${gitCommand}passedfiles" "$@";;
+	    selectedFilesCommand --exec "$scope" "${gitCommand}passedfiles" \; "$@";;
     changesetfileshere?(except)by)
 	quotedAuthorsAndRange="$(gitCommand=quoted othersCommand "$@")" || exit $?
 	filesAppendix=" $quotedAuthorsAndRange" \
-	    selectedFilesCommand "$scope changesetfilesherepassedfiles $quotedAuthorsAndRange --"
+	    selectedFilesCommand --command "$scope changesetfilesherepassedfiles $quotedAuthorsAndRange --"
 	;;
 
     activity?(mine|others|team))

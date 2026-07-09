@@ -43,9 +43,7 @@ do
     fi
 done
 
-printf -v quotedRebaseCommand '%q ' ${GIT_RREBASESELECTEDBRANCH_REBASE_COMMAND:-rebase} "$@"
 quotedBranchArgs=; [ ${#branchArgs[@]} -eq 0 ] || printf -v quotedBranchArgs ' %q' "${branchArgs[@]}"
 quotedBranchGlobArgs=; [ ${#branchGlobArgs[@]} -eq 0 ] || printf -v quotedBranchGlobArgs ' %q' "${branchGlobArgs[@]}"
-
 export GIT_SELECTED_COMMAND_DEFAULT_FILES="${GIT_RREBASESELECTEDBRANCH_REMOTE_BRANCH_COMMAND:-git-rbr} $remote ${GIT_RREBASESELECTEDBRANCH_REMOTE_BRANCH_ARGUMENT:---sort=committerdate}${quotedBranchArgs}${quotedBranchGlobArgs}"
-exec git-selected-command --single-only "${quotedRebaseCommand% }"
+exec git-selected-command --single-only --exec ${GIT_RREBASESELECTEDBRANCH_REBASE_COMMAND:-rebase} "$@" \;

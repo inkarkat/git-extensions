@@ -210,12 +210,12 @@ activity?(except)by\
     lghipassedfiles)
 	logScopeCommand --one-more-command 'greyonelineloghighlight lghighlight' --one-more-only-to-terminal -2 lghifiles RANGE "$@";;
     lghifiles)
-	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command "$scope lghipassedfiles" "$@";;
+	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files" $EXEC git-selected-command --exec "$scope" lghipassedfiles \; "$@";;
     lgfiles?(mine|others|team))
-	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files${gitCommand#lgfiles}" $EXEC git-selected-command "$scope lg${gitCommand#lgfiles}" "$@";;
+	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files${gitCommand#lgfiles}" $EXEC git-selected-command --exec "$scope" "lg${gitCommand#lgfiles}" \; "$@";;
     lgfiles?(except)by)
 	quotedAuthorsAndRange="$(gitCommand=quoted othersCommand "$@")" || exit $?
-	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files $quotedAuthorsAndRange" $EXEC git-selected-command "onelinelog $quotedAuthorsAndRange --"
+	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files $quotedAuthorsAndRange" $EXEC git-selected-command --command "onelinelog $quotedAuthorsAndRange --"
 	;;
     files@(l?(o)g|logv|lc|logfiles))
 	# Logs of files modified in the additions of the custom range starting from before it.
@@ -305,10 +305,10 @@ revertcommit|\
 	gitCommand="changesetfiles${gitCommand#changesetfileshere}"; gitCommand="${gitCommand%passedfiles}"
 	othersCommand "$@";;
     changesetfileshere?(mine|others|team))
-	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files${gitCommand#changesetfileshere}" $EXEC git-selected-command "$scope ${gitCommand}passedfiles" "$@";;
+	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files${gitCommand#changesetfileshere}" $EXEC git-selected-command --exec "$scope" "${gitCommand}passedfiles" \; "$@";;
     changesetfileshere?(except)by)
 	quotedAuthorsAndRange="$(gitCommand=quoted othersCommand "$@")" || exit $?
-	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files $quotedAuthorsAndRange" $EXEC git-selected-command "$scope changesetfilesherepassedfiles $quotedAuthorsAndRange --"
+	GIT_SELECTED_COMMAND_DEFAULT_FILES="git-$scope files $quotedAuthorsAndRange" $EXEC git-selected-command --command "$scope changesetfilesherepassedfiles $quotedAuthorsAndRange --"
 	;;
 
     emaillog)

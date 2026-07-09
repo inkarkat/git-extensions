@@ -277,8 +277,10 @@ revertcommit|\
     @(cat|cp)?(p))
 	branchWithRangeCommand "${gitCommand}selected" "$@";;
 
-    @(whatdid|changesetfiles|churn|who@(when|first|last|created|lasttouched|did?(f)|owns|contributed|what))thosefiles)
+    @(l@([cg]|og|ogv)|whatdid|changesetfiles|churn|who@(when|first|last|created|lasttouched|did?(f)|owns|contributed|what))thosefiles)
 	branchFilesCommand --source-exec showfiles RANGE \; "${gitCommand%thosefiles}" "$@";;
+    lghithosefiles)
+	branchFilesCommand --source-exec showfiles RANGE \; "${gitCommand%thosefiles}files"  "$@";;
     @(who@(g|changed|touched))thosefiles)
 	branchFilesCommand --except-last --source-exec showfiles RANGE \; "${gitCommand%thosefiles}" "$@";;
     @(whatdid|churn|who@(when|first|last|created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what))here)

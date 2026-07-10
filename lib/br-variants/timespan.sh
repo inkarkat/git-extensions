@@ -222,7 +222,7 @@ revertcommit|\
     @(cat|cp)?(p))
 	timespanCommand -2 "${gitCommand}selected" TIMESPAN "$@";;
 
-    @(l@([cg]|og|ogv)|whatdid|changesetfiles|churn|who@(when|first|last|created|lasttouched|did?(f)|owns|contributed|what))thosefiles)
+    @(l@([cg]|og|ogv)|l@([cg]|og|ogv)ofchangesetfiles|whatdid|changesetfiles|churn|who@(when|first|last|created|lasttouched|did?(f)|owns|contributed|what))thosefiles)
 	filesCommand --source-command "$scope files --revision REVISION" "${gitCommand%thosefiles}" "$@";;
     lghithosefiles)
 	filesCommand --source-command "$scope files --revision REVISION" "${gitCommand%thosefiles}files" "$@";;

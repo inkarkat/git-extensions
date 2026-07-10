@@ -120,6 +120,7 @@ lc?([fh]|@(st|i|I|samefiles))?(mine|others|team)\
     (\
 @(@(log?(v)|show)@(last|first)?(f)|lc?(l)?(f)|l?(o)g?([fv])|count)@(g|changed|touched)?(mine|others|team)|\
 logfiles?(st|i|I|samefiles)?(mine|others|team)|\
+l@([cg]|og|ogv|ghi)ofchangesetfiles@(st|i|I|samefiles)|\
 l?(o)gfg|\
 @(files|versions|tags)@(g|changed|touched)|\
 @(files|version|tag)@(last|first)@(g|changed|touched)\
@@ -288,8 +289,10 @@ revertcommit|\
     @(cat|cp)?(p))
 	customRangeWithRangeCommand "${gitCommand}selected" "$@";;
 
-    @(whatdid|changesetfiles|churn|who@(when|first|last|created|lasttouched|did?(f)|owns|contributed|what))thosefiles)
+    @(l@([cg]|og|ogv)|l@([cg]|og|ogv|ghi)ofchangesetfiles|whatdid|changesetfiles|churn|who@(when|first|last|created|lasttouched|did?(f)|owns|contributed|what))thosefiles)
 	withScoped files '' "${gitCommand%thosefiles}" "$@";;
+    lghithosefiles)
+	withScoped files '' "${gitCommand%thosefiles}files" "$@";;
     @(who@(g|changed|touched))thosefiles)
 	withScoped files --except-last "${gitCommand%thosefiles}" "$@";;
     @(whatdid|churn|who@(when|first|last|created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what))here)

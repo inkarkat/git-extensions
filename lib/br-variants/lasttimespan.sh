@@ -60,6 +60,7 @@ case "$gitCommand" in
     (\
 @(@(log?(v)|show)@(last|first)?(f)|lc?(l)?(f)|l?(o)g?([fv])|count)@(g|changed|touched)?(mine|others|team)|\
 l?(h|o|ogv)f|\
+l@([cg]|og|ogv|ghi)ofchangesetfiles@(st|i|I|samefiles)|\
 @(files|versions|tags)@(g|changed|touched)|\
 @(files|version|tag)@(last|first)@(g|changed|touched)|\
 lc?(h|@(st|i|I|samefiles))?(mine|others|team)|\
@@ -231,8 +232,10 @@ revertcommit|\
     @(cat|cp)?(p))
 	timespanCommand -2 "${gitCommand}selected" TIMESPAN "$@";;
 
-    @(whatdid|changesetfiles|churn|who@(when|first|last|created|lasttouched|did?(f)|owns|contributed|what))thosefiles)
+    @(l@([cg]|og|ogv)|l@([cg]|og|ogv|ghi)ofchangesetfiles|whatdid|changesetfiles|churn|who@(when|first|last|created|lasttouched|did?(f)|owns|contributed|what))thosefiles)
 	filesCommand --source-command "$scope files" "${gitCommand%thosefiles}" "$@";;
+    lghithosefiles)
+	filesCommand --source-command "$scope files" "${gitCommand%thosefiles}files" "$@";;
     @(who@(g|changed|touched))thosefiles)
 	filesCommand --except-last --source-command "$scope files" "${gitCommand%thosefiles}" "$@";;
     @(whatdid|churn|who@(when|first|last|created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what))here)

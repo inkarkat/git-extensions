@@ -172,8 +172,10 @@ move-to-branch|uncommit-to-stash|uncommit-to-branch\
     preds)
 	$EXEC git-"${scopeCommand[@]}" --no-range --one-more -2 show RANGE "$@";;
 
-    @(whatdid|changesetfiles|churn|who@(when|first|last|created|lasttouched|did?(f)|owns|contributed|what))thosefiles)
+    @(l@([cg]|og|ogv)|l@([cg]|og|ogv|ghi)ofchangesetfiles|whatdid|changesetfiles|churn|who@(when|first|last|created|lasttouched|did?(f)|owns|contributed|what))thosefiles)
 	withAggregateFiles '' "${gitCommand%thosefiles}" "$@";;
+    lghithosefiles)
+	withAggregateFiles '' "${gitCommand%thosefiles}files" "$@";;
     @(who@(g|changed|touched))thosefiles)
 	withAggregateFiles --except-last "${gitCommand%thosefiles}" "$@";;
     @(whatdid|churn|who@(when|first|last|created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what))here)

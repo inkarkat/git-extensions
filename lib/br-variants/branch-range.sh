@@ -114,6 +114,7 @@ lc?([fh]|@(st|i|I|samefiles))?(mine|others|team)\
     (\
 @(@(log?(v)|show)@(last|first)?(f)|lc?(l)?(f)|l?(o)g?([fv])|count)@(g|changed|touched)?(mine|others|team)|\
 logfiles?(st|i|I|samefiles)?(mine|others|team)|\
+l@([cg]|og|ogv|ghi)ofchangesetfiles@(st|i|I|samefiles)|\
 l?(h|o|ogv)f|l?(o)gfg|lcl?(f)|\
 l?(o)g?([fv]|merges)@(mine|others|team)|\
 @(l?([ho])|count?(f)|countmaxdaycommits|commitsperday|log@(distribution|msgstat)|l?(o)gtitle?(f)g|activity|brlifetimes|devstat)?(mine|others|team)|\
@@ -277,8 +278,10 @@ revertcommit|\
     @(cat|cp)?(p))
 	branchWithRangeCommand "${gitCommand}selected" "$@";;
 
-    @(whatdid|changesetfiles|churn|who@(when|first|last|created|lasttouched|did?(f)|owns|contributed|what))thosefiles)
+    @(l@([cg]|og|ogv)|l@([cg]|og|ogv|ghi)ofchangesetfiles|whatdid|changesetfiles|churn|who@(when|first|last|created|lasttouched|did?(f)|owns|contributed|what))thosefiles)
 	branchFilesCommand --source-exec showfiles RANGE \; "${gitCommand%thosefiles}" "$@";;
+    lghithosefiles)
+	branchFilesCommand --source-exec showfiles RANGE \; "${gitCommand%thosefiles}files"  "$@";;
     @(who@(g|changed|touched))thosefiles)
 	branchFilesCommand --except-last --source-exec showfiles RANGE \; "${gitCommand%thosefiles}" "$@";;
     @(whatdid|churn|who@(when|first|last|created|lasttouched|did?(f)|g|changed|touched|owns|contributed|what))here)

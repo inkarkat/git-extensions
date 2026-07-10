@@ -61,6 +61,7 @@ case "$gitCommand" in
     (\
 @(@(log?(v)|show)@(last|first)?(f)|lc?(l)?(f)|l?(o)g?([fv])|count)@(g|changed|touched)?(mine|others|team)|\
 l?(h|o|ogv)f|\
+l@([cg]|og|ogv)ofchangesetfiles@(st|i|I|samefiles)|\
 @(files|versions|tags)@(g|changed|touched)|\
 @(files|version|tag)@(last|first)@(g|changed|touched)|\
 lc?(h|@(st|i|I|samefiles))?(mine|others|team)|\

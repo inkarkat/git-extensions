@@ -114,7 +114,7 @@ lc?([fh]|@(st|i|I|samefiles))?(mine|others|team)\
     (\
 @(@(log?(v)|show)@(last|first)?(f)|lc?(l)?(f)|l?(o)g?([fv])|count)@(g|changed|touched)?(mine|others|team)|\
 logfiles?(st|i|I|samefiles)?(mine|others|team)|\
-l@([cg]|og|ogv)ofchangesetfiles@(st|i|I|samefiles)|\
+l@([cg]|og|ogv|ghi)ofchangesetfiles@(st|i|I|samefiles)|\
 l?(h|o|ogv)f|l?(o)gfg|lcl?(f)|\
 l?(o)g?([fv]|merges)@(mine|others|team)|\
 @(l?([ho])|count?(f)|countmaxdaycommits|commitsperday|log@(distribution|msgstat)|l?(o)gtitle?(f)g|activity|brlifetimes|devstat)?(mine|others|team)|\

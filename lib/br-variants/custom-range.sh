@@ -120,7 +120,7 @@ lc?([fh]|@(st|i|I|samefiles))?(mine|others|team)\
     (\
 @(@(log?(v)|show)@(last|first)?(f)|lc?(l)?(f)|l?(o)g?([fv])|count)@(g|changed|touched)?(mine|others|team)|\
 logfiles?(st|i|I|samefiles)?(mine|others|team)|\
-l@([cg]|og|ogv)ofchangesetfiles@(st|i|I|samefiles)|\
+l@([cg]|og|ogv|ghi)ofchangesetfiles@(st|i|I|samefiles)|\
 l?(o)gfg|\
 @(files|versions|tags)@(g|changed|touched)|\
 @(files|version|tag)@(last|first)@(g|changed|touched)\

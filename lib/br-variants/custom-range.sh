@@ -289,7 +289,7 @@ revertcommit|\
     @(cat|cp)?(p))
 	customRangeWithRangeCommand "${gitCommand}selected" "$@";;
 
-    @(l@([cg]|og|ogv)|l@([cg]|og|ogv)ofchangesetfiles|whatdid|changesetfiles|churn|who@(when|first|last|created|lasttouched|did?(f)|owns|contributed|what))thosefiles)
+    @(l@([cg]|og|ogv)|l@([cg]|og|ogv|ghi)ofchangesetfiles|whatdid|changesetfiles|churn|who@(when|first|last|created|lasttouched|did?(f)|owns|contributed|what))thosefiles)
 	withScoped files '' "${gitCommand%thosefiles}" "$@";;
     lghithosefiles)
 	withScoped files '' "${gitCommand%thosefiles}files" "$@";;

@@ -249,6 +249,7 @@ Originally committed at $originalLocation" "${gitCommitEditArg[@]}" -- "$targetF
     return 0
 }
 
+typeset -a commitTemplateAppendFlag=()
 fileRemove()
 {
     local filespec="${1:?}"; shift
@@ -262,7 +263,8 @@ Now${actionAlso:+ }${actionAlso} located at $newLocation"
     if [ "$isCommitRemoval" ]; then
 	git-wrapper commit --message "$commitMessage" "${gitCommitEditArg[@]}" -- "$filespec" || return $?
     else
-	printf '%s\n' "$commitMessage"
+	printf '%s\n' "$commitMessage" | git-committemplate --save "${commitTemplateAppendFlag[@]}"
+	commitTemplateAppendFlag=(--append)
     fi
 }
 

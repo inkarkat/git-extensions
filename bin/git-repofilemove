@@ -7,7 +7,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '-t|--target-repo OTHER-REPO-PATH[/[SUBPATH]] [--copy|--move] [--record-only] [-r|--remote REMOTE] [--no-edit] [--creator|--did|--owner|--contributor|--who-what] [--follow] [--] FILE [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '-t|--target-repo OTHER-REPO-PATH[/[SUBPATH]] [--copy|--move] [--record-only] [-r|--remote REMOTE] [-R|--target-remote REMOTE] [--no-edit] [--creator|--did|--owner|--contributor|--who-what] [--follow] [--] FILE [...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -46,8 +46,12 @@ HELPDESCRIPTION
 			has already happened and just commit (and delete the
 			original). Don't fail if FILE has already been removed.
     --remote|-r REMOTE	Include links to the GitHub REMOTE in the move commits
-			instead of just referencing the repos by working copy
-			name.
+			instead of just referencing the current repo by working
+			copy name.
+    --target-remote|-R REMOTE
+			Include links to the GitHub REMOTE in the move commits
+			instead of just referencing the target repo by working
+			copy name.
     --no-edit		Directly commit without launching the interactive
 			editor.
     --creator		Use the author who initially created the FILE.
@@ -97,7 +101,9 @@ do
 	--copy)		shift; isDelete=; actionName='Copy'; actionAlso='also';;
 	--move)		shift; isCommitRemoval=t;;
 	--record-only)	shift; isRecordOnly=t;;
-	--remote|-r)	shift; originalRemote="${1:?}"; newRemote="${1:?}"; shift;;
+	--remote|-r)	shift; originalRemote="${1:?}"; shift;;
+	--target-remote|-R)
+			shift; newRemote="${1:?}"; shift;;
 	--no-edit)	gitCommitEditArg=("$1"); shift;;
 	--creator)	shift; authorSource=whocreated; isChoose=; isMostOnly=t;;
 	--did)		shift; authorSource=whodid; isChoose=; isMostOnly=t;;

@@ -7,7 +7,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '-t|--target-repo OTHER-REPO-PATH[/[SUBPATH]] [--copy|--move] [--record-only] [-r|--remote REMOTE] [--no-edit] [--creator|--did|--owner|--contributor|--who-what] [--follow] [--] FILE [...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '-t|--to|--target-repo OTHER-REPO-PATH[/[SUBPATH]] [--copy|--move] [--record-only] [-r|--remote REMOTE] [-R|--target-remote REMOTE] [--no-edit] [--creator|--did|--owner|--contributor|--who-what] [--follow] [--] FILE [...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -33,7 +33,7 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
-    --target-repo|-t OTHER-REPO-PATH[/[SUBPATH]]
+    --target-repo|--to|-t OTHER-REPO-PATH[/[SUBPATH]]
 			Copy each FILE to OTHER-REPO-PATH. When there's no
 			SUBPATH, it's put into the same subdirectory there.
     --copy		Do not delete the original FILE(s); i.e. make this a
@@ -46,8 +46,12 @@ HELPDESCRIPTION
 			has already happened and just commit (and delete the
 			original). Don't fail if FILE has already been removed.
     --remote|-r REMOTE	Include links to the GitHub REMOTE in the move commits
-			instead of just referencing the repos by working copy
-			name.
+			instead of just referencing the current repo by working
+			copy name.
+    --target-remote|-R REMOTE
+			Include links to the GitHub REMOTE in the move commits
+			instead of just referencing the target repo by working
+			copy name.
     --no-edit		Directly commit without launching the interactive
 			editor.
     --creator		Use the author who initially created the FILE.
@@ -69,7 +73,8 @@ actionAlso=''
 isDelete=t
 isCommitRemoval=
 isRecordOnly=
-remote=
+originalRemote=
+newRemote=
 gitCommitEditArg=(--edit)
 authorSource=whodid
 isChoose=t
@@ -79,7 +84,7 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
-	--target-repo|-t)
+	--target-repo|--to|-t)
 			shift
 			if [ ! -d "$1" ]; then
 			    printf >&2 'ERROR: Target does not exist: %s\n' "$1"
@@ -96,7 +101,9 @@ do
 	--copy)		shift; isDelete=; actionName='Copy'; actionAlso='also';;
 	--move)		shift; isCommitRemoval=t;;
 	--record-only)	shift; isRecordOnly=t;;
-	--remote|-r)	shift; remote="$1"; shift;;
+	--remote|-r)	shift; originalRemote="${1:?}"; shift;;
+	--target-remote|-R)
+			shift; newRemote="${1:?}"; shift;;
 	--no-edit)	gitCommitEditArg=("$1"); shift;;
 	--creator)	shift; authorSource=whocreated; isChoose=; isMostOnly=t;;
 	--did)		shift; authorSource=whodid; isChoose=; isMostOnly=t;;
@@ -121,15 +128,27 @@ elif [ $# -eq 0 ]; then
     exit 2
 fi >&2
 
-if [ "$HUB" ] && [ -z "$remote" ]; then
-    readarray -t remotes < <(git remote)
-    case ${#remotes[@]} in
-	0)  ;;
-	1)  remote="${remotes[0]}";;
-	*)  echo >&2 'ERROR: Multiple remotes exist; unable to pick a default. Pass --remote REMOTE to select one.'
-	    exit 2
-	    ;;
-    esac
+if [ "$HUB" ]; then
+    if [ -z "$originalRemote" ]; then
+	readarray -t remotes < <(git remote)
+	case ${#remotes[@]} in
+	    0)  ;;
+	    1)  originalRemote="${remotes[0]}";;
+	    *)  echo >&2 'ERROR: Multiple remotes exist in the current repo; unable to pick a default. Pass --remote REMOTE to select one.'
+		exit 2
+		;;
+	esac
+    fi
+    if [ -z "$newRemote" ]; then
+	readarray -t remotes < <(cd "$targetRepo" && git remote)
+	case ${#remotes[@]} in
+	    0)  ;;
+	    1)  newRemote="${remotes[0]}";;
+	    *)  echo >&2 'ERROR: Multiple remotes exist in the target repo; unable to pick a default. Pass --remote REMOTE to select one.'
+		exit 2
+		;;
+	esac
+    fi
 fi
 
 filemove()
@@ -156,8 +175,8 @@ filemove()
     local originalSubPath; originalSubPath="$(git-relative -- "$filespec")" || return 3
 
     local originalLocation
-    if [ -n "$remote" ]; then
-	originalLocation="$(git lllhurl "$remote" -- "$filespec")" || return 3
+    if [ -n "$originalRemote" ]; then
+	originalLocation="$(git lllhurl "$originalRemote" -- "$filespec")" || return 3
     else
 	originalLocation="$(git-wcname)/${originalSubPath}" || return 3
     fi
@@ -221,8 +240,8 @@ Originally committed at $originalLocation" "${gitCommitEditArg[@]}" -- "$targetF
     ) || return $?
 
     newRepoName="$(cd "$targetRepo" && git-wcname)"
-    if [ -n "$remote" ]; then
-	newLocation="$(cd "$targetRepo" && git lllhurl "$remote" -- "$targetFilepath")"
+    if [ -n "$newRemote" ]; then
+	newLocation="$(cd "$targetRepo" && git lllhurl "$newRemote" -- "$targetFilepath")"
     else
 	printf -v newLocation '%s/%s\n' "${newRepoName:-???}" "$targetFilepath"
     fi

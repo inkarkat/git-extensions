@@ -1,5 +1,10 @@
 #!/bin/bash
 
+isHelp=
+case "$1" in
+    --help|-h|-\?)	isHelp=t;;
+esac
+
 tempDirspec="$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || { dirspec="${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM"; mkdir -p -- "$dirspec" && printf %s "$dirspec"; })" || exit $?
 [ "$DEBUG" ] || trap 'rm -rf "$tempDirspec" 2>/dev/null' EXIT
 printf -v quotedTempDirspec %q "$tempDirspec"
@@ -7,4 +12,4 @@ printf -v quotedTempDirspec %q "$tempDirspec"
 GIT_LOGCORRECTIONS_COMMAND="lcl --into $quotedTempDirspec" \
 GIT_LOGCORRECTIONS_LOGREVS_COMMAND="lclrevs --into $quotedTempDirspec" \
 ${GIT_LOGCORRECTIONS:-git-logcorrections} "$@" || exit $?
-exec git-lcl --into "$tempDirspec" --show
+[ "$isHelp" ] || exec git-lcl --into "$tempDirspec" --show

@@ -29,7 +29,7 @@
    - `$ git cu -m 'Cosmetics: Delete changelogs'`
    - Create manifest
 6. Create Vimball:
-   `$ vim-pluginbuild` (`:EditManifest | :Make 1.00 | :Zip`)
+   `$ vim-pluginbuild` (`:EditManifest | :VimmanifestMake 1.00 | :VimmanifestZip`)
 7. Update vim.org description (if necessary):
    `:EditDoc | CloneHelpAsText`
 8. `$ git release finish` -> tag name: "Version 1.00"

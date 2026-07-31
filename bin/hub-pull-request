@@ -65,7 +65,7 @@ if hub-existspr ${base:+--base "$base"} ${head:+--head "$head"} --print | output
 	    templateTempFilespec="$(git-commitMessagePrint "${args[@]}" \
 		| TMPDIR="$gitDir" tempfile \
 		    --quiet --basename PULLREQ_EDITMSG_TEMPLATE)" || exit 3
-	    [ "${DEBUG:-}" ] || trap 'rm -f -- "$templateTempFilespec" 2>/dev/null' EXIT
+	    ! ${DEBUG:+debugenabled --invert-match --} ${DEBUG:-:} || trap 'rm -f -- "$templateTempFilespec" 2>/dev/null' EXIT
 	    editPullRequestMessage --editor-args -d -o "$templateTempFilespec" \;
 	    exit $?
 	    ;;

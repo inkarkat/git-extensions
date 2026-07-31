@@ -8,9 +8,7 @@ readonly libDir="${projectDir}/lib"
 
 hasProgressNotification=; type -t progressNotification >/dev/null && hasProgressNotification=t
 
-case ",${DEBUG:-}," in
-    *,git-wc-with-suffix-do:verbose,*) dump-args -- "$@";;
-esac
+${DEBUG:+dump-args --on-debug --module verbose -- "$@"}
 
 printUsage()
 {
@@ -86,17 +84,11 @@ fi
 parseCustomInto wcs "${dashdashArgs[@]}"
 parseCustomInto '' "${unknownOptions[@]}"
 
-case ",${DEBUG:-}," in
-    *,git-wc-with-suffix-do,*)
-	    dump-args "$GIT_DOEXTENSIONS_WRAPPEE" "${wcdoCommandArgs[@]}" "${wcdoArgs[@]}" "${wcs[@]}" -- "${args[@]}"
-	    ;;
-    *,git-wc-with-suffix-do:verbose,*)
-	    dump-args -a wcdoCommandArgs -- "${wcdoCommandArgs[@]}"
-	    dump-args -a wcdoArgs -- "${wcdoArgs[@]}"
-	    dump-args -a wcs -- "${wcs[@]}"
-	    dump-args -a args -- "${args[@]}"
-	;;
-esac
+${DEBUG:+dump-args --on-debug -- "$GIT_DOEXTENSIONS_WRAPPEE" "${wcdoCommandArgs[@]}" "${wcdoArgs[@]}" "${wcs[@]}" -- "${args[@]}"}
+${DEBUG:+dump-args --on-debug --module verbose -a wcdoCommandArgs -- "${wcdoCommandArgs[@]}"}
+${DEBUG:+dump-args --on-debug --module verbose -a wcdoArgs -- "${wcdoArgs[@]}"}
+${DEBUG:+dump-args --on-debug --module verbose -a wcs -- "${wcs[@]}"}
+${DEBUG:+dump-args --on-debug --module verbose -a args -- "${args[@]}"}
 
 if [ "$isWorktrees" ]; then
     if [ "$suffix" ]; then

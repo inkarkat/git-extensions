@@ -6,9 +6,7 @@ readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" 
 readonly projectDir="${scriptDir}/.."
 readonly libDir="${projectDir}/lib"
 
-case ",${DEBUG:-}," in
-    *,git-wcs-in-dir-do:verbose,*) dump-args -- "$@";;
-esac
+${DEBUG:+dump-args --on-debug --module verbose -- "$@"}
 
 printUsage()
 {
@@ -96,18 +94,12 @@ parseWcdo "${wcdoArgs[@]}"
 parseCustomInto dirspecs "${dashdashArgs[@]}"
 parseCustomInto '' "${unknownOptions[@]}"
 
-case ",${DEBUG:-}," in
-    *,git-wcs-in-dir-do,*)
-	    dump-args "$GIT_DOEXTENSIONS_WRAPPEE" "${wcdoCommandArgs[@]}" "${wcdoArgs[@]}" "${dirspecs[@]}" "${args[@]}"
-	    ;;
-    *,git-wcs-in-dir-do:verbose,*)
-	    dump-args -a wcdoCommandArgs -- "${wcdoCommandArgs[@]}"
-	    dump-args -a wcdoArgs -- "${wcdoArgs[@]}"
-	    dump-args -a unknownOptions -- "${unknownOptions[@]}"
-	    dump-args -a dirspecs -- "${dirspecs[@]}"
-	    dump-args -a args -- "${args[@]}"
-	;;
-esac
+${DEBUG:+dump-args --on-debug -- "$GIT_DOEXTENSIONS_WRAPPEE" "${wcdoCommandArgs[@]}" "${wcdoArgs[@]}" "${dirspecs[@]}" "${args[@]}"}
+${DEBUG:+dump-args --on-debug --module verbose -a wcdoCommandArgs -- "${wcdoCommandArgs[@]}"}
+${DEBUG:+dump-args --on-debug --module verbose -a wcdoArgs -- "${wcdoArgs[@]}"}
+${DEBUG:+dump-args --on-debug --module verbose -a unknownOptions -- "${unknownOptions[@]}"}
+${DEBUG:+dump-args --on-debug --module verbose -a dirspecs -- "${dirspecs[@]}"}
+${DEBUG:+dump-args --on-debug --module verbose -a args -- "${args[@]}"}
 
 if [ ${#dirspecs[@]} -eq 0 ]; then
     echo "ERROR: No DIRSPEC(s)."

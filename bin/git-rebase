@@ -84,7 +84,7 @@ generateRebasedCommitHashes()
 	rebasedPersistentReworkedKeys["$commit"]="$additionalIdentifyingInformation"
 	lenientAdditionalIdentifyingInformation="$(getLenientIdentifyingInformation "$additionalIdentifyingInformation")" \
 	    && rebasedPersistentReworkedLenientKeys["$commit"]="$lenientAdditionalIdentifyingInformation"
-    done < <(eval 'git-rev-range-to-pre-rebase log "${rebaseDeduplicateLogArgs[@]}"' "${DEBUG:+| debugtee --single-capture --for git-rebase --module rebasedCommitHashes --to ${gitDir@Q}/rebaseNewPersistentCommits}")
+    done < <(eval 'git-rev-range-to-pre-rebase log "${rebaseDeduplicateLogArgs[@]}"' "${DEBUG:+| debugtee --single-capture --module rebasedCommitHashes --to ${gitDir@Q}/rebaseNewPersistentCommits}")
 
     [ ${#rebasedPersistentCommitList[@]} -gt 0 ] || return 99
 
@@ -136,12 +136,12 @@ generateRebasedCommitHashes()
 		local whereFound='leniently reworked'
 	    else
 		# Nope, this commit is new and doesn't correspond to any original commit.
-		case ",${DEBUG:-}," in *,git-rebase:rebasedCommitHashes,*) printf >&2 '%sgit-rebase (rebasedCommitHashes): %s is new\n' "$PS5" "$rebasedCommit";; esac
+		${DEBUG:+debuglogf --module rebasedCommitHashes '%s is new' "$rebasedCommit"}
 		continue
 	    fi
 	fi
 
-	case ",${DEBUG:-}," in *,git-rebase:rebasedCommitHashes,*) printf >&2 '%sgit-rebase (rebasedCommitHashes): %s got %s to %s\n' "$PS5" "$originalCommit" "$whereFound" "$rebasedCommit";; esac
+	${DEBUG:+debuglogf --module rebasedCommitHashes '%s got %s to %s' "$originalCommit" "$whereFound" "$rebasedCommit"}
 	printf '%s\t%s\n' "$originalCommit" "$rebasedCommit" >> "$rebasedCommitHashesFilespec"
     done
 

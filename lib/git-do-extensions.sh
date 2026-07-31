@@ -311,7 +311,7 @@ parseCommand()
 {
     while [ $# -ne 0 ]
     do
-	case ",${DEBUG:-}," in *,git-do-extensions,*) printf >&2 '%sgit-do-extensions: Parsing %s\n' "$PS4" "$1";; esac
+	${DEBUG:+debuglogf 'Parsing %s' "$1"}
 	case "$1" in
 	    --help|-h|-\?)  shift; printExtendedUsage "$0"; exit 0;;
 
@@ -417,7 +417,7 @@ parseCommand()
 	fi
     fi
 
-    case ",${DEBUG:-}," in *,git-do-extensions,*) printf >&2 '%sgit-do-extensions: Additional args: ' "$PS4"; dump-args -- "$@";; esac
+    ${DEBUG:+dump-args --on-debug -- "$@"}
     if [ ${#wcdoCommandArgs[@]} -eq 0 -a $# -eq 0 ]; then
 	:
     elif [ "${1:0:1}" != '-' ]; then

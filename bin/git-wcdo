@@ -5,9 +5,7 @@ readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" 
 readonly projectDir="${scriptDir}/.."
 readonly libDir="${projectDir}/lib"
 
-case ",${DEBUG:-}," in
-    *,git-wcdo:verbose,*) dump-args -- "$@";;
-esac
+${DEBUG:+dump-args --on-debug --module verbose -- "$@"}
 
 GIT_DOEXTENSIONS_WRAPPEE=git-wcdo-core
 GIT_DOEXTENSIONS_DASHDASH_ARGS_BEFORE_SIMPLECOMMAND=t
@@ -16,18 +14,13 @@ source "${libDir}/git-do-extensions.sh" || exit 3
 
 parseCommand "$@"
 
-case ",${DEBUG:-}," in
-    *,git-wcdo,*)
-	    dump-args "$GIT_DOEXTENSIONS_WRAPPEE" "${wcdoCommandArgs[@]}" "${wcdoArgs[@]}" "${dashdashArgs[@]}" "${args[@]}"
-	    ;;
-    *,git-wcdo:verbose,*)
-	    dump-args -a wcdoCommandArgs -- "${wcdoCommandArgs[@]}"
-	    dump-args -a wcdoArgs -- "${wcdoArgs[@]}"
-	    dump-args -a dashdashArgs -- "${dashdashArgs[@]}"
-	    dump-args -a unknownOptions -- "${unknownOptions[@]}"
-	    dump-args -a args -- "${args[@]}"
-	;;
-esac
+${DEBUG:+dump-args --on-debug -- "$GIT_DOEXTENSIONS_WRAPPEE" "${wcdoCommandArgs[@]}" "${wcdoArgs[@]}" "${dashdashArgs[@]}" "${args[@]}"}
+${DEBUG:+dump-args --on-debug --module verbose -a wcdoCommandArgs -- "${wcdoCommandArgs[@]}"}
+${DEBUG:+dump-args --on-debug --module verbose -a wcdoArgs -- "${wcdoArgs[@]}"}
+${DEBUG:+dump-args --on-debug --module verbose -a dashdashArgs -- "${dashdashArgs[@]}"}
+${DEBUG:+dump-args --on-debug --module verbose -a unknownOptions -- "${unknownOptions[@]}"}
+${DEBUG:+dump-args --on-debug --module verbose -a args -- "${args[@]}"}
+
 if [ ${#unknownOptions[@]} -gt 0 ]; then
     printf >&2 'ERROR: Unknown option: "%s"!\n' "${unknownOptions[0]}"
     exit 2

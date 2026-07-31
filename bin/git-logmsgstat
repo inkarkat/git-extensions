@@ -133,7 +133,7 @@ tempDirspec=''
 splitAndStat()
 {
     tempDirspec="$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || { dirspec="${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM"; mkdir -p -- "$dirspec" && printf %s "$dirspec"; })" || exit $?
-    [ "$DEBUG" ] || trap 'rm -rf "$tempDirspec" 2>/dev/null' EXIT
+    ! ${DEBUG:+debugenabled --invert-match --} ${DEBUG:-:} || trap 'rm -rf "$tempDirspec" 2>/dev/null' EXIT
 
     csplit --quiet --elide-empty-files --prefix "${tempDirspec}/msg" --suppress-matched --digits 8 - '/^$/' '{*}' || exit $?
 

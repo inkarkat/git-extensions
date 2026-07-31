@@ -4,6 +4,11 @@ _Additions and tweaks to the Git CLI._
 
 These are some personal aliases, shortcuts, and extensions that make (my) work with the [Git distributed version control tool](https://git-scm.com/) easier and faster. Some of them may be specific to my environment and workflow, and especially the advanced commands often rely on other (potentially unpublished) scripts, but maybe someone finds a valuable nugget in there.
 
+### Dependencies
+
+* Bash
+* [inkarkat/shell-debugging](https://github.com/inkarkat/shell-debugging) for debugging (optional)
+
 ### Installation
 
 Download all / some selected extensions (note that some have dependencies, though) and put them somewhere in your `PATH`, or just add the `./bin` subdirectory to `PATH`. You can then invoke them via `git-SUBCOMMAND`; those commands that don't override built-in ones or have case differences can also be invoked via `git SUBCOMMAND` (space instead of hyphen!).

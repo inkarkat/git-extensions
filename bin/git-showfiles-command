@@ -13,10 +13,6 @@ defaultUsageDelegationCommand="${GIT_SHOWFILES_UNDERSTANDS_COMMAND/--understand-
 : ${GIT_SHOWFILESCOMMAND_REVISIONS_END=;}
 GIT_LOGARGPARSER_REVISIONS_END="$GIT_SHOWFILESCOMMAND_REVISIONS_END"
 
-# Usage: [DEBUG=git-showfiles-command:showfiles[!]]
-# DEBUG=git-showfiles-command:showfiles also prints it, DEBUG=git-showfiles-command:*! just prints and skips execution
-DEBUGPREFIX=; case ",${DEBUG:-}," in *,git-showfiles-command:showfiles,*) DEBUGPREFIX=verbose;; *,git-showfiles-command:showfiles\!,*) DEBUGPREFIX=echotrace;; esac
-
 readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
 [ -d "$scriptDir" ] || { echo >&2 'ERROR: Cannot determine script directory!'; exit 3; }
 readonly projectDir="${scriptDir}/.."
@@ -241,7 +237,7 @@ fi
 
 readarray -t committedFiles < <(
     [ ${#sourceFiles[@]} -gt 0 ] || sourceFiles=("${files[@]}")	# Default to the <pathspec>s for GIT-COMMAND - these presumably are limitations that can already restrict the source.
-    eval "$DEBUGPREFIX git-wrapper $GIT_SHOWFILES_COMMAND" '"${showfilesArgs[@]}" "${sourceRangeArgs[@]}" ${sourceFiles:+--} "${sourceFiles[@]}"' \
+    eval "\${DEBUG:+debugcommand --module showfiles --} git-wrapper $GIT_SHOWFILES_COMMAND" '"${showfilesArgs[@]}" "${sourceRangeArgs[@]}" ${sourceFiles:+--} "${sourceFiles[@]}"' \
 	| { xargs -d '\n' -n 1 --no-run-if-empty sh -c 'test -r "$1" && printf %s\\n "$1"' sh || :; }
     printf '\n%d\n' ${PIPESTATUS[0]}
 )	# Exit status from the process substitution is lost; return the actual exit status via an appended additional line.

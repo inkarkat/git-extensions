@@ -127,10 +127,8 @@ parseShowRangeArgsInto()
 	--range)	shift; revisionRangesRef+=("${1:?}"); shift; argCountRef=2;;
 	-*)		local _rangeArgCount; if _rangeArgCount=$(countRangeArgs "$@"); then
 			    argCountRef=$_rangeArgCount
-			    while ((_rangeArgCount-- > 0))
-			    do
-				revisionRangesRef+=("$1"); shift
-			    done
+			    revisionRangesRef+=("${@:1:_rangeArgCount}");
+			    shift $_rangeArgCount
 			else
 			    return 1
 			fi

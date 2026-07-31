@@ -193,11 +193,11 @@ do
 			;;
 	--)		shift; typeset -a files=("$@"); set --; break;;
 	*)		argCount=0
-			if [ -n "$GIT_SHOWFILES_UNDERSTANDS_COMMAND" ] && argCount=$(git-wrapper $GIT_SHOWFILES_UNDERSTANDS_COMMAND --understands "$@"); then
-			    while ((argCount-- > 0))
-			    do
-				showfilesArgs+=("$1"); shift
-			    done
+			if [ -n "$GIT_SHOWFILES_UNDERSTANDS_COMMAND" ] \
+			    && argCount=$(git-wrapper $GIT_SHOWFILES_UNDERSTANDS_COMMAND --understands "$@")
+			then
+			    showfilesArgs+=("${@:1:argCount}")
+			    shift $argCount
 			elif [ $? -eq 2 ]; then
 			    exit 2
 			elif typeset -a rangeArgs=() \

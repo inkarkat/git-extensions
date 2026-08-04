@@ -22,7 +22,7 @@
    `$ runVimTests tests/[all.suite]`
 2. `$ git release start 1.00` (see `$ git cheat release` for detailed inspections)
 3. Update changelog (at least with release date) in `doc/*.txt`
-   - `:UpdateHelpAsReadme`
+   - `:HelpUpdateHelpAsReadme`
 4. `$ git release commit` (`$ git cu -m 'Release 1.00'`)
 5. First GitHub release (of a small plugin):
    - Execute `:DeleteChangelog`
@@ -31,6 +31,6 @@
 6. Create Vimball:
    `$ vim-pluginbuild` (`:EditManifest | :VimmanifestMake 1.00 | :VimmanifestZip`)
 7. Update vim.org description (if necessary):
-   `:EditDoc | CloneHelpAsText`
+   `:EditDoc | HelpCloneHelpAsText`
 8. `$ git release finish` -> tag name: "Version 1.00"
 9. `$ git opa` (`$ git opush --tags && git opush --all`)

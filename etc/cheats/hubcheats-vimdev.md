@@ -25,7 +25,7 @@ Copy / sync all plugin files from ~/data/Unixhome/.vim to ~/tmp/vim
 `$ vim doc/*.txt`
 Add github snippets after INSTALLATION and after IDEAS.
 
-`:CloneHelpAsReadme`
+`:HelpCloneHelpAsReadme`
 `:MarkdownPreview`
 
 `$ cp -r ~/.vim/{.gitignore,.github} .`

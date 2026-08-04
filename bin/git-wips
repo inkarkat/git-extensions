@@ -13,7 +13,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--submodules|--all-submodules [--submodule-color=(always|auto|never)]] [--no-submodule-recurse] [--filter-worktree-duplicates] [-a|--all] [-v|--verbose] [-q|--quiet|--color=(always|auto|never)|--no-color] [(+|-)(empty|dirty|private|stashed|wipcommit|nonmaster|mergedbr|stalebr|todo|noremote|outgoing|incoming|fallenbehind|behind|behindtags|unmergeddownstream|downstreambranches|inactivefork|stalestable) ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--submodules|--all-submodules [--submodule-color=(always|auto|never)]] [--no-submodule-recurse] [--filter-worktree-duplicates] [-a|--all] [-d|--with-duration] [-v|--verbose] [-q|--quiet|--color=(always|auto|never)|--no-color] [(+|-)(empty|dirty|private|stashed|wipcommit|nonmaster|mergedbr|stalebr|todo|noremote|outgoing|incoming|fallenbehind|behind|behindtags|unmergeddownstream|downstreambranches|inactivefork|stalestable) ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -48,6 +48,9 @@ HELPDESCRIPTION
 			worktrees to avoid duplicates.
     --all|-a		Execute each check instead of stopping after the first
 			positive check that found unresolved work.
+    --with-duration|-d	Record the [or all] positive check[s] and when it first
+			appeared, and print the duration since then for as long
+			as that check remains positive.
     --verbose|-v	Show each check's name as it's being executed.
     --quiet|-q		Don't print details on the work-in-progress; just
 			indicate via the exit status whether there is some.
@@ -110,6 +113,7 @@ typeset -a submoduleColorArg=()
 typeset -a subdoColorArg=()
 typeset -a gitColorConfigArg=()
 isAll=
+isWithDuration=
 isSubmodules=
 isSubmodulesAlways=
 isFilterWorktreeDuplicates=
@@ -134,6 +138,8 @@ do
 	--no-submodule-recurse)
 			shift; subdoRecursiveArg=();;
 	--all|-a)	recursiveArgs+=("$1"); shift; isAll=t;;
+	--with-duration|-d)
+			recursiveArgs+=("$1"); shift; isWithDuration=t;;
 	--verbose|-v)	recursiveArgs+=("$1"); shift; isVerbose=t;;
 	--quiet|-q)	recursiveArgs+=("$1"); shift; exec 1>/dev/null;;
 	*)		recursiveArgs+=("$@"); break;;
@@ -178,14 +184,34 @@ printSubmoduleSeparator()
     printf "${HEADER_SEPARATOR-\\n}"
 }
 
-recordNoWips()
-{
-    :
-}
-recordPositiveCheck()
-{
-    local check="${1:?}"; shift
-}
+if [ "$isWithDuration" ]; then
+    gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit 3
+    wipRecordFilespec="${gitDir}/wips-current"
+    recordNoWips()
+    {
+	: > "$wipRecordFilespec"
+    }
+    recordPositiveCheck()
+    {
+	local check="${1:?}"; shift
+	local NOW; printf -v NOW '%(%s)T' -1
+	if [ -r "$wipRecordFilespec" ] \
+	    && < "$wipRecordFilespec" IFS=$'\t' read -r existingCheck firstOccurrenceEpoch \
+	    && [ "$existingCheck" = "$check" ]
+	then
+	    # The check hasn't changed; keep the original timestamp, report the duration.
+	    local secondsElapsed=$((NOW - firstOccurrenceEpoch))
+	    local duration; duration="$(secondsToDuration --precision 1 --long-units $secondsElapsed)" \
+		&& printf '%s ago\n' "$duration"
+	else
+	    printf '%s\t%d\n' "$check" "$NOW" > "$wipRecordFilespec"
+	fi
+    }
+else
+    recordNoWips() { :; }
+    recordPositiveCheck() { :; }
+fi
+
 if [ "$isAll" ]; then
     positiveCheck()
     {

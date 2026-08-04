@@ -198,6 +198,11 @@ if [ "$isFilterWorktreeDuplicates" ] && git-isworktree; then
     unset 'checks[stashed]' 'checks[noremote]' 'checks[unmergeddownstream]' 'checks[downstreambranches]' 'checks[inactivefork]'
 fi
 
+printfToTerm()
+{
+    { printf >/dev/tty "$@"; } 2>/dev/null
+}
+
 isSubsequentCheck=
 : ${CLEAR_PREVIOUS_LINE='[1F[0K'}
 considerCheck()
@@ -206,7 +211,7 @@ considerCheck()
     [ "${checks[$check]}" ] || return 1
 
     if [ "$isVerbose" ]; then
-	printf >/dev/tty '%sChecking %s...\n' "${isSubsequentCheck:+$CLEAR_PREVIOUS_LINE}" "$check"
+	printfToTerm '%sChecking %s...\n' "${isSubsequentCheck:+$CLEAR_PREVIOUS_LINE}" "$check"
 	isSubsequentCheck=t
     fi
 
@@ -419,7 +424,7 @@ considerCheck stalestable \
     && [ -n "$(git taglist-annotated --version-tags-only)" ] \
     && if printStableBehindMaster; then positiveCheck stalestable; fi
 
-[ "$isVerbose" ] && printf >/dev/tty %s "$CLEAR_PREVIOUS_LINE"
+[ "$isVerbose" ] && printfToTerm %s "$CLEAR_PREVIOUS_LINE"
 
 if [ "$isSubmodules" ] && { [ "$isSubmodulesAlways" ] || [ $overallStatus -ne 0 ]; }; then
     [ $overallStatus -eq 0 ] && printSubmoduleSeparator

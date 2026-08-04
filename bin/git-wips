@@ -103,40 +103,13 @@ deselected (from all checks on offer) via -name.
 	    updated for a while (i.e. you should do a new release)
 HELPTEXT
 }
-typeset -a recursiveArgs=()
-recurseSubmodules()
-{
-    HEADER_PREFIX="${HEADER_PREFIX}» " \
-    GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES=0 \
-    GIT_SUBDO_STORE_ID='wips' \
-	git-subdo-core --no-pager "${subdoColorArg[@]}" "${submoduleColorArg[@]:-${colorArg[@]}}" --single-success "${subdoRecursiveArg[@]}" -- \
-	    wips "${recursiveArgs[@]}"
-}
-printSubmoduleSeparator()
-{
-    printf "${HEADER_SEPARATOR-\\n}"
-}
 
-recordNoWips()
-{
-    :
-}
-recordPositiveCheck()
-{
-    local check="${1:?}"; shift
-}
-positiveCheck() {
-    recordPositiveCheck "${1:?}"
-    if [ "$isSubmodulesAlways" ]; then
-	printSubmoduleSeparator
-	recurseSubmodules
-    fi
-    exit 0
-}
+typeset -a recursiveArgs=()
 typeset -a colorArg=()
 typeset -a submoduleColorArg=()
 typeset -a subdoColorArg=()
 typeset -a gitColorConfigArg=()
+isAll=
 isSubmodules=
 isSubmodulesAlways=
 isFilterWorktreeDuplicates=
@@ -160,7 +133,7 @@ do
 			shift; isSubmodules=t; isSubmodulesAlways=t;;
 	--no-submodule-recurse)
 			shift; subdoRecursiveArg=();;
-	--all|-a)	recursiveArgs+=("$1"); shift; positiveCheck() { recordPositiveCheck "${1:?}"; echo; overallStatus=0; };;
+	--all|-a)	recursiveArgs+=("$1"); shift; isAll=t;;
 	--verbose|-v)	recursiveArgs+=("$1"); shift; isVerbose=t;;
 	--quiet|-q)	recursiveArgs+=("$1"); shift; exec 1>/dev/null;;
 	*)		recursiveArgs+=("$@"); break;;
@@ -191,6 +164,46 @@ do
     esac
     isFirst=
 done
+
+recurseSubmodules()
+{
+    HEADER_PREFIX="${HEADER_PREFIX}» " \
+    GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES=0 \
+    GIT_SUBDO_STORE_ID='wips' \
+	git-subdo-core --no-pager "${subdoColorArg[@]}" "${submoduleColorArg[@]:-${colorArg[@]}}" --single-success "${subdoRecursiveArg[@]}" -- \
+	    wips "${recursiveArgs[@]}"
+}
+printSubmoduleSeparator()
+{
+    printf "${HEADER_SEPARATOR-\\n}"
+}
+
+recordNoWips()
+{
+    :
+}
+recordPositiveCheck()
+{
+    local check="${1:?}"; shift
+}
+if [ "$isAll" ]; then
+    positiveCheck()
+    {
+	recordPositiveCheck "${1:?}"
+	echo
+	overallStatus=0
+    }
+else
+    positiveCheck()
+    {
+	recordPositiveCheck "${1:?}"
+	if [ "$isSubmodulesAlways" ]; then
+	    printSubmoduleSeparator
+	    recurseSubmodules
+	fi
+	exit 0
+    }
+fi
 
 getMasterBranch()
 {

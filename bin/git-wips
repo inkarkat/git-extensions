@@ -185,6 +185,13 @@ printSubmoduleSeparator()
 }
 
 if [ "$isWithDuration" ]; then
+    printDuration()
+    {
+	local secondsElapsed="${1:?}"; shift
+	local duration; duration="$(secondsToDuration --precision 1 --long-units $secondsElapsed)" \
+	    && printf '%s ago\n' "$duration"
+    }
+
     gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit 3
     if [ "$isAll" ]; then
 	database()
@@ -204,9 +211,7 @@ if [ "$isWithDuration" ]; then
 		# The check hasn't changed; keep the original timestamp, report the duration.
 		database --update "$check" --value "$firstOccurrenceEpoch"
 
-		local secondsElapsed=$((NOW - firstOccurrenceEpoch))
-		local duration; duration="$(secondsToDuration --precision 1 --long-units $secondsElapsed)" \
-		    && printf '%s ago\n' "$duration"
+		printDuration $((NOW - firstOccurrenceEpoch))
 	    else
 		database --update "$check" --value "$NOW"
 	    fi
@@ -226,9 +231,7 @@ if [ "$isWithDuration" ]; then
 		&& [ "$existingCheck" = "$check" ]
 	    then
 		# The check hasn't changed; keep the original timestamp, report the duration.
-		local secondsElapsed=$((NOW - firstOccurrenceEpoch))
-		local duration; duration="$(secondsToDuration --precision 1 --long-units $secondsElapsed)" \
-		    && printf '%s ago\n' "$duration"
+		printDuration $((NOW - firstOccurrenceEpoch))
 	    else
 		printf '%s\t%d\n' "$check" "$NOW" > "$wipRecordFilespec"
 	    fi

@@ -186,27 +186,54 @@ printSubmoduleSeparator()
 
 if [ "$isWithDuration" ]; then
     gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit 3
-    wipRecordFilespec="${gitDir}/wips-current"
-    recordNoWips()
-    {
-	: > "$wipRecordFilespec"
-    }
-    recordPositiveCheck()
-    {
-	local check="${1:?}"; shift
-	local NOW; printf -v NOW '%(%s)T' -1
-	if [ -r "$wipRecordFilespec" ] \
-	    && < "$wipRecordFilespec" IFS=$'\t' read -r existingCheck firstOccurrenceEpoch \
-	    && [ "$existingCheck" = "$check" ]
-	then
-	    # The check hasn't changed; keep the original timestamp, report the duration.
-	    local secondsElapsed=$((NOW - firstOccurrenceEpoch))
-	    local duration; duration="$(secondsToDuration --precision 1 --long-units $secondsElapsed)" \
-		&& printf '%s ago\n' "$duration"
-	else
-	    printf '%s\t%d\n' "$check" "$NOW" > "$wipRecordFilespec"
-	fi
-    }
+    if [ "$isAll" ]; then
+	database()
+	{
+	    nanoDB --basedir "$gitDir" --table wips-all --relaxed-key "$@"
+	}
+	eval "$(database --get-as-dictionary existingChecks)" \
+	    && database --truncate
+
+	recordNoWips() { :; }
+	recordPositiveCheck()
+	{
+	    local check="${1:?}"; shift
+	    local NOW; printf -v NOW '%(%s)T' -1
+	    local firstOccurrenceEpoch=${existingChecks["$check"]}
+	    if [ -n "$firstOccurrenceEpoch" ]; then
+		# The check hasn't changed; keep the original timestamp, report the duration.
+		database --update "$check" --value "$firstOccurrenceEpoch"
+
+		local secondsElapsed=$((NOW - firstOccurrenceEpoch))
+		local duration; duration="$(secondsToDuration --precision 1 --long-units $secondsElapsed)" \
+		    && printf '%s ago\n' "$duration"
+	    else
+		database --update "$check" --value "$NOW"
+	    fi
+	}
+    else
+	wipRecordFilespec="${gitDir}/wips-current"
+	recordNoWips()
+	{
+	    : > "$wipRecordFilespec"
+	}
+	recordPositiveCheck()
+	{
+	    local check="${1:?}"; shift
+	    local NOW; printf -v NOW '%(%s)T' -1
+	    if [ -r "$wipRecordFilespec" ] \
+		&& < "$wipRecordFilespec" IFS=$'\t' read -r existingCheck firstOccurrenceEpoch \
+		&& [ "$existingCheck" = "$check" ]
+	    then
+		# The check hasn't changed; keep the original timestamp, report the duration.
+		local secondsElapsed=$((NOW - firstOccurrenceEpoch))
+		local duration; duration="$(secondsToDuration --precision 1 --long-units $secondsElapsed)" \
+		    && printf '%s ago\n' "$duration"
+	    else
+		printf '%s\t%d\n' "$check" "$NOW" > "$wipRecordFilespec"
+	    fi
+	}
+    fi
 else
     recordNoWips() { :; }
     recordPositiveCheck() { :; }

@@ -198,8 +198,21 @@ if [ "$isWithDuration" ]; then
 	{
 	    nanoDB --basedir "$gitDir" --table wips-all --relaxed-key "$@"
 	}
-	eval "$(database --get-as-dictionary existingChecks)" \
-	    && database --truncate
+	typeset -A existingChecks=(); eval "$(database --get-as-dictionary existingChecks)"
+	typeset -A continuingChecks=()
+	updatePositiveChecksInDatabase()
+	{
+	    database --truncate	# Clear the table first, then re-add all positive checks with their timestamps.
+
+	    typeset -a updates=()
+	    local check; for check in "${!continuingChecks[@]}"
+	    do
+		updates+=(--update "$check" --value "${continuingChecks[$check]}")
+	    done
+	    [ ${#updates[@]} -eq 0 ] || database "${updates[@]}"
+
+	}
+	trap updatePositiveChecksInDatabase EXIT
 
 	recordNoWips() { :; }
 	recordPositiveCheck()
@@ -209,11 +222,10 @@ if [ "$isWithDuration" ]; then
 	    local firstOccurrenceEpoch=${existingChecks["$check"]}
 	    if [ -n "$firstOccurrenceEpoch" ]; then
 		# The check hasn't changed; keep the original timestamp, report the duration.
-		database --update "$check" --value "$firstOccurrenceEpoch"
-
+		continuingChecks["$check"]=$firstOccurrenceEpoch
 		printDuration $((NOW - firstOccurrenceEpoch))
 	    else
-		database --update "$check" --value "$NOW"
+		continuingChecks["$check"]=$NOW
 	    fi
 	}
     else
@@ -233,7 +245,7 @@ if [ "$isWithDuration" ]; then
 		# The check hasn't changed; keep the original timestamp, report the duration.
 		printDuration $((NOW - firstOccurrenceEpoch))
 	    else
-		printf '%s\t%d\n' "$check" "$NOW" > "$wipRecordFilespec"
+		printf '%s\t%d\n' "$check" $NOW > "$wipRecordFilespec"
 	    fi
 	}
     fi

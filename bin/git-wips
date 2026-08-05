@@ -202,14 +202,9 @@ if [ "$isWithDuration" ]; then
 	typeset -A continuingChecks=()
 	updatePositiveChecksInDatabase()
 	{
-	    database --truncate	# Clear the table first, then re-add all positive checks with their timestamps.
-
-	    typeset -a updates=()
-	    local check; for check in "${!continuingChecks[@]}"
-	    do
-		updates+=(--update "$check" --value "${continuingChecks[$check]}")
-	    done
-	    [ ${#updates[@]} -eq 0 ] || database "${updates[@]}"
+	    # Clear the table first, then re-add all positive checks with their timestamps.
+	    database --truncate
+	    [ ${#continuingChecks[@]} -eq 0 ] || database --update-from-dictionary "$(declare -p continuingChecks)"
 
 	}
 	trap updatePositiveChecksInDatabase EXIT

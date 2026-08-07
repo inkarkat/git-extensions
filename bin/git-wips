@@ -13,7 +13,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--submodules|--all-submodules [--submodule-color=(always|auto|never)]] [--no-submodule-recurse] [--filter-worktree-duplicates] [-a|--all] [-v|--verbose] [-q|--quiet|--color=(always|auto|never)|--no-color] [(+|-)(empty|dirty|private|stashed|wipcommit|nonmaster|mergedbr|stalebr|todo|noremote|outgoing|incoming|fallenbehind|behind|behindtags|unmergeddownstream|downstreambranches|inactivefork|stalestable) ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--submodules|--all-submodules [--submodule-color=(always|auto|never)]] [--no-submodule-recurse] [--filter-worktree-duplicates] [-a|--all] [-d|--with-duration] [-v|--verbose] [-q|--quiet|--color=(always|auto|never)|--no-color] [(+|-)(empty|dirty|private|stashed|wipcommit|nonmaster|mergedbr|stalebr|todo|noremote|outgoing|incoming|fallenbehind|behind|behindtags|unmergeddownstream|downstreambranches|inactivefork|stalestable) ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -48,6 +48,9 @@ HELPDESCRIPTION
 			worktrees to avoid duplicates.
     --all|-a		Execute each check instead of stopping after the first
 			positive check that found unresolved work.
+    --with-duration|-d	Record the [or all] positive check[s] and when it first
+			appeared, and print the duration since then for as long
+			as that check remains positive.
     --verbose|-v	Show each check's name as it's being executed.
     --quiet|-q		Don't print details on the work-in-progress; just
 			indicate via the exit status whether there is some.
@@ -103,30 +106,14 @@ deselected (from all checks on offer) via -name.
 	    updated for a while (i.e. you should do a new release)
 HELPTEXT
 }
+
 typeset -a recursiveArgs=()
-recurseSubmodules()
-{
-    HEADER_PREFIX="${HEADER_PREFIX}» " \
-    GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES=0 \
-    GIT_SUBDO_STORE_ID='wips' \
-	git-subdo-core --no-pager "${subdoColorArg[@]}" "${submoduleColorArg[@]:-${colorArg[@]}}" --single-success "${subdoRecursiveArg[@]}" -- \
-	    wips "${recursiveArgs[@]}"
-}
-printSubmoduleSeparator()
-{
-    printf "${HEADER_SEPARATOR-\\n}"
-}
-positiveCheck() {
-    if [ "$isSubmodulesAlways" ]; then
-	printSubmoduleSeparator
-	recurseSubmodules
-    fi
-    exit 0
-}
 typeset -a colorArg=()
 typeset -a submoduleColorArg=()
 typeset -a subdoColorArg=()
 typeset -a gitColorConfigArg=()
+isAll=
+isWithDuration=
 isSubmodules=
 isSubmodulesAlways=
 isFilterWorktreeDuplicates=
@@ -150,7 +137,9 @@ do
 			shift; isSubmodules=t; isSubmodulesAlways=t;;
 	--no-submodule-recurse)
 			shift; subdoRecursiveArg=();;
-	--all|-a)	recursiveArgs+=("$1"); shift; positiveCheck() { echo; overallStatus=0; };;
+	--all|-a)	recursiveArgs+=("$1"); shift; isAll=t;;
+	--with-duration|-d)
+			recursiveArgs+=("$1"); shift; isWithDuration=t;;
 	--verbose|-v)	recursiveArgs+=("$1"); shift; isVerbose=t;;
 	--quiet|-q)	recursiveArgs+=("$1"); shift; exec 1>/dev/null;;
 	*)		recursiveArgs+=("$@"); break;;
@@ -182,6 +171,103 @@ do
     isFirst=
 done
 
+recurseSubmodules()
+{
+    HEADER_PREFIX="${HEADER_PREFIX}» " \
+    GIT_SUBDO_EXIT_STATUS_NO_SUBMODULES=0 \
+    GIT_SUBDO_STORE_ID='wips' \
+	git-subdo-core --no-pager "${subdoColorArg[@]}" "${submoduleColorArg[@]:-${colorArg[@]}}" --single-success "${subdoRecursiveArg[@]}" -- \
+	    wips "${recursiveArgs[@]}"
+}
+printSubmoduleSeparator()
+{
+    printf "${HEADER_SEPARATOR-\\n}"
+}
+
+if [ "$isWithDuration" ]; then
+    printDuration()
+    {
+	local secondsElapsed="${1:?}"; shift
+	local duration; duration="$(secondsToDuration --precision 1 --long-units $secondsElapsed)" \
+	    && printf '%s ago\n' "$duration"
+    }
+
+    gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit 3
+    if [ "$isAll" ]; then
+	database()
+	{
+	    nanoDB --basedir "$gitDir" --table wips-all --relaxed-key "$@"
+	}
+	typeset -A existingChecks=(); eval "$(database --get-as-dictionary existingChecks)"
+	typeset -A continuingChecks=()
+	updatePositiveChecksInDatabase()
+	{
+	    # Clear the table first, then re-add all positive checks with their timestamps.
+	    database --truncate
+	    [ ${#continuingChecks[@]} -eq 0 ] || database --update-from-dictionary "$(declare -p continuingChecks)"
+
+	}
+	trap updatePositiveChecksInDatabase EXIT
+
+	recordNoWips() { :; }
+	recordPositiveCheck()
+	{
+	    local check="${1:?}"; shift
+	    local NOW; printf -v NOW '%(%s)T' -1
+	    local firstOccurrenceEpoch=${existingChecks["$check"]}
+	    if [ -n "$firstOccurrenceEpoch" ]; then
+		# The check hasn't changed; keep the original timestamp, report the duration.
+		continuingChecks["$check"]=$firstOccurrenceEpoch
+		printDuration $((NOW - firstOccurrenceEpoch))
+	    else
+		continuingChecks["$check"]=$NOW
+	    fi
+	}
+    else
+	wipRecordFilespec="${gitDir}/wips-current"
+	recordNoWips()
+	{
+	    : > "$wipRecordFilespec"
+	}
+	recordPositiveCheck()
+	{
+	    local check="${1:?}"; shift
+	    local NOW; printf -v NOW '%(%s)T' -1
+	    if [ -r "$wipRecordFilespec" ] \
+		&& < "$wipRecordFilespec" IFS=$'\t' read -r existingCheck firstOccurrenceEpoch \
+		&& [ "$existingCheck" = "$check" ]
+	    then
+		# The check hasn't changed; keep the original timestamp, report the duration.
+		printDuration $((NOW - firstOccurrenceEpoch))
+	    else
+		printf '%s\t%d\n' "$check" $NOW > "$wipRecordFilespec"
+	    fi
+	}
+    fi
+else
+    recordNoWips() { :; }
+    recordPositiveCheck() { :; }
+fi
+
+if [ "$isAll" ]; then
+    positiveCheck()
+    {
+	recordPositiveCheck "${1:?}"
+	echo
+	overallStatus=0
+    }
+else
+    positiveCheck()
+    {
+	recordPositiveCheck "${1:?}"
+	if [ "$isSubmodulesAlways" ]; then
+	    printSubmoduleSeparator
+	    recurseSubmodules
+	fi
+	exit 0
+    }
+fi
+
 getMasterBranch()
 {
     [ -n "$masterBranch" ] || masterBranch="$(git-mbr)" || exit 3
@@ -193,6 +279,11 @@ if [ "$isFilterWorktreeDuplicates" ] && git-isworktree; then
     unset 'checks[stashed]' 'checks[noremote]' 'checks[unmergeddownstream]' 'checks[downstreambranches]' 'checks[inactivefork]'
 fi
 
+printfToTerm()
+{
+    { printf >/dev/tty "$@"; } 2>/dev/null
+}
+
 isSubsequentCheck=
 : ${CLEAR_PREVIOUS_LINE='[1F[0K'}
 considerCheck()
@@ -201,7 +292,7 @@ considerCheck()
     [ "${checks[$check]}" ] || return 1
 
     if [ "$isVerbose" ]; then
-	printf >/dev/tty '%sChecking %s...\n' "${isSubsequentCheck:+$CLEAR_PREVIOUS_LINE}" "$check"
+	printfToTerm '%sChecking %s...\n' "${isSubsequentCheck:+$CLEAR_PREVIOUS_LINE}" "$check"
 	isSubsequentCheck=t
     fi
 
@@ -210,10 +301,10 @@ considerCheck()
 
 overallStatus=1
 considerCheck empty \
-    && if git empty; then echo 'Empty repository.'; positiveCheck; fi
+    && if git empty; then echo 'Empty repository.'; positiveCheck empty; fi
 
 considerCheck dirty \
-    && if git-dirty --quiet; then git "${gitColorConfigArg[@]}" st; positiveCheck; fi
+    && if git-dirty --quiet; then git "${gitColorConfigArg[@]}" st; positiveCheck dirty; fi
 
 findPrivateFiles()
 {
@@ -223,18 +314,18 @@ findPrivateFiles()
     printf 'Unversioned file: %s\n' "${privateFiles[@]}"
 }
 considerCheck private \
-    && if findPrivateFiles; then positiveCheck; fi
+    && if findPrivateFiles; then positiveCheck private; fi
 
 considerCheck stashed \
-    && if git rev-parse --verify --quiet refs/stash >/dev/null; then git stashl "${colorArg[@]}"; positiveCheck; fi
+    && if git rev-parse --verify --quiet refs/stash >/dev/null; then git stashl "${colorArg[@]}"; positiveCheck stashed; fi
 
 considerCheck wipcommit \
-    && if git l --max-count=1 "${colorArg[@]}" | grep '\(^\| \)WIP: '; then positiveCheck; fi
+    && if git l --max-count=1 "${colorArg[@]}" | grep '\(^\| \)WIP: '; then positiveCheck wipcommit; fi
 
 considerCheck nonmaster \
     && if branchName="$(git-brname --real-branch-only 2>/dev/null)"
 	[ -n "$branchName" -a "$branchName" != "$(getMasterBranch)" -a "$branchName" != "$(git-nbr 2>/dev/null)" ]
-    then printf 'On branch %s\n' "$branchName"; positiveCheck; fi
+    then printf 'On branch %s\n' "$branchName"; positiveCheck nonmaster; fi
 
 printMergedBranches()
 {
@@ -248,7 +339,7 @@ printMergedBranches()
     return ${PIPESTATUS[-1]}
 }
 considerCheck mergedbr \
-    && if printMergedBranches; then positiveCheck; fi
+    && if printMergedBranches; then positiveCheck mergedbr; fi
 
 printStaleBranches()
 {
@@ -257,7 +348,7 @@ printStaleBranches()
     return ${PIPESTATUS[-1]}
 }
 considerCheck stalebr \
-    && if printStaleBranches; then positiveCheck; fi
+    && if printStaleBranches; then positiveCheck stalebr; fi
 
 hasTodo()
 {
@@ -285,20 +376,20 @@ hasTodo()
     fi
 }
 considerCheck todo \
-    && if hasTodo; then positiveCheck; fi
+    && if hasTodo; then positiveCheck todo; fi
 
 considerCheck noremote \
-    && if ! git existsremote; then echo "Local-only repository; no remotes defined yet."; positiveCheck; fi
+    && if ! git existsremote; then echo "Local-only repository; no remotes defined yet."; positiveCheck noremote; fi
 
 considerCheck outgoing \
     && git existsremote origin \
     && git remotebr origin >/dev/null 2>&1 \
-    && if git oout lgx "${colorArg[@]}" | headtail --separator-cutline | outputAndPrintf 'Outgoing to origin:\n'; then positiveCheck; fi
+    && if git oout lgx "${colorArg[@]}" | headtail --separator-cutline | outputAndPrintf 'Outgoing to origin:\n'; then positiveCheck outgoing; fi
 
 considerCheck incoming \
     && git existsremote origin \
     && git remotebr origin >/dev/null 2>&1 \
-    && if git oin lgx "${colorArg[@]}" | headtail --separator-cutline | outputAndPrintf 'Incoming from origin:\n'; then positiveCheck; fi
+    && if git oin lgx "${colorArg[@]}" | headtail --separator-cutline | outputAndPrintf 'Incoming from origin:\n'; then positiveCheck incoming; fi
 
 printChangelogDifferences()
 {
@@ -316,7 +407,7 @@ printChangelogDifferences()
 considerCheck fallenbehind \
     && git existsremote upstream \
     && ! git istagged \
-    && if printChangelogDifferences; then positiveCheck; fi
+    && if printChangelogDifferences; then positiveCheck fallenbehind; fi
 
 printBehindCommits()
 {
@@ -327,7 +418,7 @@ considerCheck behind \
     && git existsremote upstream \
     && git remotebr upstream >/dev/null 2>&1 \
     && git brname --real-branch-only >/dev/null 2>&1 \
-    && if printBehindCommits; then positiveCheck; fi
+    && if printBehindCommits; then positiveCheck behind; fi
 
 printBehindTags()
 {
@@ -349,7 +440,7 @@ printBehindTags()
 }
 considerCheck behindtags \
     && git existsremote upstream \
-    && if printBehindTags; then positiveCheck; fi
+    && if printBehindTags; then positiveCheck behindtags; fi
 
 findUnmergedDownstreamBranches()
 {
@@ -367,7 +458,7 @@ findUnmergedDownstreamBranches()
 considerCheck unmergeddownstream \
     && git existsremote origin \
     && git existsremote upstream \
-    && if findUnmergedDownstreamBranches; then positiveCheck; fi
+    && if findUnmergedDownstreamBranches; then positiveCheck unmergeddownstream; fi
 
 findDownstreamBranches()
 {
@@ -385,7 +476,7 @@ findDownstreamBranches()
 considerCheck downstreambranches \
     && git existsremote origin \
     && git existsremote upstream \
-    && if findDownstreamBranches; then positiveCheck; fi
+    && if findDownstreamBranches; then positiveCheck downstreambranches; fi
 
 findInactiveFork()
 {
@@ -399,7 +490,7 @@ findInactiveFork()
 considerCheck inactivefork \
     && git existsremote origin \
     && git existsremote upstream \
-    && if findInactiveFork; then positiveCheck; fi
+    && if findInactiveFork; then positiveCheck inactivefork; fi
 
 printStableBehindMaster()
 {
@@ -412,9 +503,10 @@ printStableBehindMaster()
 considerCheck stalestable \
     && git existsbr stable \
     && [ -n "$(git taglist-annotated --version-tags-only)" ] \
-    && if printStableBehindMaster; then positiveCheck; fi
+    && if printStableBehindMaster; then positiveCheck stalestable; fi
 
-[ "$isVerbose" ] && printf >/dev/tty %s "$CLEAR_PREVIOUS_LINE"
+[ "$isVerbose" ] && printfToTerm %s "$CLEAR_PREVIOUS_LINE"
+[ $overallStatus -eq 0 ] || recordNoWips
 
 if [ "$isSubmodules" ] && { [ "$isSubmodulesAlways" ] || [ $overallStatus -ne 0 ]; }; then
     [ $overallStatus -eq 0 ] && printSubmoduleSeparator

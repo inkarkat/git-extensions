@@ -63,18 +63,6 @@ do
     esac
 done
 
-hasGlobMatch()
-{
-    local value="${1?}"; shift
-    local glob; for glob in "${globs[@]}"
-    do
-	case "$value" in
-	    *@($glob)*)	return 0;;
-	esac
-    done
-    return 1
-}
-
 list()
 {
     local i; for ((i = 0; i < ${#urls[@]}; i++))
@@ -94,7 +82,7 @@ for c
 do
     commitId="$(git rev-parse --verify "$c" 2>/dev/null)" \
 	&& commitIdLists["$commitId"]=t \
-	|| globs+=("$c")
+	|| globs+=("*${c}*")
 done
 
 typeset -a urls=() titles=()
@@ -105,7 +93,7 @@ do
     prTitles["$prCommitId"]="$prTitle"
 
     # Can check glob matches with titles immediately.
-    if [ ${#globs[@]} -gt 0 ] && hasGlobMatch "$prTitle"; then
+    if [ ${#globs[@]} -gt 0 ] && globmatch --values "${globs[@]}" -- "$prTitle"; then
 	urls+=("$prUrl")
 	titles+=("$prTitle")
     fi

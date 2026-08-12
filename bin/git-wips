@@ -350,30 +350,46 @@ printStaleBranches()
 considerCheck stalebr \
     && if printStaleBranches; then positiveCheck stalebr; fi
 
-hasTodo()
+runTodo()
 {
-    local taskNum=3
     if type -t todo-local.sh >/dev/null; then
-	# Use my own custom extension if it exists; it also considers submodules, has
-	# default task filtering, and the todo.sh formatting.
-	TODOTXT_VERBOSE=0 todo-local.sh here -s $taskNum | outputOrError && return 0
-	TODOTXT_VERBOSE=0 todo-local.sh | outputAndPrintf 'TODO: You have open tasks in this working copy:\n'
-	return ${PIPESTATUS[-1]}
+	todo-local.sh "$@"
     else
-	local root; root="$(git root 2>/dev/null)" || return 1
+	[ $# -eq 0 ] || return 1    # It doesn't make sense to run the here custom action without todo-local.sh, because it heavily customizes its filtering. Only run the list fallback action with our own synthesized here emulation.
+
+	local root; root="$(git root 2>/dev/null)" || return 3
 	local todoFilespec="${root}/todo.txt"
 	[ -s "$todoFilespec" ] || return 1
 
+	local branchName
+	typeset -a hereEmulationCommand=(list) todoEmulationCommand=(cat)
+	if branchName="$(git-brname --real-branch-only 2>/dev/null)" \
+	    && [ -n "$branchName" -a "$branchName" != "$(getMasterBranch)" ]
+	then
+	    hereEmulationCommand+=(" @${branchName} ")
+	    todoEmulationCommand=(grep --fixed-strings " @${branchName} ")
+	fi
+
 	if type -t todo.sh >/dev/null; then
 	    # Use todo.sh for formatting.
-	    TODO_FILE="$todoFilespec" TODO_DIR="$root" TODOTXT_VERBOSE=0 todo.sh here -s $taskNum | outputOrError && return 0
-	    TODO_FILE="$todoFilespec" TODO_DIR="$root" TODOTXT_VERBOSE=0 todo.sh | outputAndPrintf 'TODO: You have open tasks in this working copy:\n'
+	    TODO_FILE="$todoFilespec" TODO_DIR="$root" todo.sh "${hereEmulationCommand[@]}"
 	else
 	    # Fall back to simple cat'ting of the file.
-	    headtail --separator-cut-what "... see $todoFilespec for the full list ..." -- "$todoFilespec" | outputAndPrintf 'Open tasks:\n'
+	    "${todoEmulationCommand[@]}" -- "$todoFilespec" \
+		| headtail --separator-cut-what "... see $todoFilespec for the full list ..."
+	    return 0
 	fi
-	return ${PIPESTATUS[-1]}
     fi
+}
+hasTodo()
+{
+    local taskNum=3
+    # Use my own custom "here" extension if it exists; it also considers submodules,
+    # has default task filtering, and the todo.sh formatting.
+    {
+	TODOTXT_VERBOSE=0 runTodo here -s $taskNum 2>/dev/null \
+	    || TODOTXT_VERBOSE=0 runTodo | outputAndPrintf 'TODO: You have open tasks in this working copy:\n'
+    } | outputOrError
 }
 considerCheck todo \
     && if hasTodo; then positiveCheck todo; fi

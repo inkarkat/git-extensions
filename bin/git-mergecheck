@@ -13,6 +13,7 @@ HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '--merge-to TARGET-BRANCH|SOURCE-BRANCH [...] [-?|-h|--help]'
 }
+
 branchFormat='..%s'
 typeset -a branches=()
 case "$1" in
@@ -23,14 +24,16 @@ case "$1" in
     --merge-to)		shift
 			branches+=("${1:?}"); shift
 			branchFormat='%s..'
-			if [ $# -gt 0 ]; then
-			    printUsage "$0" >&2
-			    exit 2
-			fi
 			;;
     --)			shift;;
     -*)			{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 esac
+if [ ${#branches[@]} -gt 0 -a $# -gt 0 ]; then
+    echo 'ERROR: --merge-to TARGET-BRANCH and SOURCE-BRANCH are mutually exclusive.'
+    echo
+    printUsage "$0"
+    exit 2
+fi >&2
 branches+=("$@")
 if [ ${#branches[@]} -eq 0 ]; then
     echo 'ERROR: No --merge-to TARGET-BRANCH or SOURCE-BRANCH(es) passed.'

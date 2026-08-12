@@ -36,14 +36,21 @@ do
     esac
 done
 
+typeset -a branches=()
 if [ $# -eq 0 ]; then
     # Specify the current branch name so that a publish overrides an existing
     # push configuration.
     branch="$(git-brname --real-branch-only)" || exit $?
     set -- "HEAD:refs/heads/${branch}"
+    branches=("$branch")
+else
+    branches=("$@")
 fi
 
-git-rev-range-outgoing "$remote" -4 commitcheck --severity-prefix 'Note' RANGE
+for branch in "${branches[@]}"
+do
+    git-rev-range-outgoing "$remote" --branch "$branch" -4 commitcheck --severity-prefix 'Note' RANGE
+done
 
 exec git-remote-mutate "$remote" --message 'Publish' --arguments "$@" \; "${gitRemoteMutateArgs[@]}" \
     push "${forceArg[@]}" --set-upstream "$remote" "$@"

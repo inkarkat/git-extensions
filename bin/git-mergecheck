@@ -1,36 +1,70 @@
 #!/bin/bash
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--merge-to TARGET-BRANCH|SOURCE-BRANCH [...] [-?|-h|--help]'
+}
 printUsage()
 {
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Check whether the conditions for a merge are good.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
     cat <<HELPTEXT
-Check whether the conditions for a merge are good. Fails if:
+Fails if:
 - there still exist fixup commit(s) (that should be squashed before the merge)
 - there still exist incomplete commit(s) (that should be reworded, rebased, or
   squashed before the merge)
 - there still exist temporary or test commit(s) (that should be dropped before
   the merge)
 HELPTEXT
-    echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '--merge-to TARGET-BRANCH|SOURCE-BRANCH [...] [-?|-h|--help]'
 }
+
 branchFormat='..%s'
 typeset -a branches=()
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    --no-color|--color=*)
-			shift;;
-    --color)		shift; shift;;
-    --merge-to)		shift
-			branches+=("${1:?}"); shift
-			branchFormat='%s..'
-			if [ $# -gt 0 ]; then
-			    printUsage "$0" >&2
-			    exit 2
-			fi
-			;;
-    --)			shift;;
-    -*)			{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
-esac
+typeset -a sourceBranches=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--no-color|--color=*)
+    			shift;;
+	--color)		shift; shift;;
+	--merge-to)		shift
+    			if [ ${#sourceBranches[@]} -gt 0 ]; then
+    			    echo 'ERROR: --merge-to TARGET-BRANCH can be given only once.'
+    			    echo
+    			    printUsage "$0"
+    			    exit 2
+    			fi >&2
+    			sourceBranches=("$(git-brname --real-branch-only 2>/dev/null)")
+    			branches+=("${1:?}"); shift
+    			branchFormat='%s..'
+    			;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if [ ${#branches[@]} -gt 0 -a $# -gt 0 ]; then
+    echo 'ERROR: --merge-to TARGET-BRANCH and SOURCE-BRANCH are mutually exclusive.'
+    echo
+    printUsage "$0"
+    exit 2
+fi >&2
 branches+=("$@")
 if [ ${#branches[@]} -eq 0 ]; then
     echo 'ERROR: No --merge-to TARGET-BRANCH or SOURCE-BRANCH(es) passed.'
@@ -46,4 +80,13 @@ do
     printf -v branchRange "$branchFormat" "$branch"
     git-commitcheck --severity-prefix 'ERROR' --range-hint "$branchHint" "$branchRange" || status=$?
 done
+
+# List todo items for the source branch. This is just informational; do not fail
+# the check (as it's purely an organizational issue and nothing that gets
+# committed to permanent history).
+for branch in "${sourceBranches[@]:-${branches[@]}}"
+do
+    [ -z "$branch" ] || GIT_WIPS_TODO_BRANCHNAME="$branch" git-wips +todo
+done
+
 exit $status

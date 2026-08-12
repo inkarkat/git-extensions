@@ -373,9 +373,10 @@ hasTodo()
     local taskNum=3
     # Use my own custom "here" extension if it exists; it also considers submodules,
     # has default task filtering, and the todo.sh formatting.
-    TODOTXT_VERBOSE=0 runTodo here -s $taskNum | outputOrError && return 0
-    TODOTXT_VERBOSE=0 runTodo | outputAndPrintf 'TODO: You have open tasks in this working copy:\n'
-    return ${PIPESTATUS[-1]}
+    {
+	TODOTXT_VERBOSE=0 runTodo here -s $taskNum 2>/dev/null \
+	    || TODOTXT_VERBOSE=0 runTodo | outputAndPrintf 'TODO: You have open tasks in this working copy:\n'
+    } | outputOrError
 }
 considerCheck todo \
     && if hasTodo; then positiveCheck todo; fi

@@ -35,12 +35,14 @@ HELPTEXT
 
 branchFormat='..%s'
 typeset -a branches=()
+typeset -a sourceBranches=()
 case "$1" in
     --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
     --no-color|--color=*)
 			shift;;
     --color)		shift; shift;;
     --merge-to)		shift
+			sourceBranches=("$(git-brname --real-branch-only 2>/dev/null)")
 			branches+=("${1:?}"); shift
 			branchFormat='%s..'
 			;;
@@ -68,4 +70,13 @@ do
     printf -v branchRange "$branchFormat" "$branch"
     git-commitcheck --severity-prefix 'ERROR' --range-hint "$branchHint" "$branchRange" || status=$?
 done
+
+# List todo items for the source branch. This is just informational; do not fail
+# the check (as it's purely an organizational issue and nothing that gets
+# committed to permanent history).
+for branch in "${sourceBranches[@]:-${branches[@]}}"
+do
+    [ -z "$branch" ] || GIT_WIPS_TODO_BRANCHNAME="$branch" git-wips +todo
+done
+
 exit $status

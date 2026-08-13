@@ -24,10 +24,10 @@ printLongUsage()
     # This is the long "man page" when launched with the help argument.
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
-Temporarily save local modifications to a new stash entry, roll them back to
-HEAD, and run the passed check COMMAND(s) / default \$GIT_COMPARE_CHECK_COMMAND
-/ \$GIT_CHECK_COMMAND, and compare that with a run with the stashed changes
-reapplied.
+Temporarily save ${GIT_COMPARESTASH_WHAT:-local modifications} to a new stash entry,
+roll them back to HEAD, and run the passed check COMMAND(s) / default
+\$GIT_COMPARE_CHECK_COMMAND / \$GIT_CHECK_COMMAND, and compare that with a run
+with the stashed changes reapplied.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
@@ -167,7 +167,7 @@ if [ ${#stashedOtherFiles[@]} -gt 0 ]; then
     subject+="${subject:+ and }$(joinBy --truncate-after 7 -- ', ' "${stashedOtherFiles[@]}")"
 fi
 
-if [ "$isPatch" ]; then
+if [ "$isPatch" ] || [ "$GIT_COMPARESTASH_STASH_IS_PARTIAL" ]; then
     # When only parts of a file are stashed, a dirty working copy is left behind,
     # and "git stash pop" will balk. Even my git-stash-pop-to-dirty will have to
     # fall back to the patch command, as even "git apply" doesn't deal with fuzzing.
@@ -189,8 +189,8 @@ if [ "$isPatch" ]; then
 		"${stashArgs[@]}" "${stashQuietArg[@]}"
 		${filespecs:+--} "${filespecs[@]}"
 	    "${COMPARERUNS_EXEC_END:-;}"
-	--setup-exec git stash push
-		--patch
+	--setup-exec ${GIT_COMPARESTASH_STASH_COMMAND:-git stash} push
+		${isPatch:+--patch}
 		--message "selected hunks for git-compare-stash to $(git log --pretty=format:'%h %s' --max-count 1)"
 		"${stashArgs[@]}" "${stashQuietArg[@]}"
 		${filespecs:+--} "${filespecs[@]}"
@@ -207,7 +207,7 @@ if [ "$isPatch" ]; then
     )
 else
     typeset -a setupArgs=(
-	--setup-exec git stash push
+	--setup-exec ${GIT_COMPARESTASH_STASH_COMMAND:-git stash} push
 		--message "git-compare-stash to $(git log --pretty=format:'%h %s' --max-count 1)"
 		"${stashArgs[@]}" "${stashQuietArg[@]}"
 		${filespecs:+--} "${filespecs[@]}"

@@ -85,12 +85,9 @@ do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--target-repo|--to|-t)
-			shift
-			if [ ! -d "$1" ]; then
-			    printf >&2 'ERROR: Target does not exist: %s\n' "$1"
-			    exit 2
-			fi
-			if ! targetRepo="$(cd "$1" && git root 2>/dev/null)"; then
+			shift; dirspec="${1:?}"
+			[ -d "$dirspec" ] || dirspec="$(existingParentDir -- "$dirspec")"
+			if ! targetRepo="$(cd "$dirspec" && git root 2>/dev/null)"; then
 			    printf >&2 'ERROR: Target is not a Git working copy: %s\n' "$1"
 			    exit 2
 			fi

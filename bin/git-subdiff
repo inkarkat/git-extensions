@@ -41,11 +41,11 @@ case "$1" in
     --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
     --no-pager)		shift; pager=();;
     --each-submodule)	shift
-			tempDir="$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || { dirspec="${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM"; mkdir -p -- "$dirspec" && printf %s "$dirspec"; })" || exit 3
-			! ${DEBUG:+debugenabled --invert-match --} ${DEBUG:-:} || trap 'rm -rf -- "$tempDir" 2>/dev/null' EXIT
+			tempDirspec="$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || { dirspec="${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM"; mkdir -p -- "$dirspec" && printf %s "$dirspec"; })" || exit 3
+			trap '${DEBUG:+debugcommand --} rm -rf -- "$tempDirspec" 2>/dev/null' EXIT
 			pager=()
 			postAction=tempFilePager
-			printf -v quotedTempDir %q "$tempDir"
+			printf -v quotedTempDir %q "$tempDirspec"
 			redirection="> \"${quotedTempDir}/\$(pathAsFilename --as-is --encode \"\${sm_path:?}\")\""
 			;;
     --diffmassage)	shift
@@ -69,7 +69,7 @@ submoduleDiff()
 tempFilePager()
 {
     typeset -a diffFilespecs=()
-    local filespec; for filespec in "$tempDir"/*
+    local filespec; for filespec in "$tempDirspec"/*
     do
 	[ -s "$filespec" ] && diffFilespecs+=("$filespec")
     done

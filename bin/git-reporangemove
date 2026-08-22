@@ -53,7 +53,7 @@ esac
 printf 'Moving %d commit%s to %s\n' "${#commits[@]}" "$commitsPlural" "$targetRepo"
 
 tempDirspec="$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || { dirspec="${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM"; mkdir --parents -- "$dirspec" && printf %s "$dirspec"; })" || exit 3
-! ${DEBUG:+debugenabled --invert-match --} ${DEBUG:-:} || trap 'rm -rf -- "$tempDirspec" 2>/dev/null' EXIT
+trap '${DEBUG:+debugcommand --} rm -rf -- "$tempDirspec" 2>/dev/null' EXIT
 
 branchName="$(git-brname --real-branch-only)" || exit $?
 git format-patch --output-directory "$tempDirspec" "$@" || exit $?

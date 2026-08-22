@@ -116,11 +116,7 @@ if [ ! "$isAmend" ] && [ ${#commitIds[@]} -eq 0 ]; then
 fi
 
 commitMessageFilespec="$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM")"
-cleanup()
-{
-    rm -f "$commitMessageFilespec" 2>/dev/null
-}
-! ${DEBUG:+debugenabled --invert-match --} ${DEBUG:-:} || trap 'cleanup' EXIT
+trap '${DEBUG:+debugcommand --} rm -f -- "$commitMessageFilespec" 2>/dev/null' EXIT
 {
     refGlob='+([0-9A-Fa-f])'
     [ ${#includedGlobs[@]} -eq 0 ] || refGlob="@(${refGlob}|$(joinBy '|' "${includedGlobs[@]}"))"

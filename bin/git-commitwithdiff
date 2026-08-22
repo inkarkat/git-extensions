@@ -24,11 +24,7 @@ do
 done
 
 commitMessageFilespec="$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM")"
-cleanup()
-{
-    rm -f "$commitMessageFilespec" 2>/dev/null
-}
-! ${DEBUG:+debugenabled --invert-match --} ${DEBUG:-:} || trap 'cleanup' EXIT
+trap '${DEBUG:+debugcommand --} rm -f -- "$commitMessageFilespec" 2>/dev/null' EXIT
 git diff --cached --unified=0 -- "$@" | \
     sed -n \
 	-e '/^--- /{ N; /\n+++ /d; }' \

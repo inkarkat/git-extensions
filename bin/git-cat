@@ -114,7 +114,7 @@ case ${#files[@]} in
 	    "${pager:+|}" '"${pager[@]}"'
 	;;
     *)	tempDirspec="$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || { dirspec="${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM"; mkdir --parents -- "$dirspec" && printf %s "$dirspec"; })" || exit 3
-	! ${DEBUG:+debugenabled --invert-match --} ${DEBUG:-:} || trap 'rm -rf "$tempDirspec" 2>/dev/null' EXIT
+	trap '${DEBUG:+debugcommand --} rm -rf "$tempDirspec" 2>/dev/null' EXIT
 	[ "$PAGER" = smartless ] && PAGER=less	# smartless does not page small outputs that fit the terminal, but we explicitly want to page through each log with diff separately.
 	let count=0
 	for filespec in "${files[@]}"

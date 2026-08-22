@@ -85,11 +85,7 @@ fi
 originalBranch="$(git-brname --real-branch-only)" || exit $?
 
 mergeMessageFilespec="$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM")"
-cleanup()
-{
-    rm -f "$mergeMessageFilespec" 2>/dev/null
-}
-! ${DEBUG:+debugenabled --invert-match --} ${DEBUG:-:} || trap 'cleanup' EXIT
+trap '${DEBUG:+debugcommand --} rm -f -- "$mergeMessageFilespec" 2>/dev/null' EXIT
 git lo1 HEAD > "$mergeMessageFilespec"
 if [ -s "$mergeMessageFilespec" ]; then
     mergeArgs+=("--file=$mergeMessageFilespec")

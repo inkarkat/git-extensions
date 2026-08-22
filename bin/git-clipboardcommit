@@ -17,11 +17,7 @@ case "$1" in
 esac
 
 commitMessageFilespec="$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM")"
-cleanup()
-{
-    rm -f "$commitMessageFilespec" 2>/dev/null
-}
-! ${DEBUG:+debugenabled --invert-match --} ${DEBUG:-:} || trap 'cleanup' EXIT
+trap '${DEBUG:+debugcommand --} rm -f -- "$commitMessageFilespec" 2>/dev/null' EXIT
 clipboard > "$commitMessageFilespec" || exit $?
 if [ ! -s "$commitMessageFilespec" ]; then
     echo >&2 'ERROR: Empty clipboard.'

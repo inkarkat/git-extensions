@@ -13,7 +13,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--submodules|--all-submodules [--submodule-color=(always|auto|never)]] [--no-submodule-recurse] [--filter-worktree-duplicates] [-a|--all] [-d|--with-duration] [-v|--verbose] [-q|--quiet|--color=(always|auto|never)|--no-color] [(+|-)(empty|dirty|private|stashed|wipcommit|nonmaster|mergedbr|stalebr|todo|noremote|outgoing|incoming|fallenbehind|behind|behindtags|unmergeddownstream|downstreambranches|inactivefork|stalestable) ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--submodules|--all-submodules [--submodule-color=(always|auto|never)]] [--no-submodule-recurse] [--filter-worktree-duplicates] [-a|--all] [-d|--with-duration] [-v|--verbose] [-q|--quiet|--color=(always|auto|never)|--no-color] [(+|-)(empty|dirty|private|stashed|wipcommit|nonpermanentcommit|nonmaster|mergedbr|stalebr|todo|noremote|outgoing|incoming|fallenbehind|behind|behindtags|unmergeddownstream|downstreambranches|inactivefork|stalestable) ...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -68,7 +68,10 @@ deselected (from all checks on offer) via -name.
 - dirty:    uncommitted changes
 - private:  unversioned files (that are not ignored)
 - stashed:  recorded local changes that have been stashed away
-- wipcommit:where the last commit had "WIP:" in the message summary
+- wipcommit:the last commit has "WIP:" in the message summary
+- nonpermanentcommit:
+	    the last commit is a fixup / squash / temporary / test commit or
+	    incomplete [message]
 - nonmaster:a branch different from the master branch (or the base branch if
 	    defined) is checked out
 - mergedbr: branches that have already been merged into (upstream / origin /
@@ -154,7 +157,7 @@ else
 fi
 
 isFirst=t
-declare -A checks=([empty]=t [dirty]=t [private]=t [stashed]=t [wipcommit]=t [nonmaster]=t [mergedbr]=t [stalebr]=t [todo]=t [noremote]=t [outgoing]=t [incoming]=t [fallenbehind]=t [behind]=t [behindtags]=t [unmergeddownstream]=t [downstreambranches]=t [inactivefork]=t [stalestable]=t)
+declare -A checks=([empty]=t [dirty]=t [private]=t [stashed]=t [wipcommit]=t [nonpermanentcommit]=t [nonmaster]=t [mergedbr]=t [stalebr]=t [todo]=t [noremote]=t [outgoing]=t [incoming]=t [fallenbehind]=t [behind]=t [behindtags]=t [unmergeddownstream]=t [downstreambranches]=t [inactivefork]=t [stalestable]=t)
 while [ $# -gt 0 ]
 do
     case "$1" in
@@ -322,6 +325,9 @@ considerCheck stashed \
 
 considerCheck wipcommit \
     && if git l --max-count=1 "${colorArg[@]}" | grep '\(^\| \)WIP: '; then positiveCheck wipcommit; fi
+
+considerCheck nonpermanentcommit \
+    && if ! git-commitcheck HEAD^..; then positiveCheck nonpermanentcommit; fi
 
 considerCheck nonmaster \
     && if branchName="$(git-brname --real-branch-only 2>/dev/null)"

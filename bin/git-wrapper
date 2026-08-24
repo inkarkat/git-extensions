@@ -18,9 +18,9 @@ fixPath()
 gitCorePath="${PATH%%:*}"
 PATH="$gitCorePath" command -v git-rev-list >/dev/null || gitCorePath=''    # Note: Cannot use git directly, need to use some subcommand like git-rev-list.
 
-isMyAlias()
+isMyExtension()
 {
-    # Don't consider built-in git-COMMAND "aliases" (actually symlinks to the git
+    # Don't consider built-in git-COMMAND "extensions" (actually symlinks to the git
     # binary in /usr/lib/git-core/). Those don't understand my convention of passing
     # GIT_CONFIG_ARGS and so any -c ... would get lost.
     PATH="${PATH#$gitCorePath:}" type -t "${1:?}" >/dev/null
@@ -34,18 +34,19 @@ do
 	*)  break;;
     esac
 done
-# If there's no alias we can simply pass gitConfigArgs directly after the "git"
-# command. Aliases however need to do this on their own (if their Git command(s)
-# need to react to config overrides). We can just pass the arguments along here.
+# If there's no extension we can simply pass gitConfigArgs directly after the
+# "git" command. Extensions however need to do this on their own (if their Git
+# command(s) need to react to config overrides). We can just pass the arguments
+# along here.
 # eval "typeset -a gitConfigArgs=($GIT_CONFIG_ARGS)"
-# command git "${gitConfigArgs[@]}" SUBCOMMAND "ARG1" ...
+# command git "${gitConfigArgs[@]}" COMMAND "ARG1" ...
 #   or directly:
-# eval "command git $GIT_CONFIG_ARGS SUBCOMMAND \"ARG1\" ..." # or
+# eval "command git $GIT_CONFIG_ARGS COMMAND \"ARG1\" ..." # or
 [ ${#gitConfigArgs[@]} -gt 0 ] && printf -v GIT_CONFIG_ARGS '%q ' "${gitConfigArgs[@]}"; export GIT_CONFIG_ARGS
 
 wrappedCommand=git
-gitSubAlias="git-$1-$2"
-gitAlias="git-$1"
+gitSubExtension="git-$1-$2"
+gitExtension="git-$1"
 if type -t hub >/dev/null; then
     wrappedCommand=hub	# Built-in Git / hub commands are always executed through hub.
 
@@ -54,34 +55,34 @@ if type -t hub >/dev/null; then
     # chooses the hub variant via HUB=t), but not when invoked via "git".
     # This allows us to obtain different functionality depending on what command
     # is used to invoke it.
-    hubSubAlias="hub-$1-$2"
-    hubAlias="hub-$1"
-    if isMyAlias "$hubSubAlias" && { [ "$HUB" ] || ! isMyAlias "$gitSubAlias"; }; then
+    hubSubExtension="hub-$1-$2"
+    hubExtension="hub-$1"
+    if isMyExtension "$hubSubExtension" && { [ "$HUB" ] || ! isMyExtension "$gitSubExtension"; }; then
 	shift; shift
 	fixPath
-	$hubSubAlias "$@"
+	$hubSubExtension "$@"
 	exit $?
-    elif isMyAlias "$hubAlias" && { [ "$HUB" ] || ! isMyAlias "$gitAlias"; }; then
+    elif isMyExtension "$hubExtension" && { [ "$HUB" ] || ! isMyExtension "$gitExtension"; }; then
 	shift
 	fixPath
-	$hubAlias "$@"
+	$hubExtension "$@"
 	exit $?
     fi
 fi
 
-if isMyAlias "$gitSubAlias"; then
+if isMyExtension "$gitSubExtension"; then
     shift; shift
     fixPath
-    $gitSubAlias "$@"
-elif isMyAlias "$gitAlias"; then
+    $gitSubExtension "$@"
+elif isMyExtension "$gitExtension"; then
     shift
     fixPath
-    $gitAlias "$@"
+    $gitExtension "$@"
 elif [[ "$1" =~ [!-z][A-Z] ]]; then
-    # Translate "X" to "-x" to enable aliases with uppercase letters.
-    translatedAlias="$(echo "$1" | sed -e 's/[[:upper:]]/-\l\0/g')"
+    # Translate "X" to "-x" to enable extensions with uppercase letters.
+    translatedExtension="$(echo "$1" | sed -e 's/[[:upper:]]/-\l\0/g')"
     shift
-    exec "$wrappedCommand" "${gitConfigArgs[@]}" "$translatedAlias" "$@"
+    exec "$wrappedCommand" "${gitConfigArgs[@]}" "$translatedExtension" "$@"
 else
     exec "$wrappedCommand" "${gitConfigArgs[@]}" "$@"
 fi

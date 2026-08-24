@@ -421,15 +421,15 @@ parseCommand()
     if [ ${#wcdoCommandArgs[@]} -eq 0 -a $# -eq 0 ]; then
 	:
     elif [ "${1:0:1}" != '-' ]; then
-	commandSubAlias="${wrapper:- does not exist}-$1-$2"
-	commandAlias="${wrapper:- does not exist}-$1"
-	if type -t "$commandSubAlias" >/dev/null; then
-	    shift; shift	# The first two arguments are part of the alias.
-	    $commandSubAlias "$@"
+	commandSubExtension="${wrapper:- does not exist}-$1-$2"
+	commandExtension="${wrapper:- does not exist}-$1"
+	if type -t "$commandSubExtension" >/dev/null; then
+	    shift; shift	# The first two arguments are part of the extension.
+	    $commandSubExtension "$@"
 	    exit $?
-	elif type -t "$commandAlias" >/dev/null; then
-	    shift	# The first argument is part of the alias.
-	    $commandAlias "$@"
+	elif type -t "$commandExtension" >/dev/null; then
+	    shift	# The first argument is part of the extension.
+	    $commandExtension "$@"
 	    exit $?
 	fi
 

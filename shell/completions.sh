@@ -83,75 +83,75 @@ do
 done < <(git-br-variants --bare)
 unset _line
 
-_git_complete_filterAliasCounts()
+_git_complete_filterExtensionCounts()
 {
-    typeset -a compReplyWithoutAliasCounts=()
-    typeset -A aliasStems=()
+    typeset -a compReplyWithoutExtensionCounts=()
+    typeset -A extensionStems=()
     local element; for element in "${COMPREPLY[@]}"
     do
 	if [[ "$element" =~ .([1234567xqz]\ )$ ]]; then
-	    aliasStems["${element%${BASH_REMATCH[1]}}"]=t
+	    extensionStems["${element%${BASH_REMATCH[1]}}"]=t
 	else
-	    compReplyWithoutAliasCounts+=("$element")
+	    compReplyWithoutExtensionCounts+=("$element")
 	fi
     done
 
-    # Filter out aliases that have a count suffix, as long as we're not only
-    # completing that single alias stem itself.
-    if [ ${#aliasStems[@]} -gt 1 ]; then
-	COMPREPLY=("${!aliasStems[@]}" "${compReplyWithoutAliasCounts[@]}")
+    # Filter out extensions that have a count suffix, as long as we're not only
+    # completing that single extension stem itself.
+    if [ ${#extensionStems[@]} -gt 1 ]; then
+	COMPREPLY=("${!extensionStems[@]}" "${compReplyWithoutExtensionCounts[@]}")
     fi
 }
 _git_complete_filterVariants()
 {
     typeset -a compReplyWithoutVariants=()
-    typeset -A aliasStems=()
+    typeset -A extensionStems=()
     local element; for element in "${COMPREPLY[@]}"
     do
 	if [[ ! "$element" =~ (hi|lg|log)\ ?$ ]] \
 	    && [[ "$element" =~ .((last|lastst|lasti|last-i|adst|adi|ad-i|st|i|-i|g)\ ?)$ ]]
 	then
-	    aliasStems["${element%${BASH_REMATCH[1]}}"]=t
+	    extensionStems["${element%${BASH_REMATCH[1]}}"]=t
 	else
 	    compReplyWithoutVariants+=("$element")
 	fi
     done
-    ####D DUMPARGS_SINK='&1' dump-args -a aliasStems -- "${!aliasStems[@]}" | surround -- '[s[1;1H[0K[37;44m[' '][0m[u' | noeol
+    ####D DUMPARGS_SINK='&1' dump-args -a extensionStems -- "${!extensionStems[@]}" | surround -- '[s[1;1H[0K[37;44m[' '][0m[u' | noeol
 
-    # Filter out aliases that have a variant suffixes, as long as we're not only
+    # Filter out extensions that have a variant suffixes, as long as we're not only
     # completing that single variant stem itself.
-    if [ ${#aliasStems[@]} -gt 1 ]; then
-	COMPREPLY=("${!aliasStems[@]}" "${compReplyWithoutVariants[@]}")
+    if [ ${#extensionStems[@]} -gt 1 ]; then
+	COMPREPLY=("${!extensionStems[@]}" "${compReplyWithoutVariants[@]}")
     fi
 }
 
 _git_wrapper_complete()
 {
     local IFS=$'\n'
-    typeset -a aliases=(); readarray -t aliases < <(compgen -A command -- 'git-' 2>/dev/null \
+    typeset -a extensions=(); readarray -t extensions < <(compgen -A command -- 'git-' 2>/dev/null \
 	| grep -vFx -e git-add -e git-bisect -e git-checkout -e git-commit -e git-fetch -e git-log -e git-merge -e git-pull -e git-push -e git-rebase -e git-revert -e git-show \
 	)   # XXX: Need to ignore my wrappers around built-in Git commands, as their completion functions use the same scheme (e.g. _git_add), but expect different arguments.
-    aliases=("${aliases[@]/#git-/}")
+    extensions=("${extensions[@]/#git-/}")
 
-    if [ $COMP_CWORD -ge 3 ] && contains "${COMP_WORDS[1]}-${COMP_WORDS[2]}" "${aliases[@]}"; then
-	local gitAlias="_git_${COMP_WORDS[1]//-/_}_${COMP_WORDS[2]//-/_}_complete"
-	# Completing a sub-alias; delegate to its custom completion function (if
+    if [ $COMP_CWORD -ge 3 ] && contains "${COMP_WORDS[1]}-${COMP_WORDS[2]}" "${extensions[@]}"; then
+	local gitExtension="_git_${COMP_WORDS[1]//-/_}_${COMP_WORDS[2]//-/_}_complete"
+	# Completing a sub-extension; delegate to its custom completion function (if
 	# available)
-	if type -t "$gitAlias" >/dev/null; then
+	if type -t "$gitExtension" >/dev/null; then
 	    typeset -a save_COMP_WORDS=("${COMP_WORDS[@]}"); COMP_WORDS=("git-${COMP_WORDS[1]}-${COMP_WORDS[2]}" "${COMP_WORDS[@]:3}")
 		COMP_CWORD=$((COMP_CWORD-2)) \
-		    "$gitAlias" "${COMP_WORDS[0]}" "${save_COMP_WORDS[COMP_CWORD]}" "${save_COMP_WORDS[COMP_CWORD-1]}"
+		    "$gitExtension" "${COMP_WORDS[0]}" "${save_COMP_WORDS[COMP_CWORD]}" "${save_COMP_WORDS[COMP_CWORD-1]}"
 	    COMP_WORDS=("${save_COMP_WORDS[@]}")
 	fi
     fi
-    if [ $COMP_CWORD -ge 2 ] && contains "${COMP_WORDS[1]}" "${aliases[@]}"; then
-	local gitAlias="_git_${COMP_WORDS[1]//-/_}_complete"
-	# Completing an alias; delegate to its custom completion function (if
+    if [ $COMP_CWORD -ge 2 ] && contains "${COMP_WORDS[1]}" "${extensions[@]}"; then
+	local gitExtension="_git_${COMP_WORDS[1]//-/_}_complete"
+	# Completing an extension; delegate to its custom completion function (if
 	# available)
-	if type -t "$gitAlias" >/dev/null; then
+	if type -t "$gitExtension" >/dev/null; then
 	    typeset -a save_COMP_WORDS=("${COMP_WORDS[@]}"); COMP_WORDS=("git-${COMP_WORDS[1]}" "${COMP_WORDS[@]:2}")
 		COMP_CWORD=$((COMP_CWORD-1)) \
-		    "$gitAlias" "${COMP_WORDS[0]}" "${save_COMP_WORDS[COMP_CWORD]}" "${save_COMP_WORDS[COMP_CWORD-1]}"
+		    "$gitExtension" "${COMP_WORDS[0]}" "${save_COMP_WORDS[COMP_CWORD]}" "${save_COMP_WORDS[COMP_CWORD-1]}"
 	    COMP_WORDS=("${save_COMP_WORDS[@]}")
 	fi
     fi
@@ -167,7 +167,7 @@ _git_wrapper_complete()
 	    && type -t __git_wrap__git_main >/dev/null
     fi && {
 	if [[ "${COMP_WORDS[1]}" =~ do(-core)?$ ]]; then
-	    # Also offer Git commands and defined aliases as "git SIMPLECOMMAND"
+	    # Also offer Git commands and defined extensions as "git SIMPLECOMMAND"
 	    # after a *do command.
 	    typeset -a save_COMP_WORDS=("${COMP_WORDS[@]}"); COMP_WORDS=(git "${COMP_WORDS[-1]}")
 		COMP_CWORD=1 \
@@ -179,7 +179,7 @@ _git_wrapper_complete()
     }
 
     if [ $COMP_CWORD -eq 1 ]; then
-	# Bash completion for Git already offer git-aliasnames.
+	# Bash completion for Git already offer git-extensionnames.
 	:
     elif [ $COMP_CWORD -eq 2 ]; then
 	if [ "${_git_complete_brvariants["${COMP_WORDS[1]}"]}" ]; then
@@ -188,15 +188,15 @@ _git_wrapper_complete()
 	    return
 	fi
 
-	# Also offer aliases (git-aliasname-subaliasname, callable via my git wrapper
-	# function as git aliasname subaliasname).
-	typeset -a subAliases=(); readarray -t subAliases < <(compgen -A command -- "git-${COMP_WORDS[1]}-" 2>/dev/null)
-	subAliases=("${subAliases[@]/#git-${COMP_WORDS[1]}-/}")
-	readarray -O ${#COMPREPLY[@]} -t COMPREPLY < <(compgen -W "${subAliases[*]}" -- "$2")
+	# Also offer extensions (git-extensionname-subextensionname, callable via my git wrapper
+	# function as git extensionname subextensionname).
+	typeset -a subExtensions=(); readarray -t subExtensions < <(compgen -A command -- "git-${COMP_WORDS[1]}-" 2>/dev/null)
+	subExtensions=("${subExtensions[@]/#git-${COMP_WORDS[1]}-/}")
+	readarray -O ${#COMPREPLY[@]} -t COMPREPLY < <(compgen -W "${subExtensions[*]}" -- "$2")
     fi
 
     # Need to filter in reverse order: First drop counts, then variants.
-    _git_complete_filterAliasCounts
+    _git_complete_filterExtensionCounts
     _git_complete_filterVariants
 }
 complete -o bashdefault -o default -o nospace -F _git_wrapper_complete git git-wrapper
@@ -207,9 +207,9 @@ _hub_wrapper_complete()
 
     # Custom commands that only make sense in the hub context should be named
     # hub-*, so that they won't be offered in the Git completion.
-    # Pure hub aliases should be made a small wrapper script.
-    typeset -a aliases=(); readarray -t aliases < <(compgen -A command -- 'hub-' 2>/dev/null)
-    aliases=("${aliases[@]/#hub-/}")
+    # Pure hub extensions should be made a small wrapper script.
+    typeset -a extensions=(); readarray -t extensions < <(compgen -A command -- 'hub-' 2>/dev/null)
+    extensions=("${extensions[@]/#hub-/}")
 
     # Detect commands that can be used with both git and hub by having a check
     # for the "$HUB" variable in their source code.
@@ -217,51 +217,51 @@ _hub_wrapper_complete()
 	command cd "$(dirname -- "$(command -v git-wrapper)" 2>/dev/null)" \
 	    && grep --fixed-strings --files-with-matches --no-messages '"$HUB"' -- git-* 2>/dev/null
     )
-    aliases+=("${multiModeCommands[@]/#git-/}")
+    extensions+=("${multiModeCommands[@]/#git-/}")
 
-    # Detect aliases that can be used with both git and hub through a "HUB" marker comment at the end of the line of the alias definition.
-    typeset -a multiModeAliases=(); readarray -t multiModeAliases < <(
+    # Detect extensions that can be used with both git and hub through a "HUB" marker comment at the end of the line of the alias definition.
+    typeset -a multiModeExtensions=(); readarray -t multiModeExtensions < <(
 	command cd "$(dirname -- "$(command -v git-wrapper)" 2>/dev/null)/.." \
 	    && sed -ne 's#^[[:space:]]*\(;; \([[:alnum:]]\+\):\|\([[:alnum:]]\+\) =\) .* HUB$#\2\3#p' gitconfig* 2>/dev/null
     )
-    aliases+=("${multiModeAliases[@]}")
+    extensions+=("${multiModeExtensions[@]}")
 
-    if [ $COMP_CWORD -ge 3 ] && contains "${COMP_WORDS[1]}-${COMP_WORDS[2]}" "${aliases[@]}"; then
-	local hubAlias="_hub_${COMP_WORDS[1]//-/_}_${COMP_WORDS[2]//-/_}_complete"
-	# Completing a sub-alias; delegate to its custom completion function (if
+    if [ $COMP_CWORD -ge 3 ] && contains "${COMP_WORDS[1]}-${COMP_WORDS[2]}" "${extensions[@]}"; then
+	local hubExtension="_hub_${COMP_WORDS[1]//-/_}_${COMP_WORDS[2]//-/_}_complete"
+	# Completing a sub-extension; delegate to its custom completion function (if
 	# available)
-	if type -t "$hubAlias" >/dev/null; then
+	if type -t "$hubExtension" >/dev/null; then
 	    typeset -a save_COMP_WORDS=("${COMP_WORDS[@]}"); COMP_WORDS=("hub-${COMP_WORDS[1]}-${COMP_WORDS[2]}" "${COMP_WORDS[@]:3}")
 		COMP_CWORD=$((COMP_CWORD-2)) \
-		    "$hubAlias" "${COMP_WORDS[0]}" "${COMP_WORDS[COMP_CWORD]}" "${COMP_WORDS[COMP_CWORD-1]}"
+		    "$hubExtension" "${COMP_WORDS[0]}" "${COMP_WORDS[COMP_CWORD]}" "${COMP_WORDS[COMP_CWORD-1]}"
 	    COMP_WORDS=("${save_COMP_WORDS[@]}")
 	fi
     fi
-    if [ $COMP_CWORD -ge 2 ] && contains "${COMP_WORDS[1]}" "${aliases[@]}"; then
-	local hubAlias="_hub_${COMP_WORDS[1]//-/_}_complete"
-	# Completing an alias; delegate to its custom completion function (if
+    if [ $COMP_CWORD -ge 2 ] && contains "${COMP_WORDS[1]}" "${extensions[@]}"; then
+	local hubExtension="_hub_${COMP_WORDS[1]//-/_}_complete"
+	# Completing an extension; delegate to its custom completion function (if
 	# available)
-	if type -t "$hubAlias" >/dev/null; then
+	if type -t "$hubExtension" >/dev/null; then
 	    typeset -a save_COMP_WORDS=("${COMP_WORDS[@]}"); COMP_WORDS=("hub-${COMP_WORDS[1]}" "${COMP_WORDS[@]:2}")
 		COMP_CWORD=$((COMP_CWORD-1)) \
-		    "$hubAlias" "${COMP_WORDS[0]}" "${COMP_WORDS[COMP_CWORD]}" "${COMP_WORDS[COMP_CWORD-1]}"
+		    "$hubExtension" "${COMP_WORDS[0]}" "${COMP_WORDS[COMP_CWORD]}" "${COMP_WORDS[COMP_CWORD-1]}"
 	    COMP_WORDS=("${save_COMP_WORDS[@]}")
 	fi
     fi
 
     if [ $COMP_CWORD -eq 1 ]; then
 	typeset -a builtinCommands=(api browse ci-status compare create delete fork gist issue pr pull-request release sync)
-	# Also offer aliases (hub-aliasname, callable via my hub wrapper
-	# function as hub aliasname).
-	readarray -O ${#COMPREPLY[@]} -t COMPREPLY < <(compgen -W "${builtinCommands[*]}"$'\n'"${aliases[*]}" -- "$2")
+	# Also offer extensions (hub-extensionname, callable via my hub wrapper
+	# function as hub extensionname).
+	readarray -O ${#COMPREPLY[@]} -t COMPREPLY < <(compgen -W "${builtinCommands[*]}"$'\n'"${extensions[*]}" -- "$2")
     elif [ $COMP_CWORD -eq 2 ]; then
 	IFS=$' \t\n' __git_wrap__git_main "$@"
 
-	# Also offer aliases (hub-aliasname-subaliasname, callable via my hub wrapper
-	# function as hub aliasname subaliasname).
-	typeset -a subAliases=(); readarray -t subAliases < <(compgen -A command -- "hub-${COMP_WORDS[1]}-" 2>/dev/null)
-	subAliases=("${subAliases[@]/#hub-${COMP_WORDS[1]}-/}")
-	readarray -O ${#COMPREPLY[@]} -t COMPREPLY < <(compgen -W "${subAliases[*]}" -- "$2")
+	# Also offer extensions (hub-extensionname-subextensionname, callable via my hub wrapper
+	# function as hub extensionname subextensionname).
+	typeset -a subExtensions=(); readarray -t subExtensions < <(compgen -A command -- "hub-${COMP_WORDS[1]}-" 2>/dev/null)
+	subExtensions=("${subExtensions[@]/#hub-${COMP_WORDS[1]}-/}")
+	readarray -O ${#COMPREPLY[@]} -t COMPREPLY < <(compgen -W "${subExtensions[*]}" -- "$2")
     else
 	IFS=$' \t\n' __git_wrap__git_main "$@"
     fi

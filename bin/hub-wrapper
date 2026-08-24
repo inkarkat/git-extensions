@@ -18,29 +18,30 @@ do
 	*)  break;;
     esac
 done
-# If there's no alias we can simply pass gitConfigArgs directly after the "git"
-# command. Aliases however need to do this on their own (if their Git command(s)
-# need to react to config overrides). We can just pass the arguments along here.
+# If there's no extension we can simply pass gitConfigArgs directly after the
+# "git" command. Extensions however need to do this on their own (if their Git
+# command(s) need to react to config overrides). We can just pass the arguments
+# along here.
 GIT_CONFIG_ARGS=; [ ${#gitConfigArgs[@]} -gt 0 ] && printf -v GIT_CONFIG_ARGS '%q ' "${gitConfigArgs[@]}"; export GIT_CONFIG_ARGS
 
-hubSubAlias="hub-$1-$2"
-hubAlias="hub-$1"
-gitSubAlias="git-$1-$2"
-gitAlias="git-$1"
-if type -t "$hubSubAlias" >/dev/null; then
+hubSubExtension="hub-$1-$2"
+hubExtension="hub-$1"
+gitSubExtension="git-$1-$2"
+gitExtension="git-$1"
+if type -t "$hubSubExtension" >/dev/null; then
     shift; shift
     fixPath
-    HUB=t $hubSubAlias "$@"
-elif type -t "$hubAlias" >/dev/null; then
+    HUB=t $hubSubExtension "$@"
+elif type -t "$hubExtension" >/dev/null; then
     shift
     fixPath
-    HUB=t $hubAlias "$@"
-elif type -t "$gitSubAlias" >/dev/null; then
+    HUB=t $hubExtension "$@"
+elif type -t "$gitSubExtension" >/dev/null; then
     shift; shift
-    HUB=t $gitSubAlias "$@"
-elif type -t "$gitAlias" >/dev/null; then
+    HUB=t $gitSubExtension "$@"
+elif type -t "$gitExtension" >/dev/null; then
     shift
-    HUB=t $gitAlias "$@"
+    HUB=t $gitExtension "$@"
 else
     HUB=t exec hub "${gitConfigArgs[@]}" "$@"
 fi

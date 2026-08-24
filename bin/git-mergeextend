@@ -150,22 +150,31 @@ git-wrapper commit "${branchCommitArgs[@]}" || {
 }
 
 # Merge the revived branch again to the original branch, and then delete it.
-git-reintegrateto --branch "$originalBranch" --no-ff "${mergeArgs[@]}" || {
-    status=$?
-    trap EXIT	# Keep the mergeMessageFilespec; it is referenced in mergeArgs.
+# As we're coming from a merge, no fast-forwarding or rebasing whatsoever, and
+# ignore that we may be behind a pushed tracked branch; the merge extension has
+# to be force-pushed in that case.
+git-wrapper \
+	-c reintegrate.fastforward-single=false \
+	-c reintegrate.fastforward=false \
+	-c reintegrate.rebase-single=false \
+	-c reintegrate.ff-target-to-tracked=false \
+	reintegrateto --branch "$originalBranch" --no-ff "${mergeArgs[@]}" \
+    || {
+	status=$?
+	trap EXIT	# Keep the mergeMessageFilespec; it is referenced in mergeArgs.
 
-    printf 'Reintegration of the revived branch failed:\n'
-    if [ "$(git-brname --real-branch-only)" = "$originalBranch" ]; then
-	printf '%q ' git reintegrate --branch "$revivedBranch" --no-ff "${mergeArgs[@]}"
-    elif [ "$(git-brname --real-branch-only)" = "$revivedBranch" ]; then
-	printf '%q ' git reintegrateto --branch "$originalBranch" --no-ff "${mergeArgs[@]}"
-    fi
-    echo
+	printf 'Reintegration of the revived branch failed:\n'
+	if [ "$(git-brname --real-branch-only)" = "$originalBranch" ]; then
+	    printf '%q ' git reintegrate --branch "$revivedBranch" --no-ff "${mergeArgs[@]}"
+	elif [ "$(git-brname --real-branch-only)" = "$revivedBranch" ]; then
+	    printf '%q ' git reintegrateto --branch "$originalBranch" --no-ff "${mergeArgs[@]}"
+	fi
+	echo
 
-    [ ! "$hasUnstagedChanges" ] || printf '\nAfter a successful merge, restore the unstaged changes via:\ngit stash pop\n'
+	[ ! "$hasUnstagedChanges" ] || printf '\nAfter a successful merge, restore the unstaged changes via:\ngit stash pop\n'
 
-    exit $status
-}
+	exit $status
+    }
 
 # Reapply the unstaged changes to the original branch.
 [ ! "$hasUnstagedChanges" ] || git stash pop

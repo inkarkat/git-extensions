@@ -165,7 +165,7 @@ typeset -a trailerArgs=()
 do
     infoTrailerVariableName="GIT_COMMIT_TRAILER_${infoType^^}"
     infoTrailerVariable="${!infoTrailerVariableName}"
-    infoTrailerConfig="$(git config --get "commit.trailer.${infoType}")"
+    infoTrailerConfig="$(git-wrapper config --get "commit.trailer.${infoType}")"
     if [ -z "$infoTrailerConfig" ] \
 	|| [ -z "$(git config --local --get "commit.trailer.${infoType}")" -a -z "$(git config --worktree --get "commit.trailer.${infoType}")" ]
     then
@@ -189,7 +189,7 @@ set -- "${messageDirectArgs[@]}" "${messageFileArgs[@]}" "${messageRefArgs[@]}" 
 # For legal / ideological reasons, Git doesn't offer such configuration by
 # default; cp. https://www.kernel.org/pub/software/scm/git/docs/gitfaq.html#sign-off
 # There is format.signOff for format-patch, but it's deemed a mistake.
-if choice="$(git config --type bool --get commit.signOff)"; then
+if choice="$(git-wrapper config --type bool --get commit.signOff)"; then
     case "$choice" in
 	true)	set -- --signoff "$@";;
 	false)	;;
@@ -198,7 +198,7 @@ if choice="$(git config --type bool --get commit.signOff)"; then
 fi
 
 
-if signingKeyConfig="$(git config --get user.signingkey 2>&1)" \
+if signingKeyConfig="$(git-wrapper config --get user.signingkey 2>&1)" \
     && [[ "$signingKeyConfig" =~ ssh ]]	# Either ~/.ssh/id_ed25519.pub or key::ssh-ed25519 ...
 then
     # Note: We need an SSH agent (ssh-agent or something like GNOME keyring) for the

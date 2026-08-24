@@ -77,6 +77,9 @@ time:
 - reintegrate.fastforward	    fast-forward multiple commits
 - reintegrate.rebase-single	    rebase a single commit instead of creating a
 				    merge commit
+- reintegrate.ff-target-to-tracked  automatically fast-forward the current
+				    branch to its tracked remote branch if it's
+				    behind
 HELPTEXT
 }
 
@@ -252,27 +255,35 @@ confirmFastForward()
 	additionalChoices=("Show [D]ifference between ${targetTrackedRemote} and $targetBranch branch")
     fi
 
-    local choice; choice="$(userchoiceFromList --question "$question Fast-forward now?" --no-cancel --ignore-case -- '[Y]es' '[N]o' 'Show [C]ontext' "${additionalChoices[@]}" '[S]hell')" || exit $?
-    case "$choice" in
-	Yes) ;;
-	No) return 4;;
-	Show\ Context)
-	    echo "Context${contextShortener[*]:+ (abbreviated)}:"
-	    eval "git-inout --color=always --one-more --base $targetTracks" "${contextShortener:+|}" '"${contextShortener[@]}"'
-	    typeset -a contextShortener=()
-	    confirmFastForward "$@"
-	    ;;
-	Show\ Difference\ between\ *)
-	    echo 'Difference:'
-	    git-inout --color=always --one-more --base "$targetTracks" "${branches[-1]}"
-	    confirmFastForward "$@"
-	    ;;
-	Shell)
-	    echo "Pending: Fast-forward of $targetBranch branch to ${targetTrackedRemote}, unless you do a non-successful exit."
-	    "${SHELL:-bash}" -i || return $?
-	    ;;
-	*)  printf >&2 'ASSERT: Unhandled choice: %s\n' "$choice"; exit 3;;
-    esac
+    local choice
+    if choice="$(git-wrapper config --type bool --get reintegrate.ff-target-to-tracked)"; then
+	choiceEvaluate reintegrate.ff-target-to-tracked "$choice" '' \
+		"The $targetBranch branch that is not up-to-date with ${targetTrackedRemote} will be fast-forwarded" \
+		"Ignoring the fact that $targetBranch branch is not up-to-date with ${targetTrackedRemote}" \
+	    || return 4
+    else
+	choice="$(userchoiceFromList --question "$question Fast-forward now?" --no-cancel --ignore-case -- '[Y]es' '[N]o' 'Show [C]ontext' "${additionalChoices[@]}" '[S]hell')" || exit $?
+	case "$choice" in
+	    Yes) ;;
+	    No) return 4;;
+	    Show\ Context)
+		echo "Context${contextShortener[*]:+ (abbreviated)}:"
+		eval "git-inout --color=always --one-more --base $targetTracks" "${contextShortener:+|}" '"${contextShortener[@]}"'
+		typeset -a contextShortener=()
+		confirmFastForward "$@"
+		;;
+	    Show\ Difference\ between\ *)
+		echo 'Difference:'
+		git-inout --color=always --one-more --base "$targetTracks" "${branches[-1]}"
+		confirmFastForward "$@"
+		;;
+	    Shell)
+		echo "Pending: Fast-forward of $targetBranch branch to ${targetTrackedRemote}, unless you do a non-successful exit."
+		"${SHELL:-bash}" -i || return $?
+		;;
+	    *)  printf >&2 'ASSERT: Unhandled choice: %s\n' "$choice"; exit 3;;
+	esac
+    fi
 }
 isAheadOfTracked()
 {
@@ -330,12 +341,12 @@ choiceEvaluate()
 {
     local configKey="${1:?}"; shift
     local choice="${1:?}"; shift
-    local messagePrefix="${1:?}"; shift
+    local messagePrefix="${1?}"; shift
     local positiveMessage="${1:?}"; shift
     local negativeMessage="${1:?}"; shift
     case "$choice" in
-	true)	printf '%s %s (based on the %s config).\n' "$messagePrefix" "$positiveMessage" "$configKey"; return 0;;
-	false)	printf '%s %s (based on the %s config).\n' "$messagePrefix" "$negativeMessage" "$configKey"; return 1;;
+	true)	printf '%s%s (based on the %s config).\n' "${messagePrefix}${messagePrefix:+ }" "$positiveMessage" "$configKey"; return 0;;
+	false)	printf '%s%s (based on the %s config).\n' "${messagePrefix}${messagePrefix:+ }" "$negativeMessage" "$configKey"; return 1;;
 	*)	printf >&2 'ASSERT: Invalid choice: %s\n' "$choice"; exit 3;;
     esac
 }
@@ -405,8 +416,11 @@ else
 		branchNum=${#branches[@]}; [ $branchNum -eq 1 ] && branchNum=
 
 		fastForwardInsteadOfMergeConfigKey='reintegrate.fastforward'; [ $commitNum -eq 1 ] && fastForwardInsteadOfMergeConfigKey='reintegrate.fastforward-single'
-		if choice="$(git config --type bool --get "$fastForwardInsteadOfMergeConfigKey")"; then
-		    choiceEvaluate "$fastForwardInsteadOfMergeConfigKey" "$choice" "The $commitNum commit$commitNumPlural on the ${branchNum}${branchNum:+ }branch$branchesPlural will be" "fast-forwarded instead of merged" "merged, not fast-forwarded"
+		if choice="$(git-wrapper config --type bool --get "$fastForwardInsteadOfMergeConfigKey")"; then
+		    choiceEvaluate "$fastForwardInsteadOfMergeConfigKey" "$choice" \
+			    "The $commitNum commit$commitNumPlural on the ${branchNum}${branchNum:+ }branch$branchesPlural will be" \
+			    "fast-forwarded instead of merged" \
+			    "merged, not fast-forwarded"
 		else
 		    userBinaryChoice --keep-prompt --console --question "The $commitNum commit$commitNumPlural on the ${branchNum}${branchNum:+ }branch$branchesPlural can be fast-forwarded instead of merged. Fast-forward?" --yes-no
 		fi && fastForwardArgs=(--ff-only)
@@ -420,8 +434,11 @@ else
 			hubNote+=" (But be aware that the CHECK-COMMAND(s) will only be executed after the rebase then, so either an additional commit or $targetTrackedRemote history rewrite would be necessary to fix any problems.)"
 		    fi
 		fi
-		if choice="$(git config --type bool --get reintegrate.rebase-single)"; then
-		    choiceEvaluate reintegrate.rebase-single "The single commit on the ${branchNum}${branchNum:+ }branch$branchesPlural will be" "rebased instead of merged" "merged, not rebased"
+		if choice="$(git-wrapper config --type bool --get reintegrate.rebase-single)"; then
+		    choiceEvaluate reintegrate.rebase-single \
+			    "The single commit on the ${branchNum}${branchNum:+ }branch$branchesPlural will be" \
+			    "rebased instead of merged" \
+			    "merged, not rebased"
 		else
 		    choice="$(userchoiceFromList --keep-prompt --question "The branch$branchesPlural only consist$verbPlural of a single commit. Rebase $branchesSubject instead of creating a separate merge commit?${hubNote:+$'\n'}${hubNote}" --no-cancel --ignore-case -- '[Y]es' '[N]o' "${hubAdditionalOption[@]}" '[Q]uit')" || exit $?
 		fi

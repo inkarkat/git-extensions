@@ -52,8 +52,9 @@ HELPDESCRIPTION
 			argument is the range. Use if the range looks like A..B,
 			not --since or --max-count, and doesn't immediately
 			follow GIT-COMMAND.
-    --pass-file-args	Pass <pathspec> arguments also to GIT-COMMAND, and not
-			just use them to determine the commits.
+    --pass-file-args	Pass <pathspec> arguments also to GIT-COMMAND (at the
+			end, even when appending COMMITS), and not just use them
+			to determine the commits.
     --explicit-file-args
 			<pathspec> arguments are only parsed when explicitly
 			separated via an -- argument.
@@ -166,8 +167,8 @@ case "$1" in
 	    done
 
 	    [ "$isCountedAppend" ] \
-		&& exec git-wrapper "${countedAppendGitCommand[@]}" "$@" "${appendedArgs[@]}" \
-		|| exec git-wrapper "${appendedArgs[@]}" "$@"
+		&& exec git-wrapper "${countedAppendGitCommand[@]}" "$@" "${appendedArgs[@]}" ${files:+--} "${files[@]}" \
+		|| exec git-wrapper "${appendedArgs[@]}" "$@" ${files:+--} "${files[@]}"
 	}
 	;;
     --keep-position)
@@ -187,7 +188,7 @@ case "$1" in
 		fi
 	    done
 
-	    exec git-wrapper "${countedAppendGitCommand[@]}" "${appendedArgs[@]}"
+	    exec git-wrapper "${countedAppendGitCommand[@]}" "${appendedArgs[@]}" ${files:+--} "${files[@]}"
 	}
 	;;
     *)
@@ -195,7 +196,7 @@ case "$1" in
 	countedAppendGitCommand=("$1"); shift
 	executor()
 	{
-	    exec git-wrapper "${countedAppendGitCommand[@]}" "$@" "${commits[@]}"
+	    exec git-wrapper "${countedAppendGitCommand[@]}" "$@" "${commits[@]}" ${files:+--} "${files[@]}"
 	}
 	;;
 esac
@@ -363,4 +364,4 @@ getCounted()
 
 $action || exit $?
 [ "$isPassFileArgs" ] || files=()
-executor "$@" ${files:+--} "${files[@]}"
+executor "$@"

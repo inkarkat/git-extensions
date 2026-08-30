@@ -1,27 +1,50 @@
 #!/bin/bash
 # Source: https://stackoverflow.com/a/6807602/813602
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-e|--edit|--no-edit] [-m|--message MESSAGE] [-F|--file FILE] [--one-more] <commit> [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 Join the development history of an earlier <commit> into a dedicated merge
 commit on the current branch. On its own, "git merge --no-ff will refuse such
 with "Already up to date."
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --one-more		Base the merge on <commit>'s predecessor; i.e. <commit>
+			itself becomes the first commit of the chain that's the
+			second parent of the merge commit.
+
 This can be useful though in a fast-forward integration where a fast-forward
 merge of a source branch (because there have been no changes to the target
 branch since branching off) should happen first on the source branch, and the
 result then is to be fast-forwarded onto the target branch.
 HELPTEXT
-    echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-e|--edit|--no-edit] [-m|--message MESSAGE] [-F|--file FILE] <commit> [-?|-h|--help]'
 }
 
 typeset -a mergeMessageArgs=()
 mergeEditMessageArg=
+isOneMore=
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
@@ -29,6 +52,7 @@ do
 			mergeMessageArgs+=("$1" "$2"); shift; shift;;
 	--edit|-e|--no-edit)
 			mergeEditMessageArg="$1"; shift;;
+	--one-more)	shift; isOneMore=t;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -43,6 +67,7 @@ if ! git-inout --is-ahead HEAD "$commit" >/dev/null; then
     printf >&2 'ERROR: %s is not an ancestor of the current commit.\n' "$commit"
     exit 2
 fi
+commit="${commit}${isOneMore:+^}"
 
 [ -z "$mergeEditMessageArg" -a ${#mergeMessageArgs[@]} -eq 0 ] && mergeEditMessageArg='--edit'	# Do an interactive edit if nothing has been specified and no message is passed.
 

@@ -152,7 +152,7 @@ createbr|stackbrfrom|reset[mn]|detach|wipe|\
 fix@(up|amend|wording)?(rb)|\
 check|command|exec|sedreword|rewordaddprefix|rewordremovescope|\
 rb|rbcheck|rb?(n)i|segregate@(commits|andbifurcate)|bifurcate|rblastfixup|\
-move-to-branch|uncommit-to-stash|uncommit-to-branch\
+move-to-branch|create-merge|uncommit-to-stash|uncommit-to-@(branch|merge)\
 )
 	$EXEC echo "Note: $gitCommand cannot work across branches.";;
 

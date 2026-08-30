@@ -241,9 +241,11 @@ activity?(except)by\
 	branchCommand --one-more -2 "$gitCommand" RANGE "$@";;
     move-to-branch)
 	$EXEC git "${scopeCommand[@]}" ${scopeCommand:+-4} uncommit-to-branch --exclude-commit --from "${scopeRevision:?}" "$@";;
+    create-merge)
+	$EXEC git "${scopeCommand[@]}" ${scopeCommand:+-4} uncommit-to-merge --exclude-commit --from "${scopeRevision:?}" "$@";;
     uncommit-to-stash)
 	branchSelectedCommitCommand --pass-file-args --range-is-last -5 "$gitCommand" --commits COMMITS \; RANGE "$@";;
-    uncommit-to-branch)
+    uncommit-to-@(branch|merge))
 	branchSelectedCommitCommand --single-only --range-is-last -4 "$gitCommand" --from COMMITS RANGE "$@";;
 
     (\

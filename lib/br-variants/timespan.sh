@@ -189,10 +189,12 @@ activity?(except)by\
 	timespanCommand --one-more -2 "$gitCommand" TIMESPAN "$@";;
     move-to-branch)
 	timespanCommand --no-range --one-more +1 TIMESPAN uncommit-to-branch --exclude-commit "$@";;
+    create-merge)
+	timespanCommand --no-range --one-more +1 TIMESPAN uncommit-to-merge --exclude-commit "$@";;
     uncommit-to-stash)
 	timespanCommand -8 selectedcommit-command --pass-file-args -4 uncommit-to-branch --commits COMMITS \; TIMESPAN "$@";;
-    uncommit-to-branch)
-	timespanCommand -7 selectedcommit-command --single-only -3 uncommit-to-branch --from COMMITS TIMESPAN "$@";;
+    uncommit-to-@(branch|merge))
+	timespanCommand -7 selectedcommit-command --single-only -3 "$gitCommand" --from COMMITS TIMESPAN "$@";;
 
     (\
 createbr|stackbrfrom|reset[mn]|\

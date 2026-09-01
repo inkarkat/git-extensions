@@ -10,6 +10,7 @@ HELPTEXT
 }
 typeset -a tagArgs=()
 typeset -a gitRemoteMutateArgs=()
+typeset -a messageArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -19,6 +20,10 @@ do
 	--color)	shift; shift;;
 	--force|-f)	tagArgs+=("$1"); shift;;
 	--yes|-y)	gitRemoteMutateArgs+=("$1"); shift;;
+	--message|-m|--file|-F)
+			messageArgs+=("$1" "${2?}"); shift; shift;;
+	--message=*|--file=*)
+			messageArgs+=("$1"); shift;;
 	--)		shift; break;;
 	*)		break;;
     esac
@@ -27,8 +32,12 @@ if [ $# -eq 0 ]; then
     printUsage "$0" >&2
     exit 2
 fi
+version="${1:?}"
+[ ${#messageArgs[@]} -gt 0 ] || messageArgs+=(--message "Version $version")
 
-version="$1"
-git tag -a "${tagArgs[@]}" -m "version ${version}" "$@" || exit $?
-! git existsremote origin || git-remote-mutate origin --message 'Create tag' --argument "$version" "${gitRemoteMutateArgs[@]}" \
-    push origin "${version/#/refs/tags/}"
+git tag -a "${tagArgs[@]}" "${messageArgs[@]}" "$@" || exit $?
+
+[ "$HUB" ] || exit 0
+! git existsremote origin \
+    || git-remote-mutate origin --message 'Create tag' --argument "$version" "${gitRemoteMutateArgs[@]}" \
+	    push origin "${version/#/refs/tags/}"

@@ -41,19 +41,19 @@ do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--no-color|--color=*)
-    			shift;;
-	--color)		shift; shift;;
-	--merge-to)		shift
-    			if [ ${#sourceBranches[@]} -gt 0 ]; then
-    			    echo 'ERROR: --merge-to TARGET-BRANCH can be given only once.'
-    			    echo
-    			    printUsage "$0"
-    			    exit 2
-    			fi >&2
-    			sourceBranches=("$(git-brname --real-branch-only 2>/dev/null)")
-    			branches+=("${1:?}"); shift
-    			branchFormat='%s..'
-    			;;
+			shift;;
+	--color)	shift; shift;;
+	--merge-to)	shift
+			if [ ${#sourceBranches[@]} -gt 0 ]; then
+			    echo 'ERROR: --merge-to TARGET-BRANCH can be given only once.'
+			    echo
+			    printUsage "$0"
+			    exit 2
+			fi >&2
+			sourceBranches=("$(git-brname --real-branch-only 2>/dev/null)")
+			branches+=("${1:?}"); shift
+			branchFormat='%s..'
+			;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -86,7 +86,7 @@ done
 # committed to permanent history).
 for branch in "${sourceBranches[@]:-${branches[@]}}"
 do
-    [ -z "$branch" ] || GIT_WIPS_TODO_BRANCHNAME="$branch" git-wips +todo
+    [ -z "$branch" ] || GIT_WIPS_TODO_BRANCHNAME="$branch" TODOTXT_LOCAL_GITREPO_PROJECT_USE_FOR_HERE_ONLY_IF_EXISTING='' TODOTXT_LOCAL_GITREPO_CONTEXT_USE_FOR_HERE_ONLY_IF_EXISTING='' git-wips +todo
 done
 
 exit $status

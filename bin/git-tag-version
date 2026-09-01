@@ -36,5 +36,8 @@ version="${1:?}"
 [ ${#messageArgs[@]} -gt 0 ] || messageArgs+=(--message "Version $version")
 
 git tag -a "${tagArgs[@]}" "${messageArgs[@]}" "$@" || exit $?
-! git existsremote origin || git-remote-mutate origin --message 'Create tag' --argument "$version" "${gitRemoteMutateArgs[@]}" \
-    push origin "${version/#/refs/tags/}"
+
+[ "$HUB" ] || exit 0
+! git existsremote origin \
+    || git-remote-mutate origin --message 'Create tag' --argument "$version" "${gitRemoteMutateArgs[@]}" \
+	    push origin "${version/#/refs/tags/}"

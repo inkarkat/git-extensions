@@ -276,6 +276,13 @@ revertcommit|\
 	$EXEC git lg1 "$predCommit";;
     preds)
 	$EXEC git show "$predCommit";;
+    bisect)
+	subCommand="$1"; shift
+	case "$subCommand" in
+	    skip)   branchCommand -3 bisect "$subCommand" RANGE "$@";;
+	    *)	    $EXEC git bisect "$subCommand" "$predCommit" "$@";;
+	esac
+	;;
 
     @(cat|cp)?(p))
 	branchWithRangeCommand "${gitCommand}selected" "$@";;

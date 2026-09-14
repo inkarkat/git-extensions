@@ -171,6 +171,15 @@ move-to-branch|create-merge|uncommit-to-stash|uncommit-to-@(branch|merge)\
 	$EXEC git-"${scopeCommand[@]}" --no-range --one-more -2 lg1 RANGE "$@";;
     preds)
 	$EXEC git-"${scopeCommand[@]}" --no-range --one-more -2 show RANGE "$@";;
+    bisect)
+	subCommand="$1"; shift
+	case "$subCommand" in
+	    skip)   readarray -t ranges < <(${EXEC#exec} git-"${scopeCommand[@]}" --separate-errors --no-header --no-git-color -2 echo RANGE "$@");;
+	    *)	    readarray -t ranges < <(${EXEC#exec} git-"${scopeCommand[@]}" --separate-errors --no-header --no-git-color --no-range -3 name-rev --name-only RANGE "$@");;
+	esac
+	[ ${#ranges[@]} -gt 0 ] || exit 99
+	$EXEC git bisect "$subCommand" "${ranges[@]}" "$@"
+	;;
 
     @(l@([cg]|og|ogv)|l@([cg]|og|ogv|ghi)ofchangesetfiles|whatdid|changesetfiles|churn|who@(when|first|last|created|lasttouched|did?(f)|owns|contributed|what))thosefiles)
 	withAggregateFiles '' "${gitCommand%thosefiles}" "$@";;

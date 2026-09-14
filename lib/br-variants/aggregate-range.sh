@@ -180,6 +180,8 @@ move-to-branch|create-merge|uncommit-to-stash|uncommit-to-@(branch|merge)\
 	[ ${#ranges[@]} -gt 0 ] || exit 99
 	$EXEC git bisect "$subCommand" "${ranges[@]}" "$@"
 	;;
+    bisectthosefiles)
+	withAggregateFiles '' bisect start "$@";;
 
     @(l@([cg]|og|ogv)|l@([cg]|og|ogv|ghi)ofchangesetfiles|whatdid|changesetfiles|churn|who@(when|first|last|created|lasttouched|did?(f)|owns|contributed|what))thosefiles)
 	withAggregateFiles '' "${gitCommand%thosefiles}" "$@";;

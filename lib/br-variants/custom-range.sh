@@ -294,6 +294,8 @@ revertcommit|\
 	    *)	    scopeCommand --no-range --one-more -3 bisect "$subCommand" RANGE "$@";;
 	esac
 	;;
+    bisectthosefiles)
+	withScoped files '' bisect start "$@";;
 
     @(cat|cp)?(p))
 	customRangeWithRangeCommand "${gitCommand}selected" "$@";;

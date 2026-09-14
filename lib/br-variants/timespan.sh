@@ -228,6 +228,8 @@ revertcommit|\
 	    *)	    timespanCommand --no-range --one-more -3 bisect "$subCommand" TIMESPAN "$@";;
 	esac
 	;;
+    bisectthosefiles)
+	filesCommand --source-command "$scope files --revision REVISION " bisect start "$@";;
 
     @(cat|cp)?(p))
 	timespanCommand -2 "${gitCommand}selected" TIMESPAN "$@";;

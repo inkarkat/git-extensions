@@ -287,6 +287,17 @@ revertcommit|\
 	scopeCommand --no-range --one-more -2 lg1 RANGE "$@";;
     preds)
 	scopeCommand --no-range --one-more -2 show RANGE "$@";;
+    bisect)
+	subCommand="$1"; shift
+	case "$subCommand" in
+	    skip)   scopeCommand -3 bisect "$subCommand" RANGE "$@";;
+	    *)	    scopeCommand --no-range --one-more -3 bisect "$subCommand" RANGE "$@";;
+	esac
+	;;
+    bisecthere)
+	scopeCommand --with-range ' ' --reverse bisect start RANGE "$@";;
+    bisectthosefiles)
+	withScoped files '' bisect start "$@";;
 
     @(cat|cp)?(p))
 	customRangeWithRangeCommand "${gitCommand}selected" "$@";;

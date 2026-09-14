@@ -230,6 +230,17 @@ revertcommit|\
 	timespanCommand --no-range --one-more -2 lg1 TIMESPAN "$@";;
     preds)
 	timespanCommand --no-range --one-more -2 show TIMESPAN "$@";;
+    bisect)
+	subCommand="$1"; shift
+	case "$subCommand" in
+	    skip)   timespanCommand -3 bisect "$subCommand" TIMESPAN "$@";;
+	    *)	    timespanCommand --no-range --one-more -3 bisect "$subCommand" TIMESPAN "$@";;
+	esac
+	;;
+    bisecthere)
+	timespanCommand --with-range ' ' bisect start "$@" HEAD;;
+    bisectthosefiles)
+	filesCommand --source-command "$scope files" bisect start "$@";;
 
     @(cat|cp)?(p))
 	timespanCommand -2 "${gitCommand}selected" TIMESPAN "$@";;

@@ -152,7 +152,8 @@ createbr|stackbrfrom|reset[mn]|detach|wipe|\
 fix@(up|amend|wording)?(rb)|\
 check|command|exec|sedreword|rewordaddprefix|rewordremovescope|\
 rb|rbcheck|rb?(n)i|segregate@(commits|andbifurcate)|bifurcate|rblastfixup|\
-move-to-branch|create-merge|uncommit-to-stash|uncommit-to-@(branch|merge)\
+move-to-branch|create-merge|uncommit-to-stash|uncommit-to-@(branch|merge)|\
+bisecthere\
 )
 	$EXEC echo "Note: $gitCommand cannot work across branches.";;
 
@@ -171,6 +172,17 @@ move-to-branch|create-merge|uncommit-to-stash|uncommit-to-@(branch|merge)\
 	$EXEC git-"${scopeCommand[@]}" --no-range --one-more -2 lg1 RANGE "$@";;
     preds)
 	$EXEC git-"${scopeCommand[@]}" --no-range --one-more -2 show RANGE "$@";;
+    bisect)
+	subCommand="$1"; shift
+	case "$subCommand" in
+	    skip)   readarray -t ranges < <(${EXEC#exec} git-"${scopeCommand[@]}" --separate-errors --no-header --no-git-color -2 echo RANGE "$@");;
+	    *)	    readarray -t ranges < <(${EXEC#exec} git-"${scopeCommand[@]}" --separate-errors --no-header --no-git-color --no-range -3 name-rev --name-only RANGE "$@");;
+	esac
+	[ ${#ranges[@]} -gt 0 ] || exit 99
+	$EXEC git bisect "$subCommand" "${ranges[@]}" "$@"
+	;;
+    bisectthosefiles)
+	withAggregateFiles '' bisect start "$@";;
 
     @(l@([cg]|og|ogv)|l@([cg]|og|ogv|ghi)ofchangesetfiles|whatdid|changesetfiles|churn|who@(when|first|last|created|lasttouched|did?(f)|owns|contributed|what))thosefiles)
 	withAggregateFiles '' "${gitCommand%thosefiles}" "$@";;

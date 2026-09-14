@@ -283,6 +283,8 @@ revertcommit|\
 	    *)	    $EXEC git bisect "$subCommand" "$predCommit" "$@";;
 	esac
 	;;
+    bisecthere)
+	branchCommand --with-range ' ' --reverse bisect start RANGE "$@";;
     bisectthosefiles)
 	branchFilesCommand --source-exec showfiles RANGE \; bisect start "$@";;
 

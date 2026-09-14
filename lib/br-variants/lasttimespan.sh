@@ -237,6 +237,8 @@ revertcommit|\
 	    *)	    timespanCommand --no-range --one-more -3 bisect "$subCommand" TIMESPAN "$@";;
 	esac
 	;;
+    bisecthere)
+	timespanCommand --with-range ' ' bisect start "$@" HEAD;;
     bisectthosefiles)
 	filesCommand --source-command "$scope files" bisect start "$@";;
 

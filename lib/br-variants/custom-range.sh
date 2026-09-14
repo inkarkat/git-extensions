@@ -294,6 +294,8 @@ revertcommit|\
 	    *)	    scopeCommand --no-range --one-more -3 bisect "$subCommand" RANGE "$@";;
 	esac
 	;;
+    bisecthere)
+	scopeCommand --with-range ' ' --reverse bisect start RANGE "$@";;
     bisectthosefiles)
 	withScoped files '' bisect start "$@";;
 

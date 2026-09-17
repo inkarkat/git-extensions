@@ -153,7 +153,7 @@ subchanges|superchanges|subrevl@(?(o)g|c)\
     repomove)
 	branchCommand reporangemove "$@";;
 
-    @(files|submodules)?(mine|others|team))
+    @(files|submodules)?(mod|added|deleted|renamed|mine|others|team|))
 	branchWithRangeCommand "show$gitCommand" "$@";;
     @(files|submodules)?(except)by)
 	gitCommand="show$gitCommand" othersCommand "$@";;

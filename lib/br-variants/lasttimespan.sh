@@ -125,7 +125,7 @@ activity?(except)by\
     repomove)
 	timespanCommand --no-range --one-more reporangemove "$@";;
 
-    @(files|submodules)?(mine|others|team))
+    @(files|submodules)?(mod|added|deleted|renamed|mine|others|team))
 	timespanCommand --range -2 "show$gitCommand" TIMESPAN "$@";;
     @(files|submodules)?(except)by)
 	gitCommand="show$gitCommand" \

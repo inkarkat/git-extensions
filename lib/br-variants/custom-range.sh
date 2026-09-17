@@ -171,7 +171,7 @@ detach@(g|changed|touched)\
     repomove)
 	scopeCommand reporangemove "$@";;
 
-    @(files|submodules)?(mine|others|team))
+    @(files|submodules)?(mod|added|deleted|renamed|mine|others|team))
 	logScopeCommand -2 "show$gitCommand" RANGE "$@";;
     @(files|submodules)?(except)by)
 	gitCommand="show$gitCommand" othersCommand "$@";;

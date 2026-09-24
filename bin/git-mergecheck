@@ -4,7 +4,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '--merge-to TARGET-BRANCH|SOURCE-BRANCH [...] [-?|-h|--help]'
+    printf 'Usage: [GIT_MERGECHECK_FORCE|FORCE_CHECK=1|t|true] %q %s\n' "$(basename "$1")" '--merge-to TARGET-BRANCH|SOURCE-BRANCH [...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -88,5 +88,10 @@ for branch in "${sourceBranches[@]:-${branches[@]}}"
 do
     [ -z "$branch" ] || GIT_WIPS_TODO_BRANCHNAME="$branch" TODOTXT_LOCAL_GITREPO_PROJECT_USE_FOR_HERE_ONLY_IF_EXISTING='' TODOTXT_LOCAL_GITREPO_CONTEXT_USE_FOR_HERE_ONLY_IF_EXISTING='' git-wips +todo
 done
+
+if [ "$GIT_MERGECHECK_FORCE" ] || [ "$FORCE_CHECK" ]; then
+    echo "Note: Ignoring merge issues because it's forced."
+    status=0
+fi
 
 exit $status

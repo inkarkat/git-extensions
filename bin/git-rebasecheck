@@ -13,7 +13,7 @@ The history rewriting runs the risk of destroying the merges / invalidating
 those references.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--check-only] [REBASE-ARGS ...] [<upstream> [<branch>]] [-?|-h|--help]'
+    printf 'Usage: [GIT_REBASECHECK_FORCE|FORCE_CHECK=1|t|true] %q %s\n' "$(basename "$1")" '[--check-only] [REBASE-ARGS ...] [<upstream> [<branch>]] [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '--check-range <revision-range> [...]'
 }
 
@@ -162,7 +162,10 @@ blameIgnoreReferenceCheck
 git-lghighlightedcommits "${!allProblematicCommits[@]}" "${range[@]}"
 
 printf -v combinedHints '%s, ' "${hints[@]}"
-if [ "$isCheckOnly" ]; then
+if [ "$GIT_REBASECHECK_FORCE" ] || [ "$FORCE_CHECK" ]; then
+    echo "Note: Ignoring rebase issues because it's forced."
+    exit 0
+elif [ "$isCheckOnly" ]; then
     exit 1
 elif [ "$isInteractive" ]; then
     printf >&2 'Consider %sor cancel the rebase by aborting the editor.\n' "$combinedHints"

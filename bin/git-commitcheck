@@ -10,7 +10,7 @@ contain:
 - temporary or test commit(s)
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--severity-prefix PREFIX] [--range-hint HINT] [<log-options> ...] [<revision-range>] [-?|-h|--help]'
+    printf 'Usage: [GIT_COMMITCHECK_FORCE|FORCE_CHECK=1|t|true] %q %s\n' "$(basename "$1")" '[--severity-prefix PREFIX] [--range-hint HINT] [<log-options> ...] [<revision-range>] [-?|-h|--help]'
 }
 
 severityPrefix=
@@ -70,4 +70,10 @@ if [ ${#allBadCommits[@]} -gt 0 ]; then
 	git-lghighlightedcommits "${!allBadCommits[@]}" "$@"
     fi
 fi
+
+if [ "$GIT_COMMITCHECK_FORCE" ] || [ "$FORCE_CHECK" ]; then
+    echo "Note: Ignoring commit issues because it's forced."
+    status=0
+fi
+
 exit $status

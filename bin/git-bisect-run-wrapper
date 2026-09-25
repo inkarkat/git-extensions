@@ -9,17 +9,25 @@ readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" 
 # ensures that this gets cleared after all iterations are through.
 type -t titleupdate >/dev/null && titleupdate --id git-bisecting --panel "testing $(git-desc 2>/dev/null)"
 
+hadCheck=
 if [ $# -gt 0 ]; then
-    "$@"
-elif [ -n "$GIT_BISECT_CHECK_COMMAND" ]; then
-    eval "$GIT_BISECT_CHECK_COMMAND"
-elif [ -n "$GIT_CHECK_COMMAND" ]; then
-    eval "$GIT_CHECK_COMMAND"
-else
+    "$@"; status=$?
+    hadCheck=t
+elif [ -n "${GIT_BISECT_CHECK_COMMAND+t}" ]; then
+    if [ -n "$GIT_BISECT_CHECK_COMMAND" ]
+	eval "$GIT_BISECT_CHECK_COMMAND"; status=$?
+	hadCheck=t
+    fi
+elif [ -n "${GIT_CHECK_COMMAND+t}" ]; then
+    if [ -n "$GIT_CHECK_COMMAND" ]
+	eval "$GIT_CHECK_COMMAND"; status=$?
+	hadCheck=t
+    fi
+fi
+if [ ! "$hadCheck" ]; then
     echo >&2 'ERROR: No <cmd> passed to git bisect run (and no default check configured).'
     exit 255    # Need to exit with > 127 to abort the bisect.
 fi
-status=$?
 
 # XXX: My git-bisect is not accessible through PATH when executed by "git
 # bisect"; therefore need to invoke it with the full filespec.

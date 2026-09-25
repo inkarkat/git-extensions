@@ -4,7 +4,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: [GIT_MERGECHECK_FORCE|FORCE_CHECK=1|t|true] %q %s\n' "$(basename "$1")" '--merge-to TARGET-BRANCH|SOURCE-BRANCH [...] [-?|-h|--help]'
+    printf 'Usage: [GIT_MERGECHECK_FORCE|FORCE_CHECK=1|t|true] [GIT_MERGE_CHECK_COMMAND=CMD|GIT_CHECK_COMMAND=CMD] %q %s\n' "$(basename "$1")" '--merge-to TARGET-BRANCH|SOURCE-BRANCH [...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -35,7 +35,7 @@ HELPTEXT
 
 branchFormat='..%s'
 typeset -a branches=()
-typeset -a sourceBranches=()
+typeset -a sourceBranch=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -44,13 +44,13 @@ do
 			shift;;
 	--color)	shift; shift;;
 	--merge-to)	shift
-			if [ ${#sourceBranches[@]} -gt 0 ]; then
+			if [ ${#sourceBranch[@]} -gt 0 ]; then
 			    echo 'ERROR: --merge-to TARGET-BRANCH can be given only once.'
 			    echo
 			    printUsage "$0"
 			    exit 2
 			fi >&2
-			sourceBranches=("$(git-brname --real-branch-only 2>/dev/null)")
+			sourceBranch=("$(git-brname --real-branch-only 2>/dev/null)")
 			branches+=("${1:?}"); shift
 			branchFormat='%s..'
 			;;
@@ -81,10 +81,18 @@ do
     git-commitcheck --severity-prefix 'ERROR' --range-hint "$branchHint" "$branchRange" || status=$?
 done
 
+checkCommands="${GIT_MERGE_CHECK_COMMAND-$GIT_CHECK_COMMAND}"
+if [ -n "$checkCommands" ]; then
+    for branch in "${sourceBranch[@]}"
+    do
+	(eval "$checkCommands") || status=$?
+    done
+fi
+
 # List todo items for the source branch. This is just informational; do not fail
 # the check (as it's purely an organizational issue and nothing that gets
 # committed to permanent history).
-for branch in "${sourceBranches[@]:-${branches[@]}}"
+for branch in "${sourceBranch[@]:-${branches[@]}}"
 do
     [ -z "$branch" ] || GIT_WIPS_TODO_BRANCHNAME="$branch" TODOTXT_LOCAL_GITREPO_PROJECT_USE_FOR_HERE_ONLY_IF_EXISTING='' TODOTXT_LOCAL_GITREPO_CONTEXT_USE_FOR_HERE_ONLY_IF_EXISTING='' git-wips +todo
 done

@@ -191,11 +191,19 @@ do
 			addExec t "$cmd"
 			;;
 	--check)	shift
-			if [ -n "$GIT_REBASE_CHECK_COMMAND" ]; then
-			    addExec '' "$GIT_REBASE_CHECK_COMMAND"
-			elif [ -n "$GIT_CHECK_COMMAND" ]; then
-			    addExec '' "$GIT_CHECK_COMMAND"
-			else
+			hasCheck=
+			if [ -n "${GIT_REBASE_CHECK_COMMAND+t}" ]; then
+			    if [ -n "$GIT_REBASE_CHECK_COMMAND" ]; then
+				addExec '' "$GIT_REBASE_CHECK_COMMAND"
+				hasCheck=t
+			    fi
+			elif [ -n "${GIT_CHECK_COMMAND+t}" ]; then
+			    if [ -n "$GIT_CHECK_COMMAND" ]; then
+				addExec '' "$GIT_CHECK_COMMAND"
+				hasCheck=t
+			    fi
+			fi
+			if [ ! "$hasCheck" ]; then
 			    echo >&2 'No checks to run.'
 			    exit 1
 			fi

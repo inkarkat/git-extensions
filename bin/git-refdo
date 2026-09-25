@@ -3,6 +3,7 @@ set -o pipefail
 shopt -qs extglob nullglob
 
 : ${GIT_REFDO_COMMAND_JOINER=;}
+: ${GIT_REFDOCORE_EXEC_END=;}
 : ${GIT_REFDO_PREDICATECOMMAND_JOINER=&&}
 : ${GIT_REFDO_REVISIONS_END=;}
 : ${GIT_REFDO_FROM_END=;}
@@ -22,7 +23,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s%s %s\n' "$GIT_REFDO_COMMANDNAME" '[--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" "[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success] [--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS]${GIT_REFDO_ADDITIONAL_ARGS:+ }${GIT_REFDO_ADDITIONAL_ARGS} [-L N|--max-${GIT_REFDO_WHAT_ARG} N] [[--not] -P|--predicate-command \"COMMANDLINE\" [...]] [-c|--command \"COMMANDLINE\" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]"
+    printf 'Usage: %q %s%s %s\n' "$GIT_REFDO_COMMANDNAME" '[--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" "[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success] [--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS]${GIT_REFDO_ADDITIONAL_ARGS:+ }${GIT_REFDO_ADDITIONAL_ARGS} [-L N|--max-${GIT_REFDO_WHAT_ARG} N] [[--not] -P|--predicate-command \"COMMANDLINE\" [-P ...]|--predicate-exec SIMPLECOMMAND [...] ${GIT_REFDOCORE_EXEC_END}] [-c|--command \"COMMANDLINE\" [-c ...]] [[--] SIMPLECOMMAND [...]] [-?|-h|--help]"
     echo
     printf 'Usage: %q %s%s %s\n' "$GIT_REFDO_COMMANDNAME" "--${GIT_REFDO_WHAT_ARG} R1 [...] ${GIT_REFDO_REVISIONS_END} ..."
     if [ -z "$GIT_REFDO_SOURCE_COMMAND" ]; then
@@ -83,6 +84,11 @@ current ${GIT_REFDO_WHAT} before the command output.
 			Only consider the last N ${GIT_REFDO_WHAT}${GIT_REFDO_WHAT_DETAILS:+ }${GIT_REFDO_WHAT_DETAILS}.
     --predicate-command|-P CMD
 			Skip ${GIT_REFDO_WHAT} where CMD fails.${revisionMarker:+ The string $revisionMarker
+			is replaced with the current ${GIT_REFDO_WHAT} name.}
+    --predicate-exec CMD [...] ${GIT_REFDOCORE_EXEC_END}
+			Skip ${GIT_REFDO_WHAT} where CMD fails; all following arguments
+			are taken to be arguments to the CMD until an argument
+			consisting of '${GIT_REFDOCORE_EXEC_END}' is encountered. ${revisionMarker:+ The string $revisionMarker
 			is replaced with the current ${GIT_REFDO_WHAT} name.}
     --not		Invert the predicate so that ${GIT_REFDO_WHAT} are
 			skipped where CMD succeeds.
@@ -183,6 +189,22 @@ do
 	--not)		    shift; predicateComparison=-ne;;
 	--predicate-command|-P)
 			    shift; predicateCommands+="${predicateCommands:+ $GIT_REFDO_PREDICATECOMMAND_JOINER }$1"; shift;;
+	--predicate-exec)   shift
+			    cmd=
+			    printf -v escapedRevisionMarker %q "$revisionMarker"
+			    while [ $# -gt 0 -a "$1" != "$GIT_REFDOCORE_EXEC_END" ]
+			    do
+				printf -v quotedArg %q "$1"
+				cmd+="${cmd:+ }${quotedArg//"$escapedRevisionMarker"/$revisionMarker}"	# %q escapes {}, we don't want that to have it interpolated later.
+				shift
+			    done
+			    if [ $# -eq 0 ]; then
+				echo "ERROR: --predicate-exec command must be concluded with '${GIT_REFDOCORE_EXEC_END}'"; echo; printUsage "$0"
+				exit 2
+			    fi >&2
+			    shift
+			    predicateCommands+="${predicateCommands:+ $GIT_REFDO_PREDICATECOMMAND_JOINER }${cmd}"
+			    ;;
 	--command|-c)	    shift; commands+="${commands:+ $GIT_REFDO_COMMAND_JOINER }$1"; shift;;
 	--from)		shift
 			printf -v escapedFromMarker %q "$fromMarker"

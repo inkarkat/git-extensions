@@ -3,6 +3,7 @@ set -o pipefail
 shopt -qs extglob nullglob
 
 : ${GIT_LOCALBRDO_COMMAND_JOINER=;}
+: ${GIT_LOCALBRDO_EXEC_END=;}
 : ${GIT_LOCALBRDO_PREDICATECOMMAND_JOINER=&&}
 : ${GIT_LOCALBRDO_BRANCHES_END=;}
 : ${GIT_LOCALBRDO_SOURCE_COMMAND:=git-localbr}
@@ -15,7 +16,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[-q|--quiet] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" "[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success] [--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [--interrupt-on-failure|--interrupt-on EXIT_STATUS] [--continue|--abort|--stashed] [--include-current] [--include-master] [--include-base] [--include-all] [--branches BRANCH [...] ${GIT_LOCALBRDO_BRANCHES_END}] [--detach] [(--submodules|--queried-submodules) [--submodules-recursive]] [-L N|--max-branches N] [[--not] -P|--predicate-command \"COMMANDLINE\" [...]] [-c|--command \"COMMANDLINE\" [-c ...] | [--] SIMPLECOMMAND [...]] [-?|-h|--help]"
+    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[-q|--quiet] [--no-pager] [--no-header]' "${hasProgressNotification:+ [--progress SINK]}" "[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success] [--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [--interrupt-on-failure|--interrupt-on EXIT_STATUS] [--continue|--abort|--stashed] [--include-current] [--include-master] [--include-base] [--include-all] [--branches BRANCH [...] ${GIT_LOCALBRDO_BRANCHES_END}] [--detach] [(--submodules|--queried-submodules) [--submodules-recursive]] [-L N|--max-branches N] [[--not] -P|--predicate-command \"COMMANDLINE\" [-P ...]|--predicate-exec SIMPLECOMMAND [...] ${GIT_LOCALBRDO_EXEC_END}] [-c|--command \"COMMANDLINE\" [-c ...] | [--] SIMPLECOMMAND [...]] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -80,6 +81,12 @@ current Git branch before the command output.
     --predicate-command|-P CMD
 			Skip local branches where CMD fails.${branchMarker:+" The string $branchMarker
 			is replaced with the current branch name; the working
+			copy isn't switched yet."}
+    --predicate-exec CMD [...] ${GIT_LOCALBRDO_EXEC_END}
+			Skip local branches where CMD fails; all following
+			arguments are taken to be arguments to the CMD until an
+			argument consisting of '${GIT_LOCALBRDO_EXEC_END}' is encountered.${branchMarker:+" The string
+			$branchMarker is replaced with the current branch name; the working
 			copy isn't switched yet."}
     --not		Invert the predicate so that local branches are skipped
 			where CMD succeeds.
@@ -185,6 +192,22 @@ do
 	--max-branches|-L)  shift; branchNum="$1"; shift;;
 	--predicate-command|-P)
 			    shift; predicateCommands+="${predicateCommands:+ $GIT_LOCALBRDO_PREDICATECOMMAND_JOINER }$1"; shift;;
+	--predicate-exec)   shift
+			    cmd=
+			    printf -v escapedBranchMarker %q "$branchMarker"
+			    while [ $# -gt 0 -a "$1" != "$GIT_LOCALBRDO_EXEC_END" ]
+			    do
+				printf -v quotedArg %q "$1"
+				cmd+="${cmd:+ }${quotedArg//"$escapedBranchMarker"/$branchMarker}"	# %q escapes {}, we don't want that to have it interpolated later.
+				shift
+			    done
+			    if [ $# -eq 0 ]; then
+				echo "ERROR: --predicate-exec command must be concluded with '${GIT_LOCALBRDO_EXEC_END}'"; echo; printUsage "$0"
+				exit 2
+			    fi >&2
+			    shift
+			    predicateCommands+="${predicateCommands:+ $GIT_LOCALBRDO_PREDICATECOMMAND_JOINER }${cmd}"
+			    ;;
 	--not)		    shift; predicateComparison=-ne;;
 	--command|-c)	    shift; commands+="${commands:+ $GIT_LOCALBRDO_COMMAND_JOINER }$1"; shift;;
 	--)		    shift; break;;

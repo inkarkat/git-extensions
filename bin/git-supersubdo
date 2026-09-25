@@ -3,6 +3,7 @@ set -o pipefail
 shopt -qs extglob nullglob
 
 : ${GIT_SUPERSUBDO_COMMAND_JOINER=;}
+: ${GIT_SUPERSUBDO_EXEC_END=;}
 : ${GIT_SUBDO_SUBMODULE_END=;}
 
 readonly scriptName="$(basename -- "${BASH_SOURCE[0]}")"
@@ -99,6 +100,13 @@ do
 				subdoArgs+=("$1"); shift;;
 	--abort-on|-X|--predicate-command|-P|--progress|--since|--after)
 				subdoArgs+=("$1" "$2"); shift; shift;;
+	--predicate-exec)	subdoArgs+=("$1"); shift
+				while [ $# -gt 0 -a "$1" != "$GIT_SUPERSUBDO_EXEC_END" ]
+				do
+				    subdoArgs+=("$1"); shift
+				done
+				subdoArgs+=("$1"); shift
+				;;
 	--for)			subdoArgs+=("$1"); shift
 				if [ "$1" = - ]; then
 				    subdoArgs+=("$1"); shift
@@ -253,6 +261,8 @@ fromSuperproject()
     if [ -n "$subCommands" ]; then
 	HEADER_PREFIX+="${superprojectName}/" \
 	GIT_SUBDO_HEADER_ID="$GIT_SUPERSUBDO_HEADER_ID" \
+	GIT_SUBDOCORE_EXEC_END="$GIT_SUPERSUBDO_EXEC_END" \
+	GIT_SUBDOCORE_PREDICATECOMMAND_JOINER="$GIT_SUPERSUBDO_PREDICATECOMMAND_JOINER" \
 	    git subsamebrdo --subdo-command-name "${scriptName#git-}" --no-pager "${colorArg[@]}" "${subdoArgs[@]}" --command "$subCommands" || exit $?
     fi
 

@@ -325,6 +325,14 @@ parseCommand()
 			    wcdoArgs+=("$1" "$2"); shift; shift;;
 	    --@(abort-on|color|progress|foreign-command|predicate-command|subdo-command-name))
 			    wcdoArgs+=("$1" "$2"); shift; shift;;
+	    --predicate-exec)
+			    wcdoArgs+=("$1"); shift
+			    while [ $# -gt 0 -a "$1" != "${GIT_WCDOCORE_EXEC_END-;}" ]
+			    do
+				wcdoArgs+=("$1"); shift
+			    done
+			    wcdoArgs+=("$1"); shift
+			    ;;
 
 	    --untracked)    shift; wcdoArgs+=(--predicate-command 'git untracked');;
 	    --dirty)	    shift; wcdoArgs+=(--predicate-command 'git-dirty --quiet');;

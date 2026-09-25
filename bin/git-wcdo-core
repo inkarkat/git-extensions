@@ -2,6 +2,7 @@
 
 # $GIT_WCDOCORE_COLOR allows to set a default color mode (overwritten by a --color arg) to bypass wrapper scripts that already include the -- [SIMPLECOMMAND].
 : ${GIT_WCDOCORE_COMMAND_JOINER=;}
+: ${GIT_WCDOCORE_EXEC_END=;}
 : ${GIT_WCDOCORE_PREDICATECOMMAND_JOINER=&&}
 : ${GIT_WCDO_PROGRESS_WHAT=working copy}
 
@@ -11,7 +12,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[--no-pager] [--no-header|--branch-name]' "${hasProgressNotification:+ [--progress SINK]}" '[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success] [--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [--skip-files] [-s|--skip-foreign|--foreign-command "COMMANDLINE" [...]] [[--not] -P|--predicate-command "COMMANDLINE" [...] | --repeat] [-c|--command "COMMANDLINE" [-c ...]] [--] WORKING-COPY [...] [-- SIMPLECOMMAND ...] [-?|-h|--help]'
+    printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[--no-pager] [--no-header|--branch-name]' "${hasProgressNotification:+ [--progress SINK]}" "[-i|--interactive] [--separate-errors] [--no-git-color] [--single-success] [--status-99-is-noop] [--abort-on-failure|-X|--abort-on EXIT_STATUS] [--skip-files] [-s|--skip-foreign|--foreign-command \"COMMANDLINE\" [...]] [[--not] -P|--predicate-command \"COMMANDLINE\" [-P ...]|--predicate-exec SIMPLECOMMAND [...] ${GIT_WCDOCORE_EXEC_END} [--predicate-exec ...] | --repeat] [-c|--command \"COMMANDLINE\" [-c ...]] [--] WORKING-COPY [...] [-- SIMPLECOMMAND ...] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -74,6 +75,11 @@ Puts a header line (unless --no-header) that contains the WORKING-COPY name
 			copy root) fails. This is an alternative to
 				--command "if CMD; then COMMANDLINE; fi"
 			that lets you still use SIMPLECOMMAND.
+    --predicate-exec CMD [...] ${GIT_WCDOCORE_EXEC_END}
+			Skip working copies where CMD (executed in the working
+			copy root) fails; all following arguments are taken to
+			be arguments to the CMD until an argument consisting of
+			'${GIT_WCDOCORE_EXEC_END}' is encountered.
     --not		Invert the predicate so that working copies are skipped
 			where CMD succeeds.
     --repeat		Consider the same working copies as were iterated over
@@ -137,6 +143,21 @@ do
 	--skip-foreign|-s)	shift; isSkipForeign=t;;
 	--foreign-command)	shift; foreignCommands+="${foreignCommands:+ $GIT_WCDOCORE_COMMAND_JOINER }$1"; shift;;
 	--predicate-command|-P)	shift; predicateCommands+="${predicateCommands:+ $GIT_WCDOCORE_PREDICATECOMMAND_JOINER }$1"; shift;;
+	--predicate-exec)	shift
+				cmd=
+				while [ $# -gt 0 -a "$1" != "$GIT_WCDOCORE_EXEC_END" ]
+				do
+				    printf -v quotedArg %q "$1"
+				    cmd+="${cmd:+ }${quotedArg}"
+				    shift
+				done
+				if [ $# -eq 0 ]; then
+				    echo "ERROR: --predicate-exec command must be concluded with '${GIT_WCDOCORE_EXEC_END}'"; echo; printUsage "$0"
+				    exit 2
+				fi >&2
+				shift
+				predicateCommands+="${predicateCommands:+ $GIT_WCDOCORE_PREDICATECOMMAND_JOINER }${cmd}"
+				;;
 	--not)			shift; predicateComparison=-ne;;
 	--command|-c)		shift; commands+="${commands:+ $GIT_WCDOCORE_COMMAND_JOINER }$1"; shift;;
 	--no-pager)		shift; pager=();;

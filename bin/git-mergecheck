@@ -4,7 +4,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: [GIT_MERGECHECK_FORCE|FORCE_CHECK=1|t|true] %q %s\n' "$(basename "$1")" '--merge-to TARGET-BRANCH|SOURCE-BRANCH [...] [-?|-h|--help]'
+    printf 'Usage: [GIT_MERGECHECK_FORCE|FORCE_CHECK=1|t|true] [GIT_MERGE_CHECK_COMMAND=CMD|GIT_CHECK_COMMAND=CMD] %q %s\n' "$(basename "$1")" '--merge-to TARGET-BRANCH|SOURCE-BRANCH [...] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -80,6 +80,14 @@ do
     printf -v branchRange "$branchFormat" "$branch"
     git-commitcheck --severity-prefix 'ERROR' --range-hint "$branchHint" "$branchRange" || status=$?
 done
+
+checkCommands="${GIT_MERGE_CHECK_COMMAND:-$GIT_CHECK_COMMAND}"
+if [ -n "$checkCommands" ]; then
+    for branch in "${sourceBranch[@]}"
+    do
+	(eval "$checkCommands") || status=$?
+    done
+fi
 
 # List todo items for the source branch. This is just informational; do not fail
 # the check (as it's purely an organizational issue and nothing that gets

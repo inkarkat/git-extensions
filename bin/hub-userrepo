@@ -4,7 +4,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--fallback-guess|URL] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--only-user|--only-repo] [--fallback-guess|URL] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -25,6 +25,10 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
+    --only-user		Print only the user name (without the repository name
+			and appendices).
+    --repo-user		Print only the repository name (without the user name
+			and appendices).
     --fallback-guess	If the repository has no GitHub remote (yet; because
 			it's not been published yet?), take a guess (based on
 			the working copy name and the configured GitHub user)
@@ -36,6 +40,14 @@ printAll()
 {
     printf '%s/%s%s\n' "${userName:?}" "${repoName:?}" "$appendix"
 }
+printUser()
+{
+    printf '%s\n' "${userName:?}"
+}
+printRepo()
+{
+    printf '%s\n' "${repoName:?}"
+}
 
 action=printAll
 isFallbackGuess=
@@ -46,6 +58,8 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
+	--only-user)	shift; action=printUser;;
+	--only-repo)	shift; action=printRepo;;
 	--fallback-guess)
 			shift; isFallbackGuess=t;;
 	--)		shift; break;;

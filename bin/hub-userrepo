@@ -4,7 +4,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--fallback-guess|URL] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--only-user|--only-repo] [--fallback-guess|URL] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -25,6 +25,10 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
+    --only-user		Print only the user name (without the repository name
+			and appendices).
+    --repo-user		Print only the repository name (without the user name
+			and appendices).
     --fallback-guess	If the repository has no GitHub remote (yet; because
 			it's not been published yet?), take a guess (based on
 			the working copy name and the configured GitHub user)
@@ -32,7 +36,22 @@ HELPDESCRIPTION
 HELPTEXT
 }
 
+printAll()
+{
+    printf '%s/%s%s\n' "${userName:?}" "${repoName:?}" "$appendix"
+}
+printUser()
+{
+    printf '%s\n' "${userName:?}"
+}
+printRepo()
+{
+    printf '%s\n' "${repoName:?}"
+}
+
+action=printAll
 isFallbackGuess=
+typeset -a recursiveArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -40,8 +59,10 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
+	--only-user)	shift; action=printUser;;
+	--only-repo)	shift; action=printRepo;;
 	--fallback-guess)
-			shift; isFallbackGuess=t;;
+			recursiveArgs+=("$1"); shift; isFallbackGuess=t;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -53,9 +74,9 @@ case $# in
 	else
 	    status=$?
 	    [ "$isFallbackGuess" ] \
-		&& me="$(git me-in-github)" \
-		&& wcName="$(git-wcname)" \
-		&& printf '%s/%s\n' "$me" "$wcName" \
+		&& userName="$(git me-in-github)" \
+		&& repoName="$(git-wcname)" \
+		&& $action \
 		&& status=0
 	    exit $status
 	fi
@@ -64,17 +85,34 @@ case $# in
     *)	printUsage "$0" >&2; exit 2;;
 esac
 
-if [[ "$url" =~ ^[[:alnum:]]+://[^/]+/([^/]+/[^/]+)/(issue|pull)/(.*)$ ]]; then
-    printf '%s\n' "${BASH_REMATCH[1]}#${BASH_REMATCH[3]}"
-elif [[ "$url" =~ ^[[:alnum:]]+://[^/]+/([^/]+/[^/]+).*$ ]]; then
-    printf '%s\n' "${BASH_REMATCH[1]}"
-elif [[ "$url" =~ ^git@[^:]+:([^/]+/[^/]+)\.git.*$ ]]; then
-    printf '%s\n' "${BASH_REMATCH[1]}"
+appendix=
+if [[ "$url" =~ ^[[:alnum:]]+://[^/]+/([^/]+)/([^/]+)/(issue|pull)/(.*)$ ]]; then
+    userName="${BASH_REMATCH[1]}"
+    repoName="${BASH_REMATCH[2]}"
+    appendix="#${BASH_REMATCH[4]}"
+elif [[ "$url" =~ ^[[:alnum:]]+://[^/]+/([^/]+)/([^/]+).*$ ]]; then
+    userName="${BASH_REMATCH[1]}"
+    repoName="${BASH_REMATCH[2]}"
+elif [[ "$url" =~ ^git@[^:]+:([^/]+)/([^/]+)\.git.*$ ]]; then
+    userName="${BASH_REMATCH[1]}"
+    repoName="${BASH_REMATCH[2]}"
 elif [[ "$url" =~ ^\.\./([^/]+)\.git$ ]]; then
     repoName="${BASH_REMATCH[1]}"
-    url="$("${BASH_SOURCE[0]}")" || exit $?
-    printf '%s\n' "${url%/*}/${repoName}"
+    userName="$(
+	# Try to go into an adjacent / contained working copy in the hope of getting
+	# better data on the referenced repository.
+	root="$(git root)" \
+	    &&	for wcDir in "${root:?}/../${repoName}" "${root:?}/${repoName}"
+		do
+		    if [ -d "$wcDir" ]; then
+			cd "$wcDir"
+			break
+		    fi
+		done
+	    "${BASH_SOURCE[0]}" --only-user "${recursiveArgs[@]}"
+	)" || exit $?
 else
     printf >&2 'ERROR: Unknown URL: %s\n' "$url"
     exit 3
 fi
+$action

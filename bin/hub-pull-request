@@ -55,6 +55,28 @@ editPullRequestMessage()
 	-- hub pr show ${head:+--head "$head"} -f $'%t (← do not edit here)\n\n%b'
 }
 
+if [ -n "$base" ] && [[ "$base" != *:* ]] \
+    && git uexists && ! git existsbr -- "upstream/${base}"
+then
+    if git oexists && git existsbr -- "origin/${base}" \
+	&& originUrl="$(git ourl)" \
+	&& originUserName="$(hub-userrepo --only-user "$originUrl")"
+    then
+	userBinaryChoice --keep-prompt --console \
+		--introduction "Attention: The base branch \"${base}\" does not exist in the upstream remote, only in your GitHub fork (${originUserName}).
+GitHub does not allow a merge base from a fork.
+To open a pull request in upstream, the branch needs to be published there (assuming write access).
+Alternatively, you have to open a (draft) pull request in your fork as a placeholder, and later resubmit a separate PR to upstream once the base revisions have landed in upstream." \
+		--question 'Submit a draft pull request to origin instead?' --ok-cancel \
+	    || exit 4
+	args=(--draft "${args[@]}")
+	base="${originUserName}:${base}"
+    else
+	printf >&2 'ERROR: Base branch "%s" does not exist in the upstream remote.\n' "$base"
+	exit 1
+    fi
+fi
+
 if hub-existspr ${base:+--base "$base"} ${head:+--head "$head"} --print | outputAndPrintf "${HUB_PULLREQUEST_WHAT:-A} pull request already exists:\\n"; then
     typeset -a choices=('[E]dit message body' '[S]kip' '[A]bort')
     [ "$hasMessage" ] && choices=('[U]pdate message body from template' "${choices[@]}")

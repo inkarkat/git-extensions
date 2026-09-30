@@ -51,6 +51,7 @@ printRepo()
 
 action=printAll
 isFallbackGuess=
+typeset -a recursiveArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -61,7 +62,7 @@ do
 	--only-user)	shift; action=printUser;;
 	--only-repo)	shift; action=printRepo;;
 	--fallback-guess)
-			shift; isFallbackGuess=t;;
+			recursiveArgs+=("$1"); shift; isFallbackGuess=t;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -97,7 +98,19 @@ elif [[ "$url" =~ ^git@[^:]+:([^/]+)/([^/]+)\.git.*$ ]]; then
     repoName="${BASH_REMATCH[2]}"
 elif [[ "$url" =~ ^\.\./([^/]+)\.git$ ]]; then
     repoName="${BASH_REMATCH[1]}"
-    userName="$("${BASH_SOURCE[0]}" --only-user)" || exit $?
+    userName="$(
+	# Try to go into an adjacent / contained working copy in the hope of getting
+	# better data on the referenced repository.
+	root="$(git root)" \
+	    &&	for wcDir in "${root:?}/../${repoName}" "${root:?}/${repoName}"
+		do
+		    if [ -d "$wcDir" ]; then
+			cd "$wcDir"
+			break
+		    fi
+		done
+	    "${BASH_SOURCE[0]}" --only-user "${recursiveArgs[@]}"
+	)" || exit $?
 else
     printf >&2 'ERROR: Unknown URL: %s\n' "$url"
     exit 3

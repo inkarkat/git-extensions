@@ -32,6 +32,12 @@ HELPDESCRIPTION
 HELPTEXT
 }
 
+printAll()
+{
+    printf '%s/%s%s\n' "${userName:?}" "${repoName:?}" "$appendix"
+}
+
+action=printAll
 isFallbackGuess=
 while [ $# -ne 0 ]
 do
@@ -53,9 +59,9 @@ case $# in
 	else
 	    status=$?
 	    [ "$isFallbackGuess" ] \
-		&& me="$(git me-in-github)" \
-		&& wcName="$(git-wcname)" \
-		&& printf '%s/%s\n' "$me" "$wcName" \
+		&& userName="$(git me-in-github)" \
+		&& repoName="$(git-wcname)" \
+		&& $action \
 		&& status=0
 	    exit $status
 	fi
@@ -64,17 +70,23 @@ case $# in
     *)	printUsage "$0" >&2; exit 2;;
 esac
 
-if [[ "$url" =~ ^[[:alnum:]]+://[^/]+/([^/]+/[^/]+)/(issue|pull)/(.*)$ ]]; then
-    printf '%s\n' "${BASH_REMATCH[1]}#${BASH_REMATCH[3]}"
-elif [[ "$url" =~ ^[[:alnum:]]+://[^/]+/([^/]+/[^/]+).*$ ]]; then
-    printf '%s\n' "${BASH_REMATCH[1]}"
-elif [[ "$url" =~ ^git@[^:]+:([^/]+/[^/]+)\.git.*$ ]]; then
-    printf '%s\n' "${BASH_REMATCH[1]}"
+appendix=
+if [[ "$url" =~ ^[[:alnum:]]+://[^/]+/([^/]+)/([^/]+)/(issue|pull)/(.*)$ ]]; then
+    userName="${BASH_REMATCH[1]}"
+    repoName="${BASH_REMATCH[2]}"
+    appendix="#${BASH_REMATCH[4]}"
+elif [[ "$url" =~ ^[[:alnum:]]+://[^/]+/([^/]+)/([^/]+).*$ ]]; then
+    userName="${BASH_REMATCH[1]}"
+    repoName="${BASH_REMATCH[2]}"
+elif [[ "$url" =~ ^git@[^:]+:([^/]+)/([^/]+)\.git.*$ ]]; then
+    userName="${BASH_REMATCH[1]}"
+    repoName="${BASH_REMATCH[2]}"
 elif [[ "$url" =~ ^\.\./([^/]+)\.git$ ]]; then
     repoName="${BASH_REMATCH[1]}"
     url="$("${BASH_SOURCE[0]}")" || exit $?
-    printf '%s\n' "${url%/*}/${repoName}"
+    userName="${url%/*}"
 else
     printf >&2 'ERROR: Unknown URL: %s\n' "$url"
     exit 3
 fi
+$action

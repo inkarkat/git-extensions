@@ -17,9 +17,9 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-\?)	shift; exec hub pull-request --help;;
-	--base|-b)	args+=("$1" "${2:?}"); shift; base="$1"; shift;;
-	--head|-h)	args+=("$1" "${2:?}"); shift; head="$1"; shift;;
-	--edit|-e)	args+=("$1"); shift; isEdit=t;;
+	--base|-b)	shift; base="${1:?}"; shift;;
+	--head|-h)	shift; head="${1:?}"; shift;;
+	--edit|-e)	shift; isEdit=t;;
 	--browse|-o)	outputArgs+=("$1"); shift; isBrowse=t;;
 	--copy|-c)	outputArgs+=("$1"); shift; isCopy=t;;
 	--print)	shift; isPrint=t;;
@@ -93,6 +93,7 @@ if [ "$hasMessage" ] && [ "$isEdit" ]; then
     done
 fi
 
+args=(${base:+--base "$base"} ${head:+--head "$head"} ${isEdit:+--edit} "${args[@]}")
 if [ "$isPrint" ] && { [ "$isBrowse" ] || [ "$isCopy" ]; }; then
     # XXX: hub pull-request unfortunately prints the URL as the default action,
     # and --browse or --copy override that behavior, so we cannot have both.

@@ -6,7 +6,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, they can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-d|--draft] [--dry-run] [-e|--edit] [--from|--source-repo OWNER/REPO|-r|--remote REMOTE | URL] [--to|--target-repo OWNER/REPO|-R|--target-remote REMOTE] [PR-IDENTIFIER|BRANCH] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--copy] [-d|--draft] [--dry-run] [-e|--edit] [--from|--source-repo OWNER/REPO|-r|--remote REMOTE | URL] [--to|--target-repo OWNER/REPO|-R|--target-remote REMOTE] [PR-IDENTIFIER|BRANCH] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -27,6 +27,7 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
+    --copy		Do not close the original pull request.
     --draft		Mark target pull request as a draft.
     --dry-run		Print details instead of creating the PR.
     --edit|-e		Open the pull request title and description in a text
@@ -43,6 +44,8 @@ cla-exitstatus
 HELPTEXT
 }
 
+isClose=t
+isDryRun=
 sourceRepo=
 targetRepo=
 typeset -a ghPrCreateArgs=()
@@ -50,6 +53,7 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--copy)		shift; isClose=;;
 	--source-repo|--from)
 			shift; sourceRepo="${1:?}"; shift;;
 	--target-repo|--to)
@@ -58,9 +62,9 @@ do
 	--target-remote|-R)
 			shift; targetRepo="$(hub-ruserrepo "${1:?}")"; shift;;
 	--edit|-e)	ghPrCreateArgs+=(--editor); shift;; # Note: Different long parameter name
+	--dry-run)	ghPrCreateArgs+=("$1"); shift; isDryRun=t;;
 	-[d])		ghPrCreateArgs+=("$1"); shift;;
-	--@(draft|dry-run))
-			ghPrCreateArgs+=("$1"); shift;;
+	--@(draft))	ghPrCreateArgs+=("$1"); shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -119,16 +123,21 @@ sourceBody="${sourceMetadata#*$'\n'}"
 typeset -a referenceDetails=()
 [ $sourceCommentNum -eq 0 ] || referenceDetails+=("$(plural $sourceCommentNum comment)")
 [ $sourceReviewNum -eq 0 ] || referenceDetails+=("$(plural $sourceReviewNum review)")
-printf -v reference '\n* Note: This had been originally submitted to %s#%d%s\n' "$sourceRepo" $sourcePrIdentifier "$(joinBy --prefix ', where it had received ' ' and ' "${referenceDetails[@]}")"
+printf -v reference '\n* Note: This had been originally submitted to %s#%d%s\n' "$sourceRepo" ${sourcePrIdentifier:?} "$(joinBy --prefix ', where it had received ' ' and ' "${referenceDetails[@]}")"
 
 targetBody="$(printf %s "$sourceBody" | translateGitHubLinks)"
 targetBody+="$reference"
 
 gh pr create \
-    "${ghPrCreateArgs[@]}" \
-    --head "$sourceHeadBranch" \
-    --base "$sourceBaseBranch" \
-    --title "$sourceTitle" \
-    --body "$targetBody" \
-    $sourceDraftFlag $sourceMaintainerCanModifyFlag \
-    --repo "$targetRepo"
+	"${ghPrCreateArgs[@]}" \
+	--head "$sourceHeadBranch" \
+	--base "$sourceBaseBranch" \
+	--title "$sourceTitle" \
+	--body "$targetBody" \
+	$sourceDraftFlag $sourceMaintainerCanModifyFlag \
+	--repo "$targetRepo" \
+    || exit $?
+
+[ ! "$isDryRun" ] && [ "$isClose" ] || exit 0
+
+gh pr close --repo "$sourceRepo" "${sourcePrIdentifier:?}" || exit $?

@@ -34,13 +34,12 @@ HELPDESCRIPTION
 			editor before submitting.
 By default, moves from origin to upstream.
 
-SEE ALSO:
-- (Commands offering complementary functionality, or commands using this command.)
-
-RELATED COMMANDS:
-- (Alternatives from other authors, other approaches, references not used here.)
-
-cla-exitstatus
+EXIT STATUS:
+    0	Complete success.
+    1	Failed to move the pull request.
+    2	Bad invocation, wrong or missing command-line arguments.
+    3	Internal error or failed assertion.
+    4	URL does not point to a pull request / BRANCH is not found.
 HELPTEXT
 }
 
@@ -71,21 +70,21 @@ do
     esac
 done
 case $# in
-    0)	prIdOrBranch="$(git-brname --real-branch-only)" || exit $?;;
+    0)	prIdOrBranch="$(git-brname --real-branch-only)" || exit 4;;
     1)	if [[ "$1" =~ ^[0-9]+$ ]] \
 	    || git-existbr -- "$1"
 	then
 	    prIdOrBranch="$1"
 	else
-	    prIdOrBranch="$(hub-userrepo --only-appendix "$1")" || exit $?
-	    sourceRepo="$(hub-userrepo --only-user-and-repo "$1")" || exit $?
+	    prIdOrBranch="$(hub-userrepo --only-appendix "$1")" || exit 4
+	    sourceRepo="$(hub-userrepo --only-user-and-repo "$1")" || exit 3
 	fi
 	;;
     *)	printUsage "$0"; exit 2;;
 esac >&2
 
-[ -n "$sourceRepo" ] || sourceRepo="$(hub-ouserrepo)" || exit $?
-[ -n "$targetRepo" ] || targetRepo="$(hub-uuserrepo)" || exit $?
+[ -n "$sourceRepo" ] || sourceRepo="$(hub-ouserrepo)" || exit 3
+[ -n "$targetRepo" ] || targetRepo="$(hub-uuserrepo)" || exit 3
 
 if [ "$sourceRepo" = "$targetRepo" ]; then
     printf 'ERROR: Source and target repositories must be different: %s\n' "$sourceRepo"

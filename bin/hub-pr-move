@@ -88,21 +88,35 @@ if [ "$sourceRepo" = "$targetRepo" ]; then
     exit 2
 fi >&2
 
+plural()
+{
+    if [ "${1:?}" -eq 1 ]; then
+	printf %s "${2}${4}"
+    else
+	printf %s "${2}${3:-s}"
+    fi
+}
+
 sourceMetadata="$(
     gh pr view \
-	--json headRefName,baseRefName,number,title,isDraft,maintainerCanModify,body \
-	--template '{{.headRefName}}{{"\t"}}{{.baseRefName}}{{"\t"}}{{.number}}{{"\t"}}{{.title}}{{"\t"}}{{if .isDraft}}--draft{{end}}{{"\t"}}{{if .maintainerCanModify}}{{else}}--no-maintainer-edit{{end}}{{"\n"}}{{.body}}{{"\n"}}' \
+	--json headRefName,baseRefName,number,title,isDraft,maintainerCanModify,comments,reviews,body \
+	--template '{{.headRefName}}{{"\t"}}{{.baseRefName}}{{"\t"}}{{.number}}{{"\t"}}{{.title}}{{"\t"}}{{if .isDraft}}--draft{{end}}{{"\t"}}{{if .maintainerCanModify}}{{else}}--no-maintainer-edit{{end}}{{"\t"}}{{len .comments}}{{"\t"}}{{len .reviews}}{{"\n"}}{{.body}}{{"\n"}}' \
 	--repo "$sourceRepo" \
 	"${prIdOrBranch:?}"
 )" || exit $?
-IFS=$'\t' read -r sourceHeadBranch sourceBaseBranch sourcePrIdentifier sourceTitle sourceDraftFlag sourceMaintainerCanModifyFlag <<<"${sourceMetadata%%$'\n'*}"
+IFS=$'\t' read -r sourceHeadBranch sourceBaseBranch sourcePrIdentifier sourceTitle sourceDraftFlag sourceMaintainerCanModifyFlag sourceCommentNum sourceReviewNum <<<"${sourceMetadata%%$'\n'*}"
 sourceBody="${sourceMetadata#*$'\n'}"
+
+typeset -a referenceDetails=()
+[ $sourceCommentNum -eq 0 ] || referenceDetails+=("$(plural $sourceCommentNum comment)")
+[ $sourceReviewNum -eq 0 ] || referenceDetails+=("$(plural $sourceReviewNum review)")
+printf -v reference '\n* Note: This had been originally submitted to %s#%d%s\n' "$sourceRepo" $sourcePrIdentifier "$(joinBy --prefix ', where it had received ' ' and ' "${referenceDetails[@]}")"
 
 gh pr create \
     "${ghPrCreateArgs[@]}" \
     --head "$sourceHeadBranch" \
     --base "$sourceBaseBranch" \
     --title "$sourceTitle" \
-    --body "$sourceBody" \
+    --body "${sourceBody}${reference}" \
     $sourceDraftFlag $sourceMaintainerCanModifyFlag \
     --repo "$targetRepo"

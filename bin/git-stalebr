@@ -7,7 +7,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    local hubOptions=; [ "$HUB" ] && hubOptions='[--only-mine] [--pull-requests-from-repo WORKING-COPY|[HOST/]OWNER/REPO [--pull-requests-from-repo ...] [--pull-requests-from-here]]'
+    local hubOptions=; [ "$HUB" ] && hubOptions='[-R|--repo [HOST/]OWNER/REPO] [--only-mine] [--pull-requests-from-repo WORKING-COPY|[HOST/]OWNER/REPO [--pull-requests-from-repo ...] [--pull-requests-from-here]]'
     printf 'Usage: %q %s%s %s\n' "$(basename "$1")" '[--bare|--quiet] [--compare-to <branch>|<commit>|""] [-r|--remote REMOTE|-a]' "${hubOptions:+ }${hubOptions}" '[-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [--include-current] [--include-master] [--include-base] [--include-all] [--] [<branch-glob> ...] [-?|-h|--help]'
 }
 printUsage()
@@ -44,6 +44,9 @@ SUFFIX may be 's' for seconds (the default), 'm' for minutes, 'h' for hours, 'd'
 for days, 'w' for weeks, 'mo' for months, 'y' for years, 'g' for generations.
 HELPTEXT
     [ "$HUB" ] && cat <<HUB-HELPTEXT
+    --repo|-R [HOST/]OWNER/REPO
+			Select another repository using the [HOST/]OWNER/REPO
+			format.
     --only-mine		Only consider branches from pull requests that have been
 			opened from my GitHub clone. By default, it assumes that
 			I'm potentially collaborating with other contributors
@@ -69,7 +72,7 @@ listPrBranches()
     [ "$isOnlyMine" ] \
 	&& typeset -a branchFilter=(-n -e "s#^$(git me-in-github):##p") \
 	|| typeset -a branchFilter=(-e 's#^[^:]\+:##')
-    hub pr list --format '%H%n' \
+    gh pr list --json headRefName --template '{{range .}}{{.headRefName}}{{"\n"}}{{end}}' "${repoArgs[@]}" \
 	| sed "${branchFilter[@]}"
 }
 isReadPrBranches=; [ "$HUB" ] || isReadPrBranches=t
@@ -84,6 +87,7 @@ readPrBranches()
     isReadPrBranches=t
 }
 
+typeset -a repoArgs=()
 isBare=
 isQuiet=
 isOnlyMine=
@@ -99,6 +103,7 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
+	--repo|-R)	repoArgs+=("$1" "${2:?}"); shift; shift;;
 	--bare)		shift; isBare=t; additionalBranchInfoArgs=(--bare);;
 	--quiet|-q)	shift; isQuiet=t;;
 	--compare-to)	shift; compareTo="$1"; shift;;

@@ -7,9 +7,10 @@ Check whether a pull-request for the current commit / passed HEAD [to BASE]
 exists.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-p|--print] [-h|--head HEAD] [-b|--base BASE] [-s|--state STATE] [-?|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-p|--print] [-R|--repo [HOST/]OWNER/REPO] [-h|--head HEAD] [-b|--base BASE] [-s|--state STATE] [-?|--help]'
 }
 
+typeset -a repoArgs=()
 base=
 head=HEAD
 isPrint=
@@ -19,6 +20,7 @@ do
     case "$1" in
 	--help|-\?)	shift; printUsage "$0"; exit 0;;
 	--print|-p)	shift; isPrint=t;;
+	--repo|-R)	repoArgs+=("$1" "${2:?}"); shift; shift;;
 	--base|-b)	shift; base="${1:?}"; shift;;
 	--head|-h)	shift; head="${1:?}"; shift;;
 	--state|-s)	hubprArgs+=("$1" "${2:?}"); shift; shift;;
@@ -46,13 +48,15 @@ check()
 status=
 while IFS=$'\t' read -r prHeadCommitId prHeadBranch prBaseCommitId prBaseBranch prIdentifier prTitle
 do
-    if check "$prHeadCommitId" "$prHeadBranch" "$head" \
-	&& check "$prBaseCommitId" "$prBaseBranch" "$base"
+    # Note: The head / base branches may have an [OWNER:] prefix that we need to
+    # strip off for comparing with the local branch names.
+    if check "$prHeadCommitId" "${prHeadBranch#*:}" "$head" \
+	&& check "$prBaseCommitId" "${prBaseBranch#*:}" "$base"
     then
 	status=0
-	[ ! "$isPrint" ] || printf '%s %s\n' "$prIdentifier" "$prTitle"
+	[ ! "$isPrint" ] || printf '#%s %s\n' "$prIdentifier" "$prTitle"
     else
 	: ${status:=1}
     fi
-done < <(hub pr list -f '%sH	%H	%sB	%B	%i	%t%n' "${hubprArgs[@]}")
+done < <(gh pr list --json headRefOid,headRefName,baseRefOid,baseRefName,number,title --template '{{range .}}{{.headRefOid}}{{"\t"}}{{.headRefName}}{{"\t"}}{{.baseRefOid}}{{"\t"}}{{.baseRefName}}{{"\t"}}{{.number}}{{"\t"}}{{.title}}{{"\n"}}{{end}}' "${repoArgs[@]}" "${hubprArgs[@]}")
 exit ${status:-99}

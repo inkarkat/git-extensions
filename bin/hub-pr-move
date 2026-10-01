@@ -97,6 +97,15 @@ plural()
     fi
 }
 
+translateGitHubLinks()
+{
+
+    literalSourceRepo="$sourceRepo"
+    literalSourceRepo="${literalSourceRepo//\\/\\\\}"
+    literalSourceRepo="${literalSourceRepo//&/\\&}"
+    sed -e 's@\(^\|[^[:alnum:]`]\)\(#[[:digit:]]\+\)\([^[:alnum:]`]\|$\)@\1'"${literalSourceRepo//@/\\@}"'\2\3@g'
+}
+
 sourceMetadata="$(
     gh pr view \
 	--json headRefName,baseRefName,number,title,isDraft,maintainerCanModify,comments,reviews,body \
@@ -112,11 +121,14 @@ typeset -a referenceDetails=()
 [ $sourceReviewNum -eq 0 ] || referenceDetails+=("$(plural $sourceReviewNum review)")
 printf -v reference '\n* Note: This had been originally submitted to %s#%d%s\n' "$sourceRepo" $sourcePrIdentifier "$(joinBy --prefix ', where it had received ' ' and ' "${referenceDetails[@]}")"
 
+targetBody="$(printf %s "$sourceBody" | translateGitHubLinks)"
+targetBody+="$reference"
+
 gh pr create \
     "${ghPrCreateArgs[@]}" \
     --head "$sourceHeadBranch" \
     --base "$sourceBaseBranch" \
     --title "$sourceTitle" \
-    --body "${sourceBody}${reference}" \
+    --body "$targetBody" \
     $sourceDraftFlag $sourceMaintainerCanModifyFlag \
     --repo "$targetRepo"

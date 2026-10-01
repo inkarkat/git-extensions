@@ -15,7 +15,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[#ID|<commit> [...]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-R|--repo [HOST/]OWNER/REPO] [#ID|<commit> [...]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -36,6 +36,9 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
+    --repo|-R [HOST/]OWNER/REPO
+			Select another repository using the [HOST/]OWNER/REPO
+			format.
 EXIT STATUS:
     0	Complete success.
     1	No pull request found.
@@ -46,6 +49,7 @@ HELPTEXT
 }
 
 isColor=; [ -t 1 ] && isColor=t
+typeset -a repoArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -66,6 +70,7 @@ do
 			esac
 			shift; shift
 			;;
+	--repo|-R)	repoArgs=("$1" "${2:?}"); shift; shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -76,7 +81,8 @@ done
 apiCall()
 {
     local prId="${1:?}"; shift
-    hub api "$@" "repos/${HUB_PRAPPROVAL_OWNER}/${HUB_PRAPPROVAL_REPO}/pulls/${prId:?}/reviews"
+    [ ${#repoArgs[@]} -gt 0 ] || repoArgs=('--repo' "${HUB_PRAPPROVAL_OWNER:?}/${HUB_PRAPPROVAL_REPO:?}")
+    gh api "$@" "repos/${repoArgs[1]}/pulls/${prId:?}/reviews"
 }
 
 renderApproval()
@@ -111,7 +117,7 @@ if [ ${#commitIds[@]} -gt 0 ]; then
 	if contains "$prCommitId" "${commitIds[@]}"; then
 	    identifiers+=("$prIdentifier")
 	fi
-    done < <(hub pr list -f "%sH	%I%n")
+    done < <(gh pr list --json headRefOid,number --template '{{range .}}{{.headRefOid}}{{"\t"}}{{.number}}{{"\n"}}{{end}}' "${repoArgs[@]}")
 fi
 [ ${#identifiers[@]} -gt 0 ] || exit 1
 

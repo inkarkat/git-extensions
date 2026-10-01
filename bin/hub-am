@@ -7,7 +7,7 @@ printf -v defaultSeparator "%${COLUMNS:=80}s" '='; printf -v defaultSeparator %s
 printUsage()
 {
     command hub am --help 2>&1 | sed \
-	-e 's/\( am \)\(\[--signoff\] \)/\1[--closing] \2/g' \
+	-e 's/\( am \)\(\[--signoff\] \)/\1[-R|--repo [HOST\/]OWNER\/REPO] [--closing] \2/g' \
 	-e '/-s, --signoff/i\
 	--closing\
 	    Append a "Closes #ID" line to the commit message.\
@@ -15,6 +15,7 @@ printUsage()
 	-e 's/<Maildir>/& | PR-URL | #ID|ID/g'
 }
 
+typeset -a repoArgs=()
 isClosing=
 typeset -a amArgs=()
 typeset -a prUrls=()
@@ -26,8 +27,9 @@ do
 			eval 'printUsage "$0"' \ "${pager:+|}" '"${pager[@]}"'
 			exit 0
 			;;
+	--repo|-R)	repoArgs+=("$1" "${2:?}"); shift; shift;;
 	--closing)	shift; isClosing=t;;
-	?(\#)+([0-9]))	prUrl="$(hub pr show --format '%U%n' "${1#\#}")" || exit $?; shift
+	?(\#)+([0-9]))	prUrl="$(gh pr view --json url --template '{{.url}}{{"\n"}}' "${repoArgs[@]}" "${1#\#}")" || exit $?; shift
 			prUrls+=("$prUrl");;
 	http?(s)://*/pull/+([0-9])) # Also capture PR URLs to be able to apply the --closing option to them as well.
 			prUrls+=("$1"); shift;;

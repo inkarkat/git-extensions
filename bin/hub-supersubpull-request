@@ -18,6 +18,7 @@ HELPTEXT
 }
 
 remote="$(git-trackedremote 2>/dev/null)" || remote='origin'
+typeset -a repoArgs=()
 base="$(git-mbr)" || exit $?
 head=
 typeset -a args=()
@@ -26,6 +27,7 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-\?)	shift; printUsage "$0"; exit 0;;
+	--repo|-R)	repoArgs+=("$1" "${2:?}"); shift; shift;;
 	--base|-b)	shift; base="${1:?}"; shift;;
 	--head|-h)	shift; git-equals "${1:?}" HEAD || head="$1"; shift;;
 	--for)		subdoArgs+=("$1"); shift
@@ -116,6 +118,7 @@ case $status in
     *)	    exit $status;;
 esac
 
+quotedRepoArgs=; [ ${#repoArgs[@]} -eq 0 -a -z "$head" ] || printf -v quotedRepoArgs ' %q' "${repoArgs[@]}" "${head:-$(git-brname --real-branch-only)}"
 goToSuperproject
 gitDir="$(git rev-parse --git-dir 2>/dev/null)"
 TMPDIR="$gitDir" exec tempedit \
@@ -123,7 +126,7 @@ TMPDIR="$gitDir" exec tempedit \
     --sink-exec sed -e 1d -e '2{/^$/d}' -- {} \; \
     --sink-exec gh pr edit --body-file - \; \
     -- withSeparator \
-	--command 'hub pr show -f "%t (← do not edit here)"' \
+	--command 'gh pr view --json title --template "{{.title}} (← do not edit here)"'"$quotedRepoArgs" \
 	--command "git-subchanges ${remote}/${base}..${head} --no-color --include-pull-requests --qualified-with-userrepo --as markdown" \
-	--command 'hub pr show -f "%b"' \
+	--command 'gh pr view --json body --template "{{.body}}"'"$quotedRepoArgs" \
 

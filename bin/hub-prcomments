@@ -13,7 +13,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-a|--all] [#ID|<commit> [...]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-R|--repo [HOST/]OWNER/REPO] [-a|--all] [#ID|<commit> [...]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -34,6 +34,9 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
+    --repo|-R [HOST/]OWNER/REPO
+			Select another repository using the [HOST/]OWNER/REPO
+			format.
     --all|-a		Print resolved review comments, too.
 
 EXIT STATUS:
@@ -46,6 +49,7 @@ HELPTEXT
 }
 
 isColor=; [ -t 1 ] && isColor=t
+typeset -a repoArgs=()
 isResolvedFilter=t
 while [ $# -ne 0 ]
 do
@@ -67,6 +71,7 @@ do
 			esac
 			shift; shift
 			;;
+	--repo|-R)	repoArgs+=("$1" "${2:?}"); shift; shift;;
 	--all|-a)	shift; isResolvedFilter=;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
@@ -78,9 +83,10 @@ done
 apiCall()
 {
     local prId="${1:?}"; shift
+    [ ${#repoArgs[@]} -gt 0 ] || repoArgs=('--repo' "${HUB_PRCOMMENTS_OWNER:?}/${HUB_PRCOMMENTS_REPO:?}")
     gh api graphql \
-	--field repo="$HUB_PRCOMMENTS_REPO" \
-	--field owner="$HUB_PRCOMMENTS_OWNER" \
+	--field repo="${repoArgs[1]%%/*}" \
+	--field owner="${repoArgs[1]#*/}" \
 	--field pr="$prId" \
 	--raw-field query='
 query FetchReviewComments($owner: String!, $repo: String!, $pr: Int!) {
@@ -143,7 +149,7 @@ if [ ${#commitIds[@]} -gt 0 ]; then
 	if contains "$prCommitId" "${commitIds[@]}"; then
 	    identifiers+=("$prIdentifier")
 	fi
-    done < <(hub pr list -f "%sH	%I%n")
+    done < <(gh pr list --json headRefOid,number --template '{{range .}}{{.headRefOid}}{{"\t"}}{{.number}}{{"\n"}}{{end}}' "${repoArgs[@]}")
 fi
 [ ${#identifiers[@]} -gt 0 ] || exit 1
 

@@ -1,0 +1,108 @@
+#!/bin/bash
+set -o pipefail
+shopt -qs extglob
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, they can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-d|--draft] [--dry-run] [-e|--edit] [--from|--source-repo OWNER/REPO|-r|--remote REMOTE | URL] [--to|--target-repo OWNER/REPO|-R|--target-remote REMOTE] [PR-IDENTIFIER|BRANCH] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Move the pull request that belongs to the current branch / the passed
+PR-IDENTIFIER / URL / BRANCH to another repository.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --draft		Mark target pull request as a draft.
+    --dry-run		Print details instead of creating the PR.
+    --edit|-e		Open the pull request title and description in a text
+			editor before submitting.
+By default, moves from origin to upstream.
+
+SEE ALSO:
+- (Commands offering complementary functionality, or commands using this command.)
+
+RELATED COMMANDS:
+- (Alternatives from other authors, other approaches, references not used here.)
+
+cla-exitstatus
+HELPTEXT
+}
+
+sourceRepo=
+targetRepo=
+typeset -a ghPrCreateArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--source-repo|--from)
+			shift; sourceRepo="${1:?}"; shift;;
+	--target-repo|--to)
+			shift; targetRepo="${1:?}"; shift;;
+	--remote|-r)	shift; sourceRepo="$(hub-ruserrepo "${1:?}")"; shift;;
+	--target-remote|-R)
+			shift; targetRepo="$(hub-ruserrepo "${1:?}")"; shift;;
+	--edit|-e)	ghPrCreateArgs+=(--editor); shift;; # Note: Different long parameter name
+	-[d])		ghPrCreateArgs+=("$1"); shift;;
+	--@(draft|dry-run))
+			ghPrCreateArgs+=("$1"); shift;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+case $# in
+    0)	prIdOrBranch="$(git-brname --real-branch-only)" || exit $?;;
+    1)	if [[ "$1" =~ ^[0-9]+$ ]] \
+	    || git-existbr -- "$1"
+	then
+	    prIdOrBranch="$1"
+	else
+	    prIdOrBranch="$(hub-userrepo --only-appendix "$1")" || exit $?
+	    sourceRepo="$(hub-userrepo --only-user-and-repo "$1")" || exit $?
+	fi
+	;;
+    *)	printUsage "$0"; exit 2;;
+esac >&2
+
+[ -n "$sourceRepo" ] || sourceRepo="$(hub-ouserrepo)" || exit $?
+[ -n "$targetRepo" ] || targetRepo="$(hub-uuserrepo)" || exit $?
+
+if [ "$sourceRepo" = "$targetRepo" ]; then
+    printf 'ERROR: Source and target repositories must be different: %s\n' "$sourceRepo"
+    exit 2
+fi >&2
+
+sourceMetadata="$(
+    gh pr view \
+	--json headRefName,baseRefName,number,title,isDraft,maintainerCanModify,body \
+	--template '{{.headRefName}}{{"\t"}}{{.baseRefName}}{{"\t"}}{{.number}}{{"\t"}}{{.title}}{{"\t"}}{{if .isDraft}}--draft{{end}}{{"\t"}}{{if .maintainerCanModify}}{{else}}--no-maintainer-edit{{end}}{{"\n"}}{{.body}}{{"\n"}}' \
+	--repo "$sourceRepo" \
+	"${prIdOrBranch:?}"
+)" || exit $?
+IFS=$'\t' read -r sourceHeadBranch sourceBaseBranch sourcePrIdentifier sourceTitle sourceDraftFlag sourceMaintainerCanModifyFlag <<<"${sourceMetadata%%$'\n'*}"
+sourceBody="${sourceMetadata#*$'\n'}"
+
+gh pr create \
+    "${ghPrCreateArgs[@]}" \
+    --head "$sourceHeadBranch" \
+    --base "$sourceBaseBranch" \
+    --title "$sourceTitle" \
+    --body "$sourceBody" \
+    $sourceDraftFlag $sourceMaintainerCanModifyFlag \
+    --repo "$targetRepo"

@@ -4,7 +4,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--only-user|--only-repo] [--fallback-guess|URL] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--only-user|--only-repo|--only-appendix] [--fallback-guess|URL] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -29,6 +29,8 @@ HELPDESCRIPTION
 			and appendices).
     --only-repo		Print only the repository name (without the user name
 			and appendices).
+    --only-appendix	Print only the appendix (issue / pull request ID) of the
+			URL (without the user name and repository name).
     --fallback-guess	If the repository has no GitHub remote (yet; because
 			it's not been published yet?), take a guess (based on
 			the working copy name and the configured GitHub user)
@@ -38,7 +40,7 @@ HELPTEXT
 
 printAll()
 {
-    printf '%s/%s%s\n' "${userName:?}" "${repoName:?}" "$appendix"
+    printf '%s/%s%s\n' "${userName:?}" "${repoName:?}" "${appendix:+#}${appendix}"
 }
 printUser()
 {
@@ -47,6 +49,11 @@ printUser()
 printRepo()
 {
     printf '%s\n' "${repoName:?}"
+}
+printAppendix()
+{
+    [ -n "$appendix" ] || return 4
+    printf '%s\n' "$appendix"
 }
 
 action=printAll
@@ -61,6 +68,8 @@ do
 	--color)	shift; shift;;
 	--only-user)	shift; action=printUser;;
 	--only-repo)	shift; action=printRepo;;
+	--only-appendix)
+			shift; action=printAppendix;;
 	--fallback-guess)
 			recursiveArgs+=("$1"); shift; isFallbackGuess=t;;
 	--)		shift; break;;
@@ -89,7 +98,7 @@ appendix=
 if [[ "$url" =~ ^[[:alnum:]]+://[^/]+/([^/]+)/([^/]+)/(issue|pull)/(.*)$ ]]; then
     userName="${BASH_REMATCH[1]}"
     repoName="${BASH_REMATCH[2]}"
-    appendix="#${BASH_REMATCH[4]}"
+    appendix="${BASH_REMATCH[4]}"
 elif [[ "$url" =~ ^[[:alnum:]]+://[^/]+/([^/]+)/([^/]+).*$ ]]; then
     userName="${BASH_REMATCH[1]}"
     repoName="${BASH_REMATCH[2]}"

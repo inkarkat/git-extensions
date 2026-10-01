@@ -4,6 +4,7 @@ set -o pipefail
 readarray -t defaultArgs < <(eval "git $GIT_CONFIG_ARGS config --get-all pull-request.defaultArg")
 set -- "${defaultArgs[@]}" "$@"
 
+typeset -a repoArgs=()
 base=
 head=
 isEdit=
@@ -17,9 +18,10 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-\?)	shift; exec hub pull-request --help;;
-	--base|-b)	args+=("$1" "${2:?}"); shift; base="$1"; shift;;
-	--head|-h)	args+=("$1" "${2:?}"); shift; head="$1"; shift;;
-	--edit|-e)	args+=("$1"); shift; isEdit=t;;
+	--repo|-R)	repoArgs+=("$1" "${2:?}"); shift; shift;;
+	--base|-b)	shift; base="${1:?}"; shift;;
+	--head|-h)	shift; head="${1:?}"; shift;;
+	--edit|-e)	shift; isEdit=t;;
 	--browse|-o)	outputArgs+=("$1"); shift; isBrowse=t;;
 	--copy|-c)	outputArgs+=("$1"); shift; isCopy=t;;
 	--print)	shift; isPrint=t;;
@@ -41,21 +43,47 @@ do
 done
 typeset -a appendedPullRequestTemplateArgs=()
 
+originalBase=
 editPullRequestMessage()
 {
     # Need to update the matching pull request.
-    local prId; prId="${head:+$(hub pr show --head "$head" -f '%I')}"
+    local prId; prId="${head:+$(HUB_PRID_PREFIX='' hub-prid "${repoArgs[@]}" --head "$head")}"
 
     local gitDir="$(git rev-parse --git-dir 2>/dev/null)"
     TMPDIR="$gitDir" tempedit \
 	--basename PULLREQ_EDITMSG \
 	--sink-exec sed -e 1d -e '2{/^$/d}' -- {} \; \
-	--sink-exec gh pr edit $prId --body-file - \; \
+	--sink-exec gh pr edit "${repoArgs[@]}" $prId --body-file - \; \
 	"$@" \
-	-- hub pr show ${head:+--head "$head"} -f $'%t (← do not edit here)\n\n%b'
+	-- gh pr view --json title,body --template '{{.title}} (← do not edit here){{"\n\n"}}{{.body}}{{"\n"}}' "${repoArgs[@]}" "${head:-$(git-brname --real-branch-only)}"
 }
 
-if hub-existspr ${base:+--base "$base"} ${head:+--head "$head"} --print | outputAndPrintf "${HUB_PULLREQUEST_WHAT:-A} pull request already exists:\\n"; then
+if [ -n "$base" ] && [[ "$base" != *:* ]] && [ ${#repoArgs[@]} -eq 0 ] \
+    && git uexists && ! git existsbr -- "upstream/${base}"
+then
+    if git oexists && git existsbr -- "origin/${base}" \
+	&& originUrl="$(git ourl)" \
+	&& originUserName="$(hub-userrepo --only-user "$originUrl")" \
+	&& originRepo="$(hub-userrepo "$originUrl")"
+    then
+	userBinaryChoice --keep-prompt --console \
+		--introduction "Attention: The base branch \"${base}\" does not exist in the upstream remote, only in your GitHub fork (${originUserName}).
+GitHub does not allow a merge base from a fork.
+To open a pull request in upstream, the branch needs to be published there (assuming write access).
+Alternatively, you have to open a (draft) pull request in your fork as a placeholder, and later resubmit a separate PR to upstream once the base revisions have landed in upstream." \
+		--question 'Submit a draft pull request to origin instead?' --ok-cancel \
+	    || exit 4
+	args=(--draft "${args[@]}")
+	originalBase="$base"	# This is just for hub-pullrequest; hub-existspr (which is now based on gh pr list) takes the repoArgs, which carry the same information.
+	base="${originUserName}:${base}"
+	repoArgs=(--repo "$originRepo")
+    else
+	printf >&2 'ERROR: Base branch "%s" does not exist in the upstream remote.\n' "$base"
+	exit 1
+    fi
+fi
+
+if hub-existspr "${repoArgs[@]}" ${base:+--base "${originalBase:-$base}"} ${head:+--head "$head"} --print | outputAndPrintf "${HUB_PULLREQUEST_WHAT:-A} pull request already exists:\\n"; then
     typeset -a choices=('[E]dit message body' '[S]kip' '[A]bort')
     [ "$hasMessage" ] && choices=('[U]pdate message body from template' "${choices[@]}")
     choice="$(userchoiceFromList --ignore-case --no-cancel -- "${choices[@]}")" || exit $?
@@ -93,6 +121,7 @@ if [ "$hasMessage" ] && [ "$isEdit" ]; then
     done
 fi
 
+args=(${base:+--base "$base"} ${head:+--head "$head"} ${isEdit:+--edit} "${args[@]}")
 if [ "$isPrint" ] && { [ "$isBrowse" ] || [ "$isCopy" ]; }; then
     # XXX: hub pull-request unfortunately prints the URL as the default action,
     # and --browse or --copy override that behavior, so we cannot have both.

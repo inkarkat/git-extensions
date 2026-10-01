@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-l|--list|-u|--url] [--containing <commit>|TITLE-GLOB|<commit> [...]] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-R|--repo [HOST/]OWNER/REPO] [-l|--list|-u|--url] [--containing <commit> [--containing ...]] [TITLE-GLOB|<commit> [...]] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -21,7 +21,7 @@ printLongUsage()
     cat <<HELPDESCRIPTION
 Obtain corresponding GitHub pull request(s) that
 - have HEAD / <commit>(s) as the branch's head or whose merge commit contains
-  <commit>
+  <commit> and/or
 - whose title matches (any of, unanchored) TITLE-GLOB
 and open in the browser / print its URL(s).
 HELPDESCRIPTION
@@ -29,6 +29,9 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
+    --repo|-R [HOST/]OWNER/REPO
+			Select another repository using the [HOST/]OWNER/REPO
+			format.
     --list|-l		Print the URL(s) and pull request titles.
     --url|-u		Print the URL(s) instead of opening them.
     --containing <commit>
@@ -38,6 +41,7 @@ HELPTEXT
 }
 
 typeset -A commitIdLists=()
+typeset -a repoArgs=()
 action=browse
 while [ $# -ne 0 ]
 do
@@ -46,6 +50,7 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
+	--repo|-R)	repoArgs+=("$1" "${2:?}"); shift; shift;;
 	--list|-l)	shift; action=list;;
 	--url|-u)	shift; action=printUrls;;
 	--containing)	shift
@@ -97,7 +102,7 @@ do
 	urls+=("$prUrl")
 	titles+=("$prTitle")
     fi
-done < <(hub pr list --state all -f "%sH	%U	%t%n")
+done < <(gh pr list --state all --json headRefOid,url,title --template '{{range .}}{{.headRefOid}}{{"\t"}}{{.url}}{{"\t"}}{{.title}}{{"\n"}}{{end}}' "${repoArgs[@]}")
 
 # Check head commits after all are known and in the (ascending) order of merge commits.
 for commitIdList in "${!commitIdLists[@]}"

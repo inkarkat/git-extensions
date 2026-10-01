@@ -4,7 +4,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-i|--as-integration-message|--as-title-and-integration-message|--bare|-m|--as-merge-message|--only-ids] [-Q|--qualified-with-userrepo|-u|--url] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-R|--repo [HOST/]OWNER/REPO] [-i|--as-integration-message|--as-title-and-integration-message|--bare|-m|--as-merge-message|--only-ids] [-Q|--qualified-with-userrepo|-u|--url] [-?|-h|--help]'
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [COMMIT|PR-IDENTIFIER [...]]'
     echo
@@ -53,9 +53,11 @@ HELPDESCRIPTION
 			GitHub.
 HELPTEXT
 }
+
 action=list
+typeset -a repoArgs=()
 isQualified=
-prIdentifierFormat='%i'
+prIdentifierTemplate='#{{.number}}'
 typeset -a identifiers=()
 typeset -a headBranches=()
 typeset -a baseBranches=()
@@ -68,6 +70,7 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
+	--repo|-R)	repoArgs+=("$1" "${2:?}"); shift; shift;;
 	--as-integration-message|-i)
 			shift; action=integrationMessage;;
 	--as-title-and-integration-message)
@@ -77,8 +80,8 @@ do
 			shift; action=mergeMessage;;
 	--only-ids)	shift; action=onlyIds;;
 	--qualified-with-userrepo|-Q)
-			shift; isQualified=t; prIdentifierFormat='%U';;
-	--url|-u)	shift; prIdentifierFormat='%U';;
+			shift; isQualified=t; prIdentifierTemplate='{{.url}}';;
+	--url|-u)	shift; prIdentifierTemplate='{{.url}}';;
 	--from)		shift
 			identifiers+=("#${1#\#}"); shift
 			headBranches+=("${1:?}"); shift
@@ -190,8 +193,8 @@ addPr()
 obtainFromGitHub()
 {
     [ $# -gt 0 ] || set -- 'HEAD'
-    local -r prFormat="%sH	%H	%B	$prIdentifierFormat	%t%n"
-    local prCommitId prHeadBranch prBaseBranch prIdentifier prTitle
+    local -r prTemplate='{{.headRefOid}}{{"\t"}}{{.headRefName}}{{"\t"}}{{.baseRefName}}{{"\t"}}'"$prIdentifierTemplate"'{{"\t"}}{{.title}}'
+    local prNumber prCommitId prHeadBranch prBaseBranch prIdentifier prTitle
     typeset -a commitIds=()
     local arg commitId; for arg
     do
@@ -199,8 +202,10 @@ obtainFromGitHub()
 	    commitIds+=("$commitId")
 	elif [[ "$arg" =~ ^#?([[:digit:]]+)$ ]] \
 	    && local argPrId="${BASH_REMATCH[1]}" \
-	    && IFS=$'\t' read -r prCommitId prHeadBranch prBaseBranch prIdentifier prTitle < <(hub pr show -f "$prFormat" "$argPrId") \
-	    && [ "$prIdentifier" = "#$argPrId" ]
+	    && IFS=$'\t' read -r prNumber prCommitId prHeadBranch prBaseBranch prIdentifier prTitle < <(
+		gh pr view --json headRefOid,headRefName,baseRefName,number,url,title --template '{{.number}}{{"\t"}}'"$prTemplate"'{{"\n"}}' "${repoArgs[@]}" "$argPrId"
+	    ) \
+	    && [ "$prNumber" = "$argPrId" ]
 	then
 	    addPr "$prTitle" "$prHeadBranch" "$prBaseBranch" "$prIdentifier"
 	else
@@ -214,7 +219,7 @@ obtainFromGitHub()
 	do
 	    contains "$prCommitId" "${commitIds[@]}" \
 		&& addPr "$prTitle" "$prHeadBranch" "$prBaseBranch" "$prIdentifier"
-	done < <(hub pr list -f "$prFormat")
+	done < <(gh pr list --json headRefOid,headRefName,baseRefName,number,url,title --template '{{range .}}'"$prTemplate"'{{"\n"}}{{end}}' "${repoArgs[@]}")
     fi
 
     [ ${#identifiers[@]} -gt 0 ]

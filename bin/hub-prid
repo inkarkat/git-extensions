@@ -1,5 +1,7 @@
 #!/bin/bash
 
+: ${HUB_PRID_PREFIX=#}
+
 printUsage()
 {
     gh pr list --help 2>&1 | sed \
@@ -10,4 +12,4 @@ case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
 
-exec gh pr list --json number --jq 'sort | .[] | "#" + (.number | tostring)' "$@"
+exec gh pr list --json number --jq "sort | .[] | ${HUB_PRID_PREFIX:+\"}${HUB_PRID_PREFIX}${HUB_PRID_PREFIX:+\" + }(.number | tostring)" "$@"

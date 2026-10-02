@@ -133,6 +133,14 @@ sourceMetadata="$(
 )" || exit $?
 IFS=$'\t' read -r sourceHeadBranch sourceBaseBranch sourcePrIdentifier sourceTitle sourceDraftFlag sourceMaintainerCanModifyFlag sourceCommentNum sourceReviewNum <<<"${sourceMetadata%%$'\n'*}"
 sourceBody="${sourceMetadata#*$'\n'}"
+
+if [[ "$sourceHeadBranch" != *:* ]]; then
+    # Need to prefix a local source branch with the user name to make it valid in
+    # the target repo.
+    sourceUser="${sourceRepo%%/*}"
+    sourceHeadBranch="${sourceUser:?}:${sourceHeadBranch}"
+fi
+
 [ ! "$isForceNoDraft" ] || sourceDraftFlag=
 
 typeset -a referenceDetails=()

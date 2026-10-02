@@ -9,8 +9,14 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[REBASE-ARGS ...] [-?|-h|--help]'
 }
 
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-esac
+typeset -a allargs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--)		allargs+=("$1"); shift; break;;
+	*)		allargs+=("$1"); shift;;
+    esac
+done
 
-exec git-rev-range-to-previous-stack --no-range ${GIT_REBASE_COMMAND:-rebase} --onto PREVIOUSBRANCH "$@"
+exec git-rev-range-to-previous-stack --no-range ${GIT_REBASE_COMMAND:-rebase} --onto PREVIOUSBRANCH "${allargs[@]}" "$@"

@@ -1,0 +1,166 @@
+#!/bin/bash
+set -o pipefail
+shopt -qs extglob
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, they can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--copy] [-d|--draft|--make-ready] [--dry-run] [-e|--edit] [-a|--assignee LOGIN] [-l|--label NAME] [-m|--milestone NAME] [-p|--project TITLE] [--reviewer HANDLE] [--from|--source-repo OWNER/REPO|-r|--remote REMOTE | URL] [--to|--target-repo OWNER/REPO|-R|--target-remote REMOTE] [PR-IDENTIFIER|BRANCH] [-?|-h|--help]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Move the pull request that belongs to the current branch / the passed
+PR-IDENTIFIER / URL / BRANCH to another repository.
+By default, moves from origin to upstream.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --copy		Do not close the original pull request.
+    --draft		Mark target pull request as a draft.
+    --make-ready	Remove the draft status of the target pull request so
+			that it can be merged in and by GitHub.
+    --dry-run		Print details instead of creating the PR.
+    --edit|-e		Open the pull request title and description in a text
+			editor before submitting.
+    --source-repo|--from OWNER/REPO
+			Move the pull request from OWNER/REPO.
+    --remote|-r REMOTE	Move the pull request from the repo defined as REMOTE
+			(default is origin).
+    --target-repo|--to OWNER/REPO
+			Move the pull request to OWNER/REPO.
+    --target-remote|-R REMOTE
+			Move the pull request to the repo defined as REMOTE
+			(default is upstream).
+EXIT STATUS:
+    0	Complete success.
+    1	Failed to move the pull request.
+    2	Bad invocation, wrong or missing command-line arguments.
+    3	Internal error or failed assertion.
+    4	URL does not point to a pull request / BRANCH is not found.
+HELPTEXT
+}
+
+isClose=t
+isForceNoDraft=
+isDryRun=
+sourceRepo=
+targetRepo=
+typeset -a ghPrCreateArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--copy)		shift; isClose=;;
+	--source-repo|--from)
+			shift; sourceRepo="${1:?}"; shift;;
+	--target-repo|--to)
+			shift; targetRepo="${1:?}"; shift;;
+	--remote|-r)	shift; sourceRepo="$(hub-ruserrepo "${1:?}")"; shift;;
+	--target-remote|-R)
+			shift; targetRepo="$(hub-ruserrepo "${1:?}")"; shift;;
+	--edit|-e)	ghPrCreateArgs+=(--editor); shift;; # Note: Different long parameter name
+	--dry-run)	ghPrCreateArgs+=("$1"); shift; isDryRun=t;;
+	-[d])		ghPrCreateArgs+=("$1"); shift;;
+	--@(draft))	ghPrCreateArgs+=("$1"); shift;;
+	-[almp])	ghPrCreateArgs+=("$1" "${2?}"); shift; shift;;
+	--@(assignee|label|milestone|project|reviewer))
+			ghPrCreateArgs+=("$1" "${2?}"); shift; shift;;
+	--make-ready)	shift; isForceNoDraft=t;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+case $# in
+    0)	prIdOrBranch="$(git-brname --real-branch-only)" || exit 4;;
+    1)	if [[ "$1" =~ ^[0-9]+$ ]] \
+	    || git-existbr -- "$1"
+	then
+	    prIdOrBranch="$1"
+	else
+	    prIdOrBranch="$(hub-userrepo --only-appendix "$1")" || exit 4
+	    sourceRepo="$(hub-userrepo --only-user-and-repo "$1")" || exit 3
+	fi
+	;;
+    *)	printUsage "$0"; exit 2;;
+esac >&2
+
+[ -n "$sourceRepo" ] || sourceRepo="$(hub-ouserrepo)" || exit 3
+[ -n "$targetRepo" ] || targetRepo="$(hub-uuserrepo)" || exit 3
+
+if [ "$sourceRepo" = "$targetRepo" ]; then
+    printf 'ERROR: Source and target repositories must be different: %s\n' "$sourceRepo"
+    exit 2
+fi >&2
+
+plural()
+{
+    if [ "${1:?}" -eq 1 ]; then
+	printf %s "${2}${4}"
+    else
+	printf %s "${2}${3:-s}"
+    fi
+}
+
+translateGitHubLinks()
+{
+
+    literalSourceRepo="$sourceRepo"
+    literalSourceRepo="${literalSourceRepo//\\/\\\\}"
+    literalSourceRepo="${literalSourceRepo//&/\\&}"
+    sed -e 's@\(^\|[^[:alnum:]`]\)\(#[[:digit:]]\+\)\([^[:alnum:]`]\|$\)@\1'"${literalSourceRepo//@/\\@}"'\2\3@g'
+}
+
+sourceMetadata="$(
+    gh pr view \
+	--json headRefName,baseRefName,number,title,isDraft,maintainerCanModify,comments,reviews,body \
+	--template '{{.headRefName}}{{"\t"}}{{.baseRefName}}{{"\t"}}{{.number}}{{"\t"}}{{.title}}{{"\t"}}{{if .isDraft}}--draft{{end}}{{"\t"}}{{if .maintainerCanModify}}{{else}}--no-maintainer-edit{{end}}{{"\t"}}{{len .comments}}{{"\t"}}{{len .reviews}}{{"\n"}}{{.body}}{{"\n"}}' \
+	--repo "$sourceRepo" \
+	"${prIdOrBranch:?}"
+)" || exit $?
+IFS=$'\t' read -r sourceHeadBranch sourceBaseBranch sourcePrIdentifier sourceTitle sourceDraftFlag sourceMaintainerCanModifyFlag sourceCommentNum sourceReviewNum <<<"${sourceMetadata%%$'\n'*}"
+sourceBody="${sourceMetadata#*$'\n'}"
+
+if [[ "$sourceHeadBranch" != *:* ]]; then
+    # Need to prefix a local source branch with the user name to make it valid in
+    # the target repo.
+    sourceUser="${sourceRepo%%/*}"
+    sourceHeadBranch="${sourceUser:?}:${sourceHeadBranch}"
+fi
+
+[ ! "$isForceNoDraft" ] || sourceDraftFlag=
+
+typeset -a referenceDetails=()
+[ $sourceCommentNum -eq 0 ] || referenceDetails+=("$(plural $sourceCommentNum comment)")
+[ $sourceReviewNum -eq 0 ] || referenceDetails+=("$(plural $sourceReviewNum review)")
+printf -v reference '\n* Note: This had been originally submitted to %s#%d%s\n' "$sourceRepo" ${sourcePrIdentifier:?} "$(joinBy --prefix ', where it had received ' ' and ' "${referenceDetails[@]}")"
+
+targetBody="$(printf %s "$sourceBody" | translateGitHubLinks)"
+targetBody+="$reference"
+
+gh pr create \
+	"${ghPrCreateArgs[@]}" \
+	--head "$sourceHeadBranch" \
+	--base "$sourceBaseBranch" \
+	--title "$sourceTitle" \
+	--body "$targetBody" \
+	$sourceDraftFlag $sourceMaintainerCanModifyFlag \
+	--repo "$targetRepo" \
+    || exit $?
+
+[ ! "$isDryRun" ] && [ "$isClose" ] || exit 0
+
+gh pr close --repo "$sourceRepo" "${sourcePrIdentifier:?}" || exit $?

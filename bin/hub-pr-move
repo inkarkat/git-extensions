@@ -6,7 +6,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, they can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--copy] [-d|--draft|--make-ready] [--dry-run] [-e|--edit] [--from|--source-repo OWNER/REPO|-r|--remote REMOTE | URL] [--to|--target-repo OWNER/REPO|-R|--target-remote REMOTE] [PR-IDENTIFIER|BRANCH] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--copy] [-d|--draft|--make-ready] [--dry-run] [-e|--edit] [-a|--assignee LOGIN] [-l|--label NAME] [-m|--milestone NAME] [-p|--project TITLE] [--reviewer HANDLE] [--from|--source-repo OWNER/REPO|-r|--remote REMOTE | URL] [--to|--target-repo OWNER/REPO|-R|--target-remote REMOTE] [PR-IDENTIFIER|BRANCH] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -75,6 +75,9 @@ do
 	--dry-run)	ghPrCreateArgs+=("$1"); shift; isDryRun=t;;
 	-[d])		ghPrCreateArgs+=("$1"); shift;;
 	--@(draft))	ghPrCreateArgs+=("$1"); shift;;
+	-[almp])	ghPrCreateArgs+=("$1" "${2?}"); shift; shift;;
+	--@(assignee|label|milestone|project|reviewer))
+			ghPrCreateArgs+=("$1" "${2?}"); shift; shift;;
 	--make-ready)	shift; isForceNoDraft=t;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;

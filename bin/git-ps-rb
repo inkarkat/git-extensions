@@ -10,13 +10,16 @@ HELPTEXT
 }
 
 typeset -a allargs=()
+typeset -a ontoPreviousBranchArgs=(--onto PREVIOUSBRANCH)
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--check|--command|--exec)
+			allargs+=("$1"); shift; ontoPreviousBranchArgs=();; # Don't move commits to a diverged previous stacked branch when we're just checking or executing commands.
 	--)		allargs+=("$1"); shift; break;;
 	*)		allargs+=("$1"); shift;;
     esac
 done
 
-exec git-rev-range-to-previous-stack --no-range ${GIT_REBASE_COMMAND:-rebase} --onto PREVIOUSBRANCH "${allargs[@]}" "$@"
+exec git-rev-range-to-previous-stack --no-range ${GIT_REBASE_COMMAND:-rebase} "${ontoPreviousBranchArgs[@]}" "${allargs[@]}" "$@"

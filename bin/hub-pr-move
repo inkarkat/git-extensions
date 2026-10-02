@@ -6,7 +6,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, they can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--copy] [-d|--draft] [--dry-run] [-e|--edit] [--from|--source-repo OWNER/REPO|-r|--remote REMOTE | URL] [--to|--target-repo OWNER/REPO|-R|--target-remote REMOTE] [PR-IDENTIFIER|BRANCH] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--copy] [-d|--draft|--make-ready] [--dry-run] [-e|--edit] [--from|--source-repo OWNER/REPO|-r|--remote REMOTE | URL] [--to|--target-repo OWNER/REPO|-R|--target-remote REMOTE] [PR-IDENTIFIER|BRANCH] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -30,6 +30,8 @@ HELPDESCRIPTION
     cat <<HELPTEXT
     --copy		Do not close the original pull request.
     --draft		Mark target pull request as a draft.
+    --make-ready	Remove the draft status of the target pull request so
+			that it can be merged in and by GitHub.
     --dry-run		Print details instead of creating the PR.
     --edit|-e		Open the pull request title and description in a text
 			editor before submitting.
@@ -52,6 +54,7 @@ HELPTEXT
 }
 
 isClose=t
+isForceNoDraft=
 isDryRun=
 sourceRepo=
 targetRepo=
@@ -72,6 +75,7 @@ do
 	--dry-run)	ghPrCreateArgs+=("$1"); shift; isDryRun=t;;
 	-[d])		ghPrCreateArgs+=("$1"); shift;;
 	--@(draft))	ghPrCreateArgs+=("$1"); shift;;
+	--make-ready)	shift; isForceNoDraft=t;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -126,6 +130,7 @@ sourceMetadata="$(
 )" || exit $?
 IFS=$'\t' read -r sourceHeadBranch sourceBaseBranch sourcePrIdentifier sourceTitle sourceDraftFlag sourceMaintainerCanModifyFlag sourceCommentNum sourceReviewNum <<<"${sourceMetadata%%$'\n'*}"
 sourceBody="${sourceMetadata#*$'\n'}"
+[ ! "$isForceNoDraft" ] || sourceDraftFlag=
 
 typeset -a referenceDetails=()
 [ $sourceCommentNum -eq 0 ] || referenceDetails+=("$(plural $sourceCommentNum comment)")

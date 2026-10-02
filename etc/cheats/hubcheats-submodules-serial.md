@@ -43,8 +43,8 @@ and) merged.
 If there are more outstanding follow-up branches:
 6. superproject: Check out the next branch: `$ git cosubnextbr`
 7. Rebase
-   a) from superproject: `$ git subsamebrdo -i psrb`
-   b) from submodule(s): `$ git psrb`
+   a) from superproject: `$ git subsamebrdo -i ps rb`
+   b) from submodule(s): `$ git ps rb`
 8. superproject: Incorporate rebased submodule(s):
    a) amends to short-lived feature: `$ git amenu`
    .  Rebase: `$ git pssuperrb`

@@ -226,10 +226,10 @@ activity?(except)by\
 	;;
     rbcheck)
 	branchCommand -- rebasecheck "$@" --check-range;;
-    check|command|exec|sedreword|rewordaddprefix|rewordremovescope)
+    rb?(n)i|check|command|exec|sedreword|rewordaddprefix|rewordremovescope)
 	source "${libDir:?}/rebase.sh.part" "$@"
 	;&
-    rb?(n)i|segregate@(commits|andbifurcate)|bifurcate)
+    segregate@(commits|andbifurcate)|bifurcate)
 	if [ "$scopeRevision" = BRANCH ]; then
 	    $EXEC echo "Note: ${gitCommand} is a no-op, because it always yields HEAD as the starting point."
 	else

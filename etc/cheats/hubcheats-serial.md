@@ -33,6 +33,6 @@ and) merged.
 
 If there are more outstanding follow-up branches:
 4. Check out the next branch: `$ git conextbr`
-5. Rebase: `$ git psrb`
+5. Rebase: `$ git ps rb`
 6. Force-push updated branches: `$ git opush -f`
 7. (Repeat with the next branch.)

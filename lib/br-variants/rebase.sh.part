@@ -1,12 +1,35 @@
 #!/bin/bash source-this-script
 
+[ -n "$scriptName" ] || readonly scriptName="$(basename -- "$0")"
+
+delegateToRebaseExtension()
+{
+    # If a dedicated git-<br-variant>-rb script exists, delegate to it, just like
+    # git-wrapper does for (sub-)aliases. This avoids having to maintain separate
+    # git-<br-variant>-rb?(n)i wrapper scripts (which would be a lot). Better just
+    # duplicate the flags from the rb[n]i aliases here.
+    local rebaseExtension="${scriptName}-rb"
+    type -t -- "$rebaseExtension" >/dev/null || return 1
+
+    exec "$rebaseExtension" "$@"
+}
+
 case "$gitCommand" in
+    rbi)
+	# Cp. gitconfig's rbi alias.
+	set -- --interactive "$@"; delegateToRebaseExtension "$@";;
+    rbni)
+	# Cp. gitconfig's rbni alias.
+	set -- --autosquash "$@"; delegateToRebaseExtension "$@";;
+
+    # --no-rebase-checks: No need to check for history rewriting; command execution
+    # is not supposed to do that.
     check)
 	if [ $# -gt 0 ]; then
 	    echo 'ERROR: No arguments allowed for check.' >&2
 	    exit 2
 	fi
-	set -- --check
+	set -- --no-rebase-checks --check
 	;;
     command)
 	typeset -a args=()
@@ -14,16 +37,15 @@ case "$gitCommand" in
 	do
 	    args+=(--command "$arg")
 	done
-	set -- "${args[@]}"
+	set -- --no-rebase-checks "${args[@]}"
 	;;
     exec)
-	set -- --exec "$@" \;
+	set -- --no-rebase-checks --exec "$@" \;
 	;;
     sedreword|rewordaddprefix|rewordremovescope)
-	set -- --exec "git-$gitCommand" "$@" \;
+	set -- --no-rebase-checks --exec "git-$gitCommand" "$@" \;
 	;;
     *)	printf >&2 'ASSERT: Invalid gitCommand: %s\n' "$gitCommand"; exit 3;;
 esac
 
-set -- --no-rebase-checks "$@" # No need to check for history rewriting; command execution is not supposed to do that.
 gitCommand='rebase'

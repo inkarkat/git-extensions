@@ -1,0 +1,29 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Restores the push URL for <name> to the fetch URL, which (re-)enables pushes to
+it.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '<name> [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --no-color|--color=*)
+			shift;;
+    --color)		shift; shift;;
+esac
+if [ $# -ne 1 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+remote="$1"; shift
+
+fetchUrl="$(git remote get-url "$remote")" || exit $?
+if [ "$(git remote get-url --push "$remote")" = "$fetchUrl" ]; then
+    printf >&2 'Push URL for %s is already the same as its fetch URL: %s\n' "$remote" "$fetchUrl"
+    exit 99
+fi
+git remote set-url --push "$remote" "$fetchUrl"

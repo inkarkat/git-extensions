@@ -284,7 +284,7 @@ revertcommit|\
 	esac
 	;;
     bisecthere)
-	branchCommand --with-range ' ' --reverse bisect start RANGE "$@";;
+	branchCommand --with-range ' ' --reverse -3 bisect start RANGE "$@";;
     bisectthosefiles)
 	branchFilesCommand --source-exec showfiles RANGE \; bisect start "$@";;
 

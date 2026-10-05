@@ -295,7 +295,7 @@ revertcommit|\
 	esac
 	;;
     bisecthere)
-	scopeCommand --with-range ' ' --reverse bisect start RANGE "$@";;
+	scopeCommand --with-range ' ' --reverse -3 bisect start RANGE "$@";;
     bisectthosefiles)
 	withScoped files '' bisect start "$@";;
 

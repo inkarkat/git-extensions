@@ -238,7 +238,7 @@ revertcommit|\
 	esac
 	;;
     bisecthere)
-	timespanCommand --with-range ' ' bisect start "$@" HEAD;;
+	timespanCommand --with-range ' ' --reverse -3 bisect start TIMESPAN "$@";;
     bisectthosefiles)
 	filesCommand --source-command "$scope files" bisect start "$@";;
 

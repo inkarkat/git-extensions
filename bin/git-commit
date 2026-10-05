@@ -163,23 +163,9 @@ fi
 typeset -a trailerArgs=()
 [ "$isAddTrailers" ] && for infoType in system platform
 do
-    infoTrailerVariableName="GIT_COMMIT_TRAILER_${infoType^^}"
-    infoTrailerVariable="${!infoTrailerVariableName}"
-    infoTrailerConfig="$(git-wrapper config --get "commit.trailer.${infoType}")"
-    if [ -z "$infoTrailerConfig" ] \
-	|| [ -z "$(git config --local --get "commit.trailer.${infoType}")" -a -z "$(git config --worktree --get "commit.trailer.${infoType}")" ]
-    then
-	infoTrailer="${infoTrailerVariable:-$infoTrailerConfig}"
-    else
-	infoTrailer="$infoTrailerConfig"
-    fi
-
-    if [ -n "$infoTrailer" ] \
-	&& infoContent="$(eval "$infoTrailer" | joinBy --omit-empty - ', ')" \
-	&& [ -n "$infoContent" ]
-    then
-	trailerArgs+=(--trailer "${infoType}=${infoContent}")
-    fi
+    infoContent="$(git-trailer-config "$infoType" --eval)" \
+	&& [ -n "$infoContent" ] \
+	&& trailerArgs+=(--trailer "${infoType}=${infoContent}")
 done
 
 set -- "${messageDirectArgs[@]}" "${messageFileArgs[@]}" "${messageRefArgs[@]}" "${amendArg[@]}" "${editArgs[@]}" "${trailerArgs[@]}" "${commitArgs[@]}" "$@"

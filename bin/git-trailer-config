@@ -1,10 +1,11 @@
 #!/bin/bash
+set -o pipefail
 
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" "${infoType:-INFO-TYPE} [--get|--disable|PLATFORM-INFO-COMMAND] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${infoType:-INFO-TYPE} [--get|--eval|--disable|PLATFORM-INFO-COMMAND] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -18,16 +19,18 @@ printLongUsage()
     # This is the long "man page" when launched with the help argument.
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
-Set the locally / print the configured shell command that yields the commit
+Set the locally / print the configured shell command(s) that yield the commit
 trailer ${infoType:-INFO-TYPE} for this repository.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
-    --get		Only print the configured shell command (or nothing).
+    --get		Only print the configured shell command(s) (or nothing).
 			Porcelain output: the command is printed without any
 			additional text or formatting.
+    --eval		Evaluate the configured shell command(s) and print the
+			resulting commit trailer value.
     --disable		Disable inclusion of the commit trailer ${infoType:-INFO-TYPE} in
 			commit messages of this repository.
 HELPTEXT
@@ -52,18 +55,18 @@ readonly infoTrailerConfigName="commit.trailer.${infoType}"
 action=setOrShow
 case "$1" in
     --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+    --no-color|--color=*)
+			shift;;
+    --color)		shift; shift;;
+
     --get)		shift; action=get;;
+    --eval)		shift; action=evaluate;;
     --disable)		shift; action=disable;;
 esac
 
 # A command that has no output disables the commit trailer and prevents
 # configuration from higher scopes or environment variables to apply.
 readonly NOOP_TRAILER_COMMAND='echo'
-
-isDisabled()
-{
-    [ "$(get '')" = "$NOOP_TRAILER_COMMAND" ]
-}
 
 get()
 {
@@ -94,6 +97,20 @@ get()
 	[ -n "$infoTrailer" ] || return 1
 	printf '%s\n' "$infoTrailer"
     fi
+}
+
+evaluate()
+{
+    local infoTrailer; infoTrailer="$(get '')" || return 1
+    [ -n "$infoTrailer" ] || return 99
+    local infoContent; infoContent="$(eval "$infoTrailer" | joinBy --omit-empty - ', ')" || return $?
+    [ -n "$infoContent" ] || return 99
+    printf '%s\n' "$infoContent"
+}
+
+isDisabled()
+{
+    [ "$(get '')" = "$NOOP_TRAILER_COMMAND" ]
 }
 
 disable()

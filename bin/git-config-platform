@@ -4,7 +4,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[PLATFORM-INFO-COMMAND] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--disable|PLATFORM-INFO-COMMAND] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -25,6 +25,8 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
+    --disable		Disable inclusion of the commit trailer platform in
+			commit messages of this repository.
 Example:
 HELPTEXT
     local pic; for pic in 'aptitude --version | head -n 1' 'withCommandPrefix borgmatic --version' 'unprefix --exec sox --version \; "sox:      "'
@@ -33,11 +35,35 @@ HELPTEXT
     done
 }
 
+# A command that has no output disables the commit trailer platform and prevents
+# configuration from higher scopes or environment variables to apply.
+readonly NOOP_TRAILER_COMMAND='echo'
+
+isDisabled()
+{
+    [ "$(git-wrapper config get --local commit.trailer.platform)" = "$NOOP_TRAILER_COMMAND" ]
+}
+
 case "$1" in
     --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+    --disable)		shift
+			if isDisabled; then
+			    echo >&2 'Commit trailer platform is already disabled.'
+			    exit 99
+			else
+			    git-wrapper config set --local commit.trailer.platform "$NOOP_TRAILER_COMMAND" \
+				&& echo 'Disabled commit trailer platform here.'
+			    exit $?
+			fi
+			;;
 esac
 case $# in
-    0)	git-wrapper config get --local commit.trailer.platform;;
+    0)	if isDisabled; then
+	    echo 'Commit trailer platform is disabled here.'
+	    exit 4
+	fi
+	git-wrapper config get --local commit.trailer.platform
+	;;
     1)	platformInfoCommand="${1:?}"; shift
 	git-verboselocalconfig set commit.trailer.platform "$platformInfoCommand"
 	;;

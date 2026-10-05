@@ -1,4 +1,5 @@
 #!/bin/bash
+shopt -qs extglob
 
 : ${ON_SOUND=~/public/wave/alerts/on3.wav}
 : ${OFF_SOUND=~/public/wave/alerts/off3.wav}
@@ -38,11 +39,11 @@ termNew=
 if terms="$(LC_ALL=C git bisect terms 2>/dev/null)"; then
     hasTerms=t
     termOld="${terms%%$'\n'*}"
-    termOld="${termOld% for the old state*}"
-    termOld="${termOld#Your current terms are }"
+    termOld="${termOld%%?(\') for the old state*}"
+    termOld="${termOld##Your current terms are ?(\')}"
     termNew="${terms##*$'\n'}"
-    termNew="${termNew% for the new state*}"
-    termNew="${termNew#and }"
+    termNew="${termNew%%?(\') for the new state*}"
+    termNew="${termNew##and ?(\')}"
 
     # Terms are initially undefined; after the first manual "git bisect
     # good|bad|old|new", Git recognizes the combination and insists on using it.

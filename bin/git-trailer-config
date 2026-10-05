@@ -42,6 +42,20 @@ HELPTEXT
     fi
 }
 
+case "$1" in
+    --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+esac
+
+readonly infoType="${1:?}"; shift
+readonly infoTrailerConfigName="commit.trailer.${infoType}"
+
+action=setOrShow
+case "$1" in
+    --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+    --get)		shift; action=get;;
+    --disable)		shift; action=disable;;
+esac
+
 # A command that has no output disables the commit trailer and prevents
 # configuration from higher scopes or environment variables to apply.
 readonly NOOP_TRAILER_COMMAND='echo'
@@ -53,7 +67,7 @@ isDisabled()
 
 get()
 {
-    local isVerbose="${1?}"; shift
+    local isVerbose="$1"; shift
 
     local infoTrailerVariableName="GIT_COMMIT_TRAILER_${infoType^^}"
     local infoTrailerVariable="${!infoTrailerVariableName}"
@@ -82,36 +96,32 @@ get()
     fi
 }
 
-case "$1" in
-    --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
-esac
+disable()
+{
+    if isDisabled; then
+	printf >&2 'Commit trailer %s is already disabled.\n' "$infoType"
+	exit 99
+    else
+	git-wrapper config set --local "$infoTrailerConfigName" "$NOOP_TRAILER_COMMAND" \
+	    && printf 'Disabled commit trailer %s here.\n' "$infoType"
+	exit $?
+    fi
+}
 
-readonly infoType="${1:?}"; shift
-readonly infoTrailerConfigName="commit.trailer.${infoType}"
+setOrShow()
+{
+    case $# in
+	0)  if isDisabled; then
+		printf 'Commit trailer %s is disabled here.\n' "$infoType"
+		exit 4
+	    fi
+	    get t
+	    ;;
+	1)  infoCommand="${1:?}"; shift
+	    git-verboselocalconfig set "$infoTrailerConfigName" "$infoCommand"
+	    ;;
+	*)  printUsage "$0" >&2; exit 2;;
+    esac
+}
 
-case "$1" in
-    --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
-    --get)		shift; get ''; exit $?;;
-    --disable)		shift
-			if isDisabled; then
-			    printf >&2 'Commit trailer %s is already disabled.\n' "$infoType"
-			    exit 99
-			else
-			    git-wrapper config set --local "$infoTrailerConfigName" "$NOOP_TRAILER_COMMAND" \
-				&& printf 'Disabled commit trailer %s here.\n' "$infoType"
-			    exit $?
-			fi
-			;;
-esac
-case $# in
-    0)	if isDisabled; then
-	    printf 'Commit trailer %s is disabled here.\n' "$infoType"
-	    exit 4
-	fi
-	get t
-	;;
-    1)	infoCommand="${1:?}"; shift
-	git-verboselocalconfig set "$infoTrailerConfigName" "$infoCommand"
-	;;
-    *)	printUsage "$0" >&2; exit 2;;
-esac
+$action "$@"

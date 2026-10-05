@@ -28,11 +28,15 @@ and) merged.
 
 ## After the reintegration of one branch
 1. Check out the next branch; e.g. via `$ git cosbr`
-2. Rebase: `$ git mrb`
-3. Force-push updated branches: `$ git opush -f`
+2. Rebase: `$ git ps mrb`
+3. Directly force-push the updated branch: `$ git opush -f`
+   (or defer and do it after rebasing all outstanding follow-up branches.)
 
 If there are more outstanding follow-up branches:
 4. Check out the next branch: `$ git conextbr`
 5. Rebase: `$ git ps rb`
-6. Force-push updated branches: `$ git opush -f`
+6. Directly force-push the updated branch: `$ git opush -f`
+   (or defer and do it after rebasing all outstanding follow-up branches.)
 7. (Repeat with the next branch.)
+
+8. If you've deferred the force-pushes, do them now: `$ git stackedbropush -f`

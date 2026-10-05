@@ -1,0 +1,29 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Disable the inclusion of all automatically added commit trailers for commit
+messages of this repository.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --no-color|--color=*)
+			shift;;
+    --color)		shift; shift;;
+esac
+if [ $# -ne 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+status=99
+for infoType in system platform
+do
+    git-trailer-config "$infoType" --disable; status=$(status99Reduction "$status" $?)
+done
+exit $status

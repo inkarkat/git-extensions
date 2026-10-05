@@ -4,7 +4,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--disable|PLATFORM-INFO-COMMAND] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--get|--disable|PLATFORM-INFO-COMMAND] [-?|-h|--help]'
 }
 printUsage()
 {
@@ -18,14 +18,17 @@ printLongUsage()
     # This is the long "man page" when launched with the help argument.
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
-Set / print the locally configured shell command that yields the commit trailer
-platform for this repository.
+Set the locally / print the configured shell command that yields the commit
+trailer $infoType for this repository.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
-    --disable		Disable inclusion of the commit trailer platform in
+    --get		Only print the configured shell command (or nothing).
+			Porcelain output: the command is printed without any
+			additional text or formatting.
+    --disable		Disable inclusion of the commit trailer $infoType in
 			commit messages of this repository.
 Example:
 HELPTEXT
@@ -35,37 +38,71 @@ HELPTEXT
     done
 }
 
-# A command that has no output disables the commit trailer platform and prevents
+# A command that has no output disables the commit trailer and prevents
 # configuration from higher scopes or environment variables to apply.
 readonly NOOP_TRAILER_COMMAND='echo'
 
 isDisabled()
 {
-    [ "$(git-wrapper config get --local commit.trailer.platform)" = "$NOOP_TRAILER_COMMAND" ]
+    [ "$(get '')" = "$NOOP_TRAILER_COMMAND" ]
 }
 
+get()
+{
+    local isVerbose="${1?}"; shift
+
+    local infoTrailerVariableName="GIT_COMMIT_TRAILER_${infoType^^}"
+    local infoTrailerVariable="${!infoTrailerVariableName}"
+    local infoTrailerConfig="$(git-wrapper config --get "$infoTrailerConfigName")"
+    local infoTrailerSource
+    if [ -z "$infoTrailerConfig" ]; then
+	if [ -n "$infoTrailerVariable" ]; then
+	    infoTrailer="$infoTrailerVariable"
+	    infoTrailerSource="$infoTrailerVariableName"
+	fi
+    elif [ -n "$infoTrailerVariable" ] && [ -z "$(git config --local --get "$infoTrailerConfigName")" -a -z "$(git config --worktree --get "$infoTrailerConfigName")" ]; then
+	# variable takes precedence over config in higher scopes.
+	infoTrailer="$infoTrailerVariable"
+	infoTrailerSource="$infoTrailerVariableName"
+    else
+	infoTrailer="$infoTrailerConfig"
+	infoTrailerSource="$infoTrailerConfigName"
+    fi
+    if [ "$isVerbose" ]; then
+	[ -n "$infoTrailer" ] \
+	    && printf '%s (from %s)\n' "$infoTrailer" "$infoTrailerSource" \
+	    || printf 'No commit trailer %s configured.\n' "$infoType"
+    else
+	[ -n "$infoTrailer" ] || return 1
+	printf '%s\n' "$infoTrailer"
+    fi
+}
+
+infoType='platform'
+infoTrailerConfigName="commit.trailer.${infoType}"
 case "$1" in
     --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+    --get)		shift; get ''; exit $?;;
     --disable)		shift
 			if isDisabled; then
-			    echo >&2 'Commit trailer platform is already disabled.'
+			    printf >&2 'Commit trailer %s is already disabled.\n' "$infoType"
 			    exit 99
 			else
-			    git-wrapper config set --local commit.trailer.platform "$NOOP_TRAILER_COMMAND" \
-				&& echo 'Disabled commit trailer platform here.'
+			    git-wrapper config set --local "$infoTrailerConfigName" "$NOOP_TRAILER_COMMAND" \
+				&& printf 'Disabled commit trailer %s here.\n' "$infoType"
 			    exit $?
 			fi
 			;;
 esac
 case $# in
     0)	if isDisabled; then
-	    echo 'Commit trailer platform is disabled here.'
+	    printf 'Commit trailer %s is disabled here.\n' "$infoType"
 	    exit 4
 	fi
-	git-wrapper config get --local commit.trailer.platform
+	get t
 	;;
-    1)	platformInfoCommand="${1:?}"; shift
-	git-verboselocalconfig set commit.trailer.platform "$platformInfoCommand"
+    1)	infoCommand="${1:?}"; shift
+	git-verboselocalconfig set "$infoTrailerConfigName" "$infoCommand"
 	;;
-    *)	printUsage "$0"; exit 2;;
-esac >&2
+    *)	printUsage "$0" >&2; exit 2;;
+esac

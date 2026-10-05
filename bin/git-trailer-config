@@ -4,7 +4,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--get|--disable|PLATFORM-INFO-COMMAND] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${infoType:-INFO-TYPE} [--get|--disable|PLATFORM-INFO-COMMAND] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -19,7 +19,7 @@ printLongUsage()
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
 Set the locally / print the configured shell command that yields the commit
-trailer $infoType for this repository.
+trailer ${infoType:-INFO-TYPE} for this repository.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
@@ -28,14 +28,18 @@ HELPDESCRIPTION
     --get		Only print the configured shell command (or nothing).
 			Porcelain output: the command is printed without any
 			additional text or formatting.
-    --disable		Disable inclusion of the commit trailer $infoType in
+    --disable		Disable inclusion of the commit trailer ${infoType:-INFO-TYPE} in
 			commit messages of this repository.
-Example:
 HELPTEXT
-    local pic; for pic in 'aptitude --version | head -n 1' 'withCommandPrefix borgmatic --version' 'unprefix --exec sox --version \; "sox:      "'
-    do
-	printf "%q '%s'\n" "$(basename "$1")" "$pic"
-    done
+
+    if [ -n "$GIT_TRAILERCONFIG_EXAMPLE" ]; then
+	echo 'Example:'
+	typeset -a examples=(); readarray -t examples <<<"$GIT_TRAILERCONFIG_EXAMPLE"
+	local example; for example in "${examples[@]}"
+	do
+	    printf "%q %q '%s'\n" "$(basename "$1")" "${infoType:-INFO-TYPE}" "$example"
+	done
+    fi
 }
 
 # A command that has no output disables the commit trailer and prevents
@@ -78,8 +82,13 @@ get()
     fi
 }
 
-infoType='platform'
-infoTrailerConfigName="commit.trailer.${infoType}"
+case "$1" in
+    --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+esac
+
+readonly infoType="${1:?}"; shift
+readonly infoTrailerConfigName="commit.trailer.${infoType}"
+
 case "$1" in
     --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
     --get)		shift; get ''; exit $?;;

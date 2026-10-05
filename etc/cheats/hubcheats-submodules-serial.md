@@ -29,11 +29,11 @@ and) merged.
 ## After the reintegration of one branch
 1. superproject: Check out the next branch; e.g. via `$ git cossbr`
 2. Rebase
-   a) from superproject: `$ git subsamebrdo -i mrb`
-   b) from submodule(s): `$ git mrb`
+   a) from superproject: `$ git subsamebrdo -i ps mrb`
+   b) from submodule(s): `$ git ps mrb`
 3. superproject: Incorporate rebased submodule(s):
    a) amends to short-lived feature: `$ git amenu`
-   .  Rebase: `$ git mrb`
+   .  Rebase: `$ git ps mrb`
    .  (If previous serial branches had maintained history, but the current one
    .  does not, do an interactive rebase and drop the housekeeping commits.
    .  Alternatively, keep the history and skip rebasing completely.)

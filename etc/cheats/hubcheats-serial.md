@@ -28,7 +28,7 @@ and) merged.
 
 ## After the reintegration of one branch
 1. Check out the next branch; e.g. via `$ git cosbr`
-2. Rebase: `$ git mrb`
+2. Rebase: `$ git ps mrb`
 3. Directly force-push the updated branch: `$ git opush -f`
    (or defer and do it after rebasing all outstanding follow-up branches.)
 

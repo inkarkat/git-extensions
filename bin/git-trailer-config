@@ -125,18 +125,26 @@ disable()
     fi
 }
 
+show()
+{
+    if isDisabled; then
+	printf 'Commit trailer %s is disabled here.\n' "$infoType"
+	exit 4
+    fi
+    get t
+}
+
+set()
+{
+    infoCommand="${1:?}"; shift
+    git-verboselocalconfig set "$infoTrailerConfigName" "$infoCommand"
+}
+
 setOrShow()
 {
     case $# in
-	0)  if isDisabled; then
-		printf 'Commit trailer %s is disabled here.\n' "$infoType"
-		exit 4
-	    fi
-	    get t
-	    ;;
-	1)  infoCommand="${1:?}"; shift
-	    git-verboselocalconfig set "$infoTrailerConfigName" "$infoCommand"
-	    ;;
+	0)  show;;
+	1)  set "$@";;
 	*)  printUsage "$0" >&2; exit 2;;
     esac
 }

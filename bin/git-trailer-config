@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" "${infoType:-INFO-TYPE} [--get|--eval|--disable|PLATFORM-INFO-COMMAND] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${infoType:-INFO-TYPE} [--get|--append ANOTHER-${infoType^^}-INFO-COMMAND|--eval|--disable|${infoType^^}-INFO-COMMAND] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -29,6 +29,9 @@ HELPDESCRIPTION
     --get		Only print the configured shell command(s) (or nothing).
 			Porcelain output: the command is printed without any
 			additional text or formatting.
+    --append ANOTHER-${infoType^^}-INFO-COMMAND
+			Also run ANOTHER-${infoType^^}-INFO-COMMAND to yield
+			additional commit trailer ${infoType:-INFO-TYPE} information.
     --eval		Evaluate the configured shell command(s) and print the
 			resulting commit trailer value.
     --disable		Disable inclusion of the commit trailer ${infoType:-INFO-TYPE} in
@@ -60,6 +63,7 @@ case "$1" in
     --color)		shift; shift;;
 
     --get)		shift; action=get;;
+    --append)		shift; action=append;;
     --eval)		shift; action=evaluate;;
     --disable)		shift; action=disable;;
 esac
@@ -97,6 +101,24 @@ get()
 	[ -n "$infoTrailer" ] || return 1
 	printf '%s\n' "$infoTrailer"
     fi
+}
+
+append()
+{
+    case $# in
+	0)  echo "ERROR: No ANOTHER-${infoType^^}-INFO-COMMAND passed."
+	    echo
+	    printUsage "$0"
+	    exit 2
+	    ;;
+	1)  local anotherInfoTrailer="${1?}"; shift;;
+	*)  printUsage "$0"; exit 2;;
+    esac >&2
+
+    local existingInfoTrailer; existingInfoTrailer="$(get '')"	# Ignore failure.
+    local newInfoTrailer="${existingInfoTrailer}${existingInfoTrailer:+${anotherInfoTrailer:+ ; }}${anotherInfoTrailer}"
+    [ -n "$newInfoTrailer" ] || return 4
+    set "$newInfoTrailer"
 }
 
 evaluate()

@@ -25,6 +25,7 @@ case "$gitCommand" in
 	    echo 'ERROR: No arguments allowed for check.' >&2
 	    exit 2
 	fi
+	gitCommand='rebase'
 	set -- --no-rebase-checks --check
 	;;
     command)
@@ -33,16 +34,18 @@ case "$gitCommand" in
 	do
 	    args+=(--command "$arg")
 	done
+	gitCommand='rebase'
 	set -- --no-rebase-checks "${args[@]}"
 	;;
     exec)
+	gitCommand='rebase'
 	set -- --no-rebase-checks --exec "$@" \;
 	;;
     sedreword|rewordaddprefix|rewordremovescope)
+	gitCommand='rebase'
 	set -- --no-rebase-checks --exec "git-$gitCommand" "$@" \;
 	;;
     *)	printf >&2 'ASSERT: Invalid gitCommand: %s\n' "$gitCommand"; exit 3;;
 esac
 
 delegateToRebaseExtension "$@"
-gitCommand='rebase'

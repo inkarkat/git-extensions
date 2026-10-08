@@ -50,18 +50,30 @@ gitDir="$(git rev-parse --git-dir 2>/dev/null)" || exit 3
 readonly originalPersistentCommitsFilespec="${gitDir}/rebaseOriginalPersistentCommits"
 readonly rebasedCommitHashesFilespec="${gitDir}/rebasedCommitHashes"
 typeset -ra rebaseDeduplicateLogArgs=(--grep '^\\(fixup\\|amend\\|squash\\)! ' --invert-grep --pretty=$'tformat:%H\t%at\t%aN\t%aE\t%s')
+getDefaultUpstream()
+{
+    local currentBranch; currentBranch="$(git-brname --real-branch-only 2>/dev/null)" || return 1
+    local upstream; upstream="$(git config --get "branch.${currentBranch}.merge")" || return 1
+    local remote; remote="$(git config --get "branch.${currentBranch}.remote")" || return 1
+    printf '%s/%s' "$remote" "${upstream#refs/heads/}"
+}
 recordOriginalPersistentCommits()
 {
+    local branch upstream
     if [ ${#rebaseArgs[@]} -ge 2 ] \
 	&& git-commitid --quiet --no-error -- "${rebaseArgs[-1]}" \
 	&& git-commitid --quiet --no-error -- "${rebaseArgs[-2]}"
     then
 	# <upstream> <branch> variant
-	local branch="${rebaseArgs[-1]}"
-	local upstream="${rebaseArgs[-2]}"
+	branch="${rebaseArgs[-1]}"
+	upstream="${rebaseArgs[-2]}"
+    elif [ ${#rebaseArgs[@]} -eq 1 ]; then
+	branch=HEAD
+	upstream="${rebaseArgs[-1]}"
+    elif upstream="$(getDefaultUpstream)"; then
+	branch=HEAD
     else
-	local branch=HEAD
-	local upstream="${rebaseArgs[-1]}"
+	return 1
     fi
     git log "${rebaseDeduplicateLogArgs[@]}" "${upstream}..${branch}" > "$originalPersistentCommitsFilespec"
 }

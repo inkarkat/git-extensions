@@ -73,9 +73,10 @@ commit="${commit}${isOneMore:+^}"
 
 if [ ${#mergeMessageArgs[@]} -eq 0 ]; then
     # Synthesize the default merge message if no message [file] given.
-    targetBranch="$(git-brname --real-branch-only)" || exit 3
-    branchMergeMessage="$(git-mergeBranchMessage "$targetBranch" "$commit")" || exit 3
-    mergeMessageArgs=(--message "$branchMergeMessage")
+    if targetBranch="$(git-brname --real-branch-only 2>/dev/null)"; then
+	branchMergeMessage="$(git-mergeBranchMessage "$targetBranch" "$commit")" || exit 3
+	mergeMessageArgs=(--message "$branchMergeMessage")
+    fi
 fi
 
 case "$mergeEditMessageArg" in

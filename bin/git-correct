@@ -26,7 +26,7 @@ RELATED COMMANDS:
   the commit references.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[<commit-arguments> ...] (<ref>|:/<pattern> [[--] FILE|DIR] ...) [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-t|--title|--subject TITLE] [<commit-arguments> ...] (<ref>|:/<pattern> [[--] FILE|DIR] ...) [-?|-h|--help]'
 }
 
 isInsideThisWorkingCopy()
@@ -43,6 +43,7 @@ gitInWorkingCopy()
 
 isAmend=
 typeset -a commitArgs=()
+titleOverride=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -50,6 +51,8 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
+	--title|-t|--subject)
+			shift; titleOverride="${1:?}"; shift;;
 	--amend)	commitArgs+=("$1"); shift; isAmend=t
 			if ! git-staged --quiet; then
 			    # DWIM: Reword the last commit with the reference. A "git amendrelate" with no unstaged changes complained about "nothing to commit, working tree clean", and a separate "git rewordrelate" command (and all br... variants) would be needed. Amending with passed FILE(s) is no use case here, as a trailing FILE is interpreted differently, so this is a safe enhancement that does not interfere with normal use.
@@ -142,7 +145,7 @@ trap '${DEBUG:+debugcommand --} rm -f -- "$commitMessageFilespec" 2>/dev/null' E
     fi
 )
 printf "%s (%s%s%s)\\n%s\\n\\n(${GIT_CORRECT_REFERENCE_MESSAGE} %s)\\n" \
-    "$titleLine" \
+    "${titleOverride:-$titleLine}" \
     "${GIT_CORRECT_REFERENCE_REFERRER_PREFIX}${GIT_CORRECT_REFERENCE_REFERRER_PREFIX:+ }" \
     "$(joinBy ', ' "${contextualizedShortCommitIds[@]}")" \
     "${GIT_CORRECT_REFERENCE_REFERRER_SUFFIX:+ }${GIT_CORRECT_REFERENCE_REFERRER_SUFFIX}" \

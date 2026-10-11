@@ -116,12 +116,12 @@ do
 	--files-deleted)
 			shift; sourceLogCommand=(logFileCounts); gitArgs+=(--diff-filter=D);;
 	--turmoil)	shift
-			sourceLogCommand=(git turmoil --pretty=format:'%ai' --shortstat --join-shortstat ' ' --keep-turmoil)
+			sourceLogCommand=(logTurmoil '')
 			distributionArgs+=(--field-separator '[[:space:]:_/,-]' --count-field 9 --default-count 1)
 			;;
 	--turmoil-edstat)
 			shift
-			sourceLogCommand=(git turmoil --pretty=format:$'%H\n%ai' --edstat --join-shortstat ' ' --keep-turmoil)
+			sourceLogCommand=(logTurmoil t)
 			distributionArgs+=(--field-separator '[[:space:]:_/,-]' --count-field 9 --default-count 1)
 			;;
 	--)		gitArgs+=("$1"); shift; break;;
@@ -144,6 +144,15 @@ logFileCounts()
 	    -e '/^$/d' \
 	    -e 'G; s#^\([^\n]*\)\n\t\([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}\)$#\2 \1#' \
 	| field 1
+}
+
+logTurmoil()
+{
+    local isEdstat="${1?}"; shift
+    [ "$isEdstat" ] \
+	&& local statArg='--edstat' \
+	|| local statArg='--shortstat'
+    git turmoil --pretty=format:"${isEdstat:+$'%H\n'}%ai" "$statArg" --join-shortstat ' ' --keep-turmoil "$@"
 }
 
 getLogs()

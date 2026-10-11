@@ -4,7 +4,7 @@ shopt -qs extglob
 
 printShortUsage()
 {
-    local commonArguments='[--authors|--files [--diff-filter=[(A|C|D|M|R|T|U|X|B)...[*]] [--[no-]renames] [-M<n>|--find-renames[=<n>]] [-C<n>|--find-copies[=<n>]|--find-copies-harder]]|--files-added|--files-deleted|--turmoil|--turmoil-edstat]'
+    local commonArguments='[--committed] [--authors|--files [--diff-filter=[(A|C|D|M|R|T|U|X|B)...[*]] [--[no-]renames] [-M<n>|--find-renames[=<n>]] [-C<n>|--find-copies[=<n>]|--find-copies-harder]]|--files-added|--files-deleted|--turmoil|--turmoil-edstat]'
     local distributionCommonArguments='[--color=(always|auto|never)|--no-color] [--as colorbox-calendar|green-[large-]calendar|...]'
     local distributionOverAutorangeArguments='[--no-footer|--final-footer-only|footer-only-on-change|--footer-every N] [--force-legends] [--bucket-legend] [--over day|month|year|year-weekly|--weekly]'
     local distributionAutolinearArguments='-l|--linear [-w|--width W] [--no-today-base-date|--base-date today|"YYYY MM DD"] [--no-start-date] [--no-end-date] [--days-per-slot N|--slots-per-day N] [--reversed]'
@@ -35,6 +35,8 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
+    --committed		Use the commit date / committer instead of the author
+			date / author.
     --authors		Count the number of authors per day.
 			Note that due to the data dressing, this cannot be used
 			over days or year-weekly.
@@ -83,7 +85,8 @@ typeset -a distributionBaseDateArg=()
 typeset -a distributionReversedArg=()
 typeset -a distributionMinArg=(--min 0)
 typeset -a gitArgs=()
-typeset -a sourceLogCommand=(git log --pretty=tformat:'%ai')
+userFormatPrefix='%a'	# Default to author dates.
+typeset -a sourceLogCommand=(logDates)
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -110,18 +113,19 @@ do
 			printUsage "$0" >&2
 			exit 2
 			;;
+	--committed)	shift; userFormatPrefix='%c';;
 	--authors)	shift; sourceLogCommand=(logAuthorCounts);;
 	--files)	shift; sourceLogCommand=(logFileCounts);;
 	--files-added)	shift; sourceLogCommand=(logFileCounts); gitArgs+=(--diff-filter=A);;
 	--files-deleted)
 			shift; sourceLogCommand=(logFileCounts); gitArgs+=(--diff-filter=D);;
 	--turmoil)	shift
-			sourceLogCommand=(git turmoil --pretty=format:'%ai' --shortstat --join-shortstat ' ' --keep-turmoil)
+			sourceLogCommand=(logTurmoil '')
 			distributionArgs+=(--field-separator '[[:space:]:_/,-]' --count-field 9 --default-count 1)
 			;;
 	--turmoil-edstat)
 			shift
-			sourceLogCommand=(git turmoil --pretty=format:$'%H\n%ai' --edstat --join-shortstat ' ' --keep-turmoil)
+			sourceLogCommand=(logTurmoil t)
 			distributionArgs+=(--field-separator '[[:space:]:_/,-]' --count-field 9 --default-count 1)
 			;;
 	--)		gitArgs+=("$1"); shift; break;;
@@ -130,20 +134,34 @@ do
 done
 gitArgs+=("$@")
 
+logDates()
+{
+    git log --pretty=tformat:"${userFormatPrefix}i" "$@"
+}
+
 logAuthorCounts()
 {
-    git log --date=format:%Y-%m-%d --pretty='format:%ad %aN' "$@" \
+    git log --date=format:%Y-%m-%d --pretty="format:${userFormatPrefix}d ${userFormatPrefix}N" "$@" \
 	| sort --unique | field 1
 }
 
 logFileCounts()
 {
-    git log --date=format:%Y-%m-%d --pretty=$'format:\t%ad' --name-only "$@" \
+    git log --date=format:%Y-%m-%d --pretty=$'format:\t'"${userFormatPrefix}d" --name-only "$@" \
 	| sed \
 	    -e '/^\t[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}$/{ h; d; }' \
 	    -e '/^$/d' \
 	    -e 'G; s#^\([^\n]*\)\n\t\([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}\)$#\2 \1#' \
 	| field 1
+}
+
+logTurmoil()
+{
+    local isEdstat="${1?}"; shift
+    [ "$isEdstat" ] \
+	&& local statArg='--edstat' \
+	|| local statArg='--shortstat'
+    git turmoil --pretty=format:"${isEdstat:+$'%H\n'}${userFormatPrefix}i" "$statArg" --join-shortstat ' ' --keep-turmoil "$@"
 }
 
 getLogs()

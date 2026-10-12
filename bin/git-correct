@@ -2,6 +2,10 @@
 set -o pipefail
 shopt -qs extglob
 
+: ${GIT_CORRECT:=$(basename "$0")}
+: ${GIT_CORRECT_SHOW_REUSE=t}
+: ${GIT_CORRECT_NOTE_PREFIX='[3;36m'}
+: ${GIT_CORRECT_NOTE_SUFFIX='[0m'}
 : ${GIT_CORRECT_REFERENCE_MESSAGE:=This corrects commit}
 : ${GIT_CORRECT_REFERENCE_REFERRER_PREFIX=after}
 : ${GIT_CORRECT_REFERENCE_REFERRER_SUFFIX=}
@@ -42,6 +46,7 @@ gitInWorkingCopy()
 }
 
 isAmend=
+typeset -a recursiveArgs=()
 typeset -a commitArgs=()
 titleOverride=
 while [ $# -ne 0 ]
@@ -52,7 +57,7 @@ do
 			shift;;
 	--color)	shift; shift;;
 	--title|-t|--subject)
-			shift; titleOverride="${1:?}"; shift;;
+			recursiveArgs+=("$1" "${2:?}"); shift; titleOverride="${1:?}"; shift;;
 	--amend)	commitArgs+=("$1"); shift; isAmend=t
 			if ! git-staged --quiet; then
 			    # DWIM: Reword the last commit with the reference. A "git amendrelate" with no unstaged changes complained about "nothing to commit, working tree clean", and a separate "git rewordrelate" command (and all br... variants) would be needed. Amending with passed FILE(s) is no use case here, as a trailing FILE is interpreted differently, so this is a safe enhancement that does not interfere with normal use.
@@ -116,6 +121,26 @@ done
 if [ ! "$isAmend" ] && [ ${#commitIds[@]} -eq 0 ]; then
     printf >&2 'ERROR: No commit found for %s\n' "$lastArg"
     exit 1
+fi
+
+if [ "$GIT_CORRECT_SHOW_REUSE" ]; then
+    typeset -a reinvocationArgs=()
+    for ((i = 0; i < ${#commitIds[@]}; i++))
+    do
+	# Render as absolute filespec to make the command independent of the current
+	# working directory, so it can be copy-pasted and re-run from anywhere.
+	filespec="${filespecs[i]}"
+	if [ -n "$filespec" ]; then
+	    absoluteFilespec="$(realpath --canonicalize-missing --no-symlinks -- "$filespec" 2>/dev/null)" || absoluteFilespec="$filespec"
+	else
+	    absoluteFilespec="$PWD"
+	fi
+
+	reinvocationArgs+=("${commitIds[i]}" "$absoluteFilespec")
+    done
+    printf -v quotedArgs ' %q' "${recursiveArgs[@]}" "$@" "${reinvocationArgs[@]}"
+    commitIdsPlural=s; [ ${#commitIds[@]} -eq 1 ] && commitIdsPlural=
+    printf >/dev/tty '%sReference the same commit%s again via $ git %s%s%s\n' "$GIT_CORRECT_NOTE_PREFIX" "$commitIdsPlural" "${GIT_CORRECT#git-}" "$quotedArgs" "$GIT_CORRECT_NOTE_SUFFIX"
 fi
 
 commitMessageFilespec="$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM")"

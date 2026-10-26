@@ -1,5 +1,7 @@
 #!/bin/bash
 
+${DEBUG:+eval $(debugtrace -o $- -- "$@")}
+
 printUsage()
 {
     cat <<HELPTEXT
@@ -54,6 +56,7 @@ printf 'Moving %d commit%s to %s\n' "${#commits[@]}" "$commitsPlural" "$targetRe
 
 tempDirspec="$(mktemp --directory --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || { dirspec="${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM"; mkdir --parents -- "$dirspec" && printf %s "$dirspec"; })" || exit 3
 trap '${DEBUG:+debugcommand --module cleanup --} rm -rf -- "$tempDirspec" 2>/dev/null' EXIT
+${DEBUG:+eval $(debugtrace --point main -o $- --)}
 
 branchName="$(git-brname --real-branch-only)" || exit $?
 git format-patch --output-directory "$tempDirspec" "$@" || exit $?

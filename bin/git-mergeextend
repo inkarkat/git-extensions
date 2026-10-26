@@ -1,6 +1,8 @@
 #!/bin/bash
 shopt -qs extglob
 
+${DEBUG:+eval $(debugtrace -o $- -- "$@")}
+
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
@@ -86,6 +88,7 @@ originalBranch="$(git-brname --real-branch-only)" || exit $?
 
 mergeMessageFilespec="$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM")"
 trap '${DEBUG:+debugcommand --module cleanup --} rm -f -- "$mergeMessageFilespec" 2>/dev/null' EXIT
+${DEBUG:+eval $(debugtrace --point main -o $- --)}
 git lo1 HEAD > "$mergeMessageFilespec"
 if [ -s "$mergeMessageFilespec" ]; then
     mergeArgs+=("--file=$mergeMessageFilespec")

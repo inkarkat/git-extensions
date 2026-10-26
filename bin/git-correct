@@ -2,6 +2,8 @@
 set -o pipefail
 shopt -qs extglob
 
+${DEBUG:+eval $(debugtrace -o $- -- "$@")}
+
 : ${GIT_CORRECT:=$(basename "$0")}
 : ${GIT_CORRECT_SHOW_REUSE=t}
 : ${GIT_CORRECT_NOTE_PREFIX='[3;36m'}
@@ -145,6 +147,7 @@ fi
 
 commitMessageFilespec="$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM")"
 trap '${DEBUG:+debugcommand --module cleanup --} rm -f -- "$commitMessageFilespec" 2>/dev/null' EXIT
+${DEBUG:+eval $(debugtrace --point main -o $- --)}
 {
     refGlob='+([0-9A-Fa-f])'
     [ ${#includedGlobs[@]} -eq 0 ] || refGlob="@(${refGlob}|$(joinBy '|' "${includedGlobs[@]}"))"

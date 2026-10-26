@@ -1,6 +1,8 @@
 #!/bin/bash
 set -o pipefail
 
+${DEBUG:+eval $(debugtrace -o $- -- "$@")}
+
 readarray -t defaultArgs < <(eval "git $GIT_CONFIG_ARGS config --get-all pull-request.defaultArg")
 set -- "${defaultArgs[@]}" "$@"
 
@@ -57,6 +59,8 @@ editPullRequestMessage()
 	"$@" \
 	-- gh pr view --json title,body --template '{{.title}} (← do not edit here){{"\n\n"}}{{.body}}{{"\n"}}' "${repoArgs[@]}" "${head:-$(git-brname --real-branch-only)}"
 }
+
+${DEBUG:+eval $(debugtrace --point main -o $- --)}
 
 if [ -n "$base" ] && [[ "$base" != *:* ]] && [ ${#repoArgs[@]} -eq 0 ] \
     && git uexists && ! git existsbr -- "upstream/${base}"

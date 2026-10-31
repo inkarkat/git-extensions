@@ -8,20 +8,34 @@ readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" 
 readonly projectDir="${scriptDir}/.."
 readonly libDir="${projectDir}/lib"
 
-printUsage()
+LONGUSAGE=
+printLongUsage()
 {
-    cat <<HELPTEXT
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    $LONGUSAGE cat <<HELPTEXT
 Do a quick commit with a short MESSAGE and ${GIT_WIPCOMMIT_QUICK_KEYWORD} keyword.
 HELPTEXT
-    echo
+    $LONGUSAGE echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '-m|--message=MESSAGE [<commit-args> ...] [--] [<pathspec>...] [-?|-h|--help]'
-    echo
-    cat <<HELPTEXT
+    $LONGUSAGE echo
+    $LONGUSAGE cat <<HELPTEXT
 Do an incomplete commit with synthesized message and ${GIT_WIPCOMMIT_INCOMPLETE_KEYWORD} keyword (that
 should be reworded, rebased, or squashed before the merge).
 HELPTEXT
-    echo
+    $LONGUSAGE echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[<commit-args> ...] [--] [<pathspec>...] [-?|-h|--help]'
+}
+printShortUsage()
+{
+    LONGUSAGE=: printLongUsage "$1"
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
 }
 
 keyword="$GIT_WIPCOMMIT_INCOMPLETE_KEYWORD"
@@ -30,7 +44,7 @@ typeset -a commitArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--message|-m)	shift; message="${1:?}"; shift; keyword="$GIT_WIPCOMMIT_QUICK_KEYWORD";;
 	--message=*)	message="${1#--message=}"; shift; keyword="$GIT_WIPCOMMIT_QUICK_KEYWORD";;
 	--)		commitArgs+=("$1"); shift; break;;

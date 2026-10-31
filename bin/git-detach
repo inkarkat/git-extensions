@@ -5,23 +5,40 @@ ${DEBUG:+eval $(debugtrace -o $- -- "$@")}
 : ${GIT_DETACH_COLOR_ADDEDUNTRACKED='[1m'}
 : ${GIT_DETACH_COLOR_RESET='[0m'}
 
-printUsage()
+LONGUSAGE=
+printLongUsage()
 {
-    cat <<HELPTEXT
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    $LONGUSAGE cat <<HELPTEXT
 Unassociate from the current branch without changing the current commit. Useful
 e.g. for separate worktrees, because they all must be on distinct branches.
 HELPTEXT
-    echo
+    $LONGUSAGE echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [-?|-h|--help]'
-    echo
-    cat <<HELPTEXT
+    $LONGUSAGE echo
+    $LONGUSAGE cat <<HELPTEXT
 Detach HEAD at passed <commit>.
+HELPTEXT
+    $LONGUSAGE echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [-u|--added-to-untracked] <commit> [-?|-h|--help]'
+    $LONGUSAGE echo
+    $LONGUSAGE cat <<HELPTEXT
     --added-to-untracked|-u
 			Any files that have been added between the current HEAD
 			and <commit> will be kept as untracked files.
 HELPTEXT
-    echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-q|--quiet] [-u|--added-to-untracked] <commit> [-?|-h|--help]'
+}
+printShortUsage()
+{
+    LONGUSAGE=: printLongUsage "$1"
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
 }
 
 isAddedToUntracked=
@@ -29,7 +46,7 @@ typeset -a checkoutArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;

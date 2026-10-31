@@ -9,28 +9,42 @@ readonly projectDir="${scriptDir}/.."
 : ${HUB_LABELS_REPO:='{repo}'}
 : ${HUB_LABELS_DEFAULT_LABEL_FILESPEC:=${projectDir}/etc/github-issue-labels.tsv}
 
-printUsage()
+LONGUSAGE=
+printLongUsage()
 {
-    cat <<HELPTEXT
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    $LONGUSAGE cat <<HELPTEXT
 List the labels defined for the current GitHub repository.
 HELPTEXT
-    echo
+    $LONGUSAGE echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--color=(always|auto|never)|--no-color] list [-?|-h|--help]'
-    echo
-    cat <<HELPTEXT
+    $LONGUSAGE echo
+    $LONGUSAGE cat <<HELPTEXT
 Add / update [/ delete only LABEL-NAME(s) from] my default labels to the current
 GitHub repository.
 The labels are stored as tab-separated values (RGB-COLOR NAME DESCRIPTION); by
 default in file ${HUB_LABELS_DEFAULT_LABEL_FILESPEC}
 HELPTEXT
-    echo
+    $LONGUSAGE echo
     printf 'Usage: %q %s\n' "$(basename "$1")" 'set [DEFAULT-LABEL-FILESPEC] [LABEL-NAME ...]'
-    echo
-    cat <<HELPTEXT
+    $LONGUSAGE echo
+    $LONGUSAGE cat <<HELPTEXT
 Delete the passed labels on the current GitHub repository.
 HELPTEXT
-    echo
+    $LONGUSAGE echo
     printf 'Usage: %q %s\n' "$(basename "$1")" 'delete LABEL-NAME [...]'
+}
+printShortUsage()
+{
+    LONGUSAGE=: printLongUsage "$1"
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
 }
 
 isColor=; type -t colorizeHex >/dev/null && [ -t 1 ] && isColor=t
@@ -38,7 +52,7 @@ action=usageError
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--no-color|--color=never)
 			isColor=; shift;;
 	--color=always)	isColor=t; shift;;

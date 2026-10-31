@@ -1,29 +1,43 @@
 #!/bin/bash
 set -o pipefail
 
-printUsage()
+LONGUSAGE=
+printLongUsage()
 {
-    cat <<HELPTEXT
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    $LONGUSAGE cat <<HELPTEXT
 Commit with other author(s) whose "NAME <EMAIL@HOST>" combo(s) are either passed
 or selected from all previous committers (via passed AUTHOR-PATTERN(s))
 attributed as co-authors / ACTION-BY.
 HELPTEXT
-    echo
+    $LONGUSAGE echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--attribution ACTION-BY] [AUTHOR-PATTERN|NAME EMAIL@HOST|"NAME <EMAIL@HOST>" [...]] [-- <commit-args> ...] [-?|-h|--help]'
-    echo
-    cat <<HELPTEXT
+    $LONGUSAGE echo
+    $LONGUSAGE cat <<HELPTEXT
 Attribute other author(s) whose "NAME <EMAIL@HOST>" combo(s) are either passed
 or selected from all previous committers (via passed AUTHOR-PATTERN(s)) as
 co-authors to the last commit.
 HELPTEXT
-    echo
+    $LONGUSAGE echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--attribution ACTION-BY] --amend [AUTHOR-PATTERN|NAME EMAIL@HOST|"NAME <EMAIL@HOST>" [...]] [-?|-h|--help]'
-    echo
-    cat <<HELPTEXT
+    $LONGUSAGE echo
+    $LONGUSAGE cat <<HELPTEXT
 RELATED COMMANDS:
 - git-coauthor from tj/git-extras appends co-author(s) to the commit message
   (without the selection).
 HELPTEXT
+}
+printShortUsage()
+{
+    LONGUSAGE=: printLongUsage "$1"
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
 }
 
 attribution='Co-authored-by'
@@ -33,7 +47,7 @@ typeset -a candidateArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;

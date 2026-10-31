@@ -12,28 +12,43 @@ contains()
     return 1
 }
 
-printUsage()
+LONGUSAGE=
+printLongUsage()
 {
-    cat <<HELPTEXT
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    $LONGUSAGE cat <<HELPTEXT
 Remove old local branches that do not exist in ${remote:-REMOTE} any more.
 Leaves local branches that have never been published to ${remote:-REMOTE} intact.
 With --test, only print which local branches would be deleted.
 Note: To do this automatically on each fetch / pull:
     git config --global fetch.prune true
 HELPTEXT
-    echo
+    $LONGUSAGE echo
     printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [-t|--test|-f|--force]  [-?|-h|--help]"
-    echo
-    cat <<HELPTEXT
+    $LONGUSAGE echo
+    $LONGUSAGE cat <<HELPTEXT
 Remove old branches in ${remote:-REMOTE} that have no corresponding local branch any
 longer.
 With --test, only print which ${remote:-REMOTE} branches would be deleted.
 HELPTEXT
-    echo
+    $LONGUSAGE echo
     printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} -R|--reverse [-t|--test|-f|--force] [-y|--yes]"
 }
+printShortUsage()
+{
+    LONGUSAGE=: printLongUsage "$1"
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+
 case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+    --help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
     --no-color|--color=*)
 			shift;;
     --color)		shift; shift;;

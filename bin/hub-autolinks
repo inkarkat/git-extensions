@@ -8,36 +8,50 @@ readonly projectDir="${scriptDir}/.."
 : ${HUB_AUTOLINKS_REPO:='{repo}'}
 : ${HUB_AUTOLINKS_DEFAULT_AUTOLINK_FILESPEC:=${projectDir}/etc/github-autolinks.tsv}
 
-printUsage()
+LONGUSAGE=
+printLongUsage()
 {
-    cat <<HELPTEXT
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    $LONGUSAGE cat <<HELPTEXT
 List the autolinks defined for the current GitHub repository.
 HELPTEXT
-    echo
+    $LONGUSAGE echo
     printf 'Usage: %q %s\n' "$(basename "$1")" 'list [-?|-h|--help]'
-    echo
-    cat <<HELPTEXT
+    $LONGUSAGE echo
+    $LONGUSAGE cat <<HELPTEXT
 Add / update [/ delete only KEY-PREFIX(s) from] my default autolinks to the
 current GitHub repository.
 The autolinks are stored as tab-separated values (KEY-PREFIX URL-TEMPLATE); by
 default in file ${HUB_AUTOLINKS_DEFAULT_AUTOLINK_FILESPEC}
 URL-TEMPLATE must contain a <num> placeholder!
 HELPTEXT
-    echo
+    $LONGUSAGE echo
     printf 'Usage: %q %s\n' "$(basename "$1")" 'set [DEFAULT-AUTOLINK-FILE] [KEY-PREFIX ...]'
-    echo
-    cat <<HELPTEXT
+    $LONGUSAGE echo
+    $LONGUSAGE cat <<HELPTEXT
 Delete the passed autolinks on the current GitHub repository.
 HELPTEXT
-    echo
+    $LONGUSAGE echo
     printf 'Usage: %q %s\n' "$(basename "$1")" 'delete KEY-PREFIX [...]'
+}
+printShortUsage()
+{
+    LONGUSAGE=: printLongUsage "$1"
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
 }
 
 action=usageError
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;

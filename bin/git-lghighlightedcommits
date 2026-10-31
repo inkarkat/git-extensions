@@ -12,31 +12,45 @@ readonly projectDir="${scriptDir}/.."
 readonly libDir="${projectDir}/lib"
 source "${libDir}/logArgParser.sh" || exit 3
 
-printUsage()
+LONGUSAGE=
+printLongUsage()
 {
-    cat <<HELPTEXT
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    $LONGUSAGE cat <<HELPTEXT
 git ${GIT_LGHIGHLIGHT_LG}, with passed <commit>(s) highlighted.
 With --range-to-last-commit, the range will be ended at the last given commit;
 naturally, no log range can then be given.
 HELPTEXT
-    echo
+    $LONGUSAGE echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--range-to-last-commit [--one-more]] [GIT-LOG-ARGUMENTS ...] <commit1> [<commit2> ...] [<revision-range>|--range <range> [--range...]] [[--] <pathspec>...] [-?|-h|--help]'
-    echo
-    cat <<HELPTEXT
+    $LONGUSAGE echo
+    $LONGUSAGE cat <<HELPTEXT
 git ${GIT_LGHIGHLIGHT_LG}, with commit hashes read from stdin highlighted.
 HELPTEXT
-    echo
+    $LONGUSAGE echo
     printf 'Usage: git lh [...] | %q %s\n' "$(basename "$1")" '[--range-to-last-commit [--one-more]] [GIT-LOG-ARGUMENTS ...] - [<revision-range>|--range <range> [--range...]] [[--] <pathspec>...] [-?|-h|--help]'
-    echo
-    cat <<HELPTEXT
+    $LONGUSAGE echo
+    $LONGUSAGE cat <<HELPTEXT
 git ${GIT_LGHIGHLIGHT_LG}, with commits that result from GIT-COMMAND (which will be configured
 to output just commit hashes) highlighted. That argument and GIT-LOG-ARGUMENTS
 ${argsMarker:+replace a $argsMarker marker in GIT-COMMAND or }will be appended.
 With --except-last, the last argument will only be passed to GIT-COMMAND, but
 not to git ${GIT_LGHIGHLIGHT_LG}.
 HELPTEXT
-    echo
+    $LONGUSAGE echo
     printf 'Usage: %q %s\n' "$(basename "$1")" "[--range-to-last-commit [--one-more]] [--except-last [...]] --command \"GIT-COMMANDLINE\" | --exec GIT-COMMAND [...] ${GIT_LGHIGHLIGHTEDCOMMITS_EXEC_END} [GIT-LOG-ARGUMENTS ...] [<revision-range>|--range <range> [--range...]] [[--] <pathspec>...]"
+}
+printShortUsage()
+{
+    LONGUSAGE=: printLongUsage "$1"
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
 }
 
 typeset -a commits=()
@@ -65,7 +79,7 @@ typeset -a rangeArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--no-color|--color=*)	colorArg=("$1"); shift;;
 	--color)		colorArg=("$1" "$2"); shift; shift;;
 

@@ -158,6 +158,11 @@ git-uclone()
     _git_initAndCloneExtension clone --origin upstream "$@" \
 	&& git-remote-setreadonly upstream
 }
+git-uoclone()
+{
+    git-oclone "$@" \
+    	&& git-uadd
+}
 
 git-cd()
 {

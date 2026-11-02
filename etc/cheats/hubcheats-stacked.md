@@ -4,7 +4,7 @@ Create subsequent branches (foo → foo-1 → foo-2 → ...) via `$ git stackbr`
 
 View changes in the current stacked branch via `$ git ps`⏎ (ps=_previous stacked_)
 
-## Pull requests
+## x) Pull requests (same repo)
 ### a) Separately
 1. Create the first branch's pull request normally: `$ hub pull-request`
 2. Check out the next branch: `$ git conextbr`
@@ -18,6 +18,21 @@ The first branch requests a reintegration [to the default branch / --base BASE]
 while following branches open drafts towards the previous branch, so everything
 can be reviewed separately and then the branches can be (subsequently rebased
 and) merged.
+
+## y) Pull requests from origin to upstream
+- The first PR can be opened normally against the upstream repo.
+For subsequent stacked branches, those would have to be pushed to upstream to
+be available for a PR there, requiring write access, which typically isn't
+available, and messy (per-user namespacing required, unexpected if the project
+normally adheres to the classic forking model).
+- Open subsequent stacked branches' PRs against your own (origin) repo, and
+  reference them in the current upstream PR, inviting discussion and review
+  over there.
+- After the current upstream PR is merged, the next PR (in origin) can be moved
+  to upstream:
+`$ hub pr-move --make-ready --edit`
+
+# Reintegrating serial stacked branches
 
 ## Before the reintegration of one branch
 1. Go through all open pull requests and change the base branch from the

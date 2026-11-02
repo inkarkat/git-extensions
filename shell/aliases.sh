@@ -142,9 +142,14 @@ git-oclone()
 	echo >&2 'ERROR: No REPO-NAME passed.'
 	return 2
     fi
-    local repoName="$1"; shift
-    local me; me="$(git me-in-github)" || return $?
-    _git_initAndCloneExtension clone "$@" "git@github.com:${me}/${repoName}"
+    local repo="$1"; shift
+    if [[ "$repo" != */* ]]; then
+	local me; me="$(git me-in-github)" || return $?
+	repo="${me}/${repo}"
+    fi
+    [[ "$repo" = *:* ]] \
+    	|| repo="git@github.com:${repo}.git"
+    _git_initAndCloneExtension clone "$@" "$repo"
 }
 # Avoids "git remote rename origin upstream" and automatically makes upstream
 # read-only.

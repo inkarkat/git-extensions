@@ -15,7 +15,7 @@ printShortUsage()
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
     local revisionRangeArgs="[$(GIT_LOGARGPARSER_REVISIONS_END="$GIT_WHOIS_REVISIONS_END" getShowRangeArgsShortUsage)]"
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[-1|--first|-s|--select|-S|--select-many] [-n|--name|-e|--email] [--via-email|-E] [--authors] [--committers] [--trailers] [--accept-unknown] [--range-is-last|${revisionRangeArgs}] AUTHOR-PATTERN [...] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[-1|--first|-s|--select|-S|--select-many] [-n|--name|-e|--email] [--via-email|-E] [--authors] [--committers] [--trailers|--direct-persons-only] [--accept-unknown] [--range-is-last|${revisionRangeArgs}] AUTHOR-PATTERN [...] [-?|-h|--help]"
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --accept-unknown AUTHOR-PATTERN [...]|NAME EMAIL@HOST|"NAME <EMAIL@HOST>"'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --accept-unknown --select-many AUTHOR-PATTERN|NAME EMAIL@HOST|"NAME <EMAIL@HOST>" [...]'
@@ -53,6 +53,11 @@ HELPDESCRIPTION
     --committers	Consider person(s) that are committers.
     --trailers		Consider person(s) found in commit trailers (only the
 			full "NAME <EMAIL@HOST>" format).
+    --direct-persons-only
+			Only consider person(s) directly responsible for commits
+			(i.e. authors and committers by default); ignore
+			indirectly referenced persons (e.g. via commit
+			trailers).
     --accept-unknown	Also accept new names in the form NAME EMAIL@HOST (two
 			arguments) or "NAME <EMAIL@HOST>" (one argument) that
 			are not yet found in the repository.
@@ -70,6 +75,7 @@ typeset -a rangeModificationArgs=()
 typeset -a personFilter=()
 filterType=post-filter
 typeset -A sources=()
+isDirectPersonsOnly=
 sourceFormat=NAME_AND_EMAIL; [ "$HUB" ] && sourceFormat=NAME
 hubQueryTerm=fullname:
 while [ $# -ne 0 ]
@@ -91,6 +97,8 @@ do
 	--authors)	shift; sources[authors]=t;;
 	--committers)	shift; sources[committers]=t;;
 	--trailers)	shift; sources[trailers]=t;;
+	--direct-persons-only)
+			shift; isDirectPersonsOnly=t;;
 
 	--range-is-last)
 			shift; isRangeLastArg=t;;
@@ -109,7 +117,10 @@ do
 			;;
     esac
 done
-[ ${#sources[@]} -gt 0 ] || sources=([authors]=t [committers]=t [trailers]=t)
+if [ ${#sources[@]} -eq 0 ]; then
+    sources=([authors]=t [committers]=t)
+    [ "$isDirectPersonsOnly" ] || sources[trailers]=t
+fi
 
 if [ "$isRangeLastArg" ]; then
     typeset -a parsedRangeArgs=("${rangeArgs[@]}")

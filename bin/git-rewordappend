@@ -41,7 +41,7 @@ HELPTEXT
 
 padding=
 isQuiet=
-isKeepTrailersAtEnd=t
+isAsTrailers=
 typeset -a commitMessageArgs=()
 while [ $# -ne 0 ]
 do
@@ -49,7 +49,7 @@ do
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--padded)	shift; padding=$'\n';;
 	--quiet|-q)	shift; isQuiet=t;;
-	--as-trailers)	shift; isKeepTrailersAtEnd=;;
+	--as-trailers)	shift; isAsTrailers=t;;
 	--)		commitMessageArgs+=("$1"); shift; break;;
 	*)		commitMessageArgs+=("$1"); shift;;
     esac
@@ -58,7 +58,7 @@ set -- "${commitMessageArgs[@]}" "$@"
 if [ $# -eq 0 ]; then
     printUsage "$0"
     exit 2
-elif [ -n "$padding" ] && [ ! "$isKeepTrailersAtEnd" ]; then
+elif [ -n "$padding" ] && [ "$isAsTrailers" ]; then
     echo 'ERROR: Cannot combine --padded with --as-trailers.'
     echo
     printUsage "$0"
@@ -70,7 +70,7 @@ appendMessage="$(git-commitMessagePrint "$@")" || exit $?
 
 originalMessage="$(git lo1)" || exit 3
 trailers=''
-if [ "$isKeepTrailersAtEnd" ] && [[ "$originalMessage" = *$'\n'* ]]; then
+if [ ! "$isAsTrailers" ] && [[ "$originalMessage" = *$'\n'* ]]; then
     trailers="$(printf '%s\n' "$originalMessage" | git-trailer-parse --parse)"
     [ -z "$trailers" ] || originalMessage="$(printf '%s\n' "$originalMessage" | git-trailer-parse --remove)"
 fi

@@ -1,5 +1,7 @@
 #!/bin/bash
 
+${DEBUG:+eval $(debugtrace -o $- -- "$@")}
+
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
@@ -79,6 +81,7 @@ if [[ "$originalMessage" != *$'\n'* ]]; then
     padding=$'\n'
 fi
 
+${DEBUG:+eval $(debugtrace --point main -o $- --)}
 git-wrapper commit --amend --only --cleanup=strip --no-trailer-add \
 	--message "${originalMessage}"$'\n'"${padding}${appendMessage}${trailers:+$'\n\n'}${trailers}" \
     || exit $?

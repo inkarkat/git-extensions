@@ -15,7 +15,7 @@ printShortUsage()
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
     local revisionRangeArgs="[$(GIT_LOGARGPARSER_REVISIONS_END="$GIT_WHOIS_REVISIONS_END" getShowRangeArgsShortUsage)]"
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[-1|--first|-s|--select|-S|--select-many] [-n|--name|-e|--email] [--via-email|-E] [--accept-unknown] [--range-is-last|${revisionRangeArgs}] AUTHOR-PATTERN [...] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[-1|--first|-s|--select|-S|--select-many] [-n|--name|-e|--email] [--via-email|-E] [--authors] [--committers] [--accept-unknown] [--range-is-last|${revisionRangeArgs}] AUTHOR-PATTERN [...] [-?|-h|--help]"
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --accept-unknown AUTHOR-PATTERN [...]|NAME EMAIL@HOST|"NAME <EMAIL@HOST>"'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --accept-unknown --select-many AUTHOR-PATTERN|NAME EMAIL@HOST|"NAME <EMAIL@HOST>" [...]'
@@ -32,8 +32,8 @@ printLongUsage()
     # This is the long "man page" when launched with the help argument.
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
-Look up person(s) by name or email address, based on all previous committers to
-the repository.
+Look up person(s) by name or email address, based on all previous authors and
+committers to the repository.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
@@ -49,6 +49,8 @@ HELPDESCRIPTION
     --via-email|-E	In GitHub, look up the person by email address instead
 			of full name. (Note that a public configured email is
 			optional.)
+    --authors		Consider person(s) that are authors.
+    --committers	Consider person(s) that are committers.
     --accept-unknown	Also accept new names in the form NAME EMAIL@HOST (two
 			arguments) or "NAME <EMAIL@HOST>" (one argument) that
 			are not yet found in the repository.
@@ -65,7 +67,8 @@ typeset -a rangeArgs=()
 typeset -a rangeModificationArgs=()
 typeset -a personFilter=()
 filterType=post-filter
-hubLookupFormat=%aN
+typeset -A sources=()
+isHubEmailLookup=
 hubQueryTerm=fullname:
 while [ $# -ne 0 ]
 do
@@ -74,14 +77,17 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
-	--accept-unknown)   shift; isAcceptUnknown=t;;
+	--accept-unknown)
+			shift; isAcceptUnknown=t;;
 	--first|-1)	shift; isShowFirstCandidate=t;;
 	--select|-s)    shift; isSelect=t;;
 	--select-many|-S)
 			shift; isSelect=t; isSelectMany=t;;
 	--name|-n)	shift; personFilter=(sed -e 's# \+<[^ ]\+@[^ ]\+>$##'); filterType=filter;;
 	--email|-e)	shift; personFilter=(sed -e 's#^.* \+<\([^ ]\+@[^ ]\+\)>$#\1#');;
-	--via-email|-E)	shift; hubLookupFormat=%aE; hubQueryTerm=in:email;;
+	--via-email|-E)	shift; isHubEmailLookup=t; hubQueryTerm=in:email;;
+	--authors)	shift; sources[authors]=t;;
+	--committers)	shift; sources[committers]=t;;
 
 	--range-is-last)
 			shift; isRangeLastArg=t;;
@@ -100,6 +106,7 @@ do
 			;;
     esac
 done
+[ ${#sources[@]} -gt 0 ] || sources=([authors]=t [committers]=t)
 
 if [ "$isRangeLastArg" ]; then
     typeset -a parsedRangeArgs=("${rangeArgs[@]}")
@@ -198,7 +205,21 @@ getFromLog()
 	    && selectCommand=(head -n 1)
     fi
 
-    eval 'git-wrapper "${aggregateCommand[@]}" "${sourceCommand[@]}" "${@/#/--author=}" "${rangeArgs[@]}" "${rangeModificationArgs[@]}"' \
+    runSource()
+    {
+	git-wrapper "${aggregateCommand[@]}" "${sourceCommand[@]}" "$@" "${rangeArgs[@]}" "${rangeModificationArgs[@]}"
+    }
+    runSources()
+    {
+	if [ $# -eq 0 ]; then
+	    runSource
+	else
+	    [ ! "${sources[authors]}" ]    || runSource "${@/#/--author=}"
+	    [ ! "${sources[committers]}" ] || runSource "${@/#/--committer=}"
+	fi
+    }
+
+    eval 'runSources "$@"' \
 	"${selectCommand:+|}" '"${selectCommand[@]}"' \
 	"${sortCommand:+|}" '"${sortCommand[@]}"'
 }
@@ -207,7 +228,10 @@ if [ "$HUB" ]; then
     # Source: https://stackoverflow.com/a/75888626/813602
 getCandidates()
 {
-    typeset -a users=(); readarray -t users < <(getFromLog "$hubLookupFormat" "$@" | sort --unique)
+    [ "$isHubEmailLookup" ] \
+	&& local format="${sources[authors]:+%aE%n}${sources[committers]:+%cE%n}" \
+	|| local format="${sources[authors]:+%aN%n}${sources[committers]:+%cN%n}"
+    typeset -a users=(); readarray -t users < <(getFromLog "${format%\%n}" "$@" | sort --unique)
     local query=$'query {\n'
     for idx in "${!users[@]}"
     do
@@ -230,7 +254,8 @@ getCandidates()
 else
 getCandidates()
 {
-    getFromLog '%aN <%aE>' "$@"
+    local format="${sources[authors]:+%aN <%aE>%n}${sources[committers]:+%cN <%cE>%n}"
+    getFromLog "${format%\%n}" "$@"
 }
 fi
 

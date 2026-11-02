@@ -1,0 +1,35 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Check whether the current / passed USER is allowed to push to the repo in
+${remote:-REMOTE}.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" "${remote:-REMOTE} [USER] [-?|-h|--help]"
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+remote="${1:?}"; shift
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+case $# in
+    0)	user="$(git me-in-github)" || exit 3;;
+    1)	user="${1:?}"; shift;;
+    *)	printUsage "$0"; exit 2;;
+esac >&2
+
+userRepo="$(hub-ruserrepo "$remote")" || exit 3
+
+apiCall()
+{
+    gh api "repos/${userRepo:?}/collaborators/${user:?}/permission" --jq '.user.permissions.push' \
+	2> >(grep --invert-match 'Must have push access to view collaborator permission' >&2)
+}
+
+result="$(apiCall "$@")" || exit 1
+[ "$result" = 'true' ]

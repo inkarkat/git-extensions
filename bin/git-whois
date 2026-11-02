@@ -15,7 +15,7 @@ printShortUsage()
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
     local revisionRangeArgs="[$(GIT_LOGARGPARSER_REVISIONS_END="$GIT_WHOIS_REVISIONS_END" getShowRangeArgsShortUsage)]"
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[-1|--first|-s|--select|-S|--select-many] [-n|--name|-e|--email] [--via-email|-E] [--authors] [--committers] [--accept-unknown] [--range-is-last|${revisionRangeArgs}] AUTHOR-PATTERN [...] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[-1|--first|-s|--select|-S|--select-many] [-n|--name|-e|--email] [--via-email|-E] [--authors] [--committers] [--trailers] [--accept-unknown] [--range-is-last|${revisionRangeArgs}] AUTHOR-PATTERN [...] [-?|-h|--help]"
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --accept-unknown AUTHOR-PATTERN [...]|NAME EMAIL@HOST|"NAME <EMAIL@HOST>"'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --accept-unknown --select-many AUTHOR-PATTERN|NAME EMAIL@HOST|"NAME <EMAIL@HOST>" [...]'
@@ -33,7 +33,7 @@ printLongUsage()
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
 Look up person(s) by name or email address, based on all previous authors and
-committers to the repository.
+committers to the repository, and persons mentioned in commit trailers.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
@@ -51,6 +51,8 @@ HELPDESCRIPTION
 			optional.)
     --authors		Consider person(s) that are authors.
     --committers	Consider person(s) that are committers.
+    --trailers		Consider person(s) found in commit trailers (only the
+			full "NAME <EMAIL@HOST>" format).
     --accept-unknown	Also accept new names in the form NAME EMAIL@HOST (two
 			arguments) or "NAME <EMAIL@HOST>" (one argument) that
 			are not yet found in the repository.
@@ -88,6 +90,7 @@ do
 	--via-email|-E)	shift; sourceFormat=EMAIL; hubQueryTerm=in:email;;
 	--authors)	shift; sources[authors]=t;;
 	--committers)	shift; sources[committers]=t;;
+	--trailers)	shift; sources[trailers]=t;;
 
 	--range-is-last)
 			shift; isRangeLastArg=t;;
@@ -106,7 +109,7 @@ do
 			;;
     esac
 done
-[ ${#sources[@]} -gt 0 ] || sources=([authors]=t [committers]=t)
+[ ${#sources[@]} -gt 0 ] || sources=([authors]=t [committers]=t [trailers]=t)
 
 if [ "$isRangeLastArg" ]; then
     typeset -a parsedRangeArgs=("${rangeArgs[@]}")
@@ -217,11 +220,23 @@ getFromLog()
     }
     runSources()
     {
-	if [ $# -eq 0 ]; then
-	    runSource
-	else
-	    [ ! "${sources[authors]}" ]    || runSource "${@/#/--author=}"
-	    [ ! "${sources[committers]}" ] || runSource "${@/#/--committer=}"
+	if [ "${sources[authors]}" ] || [ "${sources[committers]}" ]; then
+	    if [ $# -eq 0 ]; then
+		runSource
+	    else
+		[ ! "${sources[authors]}" ]    || runSource "${@/#/--author=}"
+		[ ! "${sources[committers]}" ] || runSource "${@/#/--committer=}"
+	    fi
+	fi
+	if [ "${sources[trailers]}" ] && [ -z "$GIT_WHOIS_SOURCE_COMMAND" ]; then
+	    case "$sourceFormat" in
+		NAME)		local extractor='\2';;
+		EMAIL)		local extractor='\3';;
+		NAME_AND_EMAIL)	local extractor='\1';;
+		*)		printf >&2 'ASSERT: Unhandled sourceFormat: %s\n' "$sourceFormat"; exit 3;;
+	    esac
+	    git-wrapper "${aggregateCommand[@]}" logtrailers "${rangeArgs[@]}" "${rangeModificationArgs[@]}" \
+		| sed -n -e 's#^[^:]\+:[[:space:]]*\(\(.*[^[:space:]]\) \+<\([^ ]\+@[^ ]\+\)>\)[[:space:]]*$#'"${extractor}#p"
 	fi
     }
 

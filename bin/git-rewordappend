@@ -41,7 +41,7 @@ HELPTEXT
 
 padding=
 isQuiet=
-isAsTrailers=
+action=appendMessage
 typeset -a commitMessageArgs=()
 while [ $# -ne 0 ]
 do
@@ -49,7 +49,7 @@ do
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--padded)	shift; padding=$'\n';;
 	--quiet|-q)	shift; isQuiet=t;;
-	--as-trailers)	shift; isAsTrailers=t;;
+	--as-trailers)	shift; action=appendTrailers;;
 	--)		commitMessageArgs+=("$1"); shift; break;;
 	*)		commitMessageArgs+=("$1"); shift;;
     esac
@@ -58,31 +58,49 @@ set -- "${commitMessageArgs[@]}" "$@"
 if [ $# -eq 0 ]; then
     printUsage "$0"
     exit 2
-elif [ -n "$padding" ] && [ "$isAsTrailers" ]; then
-    echo 'ERROR: Cannot combine --padded with --as-trailers.'
-    echo
-    printUsage "$0"
-    exit 2
 fi >&2
 
+typeset -a commitAppendArgs=()
 appendMessage="$(git-commitMessagePrint "$@")" || exit $?
 [ -n "$appendMessage" ] || exit 99
 
-originalMessage="$(git lo1)" || exit 3
-trailers=''
-if [ ! "$isAsTrailers" ] && [[ "$originalMessage" = *$'\n'* ]]; then
-    trailers="$(printf '%s\n' "$originalMessage" | git-trailer-parse --parse)"
-    [ -z "$trailers" ] || originalMessage="$(printf '%s\n' "$originalMessage" | git-trailer-parse --remove)"
-fi
+appendMessage()
+{
+    local originalMessage; originalMessage="$(git lo1)" || exit 3
+    local trailers=''
+    if [[ "$originalMessage" = *$'\n'* ]]; then
+	trailers="$(printf '%s\n' "$originalMessage" | git-trailer-parse --parse)"
+	[ -z "$trailers" ] || originalMessage="$(printf '%s\n' "$originalMessage" | git-trailer-parse --remove)"
+    fi
 
-if [[ "$originalMessage" != *$'\n'* ]]; then
-    # DWIM: Add separating newline if the original commit message is a pure subject
-    # without body.
-    padding=$'\n'
-fi
+    if [[ "$originalMessage" != *$'\n'* ]]; then
+	# DWIM: Add separating newline if the original commit message is a pure subject
+	# without body.
+	padding=$'\n'
+    fi
+    commitAppendArgs=(--message "${originalMessage}"$'\n'"${padding}${appendMessage}${trailers:+$'\n\n'}${trailers}")
+}
+
+appendTrailers()
+{
+    if [ -n "$padding" ]; then
+	echo 'ERROR: Cannot combine --padded with --as-trailers.'
+	echo
+	printUsage "$0"
+	return 2
+    fi >&2
+
+    commitAppendArgs=(--reuse-message=HEAD) # Keep the commit message, the --trailer options will append / merge the passed trailers.
+    local trailer; while IFS=$'\n' read -r trailer
+    do
+	[ -z "$trailer" ] || commitAppendArgs+=(--trailer "$trailer")
+    done <<<"$appendMessage"
+}
+
+$action || exit $?
 
 ${DEBUG:+eval $(debugtrace --point main -o $- --)}
 git-wrapper commit --amend --only --cleanup=strip --no-trailer-add \
-	--message "${originalMessage}"$'\n'"${padding}${appendMessage}${trailers:+$'\n\n'}${trailers}" \
+	"${commitAppendArgs[@]}" \
     || exit $?
 [ "$isQuiet" ] || git lo1

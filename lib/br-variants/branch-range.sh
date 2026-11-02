@@ -245,7 +245,7 @@ activity?(except)by\
 	$EXEC git "${scopeCommand[@]}" ${scopeCommand:+-4} uncommit-to-merge --exclude-commit --from "${scopeRevision:?}" "$@";;
     uncommit-to-stash)
 	branchSelectedCommitCommand --pass-file-args --range-is-last -5 "$gitCommand" --commits COMMITS \; RANGE "$@";;
-    uncommit-to-@(branch|merge))
+    uncommit-to-@(branch|nextbr|merge))
 	branchSelectedCommitCommand --single-only --range-is-last -4 "$gitCommand" --from COMMITS RANGE "$@";;
 
     (\

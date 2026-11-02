@@ -193,7 +193,7 @@ activity?(except)by\
 	timespanCommand --no-range --one-more +1 TIMESPAN uncommit-to-merge --exclude-commit "$@";;
     uncommit-to-stash)
 	timespanCommand -8 selectedcommit-command --pass-file-args -4 uncommit-to-branch --commits COMMITS \; TIMESPAN "$@";;
-    uncommit-to-@(branch|merge))
+    uncommit-to-@(branch|nextbr|merge))
 	timespanCommand -7 selectedcommit-command --single-only -3 "$gitCommand" --from COMMITS TIMESPAN "$@";;
 
     (\

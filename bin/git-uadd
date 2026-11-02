@@ -21,7 +21,9 @@ case $# in
 	;;
 esac
 
-set -e
-git remote add -f upstream "$url"
-hub-ucanpush || git-remote-setreadonly upstream
+git remote add -f upstream "$url" || exit $?
+if ! hub-ucanpush; then
+    git-remote-setreadonly upstream \
+	&& echo "Note: Made upstream read-only; your user doesn't have push permission."
+fi
 git-rderelict upstream --offer --no-fetch

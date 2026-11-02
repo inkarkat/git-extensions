@@ -15,7 +15,7 @@ printShortUsage()
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
     local revisionRangeArgs="[$(GIT_LOGARGPARSER_REVISIONS_END="$GIT_WHOIS_REVISIONS_END" getShowRangeArgsShortUsage)]"
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[-1|--first|-s|--select|-S|--select-many] [-n|--name|-e|--email] [--via-email|-E] [--accept-unknown] [--range-is-last|${revisionRangeArgs}] AUTHOR-PATTERN [...] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[-1|--first|-s|--select|-S|--select-many] [-n|--name|-e|--email] [--via-email|-E] [--authors] [--committers] [--trailers|--direct-persons-only] [--accept-unknown] [--range-is-last|${revisionRangeArgs}] AUTHOR-PATTERN [...] [-?|-h|--help]"
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --accept-unknown AUTHOR-PATTERN [...]|NAME EMAIL@HOST|"NAME <EMAIL@HOST>"'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... --accept-unknown --select-many AUTHOR-PATTERN|NAME EMAIL@HOST|"NAME <EMAIL@HOST>" [...]'
@@ -32,8 +32,8 @@ printLongUsage()
     # This is the long "man page" when launched with the help argument.
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
-Look up person(s) by name or email address, based on all previous committers to
-the repository.
+Look up person(s) by name or email address, based on all previous authors and
+committers to the repository, and persons mentioned in commit trailers.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
@@ -49,6 +49,15 @@ HELPDESCRIPTION
     --via-email|-E	In GitHub, look up the person by email address instead
 			of full name. (Note that a public configured email is
 			optional.)
+    --authors		Consider person(s) that are authors.
+    --committers	Consider person(s) that are committers.
+    --trailers		Consider person(s) found in commit trailers (only the
+			full "NAME <EMAIL@HOST>" format).
+    --direct-persons-only
+			Only consider person(s) directly responsible for commits
+			(i.e. authors and committers by default); ignore
+			indirectly referenced persons (e.g. via commit
+			trailers).
     --accept-unknown	Also accept new names in the form NAME EMAIL@HOST (two
 			arguments) or "NAME <EMAIL@HOST>" (one argument) that
 			are not yet found in the repository.
@@ -65,7 +74,9 @@ typeset -a rangeArgs=()
 typeset -a rangeModificationArgs=()
 typeset -a personFilter=()
 filterType=post-filter
-hubLookupFormat=%aN
+typeset -A sources=()
+isDirectPersonsOnly=
+sourceFormat=NAME_AND_EMAIL; [ "$HUB" ] && sourceFormat=NAME
 hubQueryTerm=fullname:
 while [ $# -ne 0 ]
 do
@@ -74,14 +85,20 @@ do
 	--no-color|--color=*)
 			shift;;
 	--color)	shift; shift;;
-	--accept-unknown)   shift; isAcceptUnknown=t;;
+	--accept-unknown)
+			shift; isAcceptUnknown=t;;
 	--first|-1)	shift; isShowFirstCandidate=t;;
 	--select|-s)    shift; isSelect=t;;
 	--select-many|-S)
 			shift; isSelect=t; isSelectMany=t;;
 	--name|-n)	shift; personFilter=(sed -e 's# \+<[^ ]\+@[^ ]\+>$##'); filterType=filter;;
 	--email|-e)	shift; personFilter=(sed -e 's#^.* \+<\([^ ]\+@[^ ]\+\)>$#\1#');;
-	--via-email|-E)	shift; hubLookupFormat=%aE; hubQueryTerm=in:email;;
+	--via-email|-E)	shift; sourceFormat=EMAIL; hubQueryTerm=in:email;;
+	--authors)	shift; sources[authors]=t;;
+	--committers)	shift; sources[committers]=t;;
+	--trailers)	shift; sources[trailers]=t;;
+	--direct-persons-only)
+			shift; isDirectPersonsOnly=t;;
 
 	--range-is-last)
 			shift; isRangeLastArg=t;;
@@ -100,6 +117,10 @@ do
 			;;
     esac
 done
+if [ ${#sources[@]} -eq 0 ]; then
+    sources=([authors]=t [committers]=t)
+    [ "$isDirectPersonsOnly" ] || sources[trailers]=t
+fi
 
 if [ "$isRangeLastArg" ]; then
     typeset -a parsedRangeArgs=("${rangeArgs[@]}")
@@ -181,7 +202,13 @@ printPersons()
 
 getFromLog()
 {
-    local format="${1:?}"; shift
+    case "$sourceFormat" in
+	NAME)		local format="${sources[authors]:+%aN%n}${sources[committers]:+%cN%n}";;
+	EMAIL)		local format="${sources[authors]:+%aE%n}${sources[committers]:+%cE%n}";;
+	NAME_AND_EMAIL)	local format="${sources[authors]:+%aN <%aE>%n}${sources[committers]:+%cN <%cE>%n}";;
+	*)		printf >&2 'ASSERT: Unhandled sourceFormat: %s\n' "$sourceFormat"; exit 3;;
+    esac
+    format="${format%\%n}"
 
     typeset -a selectCommand=()
     typeset -a sortCommand=()
@@ -198,7 +225,33 @@ getFromLog()
 	    && selectCommand=(head -n 1)
     fi
 
-    eval 'git-wrapper "${aggregateCommand[@]}" "${sourceCommand[@]}" "${@/#/--author=}" "${rangeArgs[@]}" "${rangeModificationArgs[@]}"' \
+    runSource()
+    {
+	git-wrapper "${aggregateCommand[@]}" "${sourceCommand[@]}" "$@" "${rangeArgs[@]}" "${rangeModificationArgs[@]}"
+    }
+    runSources()
+    {
+	if [ "${sources[authors]}" ] || [ "${sources[committers]}" ]; then
+	    if [ $# -eq 0 ]; then
+		runSource
+	    else
+		[ ! "${sources[authors]}" ]    || runSource "${@/#/--author=}"
+		[ ! "${sources[committers]}" ] || runSource "${@/#/--committer=}"
+	    fi
+	fi
+	if [ "${sources[trailers]}" ] && [ -z "$GIT_WHOIS_SOURCE_COMMAND" ]; then
+	    case "$sourceFormat" in
+		NAME)		local extractor='\2';;
+		EMAIL)		local extractor='\3';;
+		NAME_AND_EMAIL)	local extractor='\1';;
+		*)		printf >&2 'ASSERT: Unhandled sourceFormat: %s\n' "$sourceFormat"; exit 3;;
+	    esac
+	    git-wrapper "${aggregateCommand[@]}" logtrailers "${rangeArgs[@]}" "${rangeModificationArgs[@]}" \
+		| sed -n -e 's#^[^:]\+:[[:space:]]*\(\(.*[^[:space:]]\) \+<\([^ ]\+@[^ ]\+\)>\)[[:space:]]*$#'"${extractor}#p"
+	fi
+    }
+
+    eval 'runSources "$@"' \
 	"${selectCommand:+|}" '"${selectCommand[@]}"' \
 	"${sortCommand:+|}" '"${sortCommand[@]}"'
 }
@@ -207,7 +260,7 @@ if [ "$HUB" ]; then
     # Source: https://stackoverflow.com/a/75888626/813602
 getCandidates()
 {
-    typeset -a users=(); readarray -t users < <(getFromLog "$hubLookupFormat" "$@" | sort --unique)
+    typeset -a users=(); readarray -t users < <(getFromLog "$@" | sort --unique)
     local query=$'query {\n'
     for idx in "${!users[@]}"
     do
@@ -230,7 +283,7 @@ getCandidates()
 else
 getCandidates()
 {
-    getFromLog '%aN <%aE>' "$@"
+    getFromLog "$@"
 }
 fi
 

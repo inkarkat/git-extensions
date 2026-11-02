@@ -68,7 +68,7 @@ typeset -a rangeModificationArgs=()
 typeset -a personFilter=()
 filterType=post-filter
 typeset -A sources=()
-isHubEmailLookup=
+sourceFormat=NAME_AND_EMAIL; [ "$HUB" ] && sourceFormat=NAME
 hubQueryTerm=fullname:
 while [ $# -ne 0 ]
 do
@@ -85,7 +85,7 @@ do
 			shift; isSelect=t; isSelectMany=t;;
 	--name|-n)	shift; personFilter=(sed -e 's# \+<[^ ]\+@[^ ]\+>$##'); filterType=filter;;
 	--email|-e)	shift; personFilter=(sed -e 's#^.* \+<\([^ ]\+@[^ ]\+\)>$#\1#');;
-	--via-email|-E)	shift; isHubEmailLookup=t; hubQueryTerm=in:email;;
+	--via-email|-E)	shift; sourceFormat=EMAIL; hubQueryTerm=in:email;;
 	--authors)	shift; sources[authors]=t;;
 	--committers)	shift; sources[committers]=t;;
 
@@ -188,7 +188,13 @@ printPersons()
 
 getFromLog()
 {
-    local format="${1:?}"; shift
+    case "$sourceFormat" in
+	NAME)		local format="${sources[authors]:+%aN%n}${sources[committers]:+%cN%n}";;
+	EMAIL)		local format="${sources[authors]:+%aE%n}${sources[committers]:+%cE%n}";;
+	NAME_AND_EMAIL)	local format="${sources[authors]:+%aN <%aE>%n}${sources[committers]:+%cN <%cE>%n}";;
+	*)		printf >&2 'ASSERT: Unhandled sourceFormat: %s\n' "$sourceFormat"; exit 3;;
+    esac
+    format="${format%\%n}"
 
     typeset -a selectCommand=()
     typeset -a sortCommand=()
@@ -228,10 +234,7 @@ if [ "$HUB" ]; then
     # Source: https://stackoverflow.com/a/75888626/813602
 getCandidates()
 {
-    [ "$isHubEmailLookup" ] \
-	&& local format="${sources[authors]:+%aE%n}${sources[committers]:+%cE%n}" \
-	|| local format="${sources[authors]:+%aN%n}${sources[committers]:+%cN%n}"
-    typeset -a users=(); readarray -t users < <(getFromLog "${format%\%n}" "$@" | sort --unique)
+    typeset -a users=(); readarray -t users < <(getFromLog "$@" | sort --unique)
     local query=$'query {\n'
     for idx in "${!users[@]}"
     do
@@ -254,8 +257,7 @@ getCandidates()
 else
 getCandidates()
 {
-    local format="${sources[authors]:+%aN <%aE>%n}${sources[committers]:+%cN <%cE>%n}"
-    getFromLog "${format%\%n}" "$@"
+    getFromLog "$@"
 }
 fi
 

@@ -259,7 +259,7 @@ activity?(except)by\
 	onLocalBranchScopeCommand --no-range -4 uncommit-to-merge --exclude-commit --from RANGE "$@";;
     uncommit-to-stash)
 	onLocalBranchScopeCommand --keep-position selectedcommit-command --pass-file-args --range-is-last -5 "$gitCommand" --commits COMMITS \; RANGE "$@";;
-    uncommit-to-@(branch|merge))
+    uncommit-to-@(branch|nextbr|merge))
 	onLocalBranchScopeCommand --keep-position selectedcommit-command --single-only --range-is-last -4 "$gitCommand" --from COMMITS RANGE "$@";;
 
     (\

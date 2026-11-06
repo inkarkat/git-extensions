@@ -9,7 +9,7 @@ printUsage()
 	-e "1s#^.*\$#Print / execute GIT-COMMAND with the revision range to its [N]'th previous stacked branch (FOO${GIT_STACKBR_SEPARATOR}1 to FOO, FOO${GIT_STACKBR_SEPARATOR}2 to FOO${GIT_STACKBR_SEPARATOR}1${suffixPattern:+, or with an optional suffix FOO${GIT_STACKBR_SEPARATOR}1${suffixPattern} to FOO${suffixPattern}, FOO${GIT_STACKBR_SEPARATOR}2${suffixPattern} to FOO${GIT_STACKBR_SEPARATOR}1${suffixPattern}}, etc.)#" \
 	-e '2,/^- /{ /^- /p; d; }' \
 	-e 's/ and appending those$/&\n- also replacing PREVIOUSBRANCH with the name of the previous branch/' \
-	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ ]\+ \)*git-rev-range /\1\2'"$(basename "$1")"' /; s/ -r|--revision REVISION \[-e|--end-revision END-REVISION / [-n|--previous-stack-number N] [--fallback-branch BRANCH] [-b|--branch BRANCH /; s/ GIT-COMMAND \[\.\.\.\]\?/& [-b|--branch BRANCH]/; s/ RANGE / RANGE|PREVIOUSBRANCH /g; }'
+	-e '/^Usage:$/N' -e '/\(^\|\n\)Usage: */{ s/\(^\|\n\)\(Usage: *\)\?\([^ ]\+ \)*git-rev-range /\1\2'"$(basename "$1")"' /; s/ -r|--revision REVISION \[-e|--end-revision END-REVISION / [-n|--previous-stack-number N] [--fallback-branch BRANCH] [-o|--offset N] [--exclude-base] [-b|--branch BRANCH /; s/ GIT-COMMAND \[\.\.\.\]\?/& [-b|--branch BRANCH]/; s/ RANGE / RANGE|PREVIOUSBRANCH /g; }'
 }
 
 # -b|--branch can also be passed after GIT-COMMAND; need to parse that
@@ -27,6 +27,7 @@ do
 done
 set -- "${args[@]}" "$@"
 
+typeset -a stackedbranchesArgs=()
 let previousStackNumber=1
 fallbackBranch=
 typeset -a revRangeArgs=()
@@ -35,6 +36,8 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)			shift; printUsage "$0"; exit 0;;
+	--exclude-base)			stackedbranchesArgs+=("$1"); shift;;
+	--offset|-o)			stackedbranchesArgs+=("$1" "${2:?}"); shift; shift;;
 	--previous-stack-number|-n)	shift; previousStackNumber="$1"; shift;;
 	--fallback-branch)		shift; fallbackBranch="${1:?}"; shift;;
 	--start-rev)			shift; branchName="${1:?}"; shift;;
@@ -44,7 +47,11 @@ do
     esac
 done
 
-[ -n "$branchName" ] || branchName="$(git-brname --real-branch-only)" || exit $?
+if [ ${#stackedbranchesArgs[@]} -gt 0 ]; then
+    branchName="$(git-stackedbranch-command "${stackedbranchesArgs[@]}" ${branchName:+--branch "$branchName"} echo)" || exit $?
+elif [ -z "$branchName" ]; then
+    branchName="$(git-brname --real-branch-only)" || exit $?
+fi
 
 previousStackedBranch=
 if [[ ! "$branchName" =~ ^(.+)"${GIT_STACKBR_SEPARATOR}"([[:digit:]]+)(${suffixPattern})?$ ]]; then

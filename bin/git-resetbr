@@ -6,7 +6,8 @@ printUsage()
     cat <<HELPTEXT
 Reset the passed BRANCH's HEAD to REVISION / the current revision without
 switching to it.
-Requires -f|--force to reset the current branch.
+Requires -f|--force to reset the current branch (and then, unlike git wipe, only
+resets the current branch's HEAD, but not the working copy).
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--force] [-b|--branch] BRANCH [[-r|--revision] REVISION] [-?|-h|--help]'
@@ -50,10 +51,11 @@ newValue="$(git-commitid -- "${revision:-HEAD}")" || exit $?
 
 if [ ! "$isForce" ] && [ "$branch" = "$(git-brname --real-branch-only 2>/dev/null)" ]; then
     echo 'ERROR: Need -f|--force to reset the current branch.'
+    printf "Note: This only updates the branch's HEAD; to also reset working copy and index, use \$ git wipe %s\\n" "${revision:-HEAD}"
     exit 1
 elif git-equals "$oldValue" "$newValue"; then
-    printf >&2 'Branch is already at %s\n' "$oldValue"
+    printf 'Branch is already at %s\n' "$oldValue"
     exit 99
-fi
+fi >&2
 
 exec git update-ref -m "${GIT_RESETBRANCH_WHAT:-Reset} $branch from $oldValue to $newValue" "refs/heads/$branch" "$newValue" "$oldValue"

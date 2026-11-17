@@ -1,0 +1,16 @@
+#!/bin/bash
+
+case "$1" in
+    --help|-h|-\?)	shift; exec hub pr checkout --help;;
+esac
+
+command hub pr checkout "$@" || exit $?
+
+if git-tracks --push >/dev/null 2>&1; then
+    printf '✓ The remote (%s) allows you to push updates to it.\n' "$(git-trackedremote)"
+else
+    cat <<'EOF'
+✘ You cannot push to the original remote; changes would have to be made through
+  a succeeding PR from your GitHub clone.
+EOF
+fi

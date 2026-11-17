@@ -17,19 +17,10 @@ remote="${1:?}"; shift
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
-case $# in
-    0)	user="$(git me-in-github)" || exit 3;;
-    1)	user="${1:?}"; shift;;
-    *)	printUsage "$0"; exit 2;;
-esac >&2
-
+if [ $# -gt 1 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
 userRepo="$(hub-ruserrepo "$remote")" || exit 3
 
-apiCall()
-{
-    gh api "repos/${userRepo:?}/collaborators/${user:?}/permission" --jq '.user.permissions.push' \
-	2> >(grep --invert-match 'Must have push access to view collaborator permission' >&2)
-}
-
-result="$(apiCall "$@")" || exit 1
-[ "$result" = 'true' ]
+exec hub-canpush "$userRepo" "$@"

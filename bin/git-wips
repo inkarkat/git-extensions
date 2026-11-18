@@ -111,11 +111,14 @@ deselected (from all checks on offer) via -name.
 HELPTEXT
 }
 
+typeset -a rcLines=(); readarray -t rcLines < <(git config get --all wips.defaults 2>/dev/null)
+set -- "${rcLines[@]}" "$@"; unset rcLines
 typeset -a recursiveArgs=()
 typeset -a colorArg=()
 typeset -a submoduleColorArg=()
 typeset -a subdoColorArg=()
 typeset -a gitColorConfigArg=()
+typeset -a potentialCheckArgs=()
 isAll=
 isWithDuration=
 isSubmodules=
@@ -146,9 +149,10 @@ do
 			recursiveArgs+=("$1"); shift; isWithDuration=t;;
 	--verbose|-v)	recursiveArgs+=("$1"); shift; isVerbose=t;;
 	--quiet|-q)	recursiveArgs+=("$1"); shift; exec 1>/dev/null;;
-	*)		recursiveArgs+=("$@"); break;;
+	*)		recursiveArgs+=("$1"); potentialCheckArgs+=("$1"); shift;;
     esac
 done
+set -- "${potentialCheckArgs[@]}" "$@"
 if isNeedColorArgumentWhenPiping "${colorArg[@]}"; then
     colorArg=('--color=always')
 else
